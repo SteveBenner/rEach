@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through one of the two flows, overwriting files in place, with checkpoints as history.
 - ROADMAP.md, with git support planned for Reach 2.0.
 - MCP tools `reach_qualify` and `reach_attempts`.
+- The real-Claude smoke's course-gate scenario expects rEach to say it writes the code and never to name the file or
+  method; its privacy check bans asking for the student's email or address instead of any question that says "email".
 - The assignment-one transport smoke checks the submit refusal, writes the agent's scenarios and qualifies before
   submitting.
 

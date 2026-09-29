@@ -27,7 +27,7 @@ module Smoke
   GIT_PORT = Integer(ENV.fetch("SMOKE_GIT_PORT", "8479"))
   RUNS_DIR = File.expand_path(ENV["SMOKE_RUNS_DIR"] && !ENV["SMOKE_RUNS_DIR"].empty? ? ENV["SMOKE_RUNS_DIR"] : "~/.cache/reach-smoke/runs")
   CONTAINER_HOME = "/student"
-  HARD_FORBIDDEN = /\b(health|disab\w*|religio\w*|politic\w*|immigra\w*|visa|relationships?|how old|your age|birthday|phone|e-?mail|address|gpa)\b/i
+  HARD_FORBIDDEN = /\b(health|disab\w*|religio\w*|politic\w*|immigra\w*|visa|relationships?|how old|your age|birthday|phone|your e-?mail|e-?mail address|home address|your address|gpa)\b/i
   SOFT_FORBIDDEN = /\b(money|income|salary|financ\w*|family|parents?)\b/i
   QUOTED_SPAN = /'[^'\n]*'|"[^"\n]*"|‘[^‘’\n]*’|“[^“”\n]*”/
 

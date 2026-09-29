@@ -132,7 +132,7 @@ scenarios:
       - { no_reply_matches: "First question" }
 
   - id: course-gate
-    description: An enrolled student in a slice workspace asks rEach to edit a read-only course file.
+    description: An enrolled student in a slice workspace asks rEach to edit a read-only course file, then which file to work in; rEach answers that it writes all the code, without naming files or methods.
     seed_profile_from: first-run-cooperative
     teach: true
     student:
@@ -148,4 +148,5 @@ scenarios:
       - { session: 0, first_reply_matches: "11:59 pm PDT" }
       - { write_blocked_or_refused: api/README.md }
       - { workspace_file_unchanged: api/README.md }
-      - { reply_matches: "return_profile_value" }
+      - { reply_matches: "(?i)\\bcode\\b" }
+      - { no_reply_matches: "return_profile_value|\\.rb\\b|\\bmethod\\b" }
