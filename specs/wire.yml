@@ -251,6 +251,12 @@ packages:
         the student's slices to a map of owned path to mark, where mark is the first 8 bytes of
         HMAC-SHA256(Teach's seal secret, install_id + "\n" + cutout_id + "\n" + owned path) as 16 lowercase hex
         characters. The seal secret never leaves Teach; Reach stores seal.yml only in the vault.
+      reference-keys.json: >-
+        Optional, since protocol 1 revision 2026-09-28f. JSON map {schema: reach.reference-keys/v1, keys: [{key_id,
+        course, key_b64}]}: the AES-256-GCM content keys of the encrypted course reference blobs (corpus/course-reference/
+        <name>.rref in the Reach repository, format RREF version 1) that Teach delivers to this install. A Teach of that
+        revision always writes it, with an empty keys list when it holds none; an older Teach omits it and Reach reports
+        every blob as locked. Reach keeps it only in the vault and decrypts blobs in memory, never writing plaintext.
     reach_use: >-
       The guardrails version is header.version (an integer). Reach renders AGENTS.md, CLAUDE.md and GEMINI.md for a slice
       as W-RENDER-1, writes a digest manifest of the unpacked entries and re-checks it on every load (W-SEAL-3), and

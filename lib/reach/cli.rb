@@ -70,6 +70,8 @@ module Reach
           cmd_plan(args)
         when "directive"
           cmd_directive(args)
+        when "reference"
+          cmd_reference(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -113,6 +115,7 @@ module Reach
             checkpoint save|list|show|restore    snapshots of the slice's files, kept by rEach
             plan save|show|note                  the slice plan
             directive <OPCODE> | --list          a directive's full text
+            reference list|show <path>|search <words>|links   the course reference material
         USAGE
       end
 
@@ -187,7 +190,13 @@ module Reach
         install = Reach::Enrol.generate_and_register(code, teach_url)
         course_title = install["course"] && install["course"]["title"]
         puts Reach::Messages.text("M-ENROL-DONE", course: course_title)
-        print_sync_summary(Reach::Sync.run)
+        summary = Reach::Sync.run
+        print_sync_summary(summary)
+        if Array(summary["workspaces"]).empty?
+          puts Reach::Messages.text("M-ENROL-PENDING")
+        else
+          puts Reach::Messages.text("M-ENROL-READY")
+        end
         0
       end
 
@@ -331,9 +340,18 @@ module Reach
           warn "usage: reach tips --slice <id>"
           return 1
         end
-        result = Timeout.timeout(100) { Reach::Suite.run(slice: slice) }
+        workspace = resolve_workspace(options[:slice])
+        unless workspace
+          warn "reach: no matching slice workspace found; run reach sync"
+          return 1
+        end
+        result = if Reach::Workspace.metadata(workspace)["acceptance_mode"] == "remote"
+                   Reach::Workspace.remote_tips(workspace)
+                 else
+                   Timeout.timeout(100) { Reach::Suite.run(slice: slice) }
+                 end
         Array(result[:scenarios]).each do |scenario|
-          status_word = scenario[:passed] ? "pass" : "fail"
+          status_word = scenario[:status] || (scenario[:passed] ? "pass" : "fail")
           line = "#{scenario[:name]}: #{status_word}"
           line = "#{line} - #{scenario[:reason]}" if scenario[:reason]
           puts line
@@ -605,6 +623,9 @@ module Reach
       end
 
       def check_gems
+        slices = Reach::Workspace.current_slices
+        return [] if !slices.empty? && slices.all? { |path| Reach::Workspace.metadata(path)["acceptance_mode"] == "remote" }
+
         dir = Reach::Paths.gems_dir
         installed = File.directory?(dir) && !Dir.children(dir).empty?
         installed ? [] : ["R-DOC-GEMS: the tips suite's gems are not installed yet - reach tips installs them on first run"]
@@ -898,6 +919,28 @@ module Reach
           warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | show [--format json]"
           1
         end
+      end
+
+      def cmd_reference(args)
+        verb = args.shift
+        case verb
+        when "list"
+          puts Reach::Reference.list
+        when "show"
+          path = args.shift
+          raise Reach::Refused, Reach::Messages.text("M-REFERENCE-UNKNOWN", path: path.to_s) if path.nil?
+
+          text = Reach::Reference.show(path)
+          puts text
+        when "search"
+          puts Reach::Reference.format_search(Reach::Reference.search(args))
+        when "links"
+          puts Reach::Reference.links
+        else
+          warn "usage: reach reference list | show <path> | search <words> | links"
+          return 1
+        end
+        0
       end
 
       def cmd_directive(args)

@@ -32,6 +32,7 @@ module Reach
       end
 
       body = response.json || {}
+      verify_response!(body)
 
       Reach::Paths.ensure_home!
       write_private_key(key)
@@ -39,6 +40,19 @@ module Reach
       announce_sidecar(current)
 
       current
+    end
+
+    def verify_response!(body)
+      keys = body["signing_public_keys"]
+      complete = %w[install_id student_id encryption_key wire_contract_sha256 minimum_reach_version].all? { |field| !body[field].to_s.empty? } &&
+                 (keys.is_a?(Hash) || keys.is_a?(Array)) && !keys.empty?
+      raise Reach::Refused, Reach::Messages.text("M-ENROL-INCOMPLETE") unless complete
+      raise Reach::Refused, Reach::Messages.text("M-ENROL-WIRE") unless body["wire_contract_sha256"] == Reach::Wire.digest
+
+      return unless Gem::Version.correct?(body["minimum_reach_version"].to_s)
+      return unless Gem::Version.new(Reach::VERSION) < Gem::Version.new(body["minimum_reach_version"].to_s)
+
+      raise Reach::Refused, Reach::Messages.text("M-REACH-OUTDATED", version: Reach::VERSION, minimum: body["minimum_reach_version"])
     end
 
     def announce_sidecar(install)
