@@ -1,5 +1,6 @@
 require "json"
 require "openssl"
+require "set"
 require "zlib"
 
 module Reach
@@ -36,21 +37,25 @@ module Reach
     def keys
       Reach::Guardrails.ensure_current
       path = File.join(Reach::Paths.guardrails_vault_dir, KEYS_ENTRY)
-      return {} unless File.file?(path)
+      return [{}, Set.new] unless File.file?(path)
 
       data = JSON.parse(File.read(path))
-      return {} unless data.is_a?(Hash) && data["schema"] == KEYS_SCHEMA
+      return [{}, Set.new] unless data.is_a?(Hash) && data["schema"] == KEYS_SCHEMA
 
       held = {}
+      courses = Set.new
       Array(data["keys"]).each do |entry|
         next unless entry.is_a?(Hash) && entry["key_id"].to_s =~ KEY_ID_PATTERN
 
         key = entry["key_b64"].to_s.unpack("m0").first
-        held[entry["key_id"]] = key if key.bytesize == 32
+        next unless key.bytesize == 32
+
+        held[entry["key_id"]] = key
+        courses << entry["course"].to_s if entry["course"].to_s =~ COURSE_PATTERN
       end
-      held
+      [held, courses]
     rescue JSON::ParserError, ArgumentError
-      {}
+      [{}, Set.new]
     end
 
     def parse_header(bytes)
@@ -132,12 +137,16 @@ module Reach
       document
     end
 
-    def open_blob(path, held_keys)
+    def open_blob(path, held_keys, held_courses)
       raise Reach::VerificationFailed, refused_text("too large") if File.size(path) > MAX_BLOB_BYTES
 
       header = parse_header(File.binread(path))
       key = held_keys[header["key_id"]]
-      return { "locked" => true, "course" => header["course"], "name" => File.basename(path) } unless key
+      if key.nil?
+        raise Reach::VerificationFailed, refused_text("unknown key id") if held_courses.include?(header["course"])
+
+        return { "locked" => true, "course" => header["course"], "name" => File.basename(path) }
+      end
 
       plaintext = inflate(decrypt(header, key))
       document = JSON.parse(plaintext.force_encoding(Encoding::UTF_8))
@@ -157,12 +166,12 @@ module Reach
       paths = blob_paths
       raise Reach::Refused, Reach::Messages.text("M-REFERENCE-NONE") if paths.empty?
 
-      held = keys
+      held, held_courses = keys
       opened = []
       locked = 0
       paths.each do |path|
         begin
-          document = open_blob(path, held)
+          document = open_blob(path, held, held_courses)
         rescue Reach::VerificationFailed => e
           raise Reach::VerificationFailed, "#{File.basename(path)}: #{e.message}"
         end

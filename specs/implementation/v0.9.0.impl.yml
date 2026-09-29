@@ -1,0 +1,174 @@
+schema: rstack.blueprint/v1
+task: reach-0.9.0-slice-api
+version: 0.9.0
+intent: >
+  Close TODO.md's "Slice API" section across Grokit, Teach and Reach. (1) Every slice workspace gets a generated
+  API reference: api/README.md for the student and api/slice-api.json for Reach, derived from Grokit's registry and
+  contracts instead of the bare instructor_apis lines Teach copies today. (2) reach check stops emitting CK-PANEL's
+  S-* rules whenever Dovetail's checker actually ran on a signed shape, so a student never sees one defect twice.
+  (3) A submission from a harness with no hooks (Antigravity, or no session record at all) is assessed by Teach as a
+  note, not a review reason, behind a Teach setting. The course keeps its A1 to A4 cadence; nothing is scheduled
+  weekly.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repositories:
+  reach: github.com/SteveBenner/rEach (local checkout ~/github/foss/rEach)
+  teach: bitbucket.org/paterasai/teach (local checkout ~/bitbucket/paterasai/teach)
+  grokit: bitbucket.org/paterasai/grokit (local checkout ~/bitbucket/paterasai/grokit)
+spec: >-
+  reach.spec.yml (check, shape_loop, seal), specs/wire.yml W-PKG-2 (workspace entries) and the submission manifest's
+  seal block; teach.spec.yml provenance; grokit specs/app.yml a1_build (api, behaviours, panel_hooks, stubs).
+
+constraints:
+  - >-
+    AGENTS.md Part S. Write no tests, no spec files, no test directories. Verify by running the code for real from a
+    scratch directory under /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/4732bd86-7561-4349-bc28-bc0afb296653/scratchpad/slice-api/<slice id>/.
+  - AGENTS.md Part Q. No comments, doc comments or docstrings. Only lines a tool reads survive (shebangs, magic comments, SPDX).
+  - AGENTS.md Part F. No authorship or agent attribution anywhere.
+  - AGENTS.md Part E. Delete nothing outside your scratch directory; never run rm -r, git clean or find -delete.
+  - Do not run git add, git commit, git stash, git checkout or any other git write. The primary stages and commits.
+  - >-
+    A peer session (agent opus-9ba9679b) is building 0.8.0 transcripts in Reach and Teach right now. Never edit a path
+    it owns. Reach: lib/reach/{transcript,gate,cli,harness,hello,status,sync,paths}.rb, lib/reach.rb, locales/*,
+    agents/reach.md, skills/reach-assistant/SKILL.md, docs/student-guide.md. Teach: lib/teach/{transcripts,db,config,
+    rate_limiter,backup}.rb, lib/teach/models/transcript_session.rb, lib/teach/web/app.rb, lib/teach/web/helpers.rb,
+    deploy/*. Nobody but the primary edits specs/wire.yml, VERSION, CHANGELOG.md, README.md, FEATURES.md, TODO.md,
+    reach.spec.yml, teach.spec.yml, specs/app.yml or any plugin manifest.
+  - Touch only your slice's owns_paths. Every file an owns_paths entry names is yours alone for this wave.
+  - No em-dash or en-dash characters in any text a student or instructor reads.
+  - >-
+    Ruby floors. Reach lib/ and exe/: Ruby 2.6.10 (docker run --rm -v "$PWD":/d -w /d ruby:2.6.10-slim ruby -c <file>).
+    Grokit lib/ and bin/slice-api: Ruby 2.6.10 to 4.0.x. Teach: Ruby 4.0.6 at ~/.rubies/ruby-4.0.6/bin/ruby.
+  - >-
+    Teach's bundler resolution is broken on this checkout (bundle check lists every vendored gem as missing). Do not
+    try to repair it. Exercise Teach code by requiring the individual lib/teach/*.rb files you need with
+    ~/.rubies/ruby-4.0.6/bin/ruby -Ilib, as reference pack was run on 2026-09-29, and say which files you loaded.
+  - Query codebase memory before grepping (Reach project key home-sven-github-foss-reach).
+
+environment:
+  grokit: ~/bitbucket/paterasai/grokit 0.2.0; ten modules; A1 cutouts verified; registry in lib/grokit/registry.rb.
+  dovetail: ~/github/foss/dovetail (canonical); runtime exports under runtime/src; Reach carries it as the dovetail/ submodule.
+  teach_env: TEACH_GROKIT_ROOT and TEACH_GROKIT_SPEC select the Grokit checkout and spec (lib/teach/config.rb, read only).
+
+decisions:
+  slice_api_document:
+    file: <root>/api/slice-api.json, written by Teach into the workspace package beside api/README.md
+    schema: >-
+      {"schema": "grokit.slice-api/v1", "cutout_id", "slice": "backend" | "panel", "module", "assignment",
+      "operation": {"id", "input": {<field>: <type>}, "output": {<field>: <type>}},
+      "ports": [{"name", "use": [<the instructor_apis lines naming this port>], "methods": [{"name", "params": [<name>]}]}],
+      "panel": {"root", "hooks": [<string>], "props": [<string>], "client": {"import", "call"}, "primitives": [<name>]} | null,
+      "instructor_apis": [<the course spec's lines, unchanged>]}
+    types: >-
+      A Ruby class is its name ("String", "Integer", "Float", "Boolean" for true/false classes); an Array of strings is
+      an enum written "ok | not_found"; [:nullable, X] is "<X>, nullable"; :any is "any"; a nested Hash recurses; an
+      Array holding one type is "list(<type>)". The same rendering appears in README.md.
+    backend_slice: >-
+      ports lists every port the cutout's operation receives (OperationDef#ports), each adapter built through
+      Grokit::Ports.for(operation, business:) with the first business that has fixtures, and its methods read from
+      adapter.class.public_instance_methods(false) with instance_method(m).parameters names; clock and logger are always
+      present and are listed too. panel is null.
+    panel_slice: >-
+      ports is []. panel.root and panel.hooks come from the cutout's contract_refs lines that start "panel root" and
+      "panel hooks" (hooks split on ", " after the colon); panel.props from the root line's "props" clause, or [] when it
+      says "no props"; client.import is "$generated/client/<module>" and client.call is
+      "client.<operation name>(<input fields as an object>)"; primitives are the names @dovetail/runtime exports that
+      the DOVETAIL directive's seam table sends students to (store, navigate, link, every, after, frame, shortcut, on,
+      openOverlay, Overlay, useId, emit, t) filtered to those the runtime actually exports.
+    readme: >-
+      api/README.md becomes a rendered view of the same document: the behaviour or panel heading, the operation line,
+      then a "Ports you may call" section (backend) or "Hooks, props and client" section (panel), then the original
+      instructor_apis lines under "From the course spec". No comments, no em dashes.
+  grokit_export:
+    command: bin/slice-api --cutout <cutout_id> --slice backend|panel [--spec specs/app.yml]
+    output: The slice-api.json document on stdout, exit 0; exit 2 with one line on stderr when the cutout or its operation is unknown.
+    home: lib/grokit/slice_api.rb (module Grokit::SliceApi, module_function build(cutout_id:, slice:, spec:)).
+  teach_builder:
+    where: lib/teach/packages/builder.rb, the slices.each loop that writes api/README.md today.
+    how: >-
+      When TEACH_GROKIT_ROOT is set, run <root>/bin/slice-api with the Ruby Teach runs on, a 30 s timeout, and parse
+      stdout. On success write both api/README.md (rendered by Teach::SliceApi.render_readme) and api/slice-api.json.
+      On any failure, or with no Grokit root, keep today's bare-lines README, write no JSON and add one entry["warnings"]
+      line naming the slice and the reason. Rendering lives in lib/teach/slice_api.rb.
+  reach_check:
+    ck_panel_deferral: >-
+      Reach::Shape exposes whether the Dovetail checker ran to completion for the workspace in this run (a signed shape
+      was present and dovetail exited 0 or 1 with a report). When it did, Reach::Check drops every CK-PANEL finding
+      whose rule starts with "S-"; CK-PANEL-TS, CK-FUSE, CK-TEST and CK-COMMENT stay. When it did not (no shape, or
+      the checker could not run), CK-PANEL runs every rule exactly as today. No setting.
+    ck_ports: >-
+      CK-PORTS reads the granted port names from <workspace>/api/slice-api.json ("ports"[].name plus clock and logger)
+      when the file exists and parses with schema grokit.slice-api/v1; otherwise it keeps reading api/README.md as
+      today. Its fix text names api/README.md either way.
+  hookless_harness:
+    reach_seal: >-
+      The submission manifest's seal gains "hooked": true when the workspace ledger holds at least one "session" record,
+      false otherwise. "harness" becomes Reach::Ledger.last_harness || ENV["REACH_HARNESS"] (when it is one of
+      claude-code, codex, antigravity) || "unknown".
+    antigravity_rule: rules/reach.md tells the agent to run submit as REACH_HARNESS=antigravity reach submit.
+    teach_policy: >-
+      Teach::Provenance reads ENV["TEACH_UNHOOKED_HARNESS_POLICY"] ("note" default, or "review"; anything else is
+      "note"). A seal with "hooked" false, or harness antigravity or unknown with no session record in the ledger tail,
+      is hookless. For a hookless seal under "note", the per-file "not witnessed by the harness" lines move from
+      reasons to a new "notes" array as one line "unwitnessed: <harness> has no hooks", so they no longer make the
+      summary "review" by themselves; marks, ledger breaks, stale rules and integrity events stay reasons. Under
+      "review", behaviour is today's, with the harness named in the reason. The result always carries "hooked" and
+      "notes" (possibly empty). A seal without "hooked" (Reach before 0.9.0) is assessed as today.
+    teach_display: >-
+      teach provenance list (lib/teach/cli.rb) prints notes. The web view (lib/teach/web/app.rb) belongs to the peer
+      this wave; the primary adds notes there after the peer releases it.
+
+slices:
+  - id: slice_a_generated_api
+    repos: [grokit, teach]
+    owns_paths:
+      - grokit:bin/slice-api
+      - grokit:lib/grokit/slice_api.rb
+      - teach:lib/teach/slice_api.rb
+      - teach:lib/teach/packages/builder.rb
+    depends_on: []
+    deliverable: decisions.slice_api_document, grokit_export and teach_builder.
+    acceptance:
+      - bin/slice-api --cutout context.a1 --slice backend prints a grokit.slice-api/v1 document whose ports list profile with a fetch method taking key, plus clock and logger.
+      - bin/slice-api --cutout context.a1 --slice panel prints panel.root with data-cutout="context.a1", five hooks, props [], client.call client.return_profile_value({ key }), and a non-empty primitives list.
+      - The same two commands succeed for one cutout of every other A1 module; an unknown cutout exits 2 with one stderr line.
+      - bin/slice-api runs under ruby:2.6.10-slim for context.a1 backend (docker, Grokit mounted read-only), or the report says why it could not.
+      - Driving Teach's builder for one backend and one panel slice (load only the lib/teach files it needs, stub what the DB layer would supply, say exactly what you stubbed) yields api/README.md and api/slice-api.json entries; with TEACH_GROKIT_ROOT unset it yields today's README, no JSON and one warning.
+  - id: slice_b_reach_check
+    repos: [reach]
+    owns_paths:
+      - reach:lib/reach/check.rb
+      - reach:lib/reach/shape.rb
+    depends_on: []
+    deliverable: decisions.reach_check.
+    acceptance:
+      - A scratch workspace with a panel file that uses localStorage and a hex colour, and no published shape, yields the CK-PANEL S-STO-001 and S-CSS-003 findings exactly as before.
+      - The same workspace with a signed shape and a runnable Dovetail checker (stand one up as in specs/implementation/v0.6.0.impl.yml environment.dovetail) yields those defects once, as CK-SHAPE, and no CK-PANEL S-* finding; a missing <script lang="ts"> still yields CK-PANEL-TS.
+      - With the shape present but the checker unrunnable, CK-SHAPE unavailable appears and CK-PANEL's S-* findings return.
+      - With api/slice-api.json granting profile, a behaviour reaching a non-granted Grokit port constant yields CK-PORTS; deleting the JSON falls back to api/README.md with the same result.
+      - All changed files pass ruby -c on the host and in ruby:2.6.10-slim.
+  - id: slice_c_hookless_harness
+    repos: [reach, teach]
+    owns_paths:
+      - reach:lib/reach/submit.rb
+      - reach:rules/reach.md
+      - teach:lib/teach/provenance.rb
+      - teach:lib/teach/cli.rb
+    depends_on: []
+    deliverable: decisions.hookless_harness (all but teach_display's web half).
+    acceptance:
+      - Reach's seal_block for a scratch workspace with no session record returns hooked false and harness unknown; with REACH_HARNESS=antigravity, harness antigravity; with a session record from codex, hooked true and harness codex.
+      - Teach::Provenance.assess on a hand-built submission (tarball via lib/teach/tarball.rb) with hooked false, a verified ledger and clean marks returns summary clean, reasons [] and one note; with TEACH_UNHOOKED_HARNESS_POLICY=review returns summary review with the harness named; with a foreign mark added returns review under either policy; with no hooked key behaves exactly as before.
+      - All changed Reach files pass ruby -c in ruby:2.6.10-slim; changed Teach files pass ~/.rubies/ruby-4.0.6/bin/ruby -c.
+
+shared_surfaces: []
+primary_after_wave:
+  - When the peer releases specs/wire.yml, add W-PKG-2's "<root>/api/slice-api.json" entry and the seal's "hooked" field as a new protocol 1 revision, byte-identical in Reach and Teach.
+  - When the peer releases lib/teach/web/app.rb, show provenance notes in the submission view.
+  - When the peer releases deploy/teach.env.example, document TEACH_UNHOOKED_HARNESS_POLICY.
+  - reach.spec.yml, teach.spec.yml, grokit specs/app.yml, FEATURES.md, TODO.md, READMEs, VERSION 0.9.0 and CHANGELOG in each repo.
+out_of_scope:
+  - Any weekly release schedule; the course keeps A1 to A4.
+  - Capturing Antigravity sessions or prompts.
+  - Repairing Teach's bundler environment.
+  - Anything the peer's v0.8.0 blueprints own.

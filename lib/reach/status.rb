@@ -79,7 +79,7 @@ module Reach
         slice = meta["slice"]
         state = Reach::Workspace.state_word(workspace_path)
         shape = shape_summary(workspace_path)
-        tips = tips_summary
+        tips = tips_summary(slice)
         "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   tips: #{tips}"
       end
 
@@ -92,9 +92,11 @@ module Reach
         "cannot run"
       end
 
-      def tips_summary
-        recent = Reach::Corpus.new(Reach.ports).recent("tip", limit: 1)
-        recent.empty? ? "not run" : "last recorded"
+      TIPS_SCAN_LIMIT = 200
+
+      def tips_summary(slice)
+        recent = Reach::Corpus.new(Reach.ports).recent("tip", limit: TIPS_SCAN_LIMIT)
+        recent.any? { |record| record["slice"] == slice } ? "last recorded" : "not run"
       rescue StandardError
         "not run"
       end

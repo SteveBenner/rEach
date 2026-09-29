@@ -69,8 +69,13 @@ module Reach
         end
       end
       findings.concat(shape_findings(workspace, changed))
+      findings = drop_deferred_panel_findings(findings) if Reach::Shape.ran?
       record(workspace, changed, findings)
       format == :text ? render_text(findings) : findings
+    end
+
+    def drop_deferred_panel_findings(findings)
+      findings.reject { |f| f[:id] == "CK-PANEL" && f[:rule].to_s.start_with?("S-") }
     end
 
     def same_file?(a, b)
@@ -146,12 +151,15 @@ module Reach
       bare.scan(/\bports\.(\w+)/).flatten.uniq.each do |name|
         next if allowed.include?(name)
 
-        findings << finding("CK-PORTS", relative, number, "line #{number} calls ports.#{name}, which is not granted to this slice", "Only these ports are granted: #{allowed.empty? ? 'none' : allowed.join(', ')}")
+        findings << finding("CK-PORTS", relative, number, "line #{number} calls ports.#{name}, which is not granted to this slice", "Only these ports are granted (see api/README.md): #{allowed.empty? ? 'none' : allowed.join(', ')}")
       end
       findings
     end
 
     def granted_ports(workspace)
+      names = slice_api_port_names(workspace)
+      return names if names
+
       file = File.join(workspace, "api", "README.md")
       return [] unless File.file?(file)
 
@@ -161,12 +169,28 @@ module Reach
     end
 
     def granted_constants(workspace)
+      names = slice_api_port_names(workspace)
+      return names.map { |name| camel(name) } if names
+
       file = File.join(workspace, "api", "README.md")
       return [] unless File.file?(file)
 
       File.read(file).scan(/\bGrokit::([A-Z]\w*(?:::[A-Z]\w*)*)/).flatten.uniq
     rescue StandardError
       []
+    end
+
+    def slice_api_port_names(workspace)
+      file = File.join(workspace, "api", "slice-api.json")
+      return nil unless File.file?(file)
+
+      data = JSON.parse(File.read(file))
+      return nil unless data.is_a?(Hash) && data["schema"] == "grokit.slice-api/v1"
+
+      names = Array(data["ports"]).map { |port| port.is_a?(Hash) ? port["name"] : nil }.compact
+      (names + %w[clock logger]).uniq
+    rescue StandardError
+      nil
     end
 
     def shape_findings_ruby(meta, relative, lines)
