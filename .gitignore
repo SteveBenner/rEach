@@ -1,0 +1,7 @@
+.scratch/
+.backup/
+*.private.*
+corpora/
+ai-brain/
+.ai-brain/
+.brain/

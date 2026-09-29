@@ -1,0 +1,1353 @@
+---
+schema: reach.spec/v1
+name: reach
+version: 0.6.0
+status: draft
+recorded: '2026-09-26'
+licence: undecided
+repository: not yet created (planned bitbucket.org/paterasai/reach)
+summary: >
+  Reach is the student's side of the course software. It is an rplugin plugin that installs into Claude Code or
+  Codex and turns the student's own AI agent into a bounded course partner. It enrols with Teach, receives the student's
+  protected materials, refuses to let the agent work until the instructors' guardrails are installed, keeps the
+  agent inside the student's slice, checks every change against the Dovetail shape, runs the instructors' tips suite,
+  submits work and waits for Teach's receipt, and raises a hand to the instructors when the agent is stuck.
+decisions:
+- date: '2026-09-26'
+  round: 2
+  decision: >-
+    Guardrails and directives from the instructors are required before the agent works, injected by default, enforced
+    in Reach's code; packages arrive encrypted and are unpacked opaquely.
+- date: '2026-09-26'
+  round: 3
+  decision: >-
+    Student-side floor Ruby 2.6.10 (macOS 10.15 to 26); Windows and Linux get a pinned Ruby from Reach's installer;
+    the local suite is for tips only.
+- date: '2026-09-26'
+  round: 3
+  decision: >-
+    Reach is built on the rplugin concept and ships as a compatible rplugin plugin with its own library of Ruby
+    scripts and agent skills.
+- date: '2026-09-26'
+  round: 4
+  decision: >-
+    Reach depends on rplugin-compat (rplugin rewritten for Ruby 2.6); harnesses are Claude Code and Codex, using
+    the rSlides harness-over-harness pattern; after a submission the agent expects a receipt and tells the student
+    at once.
+- date: '2026-09-26'
+  round: 9
+  decision: >-
+    Shape findings are fixed automatically when invisible; visible ones pause for the student with alternatives;
+    three failed attempts raise a hand.
+- date: '2026-09-26'
+  round: 14
+  decision: >-
+    Students work through their harness; reach status shows enrolment, cutouts, results and receipts; students see
+    scenario names with pass or fail and plain reasons.
+- date: '2026-09-26'
+  after_round: 15
+  decision: The graded unit is a slice; rcorpus gets a pure-Ruby fallback so Reach can keep its own corpus on Ruby
+    2.6.
+- date: '2026-09-28'
+  decision: >-
+    Reach and Teach speak one contract, specs/wire.yml (protocol 1), pinned byte for byte in both repositories: Teach's
+    specified wire as the base, plus Reach's query-inclusive request signing, per-file submission manifest and per-slice
+    owned-file manifest.
+- date: '2026-09-28'
+  decision: >-
+    Reach installs by pasting its repository link into Claude Code, Claude Cowork, Codex or Antigravity (the Gemini
+    harness); INSTALL.md is the installing agent's directive and reach setup does the harness-specific work. rplugin is
+    optional; Reach runs from a harness's own plugin copy on the Mac's built-in Ruby 2.6.
+- date: '2026-09-28'
+  decision: >-
+    The plugin's agent is rEach. It introduces itself when it comes online and runs a short, bounded interview whose
+    answers are saved on the student's computer only (persona, interview). DeepSeek Harness is not supported yet.
+- date: '2026-09-28'
+  decision: >-
+    Course times are course times: due dates and receipt times are shown in the course's timezone with its PDT/PST
+    label, whatever zone the student's computer is in. BUS 101 and BUS 201 run on America/Los_Angeles, which is also
+    the default when Teach sends no zone (course_time).
+- date: '2026-09-28'
+  decision: >-
+    Releases that change what a student sees are smoke-tested first with tools/smoke: real Claude sessions in a Docker
+    sandbox, played by scripted or model-played students (smoke_test).
+- date: '2026-09-28'
+  decision: >-
+    Every interview question asks one thing, so the two that asked two (studies and year; work times and deadline
+    reminders) are split and the interview has at most twelve main questions (interview).
+- date: '2026-09-28'
+  decision: >-
+    rEach is an engineer as well as a partner. Every workspace AGENTS.md ends with a directive table in the fleet's
+    opcode form; public engineering directives ship in this repo, course directives only inside the encrypted
+    guardrails package. One checker (reach check) serves the hooks, the attempt gate and the submit gate; plans and
+    checkpoints are Reach's own, with no git in the workspace; every owned file carries an invisible seal and every
+    session a witness ledger that Teach reads for provenance, silently (directives, check, checkpoints, seal).
+wire_contract: specs/wire.yml (normative for every byte between Reach and Teach; where this file and it differ, it wins)
+runtime:
+  ruby: 2.6.10 to 4.0.x; standard library only; no native gems.
+  sdk: >-
+    Optional. When rplugin (Ruby 3.3+) is installed at ~/.rplugin, exe/reach loads it and Reach reaches its ports
+    through Reach.ports; otherwise Reach keeps its own records under ~/.reach. rplugin-compat (the Ruby 2.6 rewrite)
+    is no longer required to run.
+  browser: >-
+    Chromium for the tips suite, found in this order - REACH_CHROME, Google Chrome, Chromium, Microsoft Edge; Reach
+    offers to download a pinned Chromium build into its own directory when none is found.
+  platforms:
+    macos: 10.15 or newer, system Ruby 2.6.10
+    windows: >-
+      10 or 11, Ruby 4.0.x from RubyInstaller pinned by Reach's installer (the same Ruby column the instructors
+      grade on), or WSL2 with the Linux path
+    linux: Any distribution with a packaged Ruby 2.6 to 4.0; otherwise Reach's installer offers a pinned Ruby 4.0.x
+      build
+  lockfile_selection: >-
+    Ruby 2.6 to 3.1 uses Gemfile.ruby26.lock; Ruby 3.2 and newer uses Gemfile.lock. Reach picks by RUBY_VERSION
+    and installs the gems into its own directory, never the system gem path.
+plugin_manifest:
+  file: reach.rplugin.yml
+  content:
+    schema: rplugin/v1
+    id: reach
+    name: Reach
+    version: 0.6.0
+    rplugin: ">= 1.0.0-compat"
+    description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run
+      courses.
+    ports:
+      required:
+      - secrets
+      - state
+      - events
+      optional:
+      - corpus
+      - schedule
+    extensions:
+      enabled:
+      - claude-code
+      - codex
+      - os
+    corpora:
+      owns:
+        id: reach
+        reads_kinds:
+        - note
+        - tip
+        - attempt
+        - receipt
+        writes_kinds:
+        - note
+        - tip
+        - attempt
+        - receipt
+      consumes: []
+    contents:
+      skills:
+      - id: reach-course
+        path: skills/reach-course/SKILL.md
+      - id: reach-submit
+        path: skills/reach-submit/SKILL.md
+      - id: reach-help
+        path: skills/reach-help/SKILL.md
+      - id: reach-assistant
+        path: skills/reach-assistant/SKILL.md
+      agents:
+      - id: reach
+        path: agents/reach.md
+      scripts:
+      - path: exe/reach
+      docs:
+      - path: docs/student-guide.md
+      - path: INSTALL.md
+    repository:
+      remote: git@bitbucket.org:paterasai/reach.git
+layout:
+  install_root: "~/.rplugins/reach (the plugin) and ~/.reach (the student's data)"
+  data:
+  - path: "~/.reach/install.yml"
+    content: install id, student id, course id, Teach URL, public keys; mode 0600
+  - path: "~/.reach/keys/install.pem"
+    content: The install's private key, mode 0600, never transmitted
+  - path: "~/.reach/keys/teach/<key_id>.pem"
+    content: Teach's signing public keys from install.yml, written for dovetail check to verify shape signatures
+  - path: "~/.reach/packages/<kind>/<version>.pkg"
+    content: Encrypted packages as received
+  - path: "~/.reach/vault/"
+    content: >-
+      Decrypted guardrails, suite and reference build, plus the shape package's Dovetail checker
+      (vault/shape/dovetail/, exe/dovetail, lib/**, VERSION) when the package carries one; mode 0700; recreated
+      from packages on demand and wiped on reach lock
+  - path: "~/.reach/outbox/"
+    content: Signed submission and hand packages awaiting upload
+  - path: "~/.reach/receipts/"
+    content: Receipts as received, verified
+  - path: "~/.reach/logs/"
+    content: Reach's own logs, rotated at 5 MB x 5 (requests.jsonl holds method, route, status, latency, retries; never bodies)
+  - path: "~/.reach/profile.yml"
+    content: The student's interview profile (reach.profile/v1), mode 0600, on this computer only
+  - path: "~/.reach/state/status.json"
+    content: The last GET /status response with fetched_at; the gate's freshness and update checks read it
+  - path: "~/.reach/state/bucket.json"
+    content: The request token bucket every Reach process shares, under an exclusive file lock
+  - path: "~/.reach/bin/reach and ~/.reach/bin/root"
+    content: >-
+      A stable shim that runs the most recently used Reach install, so workspace hooks keep working when a harness
+      moves its plugin copy on update
+  workspace:
+    path: "~/reach-work/<course>/<assignment>/<cutout>-<slice>/ (the student may choose another parent)"
+    content:
+    - The slice's owned files (the only writable course files)
+    - api/ - instructor API signatures (read-only)
+    - contract/ - contract.rb, generated types and client (read-only)
+    - shape/ - the brief (read-only; the signed shape stays in the vault)
+    - fixtures/ - the demo-business data the slice needs (read-only)
+    - README.md - the slice's behaviour, inputs, outputs and what to do
+    - AGENTS.md, CLAUDE.md and GEMINI.md - generated by Reach from the guardrails package's directives (read-only; specs/wire.yml W-RENDER-1)
+    - ".claude/settings.json, .mcp.json, .codex/config.toml and .codex/hooks.json - the workspace-level harness configuration, calling Reach through the ~/.reach/bin/reach shim"
+    - ".reach/ - the workspace marker with the slice id, the owned-path list and the delivered digests"
+    permissions: Everything except the owned files is made read-only on disk; Reach restores permissions if they
+      change.
+library:
+  namespace: Reach
+  modules:
+  - name: Reach::CLI
+    role: The reach command and its subcommands
+  - name: Reach::Enrol
+    role: Key generation and the enrolment call
+  - name: Reach::Client
+    role: Signed HTTPS requests to Teach with timeouts, retries and a circuit breaker
+  - name: Reach::Crypto
+    role: RSA-PSS verification and signing, RSA-OAEP unwrapping, AES-256-GCM, from the standard-library OpenSSL
+  - name: Reach::Packages
+    role: Fetch, verify, store and unpack packages into the vault or the workspace
+  - name: Reach::Guardrails
+    role: Loads the guardrails package, renders AGENTS.md and CLAUDE.md, and answers the gate
+  - name: Reach::Gate
+    role: The code-level checks the harness hooks call - may the agent run, may this path be written
+  - name: Reach::Workspace
+    role: Creates, locks and verifies slice workspaces
+  - name: Reach::Shape
+    role: Runs Dovetail's checker against the signed shape and classifies findings
+  - name: Reach::Attempts
+    role: Tracks fix attempts per finding and triggers the hand-raise at three
+  - name: Reach::Suite
+    role: Runs the tips suite for the student's slices and turns results into plain language
+  - name: Reach::Submit
+    role: Packs, signs, encrypts, uploads and waits for the receipt
+  - name: Reach::Receipts
+    role: Verifies and stores receipts; announces them
+  - name: Reach::Hands
+    role: Builds context bundles and raises hands; delivers replies
+  - name: Reach::MCPBridge
+    role: >-
+      A local stdio MCP server the harness connects to, proxying the permitted Teach tools with the install's credentials
+  - name: Reach::Harness
+    role: Detects Claude Code and Codex, installs hooks and configuration, and launches them
+  - name: Reach::Status
+    role: The status summary
+  - name: Reach::Corpus
+    role: Notes, tips, attempts and receipts in Reach's own corpus through the corpus port, when available
+  - name: Reach::Directives
+    role: The public directive files, the private rows from the vault, the AGENTS.md table and reach directive (a private body fetched from Teach per call)
+  - name: Reach::Check
+    role: The one checker the hooks, the attempt gate and the submit gate run; findings with rule ids and a fix
+  - name: Reach::Checkpoint
+    role: Snapshots of the slice's owned files under ~/.reach/checkpoints, saved and restored without git
+  - name: Reach::Plan
+    role: The slice plan at <workspace>/.reach/plan.yml
+  - name: Reach::Seal
+    role: Stamps, verifies and classifies the invisible per-install mark on every owned file
+  - name: Reach::Ledger
+    role: The HMAC-chained witness ledger of sessions, prompts, writes, checks, checkpoints and submits
+  - name: Reach::Sidecar
+    role: The per-computer state file that ties installs together
+  - name: Reach::Integrity
+    role: Silent integrity reports to Teach (vault, marks, ledger, sidecar), deduplicated and queued offline
+  style: >-
+    Every module is plain Ruby 2.6 - no refinements beyond 2.6, no endless methods, no pattern matching, no numbered
+    parameters, no Hash shorthand.
+harness_integration:
+  supported:
+  - claude-code (terminal, desktop Code tab, VS Code)
+  - claude-cowork (Claude desktop; plugin added from Customize > Plugins)
+  - codex (CLI, IDE, desktop app)
+  - antigravity (Google's agent app and CLI, which replaced Gemini CLI in 2026)
+  not_supported:
+  - deepseek-harness (developer preview; plugin installation undocumented; no official desktop app)
+  - the Gemini consumer app (no plugin system)
+  packaging:
+    principle: One repository that each harness reads as its own kind of plugin; the repository is its own marketplace.
+    files:
+      .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
+      .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add <link>, codex plugin add reach@reach).
+      plugin.json: The Agent Plugins 1.0 manifest, read by Antigravity.
+      skills/: Every harness.
+      agents/reach.md and settings.json: The rEach persona as Claude's main session agent.
+      rules/reach.md: Antigravity's always-on pointer to reach hello and the persona.
+      hooks/hooks.json: SessionStart only, running reach hello; read by Claude and, through its manifest, by Codex (Codex sets CLAUDE_PLUGIN_ROOT for compatibility).
+      .mcp.json: Claude's and Cowork's MCP bridge (runs on the student's computer).
+    no_top_level_bin: Claude Cowork refuses a plugin with a top-level bin/ directory, so the executable is exe/reach.
+    enforcement_scope: >-
+      Plugin-level hooks only greet. Course enforcement (gate, shape check, attempts) lives in each slice workspace's own
+      harness configuration, so the student's other sessions are never blocked.
+  install_from_link:
+    directive: INSTALL.md, read by the agent the student pasted the link into.
+    command: reach setup --harness claude-code|codex|antigravity (runs the harness's own install commands, or links the plugin into Antigravity's plugin directories)
+    ends_with: A NEXT block the installing agent speaks word for word - "rEach is installed and ready." and the greeting.
+  pattern: >
+    A harness over a harness, as in rSlides: Reach detects the agent CLIs installed on the machine, the student
+    picks one, and Reach configures it and launches it in the slice workspace. Reach never falls back to another
+    harness or model on its own.
+  detection:
+    claude_code: The claude executable on PATH; its version from claude --version.
+    codex: The codex executable on PATH; its version from codex --version.
+    antigravity: The agy executable on PATH; its version from agy --version.
+    catalogue: A dated harness-models.json listing each harness's models and default, updated with Reach releases.
+  launch:
+    command: reach work [--harness claude-code|codex|antigravity] [--slice <cutout>-<slice>]
+    initial_prompt: '"Hi rEach", so a terminal harness starts with rEach speaking first.'
+    steps:
+    - Run the gate (below); stop with a plain message if it fails.
+    - Regenerate AGENTS.md, CLAUDE.md and GEMINI.md in the workspace from the current guardrails.
+    - >-
+      Verify the harness configuration Reach installed is intact (hooks, MCP bridge entry, sandbox settings); repair
+      it if not.
+    - Start the harness in the workspace directory.
+  plugin_level:
+    hooks:
+    - event: SessionStart
+      command: reach hello --format hook
+      effect: >-
+        Adds the "rEach session context" (the right greeting and the persona pointer) to every session, so rEach
+        introduces itself first; it never blocks, so the student's other sessions are untouched.
+    session_agent: >-
+      settings.json {"agent": "reach:reach"} makes rEach the main session agent in Claude Code. A plugin agent's
+      initialPrompt is ignored, so rEach speaks first through the hello context, not an automatic turn.
+  claude_code:
+    configuration: >-
+      A project-level .claude/settings.json in each slice workspace, written by Reach and made read-only, plus a
+      workspace .mcp.json for the bridge. Every hook command calls the ~/.reach/bin/reach shim.
+    hooks:
+    - event: SessionStart
+      command: reach gate session --harness claude-code
+      effect: >-
+        Exits 2 with a message when the guardrails are missing, expired or unverifiable, so the session carries
+        the message and Reach's skills refuse to proceed; on success injects the guardrail summary into the context.
+    - event: UserPromptSubmit
+      command: reach gate prompt
+      effect: Blocks prompts while the gate fails, so a missing guardrail stops all work, not only the first turn.
+    - event: PreToolUse (Write, Edit, MultiEdit, NotebookEdit)
+      command: reach gate write (reads the tool input from standard input)
+      effect: Exits 2 for any path that is not one of the slice's owned files, with the reason.
+    - event: PreToolUse (Bash)
+      command: reach gate shell (reads the tool input from standard input)
+      effect: >-
+        Refuses commands that would write outside the owned files (redirection, cp, mv, rm, sed -i, git checkout
+        of read-only files), that reach the vault, or that read the suite or reference build; allows read-only commands
+        and reach itself.
+    - event: PostToolUse (Write, Edit, MultiEdit)
+      command: reach shape check --changed <path> --format agent
+      effect: Returns shape findings to the agent immediately after each edit.
+    - event: Stop
+      command: reach attempts settle
+      effect: Records whether the turn resolved or left open findings, for the attempt gate.
+    mcp: The Reach MCP bridge registered as a stdio server (reach mcp) in the workspace .mcp.json, enabled by enableAllProjectMcpServers.
+    permissions: Deny rules for reading ~/.reach/vault and ~/.reach/keys.
+  codex:
+    configuration: >-
+      A workspace .codex/config.toml written by Reach and made read-only, with sandbox_mode workspace-write,
+      [sandbox_workspace_write] writable_roots [~/.reach] and network_access true, the bridge under [mcp_servers.reach],
+      and a read-only .codex/hooks.json with the same five hooks as Claude's (PreToolUse matching apply_patch, Write,
+      Edit and the shell tools); AGENTS.md carries the guardrails.
+    launcher_gate: >-
+      reach work runs the gate before starting Codex and refuses to start it when the gate fails; Codex is always
+      started through reach work for course workspaces.
+    write_scope: >-
+      Enforced by Codex's sandbox (writable roots) and re-checked by Reach at submit time (any change outside the
+      owned files blocks the submission).
+    mcp: The Reach MCP bridge registered in the workspace configuration.
+    limits_stated_honestly: >-
+      Codex now has PreToolUse hooks; file writes arrive as apply_patch with the patch text, and reach gate write reads
+      the patch's file headers. Codex runs a project's .codex/hooks.json and the plugin's hooks only after the student
+      trusts them; until then enforcement is the read-only file permissions plus the submit-time check, and reach watch
+      stays the shape-check backstop.
+  antigravity:
+    configuration: >-
+      reach setup runs agy plugin install, or links the repository into ~/.gemini/config/plugins/reach (and the CLI's
+      plugin directory when present). rules/reach.md, the skills and each workspace's GEMINI.md carry the persona and the
+      course rules.
+    limits_stated_honestly: >-
+      Antigravity's hook format is undocumented, so Reach installs no Antigravity hooks; enforcement there is the
+      read-only file permissions plus the submit-time check. Its desktop app installs only curated plugins from its own
+      interface, which is why setup links the plugin directory.
+  skills:
+    reach-assistant:
+      purpose: >-
+        The rEach persona, loaded in every session: greet first, run the intake interview, keep every conversation on
+        the course, and save the profile only on this computer. Its body is identical to agents/reach.md.
+      contents:
+      - Start of every session - follow the rEach session context, or run reach hello
+      - The intake interview and its guardrails (see persona below)
+      - Staying on course and redirecting off-topic requests
+      - Profile show, save and forget
+    reach-course:
+      purpose: Loaded in every course session; tells the agent how to work in a slice.
+      contents:
+      - The guardrail directives
+      - How to read the brief and the README
+      - Run reach shape check after each change and resolve findings per the attempt policy
+      - Run reach tips before suggesting a submission
+      - How to talk to the student (plain language; the student directs creative choices)
+      - Ground explanations in corpus/course-reference/<course>/ when it covers the enrolled course, never as a source of answers
+    reach-submit:
+      purpose: Submitting and receipts.
+      contents:
+      - Run reach submit
+      - Wait for the receipt with reach receipts wait
+      - Tell the student at once that the submission was received with the receipt id and time
+      - If no receipt within five minutes
+      - say it is not yet received and retry once
+    reach-help:
+      purpose: Asking for help.
+      contents:
+      - When the attempt gate trips
+      - run reach hand raise with a summary; tell the student a hand was raised
+      - When a reply arrives
+      - present it and ask before applying a suggested change
+gate:
+  command: reach gate <session|prompt|write|shell>
+  checks:
+  - >-
+    The install is enrolled and not revoked.
+  - >-
+    This Reach is at least the minimum_reach_version Teach last advertised (M-REACH-OUTDATED otherwise, naming the
+    update command).
+  - >-
+    The cached status is no older than 24 hours (M-GATE-STALE otherwise); reach hello and reach sync refresh it when
+    online, so the gate itself never waits on the network.
+  - >-
+    The guardrails package is present and its signature verifies against a current instructor key (M-GATE-NOGUARD),
+    and its version is not lower than the one the cached status advertises (M-GATE-OLDGUARD).
+  - The workspace belongs to one of the student's current slices.
+  - >-
+    For write and shell, the target is inside the owned files and outside the vault and keys. A Codex apply_patch
+    names its targets in "*** Add File:", "*** Update File:", "*** Delete File:" and "*** Move to:" lines; every one
+    must be an owned file.
+  offline: >-
+    The gate passes offline for up to 24 hours on a verified cached guardrails package, so a lost connection does
+    not stop class work; submissions queue.
+  messages: >-
+    Every refusal says what is missing and the command that fixes it (reach sync, reach enrol, reach work --slice
+    ...).
+  logging: Every refusal is logged locally and counted in the next status call to Teach.
+shape_loop:
+  checker: >-
+    Dovetail's pure-Ruby shape checker (dovetail check --require-signed) run against the signed shape in the vault.
+  invocation: >-
+    [RbConfig.ruby, <vault>/shape/dovetail/exe/dovetail, "check", ...] when the shape package's checker exists there,
+    and ["dovetail", "check", ...] on the PATH otherwise (the not-on-PATH failure applies only to this fallback):
+    <panel> --shape <vault>/shape/<cutout>/shape.json --require-signed --format json [--changed <path relative to
+    the panel directory>], where <module> is the shape's module. <panel> is a copy of
+    <vault>/suite/reference_build/<module>/modules/<module>/panel with the slice's owned panel files laid over it, the
+    tree Teach's grading sandbox checks, so the instructors' views count; without the suite it is
+    <workspace>/modules/<module>/panel, and the workspace itself when that does not exist. A slice that owns no panel
+    files has no shape findings. DOVETAIL_PUBLIC_KEYS names Teach's signing
+    public keys, which Reach writes from install.yml to ~/.reach/keys/teach/<key_id>.pem; Dovetail reads the signature
+    from shape.sig beside shape.json, so the shape package carries both. Finding paths come back relative to the panel
+    directory and Reach reports them relative to the workspace. A --changed path outside the panel directory has no
+    shape findings.
+  failure: >-
+    Exit 0 or 1 with a JSON report is a result; any other exit, output that is not a report, or no dovetail on the PATH
+    means the check could not run. Reach never reads that as no findings: reach shape check says so and fails, and
+    reach check reports one visible CK-SHAPE finding carrying Dovetail's code line (D-SHP-002 for a signature no key
+    verifies, D-SHP-003 for no key), which blocks a panel submission.
+  classification:
+    invisible: >-
+      Rules whose fix changes nothing the student can see or do (S-LIF-001, S-ID-001, S-STO-001, S-DAT-001, S-EVT-003,
+      S-KEY-001, S-DYN-001, S-I18N-001, S-CSS-001 when a same-looking token exists).
+    visible: >-
+      Rules whose fix changes appearance or behaviour (S-OVL-001, S-OVL-002, S-LAY-001, S-LAY-003, S-LAY-004, S-CSS-002,
+      S-CSS-003 without an equivalent token, S-HTML-001, S-STATE-001, S-NAV-002).
+    unlisted: >-
+      A rule on neither list is visible when Dovetail reports it as an error and invisible when it reports a warning, so
+      a warning Dovetail itself passes never blocks a submission.
+  agent_protocol:
+    invisible: >-
+      The agent fixes the finding without interrupting the student and mentions it in its next summary only if asked.
+    visible: >-
+      The agent pauses, tells the student what the check found in plain words, and offers alternatives - first the
+      attempted design adjusted to comply, then newer ideas - and waits for the student's choice.
+  attempt_gate:
+    key: "(slice, rule id, file)"
+    count: A failed attempt is a turn that ends with the same finding still present after the agent tried to fix
+      it.
+    threshold: 3
+    action: >-
+      reach hand raise --trigger attempt_gate builds the context bundle and raises a hand; the agent tells the student.
+    reset: A resolved finding resets its counter; a reply from the instructors resets it too.
+tips_suite:
+  command: reach tips [--slice <id>]
+  steps:
+  - Decrypt the suite package into the vault (if not already).
+  - >-
+    Assemble a run directory exactly as specs/wire.yml W-RUN-1: reference_build/<module>/** for the module of the
+    slice's cutout, then features/** into features/,
+    then Gemfile, Gemfile.lock, Gemfile.ruby26.lock and reasons.yml at the root, then the student's owned files
+    overlaid.
+  - >-
+    When the suite carries a Gemfile, select the lock by RUBY_VERSION (W-RUN-1's choice) and install its pinned
+    gems, once per SHA-256 of the Gemfile and the chosen lock, into a bundle environment under ~/.reach/gems, giving
+    the path as BUNDLE_PATH in the environment (never bundle config, which Bundler 1.17 misreads, and never the
+    removed --path); without a Gemfile in the suite, Reach's own generated Gemfile and locks are the fallback,
+    unchanged.
+  - >-
+    Run Cucumber with the tags for the student's slices, using Cuprite and headless Chromium, with the per-scenario
+    time freeze and fixture AI responses.
+  - Translate the results to plain language.
+  output_to_student: >-
+    One line per scenario - its name, pass or fail, and for a failure a plain reason from the suite's reason catalogue
+    (for example "the panel shows nothing when storage is down; it should show the unavailable state").
+  output_to_agent: >-
+    The same lines plus the failure's category (contract, shape, behaviour, state, locale) so the agent knows where
+    to look; never step code, stack traces into the suite or fixture values.
+  duration: Under 90 seconds for one slice on a 2019 laptop.
+  frequency_limits: At most one run at a time; the agent is told to run it before suggesting a submission, not after
+    every edit.
+  egregious_violation_tips: >
+    A contract or shape violation that would fail most of a slice's scenarios is reported by the shape loop immediately,
+    before any suite run, so the student hears about it while working (syllabus-driven decision: tips as they go).
+submission:
+  command: reach submit [--slice <id>]
+  preconditions:
+  - The gate passes.
+  - >-
+    Only owned files differ from the workspace as delivered (read-only files unchanged, no new files outside owned
+    paths).
+  - The shape check has no errors for panel slices.
+  steps:
+  - >-
+    Pack the owned files into a gzip tar archive with manifest.json (slice, cutout, assignment, file digests, Reach
+    version, client timestamp), per specs/wire.yml W-TAR.
+  - >-
+    Seal it as a teach.package/v1 envelope of kind submission (W-ENV): AES-256-GCM with the canonical header as
+    additional data, the key wrapped with RSA-OAEP to Teach's advertised encryption_key (named in recipient_key_id),
+    and the header and ciphertext digest signed with the install key (RSA-PSS).
+  - Write it to the outbox.
+  - >-
+    Upload with an idempotency key. Teach answers 200 with the signed ingest receipt in the same response, so the
+    student usually hears at once; reach receipts wait (up to five minutes) covers a queued upload.
+  - Verify the receipt's signature against the key its signing_key_id names; store it.
+  - Announce - the agent tells the student the submission was received, with the receipt id and time.
+  retries:
+    policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
+    never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason.
+  deadline: >-
+    The due time is judged by Teach's received_at; Reach warns the student 24 hours and 1 hour before a due time
+    when a slice has no ingest receipt.
+  grade_receipt: >-
+    reach sync asks Teach for the grade receipt of each submission that has an ingest receipt and no grade receipt,
+    at most once per submission every 30 seconds (W-API-SUBMISSION); a verified one is stored, announced (M-GRADED)
+    and shown by reach status and the agent.
+receipts:
+  verification: Every receipt's signature is checked against the instructors' public keys before it is stored or
+    announced.
+  storage: "~/.reach/receipts/<receipt_id>.json and a record in Reach's corpus when available."
+  announcement: >-
+    The agent and reach status both show new receipts; a desktop notification is sent when the harness is not in
+    focus (macOS osascript, Windows toast, Linux notify-send when present).
+  commands:
+  - reach receipts - list receipts, newest first
+  - reach receipts wait --submission <id> - block until the ingest receipt arrives or five minutes pass
+  - reach receipts show <id>
+hand_raising:
+  command: reach hand raise [--trigger attempt_gate|student_request] [--summary ...] [--include-profile]
+  bundle: >-
+    The context bundle defined in the Teach spec, built from the attempt log and the owned files' diffs, never including
+    files outside the owned paths. The student's profile is added only with --include-profile, after the student
+    agreed to share it.
+  transport: Encrypted to Teach's key and signed like a submission; uploaded with an idempotency key.
+  student_notice: The agent tells the student that a hand was raised and what was sent.
+  replies: >-
+    Polled every 60 seconds while a hand is open, and on every reach status; delivered to the agent through the
+    MCP bridge and shown to the student; a suggested patch is applied only with the student's agreement and only
+    to owned files.
+mcp_bridge:
+  command: reach mcp (stdio)
+  tools:
+  - name: reach_status
+    description: The student's enrolment, current assignment, slices, package versions and outstanding receipts
+  - name: reach_receipts
+    description: Receipts newest first
+  - name: reach_shape_check
+    description: Shape findings for the current slice, classified invisible or visible
+  - name: reach_tips
+    description: Run the tips suite and return the plain-language results
+  - name: reach_submit
+    description: Submit the current slice and wait for the ingest receipt
+  - name: reach_raise_hand
+    description: Raise a hand with a summary
+  - name: reach_hand_status
+    description: A hand's state and reply
+  - name: reach_hello
+    description: The greeting to use now and the session context (profile state, course, next step)
+  - name: reach_profile_show
+    description: The student's saved profile
+  - name: reach_profile_save
+    description: Save profile fields and the interview status (partial or complete); works where the harness's shell is sandboxed
+  - name: reach_profile_forget
+    description: Delete the student's profile
+  - name: reach_enrol
+    description: Enrol with a course code, then sync
+  - name: reach_sync
+    description: Fetch new packages, verify them and refresh workspaces
+  - name: reach_check
+    description: Run reach check on the current slice (optionally one changed path) and return the findings
+  - name: reach_checkpoint
+    description: save, list, show or restore a checkpoint of the current slice
+  - name: reach_plan
+    description: save, note or show the slice plan
+  - name: reach_directive
+    description: The full text of one directive by opcode
+  excluded: Nothing that reveals package contents, the vault, keys, test steps or fixture values.
+  authentication: The bridge signs its Teach requests with the install key; the harness never sees the key.
+cli:
+  command: reach
+  subcommands:
+  - name: hello
+    synopsis: reach hello [--harness ID] [--format hook|text|json]
+    purpose: >-
+      rEach's greeting and session context - the first-run introduction when there is no profile, a welcome back
+      otherwise; never blocks and always exits 0
+  - name: setup
+    synopsis: reach setup [--harness auto|claude-code|codex|antigravity] [--source <link or path>]
+    purpose: >-
+      Install rEach into the detected harnesses through their own install commands, ending with the NEXT block the
+      installing agent reads to the student
+  - name: start
+    synopsis: reach start [--harness ID]
+    purpose: Open the chosen harness in the current folder with rEach speaking first (no course gate)
+  - name: profile
+    synopsis: reach profile show|save|forget
+    purpose: Show, save (field by field, status partial or complete) or delete the student's interview profile
+  - name: attempts settle
+    synopsis: reach attempts settle [--slice <cutout>-<slice>]
+    purpose: Called by the Stop hook; records whether the turn resolved its findings, for the attempt gate
+  - name: enrol
+    synopsis: reach enrol <code> [--teach-url URL]
+    purpose: Generate keys, enrol with Teach, then sync
+  - name: sync
+    synopsis: reach sync
+    purpose: Fetch new packages, verify them and refresh workspaces
+  - name: status
+    synopsis: reach status
+    purpose: Enrolment, slices, package versions, last tips results, receipts, open hands
+  - name: work
+    synopsis: reach work [--harness ...] [--slice ...]
+    purpose: Open a slice in the chosen harness, through the gate, with rEach speaking first
+  - name: gate
+    synopsis: reach gate session|prompt|write|shell
+    purpose: Called by harness hooks
+  - name: shape check
+    synopsis: reach shape check [--changed <path>] [--format text|agent|json]
+    purpose: Run the shape checker
+  - name: tips
+    synopsis: reach tips [--slice ...]
+    purpose: Run the tips suite
+  - name: submit
+    synopsis: reach submit [--slice ...]
+    purpose: Submit and wait for the receipt
+  - name: receipts
+    synopsis: reach receipts [wait|show]
+    purpose: Receipts
+  - name: hand
+    synopsis: reach hand raise|status|list
+    purpose: Hand-raises
+  - name: watch
+    synopsis: reach watch
+    purpose: A polling file watcher that runs the shape check on change (the Codex backstop)
+  - name: check
+    synopsis: reach check [--changed <path>] [--format text|agent|json]
+    purpose: >-
+      The one checker: ruby -wc, the Ruby 2.6 floor, one-class shape, comments, test code, purity, granted ports,
+      fuse boundaries and Dovetail panel rules; each finding carries a rule id, file, line, message, fix and its
+      invisible or visible class. The PostToolUse hooks call it with --changed; submit runs it first.
+  - name: checkpoint
+    synopsis: reach checkpoint save [--note <text>] | list | show <n> | restore <n>
+    purpose: Snapshots of the slice's owned files under ~/.reach/checkpoints; no git in the workspace
+  - name: plan
+    synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show
+    purpose: The slice plan at <workspace>/.reach/plan.yml, read back at every session start
+  - name: directive
+    synopsis: reach directive <OPCODE> | --list
+    purpose: The full text of one directive, public from directives/ or course-private from the vault
+  - name: doctor
+    synopsis: reach doctor
+    purpose: >-
+      Checks Ruby, gems, Chromium, harness configuration, keys, packages and connectivity, one line per problem
+      with its fix
+    checks: >-
+      R-DOC-RUBY, R-DOC-SHIM, R-DOC-HARNESS, R-DOC-ENROL, R-DOC-KEYS, R-DOC-GUARD, R-DOC-WS, R-DOC-CHROME, R-DOC-GEMS,
+      R-DOC-NET (reachable, and clocks within five minutes), R-DOC-OUTBOX, R-DOC-OUTDATED, R-DOC-WIRE (Teach's
+      advertised contract digest matches Reach's), R-DOC-VERSION (every manifest carries VERSION), R-DOC-PERSONA (the
+      skill and agent bodies match and quote the first-run greeting), R-DOC-DIRECTIVES (every public directive file
+      parses and fits the table), R-DOC-TASTE (the vendored design-taste-frontend skill is the official one),
+      R-DOC-SEAL (the sidecar is readable). R-DOC-SDK and R-DOC-LINKS are gone, since rplugin is optional.
+  - name: lock
+    synopsis: reach lock
+    purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
+  - name: mcp
+    synopsis: reach mcp
+    purpose: The stdio MCP bridge
+client_safety:
+  applies_to: Every call from Reach to Teach.
+  timeouts:
+    connect_s: 5
+    read_s: 30
+    upload_read_s: 120
+  limiter: >-
+    A token bucket at 20 requests per minute, below Teach's 30 per install, kept in ~/.reach/state/bucket.json under
+    an exclusive file lock so every Reach process (hooks, the MCP bridge, the CLI) shares one budget.
+  quick_mode: >-
+    Calls made while a harness waits (reach hello's status refresh, doctor's health check) use 2-second timeouts, no
+    retries and at most half a second of limiter wait, and fall back to the cache.
+  retries: >-
+    At most 4 for idempotent requests, exponential backoff with full jitter (1 s base, 30 s cap), Retry-After honoured;
+    4xx other than 408, 425 and 429 never retried.
+  circuit_breaker: >-
+    Five consecutive failures open the breaker for 60 seconds; the gate then uses its offline allowance and submissions
+    stay in the outbox.
+  polling: >-
+    Receipts and hand replies are polled no more often than every 30 seconds, and only while something is outstanding.
+  kill_switch: REACH_OFFLINE=1 stops all network calls (for exams or debugging); the gate's offline allowance still
+    applies.
+  observability: >-
+    Reach logs every request with route, status, latency and retry count (never bodies or keys) and reports counts
+    in its status call.
+corpus:
+  port: >-
+    The rplugin corpus port when rplugin is installed (Ruby 3.3+); otherwise the plain-JSONL fallback below, which is
+    what a harness-installed Reach uses.
+  kinds:
+    note: The agent's working notes about the slice (what was tried, what the student prefers).
+    tip: Tips delivered by the suite or the instructors, so the agent does not repeat mistakes across sessions.
+    attempt: Fix attempts per finding (feeds the attempt gate).
+    receipt: A copy of each receipt.
+  privacy: >-
+    The corpus lives on the student's disk only; nothing in it is sent to Teach except what a hand-raise bundle
+    explicitly includes.
+  degradation: Without the corpus port, Reach keeps the same records in plain JSONL through the state port.
+installer:
+  from_a_link: >-
+    The student pastes the repository link into their agent (Claude Code, Cowork, Codex or Antigravity) and asks it
+    to install rEach. The agent reads INSTALL.md, which tells it to run the harness's own plugin install, or to clone
+    the repository to ~/.reach/plugin and run exe/reach setup; setup ends with the NEXT block, which the agent reads
+    to the student word for word ("rEach is installed and ready." and the greeting). In the Claude app and Codex app
+    the student adds the link as a plugin marketplace in the app's plugin settings instead.
+  public_repository: >-
+    Installing from a link needs the repository to be public (GitHub or public Bitbucket); a private repository
+    needs the student's own git credentials.
+  macos: >-
+    The built-in /usr/bin/ruby (2.6.10) runs Reach; no Ruby install is needed.
+  windows: >-
+    A PowerShell installer that installs the pinned RubyInstaller build per user (no administrator rights), then
+    the same steps.
+  linux: >-
+    A shell installer that uses the distribution's Ruby when it is in range, otherwise installs the pinned Ruby
+    per user.
+  chromium: >-
+    reach doctor offers to download a pinned Chromium into ~/.reach/chromium when no browser is found, verified
+    by sha256.
+  uninstall: >-
+    The harness's own plugin removal (or rplugin uninstall reach) removes the plugin; reach profile forget, reach
+    lock and removing ~/.reach remove the student's data after the course.
+privacy_and_integrity:
+  student_data_sent: >-
+    Enrolment (code, public key, platform, versions), submissions (owned files and manifest), hand bundles, status
+    counts. Nothing else.
+  never_sent: >-
+    The student's prompts or conversations (except the last request inside a hand bundle, which the student is told
+    about), files outside the workspace, the corpus, and the interview profile (except inside a hand bundle the
+    student agreed to add it to).
+  provider_note: >-
+    What the student types to rEach goes to their AI provider, as any chat does; Reach itself keeps the profile on
+    this computer and never sends it to Teach. rEach's greeting says so ("What I save about you stays on this
+    computer"), not that everything said stays local.
+  integrity: Reach cannot make a student's work pass; it can only show them early what the official grading will
+    check.
+student_messages:
+  principle: >-
+    Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses
+    no jargon without a short explanation.
+  catalogue:
+  - id: M-GATE-NOENROL
+    text: Reach isn't connected to your course yet. Run reach enrol with the code your instructor gave you.
+  - id: M-GATE-NOGUARD
+    text: >-
+      Your course rules haven't arrived yet, so your AI partner can't start. Run reach sync, and if that doesn't
+      work, tell your instructor.
+  - id: M-GATE-OLDGUARD
+    text: Your course rules have an update. Run reach sync to get it, then try again.
+  - id: M-GATE-REVOKED
+    text: This computer's Reach was switched off by your instructor. Ask them for a new enrolment code.
+  - id: M-WRITE-OUTSIDE
+    text: That file belongs to the course and can't be changed. Your work goes in {owned_files}.
+  - id: M-SHELL-BLOCKED
+    text: That command would change files outside your slice, so Reach stopped it.
+  - id: M-SHAPE-VISIBLE
+    text: >-
+      The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways
+      to get close to it that fit.
+  - id: M-HAND-RAISED
+    text: >-
+      Your AI partner got stuck on the same problem three times, so it asked your instructors for help. You'll see
+      their answer here.
+  - id: M-SUBMIT-RECEIVED
+    text: Your {slice} work for {cutout} was received at {time}. Receipt {receipt_id}.
+  - id: M-SUBMIT-PENDING
+    text: Your submission hasn't been received yet. Reach will keep trying; keep your computer online.
+  - id: M-SUBMIT-REJECTED
+    text: 'Your submission wasn''t accepted: {reason}. {fix}'
+  - id: M-GRADED
+    text: Your {slice} work for {cutout} was graded. {passed} of {total} checks passed.
+  - id: M-DEADLINE-24H
+    text: "{cutout} ({slice}) is due in 24 hours and hasn't been submitted yet."
+  - id: M-OFFLINE
+    text: >-
+      Reach can't reach the course server right now. You can keep working; submissions will be sent when you're
+      back online.
+  - id: M-GATE-STALE
+    text: rEach hasn't been able to check in with your course for over a day. Connect to the internet and run reach sync.
+  - id: M-REACH-OUTDATED
+    text: >-
+      This version of rEach ({version}) is too old for your course, which needs {minimum} or newer. Update rEach, then
+      try again.
+  - id: M-AUTH-FAILED
+    text: >-
+      Your course server didn't accept rEach's signature. Check that your computer's clock is right, then run reach
+      sync. If it keeps happening, tell your instructor.
+  - id: M-ENROL-REFUSED
+    text: That enrolment code wasn't accepted. Check it's typed correctly, or ask your instructor for a new one.
+  - id: M-ENROL-DONE
+    text: You're connected to {course}. rEach is fetching your course materials now.
+  - id: M-TIPS-INCOMPLETE
+    text: >-
+      The tips suite for this slice isn't complete yet, so rEach can't run it. Your instructors will publish it; run
+      reach sync later.
+  locales: >-
+    en-US in v1. Course messages live in locales/en-US.yml and rEach's greetings in locales/greetings.en-US.yml, so
+    both can be translated; the texts in the files are authoritative, and the ones above are the original wording.
+failure_reason_catalogue:
+  purpose: Turns the suite's failure categories into the plain reasons students and agents see.
+  categories:
+  - id: contract
+    example: The result didn't have the fields your module promised (for example, a status was missing).
+  - id: behaviour
+    example: The result was the wrong value for this case (for example, the margin should be 35.0%).
+  - id: state
+    example: >-
+      The panel didn't show the right state (for example, nothing appeared when storage was down; it should show
+      the unavailable message).
+  - id: shape
+    example: The panel did something outside its space (for example, it covered other panels).
+  - id: locale
+    example: Numbers or dates weren't shown the way the chosen region expects.
+  - id: privacy
+    example: Something private was shown or sent where it shouldn't be.
+  - id: resilience
+    example: When a part of the system was unavailable, the panel or module stopped working instead of saying so.
+  - id: not_built
+    example: This part still answers "not built yet"; its code is the starting copy, or stops before it does the work.
+  authoring: >-
+    The instructors write a reason for each scenario's likely failures in the suite's reasons.yml; Reach picks the
+    reason by the failing step's category, from the suite's reasons.yml when it names one and from its own catalogue
+    otherwise. A failing step whose message names not_built is category not_built.
+state_machines:
+  install:
+    states:
+    - not_enrolled
+    - enrolled
+    - synced
+    - active
+    - offline
+    - revoked
+    notes: >-
+      synced means all current packages verified; active means a harness session is running with the gate passing;
+      offline is entered when the circuit breaker is open.
+  slice_workspace:
+    states:
+    - absent
+    - provisioned
+    - in_progress
+    - checked
+    - submitted
+    - received
+    - graded
+    transitions:
+    - from: absent
+      to: provisioned
+      when: reach sync delivers a workspace package for the slice
+    - from: provisioned
+      to: in_progress
+      when: An owned file first changes
+    - from: in_progress
+      to: checked
+      when: The shape check has no errors and the tips suite has run
+    - from: checked
+      to: submitted
+      when: reach submit uploads
+    - from: submitted
+      to: received
+      when: The ingest receipt verifies
+    - from: received
+      to: graded
+      when: The grade receipt verifies
+    - from: received
+      to: in_progress
+      when: The student changes an owned file again before the deadline
+  finding:
+    states:
+    - open
+    - fixing
+    - resolved
+    - escalated
+    transitions:
+    - from: open
+      to: fixing
+      when: The agent starts a fix
+    - from: fixing
+      to: resolved
+      when: The next check no longer reports it
+    - from: fixing
+      to: open
+      when: The check still reports it (an attempt is counted)
+    - from: open
+      to: escalated
+      when: The third failed attempt raises a hand
+    - from: escalated
+      to: resolved
+      when: The check no longer reports it after the reply
+class_day_runbook:
+  before_class:
+  - Instructors release the assignment's packages on Teach.
+  - Students run reach sync at home or at the start of class.
+  in_class:
+  - reach status on the projector shows what the class should see.
+  - Common problems and their one-line fixes are in reach doctor's output.
+  after_class:
+  - Instructors watch the hand-raise queue and the ingest receipts on Teach's dashboard.
+compatibility:
+  rplugin: optional; used when installed (Ruby 3.3+)
+  wire_protocol: 1 (specs/wire.yml); Teach advertises minimum_reach_version and wire_contract_sha256
+  dovetail: The checker version pinned by the shape package (Reach carries the matching dovetail library in its
+    vault). Not built yet; until it is, Reach runs the dovetail on the PATH and reports a check that cannot run.
+  teach_api: v1
+  harnesses:
+    claude_code: >-
+      The versions whose hook events include SessionStart, UserPromptSubmit, PreToolUse, PostToolUse and Stop; reach
+      doctor checks the version.
+    codex: >-
+      The versions with plugins, hooks (SessionStart, UserPromptSubmit, PreToolUse with apply_patch, PostToolUse,
+      Stop), sandbox_workspace_write and MCP servers; reach doctor checks the version.
+    antigravity: The versions reading plugins from ~/.gemini/config/plugins with skills and rules.
+  ruby: 2.6.10 to 4.0.x
+failure_modes:
+- failure: The harness updates and changes its hook format
+  behaviour: >-
+    reach doctor detects the version, reach work refuses to start a course session with an unsupported harness version
+    and says which versions work, and a Reach patch release adds support.
+- failure: The student edits the generated harness configuration
+  behaviour: reach work restores it from the guardrails before launching; the gate logs the change.
+- failure: The student deletes the workspace
+  behaviour: >-
+    reach sync re-provisions it from the workspace package; the student's last submitted owned files are restored
+    from the outbox copy when present.
+- failure: Chromium is missing or too old for Ferrum
+  behaviour: reach doctor offers the pinned Chromium download; tips are unavailable until then, and the agent says
+    so.
+- failure: Gem installation fails offline
+  behaviour: Tips are unavailable until online; shape checks and submission still work (they need no gems).
+security:
+  keys: The install private key never leaves ~/.reach/keys; the MCP bridge signs on the harness's behalf.
+  vault: >-
+    Decrypted materials live only in ~/.reach/vault with 0700 permissions and are wiped by reach lock and at the
+    end of the term.
+  hooks: Reach's harness configuration is read-only on disk; the gate checks its digest on each session start.
+  honesty: >-
+    Reach's protections stop accidents and casual tampering; they are not a guarantee against a determined machine
+    owner, which is why grading happens on Teach.
+hook_io_contract:
+  claude_code:
+    input: >-
+      The hook receives the event as JSON on standard input (session id, event name, and for tool events the tool
+      name and tool input).
+    output: >-
+      Exit 0 allows; exit 2 blocks and the text on standard error is shown to the agent; other exit codes are treated
+      as a gate failure and block.
+    timeout: >-
+      Every gate call finishes within 2 seconds; a gate that cannot decide in time blocks with M-GATE-NOGUARD's
+      wording and logs a timeout.
+    paths: >-
+      Paths from tool input are resolved against the workspace, symlinks followed with File.realpath, and compared
+      with the owned-path list after normalisation (case-insensitive on macOS and Windows).
+  codex:
+    input: >-
+      The same JSON event on standard input as Claude Code; a file write arrives as tool_name apply_patch with the
+      patch text in tool_input.command, which reach gate write reads for its target paths.
+    output: Exit 0 allows; exit 2 blocks and standard error is shown to the agent.
+    trust: Codex runs plugin and project hooks only after the student trusts them; setup tells the student to.
+    launcher: >-
+      reach work checks the gate, writes the workspace configuration and execs codex with it, so the gate holds even
+      before the hooks are trusted.
+    submit_time_check: >-
+      Every file that differs from the delivered workspace is compared with the owned-path list; any other difference
+      blocks the submission and lists the files.
+shell_rules:
+  purpose: How reach gate shell decides a Bash command in Claude Code.
+  parsing: >-
+    The command is split on ;, &&, ||, | and newlines; each part is tokenised with Shellwords; subshells and command
+    substitution ($(), backticks) are refused outright.
+  allowed_readonly:
+  - ls
+  - cat
+  - head
+  - tail
+  - less
+  - grep
+  - rg
+  - find (without -delete or -exec)
+  - wc
+  - diff
+  - git status
+  - git diff
+  - git log
+  - ruby -c
+  - reach
+  write_commands:
+  - cp
+  - mv
+  - rm
+  - mkdir
+  - touch
+  - tee
+  - sed -i
+  - perl -i
+  - truncate
+  - chmod
+  - git checkout
+  - git restore
+  - git reset
+  - git clean
+  - npm
+  - npx
+  - bundle
+  - gem
+  rules:
+  - >-
+    A write command is allowed only when every path argument is an owned file (or its directory for mkdir of nothing
+    new - refused).
+  - Output redirection (>, >>) is allowed only into owned files.
+  - >-
+    Any path under ~/.reach, the vault, api/, contract/, shape/, fixtures/ or the generated harness files is refused
+    for writing, and the vault and keys are refused for reading.
+  - Network tools (curl, wget, ssh, scp, nc) are refused; Reach's own commands handle the network.
+  - >-
+    Unknown commands are allowed only when they take no path arguments outside the workspace and no redirection;
+    otherwise refused with M-SHELL-BLOCKED.
+  honesty: >-
+    Shell rules catch ordinary mistakes and casual attempts; a student determined to bypass them on their own machine
+    can; the submit-time check and Teach's grading are the backstop.
+templates:
+  rendering: >-
+    Since 0.2.0 AGENTS.md, CLAUDE.md and GEMINI.md are rendered from the guardrails package's directives per
+    specs/wire.yml W-RENDER-1, so the instructors' own wording reaches the agent; the text below is the shape that
+    rendering produces for the built-in directives.
+  agents_md: |
+    # Course rules for this workspace
+
+    You are helping a student with one slice of a course module. These rules come from the instructors and always apply.
+
+    1. Change only these files: {owned_files}. Everything else here is read-only course material.
+    2. Do not rewrite the module or the app, and do not add packages.
+    3. Keep the inputs and outputs exactly as the contract in contract/ describes.
+    4. Follow the brief in shape/brief.md. After every change, run `reach shape check`. Fix problems the student would not notice without interrupting. If a fix would change what the student sees or can do, stop, explain it simply, and offer choices - first their idea adjusted to fit, then new ideas.
+    5. If the same problem is still there after three tries, run `reach hand raise` and tell the student you asked the instructors for help.
+    6. Never make up data or results. Report missing or unavailable values the way the contract says.
+    7. Before suggesting a submission, run `reach tips`. Talk about scenario names and reasons only; never look at test code or test data.
+    8. After `reach submit`, wait for the receipt and tell the student straight away that it was received, with the receipt number and time.
+    9. The student decides the creative direction, the wording and the look. Explain your work in plain words.
+    10. Do not help anyone look inside Reach's protected files, other students' work, or the course server.
+
+    Slice: {cutout_id} ({slice}) - {behavior}
+    Due: {due}
+  claude_md: The same text as AGENTS.md, so every harness reads identical rules.
+  gemini_md: The same text as AGENTS.md, for Antigravity.
+  slice_readme: |
+    # {cutout_id} - {slice} slice
+
+    **What it should do:** {behavior}
+
+    **Input:** {input}
+    **Output:** {output}
+
+    **Your files:** {owned_files}
+    **You can use:** {instructor_apis}
+
+    **How it's checked:** the scenarios in your tips list (run `reach tips`). The same checks decide your grade on the course server.
+
+    **Where it shows up:** {panel_slice}
+
+    Start by asking your AI partner to explain the input, the output and the first scenario in plain words.
+  skill_reach_course: |
+    ---
+    name: reach-course
+    description: Use in every course workspace. How to work on a student's slice under the instructors' rules.
+    ---
+    Read AGENTS.md (the same rules are in CLAUDE.md and GEMINI.md), README.md and shape/brief.md first.
+    Work only in the owned files listed in AGENTS.md.
+    After each change, run `reach shape check --format agent` and handle each finding by its class:
+    - invisible: fix it now without interrupting the student;
+    - visible: stop, explain in plain words, and offer alternatives, starting with the student's idea adjusted to comply.
+    Count your attempts; after three failed attempts on one finding, use the reach-help skill.
+    Before suggesting a submission, run `reach tips` and walk the student through the results by scenario name.
+    Keep the student in charge of creative choices and explain what you did in plain words.
+    When `corpus/course-reference/<course>/` in this plugin's own repo has material for the enrolled course, read its README first, then use it to ground explanations in the syllabus, glossary and assignment prompts, and to inspire or scaffold the student's thinking. Never use it to produce the student's deliverable for them, and never treat it as answers.
+  skill_reach_submit: |
+    ---
+    name: reach-submit
+    description: Use when the student wants to submit their slice or asks whether a submission was received.
+    ---
+    Run `reach submit`. Then run `reach receipts wait --submission <id>`.
+    When the receipt arrives, tell the student immediately: what was received, the receipt number and the time.
+    If no receipt arrives within five minutes, tell the student it has not been received yet, run `reach submit` once more, and wait again.
+    When a grade receipt arrives, show the scenario results in plain words.
+  skill_reach_help: |
+    ---
+    name: reach-help
+    description: Use when you have failed three times on the same finding, or the student asks for instructor help.
+    ---
+    Run `reach hand raise --summary "<what is blocked, what you tried>"`.
+    Tell the student that you asked the instructors for help and what was sent.
+    Check `reach hand status` when the student returns; present any reply, and ask before applying a suggested change.
+doctor_checks:
+- id: R-DOC-RUBY
+  checks: Ruby is 2.6.10 to 4.0.x
+  fix: The installer command for this platform
+- id: R-DOC-SHIM
+  checks: The ~/.reach/bin/reach shim and its root file exist, and the root holds exe/reach
+  fix: Run any reach command once (it rewrites the shim), or reach setup
+- id: R-DOC-ENROL
+  checks: install.yml and the install key exist and match
+  fix: reach enrol <code>
+- id: R-DOC-KEYS
+  checks: The instructors' public keys are present and current
+  fix: reach sync
+- id: R-DOC-GUARD
+  checks: The guardrails package verifies and is the latest known
+  fix: reach sync
+- id: R-DOC-WS
+  checks: Each current slice's workspace exists, read-only files unchanged, harness configuration intact
+  fix: reach sync, then reach work
+- id: R-DOC-HARNESS
+  checks: A supported harness version is installed
+  fix: Update the harness or install one
+- id: R-DOC-CHROME
+  checks: A usable Chromium is available
+  fix: reach doctor --install-chromium
+- id: R-DOC-GEMS
+  checks: The tips suite's gems are installed for this Ruby
+  fix: reach tips installs them on first run
+- id: R-DOC-NET
+  checks: Teach is reachable, the clock is within 5 minutes of Teach's
+  fix: Check the connection or the computer's clock
+- id: R-DOC-OUTBOX
+  checks: The outbox is empty
+  fix: reach submit retries automatically; stay online
+- id: R-DOC-OUTDATED
+  checks: This Reach is at least the minimum_reach_version Teach advertises
+  fix: Update rEach through the harness's plugin update, or git pull in ~/.reach/plugin
+- id: R-DOC-WIRE
+  checks: Teach's advertised wire_contract_sha256 equals the digest of this Reach's specs/wire.yml
+  fix: Update rEach; if it is current, tell the instructors their server and rEach disagree
+- id: R-DOC-VERSION
+  checks: VERSION matches every plugin manifest (plugin.json, .claude-plugin, .codex-plugin, reach.rplugin.yml)
+  fix: A packaging fault; reinstall rEach
+- id: R-DOC-PERSONA
+  checks: The reach-assistant skill and the rEach agent carry the same persona, quoting the first-run greeting
+  fix: A packaging fault; reinstall rEach
+- id: R-DOC-DIRECTIVES
+  checks: Every file in directives/ (README.md aside) parses, its opcode is 3 to 10 capitals or digits, its rule fits 88 characters and aliases are unique
+  fix: A packaging fault; reinstall rEach
+- id: R-DOC-TASTE
+  checks: skills/design-taste-frontend is the official tasteskill (name, opening line, MIT licence, provenance)
+  fix: A packaging fault; reinstall rEach
+- id: R-DOC-SEAL
+  checks: The sidecar at the platform's state directory (or REACH_SIDECAR) exists and parses after enrolment
+  fix: Run any reach command once; if it persists, reach enrol again
+directives:
+  table: >-
+    The last section of every workspace AGENTS.md (W-RENDER-1). One row per directive, fleet form: [<alias> ·
+    <OPCODE>] padded to 20, the rule padded to 88, "reach directive <OPCODE>" padded to 26, "⚙ <enforce>" padded
+    to 22, "⚡ [<when>]". Course rows first, then engineering rows, then the pointer sentence. The table is
+    capped at 6000 bytes.
+  public:
+    source: directives/<opcode>.md in this repository, frontmatter id/opcode/alias/tier/slice/rule/when/enforce and a body
+    aliases: A to M
+    opcodes: PLAN1ST, RUBY, PURE, NOTEST, NOCOM, VERIFY, TOZERO, CHECKPOINT, RESUME, LEAN, DOVETAIL
+  private:
+    source: >-
+      Rows in the guardrails package's directives.yml (W-PKG-1), unpacked to the vault for the table. A body is
+      never on the install: reach directive asks Teach for it (GET /api/v1/directives/<OPCODE>, W-API-DIRECTIVE) in
+      quick mode, shows it once and keeps nothing; a Teach older than 0.5.0 that put a body in the package is read
+      from there in memory (Reach::Guardrails.private_body); offline, the one-line rule prints with
+      M-DIRECTIVE-OFFLINE. Teach records every served body and derives directive_dump from its own record.
+    aliases: N to Z
+  no_secrets: >-
+    A body says what the agent does, never why or how it is enforced; grading, weights, rubrics, thresholds, keys
+    and the seal live in Teach and never enter a body, so any body could be disclosed without harm
+    (STD-DIRECTIVES-CARRY-NO-SECRETS). OPAQUE asks the agent to keep them private; Reach claims no boundary.
+  reading: reach directive <OPCODE> (or the reach_directive tool) prints the body; every read is a ledger event on the install and a directive_reads row on Teach.
+check:
+  rules: >-
+    CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-FUSE, CK-PANEL (with
+    Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed)
+  finding: id, rule, file, line, message, fix, classification (invisible or visible), finding_id
+  callers: >-
+    The PostToolUse hooks (--changed <path>), reach attempts settle (the Stop hook), reach submit (the gate), the
+    student or agent by hand
+  hook_input: >-
+    A hook's JSON event on stdin when stdin is readable within half a second; otherwise none, so a run from a shell
+    whose stdin is open but silent never waits.
+  ruby_shape: >-
+    The course's own shape: module Grokit, module <Module>, module Behaviours, a plain class <Name>, and def
+    call(input, ports), either argument prefixed with an underscore when unused. Grokit constants allowed are the
+    course's errors (NotImplemented, InvalidInput, Unavailable, CurrencyMismatch), the module's own namespace, and any
+    constant the slice's api/README.md names.
+  ledger: Every run appends a check record; a --changed run appends the write record first (before and after digests).
+checkpoints:
+  store: "~/.reach/checkpoints/<course>/<assignment>/<workspace>/NNN/{files/, meta.json}"
+  rules: >-
+    An identical state is refused (M-CHECKPOINT-SAME); restore saves the state it replaces first; every save and
+    restore is a ledger event and a restore witnesses the restored files; no git repository is ever created in a
+    workspace.
+plan:
+  file: "<workspace>/.reach/plan.yml (reach.plan/v1)"
+  fields: behaviour, input, output, steps, edge_cases, scenarios, evidence, progress, next; text fields up to 400 characters, lists up to 12 entries of 200
+  use: Saved before the first edit (PLAN1ST), read back at session start (RESUME), included in a hand bundle.
+seal:
+  mark: >-
+    A 16-hex per-install, per-cutout, per-file mark Teach derives from its seal secret and ships in the guardrails
+    package's seal.yml; Reach encodes it as U+2060, 64 x (U+200B for 0, U+200C for 1), U+2060 on the carrier line
+    (Ruby line 2 "# reach <cutout> <slice>", Svelte line 1 "<!-- reach <cutout> <slice> -->").
+  classes: own, missing, corrupt, foreign, unmarked; missing and corrupt are re-stamped, foreign never.
+  ledger: >-
+    ~/.reach/state/ledger/<course>/<assignment>/<workspace>.jsonl, one record per event with n, at, kind, fields, gv,
+    prev and an HMAC tag under the ledger key Teach derives per install and guardrails version; a head cache and a
+    per-computer sidecar carry the latest tag.
+  sidecar: >-
+    macOS ~/Library/Application Support/reach/seal.json, Windows %LOCALAPPDATA%\reach\seal.json, Linux
+    $XDG_STATE_HOME or ~/.local/state/reach/seal.json, REACH_SIDECAR overrides; records every install enrolled from
+    this computer.
+  reports: >-
+    vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled and directive_dump go to
+    POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.
+  submission: The manifest carries a seal block and the archive a ledger tail; Teach assesses provenance (W-PKG-5).
+status_example: |
+  rEach 0.6.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
+  Your slices:
+    finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)
+    finance.a2s2  panel    received      receipt R-8F2C1 at Thu 15 Oct 9:41 pm PDT
+  Receipts: 4 (latest R-8F2C1)
+  Open hands: none
+  Course rules: v3 (verified)   Connection: online
+privacy_notice:
+  shown: At enrolment and in docs/student-guide.md.
+  text: >-
+    Reach sends your submitted slice files, your enrolment details and, when your AI partner asks for help, a short
+    summary with your recent changes to the course server. It does not send your conversations, other files on your
+    computer, or anything outside your course workspace. What rEach learns about you in its interview is saved on
+    this computer only; it is shared with your instructors only if you agree to add it when asking for help, and
+    reach profile forget deletes it. Like any chat, what you type to rEach goes to the AI provider you use.
+persona:
+  name: rEach
+  source: >-
+    skills/reach-assistant/SKILL.md and agents/reach.md carry the same body (reach doctor's R-DOC-PERSONA compares
+    them); the files are the source, first written from specs/implementation/v0.2.0.impl.yml verbatim.persona_body.
+    The greetings live in locales/greetings.en-US.yml.
+  voice: Warm, curious and brief, in plain words; the course rules come first and the student leads creative choices.
+  introduction:
+    when: The first session after installation, and every session while no profile exists.
+    how: >-
+      reach hello decides the greeting from the profile and enrolment state (first run, resume, not enrolled,
+      returning with the assignment and slice state) and hands it to the agent through the SessionStart context, the
+      reach_hello tool, or setup's NEXT block; the agent opens its first reply with it word for word.
+    first_run: >-
+      "Hi, I'm rEach, your academic assistant! Since I don't know anything about you yet, let's start with a brief
+      interview. It takes about five minutes, and you can skip any question. What I save about you stays on this
+      computer: I use it to explain things in ways that suit you, and it never affects your grade. First question: what
+      would you like me to call you?"
+    gui_limit: >-
+      A desktop app waits for the student to type first, so its banner reads "rEach is ready. Say hi to get started."
+      and rEach introduces itself in its first reply.
+interview:
+  purpose: >-
+    Learn just enough about the student to shape examples, pacing, wording and how options are offered in their
+    assignments; it never changes the course rules, the owned files, submission or grading.
+  questions:
+  - preferred_name
+  - studies
+  - year
+  - coding_experience (none, a little, quite a bit)
+  - ai_experience
+  - the course's own question (Teach's course.interview.course_question, delivered in the guardrails package)
+  - goal
+  - explanation_style (step by step, big picture first, example first)
+  - creative_lead (lead with own ideas, or choose from options)
+  - work_times
+  - deadline_reminders
+  - notes
+  guardrails:
+  - >-
+    One question at a time: each message ends with at most one question, each question asks one thing, and a
+    confirmation checks one thing; at most twelve main questions with one follow-up each; about five minutes.
+  - Every question is optional; "skip" moves on, "stop" ends and keeps what was agreed.
+  - >-
+    Never asks about health or disability, religion, politics, immigration status, money, family, relationships, age,
+    other courses' grades or contact details; a volunteered sensitive detail is acknowledged, not probed, and only
+    the practical preference is kept; accommodation requests go to the instructors.
+  - Records what the student said, never personality labels.
+  - Off-topic drift gets a brief answer when harmless, then a return to the interview.
+  - Never blocks course work; the student can start and finish the interview later.
+  closing: >-
+    rEach reads back what it will remember, asks what to change or leave out, and saves only what the student agreed
+    to, marking the profile complete or partial.
+  storage: ~/.reach/profile.yml (reach.profile/v1, 0600), through reach profile save or the reach_profile_save tool.
+course_time:
+  rule: >-
+    Every time rEach shows a student (due dates in greetings, status and the session context; receipt times) is
+    written in the course's timezone with its abbreviation, e.g. "Sat 3 Oct 11:59 pm PDT" and "Sat 14 Nov 11:59 pm
+    PST", whatever zone the student's computer is set to, because the syllabus and Teach's deadline use course time.
+  zone: >-
+    install.yml course.timezone from Teach's enrolment; config.yml course.timezone when Teach sends none; otherwise
+    America/Los_Angeles, the zone BUS 101 and BUS 201 run on.
+  computation: >-
+    America/Los_Angeles uses built-in US daylight-time rules (PDT from 2:00 am on the second Sunday of March to 2:00 am
+    on the first Sunday of November, PST otherwise), so it is right on macOS, Linux and Windows alike. Any other zone
+    uses the system's zoneinfo when present, else the computer's own zone with its abbreviation.
+  date_only: A due value with no time ("2026-10-03") is shown as a date with no zone ("Sat 3 Oct").
+  deadlines: Deadline warnings compare instants, so the display zone never changes when a warning fires.
+smoke_test:
+  command: ruby tools/smoke/run.rb
+  purpose: >-
+    Drive real Claude sessions with rEach loaded, the way a student would, and check what rEach said and did. It is a
+    release check, not part of the plugin; see tools/smoke/README.md.
+  sandbox: >-
+    Every session runs in a Docker container built from tools/smoke/Dockerfile (Ruby 2.6.10, the Mac floor, plus git)
+    as the developer's user with all capabilities dropped and a read-only root; the container sees only a scratch home,
+    the repository (read-only) and the host's claude binary (read-only), never the developer's home or Claude
+    configuration. Claude signs in with a dedicated token from claude setup-token.
+  students: Scripted lines, or a model playing a described student with no tools.
+  checks: >-
+    Hard checks on replies, tool calls and the files a scenario leaves (profile fields and mode, workspace files,
+    installed plugins) decide pass or fail; a model judge adds advisory notes.
+  safety: >-
+    One conversation at a time, a per-turn timeout, a per-session and a whole-run spending ceiling, and a kill switch
+    (REACH_SMOKE_DISABLE=1, or a STOP file in the run folder).

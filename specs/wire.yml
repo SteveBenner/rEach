@@ -1,0 +1,684 @@
+schema: teach-reach.wire/v1
+name: Teach-Reach wire protocol
+protocol: 1
+recorded: '2026-09-28'
+status: normative
+canonical_copy: reach/specs/wire.yml
+pinned_copies:
+  - teach/specs/wire.yml
+summary: >
+  The one contract between Reach (the student's plugin) and Teach (the instructors' server). Both
+  implementations are built against this file, byte for byte. Reach 0.1.0 and Teach 0.1.0 were each built
+  against their own guess and did not interoperate; this contract replaces both guesses. Its base is Teach
+  0.1.0's specified wire (teach.spec.yml wire_schemas), with three parts taken from Reach 0.1.0: the request
+  signature covers the query string, submissions carry a file-by-file manifest inside the archive, and the
+  workspace package carries a per-slice manifest of the student's owned files.
+hybrid_decisions:
+  - area: request authentication
+    taken_from: teach
+    why: A one-time nonce blocks replayed requests, and signing a digest of the body handles binary bodies.
+  - area: what the request signature covers
+    taken_from: reach
+    why: Teach 0.1.0 signed the path without the query, leaving values such as ?since= and ?cursor= unsigned.
+  - area: encrypted envelope
+    taken_from: teach
+    why: >-
+      The header is bound into the encryption as associated data and names the key that signed it; Reach 0.1.0's
+      envelope let a signed package be replayed as another kind or an older version.
+  - area: package plaintext
+    taken_from: teach
+    why: A gzipped tar archive. teach.spec.yml already said gzip; Teach 0.1.0's builder forgot to compress.
+  - area: owned-file list per slice
+    taken_from: reach
+    why: Teach 0.1.0 shipped empty placeholder files only, so Reach could not tell which files were the student's.
+  - area: submission contents
+    taken_from: both
+    why: Teach's JSON request keeps routing fields visible; Reach's manifest.json with per-file digests is checked by Teach.
+  - area: receipts
+    taken_from: teach
+    why: Deep canonical JSON signing; Reach 0.1.0's shallow key sort failed on nested grade results. signing_key_id added.
+  - area: encryption key
+    taken_from: new
+    why: >-
+      Teach names the key to encrypt to (encryption_key) and Reach names it back (recipient_key_id), so key rotation
+      never strands a submission. The key is still Teach's one dual-purpose key (Teach STD-KEY-MODEL).
+  - area: key wrapping algorithm
+    taken_from: both (as implemented)
+    why: >-
+      RSA-OAEP with SHA-1 and MGF1-SHA-1, the only OAEP the Ruby 2.6 standard library offers. teach.spec.yml 0.1.0
+      claimed SHA-256, which neither side implemented. SHA-1 inside OAEP remains sound.
+conventions:
+  W-CONV-1:
+    rule: All JSON is UTF-8. Every key that crosses the wire is a string. No field is omitted to mean false; absent means absent.
+  W-CONV-2:
+    name: canonical JSON
+    rule: >-
+      canonical_json(value) = JSON.generate(canonicalize(value)), where canonicalize turns every Hash into a Hash whose
+      keys are strings sorted by byte order (key.to_s, sorted with Array#sort), recursing into values; Arrays keep their
+      order and recurse into elements; every other value is left as is. No whitespace, no pretty printing. Ruby's
+      standard json generator on both sides (json 2.1 on Ruby 2.6 and the json bundled with Ruby 4.0 produce identical
+      output for these values).
+  W-CONV-3:
+    name: timestamps
+    rule: RFC 3339 in UTC with a trailing Z and whole seconds, Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ").
+  W-CONV-4:
+    name: digests
+    rule: SHA-256, lowercase hexadecimal, 64 characters. The digest of an empty body is e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.
+  W-CONV-5:
+    name: base64
+    rule: Strict base64 (RFC 4648 section 4, no line breaks), Base64.strict_encode64 / strict_decode64.
+  W-CONV-6:
+    name: RSA-PSS
+    rule: RSA-PSS with SHA-256, MGF1-SHA-256 and a salt length of exactly 32 bytes, on signing AND verifying (never salt_length :auto).
+  W-CONV-7:
+    name: RSA key size
+    rule: RSA-4096 for install keys and Teach keys. Public keys travel as PEM (SubjectPublicKeyInfo, "-----BEGIN PUBLIC KEY-----").
+transport:
+  W-TR-1:
+    rule: HTTPS in production. The base URL is the course's Teach URL (install.yml teach_url); every route below is under <teach_url>/api/v1.
+  W-TR-2:
+    rule: >-
+      Request bodies are JSON with Content-Type application/json. Responses are JSON with Content-Type application/json,
+      except GET /packages/:kind returning 304 (empty body).
+  W-TR-3:
+    rule: Teach serves /api/v1 at the root of its application. A reverse proxy that mounts Teach under a prefix must strip the prefix before Teach sees the request.
+request_authentication:
+  applies_to: Every route except POST /api/v1/enrol and GET /api/v1/health.
+  headers:
+    X-Teach-Install: The install id returned by POST /enrol.
+    X-Teach-Timestamp: W-CONV-3 timestamp of when the request was signed.
+    X-Teach-Nonce: 32 lowercase hexadecimal characters, 16 bytes from a secure random source (SecureRandom.hex(16)), fresh for every attempt including retries.
+    X-Teach-Signature: W-CONV-5 base64 of the W-CONV-6 RSA-PSS signature, by the install's private key, over the signed payload.
+  W-AUTH-1:
+    name: signed payload
+    rule: >-
+      The five lines METHOD, TARGET, TIMESTAMP, NONCE and BODY_DIGEST joined by a single "\n" with no trailing newline.
+      METHOD is the uppercase HTTP method. TARGET is the route path starting at "/api/v1/" plus, when the request has a
+      query string, "?" followed by the query string exactly as sent on the request line (no re-encoding, no re-ordering).
+      TIMESTAMP and NONCE are the header values. BODY_DIGEST is the W-CONV-4 digest of the raw body bytes (of the empty
+      string for a request without a body).
+    example: |-
+      GET
+      /api/v1/receipts?since=2026-10-01T00%3A00%3A00Z&limit=50
+      2026-10-15T21:41:07Z
+      9f2c0b6a51e44f3d8a1c7e0b2d4f6a88
+      e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  W-AUTH-2:
+    name: target on the Teach side
+    rule: >-
+      Teach rebuilds TARGET as env["PATH_INFO"], plus "?" and env["QUERY_STRING"] when QUERY_STRING is non-empty. Teach
+      never uses SCRIPT_NAME, never decodes, and never re-orders the query.
+  W-AUTH-3:
+    name: target on the Reach side
+    rule: >-
+      Reach signs the route path it was asked to call ("/api/v1/..."), never the base URL's own path prefix, and builds
+      the query once (URI.encode_www_form over an ordered list of pairs) and uses that same string both on the request
+      line and in TARGET.
+  W-AUTH-4:
+    name: freshness
+    rule: >-
+      Teach refuses a timestamp more than 300 seconds from its clock (401 unauthenticated) and a nonce it has already
+      seen for the same install within 600 seconds (401 unauthenticated). The nonce is recorded only after the signature
+      verifies.
+  W-AUTH-5:
+    name: nonce format
+    rule: Teach refuses a nonce that is not exactly 32 lowercase hexadecimal characters (401 unauthenticated).
+  W-AUTH-6:
+    name: install state
+    rule: >-
+      An unknown install id is 403 not_enrolled; a revoked install is 403 revoked. Both are checked before the signature
+      so a revoked install learns it is revoked.
+  instructor_requests: >-
+    Instructor API requests use the same scheme with X-Teach-Instructor in place of X-Teach-Install. Reach never sends
+    them; the rule is recorded so both flows share one verifier.
+keys:
+  W-KEY-1:
+    name: install key
+    rule: >-
+      Reach generates an RSA-4096 key pair per install at enrolment. The private key never leaves
+      ~/.reach/keys/install.pem (mode 0600). It signs requests and Reach-sealed envelopes and decrypts Teach-sealed
+      envelopes.
+  W-KEY-2:
+    name: Teach keys
+    rule: >-
+      Teach has one or more non-retired RSA-4096 keys, each with a key_id; exactly one is active. The active key signs
+      everything Teach issues (packages, receipts) and decrypts what Reach seals to it (Teach STD-KEY-MODEL: one
+      dual-purpose key).
+  W-KEY-3:
+    name: key advertisement
+    rule: >-
+      POST /enrol and GET /status both return signing_public_keys (every non-retired key as {key_id, pem}) and
+      encryption_key (the active key as {key_id, pem}). Reach replaces its stored copies with these on every successful
+      response.
+  W-KEY-4:
+    name: key selection for verification
+    rule: >-
+      Reach verifies a Teach signature with the key whose key_id equals the envelope header's signing_key_id or the
+      receipt's signing_key_id. When that key_id is unknown, Reach refreshes GET /status once and looks again; still
+      unknown is a verification failure. Reach never tries every key.
+  W-KEY-5:
+    name: key selection for decryption on Teach
+    rule: >-
+      Teach decrypts a Reach-sealed envelope with the private key named by the header's recipient_key_id, retired or
+      not, as long as its private key file still exists. An unknown recipient_key_id is a rejection (invalid_request,
+      "unknown recipient key"). A missing recipient_key_id means the active key.
+envelope:
+  W-ENV-1:
+    name: shape
+    rule: >-
+      A JSON object with exactly the fields header, wrapped_key, nonce, ciphertext, tag and signature. The last five are
+      W-CONV-5 base64 strings.
+  W-ENV-2:
+    name: header
+    schema: teach.package/v1
+    fields:
+      schema: {type: string, const: teach.package/v1, required: true}
+      kind: {type: string, enum: [guardrails, workspace, shape, suite, submission, hand_bundle], required: true}
+      id: {type: string, required: true, note: "Teach: pkgenv_<20 hex>. Reach: renv_<20 hex>."}
+      version: {type: integer, minimum: 1, required: true, note: "Teach: per student per kind, increasing. Reach-sealed: always 1."}
+      course: {type: string, required: true}
+      assignment: {type: [string, "null"], enum: [A1, A2, A3, A4, null], required: false}
+      student_id: {type: string, required: true}
+      created_at: {type: string, format: W-CONV-3, required: true}
+      content_digest: {type: string, format: W-CONV-4, required: true, note: "digest of the plaintext bytes (the .tar.gz)"}
+      signing_key_id: {type: string, required: true, note: "Teach-sealed: the Teach key_id. Reach-sealed: the install_id."}
+      recipient_key_id: {type: string, required: false, note: "Reach-sealed: the encryption_key key_id it encrypted to. Teach-sealed: absent."}
+  W-ENV-3:
+    name: sealing
+    steps:
+      - content_digest = W-CONV-4 digest of the plaintext; set it in the header.
+      - aad = canonical_json(header) (W-CONV-2), the header including content_digest.
+      - A fresh random 32-byte AES key and a fresh random 12-byte nonce; AES-256-GCM encrypt the plaintext with aad; 16-byte tag.
+      - wrapped_key = RSA public_encrypt of the AES key with OAEP padding (OpenSSL PKCS1_OAEP_PADDING, SHA-1, MGF1-SHA-1) under the recipient's public key.
+      - signature = W-CONV-6 over the string aad + ciphertext_digest, where ciphertext_digest is the W-CONV-4 digest of the raw ciphertext bytes (plain concatenation, no separator).
+  W-ENV-4:
+    name: opening
+    order:
+      - Check the object has exactly the W-ENV-1 fields and the header has every required W-ENV-2 field.
+      - Check header.schema, header.kind (equal to the kind the caller expects) and header.student_id (equal to the enrolled student).
+      - Select the signer's public key (W-KEY-4 on Reach, the install's key on Teach) and verify the signature. Stop on failure.
+      - Unwrap the AES key with the recipient's private key (W-KEY-5 on Teach).
+      - Decrypt with aad = canonical_json(header). Stop on an authentication failure.
+      - Check the W-CONV-4 digest of the plaintext equals header.content_digest. Stop on mismatch.
+      - Only then unpack the plaintext (W-TAR).
+    failure: >-
+      Reach raises Reach::VerificationFailed and never writes any of the plaintext. Teach treats a submission or hand
+      bundle that fails any step as a rejection (state rejected, code invalid_request) without storing plaintext.
+tarball:
+  W-TAR-1:
+    name: format
+    rule: >-
+      Every envelope plaintext is a POSIX ustar archive written with Gem::Package::TarWriter and compressed with
+      Zlib::GzipWriter. Readers accept gzip-compressed (first two bytes 0x1F 0x8B) or uncompressed tar.
+  W-TAR-2:
+    name: entry names
+    rule: >-
+      Relative, forward slashes only, no leading "/", no "." or ".." segment, no backslash, no NUL, at most 255 bytes.
+      A reader refuses the whole archive when any entry name breaks this rule.
+  W-TAR-3:
+    name: entry types
+    rule: Writers add regular files only. Readers skip directory entries and refuse the archive when it holds a symlink, hard link or device entry.
+  W-TAR-4:
+    name: limits
+    rule: Readers refuse an archive whose uncompressed entries total more than 200 MiB or that holds more than 20000 entries.
+  W-TAR-5:
+    name: contents map
+    rule: Readers return an ordered Hash of entry name to binary String (ASCII-8BIT); writers take the same shape.
+packages:
+  W-PKG-1:
+    name: guardrails
+    kind: guardrails
+    built_by: teach
+    entries:
+      directives.yml: >-
+        YAML list. First the numbered rules {id, rule}: the base directives G-SCOPE-1 ... G-AI-POLICY-1 in teach.spec.yml
+        order, then one entry per string in each of the student's cutouts' "guardrails" list, id "G-CUTOUT-<cutout_id>-<n>"
+        with n counting from 1 per cutout. Then, since protocol 1 revision 2026-09-28, the private directive rows
+        {id, opcode, alias, tier: private, slice, rule, when, enforce}, one per file in Teach's directives/ directory
+        (id "D-<OPCODE>", alias N-Z). A Reach that predates the rows renders them as numbered rules, which is harmless.
+      course.yml: >-
+        YAML map {id, title, term, timezone, current_assignment: {id, due}, interview: {course_question}}.
+        interview.course_question is teach.spec.yml course_model.interview.course_question, or null when absent.
+      tips.yml: YAML list of {cutout_id, text}, one per string in each of the student's cutouts' "tips" list.
+      "directives/<opcode>.md": >-
+        Absent since protocol 1 revision 2026-09-28c: a Teach of that revision ships no bodies in the package and
+        serves one per signed request instead (W-API-DIRECTIVE). Revision 2026-09-28b carried them here and a Reach
+        of that revision decrypted one in memory; a Reach of 2026-09-28c still reads a body from the package when a
+        Teach older than 2026-09-28c put one there. A body is never written to the vault or into a workspace.
+      seal.yml: >-
+        YAML map {schema: teach.seal/v1, ledger_key, marks}. ledger_key is HMAC-SHA256(Teach's seal secret,
+        "ledger\n" + install_id + "\n" + header.version) as 64 lowercase hex characters. marks maps each cutout id of
+        the student's slices to a map of owned path to mark, where mark is the first 8 bytes of
+        HMAC-SHA256(Teach's seal secret, install_id + "\n" + cutout_id + "\n" + owned path) as 16 lowercase hex
+        characters. The seal secret never leaves Teach; Reach stores seal.yml only in the vault.
+    reach_use: >-
+      The guardrails version is header.version (an integer). Reach renders AGENTS.md, CLAUDE.md and GEMINI.md for a slice
+      as W-RENDER-1, writes a digest manifest of the unpacked entries and re-checks it on every load (W-SEAL-3), and
+      stamps every owned file with its mark (W-SEAL-1).
+  W-PKG-2:
+    name: workspace
+    kind: workspace
+    built_by: teach
+    entries:
+      slices.json: >-
+        {"schema": "teach.workspace/v1", "course": <course id>, "assignment": <A1-A4>, "slices": [<slice>...]} where each
+        slice is {cutout_id, slice, module, assignment, due, behavior, owned_files, instructor_apis, panel_slice,
+        contract_refs, tags, class, root}. root is "<cutout_id>-<slice>". owned_files lists paths relative to the slice
+        workspace. tags is ["@<cutout_id>", "@<slice>"] since protocol 1 revision 2026-09-28d (["@<cutout_id>"]
+        before it); every tag must hold for a scenario to run (W-RUN-1).
+      "<root>/<owned file>": >-
+        The student's starting copy of each owned file: the course repository's stub at stubs/<owned file> when it has
+        one (since 2026-09-28d), otherwise empty.
+      "<root>/api/README.md": The instructor APIs the slice may call, one per line, as given by the course spec.
+      "<root>/contract/README.md": The contract references for the slice, one per line, as given by the course spec.
+    owned_file_split:
+      backend: The cutout's owned_paths that end in ".rb".
+      panel: The cutout's owned_paths that do not end in ".rb".
+      verification: The cutout's evidence_paths when present; otherwise the slice is not built and Teach reports a warning.
+    never_included: >-
+      A cutout's reference_implementation, its regeneration prompt, its acceptance scenarios, its status, step or group,
+      or any file that is not one of the entries above. Teach copies slice fields by allowlist, never by blocklist.
+    reach_use: W-PROV-1.
+  W-PKG-3:
+    name: shape
+    kind: shape
+    built_by: teach
+    entries:
+      "<cutout_id>/shape.json": The signed Dovetail shape for the cutout's module.
+      "<cutout_id>/shape.sig": The shape's signature, when Dovetail produced one.
+      "<cutout_id>/brief.md": The design brief for the cutout.
+      "dovetail/**": >-
+        Since 2026-09-28d: the Dovetail shape checker that compiled the shapes, as written by dovetail checker export
+        (dovetail/exe/dovetail, dovetail/lib/**, dovetail/VERSION). It runs on Ruby 2.6.10 and later with the standard
+        library only.
+    availability: >-
+      Since 2026-09-28d Teach compiles modules/<module>/contract.rb from the course repository with Dovetail and signs
+      shape.json with its active signing key (the key Reach receives in signing_public_keys), for every cutout whose
+      module has a contract; a cutout whose module has none is skipped with a warning. Before 2026-09-28d the kind was
+      built only for course-spec entries carrying a shape.
+    reach_use: >-
+      Unpacked into ~/.reach/vault/shape/. The shape for a slice workspace is vault/shape/<cutout_id>/shape.json; its
+      brief is copied read-only into <workspace>/shape/brief.md. Reach runs the shipped checker with its own Ruby
+      (ruby vault/shape/dovetail/exe/dovetail check ...) and falls back to a dovetail on the PATH only when the package
+      carries none. Since 2026-09-28e the check runs on the whole panel the student's code lives in: a copy of
+      vault/suite/reference_build/<module>/modules/<module>/panel with the slice's owned panel files laid over it, the
+      same tree Teach's grading sandbox checks. A slice that owns no panel files has nothing to check. Without the
+      suite, Reach checks the workspace's own panel directory.
+  W-PKG-4:
+    name: suite
+    kind: suite
+    built_by: teach
+    entries:
+      "features/**/*.feature": The acceptance feature files named by the student's cutouts' acceptance_features, at the same relative paths.
+      reasons.yml: The plain-language failure reasons, when the course repository has one at features/reasons.yml.
+      "features/step_definitions/**": >-
+        Since 2026-09-28d: the course repository's shared step files (features/step_definitions/grokit_*.rb) and the
+        step file of each module the student's cutouts belong to (features/step_definitions/<module>_steps.rb).
+      "features/support/**": Since 2026-09-28d, the course repository's features/support/ directory.
+      "reference_build/<module>/**": >-
+        Since 2026-09-28e, one tree per module the student's cutouts belong to, each at reference_build/<module>/: the
+        output of the course repository's bin/reference-build --module <module> --out <dir>, with every path the student
+        owns in that module replaced by the course repository's stub at stubs/<path>, or removed when there is no stub.
+        The paths the student owns are each slice's owned_file_split (W-PKG-2), so a panel slice's cutout keeps its
+        reference backend and a backend slice's cutout keeps its reference panel. From 2026-09-28d to 2026-09-28e the
+        trees were merged into reference_build/**, where the last module's app/ replaced the others', and every
+        owned_path of a cutout was stubbed whatever the slice.
+      Gemfile: Since 2026-09-28d, the course repository's features/Gemfile.
+      Gemfile.lock: Since 2026-09-28d, the course repository's features/Gemfile.lock (Ruby 3.2 and later).
+      Gemfile.ruby26.lock: Since 2026-09-28d, the course repository's features/Gemfile.ruby26.lock (Ruby 2.6 to 3.1).
+      suite.yml: >-
+        Since 2026-09-28d: {suite_version, fixture_version, modules}. suite_version is the course repository's commit
+        (12 hex characters); fixture_version is the course repository's fixtures/VERSION, or null.
+      "step_definitions/**": Reserved in 0.2.0 and never shipped; replaced by features/step_definitions/**.
+      "support/**": Reserved in 0.2.0 and never shipped; replaced by features/support/**.
+    availability: >-
+      Built only when TEACH_GROKIT_ROOT points at the course repository and the named feature files exist; otherwise
+      skipped with a warning.
+    reach_use: >-
+      Unpacked into ~/.reach/vault/suite/. The reference build of a slice is vault/suite/reference_build/<module>/, the
+      module of the slice's cutout. When it is absent, reach tips says the tips suite is not complete yet instead of
+      running. Otherwise reach tips assembles and runs it as W-RUN-1.
+  W-RUN-1:
+    name: suite run directory
+    since: 2026-09-28d
+    applies_to: reach tips (from the vault) and Teach's grading sandbox (from its own copy); both follow it exactly.
+    assemble:
+      - Start from an empty directory.
+      - Copy reference_build/<module>/** into it at the same relative paths, for the module of the slice's cutout.
+      - Copy features/** (feature files, features/step_definitions/**, features/support/**) into features/.
+      - Copy Gemfile, Gemfile.lock and Gemfile.ruby26.lock, and reasons.yml, into the directory root.
+      - Copy each of the student's owned files for the slice over the path it names, replacing any stub.
+    gems: >-
+      BUNDLE_GEMFILE is the directory's Gemfile. The lockfile is Gemfile.ruby26.lock on Ruby 3.1 and earlier and
+      Gemfile.lock on Ruby 3.2 and later; the runner copies the chosen lock to Gemfile.lock before bundling when they
+      differ. When the suite carries no Gemfile, Reach falls back to its own gem set.
+    command: >-
+      bundle exec cucumber --format json --tags @<cutout_id> --tags @<slice>, run from the directory root, with
+      REACH_CHROME naming a Chrome or Chromium binary when one is known and CUPRITE_NO_SANDBOX=1 inside a container.
+    results: >-
+      Every scenario in the JSON report is one result; it passed when no step failed. A scenario's failure category is
+      its @category:<name> tag, or behaviour when it has none.
+  W-PKG-5:
+    name: submission
+    kind: submission
+    built_by: reach
+    entries:
+      manifest.json: >-
+        {"schema": "reach.submission/v1", course, assignment, cutout_id, slice, owned_files, digests, reach_version,
+        client_created_at, seal}. digests maps each owned file to its W-CONV-4 digest, or null when the file does not
+        exist. seal (since 2026-09-28, absent from older Reach) is {guardrails_version, ledger_key: "teach" | "local",
+        ledger_head, ledger_count, witnessed: {owned path: digest or null}, marks: {owned path: own | missing | corrupt
+        | foreign | unmarked}, harness, sidecar_id, integrity_events}.
+      "files/<owned file>": One entry per owned file that exists, its bytes unchanged.
+      ledger.jsonl: The last 2000 records of the slice's witness ledger (W-SEAL-2), verbatim; absent when the ledger is empty.
+    teach_checks:
+      - manifest.cutout_id, manifest.slice and manifest.assignment equal the request body's cutout_id, slice and assignment.
+      - Every files/ entry's path (without the files/ prefix) is in manifest.owned_files, and its digest equals manifest.digests for that path.
+      - When the course spec is available, manifest.owned_files equals the W-PKG-2 owned_file_split for that cutout and slice.
+      - A failed check rejects the submission with code invalid_request and reason "the package does not match the slice".
+      - >-
+        Provenance (W-SEAL-4) is assessed after the checks above and never rejects a submission; its verdict is stored
+        on the submission for instructors and is not part of any receipt.
+    file_list: The ingest receipt's file_list is the sorted list of files/ entry paths without the files/ prefix.
+  W-PKG-6:
+    name: hand bundle
+    kind: hand_bundle
+    built_by: reach
+    entries:
+      bundle.json: >-
+        {"schema": "reach.hand/v1", trigger, summary, course, assignment, cutout_id, slice, attempts, files, plan, profile,
+        client_created_at}. files maps each owned file to its text or null. attempts is the slice's recent attempt records.
+        plan is the slice plan (reach.plan/v1) or null. profile is the student's saved profile fields, present only when
+        the student agreed to include it; otherwise null.
+render:
+  W-RENDER-1:
+    name: course rules file
+    rule: >-
+      AGENTS.md, CLAUDE.md and GEMINI.md in a slice workspace hold the same text: "# Course rules for this workspace", a
+      blank line, "You are helping a student with one slice of a course module. These rules come from the instructors
+      and always apply.", a blank line, a numbered list ("1. ", "2. ", ...) of every directives.yml entry without an
+      opcode whose id does not start with "G-CUTOUT-" followed by those whose id starts with
+      "G-CUTOUT-<this slice's cutout_id>-", in file order, then the directive table (W-RENDER-2) when it is not empty,
+      a blank line, then "Your files: <owned files joined by ', '>", "Slice: <cutout_id> (<slice>) - <behavior>" and
+      "Due: <due>", each on its own line, ending with a newline.
+  W-RENDER-2:
+    name: directive table
+    rule: >-
+      A blank line, "## Course directives", a blank line, one row per directives.yml entry with an opcode whose slice is
+      all or equals this slice; a blank line, "## Engineering directives", a blank line, one row per file in Reach's
+      directives/ directory whose slice applies; a blank line, then the pointer sentence. A section with no rows is
+      omitted. A row is "[<alias> · <OPCODE>]" padded to 20, the rule padded to 88, "reach directive <OPCODE>" padded to
+      26, "⚙ " and the enforce value padded to 22, "⚡ " and the when list as "[a, b]", separated by single spaces.
+provisioning:
+  W-PROV-1:
+    name: slice workspaces
+    rule: >-
+      For each entry in slices.json, Reach provisions ~/reach-work/<course>/<assignment>/<root>/ (REACH_WORKSPACE_ROOT
+      replaces ~/reach-work) from the archive entries under "<root>/", then writes README.md (Reach's template from the
+      slice fields), the W-RENDER-1 files, shape/brief.md when a brief exists, .reach/slice.json (course, assignment,
+      cutout_id, slice, kind = slice, behavior, due, owned_files, tags, package_version) and .reach/delivered.json, and
+      makes every file except the owned files read-only.
+  W-PROV-2:
+    name: never overwrite the student's work
+    rule: >-
+      When a newer workspace package arrives, Reach replaces read-only files and the marker, but keeps any owned file
+      whose current digest differs from the digest it had when last delivered. It records each kept file in the sync
+      summary.
+routes:
+  - id: W-API-ENROL
+    method: POST
+    path: /api/v1/enrol
+    auth: none (rate limited per IP)
+    request:
+      code: {type: string, minLength: 12, maxLength: 32}
+      public_key_pem: {type: string, maxLength: 4096}
+      reach_version: {type: string}
+      platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
+      ruby_version: {type: string, note: RUBY_VERSION}
+    response_200:
+      install_id: string
+      student_id: string
+      course: {id: string, title: string, term: string, timezone: string}
+      signing_public_keys: "[{key_id, pem}]"
+      encryption_key: "{key_id, pem}"
+      minimum_reach_version: string
+      wire_contract_sha256: string
+    errors: {400 invalid_request: "a bad, expired or used code, or a malformed body", 429 rate_limited: "too many attempts"}
+  - id: W-API-STATUS
+    method: GET
+    path: /api/v1/status
+    auth: install
+    response_200:
+      install_id: string
+      student: {id: string, display_name: string, group: "string or null"}
+      course: {id: "string or null"}
+      current_assignment: "{id, due} or null"
+      slices: "[{cutout_id, slice, assignment}]"
+      packages: "[{kind, version, content_digest}] for the latest package of each kind that exists"
+      outstanding_receipts: "[receipt_id]"
+      server_time: W-CONV-3 timestamp
+      signing_public_keys: "[{key_id, pem}]"
+      encryption_key: "{key_id, pem}"
+      minimum_reach_version: string
+      wire_contract_sha256: string
+  - id: W-API-PACKAGE
+    method: GET
+    path: /api/v1/packages/:kind
+    auth: install
+    request_headers:
+      If-None-Match: The quoted content_digest of the newest package of this kind Reach has stored, when it has one.
+    response_200: The envelope (W-ENV-1) of the latest package of that kind for this install's student, with ETag "<content_digest>" in double quotes.
+    response_304: Empty body; the stored package is current.
+    errors: {404 not_found: "no package of this kind has been built for the student yet"}
+    reach_use: >-
+      Reach stores the verified envelope at ~/.reach/packages/<kind>/<header.version>.pkg. A 404 is not an error; the
+      kind has not been built yet.
+  - id: W-API-SUBMIT
+    method: POST
+    path: /api/v1/submissions
+    auth: install
+    request_headers:
+      Idempotency-Key: Required. A UUID Reach generates once per submission and reuses on every retry of it.
+    request:
+      cutout_id: {type: string, pattern: "^[a-z_]+\\.a[1-4](s[12])?$"}
+      slice: {type: string, enum: [backend, panel, verification]}
+      assignment: {type: string, enum: [A1, A2, A3, A4]}
+      package: W-ENV-1 envelope, header.kind submission (W-PKG-5)
+      client_created_at: W-CONV-3 timestamp
+    response_200:
+      submission_id: string
+      state: "ingested | rejected"
+      receipt: The signed ingest receipt (W-RCPT) when state is ingested.
+      rejection: "{code, reason} when state is rejected"
+    notes: >-
+      Ingest is synchronous: the ingest receipt arrives in this response, so Reach announces "received" at once. A repeat
+      with the same Idempotency-Key returns the original submission_id, state and receipt.
+    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
+  - id: W-API-SUBMISSION
+    method: GET
+    path: /api/v1/submissions/:id
+    auth: install
+    response_200: {submission: "the submission record", receipts: "[receipt bodies], oldest first"}
+    reach_use: Polled no more often than every 30 seconds for a grade receipt, only while one is outstanding.
+  - id: W-API-RECEIPTS
+    method: GET
+    path: /api/v1/receipts
+    auth: install
+    query: {since: "W-CONV-3 timestamp, optional", limit: "1-200, default 50", cursor: "a receipt_id, optional"}
+    response_200: {receipts: "[receipt bodies], newest first"}
+  - id: W-API-HAND
+    method: POST
+    path: /api/v1/hands
+    auth: install
+    request_headers:
+      Idempotency-Key: Required, as for submissions.
+    request:
+      cutout_id: string
+      slice: {enum: [backend, panel, verification]}
+      trigger: {enum: [attempt_gate, student_request, check_gate]}
+      summary: {type: string, maxBytes: 2000}
+      bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6)
+    response_200: {hand_id: string, state: string}
+    notes: check_gate (since 2026-09-28) is raised by reach submit when reach check still reports findings on a second attempt.
+  - id: W-API-HAND-STATUS
+    method: GET
+    path: /api/v1/hands/:id
+    auth: install
+    response_200: {state: string, reply: "object or null"}
+  - id: W-API-INTEGRITY
+    method: POST
+    path: /api/v1/integrity
+    auth: install
+    request_headers:
+      Idempotency-Key: Required, as for submissions.
+    request:
+      kind: {enum: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled, directive_dump]}
+      detail: {type: string, maxBytes: 2000}
+      cutout_id: {type: [string, "null"], required: false}
+      slice: {type: [string, "null"], required: false}
+      path: {type: [string, "null"], required: false}
+      ledger_head: {type: [string, "null"], required: false}
+      client_created_at: W-CONV-3 timestamp
+    response_200: {event_id: string}
+    notes: >-
+      Since 2026-09-28. Teach stores the event against the install and student and shows it to instructors only. A
+      Teach that predates the route answers 404 not_found, which Reach ignores (never retried, W-ERR-2). Reach sends
+      kind enrolled once after every successful enrolment with detail {sidecar_id, prior_install_ids, platform}, so
+      installs sharing a sidecar are linked on Teach. Kind directive_dump names a sweep of the private directives
+      (three or more distinct within 300 seconds, or every one within an hour). A Reach of revision 2026-09-28b
+      counted reads itself and sent the kind; since 2026-09-28c Teach counts the bodies it served (W-API-DIRECTIVE)
+      and creates the event itself, at most one per install per hour, and Reach sends none. A Teach that predates
+      the kind answers 400 invalid_request, which Reach ignores.
+    errors: {429 rate_limited: "over 30 events per hour per install"}
+  - id: W-API-DIRECTIVE
+    method: GET
+    path: /api/v1/directives/<OPCODE>
+    auth: install
+    query:
+      cutout_id: {type: string, required: false}
+      slice: {type: string, required: false}
+    response_200: {opcode: string, alias: string, rule: string, body: string, digest: string}
+    notes: >-
+      Since protocol 1 revision 2026-09-28c. The body of one private directive, served for this one request and
+      never stored on the install; Reach asks in quick mode (one attempt, two-second timeouts, no retries) and shows
+      the table's one-line rule with M-DIRECTIVE-OFFLINE when it cannot. digest is SHA-256 over every row and body
+      Teach currently holds, so a change of any directive is visible without a package rebuild. Teach records every
+      served body (install, student, opcode, cutout_id, slice, time) and derives directive_dump events from that
+      record; the query is covered by the request signature (W-SIG-1), so the cutout and slice are the install's own
+      claim, signed. A Teach that predates the route answers 404 not_found; a revoked install is refused as for every
+      route.
+    errors:
+      400 invalid_request: the opcode is not 3 to 10 capitals or digits
+      404 not_found: no directive by that opcode
+      429 rate_limited: over 60 bodies per hour per install
+  - id: W-API-HEALTH
+    method: GET
+    path: /api/v1/health
+    auth: none
+    response_200: {status: "ok | degraded", database: boolean, blob_store: boolean}
+receipts:
+  W-RCPT-1:
+    name: body
+    fields:
+      receipt_id: string
+      kind: "ingest | grade | validation"
+      submission_id: string
+      student_id: string
+      cutout_id: string
+      slice: string
+      assignment: string
+      issued_at: W-CONV-3
+      signing_key_id: string (new in protocol 1)
+      received_at: ingest only
+      content_digest: ingest only
+      file_list: ingest only
+      late: ingest only, boolean
+      scenarios: "grade only, [{name, result: passed|failed|skipped, reason?}]"
+      score: grade only, number 0-1
+      suite_version: grade only
+      fixture_version: grade only
+      validated_by: validation only
+      note: validation only
+      supersedes: optional
+      signature: W-CONV-5 base64
+  W-RCPT-2:
+    name: signature
+    rule: W-CONV-6 by the key named in signing_key_id over canonical_json(body without the signature key).
+  W-RCPT-3:
+    name: what Reach shows
+    rule: >-
+      Received: slice, cutout_id, received_at in the student's local time as "%a %-d %b %-l:%M %P", receipt_id.
+      Graded: passed = the number of scenarios whose result is "passed", total = the number of scenarios.
+errors:
+  W-ERR-1:
+    shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
+  W-ERR-2:
+    codes:
+      invalid_request: {status: 400, reach: "never retried; shown as the reason"}
+      unauthenticated: {status: 401, reach: "never retried; M-AUTH-FAILED (clock or key)"}
+      forbidden: {status: 403, reach: "never retried"}
+      not_enrolled: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REVOKED"}
+      revoked: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REVOKED"}
+      not_released: {status: 403, reach: never retried}
+      deadline_passed: {status: 403, reach: never retried}
+      not_found: {status: 404, reach: "never retried"}
+      conflict: {status: 409, reach: never retried}
+      too_large: {status: 413, reach: never retried}
+      rate_limited: {status: 429, reach: "retried after Retry-After seconds, within the retry budget"}
+      internal: {status: 500, reach: retried}
+    rule: Reach branches on error.code, never on the HTTP status alone, because five codes share 403.
+compatibility:
+  W-COMPAT-1:
+    rule: >-
+      Teach reports minimum_reach_version (default "0.2.0"). A Reach older than that blocks course work with
+      M-REACH-OUTDATED and keeps working for enrolment, sync and status.
+  W-COMPAT-2:
+    rule: >-
+      Teach reports wire_contract_sha256, the W-CONV-4 digest of the bytes of its specs/wire.yml. Reach computes the same
+      digest of its own specs/wire.yml; reach doctor reports R-DOC-WIRE when they differ.
+  W-COMPAT-3:
+    rule: Protocol 1 does not interoperate with Reach 0.1.0 or Teach 0.1.0.
+reach_client_safety:
+  W-SAFE-1: {name: timeouts, rule: "connect 5 s, read 30 s, upload read 120 s; quick mode (hooks) connect 2 s, read 2 s, no retries"}
+  W-SAFE-2: {name: rate limit, rule: "a token bucket of 20 requests per minute shared by every Reach process on the machine through ~/.reach/state/bucket.json under an exclusive file lock; Teach allows 30"}
+  W-SAFE-3: {name: retries, rule: "at most 4 retries, exponential backoff with full jitter (1 s base, 30 s cap), Retry-After honoured up to 60 s; only codes W-ERR-2 marks retried, plus connection failures and timeouts; a fresh nonce and timestamp on every attempt"}
+  W-SAFE-4: {name: circuit breaker, rule: "five consecutive failures open the breaker for 60 s; while open, calls raise Reach::Offline at once"}
+  W-SAFE-5: {name: kill switch, rule: "REACH_OFFLINE=1 stops every network call"}
+  W-SAFE-6: {name: polling, rule: "grade receipts no more often than every 30 s and hand replies no more often than every 60 s, only while one is outstanding"}
+  W-SAFE-7: {name: logging, rule: "every request is logged to ~/.reach/logs/requests.jsonl with method, route, status, latency and retry count; never bodies, headers or keys"}
+  W-SAFE-8: {name: integrity events, rule: "sent in quick mode with no retries and queued in the outbox when they fail; each distinct (kind, path, detail) is sent at most once per install"}
+seal:
+  W-SEAL-1:
+    name: marks in files
+    rule: >-
+      Reach keeps a carrier line in every owned .rb and .svelte file: for Ruby, line 1 "# frozen_string_literal: true"
+      and line 2 "# reach <cutout_id> <slice> " followed by the payload; for Svelte, line 1 "<!-- reach <cutout_id>
+      <slice> " + payload + " -->". The payload is U+2060, then the mark's 64 bits most significant first as U+200B (0)
+      or U+200C (1), then U+2060. Reach rewrites a file only when the carrier is absent or its payload is not the
+      expected mark, never when it decodes to a different valid mark (a foreign mark is kept as evidence).
+  W-SEAL-2:
+    name: witness ledger
+    rule: >-
+      One JSON record per line per slice: {n, at, kind, ...fields, gv, prev, tag}. gv is the guardrails version whose
+      ledger_key signed the record (null with a local key). prev is the previous record's tag ("" for n = 1). tag is
+      HMAC-SHA256(ledger_key, canonical_json(record without tag)) as 64 hex characters. Kinds: session {harness},
+      prompt, write {path, before, after}, shell {command_digest, head}, check {changed, findings}, shape {findings},
+      tips {passed, total, timed_out}, directive {opcode, tier}, plan {action}, checkpoint {n, note_digest, automatic},
+      restore {n}, mark_restored {path}, integrity {kind, path}, submit {manifest_digest}.
+  W-SEAL-3:
+    name: vault manifest
+    rule: >-
+      At unpack Reach writes .manifest.json {entry: digest} beside the guardrails entries and recomputes it on every load;
+      a mismatch is reported as integrity kind vault_tampered with the entry names and changes nothing the student sees;
+      reach sync re-unpacks the signed package whenever the manifest disagrees.
+  W-SEAL-4:
+    name: Teach provenance verdict
+    rule: >-
+      For each submitted file: own when its payload decodes to the mark Teach computes for this install, foreign:<install>
+      when it decodes to another install's mark for the same path, missing, corrupt, or unmarked for a kind Reach never
+      stamps; witnessed when the submitted digest equals the last write.after for the path in the verified ledger tail.
+      The ledger tail is verified record by record with the key derived from each record's gv; broken:<n> names the
+      first record whose tag or prev fails; unverifiable when the manifest says ledger_key local; absent when no tail was
+      sent. rules_current is whether seal.guardrails_version equals the latest guardrails package for the student. The
+      summary is clean when every file is own and witnessed, the ledger is verified and the rules are current;
+      otherwise review with the reasons listed.

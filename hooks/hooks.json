@@ -1,0 +1,16 @@
+{
+  "description": "rEach: greet the student and load the persona at session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ruby \"${CLAUDE_PLUGIN_ROOT}/exe/reach\" hello",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
