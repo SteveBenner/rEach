@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.10.0 |
+| **Registry version** | 0.11.0 |
 | **Last audited** | 2026-09-29 |
-| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, submit, receipts, hands, tips, setup, installer, reference, the intake interview and profile, the 17 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
-| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.10.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 30 catalogued |
+| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 18 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
+| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
+| **Feature count** | 32 catalogued |
 
 ## How to read this registry
 
@@ -23,12 +23,12 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 30 | 100% |
+| ✅ Shipped | 32 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 2 | 7% |
-| 🔵 Built, not enabled | 27 | 90% |
+| 🟢 Live | 2 | 6% |
+| 🔵 Built, not enabled | 29 | 91% |
 | ⚫ No runtime path | 1 | 3% |
 
 ## 1 · Install
@@ -107,26 +107,51 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.7 · Submit and receipts
 
-`reach submit` runs the check, submits the owned files and waits for a signed ingest receipt; `reach receipts` shows
-them. The smoke matched the receipt ids Teach issued to the ones Reach stored.
+`reach submit` runs the check, refuses unless the latest qualification passed on exactly the current owned files and
+scenarios, submits the owned files with the scenarios and the passing record as evidence, and waits for a signed
+ingest receipt; `reach receipts` shows them. Since 0.11.0 the check counts only findings in the slice's own files, so a
+panel slice is no longer blocked by a shape finding in an instructors' file its workspace does not hold. The smoke matched the receipt ids Teach issued to the ones Reach stored.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.8 · Tips and remote acceptance
+### 2.8 · Qualification
 
-`reach tips` runs the tips suite locally. In a workspace whose `acceptance_mode` is remote it runs nothing locally
-and shows the pending or returned signed results; `reach doctor` skips the gems check when every workspace is remote.
-Grading at Teach needs its grader process and both Docker images.
+`reach qualify` proves a slice before submission: `reach check` on the owned files, coverage of every graded scenario
+name by the agent's own scenarios in `qualify/features`, those scenarios run here against Grokit's answer-free kit when
+the slice allows it (and again on the starting copy, where they must fail), then an ungraded qualification on Teach
+(W-API-QUALIFY) that runs the agent's scenarios on the real build and on the starting copy and the instructors' hidden
+scenarios. `--list` prints the tag and graded names; `--local-only` never counts. Verified end to end on 2026-09-29
+against a scratch Teach 0.11.0 and Grokit 0.5.0, a backend slice (context.a1) and a panel slice (finance.a1). Replaces
+`reach tips`, which is gone.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.9 · Hands
 
 `reach hand raise|status|list` sends a signed, encrypted context bundle to the instructors and polls for replies.
+Since 0.11.0 the bundle is `reach.hand/v2`: originator (agent or student), the task, the attempt history, every owned
+file and scenario file in full and the last qualification's output.
+
+Build ✅ · Deploy 🔵 · Blocker: -.
+
+### 2.10 · Attempt ladder
+
+Reach counts failed qualifications per slice: the second prints a notice for the student, the third raises an agent
+hand and holds further passes and writes until `reach attempts continue` records the student's yes (accepted only
+after a captured student prompt), and the tenth stops everything until an instructor replies. A pass or a reply
+resets it. Verified end to end on 2026-09-29.
+
+Build ✅ · Deploy 🔵 · Blocker: -.
+
+### 2.11 · Feature and bug flows without git
+
+The reach-feature and reach-bug skills are the only ways the agent writes code (directive R-FLOW); both overwrite
+files in place and use checkpoints as history. The gate refuses git in slice workspaces and at the course folder's
+top (M-GATE-NOGIT); the extracurricular folder is the student's own. Git support is planned for Reach 2.0 (ROADMAP.md).
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.10 · Course record
+### 2.12 · Course record
 
 In every course folder on Claude Code and Codex, Reach captures the student's prompts (`reach gate prompt`, before
 any gate check) and, since 0.10.0, the AI's replies, its reasoning where the harness stores it readably, its actions
@@ -141,7 +166,7 @@ not captured.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.11 · Slice API reference
+### 2.13 · Slice API reference
 
 A workspace from Teach 0.9.0 carries `api/README.md` and `api/slice-api.json` generated by Grokit 0.3.0's
 `bin/slice-api` (wire revision 2026-09-29b): the operation and its types, the granted ports and their methods for a
@@ -151,7 +176,7 @@ granted ports from the JSON and falls back to the README. Verified for every A1 
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.12 · Hookless-harness provenance
+### 2.14 · Hookless-harness provenance
 
 The submission seal carries `hooked` and a harness that falls back to `REACH_HARNESS`; Antigravity's rules file sets
 it. Teach notes a hookless submission as unwitnessed instead of flagging it for review, behind
@@ -160,7 +185,7 @@ signal, not a guarantee.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.13 · Course folders and extracurricular
+### 2.15 · Course folders and extracurricular
 
 `~/reach-work` holds `deliverables/<course>/<assignment>/<cutout>-<slice>/` (every slice; a sync moves older slice
 workspaces there and never deletes one) and `extracurricular/`, the student's own code folder, never graded or
@@ -234,9 +259,9 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 6.1 · MCP tools beyond reference
 
-The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 17 tools beyond `reach_reference` (3.1): `reach_hello`,
+The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 18 tools beyond `reach_reference` (3.1): `reach_hello`,
 `reach_enroll`, `reach_sync`, `reach_status`, `reach_check`, `reach_shape_check`, `reach_checkpoint`, `reach_plan`,
-`reach_submit`, `reach_receipts`, `reach_tips`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
+`reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget` — each a thin wrapper the agent calls instead of
 shelling out to the `reach` CLI.
 
@@ -312,7 +337,7 @@ Build ✅ · Deploy 🟢 · Blocker: -.
 Google's agent app and CLI (replaced Gemini CLI in 2026); reads `plugin.json` (Agent Plugins 1.0) and
 `rules/reach.md` as its always-on pointer to `reach hello`. Antigravity has no documented hook format, so it ships
 none; since 0.9.0 it runs `REACH_HARNESS=antigravity reach submit`, so Teach notes its submissions as unwitnessed
-(2.12). `agy` is not installed on the development machine, so `reach setup --harness antigravity` and the
+(2.14). `agy` is not installed on the development machine, so `reach setup --harness antigravity` and the
 plugin-directory link are untested.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run; `agy` not installed here).

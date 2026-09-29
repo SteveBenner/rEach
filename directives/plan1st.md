@@ -21,7 +21,7 @@ reach plan save --behaviour "<what the behaviour does, in the student's words>" 
 
 Keep it short: the behaviour in one sentence, the exact input and output from
 `contract/README.md`, three to six steps, the edge cases the README and the
-brief name, and the scenario names from `reach tips`. Read the plan back to
+brief name, and the graded scenario names from `reach qualify --list`. Read the plan back to
 the student in plain words and wait for their yes before editing anything.
 
 Why: a plan written first is the only thing that stops a fluent rewrite of

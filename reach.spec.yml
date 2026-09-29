@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.10.0
+version: 0.11.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -10,8 +10,9 @@ summary: >
   Reach is the student's side of the course software. It is an rplugin plugin that installs into Claude Code or
   Codex and turns the student's own AI agent into a bounded course partner. It enrolls with Teach, receives the student's
   protected materials, refuses to let the agent work until the instructors' guardrails are installed, keeps the
-  agent inside the student's slice, checks every change against the Dovetail shape, runs the instructors' tips suite,
-  submits work and waits for Teach's receipt, and raises a hand to the instructors when the agent is stuck.
+  agent inside the student's slice, checks every change against the Dovetail shape, has the agent prove each slice with
+  scenarios of its own on this computer and on Teach before submitting (qualification), submits work and waits for
+  Teach's receipt, and raises a hand to the instructors by itself after three failed qualifications (attempt_ladder).
 decisions:
 - date: '2026-09-26'
   round: 2
@@ -22,7 +23,7 @@ decisions:
   round: 3
   decision: >-
     Student-side floor Ruby 2.6.10 (macOS 10.15 to 26); Windows and Linux get a pinned Ruby from Reach's installer;
-    the local suite is for tips only.
+    the local suite is for tips only (superseded 2026-09-29 by qualification: no graded suite reaches the student).
 - date: '2026-09-26'
   round: 3
   decision: >-
@@ -82,6 +83,23 @@ decisions:
     guardrails package. One checker (reach check) serves the hooks, the attempt gate and the submit gate; plans and
     checkpoints are Reach's own, with no git in the workspace; every owned file carries an invisible seal and every
     session a witness ledger that Teach reads for provenance, silently (directives, check, checkpoints, seal).
+- date: '2026-09-29'
+  decision: >-
+    Reach abstracts coding away from the student. The agent writes the code and its own scenarios, qualifies them
+    here and on Teach before any submission, and iterates out of the student's sight; the student hears a notice from
+    the second failed pass, the third raises a structured agent hand (reach.hand/v2) and needs the student's yes to go
+    on, and the tenth stops until an instructor replies (qualification, attempt_ladder). The tips suite is gone.
+- date: '2026-09-29'
+  decision: >-
+    Split qualification: the agent's scenarios run locally against Grokit's answer-free qualify kit when the slice
+    allows it, and always on Teach against the reference build, the starting copy and the hidden graded scenarios. No
+    reference code leaves Teach; Teach answers with scenario names, results, the agent's own step text and a
+    whitelisted error class only.
+- date: '2026-09-29'
+  decision: >-
+    When writing code the agent must follow the reach-feature or reach-bug flow (directive FLOW). Git is not supported
+    yet: the gate refuses it in slice and root spaces, files are overwritten in place and checkpoints are the history.
+    Git support is planned for Reach 2.0 (ROADMAP.md).
 wire_contract: specs/wire.yml (normative for every byte between Reach and Teach; where this file and it differ, it wins)
 runtime:
   ruby: 2.6.10 to 4.0.x; standard library only; no native gems.
@@ -90,7 +108,7 @@ runtime:
     through Reach.ports; otherwise Reach keeps its own records under ~/.reach. rplugin-compat (the Ruby 2.6 rewrite)
     is no longer required to run.
   browser: >-
-    Chromium for the tips suite, found in this order - REACH_CHROME, Google Chrome, Chromium, Microsoft Edge; Reach
+    Chromium for panel qualification runs, found in this order - REACH_CHROME, Google Chrome, Chromium, Microsoft Edge; Reach
     offers to download a pinned Chromium build into its own directory when none is found.
   platforms:
     macos: 10.15 or newer, system Ruby 2.6.10
@@ -108,10 +126,10 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.8.0
+    version: 0.11.0
     rplugin: ">= 1.0.0-compat"
-    description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run
-      courses.
+    description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
+      Teach-run courses.
     ports:
       required:
       - secrets
@@ -133,11 +151,13 @@ plugin_manifest:
         - tip
         - attempt
         - receipt
+        - qualification
         writes_kinds:
         - note
         - tip
         - attempt
         - receipt
+        - qualification
       consumes: []
     contents:
       skills:
@@ -149,6 +169,10 @@ plugin_manifest:
         path: skills/reach-help/SKILL.md
       - id: reach-assistant
         path: skills/reach-assistant/SKILL.md
+      - id: reach-feature
+        path: skills/reach-feature/SKILL.md
+      - id: reach-bug
+        path: skills/reach-bug/SKILL.md
       agents:
       - id: reach
         path: agents/reach.md
@@ -172,7 +196,7 @@ layout:
     content: Encrypted packages as received
   - path: "~/.reach/vault/"
     content: >-
-      Decrypted guardrails, suite and reference build, plus the shape package's Dovetail checker
+      Decrypted guardrails, plus the shape package's Dovetail checker
       (vault/shape/dovetail/, exe/dovetail, lib/**, VERSION) when the package carries one; mode 0700; recreated
       from packages on demand and wiped on reach lock
   - path: "~/.reach/outbox/"
@@ -216,8 +240,10 @@ layout:
     - README.md - the slice's behaviour, inputs, outputs and what to do
     - AGENTS.md, CLAUDE.md and GEMINI.md - generated by Reach from the guardrails package's directives (read-only; specs/wire.yml W-RENDER-1)
     - ".claude/settings.json, .mcp.json, .codex/config.toml and .codex/hooks.json - the workspace-level harness configuration, calling Reach through the ~/.reach/bin/reach shim"
-    - ".reach/ - the workspace marker with the slice id, the owned-path list and the delivered digests"
-    permissions: Everything except the owned files is made read-only on disk; Reach restores permissions if they
+    - ".reach/ - the workspace marker with the slice id, the owned-path list, the delivered digests, the qualify marker and qualification.json (the latest qualification record)"
+    - qualify/kit/ - Grokit's answer-free qualify kit from the slice API (read-only; since 0.11.0)
+    - qualify/features/ and qualify/step_definitions/ - the agent's own scenarios and steps (writable; since 0.11.0)
+    permissions: Everything except the owned files and the two qualify folders is made read-only on disk; Reach restores permissions if they
       change.
 library:
   namespace: Reach
@@ -241,9 +267,13 @@ library:
   - name: Reach::Shape
     role: Runs Dovetail's checker against the signed shape and classifies findings
   - name: Reach::Attempts
-    role: Tracks fix attempts per finding and triggers the hand-raise at three
+    role: reach attempts show and continue over the attempt ladder (settle is a no-op kept for old hooks)
+  - name: Reach::Ladder
+    role: The attempt ladder per slice - notice, agent hand, consent, hard stop, reset
+  - name: Reach::Qualify
+    role: reach qualify - check, coverage, local passes, the Teach qualification, judging and the record
   - name: Reach::Suite
-    role: Runs the tips suite for the student's slices and turns results into plain language
+    role: Installs the qualify kit's gems per lock digest and runs Cucumber with a timeout; parses its JSON report
   - name: Reach::Submit
     role: Packs, signs, encrypts, uploads and waits for the receipt
   - name: Reach::Receipts
@@ -258,7 +288,7 @@ library:
   - name: Reach::Status
     role: The status summary
   - name: Reach::Corpus
-    role: Notes, tips, attempts and receipts in Reach's own corpus through the corpus port, when available
+    role: Notes, tips, attempts, qualifications and receipts in Reach's own corpus through the corpus port, when available
   - name: Reach::Directives
     role: The public directive files, the private rows from the vault, the AGENTS.md table and reach directive (a private body fetched from Teach per call)
   - name: Reach::Check
@@ -433,8 +463,9 @@ harness_integration:
       contents:
       - The guardrail directives
       - How to read the brief and the README
-      - Run reach shape check after each change and resolve findings per the attempt policy
-      - Run reach tips before suggesting a submission
+      - Run reach check after each change and resolve findings by class
+      - Follow the FLOW directive - reach-feature or reach-bug - whenever writing code; never run git
+      - Pass reach qualify before suggesting a submission; the student never sees scenarios, code or output
       - How to talk to the student (plain language; the student directs creative choices)
       - Ground explanations in the encrypted course reference through reach reference (list, show, search, links), decrypted in memory only, never as a source of answers; the released contract wins
     reach-submit:
@@ -445,11 +476,15 @@ harness_integration:
       - Tell the student at once that the submission was received with the receipt id and time
       - If no receipt within five minutes
       - say it is not yet received and retry once
+    reach-feature:
+      purpose: The feature flow for one slice without git - read, settle the behaviour, audit, approach, scenarios first, implement, check, qualify, checkpoint, report, offer to submit.
+    reach-bug:
+      purpose: The bug flow for one slice without git - reproduce with a scenario that fails, fix the cause, check, qualify, checkpoint, report.
     reach-help:
       purpose: Asking for help.
       contents:
-      - When the attempt gate trips
-      - run reach hand raise with a summary; tell the student a hand was raised
+      - When the student asks for instructor help
+      - run reach hand raise with a summary; tell the student a hand was raised (Reach raises the ladder hand itself)
       - When a reply arrives
       - present it and ask before applying a suggested change
 gate:
@@ -468,7 +503,10 @@ gate:
     and its version is not lower than the one the cached status advertises (M-GATE-OLDGUARD).
   - The workspace belongs to one of the student's current slices.
   - >-
-    For write and shell, the target is inside the owned files and outside the vault and keys. A Codex apply_patch
+    For write and shell, the target is inside the owned files (or, since 0.11.0, qualify/features and
+    qualify/step_definitions) and outside the vault and keys. Git is refused in slice and root spaces (M-GATE-NOGIT).
+    While the attempt ladder is at the hand rung without the student's yes, or at the hard stop, writes to those files
+    and slice write commands are refused (M-LADDER-ASK, M-LADDER-STOPPED). A Codex apply_patch
     names its targets in "*** Add File:", "*** Update File:", "*** Delete File:" and "*** Move to:" lines; every one
     must be an owned file.
   offline: >-
@@ -515,45 +553,54 @@ shape_loop:
     visible: >-
       The agent pauses, tells the student what the check found in plain words, and offers alternatives - first the
       attempted design adjusted to comply, then newer ideas - and waits for the student's choice.
-  attempt_gate:
-    key: "(slice, rule id, file)"
-    count: A failed attempt is a turn that ends with the same finding still present after the agent tried to fix
-      it.
-    threshold: 3
-    action: >-
-      reach hand raise --trigger attempt_gate builds the context bundle and raises a hand; the agent tells the student.
-    reset: A resolved finding resets its counter; a reply from the instructors resets it too.
-tips_suite:
-  command: reach tips [--slice <id>]
+  attempt_gate: Replaced in 0.11.0 by attempt_ladder, which counts failed qualifications per slice.
+qualification:
+  command: reach qualify [--slice <id>] [--list] [--local-only] [--task <text>] [--summary <text>] [--format text|json]
+  purpose: >-
+    The agent proves a slice before submission with scenarios of its own. The student never sees them or their output.
+  kit: >-
+    The slice API's qualify record (Grokit 0.5.0+): tag, local, kit (paths and Grokit sources), helpers and steps.
+    Teach writes the kit into the workspace at qualify/kit/, refusing any source under a behaviours directory or any
+    owned path, so it never carries an answer.
   steps:
-  - Decrypt the suite package into the vault (if not already).
+  - check - reach check; only findings in the slice's own files count.
+  - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED).
   - >-
-    Assemble a run directory exactly as specs/wire.yml W-RUN-1: reference_build/<module>/** for the module of the
-    slice's cutout, then features/** into features/,
-    then Gemfile, Gemfile.lock, Gemfile.ruby26.lock and reasons.yml at the root, then the student's owned files
-    overlaid.
+    local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
+    the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
+    QF-VACUOUS). Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
   - >-
-    When the suite carries a Gemfile, select the lock by RUBY_VERSION (W-RUN-1's choice) and install its pinned
-    gems, once per SHA-256 of the Gemfile and the chosen lock, into a bundle environment under ~/.reach/gems, giving
-    the path as BUNDLE_PATH in the environment (never bundle config, which Bundler 1.17 misreads, and never the
-    removed --path); without a Gemfile in the suite, Reach's own generated Gemfile and locks are the fallback,
-    unchanged.
-  - >-
-    Run Cucumber with the tags for the student's slices, using Cuprite and headless Chromium, with the per-scenario
-    time freeze and fixture AI responses.
-  - Translate the results to plain language.
-  output_to_student: >-
-    One line per scenario - its name, pass or fail, and for a failure a plain reason from the suite's reason catalogue
-    (for example "the panel shows nothing when storage is down; it should show the unavailable state").
-  output_to_agent: >-
-    The same lines plus the failure's category (contract, shape, behaviour, state, locale) so the agent knows where
-    to look; never step code, stack traces into the suite or fixture values.
-  duration: Under 90 seconds for one slice on a 2019 laptop.
-  frequency_limits: At most one run at a time; the agent is told to run it before suggesting a submission, not after
-    every edit.
-  egregious_violation_tips: >
-    A contract or shape violation that would fail most of a slice's scenarios is reported by the shape loop immediately,
-    before any suite run, so the student hears about it while working (syllabus-driven decision: tips as they go).
+    remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
+    most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,
+    again on the starting copy, and the hidden graded scenarios (QF-REMOTE-FAIL, QF-VACUOUS, QF-HIDDEN). Offline,
+    network errors and Teach's unavailable answer leave it pending, which counts for nothing; a later run resumes the
+    same qualification when the digests have not changed.
+  answers_from_teach: >-
+    Per row: name, result, the failing step only when it is verbatim a line of the agent's own feature files, and an
+    error class from a fixed whitelist (else other). Never messages or output, because the run directory holds course
+    code the student does not own.
+  record: >-
+    .reach/qualification.json in the workspace (files_digest and tests_digest over canonical JSON, steps, findings,
+    passed, suite_version), a corpus record of kind qualification and a ledger event qualify.
+  exit: 0 pass, 3 pending, 1 fail.
+  submit_gate: >-
+    reach submit refuses (M-SUBMIT-UNQUALIFIED) unless the latest record passed on exactly the current owned files and
+    scenarios, and sends the scenarios and the record as evidence (W-PKG-5 evidence/).
+  limits: Teach allows 12 qualifications per slice per hour and 2 in flight per student, and 60 scenarios per package.
+attempt_ladder:
+  unit: Failed qualifications per slice (a pending one does not count), in ~/.reach/state/ladder/<slice>.json.
+  rungs:
+    '1': Silent; the agent tries again.
+    '2': M-LADDER-NOTICE for the student.
+    '3': >-
+      Reach raises a hand itself (originator agent, trigger attempt_ladder, reach.hand/v2 with the task, the attempt
+      history, every owned and scenario file in full and the last output) and prints M-LADDER-HAND. Further
+      qualifications, writes and slice write commands are refused (M-LADDER-ASK) until reach attempts continue records
+      the student's yes, which needs a student prompt captured after the hand was raised.
+    4 to 9: M-LADDER-CONTINUE; one yes covers them all.
+    '10': M-LADDER-STOPPED; everything is refused until an instructor replies.
+  reset: A passing qualification or an instructor's reply to the ladder hand resets the ladder.
+  witness: Every notice, hand, consent, stop and reset is a ledger event of kind ladder.
 submission:
   command: reach submit [--slice <id>]
   preconditions:
@@ -561,11 +608,13 @@ submission:
   - >-
     Only owned files differ from the workspace as delivered (read-only files unchanged, no new files outside owned
     paths).
-  - The shape check has no errors for panel slices.
+  - The shape check has no errors for panel slices (only findings in the slice's own files count, since 0.11.0).
+  - The latest qualification passed on exactly the current owned files and scenarios (M-SUBMIT-UNQUALIFIED).
   steps:
   - >-
     Pack the owned files into a gzip tar archive with manifest.json (slice, cutout, assignment, file digests, Reach
-    version, client timestamp), per specs/wire.yml W-TAR.
+    version, client timestamp), per specs/wire.yml W-TAR, with evidence/qualify/** (the agent's scenarios and steps)
+    and evidence/qualification.json.
   - >-
     Seal it as a teach.package/v1 envelope of kind submission (W-ENV): AES-256-GCM with the canonical header as
     additional data, the key wrapped with RSA-OAEP to Teach's advertised encryption_key (named in recipient_key_id),
@@ -598,10 +647,12 @@ receipts:
   - reach receipts wait --submission <id> - block until the ingest receipt arrives or five minutes pass
   - reach receipts show <id>
 hand_raising:
-  command: reach hand raise [--trigger attempt_gate|student_request] [--summary ...] [--include-profile]
+  command: reach hand raise [--trigger student_request] [--summary ...] [--include-profile]
   bundle: >-
-    The context bundle defined in the Teach spec, built from the attempt log and the owned files' diffs, never including
-    files outside the owned paths. The student's profile is added only with --include-profile, after the student
+    reach.hand/v2 (W-PKG-6-v2): originator (student or agent), trigger, course, assignment, cutout and slice, the task,
+    the attempt history, every owned file and scenario file in full, the last qualification's output (up to 64 KB), the
+    agent's summary, the student's last request, the environment and the contract and suite versions, fitted to 192
+    KiB. Never files outside the owned paths and qualify folders. The ladder raises its own hand with originator agent. The student's profile is added only with --include-profile, after the student
     agreed to share it.
   transport: Encrypted to Teach's key and signed like a submission; uploaded with an idempotency key.
   student_notice: The agent tells the student that a hand was raised and what was sent.
@@ -618,8 +669,10 @@ mcp_bridge:
     description: Receipts newest first
   - name: reach_shape_check
     description: Shape findings for the current slice, classified invisible or visible
-  - name: reach_tips
-    description: Run the tips suite and return the plain-language results
+  - name: reach_qualify
+    description: Qualify the current slice, list its tag and graded names, or run locally only
+  - name: reach_attempts
+    description: Show the attempt ladder or record the student's yes to continue
   - name: reach_submit
     description: Submit the current slice and wait for the ingest receipt
   - name: reach_raise_hand
@@ -648,7 +701,7 @@ mcp_bridge:
     description: The full text of one directive by opcode
   - name: reach_reference
     description: list, show, search or list the links of the course reference material
-  excluded: Nothing that reveals package contents, the vault, keys, test steps or fixture values.
+  excluded: Nothing that reveals package contents, the vault, keys, graded steps or fixture values.
   authentication: The bridge signs its Teach requests with the install key; the harness never sees the key.
 cli:
   command: reach
@@ -693,7 +746,7 @@ cli:
     purpose: Fetch new packages, verify them and refresh workspaces
   - name: status
     synopsis: reach status
-    purpose: Enrollment, slices, package versions, last tips results, receipts, open hands
+    purpose: Enrollment, slices, package versions, each slice's qualification (checks), receipts, open hands
   - name: work
     synopsis: reach work [--harness ...] [--slice ... | --extracurricular]
     purpose: >-
@@ -705,11 +758,12 @@ cli:
   - name: shape check
     synopsis: reach shape check [--changed <path>] [--format text|agent|json]
     purpose: Run the shape checker
-  - name: tips
-    synopsis: reach tips [--slice ...]
-    purpose: >-
-      Run the tips suite. In a workspace whose acceptance_mode is remote it runs nothing locally and shows the
-      pending or returned signed results instead.
+  - name: qualify
+    synopsis: reach qualify [--slice ...] [--list] [--local-only] [--task ...] [--summary ...] [--format text|json]
+    purpose: Prove the slice before submission (qualification)
+  - name: attempts
+    synopsis: reach attempts show|continue [--slice ...]
+    purpose: The attempt ladder; continue records the student's yes after the third failed qualification
   - name: submit
     synopsis: reach submit [--slice ...]
     purpose: Submit and wait for the receipt
@@ -804,8 +858,9 @@ course_reference:
     fails authentication is refused.
   interfaces: reach reference list|show|search|links and the reach_reference MCP tool.
 remote_acceptance: >-
-  A workspace whose metadata carries acceptance_mode remote is graded at Teach. reach tips shows the pending or
-  returned signed results and runs no local Grokit, and reach doctor skips R-DOC-GEMS when every workspace is remote.
+  Every slice is graded at Teach. Since 0.11.0 no graded suite reaches the student and reach tips is gone; the
+  qualification's remote step is the only place the hidden scenarios run before grading, and reach doctor checks gems
+  only for slices whose qualify kit runs locally.
 corpus:
   port: >-
     The rplugin corpus port when rplugin is installed (Ruby 3.3+); otherwise the plain-JSONL fallback below, which is
@@ -813,7 +868,8 @@ corpus:
   kinds:
     note: The agent's working notes about the slice (what was tried, what the student prefers).
     tip: Tips delivered by the suite or the instructors, so the agent does not repeat mistakes across sessions.
-    attempt: Fix attempts per finding (feeds the attempt gate).
+    attempt: Fix attempts per finding (kept for older records; the ladder counts qualifications).
+    qualification: Each qualification record.
     receipt: A copy of each receipt.
   privacy: >-
     The corpus lives on the student's disk only; nothing in it is sent to Teach except what a hand-raise bundle
@@ -902,7 +958,8 @@ extracurricular:
   gate: >-
     Any write inside extracurricular/ is allowed (symlinks resolved); a write outside it is refused with
     M-WRITE-OUTSIDE-EXTRA. Shell rules as in a slice, with "owned" meaning anything inside extracurricular/; network
-    commands stay refused. No shape check, tips suite, attempts gate, plan, checkpoint or witness ledger there.
+    commands stay refused. Git is allowed there, since the folder is the student's own. No shape check,
+    qualification, attempt ladder, plan, checkpoint or witness ledger there.
   rules: >-
     Rendered from the guardrails package's rules with scope extracurricular or everywhere (G-CODE-1, G-EXTRA-1,
     G-EXTRA-2 from Teach 0.10.0), then the public directive rows whose spaces include extracurricular (CODEFILE),
@@ -1056,10 +1113,28 @@ student_messages:
     text: >-
       Everything you and your AI partner write in your course folders, code included, is saved in your course record,
       which your instructors can read. What you type outside your course folders is not.
-  - id: M-TIPS-INCOMPLETE
+  - id: M-QUALIFY-NOKIT
+    text: The tools that check this part haven't arrived yet. Run reach sync, and if that doesn't help, tell your instructor.
+  - id: M-SUBMIT-UNQUALIFIED
     text: >-
-      The tips suite for this slice isn't complete yet, so rEach can't run it. Your instructors will publish it; run
-      reach sync later.
+      This part hasn't passed its checks since it last changed, so it can't be submitted yet. Your AI partner runs the
+      checks first, then submits.
+  - id: M-LADDER-NOTICE
+    text: >-
+      I'm taking another pass at this part. My last two tries didn't hold up against the checks, so I'm working through
+      it again.
+  - id: M-LADDER-HAND
+    text: >-
+      After three passes this part still isn't holding up, so I've asked your instructors to take a look. I can keep
+      trying while we wait if you'd like: just say yes, and I'll carry on for up to {limit} passes in all.
+  - id: M-LADDER-STOPPED
+    text: >-
+      I've made {limit} passes at this part without getting it right, so I'm stopping until your instructors reply.
+      Nothing is lost; your work is saved as it is.
+  - id: M-GATE-NOGIT
+    text: >-
+      rEach keeps this work's history for you with checkpoints, so that version-history command isn't used here yet.
+      Save a checkpoint instead with reach checkpoint save.
   locales: >-
     en-US in v1. Course messages live in locales/en-US.yml and rEach's greetings in locales/greetings.en-US.yml, so
     both can be translated; the texts in the files are authoritative, and the ones above are the original wording.
@@ -1118,7 +1193,7 @@ state_machines:
       when: An owned file first changes
     - from: in_progress
       to: checked
-      when: The shape check has no errors and the tips suite has run
+      when: reach qualify passes on the current files
     - from: checked
       to: submitted
       when: reach submit uploads
@@ -1149,7 +1224,7 @@ state_machines:
       when: The check still reports it (an attempt is counted)
     - from: open
       to: escalated
-      when: The third failed attempt raises a hand
+      when: The third failed qualification raises the ladder hand
     - from: escalated
       to: resolved
       when: The check no longer reports it after the reply
@@ -1189,10 +1264,12 @@ failure_modes:
     reach sync re-provisions it from the workspace package; the student's last submitted owned files are restored
     from the outbox copy when present.
 - failure: Chromium is missing or too old for Ferrum
-  behaviour: reach doctor offers the pinned Chromium download; tips are unavailable until then, and the agent says
-    so.
+  behaviour: >-
+    reach doctor offers the pinned Chromium download; a panel slice's local passes cannot run until then, and reach
+    qualify goes on to the course server.
 - failure: Gem installation fails offline
-  behaviour: Tips are unavailable until online; shape checks and submission still work (they need no gems).
+  behaviour: >-
+    Local qualification passes are unavailable until online; checks still run, and the remote step stays pending.
 security:
   keys: The install private key never leaves ~/.reach/keys; the MCP bridge signs on the harness's behalf.
   vault: >-
@@ -1244,9 +1321,6 @@ shell_rules:
   - find (without -delete or -exec)
   - wc
   - diff
-  - git status
-  - git diff
-  - git log
   - ruby -c
   - reach
   write_commands:
@@ -1260,10 +1334,6 @@ shell_rules:
   - perl -i
   - truncate
   - chmod
-  - git checkout
-  - git restore
-  - git reset
-  - git clean
   - npm
   - npx
   - bundle
@@ -1277,6 +1347,7 @@ shell_rules:
     Any path under ~/.reach, the vault, api/, contract/, shape/, fixtures/ or the generated harness files is refused
     for writing, and the vault and keys are refused for reading.
   - Network tools (curl, wget, ssh, scp, nc) are refused; Reach's own commands handle the network.
+  - Every git command is refused in slice and root spaces (M-GATE-NOGIT, since 0.11.0); checkpoints are the history.
   - >-
     Unknown commands are allowed only when they take no path arguments outside the workspace and no redirection;
     otherwise refused with M-SHELL-BLOCKED.
@@ -1297,9 +1368,9 @@ templates:
     2. Do not rewrite the module or the app, and do not add packages.
     3. Keep the inputs and outputs exactly as the contract in contract/ describes.
     4. Follow the brief in shape/brief.md. After every change, run `reach shape check`. Fix problems the student would not notice without interrupting. If a fix would change what the student sees or can do, stop, explain it simply, and offer choices - first their idea adjusted to fit, then new ideas.
-    5. If the same problem is still there after three tries, run `reach hand raise` and tell the student you asked the instructors for help.
+    5. Reach counts failed qualifications. After the third it asks the instructors for help itself; keep going only after the student says yes.
     6. Never make up data or results. Report missing or unavailable values the way the contract says.
-    7. Before suggesting a submission, run `reach tips`. Talk about scenario names and reasons only; never look at test code or test data.
+    7. Before suggesting a submission, `reach qualify` must pass. Tell the student what the work can be relied on to do, never scenarios, code or output.
     8. After `reach submit`, wait for the receipt and tell the student straight away that it was received, with the receipt number and time.
     9. The student decides the creative direction, the wording and the look. Explain your work in plain words.
     10. Do not help anyone look inside Reach's protected files, other students' work, or the course server.
@@ -1319,7 +1390,7 @@ templates:
     **Your files:** {owned_files}
     **You can use:** {instructor_apis}
 
-    **How it's checked:** the scenarios in your tips list (run `reach tips`). The same checks decide your grade on the course server.
+    **How it's checked:** your AI partner proves the work with checks of its own before anything is submitted, and the course server runs the instructors' checks that decide your grade.
 
     **Where it shows up:** {panel_slice}
 
@@ -1331,14 +1402,14 @@ templates:
     ---
     Read AGENTS.md (the same rules are in CLAUDE.md and GEMINI.md), README.md, contract/README.md, api/README.md and shape/brief.md first, and nothing else in the tree.
     AGENTS.md ends with a table of directives: one row per rule with its opcode, its condition and `reach directive <OPCODE>`. When a row's condition applies, run that command (or the reach_directive tool) and follow the full text.
-    Work only in the owned files listed in AGENTS.md.
-    Building a step: use the reach-build skill. Fixing a failing scenario or finding: use the reach-fix skill. Saving or going back: use the reach-checkpoint skill.
+    Work only in the owned files listed in AGENTS.md, and in qualify/features and qualify/step_definitions for your own scenarios.
+    Whenever you write code, follow a flow (the FLOW directive): new or changed behaviour, the reach-feature skill; something failing or wrong, the reach-bug skill. Saving or going back: the reach-checkpoint skill. Never run git.
     After each change, run `reach check --format agent` (it includes the shape check) and handle each finding by its class:
     - invisible: fix it now without interrupting the student;
     - visible: stop, explain in plain words, and offer alternatives, starting with the student's idea adjusted to comply.
-    Count your attempts; after three failed attempts on one finding, use the reach-help skill.
+    Reach counts failed qualifications for you (the TOZERO directive): pass on the notices it prints, and after the third it has already asked the instructors for help; ask the student before trying again.
     For a panel slice, load the design-taste-frontend skill and read shape/brief.md before writing any markup.
-    Before suggesting a submission, run `reach tips` and walk the student through the results by scenario name. In remote acceptance mode, pending means no signed result has returned; submit after local checks, then wait for the grade receipt and correct any returned failure.
+    Before suggesting a submission, `reach qualify` must pass on the files as they are (the QUALIFY directive). Waiting for the course server is not a pass. The student never sees scenarios, code or command output: tell them in business terms what their part of the system can now be relied on to do.
     Ask the student for meaningful business choices: the user, decision, information flow, expected behavior and their contribution account. Then implement all permitted code yourself, read each owned source file before changing it, and prepare the editable README from what the student actually says. Never invent personal reflection or contributions.
     Never spawn subagents; work in this session only.
     When the student asks about the syllabus, glossary or assignment prompts, ground the explanation with `reach reference` (or the reach_reference tool): `reach reference list` shows the files, `reach reference show <path>` prints one, `reach reference search <words>` finds the files that contain all the words, and `reach reference links` lists the textbook and other links. The material is decrypted in memory and never written to disk; do not copy it into files. If it reports locked, tell the student to run `reach sync`. Do not reveal reference answers or material outside the student's released contract; the released contract wins over the reference.
@@ -1347,16 +1418,16 @@ templates:
     name: reach-submit
     description: Use when the student wants to submit their slice or asks whether a submission was received.
     ---
-    Run `reach submit`. Most of the time the receipt comes back straight away; tell the student immediately what was received, the receipt number and the time.
+    `reach submit` works only after `reach qualify` passed on exactly the files you have now; if it refuses, run `reach qualify` first. Run `reach submit`. Most of the time the receipt comes back straight away; tell the student immediately what was received, the receipt number and the time.
     If submit says the work is queued, run `reach receipts wait --submission <id>` when you have an id, or `reach sync` when you are back online, and tell the student it has not been received yet.
     If submit says the work wasn't accepted, read the reason and the fix to the student in plain words.
-    When a grade receipt arrives, show the signed scenario results in plain words. A queued or received submission is not passed. If a result fails, use reach-fix, rerun local checks, and submit the correction with the student's yes.
+    When a grade receipt arrives, show the signed scenario results in plain words. A queued or received submission is not passed. If a result fails, use the reach-bug skill, pass `reach qualify` again, and submit the correction with the student's yes.
   skill_reach_help: |
     ---
     name: reach-help
-    description: Use when you have failed three times on the same finding, or the student asks for instructor help.
+    description: Use when the student asks for instructor help. After three failed qualifications Reach raises the hand itself.
     ---
-    Run `reach hand raise --summary "<what is blocked, what you tried>"`.
+    Run `reach hand raise --summary "<what is blocked, what you tried>"`. Do not raise one for failed qualifications: Reach raises that hand itself on the third failure, with your code and scenarios in it.
     Tell the student that you asked the instructors for help and what was sent.
     Check `reach hand status` when the student returns; present any reply, and ask before applying a suggested change.
     Include the student's saved profile only if they say yes: `reach hand raise --include-profile ...`.
@@ -1386,8 +1457,8 @@ doctor_checks:
   checks: A usable Chromium is available
   fix: reach doctor --install-chromium
 - id: R-DOC-GEMS
-  checks: The tips suite's gems are installed for this Ruby
-  fix: reach tips installs them on first run
+  checks: The qualify kit's gems are installed for this Ruby, for slices whose kit runs locally
+  fix: reach qualify installs them on first run
 - id: R-DOC-NET
   checks: Teach is reachable, the clock is within 5 minutes of Teach's
   fix: Check the connection or the computer's clock
@@ -1427,7 +1498,11 @@ directives:
       spaces list (slice, extracurricular, root; default [slice], since 0.10.0) saying which folders' tables show the
       row, and a body
     aliases: A to M
-    opcodes: PLAN1ST, RUBY, PURE, NOTEST, NOCOM, VERIFY, TOZERO, CHECKPOINT, RESUME, LEAN, DOVETAIL, CODEFILE
+    opcodes: PLAN1ST, RUBY, PURE, QUALIFY, NOCOM, VERIFY, TOZERO, CHECKPOINT, RESUME, LEAN, DOVETAIL, CODEFILE, FLOW
+    qualify_and_flow: >-
+      Since 0.11.0 QUALIFY (R-QUALIFY, alias D) replaces NOTEST: the agent writes its own scenarios under qualify/ and
+      passes reach qualify. FLOW (R-FLOW, alias M) makes the reach-feature or reach-bug flow mandatory whenever the
+      agent writes code, with no git. TOZERO follows the attempt ladder.
     codefile: >-
       CODEFILE (R-CODEFILE, since 0.10.0) tells the agent to put code in files, never in chat: coursework only in the
       slice's owned files under deliverables/, anything else in the student's extracurricular folder.
@@ -1459,8 +1534,8 @@ check:
     constants) and fall back to api/README.md when it is absent or has another schema (wire revision 2026-09-29b).
   finding: id, rule, file, line, message, fix, classification (invisible or visible), finding_id
   callers: >-
-    The PostToolUse hooks (--changed <path>), reach attempts settle (the Stop hook), reach submit (the gate), the
-    student or agent by hand
+    The PostToolUse hooks (--changed <path>), reach qualify and reach submit (only findings in the slice's own files
+    count there), the student or agent by hand
   hook_input: >-
     A hook's JSON event on stdin when stdin is readable within half a second; otherwise none, so a run from a shell
     whose stdin is open but silent never waits.
@@ -1505,10 +1580,10 @@ seal:
     default), so a harness that cannot witness writes is not flagged for review on that alone (wire revision
     2026-09-29b). hooked is self-reported from the student's ledger; it is a signal, not a guarantee.
 status_example: |
-  rEach 0.10.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  rEach 0.11.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
   Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
-    finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)
+    finance.a2s1  backend  in progress   shape: ok     checks: passed (12 min ago)
     finance.a2s2  panel    received      receipt R-8F2C1 at Thu 15 Oct 9:41 pm PDT
   Receipts: 4 (latest R-8F2C1)
   Open hands: none

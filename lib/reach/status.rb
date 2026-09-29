@@ -80,8 +80,8 @@ module Reach
         slice = meta["slice"]
         state = Reach::Workspace.state_word(workspace_path)
         shape = shape_summary(workspace_path)
-        tips = tips_summary(slice)
-        "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   tips: #{tips}"
+        checks = qualify_summary(workspace_path)
+        "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   checks: #{checks}"
       end
 
       def shape_summary(workspace_path)
@@ -93,11 +93,22 @@ module Reach
         "cannot run"
       end
 
-      TIPS_SCAN_LIMIT = 200
-
-      def tips_summary(slice)
-        recent = Reach::Corpus.new(Reach.ports).recent("tip", limit: TIPS_SCAN_LIMIT)
-        recent.any? { |record| record["slice"] == slice } ? "last recorded" : "not run"
+      def qualify_summary(workspace_path)
+        record = Reach::Qualify.read_record(workspace_path)
+        ladder = Reach::Ladder.state(workspace_path)
+        base = if record.nil?
+                 "not run"
+               elsif Reach::Qualify.current?(workspace_path)
+                 "passed"
+               elsif record["pending"]
+                 "waiting for the course server"
+               elsif record["passed"]
+                 "passed before the last change"
+               else
+                 "not passing yet"
+               end
+        failed = ladder["failed"].to_i
+        failed.positive? ? "#{base} (#{failed} of #{Reach::Ladder::HARD_STOP} tries used)" : base
       rescue StandardError
         "not run"
       end

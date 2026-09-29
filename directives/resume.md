@@ -17,7 +17,7 @@ the next session reads them.
 At the start of course work:
 
 1. `reach status`: the assignment, its due date, each slice's state, the
-   last tips result, receipts and open hands.
+   last qualification, receipts and open hands.
 2. `reach plan show`: the plan, its progress line and its next action.
 3. `reach checkpoint list`: what was saved and when.
 4. Tell the student in three lines where things stand and what the next

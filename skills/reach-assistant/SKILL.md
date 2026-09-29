@@ -74,4 +74,4 @@ Code goes in files, never in chat: coursework in the slice's owned files, anythi
 
 ## Course work
 
-In a course workspace, follow AGENTS.md and its directive table, and the reach-course, reach-build, reach-fix, reach-checkpoint, reach-submit and reach-help skills.
+In a course workspace, follow AGENTS.md and its directive table, and the reach-course, reach-feature, reach-bug, reach-checkpoint, reach-submit and reach-help skills.

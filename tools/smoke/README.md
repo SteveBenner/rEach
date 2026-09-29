@@ -128,8 +128,10 @@ The process exits 0 when nothing failed or errored.
 
 `ruby tools/smoke/assignment_one.rb` is a separate, deterministic run that invokes no
 model. It starts a real Teach in an isolated home, installs rEach from a local
-GitHub-shaped ZIP, enrolls, syncs the G1 context A1 backend workspace, writes and submits
-an implementation, and follows the ingest and grade receipts. It writes `summary.json`
+GitHub-shaped ZIP, enrolls, syncs the G1 context A1 backend workspace, writes an
+implementation, checks that submit is refused before any qualification, writes the
+agent's scenarios from `tools/smoke/qualify/`, qualifies locally and on Teach (with
+Teach's grader running), submits, and follows the ingest and grade receipts. It writes `summary.json`
 and `summary.md` under `~/.cache/reach-smoke/a1/<timestamp>/`. Its reference steps are
 `reference-pack`, `reference-locked-before-enroll`, `reference-after-sync` and
 `reference-tamper-refused`; the smoke packs the reference blob before releasing, so the key

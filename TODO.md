@@ -22,6 +22,12 @@
 - [ ] Run a live Codex session in a course folder and check its replies, reasoning summaries and apply_patch code reach Teach; the Codex path is verified only on a synthetic rollout file.
 - [ ] Claude Code stores thinking as a signature with empty text, so its reasoning arrives as "reasoning not readable"; revisit if the harness starts storing readable thinking.
 
+## Verified in 0.11.0
+
+- [x] End-to-end against a scratch Teach 0.11.0 and Grokit 0.5.0 on Ruby 4.0.6, Reach loading on 2.6.10 and 4.0.6: workspaces carry the answer-free qualify kit and the writable qualify folders; a backend slice (context.a1) qualified locally and on Teach in about 22 s (agent rows pass, starting-copy rows fail, 3 of 3 hidden pass); submit refused after a step file changed, then accepted with the evidence stored and graded 3 of 3; a panel slice (finance.a1) qualified on Teach and graded 2 of 2; the ladder gave a notice at 2, one agent v2 hand at 3, held work until a captured student prompt and `reach attempts continue`, stopped at 10, and reset on an instructor reply; git refused in slices; a step that raised a reference source string came back as step text and an error class only.
+- [x] Assignment-one transport smoke on 0.11.0 against the Teach 0.11.0 tree (2026-09-29): 33 pass, 2 manual skips; submit refused before qualifying, then qualified locally and on Teach, graded 1.0.
+- [ ] Portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel slices can qualify locally too (planned 0.12.0).
+
 ## Release 0.7.0 open items
 
 - [x] Run the manual Codex dialogue pass from `docs/smoke-assignment-1.md` (passed 2026-09-29, live).
@@ -45,7 +51,7 @@
 - [ ] Set `teach.url` in `config.yml` for the course, so `reach enroll <code>` needs no `--teach-url`.
 - [x] A real signed Dovetail shape and a real `dovetail` binary to verify `Reach::Shape`'s output parsing: done in 0.4.2 against dovetail 0.1.0 on Ruby 3.3 and 2.6.10, and in 0.6.0 against a shape package Teach compiled and signed from Grokit's contracts.
 - [x] A real suite package and reference build to verify `Reach::Suite` end-to-end: done in 0.6.0 with Grokit 0.2.0's suite.
-- [x] `reach status` now shows each slice's own last tips result instead of the corpus's global latest tip record (fixed 2026-09-29 in `Reach::Status.tips_summary`).
+- [x] `reach status` now shows each slice's own last tips result instead of the corpus's global latest tip record (fixed 2026-09-29; since 0.11.0 it shows each slice's qualification instead).
 - [ ] Run `bundle lock` for real against `Gemfile` for both the Ruby 2.6 and modern lines, and diff against the hand-authored locks.
 - [x] A live Codex session with the plugin installed: confirm the hook-trust prompt, the SessionStart context and the greeting (passed 2026-09-29, live).
 - [ ] Antigravity: `agy` is not installed here; `reach setup --harness antigravity`, `agy plugin install` and the plugin-directory link are untested.

@@ -121,7 +121,6 @@ module Reach
         post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("transcript", "code", "--harness", "claude-code"), 15)
 
         stop_hooks = []
-        stop_hooks << hook_entry(nil, h("attempts", "settle"), 30) if space_kind == "slice"
         stop_hooks << hook_entry(nil, h("transcript", "turn", "--quick", "--harness", "claude-code"), 30)
 
         {
@@ -190,7 +189,6 @@ module Reach
         post_tool_use << hook_entry("apply_patch|Write|Edit", h("transcript", "code", "--harness", "codex"), 15)
 
         stop_hooks = []
-        stop_hooks << hook_entry(nil, h("attempts", "settle"), 30) if space_kind == "slice"
         stop_hooks << hook_entry(nil, h("transcript", "turn", "--quick", "--harness", "codex"), 30)
 
         {

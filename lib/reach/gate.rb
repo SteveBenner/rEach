@@ -7,10 +7,8 @@ require "time"
 module Reach
   module Gate
     READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff].freeze
-    READONLY_GIT_SUBCOMMANDS = %w[status diff log].freeze
     WRITE_SINGLE = %w[cp mv rm mkdir touch tee truncate chmod npm npx bundle gem].freeze
     WRITE_INPLACE_COMMANDS = %w[sed perl].freeze
-    WRITE_GIT_SUBCOMMANDS = %w[checkout restore reset clean].freeze
     NETWORK_COMMANDS = %w[curl wget ssh scp nc].freeze
 
     module_function
@@ -87,25 +85,45 @@ module Reach
 
       workspace = kind == "slice" ? space["path"] : nil
       owned = workspace ? owned_absolute_paths(workspace) : []
+      writable = ->(target) { owned.any? { |candidate| same_path?(candidate, target) } || qualify_target?(workspace, target) }
 
       if patch
         base = workspace || Dir.pwd
         patch_targets(patch).each do |relative|
           target = resolve_target(File.expand_path(relative, base))
-          next if owned.any? { |candidate| same_path?(candidate, target) }
+          next if writable.call(target)
 
           raise_blocked!("M-WRITE-OUTSIDE", owned_files: owned_files_display(workspace))
         end
+        check_ladder!(workspace)
         return nil
       end
 
       target = resolve_target(path)
-      return nil if owned.any? { |candidate| same_path?(candidate, target) }
+      if writable.call(target)
+        check_ladder!(workspace)
+        return nil
+      end
 
       raise_blocked!(
         "M-WRITE-OUTSIDE",
         owned_files: owned_files_display(workspace)
       )
+    end
+
+    def qualify_target?(workspace, target)
+      return false unless workspace
+
+      Reach::Workspace::WRITABLE_DIRS.any? { |dir| within?(target, File.join(workspace, dir)) && !same_path?(target, resolve_target(File.join(workspace, dir))) }
+    end
+
+    def check_ladder!(workspace)
+      return unless workspace
+
+      message_id = Reach::Ladder.blocked_message(workspace)
+      return unless message_id
+
+      raise_blocked!(message_id, attempt: Reach::Ladder.state(workspace)["failed"], limit: Reach::Ladder::HARD_STOP)
     end
 
     def patch_targets(patch)
@@ -134,7 +152,7 @@ module Reach
       owned_test = shell_owned_test(kind, workspace)
 
       split_segments(text).each do |segment|
-        check_segment!(segment, workspace, owned_test)
+        check_segment!(segment, workspace, owned_test, kind)
       end
 
       witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
@@ -147,7 +165,7 @@ module Reach
         ->(resolved) { within?(resolved, root) }
       else
         owned = workspace ? owned_absolute_paths(workspace) : []
-        ->(resolved) { owned.any? { |candidate| same_path?(candidate, resolved) } }
+        ->(resolved) { owned.any? { |candidate| same_path?(candidate, resolved) } || qualify_target?(workspace, resolved) }
       end
     end
 
@@ -160,6 +178,7 @@ module Reach
       return if tokens.empty?
 
       cmd = tokens[0]
+      raise_blocked!("M-GATE-NOGIT") if cmd == "git"
       return if cmd.nil? || cmd == "reach" || readonly_command?(tokens)
 
       raise_blocked!("M-SHELL-BLOCKED")
@@ -331,7 +350,7 @@ module Reach
       segments.map(&:strip).reject(&:empty?)
     end
 
-    def check_segment!(segment, workspace, owned_test)
+    def check_segment!(segment, workspace, owned_test, kind = "slice")
       tokens = begin
         Shellwords.split(segment)
       rescue ArgumentError
@@ -344,6 +363,7 @@ module Reach
       return if cmd.nil?
 
       check_vault_or_keys_reads!(plain_tokens, workspace)
+      raise_blocked!("M-GATE-NOGIT") if cmd == "git" && kind != "extracurricular"
 
       if NETWORK_COMMANDS.include?(cmd)
         raise_blocked!("M-SHELL-BLOCKED")
@@ -352,6 +372,7 @@ module Reach
       elsif write_command?(plain_tokens)
         redirect_targets.each { |target| ensure_owned_target!(target, workspace, owned_test) }
         ensure_write_args_owned!(plain_tokens, workspace, owned_test)
+        check_ladder!(workspace) if kind == "slice"
       else
         ensure_unknown_allowed!(plain_tokens, redirect_targets, workspace)
       end
@@ -419,7 +440,6 @@ module Reach
       cmd = tokens[0]
       return true if cmd == "reach"
       return true if cmd == "ruby" && tokens[1] == "-c"
-      return READONLY_GIT_SUBCOMMANDS.include?(tokens[1]) if cmd == "git"
       return !(tokens.include?("-delete") || tokens.include?("-exec")) if cmd == "find"
 
       READONLY_SINGLE.include?(cmd)
@@ -429,7 +449,6 @@ module Reach
       cmd = tokens[0]
       return true if cmd == "find" && (tokens.include?("-delete") || tokens.include?("-exec"))
       return true if WRITE_INPLACE_COMMANDS.include?(cmd) && tokens.any? { |t| t.start_with?("-i") }
-      return true if cmd == "git" && WRITE_GIT_SUBCOMMANDS.include?(tokens[1])
 
       WRITE_SINGLE.include?(cmd)
     end

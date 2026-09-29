@@ -1,153 +1,57 @@
 require "open3"
 require "json"
 require "fileutils"
-require "tmpdir"
 require "time"
 require "digest"
-require "yaml"
+require "timeout"
 
 module Reach
   module Suite
     SUITE_KIND = "suite"
-    TIMEOUT_S = 90
     RUBY26_CEILING = Gem::Version.new("3.1.999")
+    RUN_TIMEOUT_S = 300
 
     class << self
-      def run(slice:)
-        workspace = resolve_workspace(slice)
-        manifest = read_manifest(workspace)
-        run_dir = assemble_run_dir(workspace, manifest)
-        gemfile_path = ensure_gems_installed(run_dir)
-        started_at = Time.now
-        stdout, stderr, status = run_cucumber(run_dir, gemfile_path, manifest.fetch("tags", []))
-        duration_ms = ((Time.now - started_at) * 1000).round
-        if duration_ms > TIMEOUT_S * 1000
-          return { duration_ms: duration_ms, scenarios: [], timed_out: true }
-        end
-
-        { duration_ms: duration_ms, scenarios: parse_results(stdout, stderr, status) }
-      end
-
       def gemfile_lock_for(ruby_version = RUBY_VERSION)
         Gem::Version.new(ruby_version) <= RUBY26_CEILING ? "Gemfile.ruby26.lock" : "Gemfile.lock"
       end
 
       def reference_panel_dir(module_id)
-        ensure_suite_unpacked(module_id)
-        panel = File.join(reference_dir(module_id), "modules", module_id.to_s, "panel")
-        File.directory?(panel) ? panel : nil
-      rescue Reach::Refused
-        nil
-      end
+        return nil if module_id.to_s.empty?
 
-      private
-
-      def resolve_workspace(slice)
-        return slice if slice.is_a?(String) && File.directory?(File.join(slice, ".reach"))
-
-        match = Reach::Workspace.current_slices.find do |path|
-          File.basename(path) == slice.to_s || slice_id_of(path) == slice.to_s
-        end
-        raise Reach::Refused, "reach: no workspace found for slice #{slice.inspect}" unless match
-
-        match
-      end
-
-      def slice_id_of(workspace_path)
-        Reach::Workspace.metadata(workspace_path)["slice"]
-      end
-
-      def read_manifest(workspace_path)
-        Reach::Workspace.metadata(workspace_path)
-      end
-
-      def suite_dir
-        Reach::Paths.suite_vault_dir
-      end
-
-      def reference_dir(module_id)
-        File.join(suite_dir, "reference_build", module_id.to_s)
-      end
-
-      def ensure_suite_unpacked(module_id)
         packages = Reach::Packages.new
         version = packages.latest_version(SUITE_KIND)
-        raise Reach::Refused, Reach::Messages.text("M-TIPS-INCOMPLETE") unless version
+        return nil unless version
 
+        suite_dir = Reach::Paths.suite_vault_dir
         marker = File.join(suite_dir, ".version")
         current = File.file?(marker) ? File.read(marker).strip.to_i : nil
         unless current == version && File.directory?(File.join(suite_dir, "reference_build"))
           packages.unpack(SUITE_KIND, version, into: suite_dir)
           File.write(marker, version.to_s)
         end
-
-        module_dir = reference_dir(module_id)
-        raise Reach::Refused, Reach::Messages.text("M-TIPS-INCOMPLETE") unless !module_id.to_s.empty? && File.directory?(module_dir) && !Dir.children(module_dir).empty?
+        panel = File.join(suite_dir, "reference_build", module_id.to_s, "modules", module_id.to_s, "panel")
+        File.directory?(panel) ? panel : nil
+      rescue StandardError
+        nil
       end
 
-      def assemble_run_dir(workspace_path, manifest)
-        module_id = manifest["module"]
-        ensure_suite_unpacked(module_id)
-        run_dir = File.join(Reach::Paths.vault_dir, "runs", File.basename(workspace_path))
-        FileUtils.rm_rf(run_dir)
-        FileUtils.mkdir_p(run_dir)
-        FileUtils.cp_r(Dir.glob(File.join(reference_dir(module_id), "*")), run_dir)
-        features_source = File.join(suite_dir, "features")
-        if File.directory?(features_source)
-          FileUtils.mkdir_p(File.join(run_dir, "features"))
-          FileUtils.cp_r(Dir.glob(File.join(features_source, "*")), File.join(run_dir, "features"))
-        end
-        %w[Gemfile Gemfile.lock Gemfile.ruby26.lock reasons.yml].each do |name|
-          source = File.join(suite_dir, name)
-          FileUtils.cp(source, File.join(run_dir, name)) if File.file?(source)
-        end
-        chosen_lock_name = gemfile_lock_for
-        if chosen_lock_name != "Gemfile.lock"
-          chosen_source = File.join(run_dir, chosen_lock_name)
-          FileUtils.cp(chosen_source, File.join(run_dir, "Gemfile.lock")) if File.file?(chosen_source)
-        end
-        owned = Reach::Workspace.owned_files(workspace_path)
-        owned.each do |relative_path|
-          source = File.join(workspace_path, relative_path)
-          next unless File.file?(source)
+      def select_lock!(run_dir)
+        chosen = gemfile_lock_for
+        return if chosen == "Gemfile.lock"
 
-          destination = File.join(run_dir, relative_path)
-          FileUtils.mkdir_p(File.dirname(destination))
-          FileUtils.cp(source, destination)
-        end
-        manifest["run_dir"] = run_dir
-        run_dir
+        source = File.join(run_dir, chosen)
+        FileUtils.cp(source, File.join(run_dir, "Gemfile.lock")) if File.file?(source)
       end
 
-      def bundle_env_dir
-        File.join(Reach::Paths.gems_dir, "bundle-env")
-      end
+      def install_gems(run_dir)
+        gemfile = File.join(run_dir, "Gemfile")
+        lock = File.join(run_dir, "Gemfile.lock")
+        raise Reach::Error, "reach: the qualify kit carries no Gemfile; run reach sync" unless File.file?(gemfile) && File.file?(lock)
 
-      def bundle_envs_dir
-        File.join(Reach::Paths.gems_dir, "bundle-envs")
-      end
-
-      def selected_lock_path
-        File.expand_path(File.join(__dir__, "..", "..", gemfile_lock_for))
-      end
-
-      def ensure_gems_installed(run_dir)
-        vault_gemfile = File.join(run_dir, "Gemfile")
-        return ensure_vault_gems_installed(run_dir, vault_gemfile) if File.file?(vault_gemfile)
-
-        ensure_fallback_gems_installed
-      end
-
-      def ensure_vault_gems_installed(run_dir, vault_gemfile)
-        lock_name = gemfile_lock_for
-        lock_path = File.join(run_dir, lock_name)
-        lock_path = File.join(run_dir, "Gemfile.lock") unless File.file?(lock_path)
-        raise Reach::Error, "reach: the tips suite carries no #{lock_name}" unless File.file?(lock_path)
-
-        gemfile_bytes = File.binread(vault_gemfile)
-        lock_bytes = File.binread(lock_path)
-        digest = Digest::SHA256.hexdigest(gemfile_bytes + lock_bytes)
-        env_dir = File.join(bundle_envs_dir, digest)
+        gemfile_bytes = File.binread(gemfile)
+        lock_bytes = File.binread(lock)
+        env_dir = File.join(Reach::Paths.gems_dir, "bundle-envs", Digest::SHA256.hexdigest(gemfile_bytes + lock_bytes))
         marker = File.join(env_dir, ".installed")
         env_gemfile = File.join(env_dir, "Gemfile")
         return env_gemfile if File.file?(marker)
@@ -155,49 +59,12 @@ module Reach
         FileUtils.mkdir_p(env_dir)
         File.binwrite(env_gemfile, gemfile_bytes)
         File.binwrite(File.join(env_dir, "Gemfile.lock"), lock_bytes)
-
         env = { "BUNDLE_GEMFILE" => env_gemfile, "BUNDLE_PATH" => Reach::Paths.gems_dir }
         _stdout, stderr, status = Open3.capture3(env, "bundle", "install", "--quiet", chdir: env_dir)
-        raise Reach::Error, "reach: could not install the tips suite's gems (#{stderr.strip})" unless status.success?
+        raise Reach::Error, "reach: could not install the checking tools (#{stderr.strip.lines.first.to_s.strip})" unless status.success?
 
         File.write(marker, Time.now.utc.iso8601)
         env_gemfile
-      end
-
-      def ensure_fallback_gems_installed
-        marker = File.join(bundle_env_dir, ".installed-#{gemfile_lock_for}")
-        gemfile_path = File.join(bundle_env_dir, "Gemfile")
-        return gemfile_path if File.file?(marker)
-
-        FileUtils.mkdir_p(bundle_env_dir)
-        lock_path = File.join(bundle_env_dir, "Gemfile.lock")
-        File.write(gemfile_path, generated_gemfile_source)
-        FileUtils.cp(selected_lock_path, lock_path)
-
-        env = { "BUNDLE_GEMFILE" => gemfile_path }
-        _stdout, stderr, status = Open3.capture3(
-          env,
-          "bundle", "install",
-          "--path", Reach::Paths.gems_dir,
-          "--deployment",
-          "--quiet"
-        )
-        raise Reach::Error, "reach: could not install the tips suite's gems (#{stderr.strip})" unless status.success?
-
-        File.write(marker, Time.now.utc.iso8601)
-        gemfile_path
-      end
-
-      def generated_gemfile_source
-        <<~GEMFILE
-          source "https://rubygems.org"
-
-          gem "cucumber"
-          gem "capybara"
-          gem "cuprite"
-          gem "ferrum"
-          gem "nokogiri"
-        GEMFILE
       end
 
       def chromium_binary
@@ -205,75 +72,82 @@ module Reach
         return candidate unless candidate.empty?
 
         %w[google-chrome chromium chromium-browser microsoft-edge].each do |name|
-          _out, _err, status = Open3.capture3("which", name)
-          return name if status.success?
+          found = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |dir| File.join(dir, name) }.find { |path| File.executable?(path) }
+          return found if found
         end
         pinned = File.join(Reach::Paths.chromium_dir, "chrome")
         File.file?(pinned) ? pinned : nil
       end
 
-      def run_cucumber(run_dir, gemfile_path, tags)
-        env = {
-          "BUNDLE_GEMFILE" => gemfile_path,
-          "BUNDLE_PATH" => Reach::Paths.gems_dir
-        }
+      def cucumber(run_dir, gemfile, tags)
+        env = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_PATH" => Reach::Paths.gems_dir, "CUCUMBER_PUBLISH_QUIET" => "true" }
         chrome = chromium_binary
         env["REACH_CHROME"] = chrome if chrome
-
         args = ["bundle", "exec", "cucumber", "--format", "json"]
         Array(tags).each { |tag| args += ["--tags", tag] }
 
-        Open3.capture3(env, *args, chdir: run_dir)
+        stdout = +""
+        stderr = +""
+        status = nil
+        timed_out = false
+        Open3.popen3(env, *args, chdir: run_dir) do |stdin, out, err, wait_thr|
+          stdin.close
+          out_reader = Thread.new { out.read }
+          err_reader = Thread.new { err.read }
+          unless wait_thr.join(RUN_TIMEOUT_S)
+            timed_out = true
+            begin
+              Process.kill("KILL", wait_thr.pid)
+            rescue Errno::ESRCH, Errno::EPERM
+              nil
+            end
+            wait_thr.join
+          end
+          stdout = out_reader.value.to_s
+          stderr = err_reader.value.to_s
+          status = wait_thr.value
+        end
+        { "stdout" => stdout, "stderr" => stderr, "status" => status && status.exitstatus, "timed_out" => timed_out }
       end
 
-      def parse_results(stdout, _stderr, status)
-        return [] if stdout.to_s.strip.empty?
-
-        begin
-          features = JSON.parse(stdout)
-        rescue JSON::ParserError
-          return status.success? ? [] : [{ name: "reach tips", passed: false, reason: failure_reason_for("resilience"), category: "resilience" }]
-        end
-
-        scenarios = []
-        features.each do |feature|
+      def report_rows(stdout)
+        features = JSON.parse(stdout.to_s)
+        rows = []
+        Array(features).each do |feature|
           Array(feature["elements"]).each do |element|
             next unless element["type"] == "scenario"
 
-            steps = Array(element["steps"])
-            failed_step = steps.find { |step| step.dig("result", "status") == "failed" }
-            passed = failed_step.nil?
-            message = failed_step ? failed_step.dig("result", "error_message").to_s : ""
-            category = message.include?("not_built") ? "not_built" : category_for(Array(element["tags"]))
-            reason = passed ? nil : failure_reason_for(category)
-            scenarios << {
-              name: element["name"].to_s,
-              passed: passed,
-              reason: reason,
-              category: passed ? nil : category
-            }
+            rows << report_row(element)
           end
         end
-        scenarios
+        rows
+      rescue JSON::ParserError
+        nil
       end
 
-      def failure_reason_for(category)
-        suite_reasons[category.to_s] || Reach::Messages.failure_reason(category)
-      end
-
-      def suite_reasons
-        path = File.join(suite_dir, "reasons.yml")
-        return {} unless File.file?(path)
-
-        data = YAML.safe_load(File.read(path))
-        data.is_a?(Hash) ? data.select { |_, text| text.is_a?(String) && !text.strip.empty? } : {}
-      rescue Psych::Exception
-        {}
-      end
-
-      def category_for(tags)
-        tag = Array(tags).map { |t| t["name"].to_s }.find { |name| name.start_with?("@category:") }
-        tag ? tag.sub("@category:", "") : "behaviour"
+      def report_row(element)
+        steps = Array(element["steps"])
+        hooks = Array(element["before"]) + Array(element["after"])
+        bad_step = steps.find { |step| %w[failed undefined pending ambiguous].include?(step.dig("result", "status")) }
+        bad_hook = hooks.find { |hook| hook.dig("result", "status") == "failed" }
+        statuses = steps.map { |step| step.dig("result", "status") }
+        result = if bad_step || bad_hook
+                   "failed"
+                 elsif !statuses.empty? && statuses.all? { |status| status == "passed" }
+                   "passed"
+                 else
+                   "skipped"
+                 end
+        culprit = bad_step || bad_hook
+        message = culprit ? culprit.dig("result", "error_message").to_s : ""
+        message = "the step \"#{bad_step['name']}\" has no step definition" if bad_step && bad_step.dig("result", "status") == "undefined"
+        {
+          "name" => element["name"].to_s,
+          "tags" => Array(element["tags"]).map { |tag| tag["name"].to_s },
+          "result" => result,
+          "step" => bad_step ? "#{bad_step['keyword'].to_s.strip} #{bad_step['name']}".strip : nil,
+          "message" => message.empty? ? nil : message[0, 500]
+        }
       end
     end
   end

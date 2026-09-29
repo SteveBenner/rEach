@@ -62,13 +62,11 @@ module Reach
 
       directives = YAML.safe_load(File.read(directives_path), permitted_classes: [Symbol]) || []
       course = YAML.safe_load(File.read(course_path)) || {}
-      tips = File.file?(tips_path) ? (YAML.safe_load(File.read(tips_path)) || []) : []
 
       {
         "version" => unpacked_version,
         "directives" => directives,
-        "course" => course,
-        "tips" => tips
+        "course" => course
       }
     end
 
@@ -259,10 +257,6 @@ module Reach
 
     def course_path
       File.join(vault_path, "course.yml")
-    end
-
-    def tips_path
-      File.join(vault_path, "tips.yml")
     end
 
     def manifest_path

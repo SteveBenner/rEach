@@ -52,6 +52,8 @@ require_relative "reach/suite"
 require_relative "reach/submit"
 require_relative "reach/receipts"
 require_relative "reach/hands"
+require_relative "reach/ladder"
+require_relative "reach/qualify"
 
 require_relative "reach/harness"
 require_relative "reach/hello"

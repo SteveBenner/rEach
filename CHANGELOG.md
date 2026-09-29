@@ -5,6 +5,60 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-09-29
+
+### Added
+
+- `reach qualify`: the agent proves a slice before submission with scenarios of its own, written under
+  `qualify/features` and `qualify/step_definitions` (the only writable course files besides the owned files). It
+  runs `reach check`, checks that every graded scenario name is covered, runs the agent's scenarios here on Grokit's
+  answer-free qualify kit when the slice allows it (and on the starting copy, where they must fail), then sends a
+  qualification to Teach (wire revision 2026-09-29d, W-PKG-7, W-API-QUALIFY), which runs them on the real build and
+  the starting copy and runs the instructors' hidden scenarios. `--list` prints the tag and the graded names. The
+  result is kept in `.reach/qualification.json`, the corpus and the ledger.
+- The attempt ladder. Reach counts failed qualifications per slice: the student hears a notice from the second; at
+  the third Reach raises a hand itself (originator agent, trigger attempt_ladder) and holds further work until the
+  student says yes (`reach attempts continue`, accepted only after a captured student prompt); at the tenth it stops
+  until an instructor replies. A pass or a reply resets it. `reach attempts show` prints it.
+- Hand bundles are `reach.hand/v2`: originator, the task, the attempt history, every owned and scenario file in full,
+  the last qualification's output, the agent's summary, the student's last request and the environment.
+- The FLOW directive (R-FLOW, alias M) and the reach-feature and reach-bug skills: the agent writes code only
+  through one of the two flows, overwriting files in place, with checkpoints as history.
+- ROADMAP.md, with git support planned for Reach 2.0.
+- MCP tools `reach_qualify` and `reach_attempts`.
+- The assignment-one transport smoke checks the submit refusal, writes the agent's scenarios and qualifies before
+  submitting.
+
+### Changed
+
+- `reach submit` refuses (M-SUBMIT-UNQUALIFIED) unless the latest qualification passed on exactly the current owned
+  files and scenarios, and sends the scenarios and the passing record as evidence.
+- The QUALIFY directive (R-QUALIFY, alias D) replaces NOTEST; TOZERO, VERIFY, PLAN1ST, RESUME and RUBY point at
+  qualification. The course, submit, help, build, fix and assistant skills and the rEach agent follow.
+- The gate refuses git in slice workspaces and at the course folder's top (M-GATE-NOGIT). The extracurricular folder
+  is the student's own, so git is left alone there.
+- `reach status` shows each slice's qualification instead of tips.
+- Teach 0.11.0 requires Reach 0.11.0.
+
+### Removed
+
+- `reach tips`, the `reach_tips` tool, tips.yml and the Stop hook's `reach attempts settle` (the command stays as a
+  no-op for old hook files). No graded suite or reference build reaches the student any more; `reach sync` no longer
+  fetches the suite package.
+
+### Fixed
+
+- Qualify and submit count only check findings in the slice's own files. A panel slice's workspace holds only part of
+  the panel, so the shape check flagged an instructors' file the student cannot change; since Teach 0.10.0 stopped
+  building suite packages this blocked every panel submission.
+
+### Security
+
+- Teach answers a qualification with scenario names, results, the failing step only when it is a line of the agent's
+  own feature files, and an error class from a fixed list. It never returns messages or output, because the run holds
+  course code the student does not own. What remains is a pass or fail signal, bounded by 12 qualifications per slice
+  per hour and 60 scenarios per package.
+
 ## [0.10.0] - 2026-09-29
 
 ### Added

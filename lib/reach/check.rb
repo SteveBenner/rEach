@@ -98,7 +98,7 @@ module Reach
           findings << finding("CK-PURE", relative, number, "line #{number} uses #{name}, which reaches outside input and ports", "Take the value from input or a granted port") if bare.match?(pattern)
         end
         TEST_TOKENS_RUBY.each do |pattern|
-          findings << finding("CK-TEST", relative, number, "line #{number} is test code", "Delete it; the instructors' suite is the only test") if line.match?(pattern)
+          findings << finding("CK-TEST", relative, number, "line #{number} is test code", "Move it into a scenario or step file under qualify/; owned files hold only the behaviour") if line.match?(pattern)
         end
         if bare.match?(/^\s*require\s+["']([^"']+)["']/)
           name = bare[/^\s*require\s+["']([^"']+)["']/, 1]
@@ -277,7 +277,7 @@ module Reach
           findings << finding("CK-FUSE", relative, number, "line #{number} imports from another module", "Communicate through a declared event", rule: "S-EVT-001")
         end
         TEST_TOKENS_SVELTE.each do |pattern|
-          findings << finding("CK-TEST", relative, number, "line #{number} is test code", "Delete it; the instructors' suite is the only test") if line.match?(pattern)
+          findings << finding("CK-TEST", relative, number, "line #{number} is test code", "Move it into a scenario or step file under qualify/; owned files hold only the behaviour") if line.match?(pattern)
         end
         findings.concat(comment_findings_svelte(relative, number, line, index, in_script))
         in_script = false if line.include?("</script>")

@@ -10,7 +10,7 @@ enforce: check:CK-RUBY
 ---
 # RUBY: one dialect for every module
 
-Your behaviour runs inside Grokit on Ruby 4.0 and inside `reach tips` on the
+Your behaviour runs inside Grokit on Ruby 4.0 and inside `reach qualify` on the
 student's own Ruby, which on a Mac is the built-in 2.6.10. Write the
 intersection, and nothing else:
 
