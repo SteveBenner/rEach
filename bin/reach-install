@@ -28,7 +28,7 @@ module ReachInstall
       Dir.mktmpdir("reach-install-", parent) do |temp|
         reach_archive = options[:archive] || download(options[:url], temp, "reach.zip")
         reach_root = extract_archive(reach_archive, File.join(temp, "reach"))
-        revision = read_revision(options[:revision])
+        revision = read_revision(options[:revision] || File.join(reach_root, "dovetail-revision.txt"))
         dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision}.zip"
         dovetail_archive = download(dovetail_url, temp, "dovetail.zip")
         dovetail_root = extract_archive(dovetail_archive, File.join(temp, "dovetail"))
@@ -54,8 +54,7 @@ module ReachInstall
     def parse(argv)
       options = {
         destination: File.expand_path("~/.reach/plugin"),
-        url: "https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip",
-        revision: File.expand_path("../dovetail-revision.txt", __dir__)
+        url: "https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip"
       }
       OptionParser.new do |parser|
         parser.on("--archive PATH") { |value| options[:archive] = File.expand_path(value) }
