@@ -24,8 +24,8 @@ module Reach
         when nil, "--help", "-h", "help"
           print_usage
           0
-        when "enrol"
-          cmd_enrol(args)
+        when "enroll", "enrol"
+          cmd_enroll(args)
         when "sync"
           cmd_sync(args)
         when "status"
@@ -94,10 +94,10 @@ module Reach
           usage: reach <command> [options]
 
           commands:
-            enrol <code> [--teach-url URL]       generate keys and enrol with Teach
+            enroll <code> [--teach-url URL]       generate keys and enroll with Teach
             sync                                 fetch new packages and refresh workspaces
-            status                               enrolment, slices, receipts, open hands
-            work [--harness ...] [--slice ...]   open a slice in the chosen harness
+            status                               enrollment, slices, receipts, open hands
+            work [--harness ...] [--slice ... | --extracurricular]   open a slice, or your own folder
             start [--harness ...]                launch a harness outside a course workspace
             gate session|prompt|write|shell      called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
@@ -118,7 +118,7 @@ module Reach
             plan save|show|note                  the slice plan
             directive <OPCODE> | --list          a directive's full text
             reference list|show <path>|search <words>|links   the course reference material
-            transcript flush [--quick [--final]] | status [--format text|json]   the course transcript of your prompts
+            transcript turn [--quick [--final]] --harness H | code --harness H | flush [--quick [--final]] | status [--format text|json]
         USAGE
       end
 
@@ -178,11 +178,11 @@ module Reach
         {}
       end
 
-      def cmd_enrol(args)
+      def cmd_enroll(args)
         options, remaining = parse_flags(args, [:teach_url])
         code = remaining.shift
         unless code
-          warn "usage: reach enrol <code> [--teach-url URL]"
+          warn "usage: reach enroll <code> [--teach-url URL]"
           return 1
         end
         teach_url = options[:teach_url] || Reach::Runtime.default_teach_url
@@ -190,16 +190,16 @@ module Reach
           warn "reach: no --teach-url given and no default teach url is configured"
           return 1
         end
-        install = Reach::Enrol.generate_and_register(code, teach_url)
+        install = Reach::Enroll.generate_and_register(code, teach_url)
         course_title = install["course"] && install["course"]["title"]
-        puts Reach::Messages.text("M-ENROL-DONE", course: course_title)
+        puts Reach::Messages.text("M-ENROLL-DONE", course: course_title)
         puts Reach::Messages.text("M-TRANSCRIPT-NOTICE")
         summary = Reach::Sync.run
         print_sync_summary(summary)
         if Array(summary["workspaces"]).empty?
-          puts Reach::Messages.text("M-ENROL-PENDING")
+          puts Reach::Messages.text("M-ENROLL-PENDING")
         else
-          puts Reach::Messages.text("M-ENROL-READY")
+          puts Reach::Messages.text("M-ENROLL-READY")
         end
         0
       end
@@ -220,7 +220,7 @@ module Reach
           puts "Kept your changes: #{Array(kept).join(", ")}" if kept && !Array(kept).empty?
         end
         puts "Sent #{summary["outbox_sent"]} queued item(s)." if summary["outbox_sent"].to_i > 0
-        puts "Transcript: sent #{Reach::Transcript.prompts(summary["transcript_sent"])}." if summary["transcript_sent"].to_i > 0
+        puts "Transcript: sent #{Reach::Transcript.entries_label(summary["transcript_sent"])}." if summary["transcript_sent"].to_i > 0
         Array(summary["grades"]).each { |text| puts text }
         Array(summary["warnings"]).each { |warning| puts warning }
         puts Reach::Messages.text("M-OFFLINE") if summary["state"] == "offline"
@@ -233,11 +233,17 @@ module Reach
       end
 
       def cmd_work(args)
-        options, _remaining = parse_flags(args, [:harness, :slice])
-        workspace_path = resolve_workspace(options[:slice])
-        unless workspace_path
-          warn "reach: no matching slice workspace found; run reach sync"
-          return 1
+        options, remaining = parse_flags(args, [:harness, :slice])
+        extracurricular, _remaining = parse_bare_flag(remaining, "extracurricular")
+        if extracurricular
+          Reach::Workspace.provision_extracurricular!
+          workspace_path = Reach::Paths.extracurricular_root
+        else
+          workspace_path = resolve_workspace(options[:slice])
+          unless workspace_path
+            warn "reach: no matching slice workspace found; run reach sync"
+            return 1
+          end
         end
         harness_id = options[:harness] || pick_harness
         unless harness_id
@@ -511,7 +517,7 @@ module Reach
         problems.concat(check_ruby)
         problems.concat(check_shim)
         problems.concat(check_harness_detected)
-        problems.concat(check_enrol)
+        problems.concat(check_enroll)
         problems.concat(check_keys)
         problems.concat(check_guard)
         problems.concat(check_workspaces)
@@ -580,14 +586,14 @@ module Reach
         ["R-DOC-HARNESS: harness version could not be checked - update the harness or install one"]
       end
 
-      def check_enrol
-        Reach::Enrol.current ? [] : ["R-DOC-ENROL: install.yml or the install key is missing - run reach enrol <code>"]
+      def check_enroll
+        Reach::Enroll.current ? [] : ["R-DOC-ENROLL: install.yml or the install key is missing - run reach enroll <code>"]
       rescue StandardError
-        ["R-DOC-ENROL: enrolment could not be checked - run reach enrol <code>"]
+        ["R-DOC-ENROLL: enrollment could not be checked - run reach enroll <code>"]
       end
 
       def check_keys
-        install = Reach::Enrol.current
+        install = Reach::Enroll.current
         return [] unless install
 
         ok = install["signing_public_keys"] && install["encryption_key"]
@@ -640,9 +646,9 @@ module Reach
 
       def check_net
         return [] if ENV["REACH_OFFLINE"] == "1"
-        return [] unless Reach::Enrol.current
+        return [] unless Reach::Enroll.current
 
-        Reach::Client.anonymous(Reach::Enrol.current["teach_url"], quick: true).get("/api/v1/health")
+        Reach::Client.anonymous(Reach::Enroll.current["teach_url"], quick: true).get("/api/v1/health")
         cached = Reach::Sync.cached_status
         if cached && cached["server_time"] && cached["fetched_at"]
           skew = (Time.parse(cached["server_time"].to_s).to_f - Time.parse(cached["fetched_at"].to_s).to_f).abs rescue nil
@@ -662,7 +668,7 @@ module Reach
       end
 
       def check_outdated
-        install = Reach::Enrol.current
+        install = Reach::Enroll.current
         return [] unless install && install["minimum_reach_version"]
 
         outdated = Gem::Version.new(Reach::VERSION) < Gem::Version.new(install["minimum_reach_version"])
@@ -929,6 +935,18 @@ module Reach
       def cmd_transcript(args)
         sub = args.shift
         case sub
+        when "turn"
+          options, remaining = parse_flags(args, [:harness])
+          quick, remaining = parse_bare_flag(remaining, "quick")
+          final, _remaining = parse_bare_flag(remaining, "final")
+          event = read_stdin_json
+          Reach::Transcript.turn(event: event, harness: options[:harness], quick: quick, final: final)
+          0
+        when "code"
+          options, _remaining = parse_flags(args, [:harness])
+          event = read_stdin_json
+          Reach::Transcript.code(event: event, harness: options[:harness])
+          0
         when "flush"
           quick, remaining = parse_bare_flag(args, "quick")
           final, _remaining = parse_bare_flag(remaining, "final")
@@ -939,9 +957,9 @@ module Reach
           end
           result = Reach::Transcript.flush(quick: false)
           if result["stopped"]
-            puts "Transcript: sent #{Reach::Transcript.prompts(result["sent"])}; stopped (#{result["stopped"]})."
+            puts "Transcript: sent #{Reach::Transcript.entries_label(result["sent"])}; stopped (#{result["stopped"]})."
           else
-            puts "Transcript: sent #{Reach::Transcript.prompts(result["sent"])}."
+            puts "Transcript: sent #{Reach::Transcript.entries_label(result["sent"])}."
           end
           0
         when "status"
@@ -949,11 +967,11 @@ module Reach
           if options[:format].to_s == "json"
             puts JSON.generate(Reach::Transcript.counts)
           else
-            puts(Reach::Status.transcript_line || "Transcript: 0 prompts sent")
+            puts(Reach::Status.transcript_line || "Transcript: 0 entries sent")
           end
           0
         else
-          warn "usage: reach transcript flush [--quick [--final]] | status [--format text|json]"
+          warn "usage: reach transcript turn [--quick [--final]] --harness H | code --harness H | flush [--quick [--final]] | status [--format text|json]"
           1
         end
       end

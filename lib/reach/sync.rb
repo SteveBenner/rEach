@@ -6,8 +6,8 @@ module Reach
   module Sync
     class << self
       def run
-        install = Reach::Enrol.current
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless install
+        install = Reach::Enroll.current
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         summary = {
           "state" => "ok",
@@ -39,7 +39,7 @@ module Reach
           status = cached_status || {}
         rescue Reach::RemoteRefused => e
           if %w[revoked not_enrolled].include?(e.code)
-            Reach::Enrol.mark_revoked!
+            Reach::Enroll.mark_revoked!
             summary["state"] = "revoked"
             return summary
           end
@@ -75,11 +75,24 @@ module Reach
         end
 
         begin
+          migration = Reach::Workspace.migrate_layout!
+          summary["warnings"].concat(Array(migration["warnings"]))
+        rescue StandardError => e
+          summary["warnings"] << "reach: could not migrate your workspace layout (#{e.message})"
+        end
+
+        begin
           if Reach::Packages.new.latest_version("workspace")
             summary["workspaces"] = Reach::Workspace.provision_from_package
           end
         rescue StandardError => e
           summary["warnings"] << "reach: could not provision your workspace (#{e.message})"
+        end
+
+        begin
+          Reach::Workspace.provision_extracurricular!
+        rescue StandardError => e
+          summary["warnings"] << "reach: could not provision your extracurricular folder (#{e.message})"
         end
 
         unless offline
@@ -100,8 +113,8 @@ module Reach
       end
 
       def refresh_status(quick: false)
-        install = Reach::Enrol.current
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless install
+        install = Reach::Enroll.current
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         client = Reach::Client.for_install(install, quick: quick)
         response = client.get("/api/v1/status")
@@ -111,7 +124,7 @@ module Reach
         cache = status.merge("fetched_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
         File.write(Reach::Paths.status_cache_file, JSON.generate(cache))
 
-        Reach::Enrol.update!(
+        Reach::Enroll.update!(
           "signing_public_keys" => status["signing_public_keys"],
           "encryption_key" => status["encryption_key"],
           "minimum_reach_version" => status["minimum_reach_version"],
@@ -122,7 +135,7 @@ module Reach
 
         status
       rescue Reach::RemoteRefused => e
-        Reach::Enrol.mark_revoked! if %w[revoked not_enrolled].include?(e.code)
+        Reach::Enroll.mark_revoked! if %w[revoked not_enrolled].include?(e.code)
         raise
       end
 

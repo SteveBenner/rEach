@@ -131,8 +131,24 @@ module Reach
       File.expand_path(value.empty? ? "~/reach-work" : value)
     end
 
+    def deliverables_root
+      File.join(workspace_root, "deliverables")
+    end
+
+    def extracurricular_root
+      File.join(workspace_root, "extracurricular")
+    end
+
     def workspace_path(course, assignment, cutout, slice)
+      File.join(deliverables_root, course.to_s, assignment.to_s, "#{cutout}-#{slice}")
+    end
+
+    def legacy_workspace_path(course, assignment, cutout, slice)
       File.join(workspace_root, course.to_s, assignment.to_s, "#{cutout}-#{slice}")
+    end
+
+    def transcript_spaces_dir
+      File.join(transcripts_dir, "spaces")
     end
   end
 end

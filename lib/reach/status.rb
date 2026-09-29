@@ -19,11 +19,12 @@ module Reach
         counts = Reach::Transcript.counts
         sent = counts["sent"].to_i
         waiting = counts["waiting"].to_i
+        held = counts["held"].to_i
         return nil if sent.zero? && waiting.zero? && !Dir.exist?(Reach::Paths.transcripts_dir)
 
-        return "Transcript: #{Reach::Transcript.prompts(sent)} sent" if waiting.zero?
-
-        "Transcript: #{Reach::Transcript.prompts(sent)} sent, #{waiting} waiting to send"
+        line = waiting.zero? ? "Transcript: #{sent} entries sent" : "Transcript: #{sent} entries sent, #{waiting} waiting to send"
+        line += " (#{held} held until the course server is updated)" if held.positive?
+        line
       rescue StandardError
         nil
       end
@@ -31,7 +32,7 @@ module Reach
       private
 
       def install
-        Reach::Enrol.current
+        Reach::Enroll.current
       rescue StandardError
         nil
       end
@@ -44,7 +45,7 @@ module Reach
 
       def header_line
         data = install
-        return "rEach #{Reach::VERSION} · not connected to a course yet (run reach enrol <code>)" unless data
+        return "rEach #{Reach::VERSION} · not connected to a course yet (run reach enroll <code>)" unless data
 
         course = data["course"] || {}
         status = cached_status || {}

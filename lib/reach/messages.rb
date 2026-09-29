@@ -26,6 +26,10 @@ module Reach
         fixes[code.to_s] || fixes["default"]
       end
 
+      def extracurricular_rules(locale: DEFAULT_LOCALE)
+        Array(catalogue(locale)["extracurricular_rules"])
+      end
+
       def course_time(value)
         Reach::CourseTime.format(value)
       end

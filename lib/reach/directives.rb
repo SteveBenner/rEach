@@ -43,6 +43,8 @@ module Reach
     end
 
     def applies_to_slice?(row, slice)
+      return false unless Array(row["spaces"] || ["slice"]).include?("slice")
+
       scope = row["slice"].to_s
       scope.empty? || scope == "all" || slice.nil? || scope == slice.to_s
     end
@@ -108,7 +110,7 @@ module Reach
     end
 
     def remote_body(row, workspace)
-      install = Reach::Enrol.current
+      install = Reach::Enroll.current
       return nil unless install
 
       query = {}
@@ -171,6 +173,7 @@ module Reach
       row["slice"] = (row["slice"] || "all").to_s
       row["when"] = Array(row["when"]).map(&:to_s)
       row["enforce"] = (row["enforce"] || "none").to_s
+      row["spaces"] = row["spaces"] ? Array(row["spaces"]).map(&:to_s) : ["slice"]
       row
     end
 

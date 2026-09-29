@@ -43,7 +43,7 @@ Isolation: every run gets its own `REACH_HOME`, `REACH_WORKSPACE_ROOT`, `TEACH_H
 real `~/.reach` or `~/.teach`. Teach runs as the real Ruby 4.0.6 process on a free
 loopback port and is stopped by its recorded PID.
 
-The enrolment code is written only to `private/codes.json` (mode 0600) in the run
+The enrollment code is written only to `private/codes.json` (mode 0600) in the run
 directory and is scrubbed from every summary and log the runner writes.
 
 Steps, in order, grouped by evidence class:
@@ -52,19 +52,19 @@ Steps, in order, grouped by evidence class:
 | --- | --- | --- |
 | install | dovetail-revision-pin | `dovetail-revision.txt` equals the gitlink from `git ls-files -s dovetail` |
 | reference | reference-pack | Teach's `reference pack` builds an encrypted blob from a scratch source into the run's reference directory; the smoke packs before release so the key exists when the guardrails package is built |
-| reference | reference-locked-before-enrol | before enrolment `reach reference list` exits nonzero with the connect-to-course hint and lists no path |
+| reference | reference-locked-before-enroll | before enrollment `reach reference list` exits nonzero with the connect-to-course hint and lists no path |
 | reference | reference-after-sync | after sync `reach reference` lists, shows, searches and links the packed files, and no plaintext sentinel is on the student's disk |
 | reference | reference-tamper-refused | a blob with one flipped byte is refused with a refusal message and prints no plaintext |
 | install | prerequisites | Ruby 4.0.6, Teach gems, Grokit, Dovetail, `zip` and `unzip` found |
 | handshake | teach-course-provision | roster, course and the G1 backend slice assignment exist |
-| handshake | release-before-enrol | `teach release --assignment A1` succeeds with zero installs |
+| handshake | release-before-enroll | `teach release --assignment A1` succeeds with zero installs |
 | install | install-local-archive | a GitHub-shaped ZIP (symlinks kept) installs with `bin/reach-install --archive` |
 | install | install-local-archive-dereferenced | fallback, only when the faithful ZIP is refused; a workaround, not a pass for the public path |
-| handshake | blocked-before-enrol | `reach gate session` exits 2 and `reach work` refuses before enrolment |
+| handshake | blocked-before-enroll | `reach gate session` exits 2 and `reach work` refuses before enrollment |
 | install | setup-codex | `reach setup --harness codex` succeeds with an isolated `CODEX_HOME`; skipped without `codex` |
-| install | doctor | recorded; a pre-enrolment doctor is expected to report problems |
-| handshake | enrol-handshake | enrolment succeeds and Teach lists exactly one install |
-| handshake | enrol-code-reuse-rejected | the same code from a second `REACH_HOME` is refused and no second install exists |
+| install | doctor | recorded; a pre-enrollment doctor is expected to report problems |
+| handshake | enroll-handshake | enrollment succeeds and Teach lists exactly one install |
+| handshake | enroll-code-reuse-rejected | the same code from a second `REACH_HOME` is refused and no second install exists |
 | handshake | sync-delivers-workspace | workspace has `README.md`, `acceptance_mode` remote and the scenario names |
 | local | guarded-write-owned, edit-outside-owned-blocked | the gate allows the owned file and exits 2 for any other |
 | local | plan-save, implementation-written, readme-filled | plan reads back; the implementation is derived from the released contract; README carries the student text |
@@ -99,7 +99,7 @@ bin/teach keys generate
 bin/teach students import roster.csv
 bin/teach slices assign --assignment A1 --from slices.csv
 bin/teach release --assignment A1
-bin/teach enrol codes --student s-a1-001 --out codes.csv
+bin/teach enroll codes --student s-a1-001 --out codes.csv
 bin/teach serve
 bin/teach grader
 ```
@@ -107,7 +107,7 @@ bin/teach grader
 `roster.csv` has `id,display_name,email,group` with one synthetic student in group G1.
 `slices.csv` has `student_id,cutout_id,slice` with that student on `context.a1,backend`.
 Run `bin/teach serve` and `bin/teach grader` in separate terminals. Release comes before
-enrolment codes. Both Docker images `teach-grader:ruby-4.0` and `teach-grader:ruby-2.6.10`
+enrollment codes. Both Docker images `teach-grader:ruby-4.0` and `teach-grader:ruby-2.6.10`
 must exist or no grade will ever come back.
 
 `TEACH_BIND=0.0.0.0` exposes Teach to the whole network; use it only on a trusted
@@ -132,7 +132,7 @@ Expected turns, with the evidence to capture at each:
 | --- | --- | --- | --- |
 | 1 | the install prompt above | fetches the public ZIP without asking for GitHub credentials, checks Ruby, backs up any existing `~/.reach/plugin`, runs `reach-install`, then `reach setup --harness codex`; prints the greeting only after setup succeeded | transcript, `~/.reach/plugin` exists, no `git clone` |
 | 2 | "yes, go ahead" to each confirmation | tells the student in one sentence what changes before each step; asks the student to trust the start-up hook | transcript |
-| 3 | "How do I connect to my course?" then the URL and code | runs `reach enrol <code> --teach-url <url>`, reports ready only after Teach answered | `reach status` shows enrolled |
+| 3 | "How do I connect to my course?" then the URL and code | runs `reach enroll <code> --teach-url <url>`, reports ready only after Teach answered | `reach status` shows enrolled |
 | 4 | "What is my first task?" | runs `reach sync`, opens the G1 context A1 backend workspace, reads the README and the scenario names, explains the task in plain words | workspace path, README present |
 | 5 | the business choices below | saves a plan with `reach plan save` before any edit; asks the student the meaningful decisions | `reach plan show` |
 | 6 | "Please build it." | writes the owned file itself; the student does not type code; edits stay in the owned files | owned file, `reach check` clean |
@@ -165,8 +165,8 @@ Acceptance rubric. Mark each row pass or fail with the evidence named:
 | Install | the public ZIP installs with no GitHub login, no Git and no sudo; an existing install is backed up, not overwritten |
 | Truthful setup | a forced setup failure (for example an unwritable `CODEX_HOME`) exits nonzero and prints no installed or greeting text |
 | Introduction | the agent introduces rEach and loads its skill in the installing conversation |
-| Enrol | the student supplies the URL and code; readiness is reported only after Teach answered; a second use of the code is refused |
-| Pre-enrol block | asking for coursework before enrolling is refused and pointed at `reach enrol` |
+| Enroll | the student supplies the URL and code; readiness is reported only after Teach answered; a second use of the code is refused |
+| Pre-enroll block | asking for coursework before enrolling is refused and pointed at `reach enroll` |
 | Workspace | README template, scenario names and `acceptance_mode` remote are present; no reference implementation or step definitions are readable |
 | Agent writes code | every code change is made by the agent; the student typed only decisions |
 | Student decides | the agent asked at least one meaningful decision (key handling, not found wording) instead of choosing silently |
@@ -188,7 +188,7 @@ and a different physical device on the same WiFi as the student:
    the same network, not a guest or client-isolated one; do not change the bind to a
    public interface.
 3. On the second device run the student session from turn 1, giving the LAN URL in turn 3.
-4. Pass when enrolment, sync, submission and the grade receipt all complete over the LAN
+4. Pass when enrollment, sync, submission and the grade receipt all complete over the LAN
    URL, and the receipt ids shown on the second device match `bin/teach submissions list`
    and `bin/teach grades export --assignment A1` on the instructor machine.
 5. Afterwards stop `bin/teach serve` and `bin/teach grader` by their PIDs and unset
@@ -197,5 +197,5 @@ and a different physical device on the same WiFi as the student:
 Recording the result. Copy the transport `summary.md` and the filled rubric side by
 side, labelled as two different passes. State which of these ran: transport smoke,
 public ZIP install, Codex dialogue, LAN second-device. Anything not run is reported as
-not run, not as passed. Never commit the enrolment code, the install keys or the
+not run, not as passed. Never commit the enrollment code, the install keys or the
 `private/` directory.

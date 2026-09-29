@@ -2,17 +2,17 @@
 
 **The registry of the software features rEach carries, with build and deployment status.**
 
-rEach is the student's course partner: it enrols a student with Teach, syncs signed course packages, guards the
+rEach is the student's course partner: it enrolls a student with Teach, syncs signed course packages, guards the
 student's workspace, checks and plans their slice, submits it and follows the receipts, inside the student's own
 agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.9.0 |
+| **Registry version** | 0.10.0 |
 | **Last audited** | 2026-09-29 |
-| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enrol, sync, check, checkpoint, plan, submit, receipts, hands, tips, setup, installer, reference, the intake interview and profile, the 17 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, and each supported harness catalogued on its own). |
-| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.9.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 29 catalogued |
+| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, submit, receipts, hands, tips, setup, installer, reference, the intake interview and profile, the 17 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
+| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.10.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
+| **Feature count** | 30 catalogued |
 
 ## How to read this registry
 
@@ -23,12 +23,12 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 29 | 100% |
+| ✅ Shipped | 30 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 2 | 7% |
-| 🔵 Built, not enabled | 26 | 90% |
+| 🔵 Built, not enabled | 27 | 90% |
 | ⚫ No runtime path | 1 | 3% |
 
 ## 1 · Install
@@ -61,11 +61,13 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Antigravity remains untested; the li
 
 ## 2 · Course flow
 
-### 2.1 · Enrol
+### 2.1 · Enroll
 
-`reach enrol <code> --teach-url URL` generates keys and enrols with Teach. Before it writes any key it verifies the
+`reach enroll <code> --teach-url URL` generates keys and enrolls with Teach. Before it writes any key it verifies the
 response fields, the wire digest equality and `minimum_reach_version`. The smoke showed a second use of the same code
-refused.
+refused. Since 0.10.0 it posts to `/api/v1/enroll` and retries once at `/api/v1/enrol` on a 404; `reach enrol` and the
+`reach_enrol` tool still work, unlisted. A Teach 0.10.0 refuses a too-old Reach before spending the code
+(`reach_outdated`), and Reach shows why; verified through a proxy that 404s the new route.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -79,7 +81,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.3 · Workspace gate
 
 `reach gate` runs from harness hooks: owned files are writable, anything else is refused, and coursework before
-enrolment is blocked.
+enrollment is blocked.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -124,15 +126,18 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.10 · Course transcript
+### 2.10 · Course record
 
-`reach gate prompt` captures every prompt a student submits in a course workspace on Claude Code or Codex, blocked
-prompts included, into `~/.reach/transcripts/` before any gate check; the Stop and SessionEnd hooks and `reach sync`
-send the queue to Teach (`POST /api/v1/transcripts`), which keeps one transcript per session for the instructors.
-`reach transcript status` and `reach status` show what is sent and waiting. The student is told at enrolment and in
-every greeting inside a course folder. Verified against Teach 0.8.0 on Ruby 3.3 and 2.6.10 (concurrent capture,
-replay, offline and kill-switch queueing, a 200000-byte prompt). Antigravity sessions and the AI partner's replies
-are not captured.
+In every course folder on Claude Code and Codex, Reach captures the student's prompts (`reach gate prompt`, before
+any gate check) and, since 0.10.0, the AI's replies, its reasoning where the harness stores it readably, its actions
+and every version of every code file: `reach transcript code` after each write and `reach transcript turn` at each
+turn end, which reads the harness's own session transcript and scans the folder for changes the hooks did not see.
+A code block pasted into a reply is filed as a snippet and replaced by a pointer. Everything is spooled in
+`~/.reach/transcripts/` and sent from the Stop and SessionEnd hooks and `reach sync` to `POST /api/v1/transcripts`,
+only in the kinds the course server lists; Teach files it in the student's subcorpus. `reach transcript status` and
+`reach status` show what is sent, waiting and held. Claude Code stores its thinking only as a signature, so its
+reasoning arrives as "reasoning not readable". Antigravity sessions and conversations outside course folders are
+not captured.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -155,14 +160,24 @@ signal, not a guarantee.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
+### 2.13 · Course folders and extracurricular
+
+`~/reach-work` holds `deliverables/<course>/<assignment>/<cutout>-<slice>/` (every slice; a sync moves older slice
+workspaces there and never deletes one) and `extracurricular/`, the student's own code folder, never graded or
+submitted, opened with `reach work --extracurricular`. Each folder, the root included, gets its own rules and
+hooks: extracurricular allows writes only inside itself, the root refuses every write, and the public directive
+CODEFILE tells the agent to put code in files, never in chat.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
 ## 3 · Course reference
 
 ### 3.1 · Encrypted reference
 
 `reach reference list|show|search|links` and the `reach_reference` MCP tool read RREF version 1 blobs, decrypted in
 memory only, with the key from the guardrails package's `reference-keys.json` (wire protocol 1 revision 2026-09-28f).
-Before enrolment, or with a Teach that sends no key, a blob is locked; a blob that fails authentication is refused.
-The smoke covers pack, locked before enrolment, readable after sync and tamper refused. A blob whose key id is
+Before enrollment, or with a Teach that sends no key, a blob is locked; a blob that fails authentication is refused.
+The smoke covers pack, locked before enrollment, readable after sync and tamper refused. A blob whose key id is
 corrupted or forged, while we hold a different key for the same course, is refused rather than reported locked
 (fixed 2026-09-29).
 
@@ -220,7 +235,7 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 ### 6.1 · MCP tools beyond reference
 
 The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 17 tools beyond `reach_reference` (3.1): `reach_hello`,
-`reach_enrol`, `reach_sync`, `reach_status`, `reach_check`, `reach_shape_check`, `reach_checkpoint`, `reach_plan`,
+`reach_enroll`, `reach_sync`, `reach_status`, `reach_check`, `reach_shape_check`, `reach_checkpoint`, `reach_plan`,
 `reach_submit`, `reach_receipts`, `reach_tips`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget` — each a thin wrapper the agent calls instead of
 shelling out to the `reach` CLI.
@@ -231,7 +246,7 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 7.1 · Doctor's individual checks
 
-`reach doctor` runs 18 checks — Ruby version/floor, the shim, harness detection, enrolment, keys, guard state,
+`reach doctor` runs 18 checks — Ruby version/floor, the shim, harness detection, enrollment, keys, guard state,
 workspaces, Chrome (for the taste skill's pre-flight), gems, network reachability, the outbox, outdated packages,
 the wire contract digest, version agreement across manifests, the persona files, the public directive table
 (R-DOC-DIRECTIVES), the vendored taste skill's provenance (R-DOC-TASTE), and the sidecar — printing one line per

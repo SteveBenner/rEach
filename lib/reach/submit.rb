@@ -14,8 +14,8 @@ module Reach
 
         meta = Reach::Workspace.metadata(workspace)
         manifest = build_manifest(workspace, meta)
-        install = Reach::Enrol.current
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless install
+        install = Reach::Enroll.current
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
@@ -48,7 +48,7 @@ module Reach
         results = []
         Dir.glob(File.join(Reach::Paths.outbox_dir, "*.json")).sort.each do |path|
           entry = JSON.parse(File.read(path))
-          install = Reach::Enrol.current
+          install = Reach::Enroll.current
           next unless install
 
           begin

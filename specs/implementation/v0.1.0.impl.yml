@@ -16,7 +16,7 @@ integration_notes: >
   interface_contract). Verified after reconciliation: ruby -c on all 21 lib
   files, `rplugin check/install/doctor reach` all at zero findings, bin/reach
   --help and doctor run for real, `reach gate session` returns the correct
-  M-GATE-NOENROL text and exit 2, the MCP bridge answers a real stdio
+  M-GATE-NOENROLL text and exit 2, the MCP bridge answers a real stdio
   initialize + tools/list round trip, and an end-to-end script (sealed fake
   guardrails + workspace packages through Workspace.provision, AGENTS.md
   rendering, Gate.write from inside the provisioned workspace) passes. Not
@@ -46,10 +46,10 @@ already_built:
   - lib/reach.rb: "Requires every file in dependency order and defines Plugin.run(args) = Reach::CLI.run(args). Do not edit; it already requires paths that do not exist yet — that's expected until your slice lands."
   - reach.rplugin.yml, config.yml, specs/app.yml, README.md, AGENTS.md, CLAUDE.md, locales/en-US.yml, skills/reach-course, skills/reach-submit, skills/reach-help, docs/student-guide.md: "Finished. Do not edit."
 interface_contract:
-  Reach::Enrol:
+  Reach::Enroll:
     - "self.generate_and_register(code, teach_url, client_factory: ->(url){ Reach::Client.new(base_url: url) }) -> writes ~/.reach/install.yml (install id, student id, course id, teach url, teach public key, mode 0600) and ~/.reach/keys/install.pem (mode 0600, an RSA-4096 key from Reach::Crypto.generate_install_key); posts the public key and the code to POST /api/v1/installs; raises Reach::Refused on a bad or used code."
     - "self.current -> Hash from install.yml, or nil if not enrolled."
-    - "self.revoked? -> bool from the cached status (install.yml records a last-checked revocation flag; Enrol does not itself poll Teach every call)."
+    - "self.revoked? -> bool from the cached status (install.yml records a last-checked revocation flag; Enroll does not itself poll Teach every call)."
   Reach::Guardrails:
     - "self.load -> the decrypted guardrails Hash from the vault (unpacks the latest stored guardrails package via Reach::Packages if the vault copy is missing or stale), or raises Reach::Refused with message id M-GATE-NOGUARD if none is stored yet."
     - "self.render_agents_md(cutout_id:, slice:, behavior:, due:, owned_files:) -> the filled-in AGENTS.md text using the guardrails' own agents_md template field if present, else the built-in default text from reach.spec.yml's templates.agents_md."
@@ -93,21 +93,21 @@ interface_contract:
   Reach::MCPBridge:
     - "self.serve -> runs a stdio JSON-RPC loop (no external MCP gem; hand-roll the minimal stdio framing: Content-Length header + JSON body, matching the MCP stdio transport) exposing exactly the seven tools in reach.spec.yml's mcp_bridge.tools (reach_status, reach_receipts, reach_shape_check, reach_tips, reach_submit, reach_raise_hand, reach_hand_status), each delegating to the corresponding class above. Never expose anything under mcp_bridge.excluded."
   Reach::Status:
-    - "self.summary -> the multi-line String in reach.spec.yml's status_example format, built from Reach::Enrol.current, Reach::Workspace.current_slices, the last Reach::Suite result per slice (cached, not re-run), Reach::Receipts.list, and open Reach::Hands."
+    - "self.summary -> the multi-line String in reach.spec.yml's status_example format, built from Reach::Enroll.current, Reach::Workspace.current_slices, the last Reach::Suite result per slice (cached, not re-run), Reach::Receipts.list, and open Reach::Hands."
   Reach::CLI:
-    - "self.run(argv) -> Integer exit code. Subcommands exactly as reach.spec.yml's cli.subcommands table: enrol, sync, status, work, gate <session|prompt|write|shell>, shape check, tips, submit, receipts [wait|show], hand <raise|status|list>, watch, doctor, lock, mcp. `gate` prints the Reach::Messages text and exits 2 on a GateBlocked, matching hook_io_contract.claude_code.output. `doctor` runs every check in reach.spec.yml's doctor_checks and prints one line per problem with its fix, exit 0 only when every check passes. `watch` is a plain polling loop (stat mtimes under the workspace's owned files every ~2s, no gem) that re-runs Reach::Shape.check --format agent on change, for the Codex backstop."
+    - "self.run(argv) -> Integer exit code. Subcommands exactly as reach.spec.yml's cli.subcommands table: enroll, sync, status, work, gate <session|prompt|write|shell>, shape check, tips, submit, receipts [wait|show], hand <raise|status|list>, watch, doctor, lock, mcp. `gate` prints the Reach::Messages text and exits 2 on a GateBlocked, matching hook_io_contract.claude_code.output. `doctor` runs every check in reach.spec.yml's doctor_checks and prints one line per problem with its fix, exit 0 only when every check passes. `watch` is a plain polling loop (stat mtimes under the workspace's owned files every ~2s, no gem) that re-runs Reach::Shape.check --format agent on change, for the Codex backstop."
   bin/reach: "The executable; already requires lib/reach and calls Plugin.run(ARGV) via the existing scaffold. You may add --help text but must not change its two-line bootstrap (RPLUGIN_HOME require + require_relative ../lib/reach)."
 slices:
-  - id: slice_1_enrolment
+  - id: slice_1_enrollment
     owner: worker_1
     owns_paths:
-      - lib/reach/enrol.rb
+      - lib/reach/enroll.rb
       - lib/reach/guardrails.rb
       - lib/reach/workspace.rb
     depends_on_already_built: [errors, paths, messages, crypto, client, packages, corpus]
     acceptance:
       - ruby -c passes on Ruby running in this environment for every owned file
-      - "Reach::Enrol, Reach::Guardrails, Reach::Workspace are defined with exactly the methods in interface_contract"
+      - "Reach::Enroll, Reach::Guardrails, Reach::Workspace are defined with exactly the methods in interface_contract"
       - "A short standalone script (write it to /tmp, do not commit it) can: generate a fake RSA keypair standing in for Teach's, build a fake guardrails envelope with Reach::Crypto.seal, unpack it with Reach::Guardrails/Reach::Packages, and render an AGENTS.md that contains every {placeholder} filled in"
   - id: slice_2_gate_and_shape
     owner: worker_2

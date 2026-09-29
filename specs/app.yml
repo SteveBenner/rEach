@@ -1,13 +1,13 @@
 schema_version: 1
 name: reach
-version: 0.9.0
+version: 0.10.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
   from its repository link into Claude Code, Claude Cowork, Codex or
   Antigravity (and through rplugin when present) and turns the student's own
   AI agent into rEach, a bounded course partner: it greets the student and
-  runs a short interview saved on their computer only, enrols with Teach, receives the student's
+  runs a short interview saved on their computer only, enrolls with Teach, receives the student's
   protected materials, refuses to let the agent work until the instructors'
   guardrails are installed, keeps the agent inside the student's slice,
   checks every change against the Dovetail shape, runs the instructors' tips
@@ -38,7 +38,9 @@ standards:
   - id: STD-PROFILE-LOCAL
     text: "The student's interview profile lives only in ~/.reach/profile.yml (0600). It is sent to Teach only inside a hand-raise bundle the student agreed to include it in, and reach profile forget deletes it. Interview answers typed in a course workspace are prompts, and reach the course transcript like any other (STD-TRANSCRIPT)."
   - id: STD-TRANSCRIPT
-    text: "Every prompt a student submits in a course workspace on a harness with a prompt hook (Claude Code, Codex) is captured by reach gate prompt before any gate check, into ~/.reach/transcripts (0700, files 0600), and sent to Teach through W-API-TRANSCRIPT from the Stop and SessionEnd hooks and reach sync; the prompt hook itself makes no network call, and a failure keeps every entry queued. The student is told at enrolment (M-TRANSCRIPT-NOTICE), in every greeting inside a course folder (G-TRANSCRIPT-NOTICE) and by reach status. The AI partner's replies, conversations outside course workspaces and Antigravity sessions are not captured."
+    text: "Everything written in a course folder on a harness with hooks (Claude Code, Codex) reaches the student's course record on Teach through W-API-TRANSCRIPT: every prompt, captured by reach gate prompt before any gate check, and since 0.10.0 the AI partner's replies, readable reasoning and actions, read from the harness's own session transcript by reach transcript code and reach transcript turn, and every version of every code file written in the space, filed as assignment or extracurricular code. Code blocks in a reply are split out as chat snippets, so the chat stays prose. Everything is spooled in ~/.reach/transcripts (0700, files 0600) and sent from the Stop and SessionEnd hooks and reach sync; no hook blocks on the network, a failure keeps every entry queued, and Reach sends only the entry kinds the course server's status lists. The student is told at enrollment (M-TRANSCRIPT-NOTICE), in every greeting inside a course folder (G-TRANSCRIPT-NOTICE) and by reach status. Conversations outside course folders and Antigravity sessions are not captured."
+  - id: STD-WORKSPACE-LAYOUT
+    text: "Assignment code is written only in slice workspaces under ~/reach-work/deliverables/<course>/<assignment>/<cutout>-<slice>/, and anything else the student wants to build only in ~/reach-work/extracurricular/, which is never graded or submitted. The workspace root refuses writes (M-WRITE-ROOT), extracurricular refuses writes outside itself (M-WRITE-OUTSIDE-EXTRA), and the agent is told to put code in files, never in chat (R-CODEFILE). A sync moves an older slice workspace under deliverables/ when the path is free and never deletes one."
   - id: STD-VAULT-PRIVATE
     text: "Decrypted guardrails, the suite and the reference build live only under ~/.reach/vault (0700) and are never read by generic file-listing code paths outside Reach::Guardrails, Reach::Directives, Reach::Seal and Reach::Suite."
   - id: STD-DIRECTIVE-TABLE
@@ -52,7 +54,7 @@ standards:
   - id: STD-NO-GIT-IN-WORKSPACE
     text: "Checkpoints are Reach's own snapshots under ~/.reach/checkpoints, taken and restored by reach checkpoint; no git repository is created in or required by a course workspace."
   - id: STD-COURSE-TIME
-    text: "Every time shown to a student (due dates, receipt times) is in the course's timezone with its abbreviation, e.g. 'Sat 3 Oct 11:59 pm PDT', whatever zone the student's computer is in. The zone comes from Teach's enrolment (course.timezone) and defaults to America/Los_Angeles, the zone MGMT 327 and 695AD-781 run on. America/Los_Angeles is computed from built-in US daylight-time rules, so it is right on every platform, Windows included."
+    text: "Every time shown to a student (due dates, receipt times) is in the course's timezone with its abbreviation, e.g. 'Sat 3 Oct 11:59 pm PDT', whatever zone the student's computer is in. The zone comes from Teach's enrollment (course.timezone) and defaults to America/Los_Angeles, the zone MGMT 327 and 695AD-781 run on. America/Los_Angeles is computed from built-in US daylight-time rules, so it is right on every platform, Windows included."
   - id: STD-SMOKE
     text: "tools/smoke is the release smoke test: real Claude sessions in a Docker sandbox with no access to the developer's home or Claude configuration, driven by scripted or model-played students, checked by hard assertions and advised by a model judge. Run it before tagging any release that changes the persona, greetings, hooks, install path or anything else a student sees."
   - id: STD-STUDENT-MESSAGES

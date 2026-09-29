@@ -95,7 +95,7 @@ decisions:
   capture:
     signature: "Reach::Transcript.capture(event, harness:, gate:) returning the entry hash, or nil"
     rules: >-
-      Returns nil at once when Reach::Enrol.current is nil or Reach::Enrol.revoked? is true. Otherwise: mkdir_p the
+      Returns nil at once when Reach::Enroll.current is nil or Reach::Enroll.revoked? is true. Otherwise: mkdir_p the
       transcripts dir and chmod it 0700; open the session's .jsonl with File::RDWR | File::CREAT | File::APPEND and
       perm 0600, take flock(File::LOCK_EX), read the state file (missing or unparsable means last_seq 0, acked_seq 0,
       created_at now), seq = last_seq + 1, write the line, flush, then write the state file (via a temp file in the same
@@ -135,7 +135,7 @@ decisions:
       the state file under the session file's flock; add the batch size to sent. On Reach::RemoteRefused with code
       "invalid_request" or "too_large": append the batch's spool lines to the session's .rejected.jsonl with
       "rejected" => {"code" => e.code, "at" => now}, set acked_seq to the batch's last seq, log it, and continue. On
-      Reach::RemoteRefused with code "revoked" or "not_enrolled": Reach::Enrol.mark_revoked!, stop with that code. On
+      Reach::RemoteRefused with code "revoked" or "not_enrolled": Reach::Enroll.mark_revoked!, stop with that code. On
       any other Reach::RemoteRefused: stop with its code, entries kept. On Reach::Offline or Reach::NetworkError: stop
       with "offline" or "network", entries kept. Every flush that sent or stopped logs one line to transcript_log:
       {"at", "event": "flush", "quick", "sent", "requests", "stopped"}. The whole method rescues StandardError, logs
@@ -171,8 +171,8 @@ decisions:
     reach transcript flush accepts --final, meaningful only with --quick: Reach::Transcript.flush(quick: false, final:
     false) skips the QUICK_MIN_INTERVAL_S "too_soon" check when quick and final are both true, and otherwise behaves
     exactly as a quick flush (writes last_attempt_at, at most QUICK_MAX_REQUESTS requests, prints nothing, exits 0).
-  enrolment_notice: >-
-    In cmd_enrol, right after the line printing M-ENROL-DONE, print Reach::Messages.text("M-TRANSCRIPT-NOTICE").
+  enrollment_notice: >-
+    In cmd_enroll, right after the line printing M-ENROLL-DONE, print Reach::Messages.text("M-TRANSCRIPT-NOTICE").
     Add M-TRANSCRIPT-NOTICE to locales/en-US.yml in the same form as its neighbours, with the exact text from
     reach.spec.yml student_messages.
   greeting_notice: >-
@@ -223,8 +223,8 @@ slices:
         exe/reach gate prompt --harness claude-code exits with the same code and message as before your change and
         creates no transcripts directory.
       - >-
-        Capture with a scratch enrolment: create <scratch>/home/install.yml by hand with {install_id: "inst_test",
-        student_id: "S1", teach_url: "http://127.0.0.1:9", course_id: "c1"} (read Reach::Enrol.current to see which
+        Capture with a scratch enrollment: create <scratch>/home/install.yml by hand with {install_id: "inst_test",
+        student_id: "S1", teach_url: "http://127.0.0.1:9", course_id: "c1"} (read Reach::Enroll.current to see which
         keys it needs). Pipe three payloads into ruby exe/reach gate prompt --harness codex from a directory that is not
         a workspace: one normal prompt, one 200000-byte prompt, one payload with no prompt key. The gate blocks them
         (no guardrails), and <scratch>/home/transcripts/s1.jsonl holds seq 1, 2, 3 with gate "blocked", the second with

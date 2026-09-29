@@ -161,7 +161,7 @@ module Reach
     end
 
     def documents
-      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless Reach::Enrol.current
+      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless Reach::Enroll.current
 
       paths = blob_paths
       raise Reach::Refused, Reach::Messages.text("M-REFERENCE-NONE") if paths.empty?

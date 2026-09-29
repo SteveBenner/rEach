@@ -47,7 +47,7 @@ constraints:
   - "Reach code parses and runs on Ruby 2.6.10 and 4.0.x: no endless methods, pattern matching, numbered block parameters, hash shorthand, argument forwarding, filter_map or Hash#except; require 'set' before Set."
   - "Reach never prints, logs or shows the agent a mark, a ledger key, a payload or anything from seal.yml."
   - "Every message a student sees comes from locales/en-US.yml by id (STD-STUDENT-MESSAGES)."
-  - "specs/wire.yml is amended additively (protocol stays 1): new optional fields, one new route, new package entries. A Reach 0.4.0 against a Teach 0.3.0 still enrols, syncs and submits; the new route's 404 is ignored."
+  - "specs/wire.yml is amended additively (protocol stays 1): new optional fields, one new route, new package entries. A Reach 0.4.0 against a Teach 0.3.0 still enrolls, syncs and submits; the new route's 404 is ignored."
   - "Teach code targets Ruby 4.0.6 (bundle exec, gems vendored)."
 runtimes:
   reach_modern: "/usr/bin/ruby (3.3.8) from the reach repository root"
@@ -153,8 +153,8 @@ seal:
         windows: "%LOCALAPPDATA%\\reach\\seal.json"
         linux: "$XDG_STATE_HOME/reach/seal.json, else ~/.local/state/reach/seal.json"
       content: "{schema: reach.sidecar/v1, sidecar_id: 32 hex (created once), installs: [{install_id, student_id, teach_url, enrolled_at}], heads: {<root>: {head, n, at}}, updated_at}"
-      written: "at enrolment (append the install), after every ledger append (update heads), never deleted by reach lock"
-      reported: "after a successful enrol, Reach sends an integrity event kind enrolled with {sidecar_id, prior_install_ids}; Teach links installs that share a sidecar and shows the chain in teach installs list"
+      written: "at enrollment (append the install), after every ledger append (update heads), never deleted by reach lock"
+      reported: "after a successful enroll, Reach sends an integrity event kind enrolled with {sidecar_id, prior_install_ids}; Teach links installs that share a sidecar and shows the chain in teach installs list"
     integrity_events:
       kinds: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled]
       route: "POST /api/v1/integrity (W-API-INTEGRITY), install-authenticated, Idempotency-Key required, body {kind, detail (<= 2000 bytes), cutout_id?, slice?, path?, ledger_head?, client_created_at}"
@@ -270,7 +270,7 @@ slices:
       - lib/reach/errors.rb
       - lib/reach/workspace.rb
       - lib/reach/submit.rb
-      - lib/reach/enrol.rb
+      - lib/reach/enroll.rb
       - lib/reach/sync.rb
       - lib/reach/hands.rb
       - lib/reach/gate.rb

@@ -12,8 +12,8 @@ module Reach
       def raise_hand(trigger:, summary:, slice:, include_profile: false)
         workspace = resolve_workspace(slice)
         meta = Reach::Workspace.metadata(workspace)
-        install = Reach::Enrol.current
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless install
+        install = Reach::Enroll.current
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         bundle = build_bundle(workspace, meta, trigger, summary, include_profile)
         tar_bytes = Reach::Tarball.write("bundle.json" => JSON.generate(bundle))
@@ -43,7 +43,7 @@ module Reach
       end
 
       def status(hand_id)
-        install = Reach::Enrol.current
+        install = Reach::Enroll.current
         return { state: "unknown", reply: nil } unless install
 
         response = client(install).get("/api/v1/hands/#{hand_id}")

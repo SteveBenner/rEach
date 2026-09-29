@@ -5,28 +5,27 @@ require "time"
 require "rbconfig"
 
 module Reach
-  module Enrol
-    ROUTE = "/api/v1/enrol"
+  module Enroll
+    ROUTE = "/api/v1/enroll"
+    LEGACY_ROUTE = "/api/v1/enrol"
 
     module_function
 
     def generate_and_register(code, teach_url)
       key = Reach::Crypto.generate_install_key
       client = Reach::Client.anonymous(teach_url)
+      body_fields = {
+        "code" => code,
+        "public_key_pem" => key.public_key.to_pem,
+        "reach_version" => Reach::VERSION,
+        "platform" => platform,
+        "ruby_version" => RUBY_VERSION
+      }
 
       begin
-        response = client.post_json(
-          ROUTE,
-          {
-            "code" => code,
-            "public_key_pem" => key.public_key.to_pem,
-            "reach_version" => Reach::VERSION,
-            "platform" => platform,
-            "ruby_version" => RUBY_VERSION
-          }
-        )
+        response = post_enroll(client, body_fields)
       rescue Reach::RemoteRefused => e
-        raise Reach::Refused, Reach::Messages.text("M-ENROL-REFUSED") if e.code == "invalid_request"
+        raise Reach::Refused, Reach::Messages.text("M-ENROLL-REFUSED") if e.code == "invalid_request"
 
         raise
       end
@@ -42,12 +41,20 @@ module Reach
       current
     end
 
+    def post_enroll(client, body_fields)
+      client.post_json(ROUTE, body_fields)
+    rescue Reach::RemoteRefused => e
+      raise unless e.code == "not_found"
+
+      client.post_json(LEGACY_ROUTE, body_fields)
+    end
+
     def verify_response!(body)
       keys = body["signing_public_keys"]
       complete = %w[install_id student_id encryption_key wire_contract_sha256 minimum_reach_version].all? { |field| !body[field].to_s.empty? } &&
                  (keys.is_a?(Hash) || keys.is_a?(Array)) && !keys.empty?
-      raise Reach::Refused, Reach::Messages.text("M-ENROL-INCOMPLETE") unless complete
-      raise Reach::Refused, Reach::Messages.text("M-ENROL-WIRE") unless body["wire_contract_sha256"] == Reach::Wire.digest
+      raise Reach::Refused, Reach::Messages.text("M-ENROLL-INCOMPLETE") unless complete
+      raise Reach::Refused, Reach::Messages.text("M-ENROLL-WIRE") unless body["wire_contract_sha256"] == Reach::Wire.digest
 
       return unless Gem::Version.correct?(body["minimum_reach_version"].to_s)
       return unless Gem::Version.new(Reach::VERSION) < Gem::Version.new(body["minimum_reach_version"].to_s)

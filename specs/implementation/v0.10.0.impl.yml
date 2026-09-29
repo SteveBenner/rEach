@@ -1,0 +1,287 @@
+schema: rstack.blueprint/v1
+task: reach-0.10.0-subcorpus-capture
+version: 0.10.0
+intent: >
+  Two changes, in this order. (1) Rename British "enrol/enrolment" to "enroll/enrollment" everywhere in this
+  repository, keeping hidden aliases so installed students are not broken. (2) Capture 100% of AI output in course
+  folders and send it to Teach categorized: chats (the student's prompts, already captured since 0.8.0, plus the AI's
+  replies, tool actions and readable reasoning, with code blocks split out of replies), assignment code (every AI
+  write in the student's deliverables/) and extracurricular code (every AI write in the student's own
+  extracurricular/ folder). The student's workspace root gains deliverables/ (existing slice workspaces move there)
+  and extracurricular/. Follow specs/wire.yml protocol 1 revision 2026-09-29c (the primary writes it before you start;
+  do not edit it) and reach.spec.yml sections transcripts, workspace_layout, extracurricular and enrollment.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repository: github.com/SteveBenner/rEach (~/github/foss/rEach)
+base: the commit that carries Reach 0.9.0 (another session's slice-API release); build on it, never revert its changes
+
+constraints:
+  - >-
+    AGENTS.md Part S: write no tests, no spec files, no test directories. Verify by running Reach for real under
+    <scratchpad>/subcorpus/reach/ where <scratchpad> is
+    /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/9ba9679b-41fd-4c31-b5a0-817e860e6af1/scratchpad.
+    Set REACH_HOME and REACH_WORKSPACE_ROOT there; never touch the real ~/.reach or ~/reach-work.
+  - "AGENTS.md Part Q: no comments, doc comments or docstrings. Only lines a tool reads survive."
+  - "AGENTS.md Part F: no authorship or agent attribution."
+  - >-
+    AGENTS.md Part E: delete nothing outside the scratch directory; never rm -r, git clean or find -delete. Renaming a
+    tracked file uses git mv.
+  - "AGENTS.md Part J: query codebase memory (project home-sven-github-foss-rEach) before grepping."
+  - No git add, commit, stash, checkout or reset. The primary commits. git mv is allowed for the renames listed.
+  - >-
+    Do not edit specs/wire.yml, reach.spec.yml, specs/app.yml, VERSION, CHANGELOG.md, README.md, FEATURES.md, TODO.md
+    or any version string; the primary owns them. Read TMP_AGENT_FILE_LOCKS.yml before editing any file and skip any
+    file another agent holds; report it.
+  - >-
+    Ruby floor 2.6.10: no filter_map, Hash#except, endless methods, numbered parameters, `it`, pattern matching, `...`
+    forwarding, Array#intersect?. Standard library only. Check every lib file with ruby:2.6.10-slim (docker image is
+    local).
+  - No em dashes or en dashes in any text a student or instructor reads.
+  - Match the surrounding code: module_function modules, JSON.generate, File.open with flock, rescue StandardError where neighbours do.
+
+part_1_enrollment_rename:
+  rule: >-
+    Every occurrence of enrol, enrols, enrolment, enrolments, Enrol, Enrolment, ENROL in this repository (code, locale
+    files, skills, agents, rules, docs, INSTALL.md, templates, tools/, corpus README, directives, persona files) becomes
+    enroll, enrolls, enrollment, enrollments, Enroll, Enrollment, ENROLL. Words already spelled enrolled/enrolling stay.
+    Exclusions: CHANGELOG.md history entries (the primary adds the new entry), specs/implementation/v0.*.impl.yml for
+    earlier versions (history), the dovetail/ submodule, and the files the primary owns (listed in constraints).
+  files:
+    - git mv lib/reach/enrol.rb lib/reach/enroll.rb, module Reach::Enrol -> Reach::Enroll, and every require and reference.
+  cli: >-
+    `reach enroll <code> [--teach-url URL]` is the command. `reach enrol` stays as an unlisted alias that runs the
+    same code; the usage text lists only enroll.
+  mcp: >-
+    The bridge tool reach_enrol becomes reach_enroll (description "Enroll in a course using the code the instructor
+    gave the student"). tools/list shows only reach_enroll; tools/call still accepts reach_enrol.
+  messages: >-
+    Message ids M-ENROL-DONE, M-ENROL-REFUSED, M-GATE-NOENROL become M-ENROLL-DONE, M-ENROLL-REFUSED, M-GATE-NOENROLL
+    in locales/en-US.yml and every caller; texts say "enrollment code" and "reach enroll". Greetings the same.
+  wire: >-
+    Reach posts to /api/v1/enroll. When that answers 404 not_found (a Teach older than 0.10.0), Reach retries once at
+    /api/v1/enrol with the same body and uses that answer.
+  persisted_state: >-
+    If any file Reach writes (install.yml, state files) has a key spelled with one l, keep reading the old key as a
+    fallback and write the new key from now on. Report every such key.
+
+part_2_capture:
+  layout:
+    workspace_root: unchanged, REACH_WORKSPACE_ROOT or ~/reach-work.
+    deliverables_root: File.join(workspace_root, "deliverables"); Reach::Paths.deliverables_root.
+    slice_workspace: >-
+      Reach::Paths.workspace_path(course, assignment, cutout, slice) becomes
+      File.join(deliverables_root, course, assignment, "#{cutout}-#{slice}").
+    extracurricular_root: File.join(workspace_root, "extracurricular"); Reach::Paths.extracurricular_root.
+    migration: >-
+      Reach::Workspace.migrate_layout!, called at the start of Reach::Workspace.provision_from_package (every sync):
+      for every slice workspace found under workspace_root but not under deliverables_root (current_slices already
+      finds them by their .reach marker), File.rename it to the matching path under deliverables_root when that path
+      does not exist (mkdir_p the parent first); otherwise leave it and add a warning to the sync summary. Log each move
+      to ~/.reach/logs/transcript.jsonl as {"event": "workspace_moved", "from", "to"}. Never delete anything.
+    spaces: >-
+      Reach::Workspace.space_for(path) returns {"kind" => "slice", "path" => <slice workspace>} for a path inside a slice
+      workspace, {"kind" => "extracurricular", "path" => extracurricular_root} for a path inside it,
+      {"kind" => "root", "path" => workspace_root} for workspace_root itself or deliverables_root or a directory between
+      them that is not a slice, else nil. Resolve with File.realpath where the path exists.
+  extracurricular:
+    provision: >-
+      Reach::Workspace.provision_extracurricular!, called at the end of every successful sync and at enrollment:
+      mkdir_p extracurricular_root; write the marker file .reach-space.json {"schema": "reach.space/v1", "kind":
+      "extracurricular", "course": <course id>} (not a .reach/ directory, so current_slices does not count it);
+      write AGENTS.md, CLAUDE.md and GEMINI.md (read-only, like slice workspaces) from Reach::Guardrails.render_rules
+      with space "extracurricular"; write harness settings (harness_settings below). The student's own files are never
+      touched.
+    root_space: >-
+      workspace_root itself also gets harness settings and rules files (space "root"), so a session opened at
+      ~/reach-work is captured too; writes there are refused with M-WRITE-ROOT.
+    launch: >-
+      `reach work --extracurricular [--harness ID]` opens the harness in extracurricular_root the way reach work opens
+      a slice (through the gate, rEach speaking first).
+  rules_rendering: >-
+    Reach::Guardrails.render_rules gains a space: argument ("slice" default, "extracurricular", "root"). Guardrails
+    directives may carry "scope" => "slice" | "extracurricular" | "everywhere" (absent means "slice"). A slice renders
+    scope slice and everywhere rules plus its cutout rules, as today. The extracurricular space renders scope
+    extracurricular and everywhere rules, then the public directive table rows whose slice is all, and ends with
+    "Folder: <path>" and "This is the student's own code folder. Nothing here is graded or submitted." The root space
+    renders scope everywhere rules and "Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else
+    goes in extracurricular/." When the guardrails package carries no rule with scope extracurricular (a Teach older
+    than 0.10.0), use the fallback rules in locales/en-US.yml under extracurricular_rules (the primary supplies their
+    text in reach.spec.yml extracurricular.fallback_rules; copy it verbatim).
+  public_directive: >-
+    Add directives/codefile.md: id R-CODEFILE, opcode CODEFILE, alias L, tier public, slice all, when [always],
+    enforce hook:transcript, rule "put code in files, never in chat: owned files for coursework, extracurricular/ else"
+    (it must fit 88 characters; reach doctor's R-DOC-DIRECTIVES must pass). Body: code the student needs goes into a
+    file: for an assignment, only the slice's owned files under deliverables/; for anything else, the student's
+    extracurricular/ folder (offer `reach work --extracurricular`). Explanations in chat stay prose; never paste a
+    code block into a reply, not even a short example. If alias L is taken when you start, use the next free letter
+    in A-M and report it.
+  gate:
+    write: >-
+      In a slice: unchanged. In extracurricular: allow any path inside extracurricular_root after resolve_target
+      (symlinks resolved); refuse anything outside with M-WRITE-OUTSIDE-EXTRA. In root: refuse every write with
+      M-WRITE-ROOT.
+    shell: >-
+      In extracurricular: the same rules as a slice, with "owned" meaning any path inside extracurricular_root (write
+      commands and redirects may target any path inside it; network commands stay blocked). In root: read-only
+      commands and reach only.
+    messages: >-
+      Add to locales/en-US.yml, exact texts from reach.spec.yml student_messages: M-WRITE-ROOT,
+      M-WRITE-OUTSIDE-EXTRA, and the updated M-TRANSCRIPT-NOTICE and G-TRANSCRIPT-NOTICE.
+    prompt: >-
+      Gate.prompt captures as today; the capture records the space kind. check_has_workspace! still applies in every
+      space. Witness ledger records only in a slice (as today).
+  harness_settings: >-
+    Reach::Harness.claude_settings_content(space_kind) and codex_hooks_content(space_kind). Every space:
+    UserPromptSubmit gate prompt --harness H; PreToolUse gate write and gate shell (same matchers as today);
+    PostToolUse on the write matchers adds `reach transcript code --harness H` (timeout 15) after the existing check
+    hook; Stop becomes [attempts settle (slice only), `reach transcript turn --quick --harness H` (timeout 30)];
+    Claude SessionEnd `reach transcript turn --quick --final --harness claude-code` (timeout 30). Extracurricular and
+    root have no check or attempts hooks. configure_all(path) picks the space from Reach::Workspace.space_for(path).
+    The .mcp.json and permissions deny rules are the same in every space.
+  capture_model:
+    spool: >-
+      Unchanged location and seq model (~/.reach/transcripts/<session_id>.jsonl, one seq per session for every kind,
+      state file with last_seq and acked_seq). Every entry line gains "space" ("slice" | "extracurricular" | "root").
+    kinds:
+      prompt: unchanged fields.
+      reply: >-
+        {seq, at, kind: "reply", text, bytes, truncated, digest, note}. text is the AI's visible text for one
+        transcript block, after code splitting (below). at is the transcript entry's own timestamp, normalised to
+        W-CONV-3; now when absent.
+      reasoning: >-
+        {seq, at, kind: "reasoning", text, bytes, truncated, digest, note}. Claude "thinking" blocks' thinking text;
+        Codex reasoning items' summary texts joined with a blank line. A block whose text is empty, redacted or only
+        encrypted is still recorded with text null and note "reasoning not readable" (once per block).
+      action: >-
+        {seq, at, kind: "action", tool, summary, note}. tool is the tool name (at most 64 bytes). summary (at most
+        2000 bytes, cut on a character boundary): Bash/shell/exec_command: the command; Read/Grep/Glob: the path or
+        pattern; Write/Edit/MultiEdit/NotebookEdit/apply_patch: "wrote <paths>" (the code itself is a code entry);
+        any other tool (MCP included): tool name plus JSON.generate(input) cut to 2000 bytes. note "subagent" for
+        Claude entries with isSidechain true.
+      code: >-
+        {seq, at, kind: "code", category, scope, path, origin, deleted, binary, text, bytes, truncated, digest, note,
+        reply_seq}. category "assignment" (slice space) or "extracurricular"; scope {assignment, cutout_id, slice} for
+        assignment, null for extracurricular. path: POSIX path relative to the slice workspace or extracurricular_root
+        (for a chat snippet, "snippets/<seq zero-padded to 4>-<n>.<ext>"). origin "ai_write" (PostToolUse), "scan"
+        (turn-end scan) or "chat_snippet". deleted true only for scan deletions (text null, bytes 0, digest null).
+        binary true when the first 8192 bytes contain a NUL byte (text null, digest of the file). text is the file's
+        UTF-8 content (scrub invalid bytes), capped at 131072 bytes on a character boundary with truncated true;
+        bytes and digest describe the whole file. reply_seq is the reply's seq for chat snippets, else null.
+    code_splitting: >-
+      Before recording a reply, find fenced code blocks (a line starting with three or more backticks or tildes,
+      optional language word, up to the matching closing fence; an unclosed fence runs to the end). Replace each with
+      one line "[code <reply seq>.<n> -> <category root>/<snippet path>]" where category root is
+      "deliverables/<assignment>/<cutout_id>-<slice>" in a slice and "extracurricular" otherwise; then record the
+      reply, then one code entry per block (origin chat_snippet, path snippets/<seq4>-<n>.<ext>, ext from the language
+      word: ruby rb, rb rb, python py, py py, javascript js, js js, typescript ts, ts ts, svelte svelte, html html,
+      css css, json json, yaml yml, yml yml, bash sh, sh sh, shell sh, sql sql, erb erb, markdown md, md md, anything
+      else txt). The reply's seq is reserved first so the pointer can name it. In the root space snippets are
+      category extracurricular.
+    transcript_ingest: >-
+      Reach::TranscriptIngest.ingest(session_id:, transcript_path:, harness:, space:) reads the harness transcript
+      file from the byte offset stored in the session state ("transcript_path", "transcript_offset") to the last
+      complete line, under the session file's flock, and records entries in file order. Claude Code lines: type
+      "assistant" entries; each content block: text -> reply (with splitting), thinking or redacted_thinking ->
+      reasoning, tool_use -> action; keep the last 2000 entry uuids in state ("seen_uuids") and skip seen ones. Skip
+      every other line type. Codex lines: type "response_item" with payload type "message" and role "assistant" ->
+      one reply per output_text block; payload type "reasoning" -> reasoning; payload type "function_call" or
+      "custom_tool_call" -> action (arguments or input parsed when JSON). When the file is shorter than the stored
+      offset, restart at 0 (Claude dedupes by uuid; Codex records a note "transcript restarted" once). A missing or
+      unreadable transcript_path records nothing and logs {"event": "ingest_skipped"}. A single ingest records at most
+      2000 entries; the rest wait for the next call.
+    code_capture: >-
+      `reach transcript code --harness H` (PostToolUse): read the hook payload; ingest the transcript first (so the
+      chat order holds); then snapshot every file the tool wrote (file_path, notebook_path, or apply_patch targets
+      via Reach::Gate.patch_targets) that lies inside the session's slice owned files or extracurricular_root, as code
+      entries origin ai_write; update the space's digest map. Always exits 0, prints nothing.
+    turn_end: >-
+      `reach transcript turn [--quick] [--final] --harness H` (Stop, SessionEnd): ingest the transcript; scan the
+      session's space (slice: its owned files; extracurricular: every file under extracurricular_root except
+      .reach-space.json, AGENTS.md, CLAUDE.md, GEMINI.md, .claude/, .codex/, .mcp.json, and directories named .git,
+      node_modules, vendor, .bundle, tmp; at most 2000 files; files over 1 MiB recorded with text null and note "too
+      large") against the digest map in ~/.reach/transcripts/spaces/<sha256 of the space path>.json; record changed or
+      new files as code origin scan and vanished ones as deleted; then flush exactly as `transcript flush` does with
+      the same quick/final semantics. Always exits 0; prints nothing in quick mode.
+  flush_capability: >-
+    Reach::Transcript.supported_kinds reads the cached status (Reach::Sync.cached_status) key
+    "transcripts" => {"kinds" => [...]}; absent means ["prompt"]. For each session, flush sends only the longest run of
+    unacknowledged entries whose kinds are all supported; when the next entry's kind is unsupported, that session
+    stops with stopped "unsupported_kind" (logged once per session per flush) and the other sessions continue. Batch
+    limits (200 entries, 900000 bytes, one entry always fits) are unchanged; the request body keeps session_id,
+    harness, cutout_id and slice and sends each entry with exactly the keys its kind lists.
+  status_line: >-
+    reach status and reach transcript status: "Transcript: <n> entries sent" or "... , <m> waiting to send" (counts
+    are over every kind), plus " (<k> held until the course server is updated)" when a session stopped on
+    unsupported_kind.
+  persona_and_skills: >-
+    agents/reach.md and skills/reach-assistant/SKILL.md (bodies identical; R-DOC-PERSONA must pass): the shares rule
+    becomes "If the student asks what rEach shares: everything the two of you write in their course folders
+    (deliverables and extracurricular), your replies and the code included, is saved in their course record, which
+    their instructors can read; the profile file stays on this computer; what they type outside their course folders
+    is not sent." Add: "Code goes in files, never in chat: coursework in the slice's owned files, anything else in the
+    student's extracurricular folder; offer `reach work --extracurricular` when they want to code something of their
+    own." Every skill, rule or doc that names a workspace path under ~/reach-work/<course>/ gets the deliverables/
+    level.
+  docs: docs/student-guide.md privacy paragraph becomes reach.spec.yml privacy_notice.text verbatim (the primary writes it).
+
+slices:
+  - id: reach_rename
+    owns_paths: [every file part_1 touches except the primary's files]
+    deliverable: part_1 complete; `git grep -n -i -E "enrol(ment|ments|s)?\b"` finds nothing outside the exclusions.
+  - id: reach_capture
+    depends_on: [reach_rename]
+    owns_paths:
+      - lib/reach/transcript.rb
+      - lib/reach/transcript_ingest.rb (new)
+      - lib/reach/gate.rb
+      - lib/reach/cli.rb
+      - lib/reach/harness.rb
+      - lib/reach/hello.rb
+      - lib/reach/status.rb (only its transcript line; another agent may hold it, read the lock file)
+      - lib/reach/sync.rb
+      - lib/reach/paths.rb
+      - lib/reach/workspace.rb
+      - lib/reach/guardrails.rb
+      - lib/reach.rb
+      - locales/en-US.yml
+      - locales/greetings.en-US.yml
+      - directives/codefile.md (new)
+      - agents/reach.md
+      - skills/**/SKILL.md
+      - rules/reach.md
+      - docs/student-guide.md
+    deliverable: part_2 complete.
+
+acceptance:
+  - ruby -wc on every changed lib file (system Ruby) and ruby -c in ruby:2.6.10-slim both clean.
+  - >-
+    Rename: `ruby exe/reach` usage lists enroll and not enrol; `reach enrol x` and `reach enroll x` both reach the
+    enrollment code path (against a closed port they print the same refusal); the MCP tools/list JSON names
+    reach_enroll only; tools/call with reach_enrol still runs.
+  - >-
+    Layout: with a hand-built old-layout slice under <scratch>/work/<course>/<assignment>/<cutout>-<slice>/ (with its
+    .reach marker), Reach::Workspace.migrate_layout! moves it under deliverables/ and logs workspace_moved; a second
+    call does nothing.
+  - >-
+    Ingest: feed Reach::TranscriptIngest a copy of a real Claude Code transcript (the primary leaves one at
+    <scratchpad>/subcorpus/fixtures/claude.jsonl) and a synthetic Codex rollout you write with the record shapes in
+    transcript_ingest; the spool shows reply, reasoning and action entries in file order, code blocks split into
+    chat_snippet entries with the pointer line in the reply, and a second ingest adds nothing.
+  - >-
+    Code: from a scratch extracurricular folder, pipe a PostToolUse payload for a Write into `reach transcript code
+    --harness claude-code`; a code entry origin ai_write appears; modify another file by hand and pipe a Stop payload
+    into `reach transcript turn --quick --harness claude-code`; a scan entry appears; delete a file and repeat; a
+    deleted entry appears. Gate: a write inside extracurricular is allowed, one outside is refused with
+    M-WRITE-OUTSIDE-EXTRA, a write in the root space is refused with M-WRITE-ROOT.
+  - >-
+    Capability: with a cached status lacking "transcripts", flush sends prompts only and stops the session at the first
+    reply with unsupported_kind; with kinds [prompt, reply, reasoning, action, code] it sends all (the primary runs
+    the real Teach round trip).
+  - reach doctor: R-DOC-PERSONA and R-DOC-DIRECTIVES pass.
+  - Report every command and its output, every deviation, and every file you could not edit because of a lock.
+
+out_of_scope:
+  - Teach (another worker).
+  - Grokit and Dovetail.
+  - Version bumps, CHANGELOG, README, FEATURES, TODO, reach.spec.yml, specs/wire.yml, specs/app.yml.
+  - Capturing anything outside course folders; Antigravity capture.

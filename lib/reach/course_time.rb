@@ -7,7 +7,7 @@ module Reach
 
     class << self
       def zone
-        install = Reach::Enrol.current
+        install = Reach::Enroll.current
         tz = install && install["course"] && install["course"]["timezone"]
         return tz if tz && !tz.to_s.empty?
 

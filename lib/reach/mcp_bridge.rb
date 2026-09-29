@@ -5,7 +5,7 @@ module Reach
     TOOLS = [
       {
         "name" => "reach_status",
-        "description" => "The student's enrolment, current assignment, slices, package versions and outstanding receipts",
+        "description" => "The student's enrollment, current assignment, slices, package versions and outstanding receipts",
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
@@ -90,8 +90,8 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
-        "name" => "reach_enrol",
-        "description" => "Enrol with a course using the code the instructor gave the student",
+        "name" => "reach_enroll",
+        "description" => "Enroll in a course using the code the instructor gave the student",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
@@ -284,8 +284,8 @@ module Reach
           Reach::Profile.save(fields: arguments.fetch("fields"), status: arguments.fetch("status"))
         when "reach_profile_forget"
           { "forgotten" => Reach::Profile.forget! }
-        when "reach_enrol"
-          install = Reach::Enrol.generate_and_register(arguments.fetch("code"), arguments["teach_url"] || Reach::Runtime.default_teach_url)
+        when "reach_enroll", "reach_enrol"
+          install = Reach::Enroll.generate_and_register(arguments.fetch("code"), arguments["teach_url"] || Reach::Runtime.default_teach_url)
           { "install" => install, "sync" => Reach::Sync.run }
         when "reach_sync"
           Reach::Sync.run

@@ -48,7 +48,7 @@ detail:
       DEFAULT_ZONE: "America/Los_Angeles"
     functions:
       zone: >-
-        The course timezone name. Order: Reach::Enrol.current["course"]["timezone"] when present and non-empty;
+        The course timezone name. Order: Reach::Enroll.current["course"]["timezone"] when present and non-empty;
         else config.yml course.timezone (read through Reach::Runtime.load_config); else DEFAULT_ZONE. Never raises
         (rescue StandardError -> DEFAULT_ZONE).
       "format(value, zone: nil)": >-

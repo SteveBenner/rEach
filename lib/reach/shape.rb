@@ -131,7 +131,7 @@ module Reach
     end
 
     def signing_key_files
-      install = Reach::Enrol.current || {}
+      install = Reach::Enroll.current || {}
       dir = File.join(Reach::Paths.keys_dir, "teach")
       Array(install["signing_public_keys"]).each_with_object([]) do |key, paths|
         pem = key["pem"].to_s

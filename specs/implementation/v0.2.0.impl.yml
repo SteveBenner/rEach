@@ -36,7 +36,7 @@ runtimes:
   teach: "cd ~/bitbucket/paterasai/teach && PATH=$HOME/.rubies/ruby-4.0.6/bin:$PATH bundle exec ruby bin/teach <args> (gems vendored under vendor/bundle)"
 principle: >
   Two workers, disjoint owned paths, one interface contract. worker_wire owns everything that touches the wire on both
-  sides (Reach's crypto, client, enrolment, packages, sync, workspace provisioning, submission, receipts, hands,
+  sides (Reach's crypto, client, enrollment, packages, sync, workspace provisioning, submission, receipts, hands,
   status; Teach's auth, crypto, envelope, packages, submissions, hands, receipts, status). worker_experience owns what
   the student and the harness see (packaging for every harness, the exe/ entry point, the runtime shim, the persona,
   greetings, interview profile, setup, hello, CLI, gate, harness configuration, MCP bridge, skills and docs). Each
@@ -64,18 +64,18 @@ interface_contract:
     Reach::Tarball: "write(entries) -> binary String (gzip tar) from an ordered Hash name=>String; read(bytes) -> ordered Hash name=>binary String, raising Reach::VerificationFailed for any W-TAR-2/3/4 violation."
     Reach::Crypto: "generate_install_key, load_public_key(pem), load_private_key(pem), digest_hex(data), canonical_json(value), sign_pss(key, data), verify_pss(key, sig, data) -> bool, sign_request(private_key, method:, target:, timestamp:, nonce:, body:) -> base64 String, seal(header:, plaintext:, recipient_public_key:, signer_private_key:) -> envelope Hash, open_envelope(envelope, expected_kind:, expected_student_id:, recipient_private_key:, signer_public_key_for:) -> [header, plaintext] (signer_public_key_for is a callable taking a key_id and returning a public key or nil)."
     Reach::Client:
-      - "Reach::Client.for_install(install = Reach::Enrol.current, quick: false) -> a client signing as that install (raises Reach::Refused with M-GATE-NOENROL when install is nil)."
-      - "Reach::Client.anonymous(base_url, quick: false) -> an unsigned client (enrol, health)."
+      - "Reach::Client.for_install(install = Reach::Enroll.current, quick: false) -> a client signing as that install (raises Reach::Refused with M-GATE-NOENROLL when install is nil)."
+      - "Reach::Client.anonymous(base_url, quick: false) -> an unsigned client (enroll, health)."
       - "#get(path, query: nil, headers: {}) and #post_json(path, body, idempotency_key: nil, headers: {}) -> Reach::Client::Response; query is an Array of [name, value] pairs or nil."
       - "Reach::Client::Response: #status (Integer), #headers (Hash, lower-case keys), #body (String), #json (parsed Hash/Array or nil)."
       - "Raises Reach::Offline (REACH_OFFLINE=1, open breaker, exhausted retries on connection failure), Reach::RemoteRefused (every W-ERR-2 code Reach never retries), Reach::NetworkError (retries exhausted on a retried code). Never raises Net::HTTP, SocketError or OpenSSL exceptions."
-    Reach::Enrol:
-      - "generate_and_register(code, teach_url) -> install Hash; raises Reach::Refused with M-ENROL-REFUSED on RemoteRefused invalid_request; lets Offline/NetworkError propagate."
+    Reach::Enroll:
+      - "generate_and_register(code, teach_url) -> install Hash; raises Reach::Refused with M-ENROLL-REFUSED on RemoteRefused invalid_request; lets Offline/NetworkError propagate."
       - "current -> Hash or nil; revoked? -> Boolean; update!(fields) -> merged Hash written back (mode 0600); mark_revoked! -> nil; platform -> 'macos' | 'windows' | 'linux'."
       - "install.yml keys: install_id, student_id, course (Hash id/title/term/timezone), teach_url, signing_public_keys (Array of {key_id, pem}), encryption_key ({key_id, pem}), minimum_reach_version, wire_contract_sha256, revoked (Boolean), enrolled_at, last_checked_at."
     Reach::Sync:
-      - "run -> summary Hash: state ('ok' | 'offline' | 'revoked'), course (Hash or nil), student (Hash or nil), guardrails_version (Integer or nil), packages ({kind => Integer version or nil}), workspaces (Array of {path, cutout_id, slice, kept_files}), outbox_sent (Integer), hand_replies (Array), warnings (Array of String). Never raises for Offline/NetworkError (state 'offline'); raises Reach::Refused M-GATE-NOENROL when not enrolled."
-      - "refresh_status(quick: false) -> the status Hash (also written to Paths.status_cache_file with a 'fetched_at' W-CONV-3 key, and its key/version fields merged into install.yml). Raises Offline/NetworkError/RemoteRefused; on revoked/not_enrolled it calls Enrol.mark_revoked! first."
+      - "run -> summary Hash: state ('ok' | 'offline' | 'revoked'), course (Hash or nil), student (Hash or nil), guardrails_version (Integer or nil), packages ({kind => Integer version or nil}), workspaces (Array of {path, cutout_id, slice, kept_files}), outbox_sent (Integer), hand_replies (Array), warnings (Array of String). Never raises for Offline/NetworkError (state 'offline'); raises Reach::Refused M-GATE-NOENROLL when not enrolled."
+      - "refresh_status(quick: false) -> the status Hash (also written to Paths.status_cache_file with a 'fetched_at' W-CONV-3 key, and its key/version fields merged into install.yml). Raises Offline/NetworkError/RemoteRefused; on revoked/not_enrolled it calls Enroll.mark_revoked! first."
       - "cached_status -> Hash or nil; status_age_s -> Float seconds since fetched_at, or nil."
     Reach::Guardrails:
       - "ensure_current -> unpacks the newest stored guardrails package into Paths.guardrails_vault_dir when needed."
@@ -121,7 +121,7 @@ verbatim:
         G-FIRST-RUN: "Hi, I'm rEach, your academic assistant! Since I don't know anything about you yet, let's start with a brief interview. It takes about five minutes, and you can skip any question. What I save about you stays on this computer: I use it to explain things in ways that suit you, and it never affects your grade.\n\nFirst question: what would you like me to call you?"
         G-RESUME: "Welcome back, {name}! We didn't finish getting to know each other last time. Want to pick up where we left off, or jump straight into your work?"
         G-RESUME-NONAME: "Welcome back! We didn't finish getting to know each other last time. Want to pick up where we left off, or jump straight into your work?"
-        G-NOT-ENROLLED: "Hi {name}, rEach here. I'm not connected to your course yet. Paste the enrolment code your instructor gave you and I'll set everything up."
+        G-NOT-ENROLLED: "Hi {name}, rEach here. I'm not connected to your course yet. Paste the enrollment code your instructor gave you and I'll set everything up."
         G-RETURNING: "Welcome back, {name}! {assignment} is due {due}, and your {slice} work is {state}. What would you like to work on?"
         G-RETURNING-MANY: "Welcome back, {name}! {assignment} is due {due}. Your work: {slices}. What would you like to work on?"
         G-RETURNING-PLAIN: "Welcome back, {name}! What would you like to work on?"
@@ -185,7 +185,7 @@ verbatim:
 
         Saved. Ask me 'what do you know about me?' anytime to see or change it, or say 'forget my profile' to delete it. Want to see your first assignment?
 
-      If the student isn't connected to a course yet, their first step is enrolment: ask for the code their instructor gave them.
+      If the student isn't connected to a course yet, their first step is enrollment: ask for the code their instructor gave them.
 
       When the student says "stop" part-way, read back what you have, ask the same question, save what they agree to, and save it as partial.
 
@@ -377,7 +377,7 @@ slices:
       - lib/reach/crypto.rb
       - lib/reach/client.rb
       - lib/reach/packages.rb
-      - lib/reach/enrol.rb
+      - lib/reach/enroll.rb
       - lib/reach/sync.rb (new)
       - lib/reach/guardrails.rb
       - lib/reach/workspace.rb
@@ -397,15 +397,15 @@ slices:
       messages: "Add rejection_fix and local_time. local_time uses Time.parse for timestamps and Date.strptime(value, '%Y-%m-%d') (require 'date') for dates; render dates via Date#strftime('%a %-d %b')."
       locales_en_us: |
         Rewrite locales/en-US.yml with schema, locale and failure_reasons unchanged, and exactly these messages and rejection_fixes:
-          M-GATE-NOENROL: "rEach isn't connected to your course yet. Run reach enrol with the code your instructor gave you."
+          M-GATE-NOENROLL: "rEach isn't connected to your course yet. Run reach enroll with the code your instructor gave you."
           M-GATE-NOGUARD: "Your course rules haven't arrived yet, so rEach can't start on course work. Run reach sync, and if that doesn't work, tell your instructor."
           M-GATE-OLDGUARD: "Your course rules have an update. Run reach sync to get it, then try again."
-          M-GATE-REVOKED: "This computer's rEach was switched off by your instructor. Ask them for a new enrolment code."
+          M-GATE-REVOKED: "This computer's rEach was switched off by your instructor. Ask them for a new enrollment code."
           M-GATE-STALE: "rEach hasn't been able to check in with your course for over a day. Connect to the internet and run reach sync."
           M-REACH-OUTDATED: "This version of rEach ({version}) is too old for your course, which needs {minimum} or newer. Update rEach, then try again."
           M-AUTH-FAILED: "Your course server didn't accept rEach's signature. Check that your computer's clock is right, then run reach sync. If it keeps happening, tell your instructor."
-          M-ENROL-REFUSED: "That enrolment code wasn't accepted. Check it's typed correctly, or ask your instructor for a new one."
-          M-ENROL-DONE: "You're connected to {course}. rEach is fetching your course materials now."
+          M-ENROLL-REFUSED: "That enrollment code wasn't accepted. Check it's typed correctly, or ask your instructor for a new one."
+          M-ENROLL-DONE: "You're connected to {course}. rEach is fetching your course materials now."
           M-WRITE-OUTSIDE: "That file belongs to the course and can't be changed. Your work goes in {owned_files}."
           M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."
           M-SHAPE-VISIBLE: "The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways to get close to it that fit."
@@ -451,12 +451,12 @@ slices:
         - fetch(kind) -> :updated | :current | :absent. GET /api/v1/packages/<kind> with If-None-Match set to '"' + content_digest of the newest stored envelope + '"' when one exists. 304 -> :current. 404 not_found (RemoteRefused) -> :absent. 200 -> open the envelope fully (verify, decrypt, digest; W-KEY-4 key lookup, refreshing status once via Reach::Sync.refresh_status on an unknown key_id), then write the envelope JSON to packages/<kind>/<header.version>.pkg -> :updated. Never store an envelope that fails to open.
         - latest_version(kind) -> Integer or nil (from the .pkg file names); stored_envelope(kind, version) -> Hash; open(kind, version) -> [header, entries] (entries from Reach::Tarball.read); unpack(kind, version, into:) -> removes `into` and recreates it (mode 0700), writes every entry beneath it, returns `into`.
         - expected_student_id is install student_id; expected_kind is the kind.
-      enrol: |
-        W-API-ENROL. POST with Client.anonymous(teach_url): {code, public_key_pem (the new key's public PEM), reach_version (Reach::VERSION), platform (Enrol.platform), ruby_version (RUBY_VERSION)}.
+      enroll: |
+        W-API-ENROLL. POST with Client.anonymous(teach_url): {code, public_key_pem (the new key's public PEM), reach_version (Reach::VERSION), platform (Enroll.platform), ruby_version (RUBY_VERSION)}.
         Write the private key (0600) only after a 200, then install.yml (0600) with the interface_contract keys. Paths.ensure_home! first.
       sync: |
         run:
-          1. Enrol.current or raise Reach::Refused(M-GATE-NOENROL text).
+          1. Enroll.current or raise Reach::Refused(M-GATE-NOENROLL text).
           2. Submit.retry_outbox (count successes into outbox_sent); Hands retry of queued hands happens inside retry_outbox (both share the outbox).
           3. refresh_status. On Offline/NetworkError: state 'offline' and continue with stored packages. On RemoteRefused revoked/not_enrolled: state 'revoked', return at once.
           4. For each kind in guardrails, shape, workspace, suite that status.packages lists: Packages#fetch(kind) (skip when offline). Record each kind's newest stored version in packages.
@@ -464,7 +464,7 @@ slices:
           6. Workspace.provision_from_package when a workspace package is stored.
           7. Hands.poll_replies (skip when offline).
           8. Return the summary; warnings collects one plain line per skipped or failed step.
-        refresh_status(quick:): GET /api/v1/status via Client.for_install(quick:), write the cache with fetched_at, then Enrol.update! with signing_public_keys, encryption_key, minimum_reach_version, wire_contract_sha256, last_checked_at, revoked false.
+        refresh_status(quick:): GET /api/v1/status via Client.for_install(quick:), write the cache with fetched_at, then Enroll.update! with signing_public_keys, encryption_key, minimum_reach_version, wire_contract_sha256, last_checked_at, revoked false.
       guardrails: |
         W-PKG-1 + W-RENDER-1. ensure_current unpacks the newest stored guardrails package into Paths.guardrails_vault_dir when the version marker (.version) differs. load reads directives.yml, course.yml, tips.yml (YAML.safe_load) and the version marker. render_rules builds W-RENDER-1 exactly (directives filtered as described there).
       workspace: |
@@ -493,7 +493,7 @@ slices:
         W-PKG-6 + W-API-HAND/W-API-HAND-STATUS. bundle.json per W-PKG-6; profile is Reach::Profile.load['fields'] when include_profile is true and defined?(Reach::Profile), else nil. Seal with header kind hand_bundle exactly like a submission. POST body {cutout_id, slice, trigger, summary (truncated to 2000 bytes on a character boundary), bundle}. Outbox entry kind 'hand'. poll_replies keeps hands/open.json as {hand_id => {'reply' => ..., 'polled_at' => ...}} and calls GET for a hand only when polled_at is at least 60 s old; it removes hands whose state is closed or resolved.
       status: |
         summary lines:
-          "rEach <VERSION> · <course title> (<term>) · enrolled as <display_name> (<group>)"  (group and parentheses omitted when nil; "rEach <VERSION> · not connected to a course yet (run reach enrol <code>)" when not enrolled)
+          "rEach <VERSION> · <course title> (<term>) · enrolled as <display_name> (<group>)"  (group and parentheses omitted when nil; "rEach <VERSION> · not connected to a course yet (run reach enroll <code>)" when not enrolled)
           "Current assignment: <id>, due <Messages.local_time(due)>" or "Current assignment: none"
           "Your slices:" then one line per workspace "  <cutout_id>  <slice>  <state_word>   shape: ok|<n> open|none   tips: not run|last recorded"
           "Receipts: <n> (latest <receipt_id>)" or "Receipts: 0"
@@ -503,7 +503,7 @@ slices:
       - "ruby -c passes for every owned Reach file on /usr/bin/ruby AND in the ruby:2.6.10-slim container."
       - "Reach::Crypto round trip on BOTH Rubies: seal with a fresh key pair, open_envelope returns the same header and plaintext; flipping one byte of ciphertext, of the header (any field) or of the signature raises Reach::VerificationFailed; a Teach-sealed envelope produced by Teach::Crypto (ruby 4.0.6) opens under Reach (ruby 2.6 container) and a Reach-sealed envelope opens under Teach::Crypto."
       - "canonical_json of a nested Hash with non-ASCII strings, floats, nulls and arrays is byte-identical between Reach on Ruby 2.6.10 and Teach on Ruby 4.0.6 (compare the SHA-256 of the output)."
-      - "End to end against a real Teach 0.2.0 process (see companion blueprint acceptance for the server setup), run once with /usr/bin/ruby and once in the ruby:2.6.10-slim container (--network host): Enrol.generate_and_register succeeds; Sync.run returns state ok, stores guardrails and workspace packages, provisions the slice workspace with its owned file writable and everything else read-only, and renders AGENTS.md/CLAUDE.md/GEMINI.md per W-RENDER-1; editing the owned file then Submit.submit(slice:) returns state ingested with a receipt that verifies and whose file_list names the owned file; Receipts.announce returns the M-SUBMIT-RECEIVED text; Hands.raise_hand returns a hand id and Hands.status returns state open; a GET /api/v1/receipts with query [['since', '2026-01-01T00:00:00Z'], ['limit', '10']] succeeds (proves query signing); replaying a captured signed request verbatim is refused 401 (proves the nonce); revoking the install in Teach then Sync.run returns state revoked and Enrol.revoked? is true."
+      - "End to end against a real Teach 0.2.0 process (see companion blueprint acceptance for the server setup), run once with /usr/bin/ruby and once in the ruby:2.6.10-slim container (--network host): Enroll.generate_and_register succeeds; Sync.run returns state ok, stores guardrails and workspace packages, provisions the slice workspace with its owned file writable and everything else read-only, and renders AGENTS.md/CLAUDE.md/GEMINI.md per W-RENDER-1; editing the owned file then Submit.submit(slice:) returns state ingested with a receipt that verifies and whose file_list names the owned file; Receipts.announce returns the M-SUBMIT-RECEIVED text; Hands.raise_hand returns a hand id and Hands.status returns state open; a GET /api/v1/receipts with query [['since', '2026-01-01T00:00:00Z'], ['limit', '10']] succeeds (proves query signing); replaying a captured signed request verbatim is refused 401 (proves the nonce); revoking the install in Teach then Sync.run returns state revoked and Enroll.revoked? is true."
       - "A second Sync.run after editing the owned file and rebuilding the workspace package in Teach keeps the edited owned file and lists it in kept_files."
       - "Status.summary prints without raising both enrolled and not enrolled."
       - "Write every verification script under your scratch directory. Leave nothing in either repository."
@@ -553,7 +553,7 @@ slices:
           exit Plugin.run(ARGV)
         Keep the file executable (chmod 0755).
       lib_reach_rb: |
-        Keep the VERSION constant and Plugin.run. Define `def self.ports` on module Reach per interface_contract. Require, in this order: errors, paths, messages, wire, tarball, crypto, client, packages, corpus, runtime, profile, greetings, enrol, guardrails, workspace, sync, gate, shape, attempts, suite, submit, receipts, hands, harness, hello, setup, mcp_bridge, status, cli.
+        Keep the VERSION constant and Plugin.run. Define `def self.ports` on module Reach per interface_contract. Require, in this order: errors, paths, messages, wire, tarball, crypto, client, packages, corpus, runtime, profile, greetings, enroll, guardrails, workspace, sync, gate, shape, attempts, suite, submit, receipts, hands, harness, hello, setup, mcp_bridge, status, cli.
       runtime: |
         Reach::Runtime per interface_contract.
         - The shim at Paths.home/bin/reach is exactly:
@@ -651,7 +651,7 @@ slices:
         Keep every 0.1.0 command and its output, with these changes:
         - First thing in run: Runtime.ensure_shim! (rescue everything).
         - Usage lists the new commands below.
-        - enrol <code> [--teach-url URL]: teach_url = flag || Runtime.default_teach_url; on success print Messages.text('M-ENROL-DONE', course: course title), then run Sync.run and print its summary like `sync` does. Reach::Refused prints its message, exit 1.
+        - enroll <code> [--teach-url URL]: teach_url = flag || Runtime.default_teach_url; on success print Messages.text('M-ENROLL-DONE', course: course title), then run Sync.run and print its summary like `sync` does. Reach::Refused prints its message, exit 1.
         - sync: print from the Sync.run summary: "Course rules: v<n> (verified)" when guardrails_version, one "Workspace: <path>" per workspace, "Kept your changes: <files>" when kept_files, "Sent <n> queued item(s)." when outbox_sent > 0, each warning, and M-OFFLINE when state is offline or M-GATE-REVOKED when revoked. Exit 0 for ok/offline, 2 for revoked.
         - submit: result = Submit.submit(slice:); ingested -> puts Receipts.announce(result['receipt']); rejected -> Messages.text('M-SUBMIT-REJECTED', reason: rejection['reason'], fix: Messages.rejection_fix(rejection['code'])) exit 1; queued -> M-SUBMIT-PENDING.
         - hand raise gains --include-profile (a bare flag) passed as include_profile: true.
@@ -662,9 +662,9 @@ slices:
         - start [--harness ID]: launches the harness in Dir.pwd with initial prompt "Hi rEach" (no gate; this is outside course workspaces).
         - work [--harness ID] [--slice S]: as 0.1.0 but passes initial prompt "Hi rEach" and supports antigravity.
         - profile show [--format text|json] | save [--status partial|complete] [--<field-with-dashes> VALUE ...] | forget: text show prints "No profile yet." or one "field: value" line per saved field plus "Status: <status>"; save prints "Saved."; forget prints "Your profile is deleted."
-        - doctor: one line per problem, exit 0 only when none. Checks: R-DOC-RUBY; R-DOC-SHIM (shim and root file present and root is a directory holding exe/reach); R-DOC-HARNESS (at least one harness detected); R-DOC-ENROL; R-DOC-KEYS (install.yml has signing_public_keys and encryption_key); R-DOC-GUARD; R-DOC-WS; R-DOC-CHROME; R-DOC-GEMS; R-DOC-NET (when enrolled and online: GET /api/v1/health through Client.anonymous with quick: true succeeds, and |status.server_time - status.fetched_at| is under 300 s); R-DOC-OUTBOX; R-DOC-OUTDATED; R-DOC-WIRE (cached status wire_contract_sha256, when present, equals Reach::Wire.digest); R-DOC-VERSION (VERSION equals the version in plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json plugins[0], .codex-plugin/plugin.json and reach.rplugin.yml); R-DOC-PERSONA (skills/reach-assistant/SKILL.md body equals agents/reach.md body, and that body contains each line of the G-FIRST-RUN greeting from locales/greetings.en-US.yml, as the persona body quotes it). R-DOC-SDK and R-DOC-LINKS are removed (rplugin is optional).
+        - doctor: one line per problem, exit 0 only when none. Checks: R-DOC-RUBY; R-DOC-SHIM (shim and root file present and root is a directory holding exe/reach); R-DOC-HARNESS (at least one harness detected); R-DOC-ENROLL; R-DOC-KEYS (install.yml has signing_public_keys and encryption_key); R-DOC-GUARD; R-DOC-WS; R-DOC-CHROME; R-DOC-GEMS; R-DOC-NET (when enrolled and online: GET /api/v1/health through Client.anonymous with quick: true succeeds, and |status.server_time - status.fetched_at| is under 300 s); R-DOC-OUTBOX; R-DOC-OUTDATED; R-DOC-WIRE (cached status wire_contract_sha256, when present, equals Reach::Wire.digest); R-DOC-VERSION (VERSION equals the version in plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json plugins[0], .codex-plugin/plugin.json and reach.rplugin.yml); R-DOC-PERSONA (skills/reach-assistant/SKILL.md body equals agents/reach.md body, and that body contains each line of the G-FIRST-RUN greeting from locales/greetings.en-US.yml, as the persona body quotes it). R-DOC-SDK and R-DOC-LINKS are removed (rplugin is optional).
       mcp_bridge: |
-        Keep the seven tools and add: reach_hello {harness?} -> Hello.run(format: 'json'); reach_profile_show {} -> Profile.load; reach_profile_save {fields: object, status: string} -> Profile.save; reach_profile_forget {} -> {"forgotten": true}; reach_enrol {code: string, teach_url?: string} -> the enrol result plus the Sync.run summary; reach_sync {} -> Sync.run. reach_submit returns Submit.submit's Hash (plus 'announcement' => Receipts.announce(receipt) when ingested).
+        Keep the seven tools and add: reach_hello {harness?} -> Hello.run(format: 'json'); reach_profile_show {} -> Profile.load; reach_profile_save {fields: object, status: string} -> Profile.save; reach_profile_forget {} -> {"forgotten": true}; reach_enroll {code: string, teach_url?: string} -> the enroll result plus the Sync.run summary; reach_sync {} -> Sync.run. reach_submit returns Submit.submit's Hash (plus 'announcement' => Receipts.announce(receipt) when ingested).
       skills: |
         - skills/reach-assistant/SKILL.md = verbatim.skill_front_matter + verbatim.persona_body.text.
         - agents/reach.md = verbatim.agent_front_matter + verbatim.persona_body.text.
@@ -679,7 +679,7 @@ slices:
       rules_install_hooks_settings: "Write verbatim.rules_file, verbatim.install_md, verbatim.hooks_json, verbatim.mcp_json and verbatim.plugin_settings exactly."
       agents_md: "Insert, directly under the '# AGENTS.md: reach' heading line, a new paragraph: 'Asked to install rEach for a student? Follow INSTALL.md.' Change every `bin/reach` mention to `exe/reach` and state that rplugin is optional: Reach runs from a harness's own plugin copy, and rplugin install is one of several ways in."
       student_guide: |
-        Rewrite docs/student-guide.md in the same plain voice, titled "# rEach: the student guide", with sections: Getting started (paste this repository's link into your AI app and ask it to install rEach; Cowork users add it under Customize › Plugins; then rEach introduces itself and asks a few questions; then enrol with your code), Every day (as 0.1.0, rEach wording), If something looks wrong (reach doctor), What rEach remembers about you (the profile: saved on your computer only, ask "what do you know about me?" or "forget my profile"; never sent to the course server unless you say yes when rEach asks for help), Privacy (0.1.0 text with rEach wording, plus: your profile stays on your computer).
+        Rewrite docs/student-guide.md in the same plain voice, titled "# rEach: the student guide", with sections: Getting started (paste this repository's link into your AI app and ask it to install rEach; Cowork users add it under Customize › Plugins; then rEach introduces itself and asks a few questions; then enroll with your code), Every day (as 0.1.0, rEach wording), If something looks wrong (reach doctor), What rEach remembers about you (the profile: saved on your computer only, ask "what do you know about me?" or "forget my profile"; never sent to the course server unless you say yes when rEach asks for help), Privacy (0.1.0 text with rEach wording, plus: your profile stays on your computer).
       rplugin_manifest: "reach.rplugin.yml: version 0.2.0; contents.skills adds { id: reach-assistant, path: skills/reach-assistant/SKILL.md }; contents.agents becomes [{ id: reach, path: agents/reach.md }]; contents.scripts becomes [{ path: exe/reach }]; add contents.docs entry { path: INSTALL.md }. Keep everything else."
     acceptance:
       - "ruby -c passes for every owned Ruby file (exe/reach included) on /usr/bin/ruby AND in the ruby:2.6.10-slim container; every JSON file parses (ruby -rjson); every YAML file parses (YAML.safe_load)."
@@ -713,6 +713,6 @@ out_of_scope:
   - Publishing the repository publicly or to GitHub.
 integration_steps_for_the_primary:
   - Read both workers' reports and every changed file; resolve anything reported as blocked by ownership.
-  - Run both slices' acceptance again for real, including a fresh end-to-end with the experience slice's exe/reach driving the wire slice's code (enrol, sync, submit, hello greeting after enrolment).
+  - Run both slices' acceptance again for real, including a fresh end-to-end with the experience slice's exe/reach driving the wire slice's code (enroll, sync, submit, hello greeting after enrollment).
   - rplugin install reach and rplugin doctor reach at zero findings.
   - Specs, VERSION, CHANGELOG, TODO, README; commit, tag v0.2.0 and push in both repositories.
