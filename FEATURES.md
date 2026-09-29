@@ -8,10 +8,10 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.7.0 |
+| **Registry version** | 0.7.1 |
 | **Last audited** | 2026-09-28 |
 | **Coverage** | Partial: the 0.7.0 surfaces plus the core flows verifiable from `README.md` and `reach.spec.yml` (enrol, sync, check, checkpoint, plan, submit, receipts, hands, tips, setup, installer, reference). Not catalogued: the interview and profile, the MCP bridge tools other than reference, doctor's individual checks, shape check internals, directives, the harness integrations one by one. `TODO.md` carries the item to complete it. |
-| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.7.0 is not pushed or published yet. |
+| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.7.1 is published on GitHub `main`; no student runs it against a hosted Teach yet, so course features stay 🔵 until one does. |
 | **Feature count** | 17 catalogued |
 
 ## How to read this registry
@@ -28,8 +28,8 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 0 | 0% |
-| 🔵 Built, not enabled | 16 | 94% |
+| 🟢 Live | 1 | 6% |
+| 🔵 Built, not enabled | 15 | 88% |
 | ⚫ No runtime path | 1 | 6% |
 
 ## 1 · Install
@@ -40,10 +40,10 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 reader. It materialises symlinks safely, because the smoke found that the repository's `CLAUDE.md` symlink blocked
 installs from the public archive. It backs up an existing install, downloads the Dovetail archive pinned in
 `dovetail-revision.txt`, enforces size and count limits and bounded retries, and stops when
-`REACH_INSTALL_KILL_SWITCH` is set. The transport smoke proved it against a local GitHub-shaped ZIP only.
+`REACH_INSTALL_KILL_SWITCH` is set. GitHub's archive carries the `dovetail` submodule as an empty directory, which the installer replaces (0.7.1, found by
+the first public run). `tools/smoke/assignment_one.rb --public` installed from the real public GitHub ZIP on 2026-09-28.
 
-Build ✅ · Deploy 🔵 · Blocker: Access (the repository is not published; the real public download is unverified, and
-the Windows path is unverified).
+Build ✅ · Deploy 🟢 · Blocker: Engineering (the Windows path is unverified).
 
 ### 1.2 · Dovetail submodule
 
