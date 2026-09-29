@@ -10,11 +10,11 @@ These steps are for the AI agent a student asked to install rEach from this repo
   - Linux: the distribution's Ruby, when it is 2.6.10 to 4.0.x.
 - Never install anything system-wide or with sudo.
 
-## Claude Cowork
+## Which section is yours
 
-Your shell runs in a sandbox, not on the student's computer, so do not clone anything. Tell the student: open Customize › Plugins › Add › Add marketplace, paste this repository's link, add rEach, then start a new task. Stop here.
+Use "Claude Code, Codex and Antigravity" below whenever you can run shell commands for the student: Claude Code in a terminal, the Claude desktop app's Code tab, VS Code, Codex or Antigravity. If the student says they are using Claude Code, that section is yours, even when your shell is a container or sandbox. Use "Claude Cowork" only when you are the Claude desktop app's Cowork mode.
 
-## Everyone else (Claude Code, the Claude desktop app's Code tab, Codex, Antigravity)
+## Claude Code, Codex and Antigravity
 
 1. Run the installer. It downloads the public GitHub archive over HTTPS without GitHub credentials or Git, then downloads the exact public Dovetail revision rEach needs, unpacks both with Ruby alone (no `unzip`), and installs to `~/.reach/plugin`.
    - macOS and Linux:
@@ -33,7 +33,11 @@ Your shell runs in a sandbox, not on the student's computer, so do not clone any
 2. Run setup for the app you are running in:
    `ruby ~/.reach/plugin/exe/reach setup --harness <claude-code | codex | antigravity>`
 3. Read setup's output. Tell the student about any step it says they must do themselves (for example trusting rEach's hooks in Codex).
-4. Setup prints a NEXT block only after a harness installed successfully. Do exactly what it says: say its greeting to the student word for word, then read and follow the reach-assistant skill immediately. A new session and any explicit Codex trust action remain host actions for the student.
+4. Setup prints a NEXT block only after a harness installed successfully. Your next message to the student must begin with the lines after "NEXT", copied exactly as printed, starting with "rEach is installed and ready." Do not summarise them, reword them or put anything before them. After them you may add setup's host steps (a new session, trusting hooks in Codex). Then read and follow the reach-assistant skill immediately.
+
+## Claude Cowork
+
+Your shell runs in a sandbox, not on the student's computer, so do not clone anything. Tell the student: open Customize › Plugins › Add › Add marketplace, paste this repository's link, add rEach, then start a new task. Stop here.
 
 ## Using Gemini?
 

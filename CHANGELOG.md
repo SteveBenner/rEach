@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`Reach::Shape.ran?`), since CK-SHAPE reports the same defects; CK-PANEL-TS, CK-FUSE, CK-TEST and CK-COMMENT stay,
   and every rule runs as before when there is no shape or the checker cannot run.
 - `reach status` shows each slice's own last tips record instead of the corpus's latest tip record for every slice.
+- `INSTALL.md` names which section an installing agent follows (any shell-capable Claude Code, Codex or Antigravity
+  session, sandboxed or not, uses the main path; only Cowork mode uses the Cowork section, now last), and requires
+  the agent's next message to begin with setup's NEXT lines copied exactly. The release smoke's install-from-link
+  scenario failed on both: a sandboxed Claude Code agent took the Cowork branch, and another paraphrased the NEXT line.
 - `FEATURES.md` covers every surface; `reach.spec.yml` names the GitHub repository.
 
 ### Fixed
