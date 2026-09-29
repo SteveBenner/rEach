@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The gate refuses git in slice workspaces and at the course folder's top (M-GATE-NOGIT). The extracurricular folder
   is the student's own, so git is left alone there.
 - `reach status` shows each slice's qualification instead of tips.
-- The reach-course skill has the agent talk with the student only in business terms: no files, code, tests,
+- The rEach persona and the reach-course skill have the agent talk with the student only in business terms: no files, code, tests,
   scenarios or commands, and "which file do I work in?" is answered with "I write and check all the code".
 - Teach 0.11.0 requires Reach 0.11.0.
 
