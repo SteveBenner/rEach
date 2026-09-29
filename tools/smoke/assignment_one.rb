@@ -854,7 +854,7 @@ module AssignmentOne
     options = {
       teach_dir: ENV.fetch("SMOKE_TEACH_DIR", "/tmp/teach-a1"),
       grokit: ENV.fetch("SMOKE_GROKIT_ROOT", File.join(HOME_DIR, "bitbucket", "paterasai", "grokit")),
-      dovetail: ENV.fetch("SMOKE_DOVETAIL_ROOT", File.join(HOME_DIR, "bitbucket", "paterasai", "dovetail")),
+      dovetail: ENV.fetch("SMOKE_DOVETAIL_ROOT", File.join(HOME_DIR, "github", "foss", "dovetail")),
       ruby4_bin: ENV.fetch("SMOKE_RUBY4_BIN", File.join(HOME_DIR, ".rubies", "ruby-4.0.6", "bin")),
       teach_bundle: ENV.fetch("SMOKE_TEACH_BUNDLE", File.join(HOME_DIR, "bitbucket", "paterasai", "teach", "vendor", "bundle")),
       run_dir: ENV["SMOKE_RUN_DIR"],

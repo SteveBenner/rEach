@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.7.2
+version: 0.7.3
 status: draft
 recorded: '2026-09-26'
 licence: undecided
@@ -108,7 +108,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.7.2
+    version: 0.7.3
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run
       courses.
@@ -1294,7 +1294,7 @@ seal:
     POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.
   submission: The manifest carries a seal block and the archive a ledger tail; Teach assesses provenance (W-PKG-5).
 status_example: |
-  rEach 0.7.2 · MGMT 327 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  rEach 0.7.3 · MGMT 327 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
   Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
     finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)

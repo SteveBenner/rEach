@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.7.2
+version: 0.7.3
 rplugin: ">= 1.0.0-compat"
 description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run courses.
 ports:
