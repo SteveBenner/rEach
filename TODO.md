@@ -26,6 +26,8 @@
 
 - [x] End-to-end against a scratch Teach 0.11.0 and Grokit 0.5.0 on Ruby 4.0.6, Reach loading on 2.6.10 and 4.0.6: workspaces carry the answer-free qualify kit and the writable qualify folders; a backend slice (context.a1) qualified locally and on Teach in about 22 s (agent rows pass, starting-copy rows fail, 3 of 3 hidden pass); submit refused after a step file changed, then accepted with the evidence stored and graded 3 of 3; a panel slice (finance.a1) qualified on Teach and graded 2 of 2; the ladder gave a notice at 2, one agent v2 hand at 3, held work until a captured student prompt and `reach attempts continue`, stopped at 10, and reset on an instructor reply; git refused in slices; a step that raised a reference source string came back as step text and an error class only.
 - [x] Assignment-one transport smoke on 0.11.0 against the Teach 0.11.0 tree (2026-09-29): 33 pass, 2 manual skips; submit refused before qualifying, then qualified locally and on Teach, graded 1.0.
+- [x] Real-Claude smoke (Haiku, from a clean clone of the release commit) run 20260929-060009: 8 of 8 scenarios pass. In course-gate rEach now answers "which file do I work in?" with "I write and check all the code". Earlier runs that day failed on a model-played student inventing a different install link and on a privacy check that fired on the word email; both passed on rerun and the check was narrowed.
+- [ ] The judge still notes rEach sometimes asks two things in one reply (course-gate) and does not use the first-run greeting right after a profile is forgotten (advisory only).
 - [ ] Portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel slices can qualify locally too (planned 0.12.0).
 
 ## Release 0.7.0 open items
