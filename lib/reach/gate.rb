@@ -23,11 +23,33 @@ module Reach
       nil
     end
 
-    def prompt
-      check_enrolled!
-      check_guardrails!
-      check_has_workspace!
-      witness("prompt")
+    def prompt(event: {}, harness: nil)
+      blocked = nil
+      begin
+        check_enrolled!
+        check_guardrails!
+        check_has_workspace!
+      rescue Reach::GateBlocked => e
+        blocked = e
+      end
+
+      entry = begin
+        resolved_harness = Reach::Transcript.resolve_harness(harness)
+        Reach::Transcript.capture(event, harness: resolved_harness, gate: blocked ? "blocked" : "allowed")
+      rescue StandardError
+        nil
+      end
+
+      unless blocked
+        if entry
+          witness("prompt", "session" => entry["session_id"], "seq" => entry["seq"], "digest" => entry["digest"])
+        else
+          witness("prompt")
+        end
+      end
+
+      raise blocked if blocked
+
       nil
     end
 

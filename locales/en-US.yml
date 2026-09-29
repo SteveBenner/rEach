@@ -10,6 +10,7 @@ messages:
   M-AUTH-FAILED: "Your course server didn't accept rEach's signature. Check that your computer's clock is right, then run reach sync. If it keeps happening, tell your instructor."
   M-ENROL-REFUSED: "That enrolment code wasn't accepted. Check it's typed correctly, or ask your instructor for a new one."
   M-ENROL-DONE: "You're connected to {course}. rEach is fetching your course materials now."
+  M-TRANSCRIPT-NOTICE: "Everything you type to your AI partner in a course folder is saved in your course transcript, which your instructors can read. What you type outside your course folders is not."
   M-WRITE-OUTSIDE: "That file belongs to the course and can't be changed. Your work goes in {owned_files}."
   M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."
   M-SHAPE-VISIBLE: "The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways to get close to it that fit."

@@ -1,11 +1,11 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.7.3
+version: 0.8.0
 status: draft
-recorded: '2026-09-26'
+recorded: '2026-09-29'
 licence: undecided
-repository: not yet created (planned bitbucket.org/paterasai/reach)
+repository: github.com/SteveBenner/rEach (canonical since 0.7.2; the Bitbucket checkout was archived)
 summary: >
   Reach is the student's side of the course software. It is an rplugin plugin that installs into Claude Code or
   Codex and turns the student's own AI agent into a bounded course partner. It enrols with Teach, receives the student's
@@ -108,7 +108,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.7.3
+    version: 0.8.0
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run
       courses.
@@ -177,6 +177,11 @@ layout:
       from packages on demand and wiped on reach lock
   - path: "~/.reach/outbox/"
     content: Signed submission and hand packages awaiting upload
+  - path: "~/.reach/transcripts/"
+    content: >-
+      The course transcript spool (transcripts): <session_id>.jsonl holds every prompt captured in that harness
+      session, <session_id>.state.json the last seq written and the last seq Teach acknowledged, and
+      <session_id>.rejected.jsonl any entries Teach refused as malformed; directory 0700, files 0600
   - path: "~/.reach/receipts/"
     content: Receipts as received, verified
   - path: "~/.reach/logs/"
@@ -332,8 +337,10 @@ harness_integration:
         Exits 2 with a message when the guardrails are missing, expired or unverifiable, so the session carries
         the message and Reach's skills refuse to proceed; on success injects the guardrail summary into the context.
     - event: UserPromptSubmit
-      command: reach gate prompt
-      effect: Blocks prompts while the gate fails, so a missing guardrail stops all work, not only the first turn.
+      command: reach gate prompt --harness claude-code
+      effect: >-
+        Captures the prompt into the course transcript spool first (transcripts), then blocks prompts while the gate
+        fails, so a missing guardrail stops all work, not only the first turn.
     - event: PreToolUse (Write, Edit, MultiEdit, NotebookEdit)
       command: reach gate write (reads the tool input from standard input)
       effect: Exits 2 for any path that is not one of the slice's owned files, with the reason.
@@ -349,14 +356,22 @@ harness_integration:
     - event: Stop
       command: reach attempts settle
       effect: Records whether the turn resolved or left open findings, for the attempt gate.
+    - event: Stop
+      command: reach transcript flush --quick
+      effect: Sends the transcript spool to Teach in quick mode (transcripts.delivery); never blocks and always exits 0.
+    - event: SessionEnd
+      command: reach transcript flush --quick --final
+      effect: >-
+        Sends what the session's last turns left queued, without the 60-second spacing of the Stop flush; never blocks
+        and always exits 0. Codex has no SessionEnd, so its tail waits for the next turn, session or reach sync.
     mcp: The Reach MCP bridge registered as a stdio server (reach mcp) in the workspace .mcp.json, enabled by enableAllProjectMcpServers.
     permissions: Deny rules for reading ~/.reach/vault and ~/.reach/keys.
   codex:
     configuration: >-
       A workspace .codex/config.toml written by Reach and made read-only, with sandbox_mode workspace-write,
       [sandbox_workspace_write] writable_roots [~/.reach] and network_access true, the bridge under [mcp_servers.reach],
-      and a read-only .codex/hooks.json with the same five hooks as Claude's (PreToolUse matching apply_patch, Write,
-      Edit and the shell tools); AGENTS.md carries the guardrails.
+      and a read-only .codex/hooks.json with the same hooks as Claude's (PreToolUse matching apply_patch, Write,
+      Edit and the shell tools; UserPromptSubmit as reach gate prompt --harness codex); AGENTS.md carries the guardrails.
     launcher_gate: >-
       reach work runs the gate before starting Codex and refuses to start it when the gate fails; Codex is always
       started through reach work for course workspaces.
@@ -376,7 +391,7 @@ harness_integration:
       course rules.
     limits_stated_honestly: >-
       Antigravity's hook format is undocumented, so Reach installs no Antigravity hooks; enforcement there is the
-      read-only file permissions plus the submit-time check. Its desktop app installs only curated plugins from its own
+      read-only file permissions plus the submit-time check, and no prompt reaches the course transcript. Its desktop app installs only curated plugins from its own
       interface, which is why setup links the plugin directory.
   skills:
     reach-assistant:
@@ -633,6 +648,11 @@ cli:
   - name: attempts settle
     synopsis: reach attempts settle [--slice <cutout>-<slice>]
     purpose: Called by the Stop hook; records whether the turn resolved its findings, for the attempt gate
+  - name: transcript
+    synopsis: reach transcript flush [--quick [--final]] | reach transcript status [--format text|json]
+    purpose: >-
+      flush sends the course transcript spool to Teach (quick mode is the Stop hook's); status says how many captured
+      prompts are sent and how many are waiting
   - name: enrol
     synopsis: reach enrol <code> [--teach-url URL]
     purpose: >-
@@ -800,17 +820,52 @@ installer:
 privacy_and_integrity:
   student_data_sent: >-
     Enrolment (code, public key, platform, versions), submissions (owned files and manifest), hand bundles, status
-    counts. Nothing else.
+    counts, and, since 0.8.0, every prompt the student submits in a course workspace (transcripts). Nothing else.
   never_sent: >-
-    The student's prompts or conversations (except the last request inside a hand bundle, which the student is told
-    about), files outside the workspace, the corpus, and the interview profile (except inside a hand bundle the
-    student agreed to add it to).
+    The AI partner's replies, conversations outside course workspaces, files outside the workspace, the corpus, and
+    the interview profile file (except inside a hand bundle the student agreed to add it to). Interview answers typed
+    in a course workspace are prompts and reach the transcript like any other.
   provider_note: >-
-    What the student types to rEach goes to their AI provider, as any chat does; Reach itself keeps the profile on
-    this computer and never sends it to Teach. rEach's greeting says so ("What I save about you stays on this
-    computer"), not that everything said stays local.
+    What the student types to rEach goes to their AI provider, as any chat does, and in a course workspace also to the
+    course transcript their instructors read; Reach keeps the profile file on this computer and never sends it to
+    Teach. rEach's greeting says both ("What I save about you stays on this computer", and in a course workspace the
+    G-TRANSCRIPT-NOTICE sentence), not that everything said stays local.
   integrity: Reach cannot make a student's work pass; it can only show them early what the official grading will
     check.
+transcripts:
+  purpose: >-
+    Every prompt a student submits to their AI partner in a course workspace reaches Teach, which keeps it in that
+    student's transcript for the session, so instructors can read how each student worked with their AI partner.
+  scope: >-
+    Course workspaces on harnesses with a prompt hook: Claude Code and Codex, through the workspace hooks Reach writes.
+    Prompts the gate blocks are captured too, marked gate blocked. Not captured: the AI partner's replies and tool
+    calls, conversations outside course workspaces (the plugin's own hooks only greet), and Antigravity, which has no
+    hook Reach can use; the spec says so rather than claiming full coverage there.
+  capture: >-
+    reach gate prompt reads the hook payload (prompt, session_id, cwd) and appends one entry to the spool (wire
+    W-TRN-1) before it runs any gate check, so neither a failing check nor a slow network can lose or delay a prompt.
+    The harness comes from the hook's --harness flag; settings written before 0.8.0 lack it, so claude-code is
+    assumed when CLAUDE_PROJECT_DIR is set and unknown otherwise. A missing session_id becomes
+    unknown-<YYYYMMDD in UTC>. Nothing is captured without an enrolment, since there is no one to send it for. Capture
+    never raises: any error is logged to ~/.reach/logs/transcript.jsonl and the prompt goes on to the gate.
+  ledger: >-
+    An allowed prompt's ledger record carries {session, seq, digest}, so a submission's ledger tail names every prompt
+    of the slice and the transcript can be checked against it.
+  delivery: >-
+    reach transcript flush sends every session's unacknowledged entries through W-API-TRANSCRIPT (W-TRN-2,
+    W-SAFE-9): the Stop hook in quick mode after each agent turn, the SessionEnd hook (Claude Code) in quick mode with
+    --final when a session closes, and reach sync in normal mode. One flush runs at a time on the computer (a
+    non-blocking lock in ~/.reach/state/transcript-flush.lock); a quick flush without --final is skipped when the last
+    flush attempt began under 60 seconds ago. REACH_OFFLINE=1 stops sending, never capturing. A revoked
+    install captures nothing new and sends nothing.
+  status_line: >-
+    reach status adds "Transcript: <n> prompts sent" or "Transcript: <n> prompts sent, <m> waiting to send", so the
+    student can see the transcript exists and whether it is up to date.
+  disclosure: >-
+    M-TRANSCRIPT-NOTICE at enrolment, G-TRANSCRIPT-NOTICE at the end of every greeting inside a course folder, the
+    privacy notice, and the persona's answer when a student asks what is shared.
+  retention_on_the_computer: >-
+    Spool files stay until the student removes ~/.reach after the course; acknowledged entries are never sent again.
 student_messages:
   principle: >-
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses
@@ -866,6 +921,10 @@ student_messages:
     text: That enrolment code wasn't accepted. Check it's typed correctly, or ask your instructor for a new one.
   - id: M-ENROL-DONE
     text: You're connected to {course}. rEach is fetching your course materials now.
+  - id: M-TRANSCRIPT-NOTICE
+    text: >-
+      Everything you type to your AI partner in a course folder is saved in your course transcript, which your
+      instructors can read. What you type outside your course folders is not.
   - id: M-TIPS-INCOMPLETE
     text: >-
       The tips suite for this slice isn't complete yet, so rEach can't run it. Your instructors will publish it; run
@@ -1294,7 +1353,7 @@ seal:
     POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.
   submission: The manifest carries a seal block and the archive a ledger tail; Teach assesses provenance (W-PKG-5).
 status_example: |
-  rEach 0.7.3 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  rEach 0.8.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
   Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
     finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)
@@ -1302,14 +1361,20 @@ status_example: |
   Receipts: 4 (latest R-8F2C1)
   Open hands: none
   Course rules: v3 (verified)   Connection: online
+  Transcript: 42 prompts sent, 2 waiting to send
 privacy_notice:
-  shown: At enrolment and in docs/student-guide.md.
+  shown: >-
+    In full in docs/student-guide.md. Its transcript part is printed at enrolment (M-TRANSCRIPT-NOTICE) and closes
+    every greeting in a course folder (G-TRANSCRIPT-NOTICE).
   text: >-
-    Reach sends your submitted slice files, your enrolment details and, when your AI partner asks for help, a short
-    summary with your recent changes to the course server. It does not send your conversations, other files on your
-    computer, or anything outside your course workspace. What rEach learns about you in its interview is saved on
-    this computer only; it is shared with your instructors only if you agree to add it when asking for help, and
-    reach profile forget deletes it. Like any chat, what you type to rEach goes to the AI provider you use.
+    Reach sends your submitted slice files, your enrolment details, everything you type to your AI partner in a course
+    folder and, when your AI partner asks for help, a short summary with your recent changes to the course server.
+    What you type in a course folder is saved in your course transcript, which your instructors can read. Reach does
+    not send your AI partner's replies, what you type outside your course folders, other files on your computer, or
+    anything else outside your course workspace. What rEach learns about you in its interview is saved on this
+    computer only; it is shared with your instructors only if you agree to add it when asking for help, and reach
+    profile forget deletes it, but answers you type in a course folder are in your transcript like everything else you
+    type there. Like any chat, what you type to rEach goes to the AI provider you use.
 persona:
   name: rEach
   source: >-
@@ -1331,6 +1396,11 @@ persona:
     gui_limit: >-
       A desktop app waits for the student to type first, so its banner reads "rEach is ready. Say hi to get started."
       and rEach introduces itself in its first reply.
+    transcript_notice: >-
+      When reach hello runs inside a course workspace, the greeting ends with a blank line and G-TRANSCRIPT-NOTICE:
+      "Everything you type to me in this course folder is saved in your course transcript, which your instructors can
+      read." When a student asks what rEach shares, the persona answers with the same facts: prompts typed in a course
+      folder go to the transcript, the profile file stays on this computer.
 interview:
   purpose: >-
     Learn just enough about the student to shape examples, pacing, wording and how options are offered in their

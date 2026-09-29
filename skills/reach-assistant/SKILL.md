@@ -68,6 +68,8 @@ When the student says "stop" part-way, read back what you have, ask the same que
 
 It shapes examples, pacing, wording, how options are offered, and reminders. It never changes the course rules, which files the student may change, what gets submitted, or grading. It isn't included when rEach asks the instructors for help unless the student says yes.
 
+If the student asks what rEach shares: everything they type to you in a course folder is saved in their course transcript, which their instructors can read; the profile file stays on this computer; what they type outside course folders is not sent.
+
 ## Course work
 
 In a course workspace, follow AGENTS.md and its directive table, and the reach-course, reach-build, reach-fix, reach-checkpoint, reach-submit and reach-help skills.

@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-09-28'
+recorded: '2026-09-29'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -577,6 +577,53 @@ routes:
       400 invalid_request: the opcode is not 3 to 10 capitals or digits
       404 not_found: no directive by that opcode
       429 rate_limited: over 60 bodies per hour per install
+  - id: W-API-TRANSCRIPT
+    method: POST
+    path: /api/v1/transcripts
+    auth: install
+    request_headers:
+      Idempotency-Key: >-
+        Required. SHA-256 (W-CONV-4) of "<install_id>\n<session_id>\n<first seq>\n<last seq>" for the entries sent.
+    request:
+      session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
+      harness: {enum: [claude-code, codex, unknown]}
+      cutout_id: {type: [string, "null"], maxBytes: 128}
+      slice: {type: [string, "null"], enum: [backend, panel, verification, null]}
+      entries:
+        type: array
+        minItems: 1
+        maxItems: 200
+        items:
+          seq: integer, 1 or more, strictly ascending within the array
+          at: W-CONV-3 timestamp of the capture on the student's computer
+          kind: {enum: [prompt]}
+          text: {type: [string, "null"], maxBytes: 131072, note: "null when the hook carried no prompt"}
+          bytes: integer, the UTF-8 byte size of the whole prompt
+          truncated: boolean, true when text holds only the first 131072 bytes
+          digest: {type: [string, "null"], note: "W-CONV-4 of the whole prompt's UTF-8 bytes; null when text is null"}
+          gate: {enum: [allowed, blocked]}
+          note: {type: [string, "null"], maxBytes: 200}
+    response_200:
+      session_id: string
+      accepted: integer, entries appended by this request
+      duplicates: integer, entries whose seq Teach already held
+      last_seq: integer, the highest seq Teach holds for the session
+      gaps: "[[from, to]] seq ranges this request found missing, possibly empty"
+    notes: >-
+      Since protocol 1 revision 2026-09-29. Reach captures every prompt the student submits in a course workspace
+      through the harness's prompt hook (W-TRN-1), including prompts the gate blocks, and sends them with this route.
+      Teach appends each new entry to the student's transcript for that session (Teach storage.transcripts) and never
+      rewrites one. seq is Reach's per-session counter from 1; an entry whose seq is at or below Teach's last_seq is a
+      duplicate and is skipped, which makes a repeated request harmless whatever its Idempotency-Key; an entry more
+      than one above last_seq records the missing range as a gap in the transcript. Teach checks digest against text
+      when truncated is false and answers 400 invalid_request when they differ. A Teach that predates the route answers
+      404 not_found, and one whose operator switched transcripts off answers 403 forbidden; Reach keeps every entry
+      queued in both cases and sends it later.
+    errors:
+      400 invalid_request: a field outside the schema, entries out of order, or a digest that does not match its text
+      403 forbidden: transcripts are switched off on this Teach (TEACH_TRANSCRIPTS_DISABLE=1)
+      413 too_large: the body is over 1 MiB
+      429 rate_limited: over 120 requests per hour per install
   - id: W-API-HEALTH
     method: GET
     path: /api/v1/health
@@ -653,6 +700,26 @@ reach_client_safety:
   W-SAFE-6: {name: polling, rule: "grade receipts no more often than every 30 s and hand replies no more often than every 60 s, only while one is outstanding"}
   W-SAFE-7: {name: logging, rule: "every request is logged to ~/.reach/logs/requests.jsonl with method, route, status, latency and retry count; never bodies, headers or keys"}
   W-SAFE-8: {name: integrity events, rule: "sent in quick mode with no retries and queued in the outbox when they fail; each distinct (kind, path, detail) is sent at most once per install"}
+  W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
+transcripts:
+  W-TRN-1:
+    name: capture
+    rule: >-
+      Reach's prompt hook (UserPromptSubmit on Claude Code and Codex) runs in every course workspace. Before anything
+      else it appends the prompt to ~/.reach/transcripts/<session_id>.jsonl (0600, directory 0700) with the next seq
+      for that session and gate allowed or blocked by the gate's own verdict; an allowed prompt is also witnessed in the
+      slice ledger as a prompt record {session, seq, digest}. A hook payload without a prompt is still recorded, with text null and a
+      note. A prompt larger than 131072 bytes keeps its first 131072 bytes, cut on a character boundary, with truncated
+      true; bytes and digest describe the whole prompt. Harnesses with no prompt hook (Antigravity) and conversations
+      outside course workspaces are not captured.
+  W-TRN-2:
+    name: delivery
+    rule: >-
+      Entries are sent oldest session first, in seq order, through W-API-TRANSCRIPT. Reach records the last_seq Teach
+      returns as acknowledged and never sends an acknowledged entry again. The entries of a request Teach refuses with
+      invalid_request or too_large are copied to ~/.reach/transcripts/<session_id>.rejected.jsonl and counted as
+      acknowledged, so a malformed request cannot block the queue; every other refusal and every network failure
+      leaves the queue as it was.
 seal:
   W-SEAL-1:
     name: marks in files
@@ -668,7 +735,8 @@ seal:
       One JSON record per line per slice: {n, at, kind, ...fields, gv, prev, tag}. gv is the guardrails version whose
       ledger_key signed the record (null with a local key). prev is the previous record's tag ("" for n = 1). tag is
       HMAC-SHA256(ledger_key, canonical_json(record without tag)) as 64 hex characters. Kinds: session {harness},
-      prompt, write {path, before, after}, shell {command_digest, head}, check {changed, findings}, shape {findings},
+      prompt {session, seq, digest} (the transcript entry it witnesses, W-TRN-1; since 2026-09-29, and fieldless
+      before), write {path, before, after}, shell {command_digest, head}, check {changed, findings}, shape {findings},
       tips {passed, total, timed_out}, directive {opcode, tier}, plan {action}, checkpoint {n, note_digest, automatic},
       restore {n}, mark_restored {path}, integrity {kind, path}, submit {manifest_digest}.
   W-SEAL-3:

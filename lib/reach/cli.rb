@@ -72,6 +72,8 @@ module Reach
           cmd_directive(args)
         when "reference"
           cmd_reference(args)
+        when "transcript"
+          cmd_transcript(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -116,6 +118,7 @@ module Reach
             plan save|show|note                  the slice plan
             directive <OPCODE> | --list          a directive's full text
             reference list|show <path>|search <words>|links   the course reference material
+            transcript flush [--quick [--final]] | status [--format text|json]   the course transcript of your prompts
         USAGE
       end
 
@@ -190,6 +193,7 @@ module Reach
         install = Reach::Enrol.generate_and_register(code, teach_url)
         course_title = install["course"] && install["course"]["title"]
         puts Reach::Messages.text("M-ENROL-DONE", course: course_title)
+        puts Reach::Messages.text("M-TRANSCRIPT-NOTICE")
         summary = Reach::Sync.run
         print_sync_summary(summary)
         if Array(summary["workspaces"]).empty?
@@ -216,6 +220,7 @@ module Reach
           puts "Kept your changes: #{Array(kept).join(", ")}" if kept && !Array(kept).empty?
         end
         puts "Sent #{summary["outbox_sent"]} queued item(s)." if summary["outbox_sent"].to_i > 0
+        puts "Transcript: sent #{Reach::Transcript.prompts(summary["transcript_sent"])}." if summary["transcript_sent"].to_i > 0
         Array(summary["grades"]).each { |text| puts text }
         Array(summary["warnings"]).each { |warning| puts warning }
         puts Reach::Messages.text("M-OFFLINE") if summary["state"] == "offline"
@@ -274,7 +279,7 @@ module Reach
           announce_guardrails
           0
         when "prompt"
-          Reach::Gate.prompt
+          Reach::Gate.prompt(event: event, harness: options[:harness])
           0
         when "write"
           path = options[:path] || tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
@@ -917,6 +922,38 @@ module Reach
           0
         else
           warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | show [--format json]"
+          1
+        end
+      end
+
+      def cmd_transcript(args)
+        sub = args.shift
+        case sub
+        when "flush"
+          quick, remaining = parse_bare_flag(args, "quick")
+          final, _remaining = parse_bare_flag(remaining, "final")
+          if quick
+            read_stdin_json
+            Reach::Transcript.flush(quick: true, final: final)
+            return 0
+          end
+          result = Reach::Transcript.flush(quick: false)
+          if result["stopped"]
+            puts "Transcript: sent #{Reach::Transcript.prompts(result["sent"])}; stopped (#{result["stopped"]})."
+          else
+            puts "Transcript: sent #{Reach::Transcript.prompts(result["sent"])}."
+          end
+          0
+        when "status"
+          options, _remaining = parse_flags(args, [:format])
+          if options[:format].to_s == "json"
+            puts JSON.generate(Reach::Transcript.counts)
+          else
+            puts(Reach::Status.transcript_line || "Transcript: 0 prompts sent")
+          end
+          0
+        else
+          warn "usage: reach transcript flush [--quick [--final]] | status [--format text|json]"
           1
         end
       end
