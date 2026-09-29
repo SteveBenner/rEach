@@ -43,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or duplicate, a full replay writing nothing twice, a 200000-byte prompt captured in 0.13 s and truncated on a
   character boundary, queues surviving `REACH_OFFLINE=1` and Teach's 403 kill switch and arriving once lifted, the
   Stop-hook flush printing nothing and spacing itself, and the greeting notice shown only inside a course folder.
+- `tools/smoke` from clean clones of this commit and Teach 0.8.0 (run 20260929-020453, Haiku, $0.40):
+  first-run-cooperative 7/7 and course-gate 5/5, judge clean. The real Claude Code session's three prompts were
+  captured from its UserPromptSubmit payloads and reached Teach's transcript through the SessionEnd flush.
+
+### Fixed
+
+- The course-gate smoke asked rEach to edit `README.md`, an owned file since 0.7.0, so it failed against a correct
+  rEach; it now asks for the read-only `api/README.md`.
 
 ## [0.7.3] - 2026-09-28
 
