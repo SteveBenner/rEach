@@ -19,7 +19,8 @@ reach is a plugin built on rplugin, the SDK for agent-harness plugins.
   troubleshooting any plugin.
 - What reach does, the credentials it needs and its settings in `config.yml`
   are described in `README.md`.
-- Its skills are `skills/reach-course`, `skills/reach-build`, `skills/reach-fix`,
+- Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug`
+  (with `skills/reach-build` and `skills/reach-fix` routing to them),
   `skills/reach-checkpoint`, `skills/reach-submit`, `skills/reach-help` and the
   vendored `skills/design-taste-frontend`; its command, when installed, is
   `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo

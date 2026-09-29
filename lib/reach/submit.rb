@@ -11,6 +11,8 @@ module Reach
       def submit(slice:)
         workspace = resolve_workspace(slice)
         run_preconditions(workspace)
+        qualification = Reach::Qualify.current?(workspace)
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNQUALIFIED") unless qualification
 
         meta = Reach::Workspace.metadata(workspace)
         manifest = build_manifest(workspace, meta)
@@ -19,7 +21,7 @@ module Reach
 
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
-        tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail))
+        tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification))
         envelope = seal_submission(install, meta, tar_bytes)
         idempotency_key = SecureRandom.uuid
         body = {
@@ -59,6 +61,7 @@ module Reach
             elsif entry["kind"] == "integrity"
               results << { "state" => "sent", "event_id" => body["event_id"] }
             else
+              Reach::Hands.track(body["hand_id"], slice: entry["slice"], hand_ref: entry["hand_ref"], originator: entry.dig("body", "originator") || "student")
               results << { "hand_id" => body["hand_id"], "state" => body["state"] }
             end
             FileUtils.rm_f(path)
@@ -116,8 +119,9 @@ module Reach
           raise Reach::Refused, "reach: a read-only course file was changed; submission refused"
         end
 
-        findings = Reach::Check.run(workspace, format: :agent)
         meta = Reach::Workspace.metadata(workspace)
+        owned = Array(meta["owned_files"])
+        findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) }
         check_gate!(workspace, meta, findings.reject { |finding| finding[:id] == "CK-SHAPE" })
         if meta["slice"].to_s == "panel" && Array(findings).any? { |finding| finding[:classification] == :visible }
           raise Reach::Refused, "reach: the shape check still finds visible problems; fix them before submitting"
@@ -197,8 +201,10 @@ module Reach
         ALLOWED_HARNESSES.include?(value) ? value : nil
       end
 
-      def submission_entries(manifest, workspace, tail)
+      def submission_entries(manifest, workspace, tail, qualification)
         entries = { "manifest.json" => JSON.generate(manifest) }
+        Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data }
+        entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" })
         Array(manifest["owned_files"]).each do |relative_path|
           full_path = File.join(workspace, relative_path)
           next unless File.file?(full_path)

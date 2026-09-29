@@ -38,8 +38,8 @@ module Reach
           cmd_gate(args)
         when "shape"
           cmd_shape(args)
-        when "tips"
-          cmd_tips(args)
+        when "qualify"
+          cmd_qualify(args)
         when "submit"
           cmd_submit(args)
         when "receipts"
@@ -101,7 +101,7 @@ module Reach
             start [--harness ...]                launch a harness outside a course workspace
             gate session|prompt|write|shell      called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
-            tips [--slice ...]                   run the tips suite
+            qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             submit [--slice ...]                 submit and wait for the receipt
             receipts [wait|show]                 receipts
             hand raise|status|list               hand-raises
@@ -112,7 +112,7 @@ module Reach
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             setup [--harness auto|claude-code|codex|antigravity] [--source ...] [--format ...]
             profile show|save|forget             the student's saved interview answers
-            attempts settle [--slice ...]        settle recent attempt counters
+            attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json]   check the slice's code against the rules
             checkpoint save|list|show|restore    snapshots of the slice's files, kept by rEach
             plan save|show|note                  the slice plan
@@ -344,33 +344,25 @@ module Reach
         0
       end
 
-      def cmd_tips(args)
-        options, _remaining = parse_flags(args, [:slice])
-        slice = default_slice_id(options[:slice])
-        unless slice
-          warn "usage: reach tips --slice <id>"
-          return 1
-        end
-        workspace = resolve_workspace(options[:slice])
+      def cmd_qualify(args)
+        local_only, args = parse_bare_flag(args, "local-only")
+        listing, args = parse_bare_flag(args, "list")
+        options, _remaining = parse_flags(args, [:slice, :format, :task, :summary])
+        workspace = resolve_workspace(options[:slice]) || Reach::Gate.current_workspace_path
         unless workspace
           warn "reach: no matching slice workspace found; run reach sync"
           return 1
         end
-        result = if Reach::Workspace.metadata(workspace)["acceptance_mode"] == "remote"
-                   Reach::Workspace.remote_tips(workspace)
-                 else
-                   Timeout.timeout(100) { Reach::Suite.run(slice: slice) }
-                 end
-        Array(result[:scenarios]).each do |scenario|
-          status_word = scenario[:status] || (scenario[:passed] ? "pass" : "fail")
-          line = "#{scenario[:name]}: #{status_word}"
-          line = "#{line} - #{scenario[:reason]}" if scenario[:reason]
-          puts line
+        if listing
+          puts Reach::Qualify.listing(workspace)
+          return 0
         end
-        0
-      rescue Timeout::Error
-        warn "reach: the tips suite did not finish in time; try again"
-        1
+        format = (options[:format] || "text").to_sym
+        record = Reach::Qualify.run(workspace, local_only: local_only, task: options[:task], agent_summary: options[:summary])
+        puts Reach::Qualify.render(record, format)
+        return 0 if record["passed"]
+
+        record["pending"] ? 3 : 1
       end
 
       def cmd_submit(args)
@@ -441,7 +433,7 @@ module Reach
           include_profile, args = parse_bare_flag(args, "include-profile")
           options, _remaining = parse_flags(args, [:trigger, :summary, :slice])
           unless options[:summary]
-            warn "usage: reach hand raise --summary <text> [--trigger attempt_gate|student_request] [--slice <id>] [--include-profile]"
+            warn "usage: reach hand raise --summary <text> [--trigger student_request] [--slice <id>] [--include-profile]"
             return 1
           end
           hand_id = Reach::Hands.raise_hand(
@@ -635,13 +627,13 @@ module Reach
 
       def check_gems
         slices = Reach::Workspace.current_slices
-        return [] if !slices.empty? && slices.all? { |path| Reach::Workspace.metadata(path)["acceptance_mode"] == "remote" }
+        return [] if slices.none? { |path| Reach::Workspace.metadata(path).dig("qualify", "local") }
 
         dir = Reach::Paths.gems_dir
         installed = File.directory?(dir) && !Dir.children(dir).empty?
-        installed ? [] : ["R-DOC-GEMS: the tips suite's gems are not installed yet - reach tips installs them on first run"]
+        installed ? [] : ["R-DOC-GEMS: the checking tools are not installed yet - reach qualify installs them on first run"]
       rescue StandardError
-        ["R-DOC-GEMS: the tips suite's gems could not be checked - reach tips installs them on first run"]
+        ["R-DOC-GEMS: the checking tools could not be checked - reach qualify installs them on first run"]
       end
 
       def check_net
@@ -815,15 +807,25 @@ module Reach
 
       def cmd_attempts(args)
         sub = args.shift
-        unless sub == "settle"
-          warn "usage: reach attempts settle [--slice <basename>]"
-          return 1
-        end
         options, _remaining = parse_flags(args, [:slice])
-        slice = options[:slice] || current_workspace_basename
-        result = slice ? Reach::Attempts.settle(slice: slice) : []
-        puts JSON.generate(result)
-        0
+        case sub
+        when "settle"
+          puts JSON.generate([])
+          0
+        when "show", "continue"
+          workspace = workspace_or_fail(options[:slice])
+          return 1 unless workspace
+
+          if sub == "show"
+            puts JSON.generate(Reach::Attempts.show(workspace))
+          else
+            puts Reach::Attempts.continue(workspace)
+          end
+          0
+        else
+          warn "usage: reach attempts show|continue [--slice <id>]"
+          1
+        end
       end
 
       def workspace_or_fail(slice_hint)

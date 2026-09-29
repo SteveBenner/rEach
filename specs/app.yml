@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.10.0
+version: 0.11.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -10,9 +10,10 @@ purpose: >
   runs a short interview saved on their computer only, enrolls with Teach, receives the student's
   protected materials, refuses to let the agent work until the instructors'
   guardrails are installed, keeps the agent inside the student's slice,
-  checks every change against the Dovetail shape, runs the instructors' tips
-  suite, submits work and waits for Teach's receipt, and raises a hand to
-  the instructors when the agent is stuck.
+  checks every change against the Dovetail shape, has the agent prove each
+  slice with scenarios of its own before submitting (reach qualify, locally
+  and on Teach), submits work and waits for Teach's receipt, and raises a
+  hand to the instructors by itself after three failed qualifications.
 blueprint: The full design is in reach.spec.yml (schema reach.spec/v1) at the project root.
 wire_contract: specs/wire.yml (Teach-Reach protocol 1; teach carries a byte-identical pinned copy)
 implementation_blueprint: specs/implementation/v0.9.0.impl.yml
@@ -49,10 +50,16 @@ standards:
     text: "A directive body, public or private, says what the agent does and never why or how it is enforced. Grading, weights, rubrics, thresholds, keys and the seal live in Teach and never enter a body, so any body could be disclosed without harm; keeping it private is a behaviour the OPAQUE directive asks of the agent, not a security boundary Reach claims."
   - id: STD-SEAL-INVISIBLE
     text: "Every owned file carries an invisible per-install mark, every session leaves an HMAC-chained witness ledger, and a sidecar ties installs together. A foreign, corrupt or missing mark, a ledger break, a vault mismatch or a sweep of the private directives (directive_dump) is reported to Teach silently, healed where healing is safe, and never shown to or discussed with the student; a foreign mark is never overwritten."
+  - id: STD-QUALIFY-BEFORE-SUBMIT
+    text: "reach submit refuses unless the latest reach qualify passed on exactly the current owned files and the agent's scenarios (M-SUBMIT-UNQUALIFIED). The agent writes those scenarios under qualify/, covering every graded name; they run here on Grokit's answer-free kit when the slice allows it and always on Teach, which also runs the hidden graded scenarios and answers with names, results, the agent's own step text and a whitelisted error class only. No reference code or graded step leaves Teach."
+  - id: STD-ATTEMPT-LADDER
+    text: "Reach counts failed qualifications per slice: a notice from the second, an agent hand (reach.hand/v2, originator agent) at the third with further work held until the student says yes, and a hard stop at the tenth until an instructor replies. A pass or a reply resets it."
+  - id: STD-FLOWS
+    text: "The agent writes code only through the reach-feature or reach-bug flow (directive FLOW). The student deals in business behaviour only: student-facing text never names code, tests, scenarios, files or commands."
   - id: STD-CHECK-BEFORE-SUBMIT
-    text: "reach check is the one checker: the hooks run it after every write, the attempt gate counts its findings, and reach submit runs it first. Findings are returned once with M-SUBMIT-FIX-FIRST; a second attempt on the same findings is refused with M-SUBMIT-BLOCKED-CHECK and raises a check_gate hand."
+    text: "reach check is the one checker: the hooks run it after every write, reach qualify runs it first, and reach submit runs it first; only findings in the slice's own files count in qualify and submit. Findings are returned once with M-SUBMIT-FIX-FIRST; a second attempt on the same findings is refused with M-SUBMIT-BLOCKED-CHECK and raises a check_gate hand."
   - id: STD-NO-GIT-IN-WORKSPACE
-    text: "Checkpoints are Reach's own snapshots under ~/.reach/checkpoints, taken and restored by reach checkpoint; no git repository is created in or required by a course workspace."
+    text: "Checkpoints are Reach's own snapshots under ~/.reach/checkpoints, taken and restored by reach checkpoint; no git repository is created in or required by a course workspace, and since 0.11.0 the gate refuses git in slice and root spaces (M-GATE-NOGIT); the extracurricular folder is the student's own. Git support is planned for Reach 2.0 (ROADMAP.md)."
   - id: STD-COURSE-TIME
     text: "Every time shown to a student (due dates, receipt times) is in the course's timezone with its abbreviation, e.g. 'Sat 3 Oct 11:59 pm PDT', whatever zone the student's computer is in. The zone comes from Teach's enrollment (course.timezone) and defaults to America/Los_Angeles, the zone MGMT 327 and 695AD-781 run on. America/Los_Angeles is computed from built-in US daylight-time rules, so it is right on every platform, Windows included."
   - id: STD-SMOKE

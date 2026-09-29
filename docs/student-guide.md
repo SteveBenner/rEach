@@ -18,10 +18,10 @@ and sends it in when you are ready.
 
 ## Every day
 
-- `reach status` shows your enrollment, your slices, your last tips results and any receipts.
-- Your agent runs `reach shape check` after each change and `reach tips` before submitting; you do not need to run these yourself, but you can.
+- `reach status` shows your enrollment, your slices, whether each one has passed its checks, and any receipts.
+- Your AI partner writes and checks all the code. Before anything is submitted it proves the work against checks of its own and the instructors' checks on the course server; you only talk about what the business needs.
 - `reach submit` sends your work in. You will see the receipt number as soon as it arrives.
-- If your agent gets stuck on the same problem three times, it asks your instructors for help automatically and tells you.
+- If your AI partner needs a second try, it tells you. After three tries it asks your instructors for help on its own, tells you, and keeps trying only if you say yes. After ten tries it stops until your instructors reply.
 
 ## Your course folders
 

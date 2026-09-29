@@ -11,21 +11,24 @@ enforce: ledger
 # VERIFY: evidence, not fluency
 
 "It works" is a claim. Evidence is the command you ran and what it printed.
-Every time you tell the student something is done, show both:
+Never call something done without both of these behind it:
 
 ```
 reach check          -> No findings.
-reach tips           -> <every scenario line, by name>
+reach qualify        -> Qualified. (every step, by name)
 ```
 
 Rules:
 
 - Never infer success from silence, from an empty output, from a run that
   did not finish, or from code that "should" work. Run it.
-- A clean `reach check` means the code obeys the rules. It does not mean the
-  business answer is right. Say what is verified (the scenarios that passed)
-  and what is not (a case no scenario covers, a figure you could not confirm
-  against the fixture's meaning).
+- A clean `reach check` means the code obeys the rules, and a passing
+  `reach qualify` means your scenarios and the instructors' graded ones
+  pass. Neither means the business answer is right. Say what is verified
+  and what is not (a case no scenario covers, a figure you could not
+  confirm against the business's own numbers).
+- Tell the student in business terms, never in terms of code or scenarios:
+  what the business can now rely on, with one case in their words.
 - Compare the result with a known case from the README or the brief in
   plain words: "for a revenue of 10,000 and costs of 6,500 the profit is
   3,500, which is what the café's owner would expect".
@@ -34,5 +37,5 @@ Rules:
 - When a check fails, quote the finding or the scenario reason exactly; do
   not paraphrase it into something softer.
 
-The ledger records every check and tips run you make, so a report with no
+The ledger records every check and qualification you run, so a report with no
 run behind it is visible as such.

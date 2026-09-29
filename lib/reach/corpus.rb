@@ -4,7 +4,7 @@ require "fileutils"
 
 module Reach
   class Corpus
-    KINDS = %w[note tip attempt receipt].freeze
+    KINDS = %w[note tip attempt receipt qualification].freeze
 
     def initialize(ports)
       @ports = ports
@@ -31,6 +31,10 @@ module Reach
 
     def receipt(receipt)
       write("receipt", receipt)
+    end
+
+    def qualification(record)
+      write("qualification", record)
     end
 
     def recent(kind, limit: 20)

@@ -22,11 +22,28 @@ module Reach
         }
       },
       {
-        "name" => "reach_tips",
-        "description" => "Run the tips suite and return the plain-language results",
+        "name" => "reach_qualify",
+        "description" => "Prove the slice before submitting: reach check, coverage of every graded scenario name, the agent's own scenarios locally where they can run, then the course server's qualification run; returns the record and the attempt ladder's next rung",
         "inputSchema" => {
           "type" => "object",
-          "properties" => { "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" } }
+          "properties" => {
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" },
+            "local_only" => { "type" => "boolean", "description" => "Run only the local steps; never counts as an attempt" },
+            "task" => { "type" => "string", "description" => "One line: what you were attempting, kept for a hand" },
+            "summary" => { "type" => "string", "description" => "What failed last time and what you changed, kept for a hand" }
+          }
+        }
+      },
+      {
+        "name" => "reach_attempts",
+        "description" => "The slice's attempt ladder (action show), or record the student's yes to keep trying after a hand (action continue; refused unless the student has written since the hand)",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[show continue] },
+            "slice" => { "type" => "string" }
+          },
+          "required" => ["action"]
         }
       },
       {
@@ -261,8 +278,12 @@ module Reach
           Reach::Receipts.list
         when "reach_shape_check"
           Reach::Shape.check(workspace_path: Dir.pwd, changed: arguments["changed"], format: :agent)
-        when "reach_tips"
-          Reach::Suite.run(slice: slice_argument(arguments))
+        when "reach_qualify"
+          workspace = workspace_for(slice_argument(arguments))
+          Reach::Qualify.run(workspace, local_only: arguments["local_only"] == true, task: arguments["task"], agent_summary: arguments["summary"])
+        when "reach_attempts"
+          workspace = workspace_for(slice_argument(arguments))
+          arguments["action"] == "continue" ? { "message" => Reach::Attempts.continue(workspace) } : Reach::Attempts.show(workspace)
         when "reach_submit"
           result = Reach::Submit.submit(slice: slice_argument(arguments))
           result = result.merge("announcement" => Reach::Receipts.announce(result["receipt"])) if result["state"] == "ingested"
@@ -302,6 +323,13 @@ module Reach
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
         end
+      end
+
+      def workspace_for(slice)
+        workspace = Reach::Workspace.current_slices.find { |path| File.basename(path) == slice.to_s }
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") unless workspace
+
+        workspace
       end
 
       def current_workspace!

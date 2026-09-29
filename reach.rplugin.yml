@@ -1,16 +1,16 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.10.0
+version: 0.11.0
 rplugin: ">= 1.0.0-compat"
-description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run courses.
+description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for Teach-run courses.
 ports:
   required: [secrets, state, events]
   optional: [corpus, schedule]
 extensions:
   enabled: [claude-code, codex, os]
 corpora:
-  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt], writes_kinds: [note, tip, attempt, receipt] }
+  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification], writes_kinds: [note, tip, attempt, receipt, qualification] }
   consumes: []
 contents:
   skills:
@@ -20,6 +20,8 @@ contents:
     - { id: reach-assistant, path: skills/reach-assistant/SKILL.md }
     - { id: reach-build, path: skills/reach-build/SKILL.md }
     - { id: reach-fix, path: skills/reach-fix/SKILL.md }
+    - { id: reach-feature, path: skills/reach-feature/SKILL.md }
+    - { id: reach-bug, path: skills/reach-bug/SKILL.md }
     - { id: reach-checkpoint, path: skills/reach-checkpoint/SKILL.md }
     - { id: design-taste-frontend, path: skills/design-taste-frontend/SKILL.md }
   agents:

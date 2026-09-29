@@ -106,17 +106,21 @@ module AssignmentOne
       step("readme-filled", "local") { fill_readme }
       step("reach-check", "local") { reach_check }
       step("checkpoint", "local") { checkpoint }
-      step("tips-before-submit", "local") { tips_before_submit }
-      if step("submit-and-ingest-receipt", "ingest") { submit }
-        step("ingest-receipt-ids", "ingest") { ingest_receipt_ids }
-        step("tips-pending-not-pass", "remote") { tips_pending }
-        graded = step("grader", "remote") { run_grader }
-        if graded
-          step("sync-grade-receipt", "remote") { sync_grade }
-          step("remote-tips-returned", "remote") { tips_returned }
-        else
-          step("sync-grade-receipt", "remote") { raise Skip, "no grade receipt was produced" }
-          step("remote-tips-returned", "remote") { raise Skip, "no grade receipt was produced" }
+      step("submit-refused-unqualified", "local") { submit_refused_unqualified }
+      step("qualify-scenarios-written", "local") { write_qualify_scenarios }
+      step("qualify-list", "local") { qualify_list }
+      if step("grader-started", "remote") { start_grader }
+        if step("qualify-passes", "remote") { qualify_passes } && step("submit-and-ingest-receipt", "ingest") { submit }
+          step("ingest-receipt-ids", "ingest") { ingest_receipt_ids }
+          if step("grader", "remote") { run_grader }
+            step("sync-grade-receipt", "remote") { sync_grade }
+          else
+            step("sync-grade-receipt", "remote") { raise Skip, "no grade receipt was produced" }
+          end
+        end
+      else
+        %w[qualify-passes submit-and-ingest-receipt ingest-receipt-ids grader sync-grade-receipt].each do |name|
+          step(name, "remote") { raise Skip, "the grader is not running, so nothing can qualify or be graded" }
         end
       end
       step("codex-conversation", "codex") { raise Skip, "not run by the transport smoke; see docs/smoke-assignment-1.md" }
@@ -635,13 +639,61 @@ module AssignmentOne
       out.strip
     end
 
-    def tips_before_submit
-      out, status = reach("tips", "--slice", slice_id, chdir: @workspace)
-      @last[:actual] = "exit #{status.exitstatus}"
-      raise Fail, "tips exited #{status.exitstatus}: #{out}" unless status.success?
-      raise Fail, "tips reports pass before any remote result exists" if out.match?(/:\s*pass\b/i)
+    def submit_refused_unqualified
+      out, status = reach("submit", "--slice", slice_id, chdir: @workspace, timeout: 120)
+      @last[:expected] = "nonzero exit, M-SUBMIT-UNQUALIFIED"
+      @last[:actual] = "exit #{status.exitstatus}: #{out.strip[0, 160]}"
+      raise Fail, "submit succeeded before any qualification" if status.success?
+      raise Fail, "submit refused for another reason: #{out.lines.last(4).join}" unless out.include?("hasn't passed its checks")
+      raise Fail, "teach holds a submission" unless teach_json("submissions", "list", "--assignment", ASSIGNMENT).empty?
 
-      out.lines.map(&:strip).first(3).join(" | ")
+      "refused: #{out.strip[0, 120]}"
+    end
+
+    def write_qualify_scenarios
+      source = File.join(__dir__, "qualify")
+      written = Dir.glob(File.join(source, "{features,step_definitions}", "*")).map do |path|
+        relative = path.sub("#{source}/", "")
+        target = File.join(@workspace, "qualify", relative)
+        event = JSON.generate("tool_name" => "Write", "tool_input" => { "file_path" => target })
+        out, status = reach("gate", "write", chdir: @workspace, stdin: event)
+        raise Fail, "gate refused #{relative}: #{out}" unless status.success?
+
+        FileUtils.mkdir_p(File.dirname(target))
+        FileUtils.cp(path, target)
+        relative
+      end
+      raise Fail, "no scenario fixtures under #{source}" if written.empty?
+
+      "wrote #{written.join(', ')}"
+    end
+
+    def qualify_list
+      out = reach!("qualify", "--slice", slice_id, "--list", chdir: @workspace)
+      raise Fail, "qualify --list names no @backend tag: #{out}" unless out.include?("@backend")
+
+      out.lines.map(&:strip).reject(&:empty?).first(4).join(" | ")
+    end
+
+    def start_grader
+      raise Skip, "Docker images teach-grader:ruby-4.0 and teach-grader:ruby-2.6.10 are not both present; nothing qualifies or is graded" unless docker_images_present?
+
+      log = File.open(File.join(@logs, "teach-grader.log"), "w")
+      @grader_pid = Process.spawn(teach_env, "bundle", "exec", "ruby", "bin/teach", "grader", chdir: @teach_dir, out: log, err: log, pgroup: true)
+      File.write(File.join(@run_dir, "grader.pid"), "#{@grader_pid}\n")
+      "grader pid #{@grader_pid}"
+    end
+
+    def qualify_passes
+      out, status = reach("qualify", "--slice", slice_id, "--format", "json", chdir: @workspace, timeout: 600)
+      @last[:expected] = "exit 0, passed"
+      @last[:actual] = "exit #{status.exitstatus}"
+      raise Fail, "qualify exited #{status.exitstatus}: #{out.lines.last(12).join}" unless status.success?
+
+      record = JSON.parse(out[out.index("{")..])
+      raise Fail, "qualification did not pass: #{out[0, 400]}" unless record["passed"]
+
+      "qualified: #{record['steps'].keys.join(', ')}"
     end
 
     def submit
@@ -680,17 +732,6 @@ module AssignmentOne
       "signed ingest receipt #{expected.first} for submission #{@submission["id"]}"
     end
 
-    def tips_pending
-      out, status = reach("tips", "--slice", slice_id, chdir: @workspace)
-      @last[:expected] = "pending, never pass"
-      @last[:actual] = out.lines.first(3).join
-      raise Fail, "tips exited #{status.exitstatus}: #{out}" unless status.success?
-      raise Fail, "tips shows a pass before grading" if out.match?(/:\s*pass\b/i)
-      raise Fail, "tips does not show pending after submit" unless out.match?(/pending|queued|awaiting/i)
-
-      out.lines.map(&:strip).first(3).join(" | ")
-    end
-
     def docker_images_present?
       %w[teach-grader:ruby-4.0 teach-grader:ruby-2.6.10].all? do |image|
         _out, status = Open3.capture2e("docker", "image", "inspect", image)
@@ -704,9 +745,8 @@ module AssignmentOne
       raise Skip, "Docker images teach-grader:ruby-4.0 and teach-grader:ruby-2.6.10 are not both present; not graded, not passed" unless docker_images_present?
 
       log_path = File.join(@logs, "teach-grader.log")
-      log = File.open(log_path, "w")
-      @grader_pid = Process.spawn(teach_env, "bundle", "exec", "ruby", "bin/teach", "grader", chdir: @teach_dir, out: log, err: log, pgroup: true)
-      File.write(File.join(@run_dir, "grader.pid"), "#{@grader_pid}\n")
+      raise Skip, "the grader is not running" unless @grader_pid
+
       deadline = Time.now + GRADER_TIMEOUT_S
       rows = []
       loop do
@@ -809,18 +849,6 @@ module AssignmentOne
       raise Fail, "reach holds grade receipts #{ids.inspect}, teach issued #{@receipts["grade"]["expected"].inspect}" unless ids.sort == @receipts["grade"]["expected"].sort
 
       "grade receipt verified and stored by reach sync: #{ids.join(",")}"
-    end
-
-    def tips_returned
-      out, status = reach("tips", "--slice", slice_id, chdir: @workspace)
-      @last[:actual] = out.lines.first(6).join
-      raise Fail, "tips exited #{status.exitstatus}: #{out}" unless status.success?
-      raise Fail, "tips still shows pending after the grade receipt" if out.match?(/pending|queued|awaiting/i)
-      raise Fail, "tips shows no returned pass or fail" unless out.match?(/:\s*(pass|fail)/i)
-
-      passes = out.scan(/:\s*pass\b/i).length
-      fails = out.scan(/:\s*fail\b/i).length
-      "returned results: #{passes} pass, #{fails} fail (grade score #{@receipts.dig("grade", "score")})"
     end
 
     def write_summary

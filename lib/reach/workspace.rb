@@ -11,6 +11,7 @@ module Reach
     DELIVERED_FILE = "delivered.json"
     NEVER_LOCKABLE_DIRS = %w[.reach .claude .codex].freeze
     NEVER_LOCKABLE_FILES = %w[.mcp.json].freeze
+    WRITABLE_DIRS = %w[qualify/features qualify/step_definitions].freeze
 
     DEFAULT_README_LINES = [
       "# {cutout_id} - {slice} slice",
@@ -23,7 +24,7 @@ module Reach
       "**Your files:** {owned_files}",
       "**You can use:** {instructor_apis}",
       "",
-      "**How it's checked:** the scenarios in your tips list (run `reach tips`). The same checks decide your grade on the course server.",
+      "**How it's checked:** your AI partner proves the work with checks of its own before anything is submitted, and the course server runs the instructors' checks that decide your grade.",
       "",
       "**Where it shows up:** {panel_slice}",
       "",
@@ -94,12 +95,27 @@ module Reach
           end
         end
 
+        open_path(target, File.dirname(relative))
         FileUtils.mkdir_p(File.dirname(full_path))
         safe_chmod(0o644, full_path) if File.file?(full_path)
         File.open(full_path, "wb") { |f| f.write(contents) }
       end
 
       kept_files
+    end
+
+    def open_path(target, relative_dir)
+      current = File.expand_path(target)
+      relative_dir.to_s.split("/").each do |segment|
+        next if segment.empty? || segment == "."
+
+        current = File.join(current, segment)
+        safe_chmod(0o755, current) if File.directory?(current)
+      end
+    end
+
+    def writable_path?(relative)
+      WRITABLE_DIRS.any? { |dir| relative == dir || relative.start_with?("#{dir}/") }
     end
 
     def delivered_digest_for(target, relative)
@@ -143,27 +159,6 @@ module Reach
       "not started yet"
     rescue StandardError
       "not started yet"
-    end
-
-    def remote_tips(workspace_path)
-      meta = metadata(workspace_path)
-      names = Array(meta["scenarios"]).map { |item| item.is_a?(Hash) ? (item["name"] || item["scenario"]) : item }.compact
-      receipt = Reach::Receipts.latest_for(cutout_id: meta["cutout_id"], slice: meta["slice"])
-      grade = receipt && receipt["kind"] == "grade" ? receipt : nil
-      return pending_remote_tips(names) unless grade
-
-      returned = Array(grade["scenarios"])
-      scenarios = returned.map do |item|
-        result = item["result"].to_s
-        status = result == "passed" ? "pass" : (result == "failed" ? "fail" : "returned")
-        { name: item["name"] || item["scenario"] || "remote scenario", status: status, reason: item["reason"] }
-      end
-      scenarios = pending_remote_tips(names)[:scenarios] if scenarios.empty?
-      { scenarios: scenarios, remote: true }
-    end
-
-    def pending_remote_tips(names)
-      { scenarios: names.map { |name| { name: name, status: "pending", reason: Reach::Messages.text("M-TIPS-REMOTE-PENDING") } }, remote: true }
     end
 
     def find(cutout_id:, slice:)
@@ -392,6 +387,7 @@ module Reach
           "class" => slice["class"],
           "acceptance_mode" => slice["acceptance_mode"],
           "scenarios" => slice["scenarios"],
+          "qualify" => slice["qualify"],
           "package_version" => version
         )
       )
@@ -411,6 +407,7 @@ module Reach
         top = relative.split(File::SEPARATOR).first
         next if absolute.start_with?("#{marker_dir_absolute}#{File::SEPARATOR}")
         next if NEVER_LOCKABLE_DIRS.include?(top) || NEVER_LOCKABLE_FILES.include?(top)
+        next if writable_path?(relative)
 
         digest = Reach::Crypto.digest_hex(File.binread(absolute))
         if owned_absolute.include?(absolute)
@@ -444,7 +441,7 @@ module Reach
         relative = Pathname.new(absolute).relative_path_from(Pathname.new(File.expand_path(target))).to_s
         top = relative.split(File::SEPARATOR).first
 
-        if NEVER_LOCKABLE_DIRS.include?(top) || NEVER_LOCKABLE_FILES.include?(top)
+        if NEVER_LOCKABLE_DIRS.include?(top) || NEVER_LOCKABLE_FILES.include?(top) || writable_path?(relative)
           safe_chmod(File.directory?(absolute) ? 0o755 : 0o644, absolute)
           next
         end
