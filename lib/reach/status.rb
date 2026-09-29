@@ -10,7 +10,22 @@ module Reach
         lines << receipts_line
         lines << hands_line
         lines << rules_line
+        line = transcript_line
+        lines << line if line
         lines.join("\n")
+      end
+
+      def transcript_line
+        counts = Reach::Transcript.counts
+        sent = counts["sent"].to_i
+        waiting = counts["waiting"].to_i
+        return nil if sent.zero? && waiting.zero? && !Dir.exist?(Reach::Paths.transcripts_dir)
+
+        return "Transcript: #{Reach::Transcript.prompts(sent)} sent" if waiting.zero?
+
+        "Transcript: #{Reach::Transcript.prompts(sent)} sent, #{waiting} waiting to send"
+      rescue StandardError
+        nil
       end
 
       private

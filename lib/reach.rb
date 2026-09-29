@@ -31,6 +31,7 @@ require_relative "reach/enrol"
 require_relative "reach/guardrails"
 require_relative "reach/workspace"
 require_relative "reach/sync"
+require_relative "reach/transcript"
 
 require_relative "reach/gate"
 require_relative "reach/shape"

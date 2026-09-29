@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.7.1 |
-| **Last audited** | 2026-09-28 |
-| **Coverage** | Partial: the 0.7.0 surfaces plus the core flows verifiable from `README.md` and `reach.spec.yml` (enrol, sync, check, checkpoint, plan, submit, receipts, hands, tips, setup, installer, reference). Not catalogued: the interview and profile, the MCP bridge tools other than reference, doctor's individual checks, shape check internals, directives, the harness integrations one by one. `TODO.md` carries the item to complete it. |
-| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.7.1 is published on GitHub `main`; no student runs it against a hosted Teach yet, so course features stay 🔵 until one does. |
-| **Feature count** | 17 catalogued |
+| **Registry version** | 0.8.0 |
+| **Last audited** | 2026-09-29 |
+| **Coverage** | Partial: the 0.7.0 surfaces plus the core flows verifiable from `README.md` and `reach.spec.yml` (enrol, sync, check, checkpoint, plan, submit, receipts, hands, tips, setup, installer, reference, transcript). Not catalogued: the interview and profile, the MCP bridge tools other than reference, doctor's individual checks, shape check internals, directives, the harness integrations one by one. `TODO.md` carries the item to complete it. |
+| **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.8.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so course features stay 🔵 until one does. |
+| **Feature count** | 18 catalogued |
 
 ## How to read this registry
 
@@ -23,13 +23,13 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 16 | 94% |
+| ✅ Shipped | 17 | 94% |
 | 🟡 Partial | 1 | 6% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 6% |
-| 🔵 Built, not enabled | 15 | 88% |
+| 🔵 Built, not enabled | 16 | 89% |
 | ⚫ No runtime path | 1 | 6% |
 
 ## 1 · Install
@@ -122,6 +122,18 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.9 · Hands
 
 `reach hand raise|status|list` sends a signed, encrypted context bundle to the instructors and polls for replies.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.10 · Course transcript
+
+`reach gate prompt` captures every prompt a student submits in a course workspace on Claude Code or Codex, blocked
+prompts included, into `~/.reach/transcripts/` before any gate check; the Stop and SessionEnd hooks and `reach sync`
+send the queue to Teach (`POST /api/v1/transcripts`), which keeps one transcript per session for the instructors.
+`reach transcript status` and `reach status` show what is sent and waiting. The student is told at enrolment and in
+every greeting inside a course folder. Verified against Teach 0.8.0 on Ruby 3.3 and 2.6.10 (concurrent capture,
+replay, offline and kill-switch queueing, a 200000-byte prompt). Antigravity sessions and the AI partner's replies
+are not captured.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

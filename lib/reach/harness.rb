@@ -103,7 +103,7 @@ module Reach
         {
           "hooks" => {
             "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "claude-code"), 10)],
-            "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt"), 10)],
+            "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "claude-code"), 10)],
             "PreToolUse" => [
               hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("gate", "write"), 10),
               hook_entry("Bash", h("gate", "shell"), 10)
@@ -111,7 +111,11 @@ module Reach
             "PostToolUse" => [
               hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60)
             ],
-            "Stop" => [hook_entry(nil, h("attempts", "settle"), 30)]
+            "Stop" => [
+              hook_entry(nil, h("attempts", "settle"), 30),
+              hook_entry(nil, h("transcript", "flush", "--quick"), 30)
+            ],
+            "SessionEnd" => [hook_entry(nil, h("transcript", "flush", "--quick", "--final"), 30)]
           },
           "permissions" => {
             "deny" => [
@@ -165,7 +169,7 @@ module Reach
         {
           "hooks" => {
             "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "codex"), 10)],
-            "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt"), 10)],
+            "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "codex"), 10)],
             "PreToolUse" => [
               hook_entry("apply_patch|Write|Edit", h("gate", "write"), 10),
               hook_entry("Bash|shell|exec_command", h("gate", "shell"), 10)
@@ -173,7 +177,10 @@ module Reach
             "PostToolUse" => [
               hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60)
             ],
-            "Stop" => [hook_entry(nil, h("attempts", "settle"), 30)]
+            "Stop" => [
+              hook_entry(nil, h("attempts", "settle"), 30),
+              hook_entry(nil, h("transcript", "flush", "--quick"), 30)
+            ]
           }
         }
       end

@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-09-29
+
+### Added
+
+- Course transcripts. `reach gate prompt` (the UserPromptSubmit hook on Claude Code and Codex) captures every prompt a
+  student submits in a course workspace before any gate check, blocked prompts included, into
+  `~/.reach/transcripts/<session_id>.jsonl` (0700 directory, 0600 files) with a per-session seq, the harness, the slice,
+  the whole prompt's byte size and SHA-256, and the text up to 131072 bytes cut on a character boundary. A hook payload
+  with no prompt is still recorded. An allowed prompt's witness ledger record now carries `{session, seq, digest}`.
+  `Reach::Transcript` sends the queue to Teach through signed `POST /api/v1/transcripts` (wire protocol 1 revision
+  2026-09-29, W-API-TRANSCRIPT, W-TRN-1, W-TRN-2, W-SAFE-9).
+- `reach transcript flush [--quick [--final]]` and `reach transcript status [--format json]`. A second Stop hook runs
+  `transcript flush --quick` (at most 3 requests, at most once a minute), a new SessionEnd hook on Claude Code runs
+  `transcript flush --quick --final`, and `reach sync` flushes in normal mode. The prompt hook makes no network call.
+  A failure or refusal keeps every entry queued; entries in a request Teach refuses as malformed go to
+  `<session_id>.rejected.jsonl` so one bad request cannot block the queue. `REACH_OFFLINE=1` stops sending, never
+  capturing.
+- `reach status` shows "Transcript: N prompts sent" (and how many are waiting).
+- Disclosure: M-TRANSCRIPT-NOTICE is printed at enrolment, G-TRANSCRIPT-NOTICE ends every greeting inside a course
+  folder, the persona answers what rEach shares when asked, and the privacy notice in `docs/student-guide.md` says what
+  is sent. `STD-TRANSCRIPT` in `specs/app.yml`; `specs/implementation/v0.8.0.impl.yml`.
+
+### Changed
+
+- The prompt hook is `reach gate prompt --harness claude-code|codex`; workspace settings are rewritten at the next
+  `reach hello` or `reach sync`.
+- The privacy promise changed: prompts typed in a course workspace are now sent to Teach. `reach.spec.yml`
+  `privacy_and_integrity` and `privacy_notice` say so; the AI partner's replies, conversations outside course
+  workspaces, the corpus and the profile file are still never sent.
+- Teach 0.8.0 requires Reach 0.8.0 by default (`minimum_reach_version`).
+
+### Verified
+
+- Against Teach 0.8.0 with a scratch course on real Grokit packages, on Ruby 3.3 and in a Ruby 2.6.10 container:
+  capture with digests matching Teach's copy, 24 prompts captured while a flush ran arriving contiguous with no gap
+  or duplicate, a full replay writing nothing twice, a 200000-byte prompt captured in 0.13 s and truncated on a
+  character boundary, queues surviving `REACH_OFFLINE=1` and Teach's 403 kill switch and arriving once lifted, the
+  Stop-hook flush printing nothing and spacing itself, and the greeting notice shown only inside a course folder.
+
 ## [0.7.3] - 2026-09-28
 
 ### Fixed

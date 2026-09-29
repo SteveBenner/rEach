@@ -19,9 +19,13 @@ module Reach
 
       harness_id = resolve_harness(harness)
       maybe_refresh_status
-      maybe_configure(cwd)
+      workspace = find_workspace(cwd)
+      configure_workspace(workspace)
 
       greeting_id, greeting_text, banner = choose_greeting(source)
+      if workspace && greeting_text
+        greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-TRANSCRIPT-NOTICE")}"
+      end
       context = build_context(harness_id, format, greeting_id, greeting_text)
 
       emit(format, context, banner, greeting_id, greeting_text)
@@ -63,16 +67,20 @@ module Reach
       nil
     end
 
-    def maybe_configure(cwd)
-      return unless defined?(Reach::Workspace) && defined?(Reach::Harness)
-      return unless cwd
+    def find_workspace(cwd)
+      return nil unless defined?(Reach::Workspace) && cwd
 
       real_cwd = File.realpath(cwd)
-      workspace = Reach::Workspace.current_slices.find do |workspace_path|
+      Reach::Workspace.current_slices.find do |workspace_path|
         real_workspace = File.realpath(workspace_path)
         real_cwd == real_workspace || real_cwd.start_with?(real_workspace + File::SEPARATOR)
       end
-      return unless workspace
+    rescue StandardError
+      nil
+    end
+
+    def configure_workspace(workspace)
+      return unless defined?(Reach::Harness) && workspace
 
       Reach::Harness.configure_all(workspace)
     rescue StandardError

@@ -14,3 +14,4 @@ greetings:
   G-CLOSE-READBACK: "Here's what I'll remember:"
   G-CLOSE-ASK: "Anything you'd like to change or leave out?"
   G-CLOSE-SAVED: "Saved. Ask me 'what do you know about me?' anytime to see or change it, or say 'forget my profile' to delete it. Want to see your first assignment?"
+  G-TRANSCRIPT-NOTICE: "Everything you type to me in this course folder is saved in your course transcript, which your instructors can read."

@@ -17,6 +17,16 @@ slice, checks every change against the
 instructors' tips suite, submits work and waits for Teach's receipt, and raises
 a hand to the instructors when the agent is stuck.
 
+In a course workspace, everything the student types to their AI partner is
+saved in their course transcript on Teach, which their instructors can read.
+`reach gate prompt` (the prompt hook on Claude Code and Codex) writes each
+prompt to `~/.reach/transcripts/` before any check and makes no network call;
+the Stop and SessionEnd hooks and `reach sync` send the queue, and
+`reach transcript status` shows what is sent and what is waiting. The student
+is told at enrolment and in every greeting inside a course folder. The AI
+partner's replies, conversations outside course folders and Antigravity
+sessions (no prompt hook) are not captured.
+
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
 Students: see [`docs/student-guide.md`](docs/student-guide.md).

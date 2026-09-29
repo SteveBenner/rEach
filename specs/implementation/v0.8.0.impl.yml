@@ -1,0 +1,252 @@
+schema: rstack.blueprint/v1
+task: reach-0.8.0-transcripts
+version: 0.8.0
+intent: >
+  Capture every prompt a student submits to their AI partner in a course workspace and send it to Teach, which keeps
+  it in that student's per-session transcript. Follow specs/wire.yml protocol 1 revision 2026-09-29 (already written;
+  byte-identical to Teach's copy; do not edit it): W-API-TRANSCRIPT, W-TRN-1, W-TRN-2, W-SAFE-9 and the prompt ledger
+  record in W-SEAL-2. reach.spec.yml already describes the feature (transcripts, layout.data, harness_integration
+  hooks, cli transcript, student_messages M-TRANSCRIPT-NOTICE, persona.introduction.transcript_notice,
+  privacy_notice); implement what it says.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repository: github.com/SteveBenner/rEach (the local checkout at ~/github/foss/rEach)
+spec: reach.spec.yml (transcripts and the sections above), specs/wire.yml (W-API-TRANSCRIPT, W-TRN-1, W-TRN-2, W-SAFE-9)
+
+constraints:
+  - >-
+    AGENTS.md Part S. Write no tests, no spec files, no test directories. Verify by running Reach for real from a
+    scratch directory under <scratchpad>/transcripts/reach/, where <scratchpad> is
+    /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/9ba9679b-41fd-4c31-b5a0-817e860e6af1/scratchpad.
+    Point REACH_HOME and REACH_WORKSPACE_ROOT there; never touch the real ~/.reach.
+  - AGENTS.md Part Q. No comments, doc comments or docstrings in any file. Only lines a tool reads survive.
+  - AGENTS.md Part F. No authorship or agent attribution anywhere.
+  - AGENTS.md Part E. Delete nothing outside your scratch directory; never run rm -r, git clean or find -delete.
+  - AGENTS.md Part J. Query codebase memory (project home-sven-github-foss-rEach, already indexed) before grepping.
+  - Do not run git add, git commit, git stash, git checkout or any other git write. The primary stages and commits.
+  - >-
+    Touch only owns_paths. Do not edit reach.spec.yml, specs/wire.yml, CHANGELOG.md, VERSION, README.md, FEATURES.md,
+    TODO.md or any version string; the primary owns them.
+  - >-
+    Ruby floor 2.6.10: the code runs on macOS system Ruby 2.6.10 and on Ruby 3.3 and 4.0. No filter_map, no
+    Hash#except, no endless methods, no numbered block parameters, no `it`, no pattern matching, no argument
+    forwarding with `...`, no Array#intersect?, no Enumerable#tally_by. Standard library only.
+  - >-
+    No em dashes or en dashes in any text a student or instructor reads; use plain punctuation.
+  - Match the surrounding code: module_function modules, JSON via JSON.generate, File.open with flock, rescue StandardError and return nil where the neighbours do.
+
+surfaces:
+  code:
+    - lib/reach/transcript.rb (new)
+    - lib/reach/gate.rb
+    - lib/reach/cli.rb
+    - lib/reach/harness.rb
+    - lib/reach/hello.rb
+    - lib/reach/status.rb
+    - lib/reach/sync.rb
+    - lib/reach/paths.rb
+    - lib/reach.rb or wherever lib/reach/*.rb files are required (add the new file the same way)
+  contract: []
+  doc:
+    - locales/en-US.yml
+    - locales/greetings.en-US.yml
+    - agents/reach.md
+    - skills/reach-assistant/SKILL.md
+    - docs/student-guide.md
+  fleet: []
+
+decisions:
+  paths:
+    transcripts_dir: File.join(home, "transcripts") in Reach::Paths, created 0700 by Reach::Transcript itself
+    flush_lock_file: File.join(state_dir, "transcript-flush.lock")
+    flush_state_file: 'File.join(state_dir, "transcript-flush.json"), holding {"last_attempt_at": <float epoch>}'
+    transcript_log: File.join(logs_dir, "transcript.jsonl"), one JSON line per capture error or flush outcome, never prompt text
+  constants (Reach::Transcript):
+    ROUTE: "/api/v1/transcripts"
+    MAX_TEXT_BYTES: 131072
+    MAX_BATCH_ENTRIES: 200
+    MAX_BATCH_BYTES: 900000
+    QUICK_MAX_REQUESTS: 3
+    FULL_MAX_REQUESTS: 50
+    QUICK_MIN_INTERVAL_S: 60
+    SESSION_ID_PATTERN: /\A[A-Za-z0-9._:-]{1,128}\z/
+    HARNESSES: ["claude-code", "codex", "unknown"]
+    SLICES: ["backend", "panel", "verification"]
+  session_id: >-
+    From the hook payload's "session_id". Replace every character outside [A-Za-z0-9._:-] with "_" and cut to 128
+    characters. When absent or empty after that, "unknown-" + Time.now.utc.strftime("%Y%m%d").
+  harness: >-
+    The --harness flag of reach gate prompt when given and in HARNESSES; otherwise "claude-code" when
+    ENV["CLAUDE_PROJECT_DIR"] is set and non-empty; otherwise "unknown".
+  spool_files:
+    entries: "<transcripts_dir>/<session_id>.jsonl, mode 0600, one JSON object per line"
+    state: "<transcripts_dir>/<session_id>.state.json, mode 0600, {\"last_seq\": int, \"acked_seq\": int, \"created_at\": W-CONV-3, \"updated_at\": W-CONV-3}"
+    rejected: "<transcripts_dir>/<session_id>.rejected.jsonl, mode 0600, the spool lines of refused requests, each with an added \"rejected\": {\"code\", \"at\"}"
+  entry_line: >-
+    {"seq", "at", "session_id", "harness", "cutout_id", "slice", "kind": "prompt", "text", "bytes", "truncated",
+    "digest", "gate", "note"}. at is Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"). For a String prompt: bytes is its
+    UTF-8 bytesize (force_encoding UTF-8 on a dup; scrub invalid bytes with "�" first), digest is
+    Reach::Crypto.digest_hex of the full scrubbed prompt, text is the prompt when bytes <= MAX_TEXT_BYTES, otherwise
+    the longest prefix of whole characters whose bytesize is <= MAX_TEXT_BYTES, with truncated true (false otherwise),
+    note nil. When the payload has no "prompt" key or it is not a String: text nil, bytes 0, digest nil, truncated
+    false, note "no prompt in the hook payload". cutout_id and slice come from Reach::Workspace.metadata of the
+    workspace Reach::Gate.current_workspace_path finds (nil when none, or when metadata lacks them); slice is kept only
+    when it is in SLICES, else nil.
+  capture:
+    signature: "Reach::Transcript.capture(event, harness:, gate:) returning the entry hash, or nil"
+    rules: >-
+      Returns nil at once when Reach::Enrol.current is nil or Reach::Enrol.revoked? is true. Otherwise: mkdir_p the
+      transcripts dir and chmod it 0700; open the session's .jsonl with File::RDWR | File::CREAT | File::APPEND and
+      perm 0600, take flock(File::LOCK_EX), read the state file (missing or unparsable means last_seq 0, acked_seq 0,
+      created_at now), seq = last_seq + 1, write the line, flush, then write the state file (via a temp file in the same
+      dir and File.rename, mode 0600) with last_seq = seq and updated_at now, and release the lock. Any StandardError is
+      caught, logged to transcript_log as {"at", "event": "capture_failed", "error": e.class.name, "session_id"}, and
+      nil is returned; capture never raises.
+  gate_prompt:
+    new_signature: "Reach::Gate.prompt(event: {}, harness: nil)"
+    order: >-
+      1. Run check_enrolled!, check_guardrails! and check_has_workspace! inside begin/rescue Reach::GateBlocked => e,
+      keeping the exception. 2. entry = Reach::Transcript.capture(event, harness: harness, gate: blocked ? "blocked" :
+      "allowed"), itself inside rescue StandardError => nil. 3. When not blocked: witness("prompt", {"session" =>
+      entry["session_id"], "seq" => entry["seq"], "digest" => entry["digest"]}) when entry exists, else witness("prompt")
+      as today. 4. Re-raise the kept GateBlocked when there was one. The refusal logging raise_blocked! already did
+      stays as it is. Note that check_enrolled! raising means no install, so capture returns nil; that is intended.
+    cli: >-
+      cmd_gate "prompt" passes event (the read_stdin_json hash) and options[:harness] to Reach::Gate.prompt. Keep the
+      existing flags parse (it already accepts :harness).
+  flush:
+    signature: "Reach::Transcript.flush(quick: false) returning {\"sent\" => int, \"requests\" => int, \"stopped\" => nil or a reason string}"
+    rules: >-
+      Return {"sent" => 0, "requests" => 0, "stopped" => "not_enrolled"} when no install, "revoked" when revoked,
+      "offline" when ENV["REACH_OFFLINE"] == "1". Open flush_lock_file (0600) and try flock(File::LOCK_EX |
+      File::LOCK_NB); when it is held return "stopped" => "busy". Under the lock: when quick and flush_state_file's
+      last_attempt_at is less than QUICK_MIN_INTERVAL_S ago, return "stopped" => "too_soon"; otherwise write
+      last_attempt_at = now before sending. Gather every "<session_id>.state.json" in transcripts_dir whose acked_seq <
+      last_seq, ordered by the state's created_at ascending (ties by file name). For each session, read the .jsonl
+      lines with seq > acked_seq in seq order (skip unparsable lines), and build batches in order: a batch takes
+      entries while it has fewer than MAX_BATCH_ENTRIES and JSON.generate(body) stays <= MAX_BATCH_BYTES, and always
+      takes at least one entry. For each batch, stop when requests already made == (quick ? QUICK_MAX_REQUESTS :
+      FULL_MAX_REQUESTS) and set stopped "request_budget". Body: {"session_id", "harness" (the last entry's harness,
+      mapped to "unknown" when not in HARNESSES), "cutout_id" and "slice" (the last entry's), "entries" => each entry
+      reduced to exactly {"seq", "at", "kind", "text", "bytes", "truncated", "digest", "gate", "note"}}.
+      Idempotency-Key: Reach::Crypto.digest_hex("#{install["install_id"]}\n#{session_id}\n#{first_seq}\n#{last_seq}").
+      Send with Reach::Client.for_install(install, quick: quick).post_json(ROUTE, body, idempotency_key: key).
+      On success: acked = [acked_seq, response.json["last_seq"].to_i].max, capped at the batch's last seq, written to
+      the state file under the session file's flock; add the batch size to sent. On Reach::RemoteRefused with code
+      "invalid_request" or "too_large": append the batch's spool lines to the session's .rejected.jsonl with
+      "rejected" => {"code" => e.code, "at" => now}, set acked_seq to the batch's last seq, log it, and continue. On
+      Reach::RemoteRefused with code "revoked" or "not_enrolled": Reach::Enrol.mark_revoked!, stop with that code. On
+      any other Reach::RemoteRefused: stop with its code, entries kept. On Reach::Offline or Reach::NetworkError: stop
+      with "offline" or "network", entries kept. Every flush that sent or stopped logs one line to transcript_log:
+      {"at", "event": "flush", "quick", "sent", "requests", "stopped"}. The whole method rescues StandardError, logs
+      {"event": "flush_failed", "error": class name} and returns stopped "error". The lock is always released.
+  counts:
+    signature: "Reach::Transcript.counts returning {\"sent\" => int, \"waiting\" => int}"
+    rules: Sum acked_seq and (last_seq - acked_seq) over every state file; {0, 0} when the directory is missing.
+  cli_transcript:
+    usage_line: "transcript flush [--quick] | status [--format text|json]   the course transcript of your prompts"
+    flush: >-
+      reach transcript flush [--quick]. Quick mode (the Stop hook) reads and ignores standard input with
+      read_stdin_json, prints nothing and always returns 0. Without --quick it prints "Transcript: sent <n> prompts." or,
+      when stopped for a reason other than nil, "Transcript: sent <n> prompts; stopped (<reason>)." and returns 0.
+    status: >-
+      reach transcript status prints the same line as reach status (status_line) and returns 0; --format json prints
+      JSON.generate(counts).
+    other: Anything else prints the usage for transcript to stderr and returns 1.
+  status_line: >-
+    Reach::Status.summary appends transcript_line after rules_line: "Transcript: <sent> prompts sent" when waiting is
+    0, else "Transcript: <sent> prompts sent, <waiting> waiting to send"; the line is omitted when both are 0 and the
+    transcripts dir does not exist. Rescue StandardError to omit the line.
+  sync: >-
+    Reach::Sync.run calls Reach::Transcript.flush(quick: false) inside safe_call(summary) right after
+    Reach::Submit.retry_outbox, and stores its "sent" count in summary["transcript_sent"] (0 when it returned nil).
+    print_sync_summary prints "Transcript: sent <n> prompts." only when n > 0.
+  harness_settings: >-
+    In Reach::Harness.claude_settings_content, UserPromptSubmit becomes hook_entry(nil, h("gate", "prompt",
+    "--harness", "claude-code"), 10) and Stop becomes [hook_entry(nil, h("attempts", "settle"), 30), hook_entry(nil,
+    h("transcript", "flush", "--quick"), 30)], and a new "SessionEnd" => [hook_entry(nil, h("transcript", "flush",
+    "--quick", "--final"), 30)]. In codex_hooks_content the same UserPromptSubmit and Stop with "codex", and no
+    SessionEnd (Codex has none).
+  final_flush: >-
+    reach transcript flush accepts --final, meaningful only with --quick: Reach::Transcript.flush(quick: false, final:
+    false) skips the QUICK_MIN_INTERVAL_S "too_soon" check when quick and final are both true, and otherwise behaves
+    exactly as a quick flush (writes last_attempt_at, at most QUICK_MAX_REQUESTS requests, prints nothing, exits 0).
+  enrolment_notice: >-
+    In cmd_enrol, right after the line printing M-ENROL-DONE, print Reach::Messages.text("M-TRANSCRIPT-NOTICE").
+    Add M-TRANSCRIPT-NOTICE to locales/en-US.yml in the same form as its neighbours, with the exact text from
+    reach.spec.yml student_messages.
+  greeting_notice: >-
+    Add G-TRANSCRIPT-NOTICE to locales/greetings.en-US.yml: "Everything you type to me in this course folder is saved
+    in your course transcript, which your instructors can read." In Reach::Hello.run, find the course workspace for cwd
+    once (the lookup maybe_configure does today; factor it into a method returning the workspace or nil and use it for
+    both configure and the notice). When a workspace is found and greeting_text is non-nil, append "\n\n" +
+    Reach::Greetings.text("G-TRANSCRIPT-NOTICE") to greeting_text before build_context and emit, so the agent relays
+    it word for word with the rest of the greeting.
+  persona: >-
+    agents/reach.md and skills/reach-assistant/SKILL.md must stay byte-identical in their shared body (reach doctor's
+    R-DOC-PERSONA compares them). Add to both, in the same place (the list of standing rules, where staying on course
+    and the profile are described), one rule: "If the student asks what rEach shares: everything they type to you in a
+    course folder is saved in their course transcript, which their instructors can read; the profile file stays on this
+    computer; what they type outside course folders is not sent." Read how R-DOC-PERSONA compares them first and keep
+    the comparison passing.
+  student_guide: >-
+    docs/student-guide.md line 39 holds the old privacy paragraph. Replace it with the privacy_notice.text from
+    reach.spec.yml, verbatim.
+
+slices:
+  - id: reach_transcripts
+    owns_paths:
+      - lib/reach/transcript.rb
+      - lib/reach/gate.rb
+      - lib/reach/cli.rb
+      - lib/reach/harness.rb
+      - lib/reach/hello.rb
+      - lib/reach/status.rb
+      - lib/reach/sync.rb
+      - lib/reach/paths.rb
+      - the file that requires lib/reach/*.rb
+      - locales/en-US.yml
+      - locales/greetings.en-US.yml
+      - agents/reach.md
+      - skills/reach-assistant/SKILL.md
+      - docs/student-guide.md
+    depends_on: []
+    deliverable: Everything under decisions, implemented.
+    acceptance:
+      - >-
+        ruby -wc on every changed .rb file prints Syntax OK with no warnings you introduced, on the system Ruby; and
+        docker run --rm -v "$PWD":/r -w /r ruby:2.6.10-slim sh -c 'for f in lib/reach/*.rb; do ruby -c "$f" >/dev/null
+        || exit 1; done; echo ok' prints ok (skip this one only if the image is not present locally and pulling fails;
+        say so).
+      - >-
+        With REACH_HOME=<scratch>/home and no install.yml, piping {"prompt":"hi","session_id":"s1"} into ruby
+        exe/reach gate prompt --harness claude-code exits with the same code and message as before your change and
+        creates no transcripts directory.
+      - >-
+        Capture with a scratch enrolment: create <scratch>/home/install.yml by hand with {install_id: "inst_test",
+        student_id: "S1", teach_url: "http://127.0.0.1:9", course_id: "c1"} (read Reach::Enrol.current to see which
+        keys it needs). Pipe three payloads into ruby exe/reach gate prompt --harness codex from a directory that is not
+        a workspace: one normal prompt, one 200000-byte prompt, one payload with no prompt key. The gate blocks them
+        (no guardrails), and <scratch>/home/transcripts/s1.jsonl holds seq 1, 2, 3 with gate "blocked", the second with
+        truncated true, bytes 200000, text of 131072 bytes and digest equal to the SHA-256 of the full prompt, the third
+        with text null and the note; s1.state.json holds last_seq 3, acked_seq 0; the dir is 0700 and the files 0600.
+      - >-
+        ruby exe/reach transcript status prints "Transcript: 0 prompts sent, 3 waiting to send";
+        ruby exe/reach transcript flush prints a line saying it stopped because the network failed (teach_url points at
+        a closed port) and s1.state.json still has acked_seq 0; running ruby exe/reach transcript flush --quick twice
+        in a row prints nothing, exits 0 both times, and the second writes a transcript.jsonl line with stopped
+        "too_soon". With REACH_OFFLINE=1 flush stops with "offline" and makes no request (requests.jsonl unchanged).
+      - >-
+        Reach::Harness.send(:claude_settings_content) and send(:codex_hooks_content), printed with ruby -Ilib -e,
+        show the --harness flags and the second Stop hook.
+      - reach doctor's persona comparison still passes (run ruby exe/reach doctor and read the R-DOC-PERSONA line).
+      - Report every command you ran and what it printed. Leave the scratch directory in place for the primary.
+
+shared_surfaces: []
+out_of_scope:
+  - Teach's side (another worker builds POST /api/v1/transcripts in ~/bitbucket/paterasai/teach).
+  - Capturing the AI partner's replies or tool calls.
+  - Any Antigravity capture.
+  - The MCP bridge.
+  - Pruning spool files.
+  - Version bumps, CHANGELOG, README, FEATURES, TODO, reach.spec.yml, specs/wire.yml.

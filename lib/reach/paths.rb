@@ -97,6 +97,22 @@ module Reach
       File.join(state_dir, "integrity-seen.json")
     end
 
+    def transcripts_dir
+      File.join(home, "transcripts")
+    end
+
+    def flush_lock_file
+      File.join(state_dir, "transcript-flush.lock")
+    end
+
+    def flush_state_file
+      File.join(state_dir, "transcript-flush.json")
+    end
+
+    def transcript_log
+      File.join(logs_dir, "transcript.jsonl")
+    end
+
     def ensure_home!
       [home, keys_dir, packages_dir, vault_dir, outbox_dir, receipts_dir, logs_dir, state_dir].each do |dir|
         FileUtils.mkdir_p(dir)
