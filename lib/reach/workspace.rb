@@ -35,6 +35,8 @@ module Reach
     module_function
 
     def provision_from_package
+      migrate_layout!
+
       packages = Reach::Packages.new
       version = packages.latest_version(KIND)
       return [] unless version
@@ -171,15 +173,148 @@ module Reach
       end
     end
 
+    CURRENT_SLICES_SKIP_DIRS = %w[.git node_modules vendor .bundle tmp .claude .codex].freeze
+    CURRENT_SLICES_MAX_DEPTH = 4
+
     def current_slices
       root = Reach::Paths.workspace_root
       return [] unless Dir.exist?(root)
 
+      root_real = File.expand_path(root)
+      extracurricular_real = File.expand_path(Reach::Paths.extracurricular_root)
       slices = []
-      Find.find(root) do |path|
-        slices << File.dirname(path) if File.directory?(path) && File.basename(path) == MARKER_DIR
+
+      Find.find(root_real) do |path|
+        next if path == root_real
+        next unless File.directory?(path)
+
+        if File.file?(File.join(path, MARKER_DIR, MARKER_FILE))
+          slices << path
+          Find.prune
+          next
+        end
+
+        if path == extracurricular_real || CURRENT_SLICES_SKIP_DIRS.include?(File.basename(path))
+          Find.prune
+          next
+        end
+
+        relative = path.sub("#{root_real}#{File::SEPARATOR}", "")
+        depth = relative.count(File::SEPARATOR) + 1
+        Find.prune if depth > CURRENT_SLICES_MAX_DEPTH
       end
       slices
+    end
+
+    def migrate_layout!
+      root = Reach::Paths.workspace_root
+      result = { "moved" => [], "warnings" => [] }
+      return result unless Dir.exist?(root)
+
+      legacy_slice_paths.each do |old_path|
+        meta = metadata(old_path)
+        course = meta["course"]
+        assignment = meta["assignment"]
+        cutout_id = meta["cutout_id"]
+        slice_name = meta["slice"]
+        next unless course && assignment && cutout_id && slice_name
+
+        target = Reach::Paths.workspace_path(course, assignment, cutout_id, slice_name)
+        if File.exist?(target)
+          result["warnings"] << "reach: #{old_path} could not move to #{target} because it already exists"
+          next
+        end
+
+        FileUtils.mkdir_p(File.dirname(target))
+        File.rename(old_path, target)
+        result["moved"] << { "from" => old_path, "to" => target }
+        log_workspace_moved(old_path, target)
+      end
+
+      result
+    end
+
+    def legacy_slice_paths
+      deliverables_absolute = File.expand_path(Reach::Paths.deliverables_root)
+      current_slices.reject do |path|
+        absolute = File.expand_path(path)
+        absolute == deliverables_absolute || absolute.start_with?("#{deliverables_absolute}#{File::SEPARATOR}")
+      end
+    end
+
+    def log_workspace_moved(from, to)
+      FileUtils.mkdir_p(Reach::Paths.logs_dir)
+      record = { "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "event" => "workspace_moved", "from" => from, "to" => to }
+      File.open(Reach::Paths.transcript_log, File::WRONLY | File::CREAT | File::APPEND, 0o644) { |file| file.puts(JSON.generate(record)) }
+    rescue StandardError
+      nil
+    end
+
+    def space_for(path)
+      return nil if path.nil?
+
+      resolved = File.exist?(path) ? File.realpath(path) : File.expand_path(path.to_s)
+
+      slice = current_slices.find { |workspace_path| within_path?(resolved, workspace_path) }
+      return { "kind" => "slice", "path" => slice } if slice
+
+      extracurricular = Reach::Paths.extracurricular_root
+      return { "kind" => "extracurricular", "path" => extracurricular } if within_path?(resolved, extracurricular)
+
+      root = Reach::Paths.workspace_root
+      return { "kind" => "root", "path" => root } if within_path?(resolved, root)
+
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def within_path?(resolved, root)
+      return false unless File.exist?(root)
+
+      real_root = File.realpath(root)
+      resolved == real_root || resolved.start_with?("#{real_root}#{File::SEPARATOR}")
+    rescue StandardError
+      false
+    end
+
+    def provision_extracurricular!
+      extracurricular_root = Reach::Paths.extracurricular_root
+      FileUtils.mkdir_p(extracurricular_root)
+      write_extracurricular_marker(extracurricular_root)
+      write_space_rules_files(extracurricular_root, "extracurricular")
+      configure_harness(extracurricular_root)
+
+      root = Reach::Paths.workspace_root
+      FileUtils.mkdir_p(root)
+      write_space_rules_files(root, "root")
+      configure_harness(root)
+      nil
+    end
+
+    def write_extracurricular_marker(extracurricular_root)
+      install = safe_current_install
+      course_id = install && install["course"] && install["course"]["id"]
+      File.write(
+        File.join(extracurricular_root, ".reach-space.json"),
+        JSON.generate("schema" => "reach.space/v1", "kind" => "extracurricular", "course" => course_id)
+      )
+    end
+
+    def safe_current_install
+      Reach::Enroll.current
+    rescue StandardError
+      nil
+    end
+
+    def write_space_rules_files(target, space)
+      text = Reach::Guardrails.render_rules(space: space)
+      %w[AGENTS.md CLAUDE.md GEMINI.md].each do |name|
+        path = File.join(target, name)
+        safe_chmod(0o644, path) if File.file?(path)
+        File.write(path, text)
+        safe_chmod(0o444, path)
+      end
     end
 
     def write_readme(target, slice)

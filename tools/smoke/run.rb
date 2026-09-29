@@ -303,7 +303,7 @@ module Smoke
       teach("course", "init", "--id", "bus101-fa26", "--title", "BUS 101 Demo Course", "--term", "Fall 2026", "--tz", "America/Los_Angeles")
       teach("students", "import", File.join(@dir, "roster.csv"))
       teach("slices", "assign", "--assignment", "A1", "--from", File.join(@dir, "slices.csv"))
-      code = JSON.parse(teach("enrol", "codes")).first["code"]
+      code = JSON.parse(teach("enroll", "codes")).first["code"]
       log = File.open(File.join(@dir, "teach-serve.log"), "w")
       @pid = Process.spawn(@env, "bundle", "exec", "ruby", "bin/teach", "serve", chdir: TEACH_DIR, out: log, err: log, pgroup: true)
       60.times do
@@ -485,7 +485,7 @@ module Smoke
 
     def enrol_and_sync(teach, home, dir)
       code = teach.start!
-      reach_cli(home, dir, "enrol", code, "--teach-url", teach.url)
+      reach_cli(home, dir, "enroll", code, "--teach-url", teach.url)
       teach.build_and_release!
       reach_cli(home, dir, "sync")
       marker = Dir.glob(File.join(home, "reach-work", "**", ".reach", "slice.json")).first

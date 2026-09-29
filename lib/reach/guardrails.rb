@@ -133,7 +133,18 @@ module Reach
       nil
     end
 
-    def render_rules(cutout_id:, slice:, behavior:, due:, owned_files:)
+    def render_rules(space: "slice", cutout_id: nil, slice: nil, behavior: nil, due: nil, owned_files: nil)
+      case space.to_s
+      when "extracurricular"
+        render_extracurricular_rules
+      when "root"
+        render_root_rules
+      else
+        render_slice_rules(cutout_id: cutout_id, slice: slice, behavior: behavior, due: due, owned_files: owned_files)
+      end
+    end
+
+    def render_slice_rules(cutout_id:, slice:, behavior:, due:, owned_files:)
       data = load
       lines = []
       lines << "# Course rules for this workspace"
@@ -142,7 +153,7 @@ module Reach
       lines << ""
 
       numbered = Array(data["directives"]).select { |d| d.is_a?(Hash) && d["opcode"].nil? }
-      other = numbered.reject { |d| d["id"].to_s.start_with?("G-CUTOUT-") }
+      other = numbered.reject { |d| d["id"].to_s.start_with?("G-CUTOUT-") }.select { |d| %w[slice everywhere].include?(rule_scope(d)) }
       cutout = numbered.select { |d| d["id"].to_s.start_with?("G-CUTOUT-#{cutout_id}-") }
 
       index = 1
@@ -162,6 +173,80 @@ module Reach
       lines << "Slice: #{cutout_id} (#{slice}) - #{behavior}"
       lines << "Due: #{due}"
       "#{lines.join("\n")}\n"
+    end
+
+    def render_extracurricular_rules
+      data = safe_load
+      lines = []
+      lines << "# Course rules for this folder"
+      lines << ""
+      lines << "You are helping a student with their own code, outside any assignment. These rules come from the instructors and always apply."
+      lines << ""
+
+      numbered = Array(data["directives"]).select { |d| d.is_a?(Hash) && d["opcode"].nil? }
+      everywhere = numbered.select { |d| rule_scope(d) == "everywhere" }
+      extracurricular = numbered.select { |d| rule_scope(d) == "extracurricular" }
+      extracurricular = Reach::Messages.extracurricular_rules.map { |text| { "rule" => text } } if extracurricular.empty?
+
+      index = 1
+      (everywhere + extracurricular).each do |directive|
+        lines << "#{index}. #{directive['rule']}"
+        index += 1
+      end
+
+      table = extracurricular_directive_table
+      unless table.empty?
+        lines << ""
+        lines << table
+      end
+
+      lines << ""
+      lines << "Folder: #{Reach::Paths.extracurricular_root}"
+      lines << "This is the student's own code folder. Nothing here is graded or submitted."
+      "#{lines.join("\n")}\n"
+    end
+
+    def render_root_rules
+      data = safe_load
+      lines = []
+      lines << "# Course rules for this workspace"
+      lines << ""
+      lines << "This is the top of your course workspace, not a place to write code."
+      lines << ""
+
+      numbered = Array(data["directives"]).select { |d| d.is_a?(Hash) && d["opcode"].nil? }
+      everywhere = numbered.select { |d| rule_scope(d) == "everywhere" }
+
+      index = 1
+      everywhere.each do |directive|
+        lines << "#{index}. #{directive['rule']}"
+        index += 1
+      end
+
+      lines << ""
+      lines << "Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else goes in extracurricular/."
+      "#{lines.join("\n")}\n"
+    end
+
+    def rule_scope(directive)
+      (directive["scope"] || "slice").to_s
+    end
+
+    def safe_load
+      load
+    rescue Reach::Refused
+      { "directives" => [] }
+    end
+
+    def extracurricular_directive_table
+      rows = Reach::Directives.public_rows.select { |row| row["spaces"].include?("extracurricular") }
+      return "" if rows.empty?
+
+      lines = ["## Engineering directives", ""]
+      lines.concat(rows.map { |row| Reach::Directives.render_row(row) })
+      lines << ""
+      lines << Reach::Directives::POINTER_SENTENCE
+      lines.join("\n")
     end
 
     def vault_path

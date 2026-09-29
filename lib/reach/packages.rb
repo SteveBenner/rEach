@@ -4,11 +4,11 @@ require "json"
 module Reach
   class Packages
     def initialize
-      @install = Reach::Enrol.current
+      @install = Reach::Enroll.current
     end
 
     def fetch(kind)
-      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless @install
+      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless @install
 
       current = latest_stored_envelope(kind)
       headers = {}
@@ -98,7 +98,7 @@ module Reach
       return Reach::Crypto.load_public_key(key["pem"]) if key
 
       Reach::Sync.refresh_status(quick: false)
-      @install = Reach::Enrol.current
+      @install = Reach::Enroll.current
       key = signing_keys.find { |k| k["key_id"] == key_id }
       key ? Reach::Crypto.load_public_key(key["pem"]) : nil
     rescue StandardError

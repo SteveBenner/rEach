@@ -2,18 +2,25 @@
 
 ## Verified in 0.2.0
 
-- [x] End-to-end against a real Teach 0.2.0 on Ruby 3.3 and in a Ruby 2.6.10 container: enrol, sync, read-only workspace, gate (including Codex patch and argv forms), submit with a verified ingest receipt, hand raised and answered, a non-owned file rejected by Teach, revocation.
+- [x] End-to-end against a real Teach 0.2.0 on Ruby 3.3 and in a Ruby 2.6.10 container: enroll, sync, read-only workspace, gate (including Codex patch and argv forms), submit with a verified ingest receipt, hand raised and answered, a non-owned file rejected by Teach, revocation.
 - [x] A live Claude Code session loads the plugin, connects the MCP bridge (13 tools) and opens with the first-run greeting.
 - [x] `claude plugin marketplace add` / `plugin install reach@reach` and `codex plugin marketplace add` / `plugin add reach@reach` install 0.2.0 into scratch homes.
 - [x] `M-GATE-OLDGUARD`, the "what's new" question and request signing are settled by `specs/wire.yml` (status advertises package versions and keys).
 
 ## Verified in 0.4.0
 
-- [x] End-to-end against a scratch Teach 0.4.0 on Ruby 4.0.6, with the Reach side on Ruby 3.3 and in a Ruby 2.6.10 container: enrol announces the sidecar; sync unpacks directive rows, bodies and the seal; `AGENTS.md` renders the table; `reach check` names CK-RUBY-SYNTAX, CK-COMMENT, CK-PURE, CK-PORTS, CK-RUBY-FLOOR and CK-RUBY-SHAPE on a bad behaviour and nothing on a good one; plan, checkpoint (save, same-state refusal, restore); a clean submit assessed `clean` with a verified ledger and the file witnessed; the submit gate (fix-first, then blocked with a `check_gate` hand); a corrupt mark healed and reported; a foreign mark assessed `foreign:<install>:<student>`; a vault edit reported silently and healed at sync.
+- [x] End-to-end against a scratch Teach 0.4.0 on Ruby 4.0.6, with the Reach side on Ruby 3.3 and in a Ruby 2.6.10 container: enroll announces the sidecar; sync unpacks directive rows, bodies and the seal; `AGENTS.md` renders the table; `reach check` names CK-RUBY-SYNTAX, CK-COMMENT, CK-PURE, CK-PORTS, CK-RUBY-FLOOR and CK-RUBY-SHAPE on a bad behaviour and nothing on a good one; plan, checkpoint (save, same-state refusal, restore); a clean submit assessed `clean` with a verified ledger and the file witnessed; the submit gate (fix-first, then blocked with a `check_gate` hand); a corrupt mark healed and reported; a foreign mark assessed `foreign:<install>:<student>`; a vault edit reported silently and healed at sync.
 
 ## Verified in 0.6.0
 
-- [x] End-to-end against Grokit 0.2.0, Dovetail 0.2.0 and Teach 0.6.0 with Reach on Ruby 3.3: enrol, sync, a shape package compiled and signed by Teach with Dovetail's exported checker, the shape check on the overlaid panel, tips on a finance.a1 panel slice and a records.a1 backend slice from a real suite package, submit, grading at 1.0 in Teach's Docker sandbox, and the grade receipts arriving on sync. `reach check` finds nothing in any of the twenty A1 reference slices on Ruby 3.3 and 2.6.10.
+- [x] End-to-end against Grokit 0.2.0, Dovetail 0.2.0 and Teach 0.6.0 with Reach on Ruby 3.3: enroll, sync, a shape package compiled and signed by Teach with Dovetail's exported checker, the shape check on the overlaid panel, tips on a finance.a1 panel slice and a records.a1 backend slice from a real suite package, submit, grading at 1.0 in Teach's Docker sandbox, and the grade receipts arriving on sync. `reach check` finds nothing in any of the twenty A1 reference slices on Ruby 3.3 and 2.6.10.
+
+## Verified in 0.10.0
+
+- [x] End-to-end against a scratch Teach 0.10.0, with Reach on Ruby 3.3 and the capture path again in a Ruby 2.6.10 container. Covered: enrollment through a proxy that 404s `/api/v1/enroll` (Reach retried `/api/v1/enrol`), after a too-old Reach was refused with `reach_outdated` and the code stayed unused; the `deliverables/` layout and the move of a pre-0.10.0 slice; `extracurricular/` writes allowed inside and refused outside, and the root refusing writes; prompts, replies, unreadable and readable reasoning, actions (a subagent's noted), AI writes, chat snippets and turn-end scans reaching the student's subcorpus with byte-identical mirrors; a symlink to a secret never read; kinds held against a status without `transcripts` and sent once it returned; a reply the student interrupted recorded before the next prompt.
+- [x] Real-Claude smoke (`tools/smoke`, Haiku, from a clean clone of the release commit) run 20260929-040851: first-run-cooperative 7/7, course-gate 5/5. The course-gate session's prompts, replies, reasoning, actions and the owned files' baseline scan all reached the scratch Teach's subcorpus, the final reply through SessionEnd. The run before it, 20260929-040452, failed one check in each scenario because Haiku ended the interview early and saved a partial profile; the rerun passed.
+- [ ] Run a live Codex session in a course folder and check its replies, reasoning summaries and apply_patch code reach Teach; the Codex path is verified only on a synthetic rollout file.
+- [ ] Claude Code stores thinking as a signature with empty text, so its reasoning arrives as "reasoning not readable"; revisit if the harness starts storing readable thinking.
 
 ## Release 0.7.0 open items
 
@@ -35,7 +42,7 @@
 ## Before a class uses it
 
 - [ ] Publish the repository (GitHub mirror planned); installing from a link needs a public repository.
-- [ ] Set `teach.url` in `config.yml` for the course, so `reach enrol <code>` needs no `--teach-url`.
+- [ ] Set `teach.url` in `config.yml` for the course, so `reach enroll <code>` needs no `--teach-url`.
 - [x] A real signed Dovetail shape and a real `dovetail` binary to verify `Reach::Shape`'s output parsing: done in 0.4.2 against dovetail 0.1.0 on Ruby 3.3 and 2.6.10, and in 0.6.0 against a shape package Teach compiled and signed from Grokit's contracts.
 - [x] A real suite package and reference build to verify `Reach::Suite` end-to-end: done in 0.6.0 with Grokit 0.2.0's suite.
 - [x] `reach status` now shows each slice's own last tips result instead of the corpus's global latest tip record (fixed 2026-09-29 in `Reach::Status.tips_summary`).

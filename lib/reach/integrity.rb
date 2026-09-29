@@ -38,7 +38,7 @@ module Reach
     end
 
     def send_or_queue(body)
-      install = Reach::Enrol.current
+      install = Reach::Enroll.current
       return nil unless install
 
       idempotency_key = SecureRandom.uuid

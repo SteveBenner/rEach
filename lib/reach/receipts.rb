@@ -127,14 +127,14 @@ module Reach
       end
 
       def signer_public_key_for(key_id)
-        install = Reach::Enrol.current
+        install = Reach::Enroll.current
         return nil unless install
 
         key = Array(install["signing_public_keys"]).find { |k| k["key_id"] == key_id }
         return Reach::Crypto.load_public_key(key["pem"]) if key
 
         Reach::Sync.refresh_status(quick: false)
-        install = Reach::Enrol.current
+        install = Reach::Enroll.current
         key = Array(install["signing_public_keys"]).find { |k| k["key_id"] == key_id }
         key ? Reach::Crypto.load_public_key(key["pem"]) : nil
       rescue StandardError
@@ -142,7 +142,7 @@ module Reach
       end
 
       def teach_client
-        Reach::Client.for_install(Reach::Enrol.current)
+        Reach::Client.for_install(Reach::Enroll.current)
       end
 
       def record_in_corpus(receipt)

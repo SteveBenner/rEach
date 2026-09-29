@@ -77,7 +77,7 @@ module AssignmentOne
       return skip_rest("teach could not be provisioned") unless step("teach-course-provision", "handshake") { provision_teach }
 
       step("reference-pack", "reference") { reference_pack }
-      step("release-before-enrol", "handshake") { release_before_enrol }
+      step("release-before-enroll", "handshake") { release_before_enroll }
       step("teach-serve", "handshake") { start_teach }
       return skip_rest("teach did not start") unless @teach_pid
 
@@ -86,14 +86,14 @@ module AssignmentOne
       step("install-public-zip", "install") { install_public } if @options[:public]
       return skip_rest("plugin did not install") unless installed
 
-      step("blocked-before-enrol", "handshake") { blocked_before_enrol }
+      step("blocked-before-enroll", "handshake") { blocked_before_enroll }
 
-      step("reference-locked-before-enrol", "reference") { reference_locked_before_enrol }
+      step("reference-locked-before-enroll", "reference") { reference_locked_before_enroll }
       step("setup-codex", "install") { setup_codex }
       step("doctor", "install") { doctor }
-      return skip_rest("enrolment did not complete") unless step("enrol-handshake", "handshake") { enrol }
+      return skip_rest("enrollment did not complete") unless step("enroll-handshake", "handshake") { enroll }
 
-      step("enrol-code-reuse-rejected", "handshake") { reuse_code_rejected }
+      step("enroll-code-reuse-rejected", "handshake") { reuse_code_rejected }
       return skip_rest("no workspace delivered") unless step("sync-delivers-workspace", "handshake") { sync_workspace }
 
       step("reference-after-sync", "reference") { reference_after_sync }
@@ -322,7 +322,7 @@ module AssignmentOne
       "course #{COURSE_ID} provisioned with 2 synthetic students, slice #{CUTOUT}-#{SLICE} assigned to #{STUDENT_ID}"
     end
 
-    def release_before_enrol
+    def release_before_enroll
       installs = teach_json("installs", "list")
       raise Fail, "expected no installs before release, saw #{installs.length}" unless installs.empty?
 
@@ -375,15 +375,15 @@ module AssignmentOne
       nil
     end
 
-    def blocked_before_enrol
+    def blocked_before_enroll
       out, status = reach("gate", "session", "--harness", "codex", stdin: "{}")
       @last[:expected] = "exit 2 (blocked)"
       @last[:actual] = "exit #{status.exitstatus}"
-      raise Fail, "gate session before enrol exited #{status.exitstatus}, want 2: #{out}" unless status.exitstatus == 2
+      raise Fail, "gate session before enroll exited #{status.exitstatus}, want 2: #{out}" unless status.exitstatus == 2
 
       work_out, work_status = reach("work", "--harness", "codex")
-      raise Fail, "work before enrol exited #{work_status.exitstatus}, want nonzero: #{work_out}" if work_status.success?
-      raise Fail, "a workspace exists before enrol" unless Dir.glob(File.join(@workspace_root, "**", "slice.json")).empty?
+      raise Fail, "work before enroll exited #{work_status.exitstatus}, want nonzero: #{work_out}" if work_status.success?
+      raise Fail, "a workspace exists before enroll" unless Dir.glob(File.join(@workspace_root, "**", "slice.json")).empty?
 
       "gate refused (#{out.strip[0, 120]}); reach work refused; no workspace"
     end
@@ -457,25 +457,25 @@ module AssignmentOne
       "doctor exit #{status.exitstatus}: #{out.lines.map(&:strip).reject(&:empty?).first(4).join(" | ")}"
     end
 
-    def enrol
-      codes = teach_json("enrol", "codes", "--student", STUDENT_ID)
+    def enroll
+      codes = teach_json("enroll", "codes", "--student", STUDENT_ID)
       @code = codes.first.fetch("code")
       @secrets << @code
       File.write(File.join(@private_dir, "codes.json"), JSON.generate(codes), perm: 0o600)
-      out = reach!("enrol", @code, "--teach-url", @teach_url)
-      raise Fail, "enrol printed no course-ready confirmation" if out.strip.empty?
+      out = reach!("enroll", @code, "--teach-url", @teach_url)
+      raise Fail, "enroll printed no course-ready confirmation" if out.strip.empty?
 
       installs = teach_json("installs", "list")
       @last[:expected] = "1 install"
       @last[:actual] = "#{installs.length} install(s)"
-      raise Fail, "teach lists #{installs.length} installs after enrol, want 1" unless installs.length == 1
+      raise Fail, "teach lists #{installs.length} installs after enroll, want 1" unless installs.length == 1
 
       @install_id = installs.first["id"]
       "enrolled install #{@install_id}; #{out.lines.first.to_s.strip}"
     end
 
     def reuse_code_rejected
-      out, status = reach("enrol", @code, "--teach-url", @teach_url, home: @reach_home_b)
+      out, status = reach("enroll", @code, "--teach-url", @teach_url, home: @reach_home_b)
       @last[:expected] = "nonzero exit, no second install"
       @last[:actual] = "exit #{status.exitstatus}"
       raise Fail, "reused code enrolled a second install" if status.success?
@@ -483,7 +483,7 @@ module AssignmentOne
       installs = teach_json("installs", "list")
       raise Fail, "teach holds #{installs.length} installs after the reuse attempt, want 1" unless installs.length == 1
 
-      "second enrol refused: #{out.strip[0, 160]}"
+      "second enroll refused: #{out.strip[0, 160]}"
     end
 
     def sync_workspace
@@ -748,15 +748,15 @@ module AssignmentOne
       "packed #{File.size(@reference_blob)} bytes with the Teach packer; sentinel absent from the blob"
     end
 
-    def reference_locked_before_enrol
+    def reference_locked_before_enroll
       out, status = reach("reference", "list")
       @last[:expected] = "nonzero exit, connect-to-course message, no plaintext"
       @last[:actual] = "exit #{status.exitstatus}: #{out.strip[0, 160]}"
-      raise Fail, "reference list before enrol exited 0" if status.success?
-      raise Fail, "reference list before enrol printed no enrol hint: #{out}" unless out.include?("reach enrol")
-      raise Fail, "reference list before enrol leaked a path" if out.include?("syllabus.md")
+      raise Fail, "reference list before enroll exited 0" if status.success?
+      raise Fail, "reference list before enroll printed no enroll hint: #{out}" unless out.include?("reach enroll")
+      raise Fail, "reference list before enroll leaked a path" if out.include?("syllabus.md")
 
-      "refused before enrol: #{out.strip[0, 120]}"
+      "refused before enroll: #{out.strip[0, 120]}"
     end
 
     def reference_after_sync

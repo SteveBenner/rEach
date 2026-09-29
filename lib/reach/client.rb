@@ -142,8 +142,8 @@ module Reach
       @@breaker
     end
 
-    def self.for_install(install = Reach::Enrol.current, quick: false)
-      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROL") unless install
+    def self.for_install(install = Reach::Enroll.current, quick: false)
+      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
       private_key = Reach::Crypto.load_private_key(File.read(Reach::Paths.install_key_file))
       new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick)

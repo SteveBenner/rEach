@@ -9,7 +9,7 @@ agent into **rEach**, a bounded course partner for a
 [Teach](https://bitbucket.org/paterasai/teach)-run course.
 
 rEach introduces itself as soon as it is installed and runs a short intake
-interview, saved on the student's computer only. It enrols with Teach, receives
+interview, saved on the student's computer only. It enrolls with Teach, receives
 the student's protected course materials, refuses to let the agent work until
 the instructors' guardrails are installed, keeps the agent inside the student's
 slice, checks every change against the
@@ -17,15 +17,20 @@ slice, checks every change against the
 instructors' tips suite, submits work and waits for Teach's receipt, and raises
 a hand to the instructors when the agent is stuck.
 
-In a course workspace, everything the student types to their AI partner is
-saved in their course transcript on Teach, which their instructors can read.
-`reach gate prompt` (the prompt hook on Claude Code and Codex) writes each
-prompt to `~/.reach/transcripts/` before any check and makes no network call;
-the Stop and SessionEnd hooks and `reach sync` send the queue, and
-`reach transcript status` shows what is sent and what is waiting. The student
-is told at enrolment and in every greeting inside a course folder. The AI
-partner's replies, conversations outside course folders and Antigravity
-sessions (no prompt hook) are not captured.
+Everything the student and their AI partner write in a course folder is saved
+in the student's course record on Teach, which their instructors can read: the
+student's prompts, the AI's replies, its reasoning where the harness stores it
+readably, its actions, and every version of every code file. The course folder
+is `~/reach-work`: assignment code lives only in
+`deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
+student wants to build goes in `extracurricular/` (`reach work
+--extracurricular`), which is never graded. The agent puts code in files, never
+in chat; a code block it pastes anyway is filed as a snippet. The hooks write
+everything to `~/.reach/transcripts/` with no network call; the Stop and
+SessionEnd hooks and `reach sync` send the queue, and `reach transcript status`
+shows what is sent and what is waiting. The student is told at enrollment and
+in every greeting inside a course folder. Conversations outside course folders
+and Antigravity sessions (no hooks) are not captured.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -81,7 +86,7 @@ refused the second time, raising a hand to the instructors.
 Reference material ships in `corpus/course-reference/` only as encrypted `.rref`
 blobs. The key arrives in the signed guardrails package at `reach sync`;
 `reach reference` decrypts in memory on every call and never writes plaintext
-to disk. Before enrolment, or before the key arrives, it reports the material
+to disk. Before enrollment, or before the key arrives, it reports the material
 as locked.
 
 ## Doctor

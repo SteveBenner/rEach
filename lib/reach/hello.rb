@@ -23,7 +23,7 @@ module Reach
       configure_workspace(workspace)
 
       greeting_id, greeting_text, banner = choose_greeting(source)
-      if workspace && greeting_text
+      if greeting_text && in_course_folder?(cwd)
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-TRANSCRIPT-NOTICE")}"
       end
       context = build_context(harness_id, format, greeting_id, greeting_text)
@@ -55,8 +55,8 @@ module Reach
     end
 
     def maybe_refresh_status
-      return unless defined?(Reach::Enrol) && defined?(Reach::Sync)
-      return unless Reach::Enrol.current
+      return unless defined?(Reach::Enroll) && defined?(Reach::Sync)
+      return unless Reach::Enroll.current
       return if ENV["REACH_OFFLINE"] == "1"
 
       age = Reach::Sync.status_age_s
@@ -77,6 +77,14 @@ module Reach
       end
     rescue StandardError
       nil
+    end
+
+    def in_course_folder?(cwd)
+      return false unless defined?(Reach::Workspace) && cwd
+
+      !Reach::Workspace.space_for(cwd).nil?
+    rescue StandardError
+      false
     end
 
     def configure_workspace(workspace)
@@ -178,7 +186,7 @@ module Reach
     end
 
     def safe_enrol_current
-      Reach::Enrol.current
+      Reach::Enroll.current
     rescue StandardError
       nil
     end

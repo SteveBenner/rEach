@@ -10,10 +10,11 @@ module Reach
       end
 
       def configure_all(workspace_path)
+        space_kind = space_kind_for(workspace_path)
         ids = []
         [["claude-code", :configure_claude_code], ["codex", :configure_codex]].each do |id, method_name|
           begin
-            send(method_name, workspace_path)
+            send(method_name, workspace_path, space_kind)
             ids << id
           rescue StandardError
             nil
@@ -25,11 +26,12 @@ module Reach
       end
 
       def configure(harness_id, workspace_path)
+        space_kind = space_kind_for(workspace_path)
         case harness_id.to_s
         when "claude-code"
-          configure_claude_code(workspace_path)
+          configure_claude_code(workspace_path, space_kind)
         when "codex"
-          configure_codex(workspace_path)
+          configure_codex(workspace_path, space_kind)
         when "antigravity"
           nil
         else
@@ -41,7 +43,7 @@ module Reach
         is_workspace = workspace_launch?(workspace_path)
         if is_workspace
           Reach::Gate.session(harness: harness_id)
-          Reach::Workspace.write_rules_files(workspace_path)
+          refresh_rules_files(workspace_path)
           configure(harness_id, workspace_path)
         end
         exec_harness(harness_id, workspace_path, initial_prompt)
@@ -50,13 +52,27 @@ module Reach
       private
 
       def workspace_launch?(workspace_path)
-        return true if File.file?(File.join(workspace_path, ".reach", "slice.json"))
-
-        Reach::Workspace.current_slices.any? do |slice_path|
-          File.realpath(slice_path) == File.realpath(workspace_path)
-        end
+        !Reach::Workspace.space_for(workspace_path).nil?
       rescue StandardError
         false
+      end
+
+      def space_kind_for(workspace_path)
+        space = Reach::Workspace.space_for(workspace_path)
+        space ? space["kind"] : "slice"
+      end
+
+      def refresh_rules_files(workspace_path)
+        case space_kind_for(workspace_path)
+        when "extracurricular"
+          Reach::Workspace.write_space_rules_files(workspace_path, "extracurricular")
+        when "root"
+          Reach::Workspace.write_space_rules_files(workspace_path, "root")
+        else
+          Reach::Workspace.write_rules_files(workspace_path)
+        end
+      rescue StandardError
+        nil
       end
 
       def detect_one(id, executable)
@@ -89,17 +105,25 @@ module Reach
         Reach::Runtime.hook_command(*args)
       end
 
-      def configure_claude_code(workspace_path)
+      def configure_claude_code(workspace_path, space_kind = "slice")
         dir = File.join(workspace_path, ".claude")
         FileUtils.mkdir_p(dir)
         settings_path = File.join(dir, "settings.json")
-        write_protected(settings_path, JSON.pretty_generate(claude_settings_content))
+        write_protected(settings_path, JSON.pretty_generate(claude_settings_content(space_kind)))
         mcp_path = File.join(workspace_path, ".mcp.json")
         write_protected(mcp_path, JSON.pretty_generate(claude_mcp_content))
         settings_path
       end
 
-      def claude_settings_content
+      def claude_settings_content(space_kind = "slice")
+        post_tool_use = []
+        post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if space_kind == "slice"
+        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("transcript", "code", "--harness", "claude-code"), 15)
+
+        stop_hooks = []
+        stop_hooks << hook_entry(nil, h("attempts", "settle"), 30) if space_kind == "slice"
+        stop_hooks << hook_entry(nil, h("transcript", "turn", "--quick", "--harness", "claude-code"), 30)
+
         {
           "hooks" => {
             "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "claude-code"), 10)],
@@ -108,14 +132,9 @@ module Reach
               hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("gate", "write"), 10),
               hook_entry("Bash", h("gate", "shell"), 10)
             ],
-            "PostToolUse" => [
-              hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60)
-            ],
-            "Stop" => [
-              hook_entry(nil, h("attempts", "settle"), 30),
-              hook_entry(nil, h("transcript", "flush", "--quick"), 30)
-            ],
-            "SessionEnd" => [hook_entry(nil, h("transcript", "flush", "--quick", "--final"), 30)]
+            "PostToolUse" => post_tool_use,
+            "Stop" => stop_hooks,
+            "SessionEnd" => [hook_entry(nil, h("transcript", "turn", "--quick", "--final", "--harness", "claude-code"), 30)]
           },
           "permissions" => {
             "deny" => [
@@ -141,13 +160,13 @@ module Reach
         entry
       end
 
-      def configure_codex(workspace_path)
+      def configure_codex(workspace_path, space_kind = "slice")
         dir = File.join(workspace_path, ".codex")
         FileUtils.mkdir_p(dir)
         config_path = File.join(dir, "config.toml")
         write_protected(config_path, codex_config_toml)
         hooks_path = File.join(dir, "hooks.json")
-        write_protected(hooks_path, JSON.pretty_generate(codex_hooks_content))
+        write_protected(hooks_path, JSON.pretty_generate(codex_hooks_content(space_kind)))
         config_path
       end
 
@@ -165,7 +184,15 @@ module Reach
         "#{lines.join("\n")}\n"
       end
 
-      def codex_hooks_content
+      def codex_hooks_content(space_kind = "slice")
+        post_tool_use = []
+        post_tool_use << hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60) if space_kind == "slice"
+        post_tool_use << hook_entry("apply_patch|Write|Edit", h("transcript", "code", "--harness", "codex"), 15)
+
+        stop_hooks = []
+        stop_hooks << hook_entry(nil, h("attempts", "settle"), 30) if space_kind == "slice"
+        stop_hooks << hook_entry(nil, h("transcript", "turn", "--quick", "--harness", "codex"), 30)
+
         {
           "hooks" => {
             "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "codex"), 10)],
@@ -174,13 +201,8 @@ module Reach
               hook_entry("apply_patch|Write|Edit", h("gate", "write"), 10),
               hook_entry("Bash|shell|exec_command", h("gate", "shell"), 10)
             ],
-            "PostToolUse" => [
-              hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60)
-            ],
-            "Stop" => [
-              hook_entry(nil, h("attempts", "settle"), 30),
-              hook_entry(nil, h("transcript", "flush", "--quick"), 30)
-            ]
+            "PostToolUse" => post_tool_use,
+            "Stop" => stop_hooks
           }
         }
       end

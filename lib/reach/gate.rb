@@ -65,7 +65,27 @@ module Reach
     def write(path: nil, patch: nil)
       return nil if path.nil? && patch.nil?
 
-      workspace = current_workspace_path
+      space = current_space
+      kind = space && space["kind"]
+
+      raise_blocked!("M-WRITE-ROOT") if kind == "root"
+
+      if kind == "extracurricular"
+        root = space["path"]
+        if patch
+          patch_targets(patch).each do |relative|
+            target = resolve_target(File.expand_path(relative, root))
+            raise_blocked!("M-WRITE-OUTSIDE-EXTRA") unless within?(target, root)
+          end
+          return nil
+        end
+
+        target = resolve_target(path)
+        raise_blocked!("M-WRITE-OUTSIDE-EXTRA") unless within?(target, root)
+        return nil
+      end
+
+      workspace = kind == "slice" ? space["path"] : nil
       owned = workspace ? owned_absolute_paths(workspace) : []
 
       if patch
@@ -102,27 +122,59 @@ module Reach
       text = command.to_s
       raise_blocked!("M-SHELL-BLOCKED") if subshell_or_substitution?(text)
 
-      workspace = current_workspace_path
-      owned = workspace ? owned_absolute_paths(workspace) : []
+      space = current_space
+      kind = space && space["kind"]
 
-      split_segments(text).each do |segment|
-        check_segment!(segment, workspace, owned)
+      if kind == "root"
+        split_segments(text).each { |segment| check_root_segment!(segment) }
+        return nil
       end
 
-      witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200])
+      workspace = space && space["path"]
+      owned_test = shell_owned_test(kind, workspace)
+
+      split_segments(text).each do |segment|
+        check_segment!(segment, workspace, owned_test)
+      end
+
+      witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
+    end
+
+    def shell_owned_test(kind, workspace)
+      if kind == "extracurricular"
+        root = workspace
+        ->(resolved) { within?(resolved, root) }
+      else
+        owned = workspace ? owned_absolute_paths(workspace) : []
+        ->(resolved) { owned.any? { |candidate| same_path?(candidate, resolved) } }
+      end
+    end
+
+    def check_root_segment!(segment)
+      tokens = begin
+        Shellwords.split(segment)
+      rescue ArgumentError
+        raise_blocked!("M-SHELL-BLOCKED")
+      end
+      return if tokens.empty?
+
+      cmd = tokens[0]
+      return if cmd.nil? || cmd == "reach" || readonly_command?(tokens)
+
+      raise_blocked!("M-SHELL-BLOCKED")
     end
 
     def check_enrolled!
       install = begin
-        Reach::Enrol.current
+        Reach::Enroll.current
       rescue StandardError
         nil
       end
-      raise_blocked!("M-GATE-NOENROL") unless install
+      raise_blocked!("M-GATE-NOENROLL") unless install
 
       revoked = begin
-        Reach::Enrol.revoked?
+        Reach::Enroll.revoked?
       rescue StandardError
         false
       end
@@ -166,6 +218,13 @@ module Reach
         real_workspace = File.realpath(workspace)
         cwd == real_workspace || cwd.start_with?(real_workspace + File::SEPARATOR)
       end
+    rescue StandardError
+      nil
+    end
+
+    def current_space
+      cwd = File.realpath(Dir.pwd)
+      Reach::Workspace.space_for(cwd)
     rescue StandardError
       nil
     end
@@ -272,7 +331,7 @@ module Reach
       segments.map(&:strip).reject(&:empty?)
     end
 
-    def check_segment!(segment, workspace, owned)
+    def check_segment!(segment, workspace, owned_test)
       tokens = begin
         Shellwords.split(segment)
       rescue ArgumentError
@@ -291,8 +350,8 @@ module Reach
       elsif readonly_command?(plain_tokens)
         nil
       elsif write_command?(plain_tokens)
-        redirect_targets.each { |target| ensure_owned_target!(target, workspace, owned) }
-        ensure_write_args_owned!(plain_tokens, workspace, owned)
+        redirect_targets.each { |target| ensure_owned_target!(target, workspace, owned_test) }
+        ensure_write_args_owned!(plain_tokens, workspace, owned_test)
       else
         ensure_unknown_allowed!(plain_tokens, redirect_targets, workspace)
       end
@@ -325,20 +384,20 @@ module Reach
       end
     end
 
-    def ensure_owned_target!(token, workspace, owned)
+    def ensure_owned_target!(token, workspace, owned_test)
       resolved = resolve_arg(token, workspace)
-      return if owned.any? { |candidate| same_path?(candidate, resolved) }
+      return if owned_test.call(resolved)
 
       raise_blocked!("M-SHELL-BLOCKED")
     end
 
-    def ensure_write_args_owned!(tokens, workspace, owned)
+    def ensure_write_args_owned!(tokens, workspace, owned_test)
       tokens[1..-1].to_a.each do |tok|
         next if tok.start_with?("-")
         next unless path_like?(tok)
 
         resolved = resolve_arg(tok, workspace)
-        next if owned.any? { |candidate| same_path?(candidate, resolved) }
+        next if owned_test.call(resolved)
 
         raise_blocked!("M-SHELL-BLOCKED")
       end

@@ -5,6 +5,47 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-09-29
+
+### Added
+
+- The course record captures the AI's side too (wire protocol 1 revision 2026-09-29c, W-TRN-3 to W-TRN-5). In every
+  course folder, Claude Code and Codex now send the AI partner's replies, its reasoning where the harness stores it
+  readably (an unreadable block is recorded as "reasoning not readable"), its actions (tool name and a summary of at
+  most 2000 bytes) and every version of every code file, categorised as assignment code (with assignment, cutout and
+  slice) or extracurricular code. `reach transcript code` (PostToolUse on writes) records each file the AI just wrote;
+  `reach transcript turn` (Stop, and SessionEnd on Claude Code) reads the harness's own session transcript from where
+  it last stopped, scans the folder for changes the hooks did not see (shell commands, the student's own editing,
+  deletions) and flushes. A fenced code block in a reply is cut out, filed as `snippets/<seq>-<n>.<ext>` in the right
+  folder, and replaced in the chat by a pointer line, so the chat stays prose.
+- `~/reach-work/extracurricular/`: the student's own code folder, never graded or submitted, captured like
+  everything else. `reach work --extracurricular` opens it through the gate. Writes inside it are allowed; writes
+  outside it are refused (M-WRITE-OUTSIDE-EXTRA). Its rules come from Teach 0.10.0's G-CODE-1, G-EXTRA-1 and
+  G-EXTRA-2, with built-in fallback rules for an older Teach.
+- The workspace root and `deliverables/` get rules files and hooks too, so a session opened at the top is captured;
+  every write there is refused (M-WRITE-ROOT).
+- The public directive CODEFILE (R-CODEFILE): put code in files, never in chat, coursework in the slice's owned
+  files and anything else in extracurricular/. Directives may list the folders whose table shows them (`spaces`,
+  default `[slice]`); extracurricular/ shows only CODEFILE.
+- Capability-limited sending: Reach sends only the entry kinds the course server's status lists
+  (`transcripts.kinds`); against a Teach before 0.10.0 it sends prompts and holds everything after the first other
+  entry, and `reach status` says how many are held.
+
+### Changed
+
+- Teach 0.10.0 refuses a Reach older than its minimum at enrollment with `reach_outdated`, before the code is used,
+  and Reach shows its message; before, the code was spent and an orphan install left behind when Reach refused the
+  version afterwards.
+- Slice workspaces live under `~/reach-work/deliverables/<course>/<assignment>/<cutout>-<slice>/`. Every sync moves
+  a slice workspace still at the old place there when the path is free, logs the move and never deletes anything.
+- Enrollment is spelled with two l's everywhere: `reach enroll`, `Reach::Enroll`, the bridge tool `reach_enroll`,
+  messages M-ENROLL-DONE, M-ENROLL-REFUSED and M-GATE-NOENROLL, and `POST /api/v1/enroll`. `reach enrol` and the
+  `reach_enrol` tool still work, unlisted, and Reach retries once at `/api/v1/enrol` when an older Teach answers 404.
+  The single l came from the first Teach blueprint (British spelling) and was copied everywhere since.
+- The transcript notice, greeting, privacy notice and persona say what is now shared: everything the student and
+  their AI partner write in their course folders, replies and code included. `reach status` counts entries, not
+  prompts.
+
 ## [0.9.0] - 2026-09-29
 
 ### Added
@@ -56,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `<session_id>.rejected.jsonl` so one bad request cannot block the queue. `REACH_OFFLINE=1` stops sending, never
   capturing.
 - `reach status` shows "Transcript: N prompts sent" (and how many are waiting).
-- Disclosure: M-TRANSCRIPT-NOTICE is printed at enrolment, G-TRANSCRIPT-NOTICE ends every greeting inside a course
+- Disclosure: M-TRANSCRIPT-NOTICE is printed at enrollment, G-TRANSCRIPT-NOTICE ends every greeting inside a course
   folder, the persona answers what rEach shares when asked, and the privacy notice in `docs/student-guide.md` says what
   is sent. `STD-TRANSCRIPT` in `specs/app.yml`; `specs/implementation/v0.8.0.impl.yml`.
 
@@ -133,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Encrypted course reference: `reach reference list|show|search|links`, the `reach_reference` MCP tool, RREF version 1
   blobs, and keys read from the guardrails package's `reference-keys.json`. Blobs are decrypted in memory only and a
   tampered blob is refused.
-- `tools/smoke/assignment_one.rb`, a deterministic smoke that starts a real Teach, installs from a local ZIP, enrols,
+- `tools/smoke/assignment_one.rb`, a deterministic smoke that starts a real Teach, installs from a local ZIP, enrolls,
   syncs, submits and follows the receipts, and `docs/smoke-assignment-1.md`, the runbook with the manual Codex
   dialogue and same-WiFi second-device passes.
 - Wire protocol 1 revision 2026-09-28f: `reference-keys.json` is an optional entry of the guardrails package
@@ -144,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `reach setup` exits 1 and prints no installed text or greeting when nothing was installed, including the manual
   branches taken when a harness CLI is missing.
-- `reach enrol` verifies the response fields, the wire digest equality and `minimum_reach_version` before it writes
+- `reach enroll` verifies the response fields, the wire digest equality and `minimum_reach_version` before it writes
   any key.
 - `README.md` in a workspace is student-owned and is preserved on sync.
 - `skills/persona` and the course skills now have the agent implement all permitted code while the student makes the
@@ -204,7 +245,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Verified
 
-- Against Grokit 0.2.0, Dovetail 0.2.0 and Teach 0.6.0, on Ruby 3.3: enrol, sync, the shape check (clean on the
+- Against Grokit 0.2.0, Dovetail 0.2.0 and Teach 0.6.0, on Ruby 3.3: enroll, sync, the shape check (clean on the
   starting copies, two findings on a planted violation at the right line), tips on a finance.a1 panel slice (the live
   build in Chrome) and a records.a1 backend slice (passing with a solution, not_built with the starting copy),
   submit, Teach's grading at 1.0 for both, and the grades arriving on sync. `reach check` finds nothing in any of the
@@ -267,7 +308,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The PostToolUse hooks (Claude and Codex) run `reach check --format agent` instead of the shape check alone; `reach attempts settle` settles on check findings.
 - `Reach::Guardrails.load` verifies the vault against its manifest on every read and reports a mismatch silently; `reach sync` heals the vault from the package.
-- `reach enrol` announces the sidecar to Teach; the workspace's `.reach` marker records `module` and `class`.
+- `reach enroll` announces the sidecar to Teach; the workspace's `.reach` marker records `module` and `class`.
 - The reach-course skill reads the directive table, names the build, fix and checkpoint skills, loads the taste skill for a panel slice and never spawns subagents.
 
 ## [0.3.1] - 2026-09-28
@@ -302,7 +343,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rEach, the persona: `skills/reach-assistant/SKILL.md` and `agents/reach.md` (one body), `locales/greetings.en-US.yml`, and `reach hello`, which greets first-run, resuming, not-yet-enrolled and returning students, adds the course's own interview question, and runs at every session start through the plugin's SessionStart hook.
 - The intake interview's profile: `reach profile show|save|forget` and the `reach_profile_*` MCP tools, stored only in `~/.reach/profile.yml` (0600) and sent to Teach only inside a hand raised with `--include-profile`.
 - Install from a repository link: `.claude-plugin/` (Claude Code and Cowork), `.codex-plugin/` with `.agents/plugins/marketplace.json` (Codex), `plugin.json` and `rules/reach.md` (Antigravity), `INSTALL.md` for the agent doing the install, and `reach setup`, which runs each harness's own install commands and ends with the NEXT block the agent reads to the student.
-- `reach sync` (packages, workspaces, kept edits, the outbox), `reach start`, `reach attempts settle`, a stable `~/.reach/bin/reach` shim for workspace hooks, `GEMINI.md` beside `AGENTS.md` and `CLAUDE.md`, and the MCP tools `reach_hello`, `reach_enrol` and `reach_sync`.
+- `reach sync` (packages, workspaces, kept edits, the outbox), `reach start`, `reach attempts settle`, a stable `~/.reach/bin/reach` shim for workspace hooks, `GEMINI.md` beside `AGENTS.md` and `CLAUDE.md`, and the MCP tools `reach_hello`, `reach_enroll` and `reach_sync`.
 - Codex workspace hooks (`.codex/hooks.json`); `reach gate write` reads a Codex `apply_patch`, and `reach gate shell` reads argv-form commands and routes heredoc patches through the write gate.
 - A token bucket shared by every Reach process under a file lock, quick mode for calls a harness waits on, and a rotating request log.
 
@@ -328,8 +369,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- First implementation of every module in `reach.spec.yml`'s `library.modules`: `Reach::Errors`, `Paths`, `Messages` (the student-message catalogue, `locales/en-US.yml`), `Crypto` (RSA-PSS signing, RSA-OAEP key wrap, AES-256-GCM), `Client` (rate limiter, exponential-backoff retries with full jitter, a circuit breaker, `REACH_OFFLINE`), `Packages`, `Corpus`, `Enrol`, `Guardrails`, `Workspace`, `Gate`, `Shape`, `Attempts`, `Suite`, `Submit`, `Receipts`, `Hands`, `Harness`, `MCPBridge`, `Status`, `CLI`.
-- The `reach` command with every subcommand in the blueprint: `enrol`, `sync`, `status`, `work`, `gate session|prompt|write|shell`, `shape check`, `tips`, `submit`, `receipts wait|show`, `hand raise|status|list`, `watch`, `doctor`, `lock`, `mcp`.
+- First implementation of every module in `reach.spec.yml`'s `library.modules`: `Reach::Errors`, `Paths`, `Messages` (the student-message catalogue, `locales/en-US.yml`), `Crypto` (RSA-PSS signing, RSA-OAEP key wrap, AES-256-GCM), `Client` (rate limiter, exponential-backoff retries with full jitter, a circuit breaker, `REACH_OFFLINE`), `Packages`, `Corpus`, `Enroll`, `Guardrails`, `Workspace`, `Gate`, `Shape`, `Attempts`, `Suite`, `Submit`, `Receipts`, `Hands`, `Harness`, `MCPBridge`, `Status`, `CLI`.
+- The `reach` command with every subcommand in the blueprint: `enroll`, `sync`, `status`, `work`, `gate session|prompt|write|shell`, `shape check`, `tips`, `submit`, `receipts wait|show`, `hand raise|status|list`, `watch`, `doctor`, `lock`, `mcp`.
 - A hand-rolled stdio MCP bridge exposing the seven documented tools, no MCP gem dependency.
 - Claude Code hook configuration (`SessionStart`, `UserPromptSubmit`, `PreToolUse` for Write/Edit/MultiEdit/NotebookEdit and Bash, `PostToolUse`, `Stop`) and Codex `config.toml` sandbox configuration, both written and repaired by `Reach::Harness`.
 - The three skills (`reach-course`, `reach-submit`, `reach-help`) and `docs/student-guide.md`.
@@ -339,7 +380,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Known gaps (tracked in TODO.md)
 
 - `Reach::Guardrails` cannot yet detect a guardrails package that is stale relative to what Teach last announced (`M-GATE-OLDGUARD`), because nothing records "the version Teach last announced" anywhere yet.
-- `Reach::Gate.session`/`.prompt` do not refresh the cached enrolment/revocation status online; they read the local cache only.
+- `Reach::Gate.session`/`.prompt` do not refresh the cached enrollment/revocation status online; they read the local cache only.
 - `Reach::Shape`'s Dovetail-output parsing and `Reach::Suite`'s Cucumber/Cuprite orchestration are real, runnable code but have never run against an actual `dovetail` binary or a real tips suite — there is no Teach server, no signed shape, and no suite package to test against yet.
 - The two Gemfile locks were authored from training-data knowledge of these gems' release history, not resolved live against rubygems.org; run `bundle lock` for real on each Ruby line before relying on them.
-- `reach enrol` needs a Teach URL from `--teach-url` or `REACH_TEACH_URL`; nothing in the blueprint says where else it should come from.
+- `reach enroll` needs a Teach URL from `--teach-url` or `REACH_TEACH_URL`; nothing in the blueprint says where else it should come from.
