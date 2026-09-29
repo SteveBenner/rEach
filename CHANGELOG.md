@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-09-28
+
+### Changed
+
+- GitHub `SteveBenner/rEach` is the canonical repository; the Bitbucket `paterasai/reach` checkout is archived. The
+  work left uncommitted there (the course-reference corpus, its `reach.spec.yml` lines and the `reach-course` skill
+  line) was already carried by this repository's import commit and superseded by 0.7.0's encrypted reference.
+- `reach.spec.yml` templates `skill_reach_course`, `skill_reach_submit` and `skill_reach_help` are now byte-identical
+  to `skills/*/SKILL.md` again; they had drifted since 0.4.0. The reach-course contents line names `reach reference`
+  instead of the retired plaintext directory.
+
 ## [0.7.1] - 2026-09-28
 
 ### Fixed
