@@ -1,0 +1,163 @@
+schema: reach.impl/v1
+version: 0.1.0
+blueprint: reach.spec.yml
+status: complete
+integration_notes: >
+  All four slices landed and were reconciled by the orchestrator: fixed
+  Reach::Packages#latest_stored returning a filename instead of a bare
+  version; added Reach::Workspace.metadata(workspace_path) and extended the
+  .reach/slice.json marker with course/assignment/kind/behavior/due, since
+  slice 1's original marker only carried cutout_id/slice/owned_files and
+  slices 3/4 needed the rest; repointed Reach::Harness's AGENTS.md
+  regeneration and slice 3's Suite/Submit/Hands (which had assumed a
+  nonexistent .reach/manifest.json) at that one real marker file; fixed a
+  "cutout" vs "cutout_id" key mismatch in Submit and Hands; added
+  Reach::Hands.list (used by Status/CLI but missing from the original
+  interface_contract). Verified after reconciliation: ruby -c on all 21 lib
+  files, `rplugin check/install/doctor reach` all at zero findings, bin/reach
+  --help and doctor run for real, `reach gate session` returns the correct
+  M-GATE-NOENROL text and exit 2, the MCP bridge answers a real stdio
+  initialize + tools/list round trip, and an end-to-end script (sealed fake
+  guardrails + workspace packages through Workspace.provision, AGENTS.md
+  rendering, Gate.write from inside the provisioned workspace) passes. Not
+  exercised: a real Teach server, a real Dovetail binary, a real tips suite
+  run, or bundle lock against rubygems.org (see TODO.md).
+principle: >
+  Four workers implement disjoint lib/reach/*.rb files against the shared
+  foundation already committed (errors.rb, paths.rb, messages.rb, crypto.rb,
+  client.rb, packages.rb, corpus.rb) and against the interface contract
+  below. Nobody edits a file another slice owns or the shared files listed
+  under shared_surfaces_resolved. Every file must parse and run on Ruby
+  2.6.10: no endless methods (def x = y), no pattern matching (case/in), no
+  numbered block parameters (_1), no hash/keyword shorthand ({x:, y:}), no
+  argument-forwarding (...), no Set/Data.define/filter_map assumptions
+  without requiring "set" first. Style otherwise follows the existing
+  foundation files exactly (module methods via `class << self` or
+  `module_function`, plain Hash literals with explicit string keys for
+  anything that crosses a JSON/YAML boundary).
+already_built:
+  - lib/reach/errors.rb: "Reach::Error and subclasses: Refused, GateBlocked(message_id, text), VerificationFailed, NetworkError, Offline < NetworkError, InstallError."
+  - lib/reach/paths.rb: "Reach::Paths module_function helpers: home, install_file, keys_dir, install_key_file, packages_dir(kind=nil), vault_dir, outbox_dir, receipts_dir, logs_dir, gems_dir, chromium_dir, ensure_home!, workspace_root, workspace_path(course, assignment, cutout, slice)."
+  - lib/reach/messages.rb: "Reach::Messages.text(id, locale: 'en-US', **fields) and Reach::Messages.failure_reason(category, locale: 'en-US'), backed by locales/en-US.yml. Use these for every string shown to a student or returned to the agent as a message id — never inline a message string."
+  - lib/reach/crypto.rb: "Reach::Crypto module_function: generate_install_key, sign_pss(private_key, data), verify_pss(public_key, sig, data) -> bool, encrypt_gcm(plaintext, key=nil) -> {key,iv,ciphertext,tag}, decrypt_gcm(key:,iv:,ciphertext:,tag:), wrap_key(public_key, aes_key), unwrap_key(private_key, wrapped), seal(plaintext, recipient_public_key, signer_private_key) -> envelope Hash with string keys iv/tag/wrapped_key/ciphertext/signature (base64), open_envelope(envelope, recipient_private_key, signer_public_key) -> plaintext (raises Reach::VerificationFailed on bad signature), digest_hex(data), load_public_key(pem), load_private_key(pem)."
+  - lib/reach/client.rb: "Reach::Client.new(base_url:, install_key: nil, install_id: nil, logger: nil); #get(path, headers:{}), #post_json(path, body, headers:{}, idempotency_key: nil), #upload(path, bytes, headers:{}, idempotency_key: nil) -> Net::HTTPResponse. Already enforces timeouts, the 20/min token bucket, exponential-backoff-with-jitter retries, the 5-failure/60s circuit breaker, and REACH_OFFLINE=1. Raises Reach::Offline or Reach::NetworkError; never raises a raw Net::HTTP or OpenSSL error."
+  - lib/reach/packages.rb: "Reach::Packages.new(client:, install_private_key:, teach_public_key:); #fetch(kind, version) -> envelope (also stores it), #store(kind, version, envelope) -> path, #latest_stored(kind) -> version string or nil, #unpack(kind, version, into:) -> decrypts and writes the package's file tree under `into`, verified via Crypto.open_envelope."
+  - lib/reach/corpus.rb: "Reach::Corpus.new(ports); #note(text, slice: nil), #tip(text, slice: nil, source: nil), #attempt(finding_id:, slice:, resolved:), #receipt(receipt_hash), #recent(kind, limit: 20). Falls back to plain JSONL under ~/.reach/corpus-fallback when the corpus port is unavailable — callers never need to check availability themselves for writes; only Corpus does."
+  - lib/reach.rb: "Requires every file in dependency order and defines Plugin.run(args) = Reach::CLI.run(args). Do not edit; it already requires paths that do not exist yet — that's expected until your slice lands."
+  - reach.rplugin.yml, config.yml, specs/app.yml, README.md, AGENTS.md, CLAUDE.md, locales/en-US.yml, skills/reach-course, skills/reach-submit, skills/reach-help, docs/student-guide.md: "Finished. Do not edit."
+interface_contract:
+  Reach::Enrol:
+    - "self.generate_and_register(code, teach_url, client_factory: ->(url){ Reach::Client.new(base_url: url) }) -> writes ~/.reach/install.yml (install id, student id, course id, teach url, teach public key, mode 0600) and ~/.reach/keys/install.pem (mode 0600, an RSA-4096 key from Reach::Crypto.generate_install_key); posts the public key and the code to POST /api/v1/installs; raises Reach::Refused on a bad or used code."
+    - "self.current -> Hash from install.yml, or nil if not enrolled."
+    - "self.revoked? -> bool from the cached status (install.yml records a last-checked revocation flag; Enrol does not itself poll Teach every call)."
+  Reach::Guardrails:
+    - "self.load -> the decrypted guardrails Hash from the vault (unpacks the latest stored guardrails package via Reach::Packages if the vault copy is missing or stale), or raises Reach::Refused with message id M-GATE-NOGUARD if none is stored yet."
+    - "self.render_agents_md(cutout_id:, slice:, behavior:, due:, owned_files:) -> the filled-in AGENTS.md text using the guardrails' own agents_md template field if present, else the built-in default text from reach.spec.yml's templates.agents_md."
+    - "self.digest -> a stable digest of the currently-installed guardrails, used by Reach::Gate and Reach::Harness to detect a stale generated file."
+    - "self.version -> the guardrails package version string, compared against what Teach last announced to decide M-GATE-OLDGUARD."
+  Reach::Workspace:
+    - "self.provision(course:, assignment:, cutout:, slice:) -> unpacks the slice's workspace package into Reach::Paths.workspace_path(...), writes README.md and the generated AGENTS.md/CLAUDE.md via Reach::Guardrails, makes everything except the owned files read-only, and writes .reach/ with the slice id and the owned-path list. Returns the workspace path."
+    - "self.owned_files(workspace_path) -> the Array of owned-file relative paths from .reach/ in that workspace."
+    - "self.verify(workspace_path) -> true when every non-owned file's digest still matches what was delivered; repairs permissions if they drifted; returns false (never raises) when a read-only file's content itself changed, so the caller can report it."
+    - "self.current_slices -> the list of workspace paths under Reach::Paths.workspace_root that have a .reach/ marker."
+  Reach::Gate:
+    - "self.session(harness:) -> nil on success; raises Reach::GateBlocked(message_id, text) built from Reach::Messages otherwise. Checks: enrolled and not revoked (cached, refreshed online when possible, 24h offline allowance), guardrails present/verified/current, called from an actual current-slice workspace."
+    - "self.prompt -> same checks as session, cheaper (cache-only, no network), for UserPromptSubmit."
+    - "self.write(path:) -> nil, or raises Reach::GateBlocked(:'M-WRITE-OUTSIDE', ...) when path resolves (via File.realpath, case-insensitive compare) outside the current workspace's owned files."
+    - "self.shell(command:) -> nil, or raises Reach::GateBlocked(:'M-SHELL-BLOCKED', ...) per shell_rules in reach.spec.yml (parse into ; && || | newline segments with Shellwords, classify each as read-only/write/unknown/network, refuse write commands touching a non-owned path or the vault/keys, refuse network tools outright)."
+  Reach::Shape:
+    - "self.check(workspace_path:, changed: nil, format: :text) -> runs Dovetail's checker (`dovetail check --require-signed <shape path> [--changed <path>]`, shelled out via Open3, output parsed as JSON when the checker supports --json, else parsed from its text report) against the signed shape in the vault, and returns an Array of finding Hashes {rule_id:, file:, line:, classification: :invisible|:visible, plain_reason:}. classification comes from the invisible/visible rule-id lists in reach.spec.yml's shape_loop.classification. format: :agent returns the same data shaped for the agent (rule id + category), :text a human-readable string using Reach::Messages for the visible-finding wording (M-SHAPE-VISIBLE)."
+    - "self.brief_path(workspace_path) / self.shape_path(workspace_path) -> the read-only shape/brief.md and the vault's signed shape file for that slice."
+  Reach::Attempts:
+    - "self.record(finding_id:, slice:, resolved:) -> increments (or, if resolved, resets) the (slice, rule_id, file) counter from finding_id via Reach::Corpus#attempt; returns {count:, escalate: bool} where escalate is true the instant the count reaches 3 unresolved."
+    - "self.settle(slice:) -> called from the Stop hook; reads the last shape check's findings for the slice and records each as resolved/unresolved via .record, returning the list of findings that just crossed the escalate threshold (empty most of the time)."
+  Reach::Suite:
+    - "self.run(slice:) -> {duration_ms:, scenarios: [{name:, passed: bool, reason: String or nil, category: String or nil}]}. Decrypts the suite package into the vault if needed, assembles a run directory (reference build + the slice's owned files overlaid), selects Gemfile.ruby26.lock or Gemfile.lock by RUBY_VERSION and installs into Reach::Paths.gems_dir if missing, runs Cucumber with the slice's tags via Cuprite/headless Chromium, and translates results with Reach::Messages.failure_reason by category. Must finish under 90s for one slice or the caller (Reach::CLI) times it out and reports M-OFFLINE-style honesty about the timeout, not a fabricated result."
+    - "self.gemfile_lock_for(ruby_version = RUBY_VERSION) -> 'Gemfile.ruby26.lock' for 2.6-3.1, 'Gemfile.lock' for 3.2+; you own writing both lockfiles' content (cucumber, capybara, cuprite, ferrum, nokogiri per reach.spec.yml's runtime.lockfile_selection and rplugin-compat's pinned versions: cucumber 8.0, capybara 3.36, cuprite 0.14.3, ferrum 0.14, nokogiri 1.13.10 for the 2.6 lock; current versions for the modern lock) at the repo root."
+  Reach::Submit:
+    - "self.submit(slice:) -> runs the submission preconditions (Reach::Gate.session, Reach::Workspace.verify, Reach::Shape.check with no errors for panel slices), packs the owned files into a tar+manifest, seals it to Teach's key with Reach::Crypto.seal, writes it to Reach::Paths.outbox_dir, uploads via Reach::Client#upload with an idempotency key, and returns the submission id. Raises Reach::Refused (not GateBlocked) with a plain reason when a precondition fails, distinct from a network failure."
+    - "self.retry_outbox -> re-uploads anything still sitting in the outbox (used by reach sync and by a background retry loop); honours the same retry/backoff Reach::Client already provides."
+  Reach::Receipts:
+    - "self.wait(submission_id:, timeout_s: 300) -> polls no more than every 30s, verifies the receipt's signature against the instructors' public keys (via Reach::Crypto.verify_pss) before returning it, stores it under Reach::Paths.receipts_dir and in Reach::Corpus#receipt, and returns the receipt Hash or nil on timeout (never raises on timeout)."
+    - "self.list -> receipts newest first, read from disk (not re-verified each call)."
+    - "self.show(id) -> one receipt Hash or nil."
+    - "self.announce(receipt) -> sends a desktop notification (osascript on macOS, PowerShell toast on Windows, notify-send on Linux when present; silently a no-op otherwise) and returns the M-SUBMIT-RECEIVED or M-GRADED text from Reach::Messages, whichever the receipt's kind calls for."
+  Reach::Hands:
+    - "self.raise_hand(trigger:, summary:, slice:) -> builds the context bundle (attempt log + owned-files diffs for that slice, never a file outside owned paths), seals and uploads it like a submission, and returns the hand id."
+    - "self.status(hand_id) -> {state:, reply: String or nil}."
+    - "self.poll_replies -> checks every open hand at most once per 60s (caller decides cadence; this method itself makes exactly one round of calls) and returns any hands whose reply changed since the last poll."
+  Reach::Harness:
+    - "self.detect -> Array of {id: 'claude-code'|'codex', version: String} for whichever CLIs are on PATH, using `claude --version` / `codex --version`."
+    - "self.configure(harness_id, workspace_path) -> writes/repairs the harness's config (Claude Code: .claude/settings.json with the five hooks from reach.spec.yml's harness_integration.claude_code.hooks, made read-only; Codex: .codex/config.toml with sandbox workspace-write and writable_roots limited to the owned files' directories), idempotent and safe to call every reach work."
+    - "self.launch(harness_id, workspace_path) -> execs the harness in the workspace directory after Reach::Gate.session and Reach::Guardrails regeneration succeed; never falls back to a different harness or model."
+  Reach::MCPBridge:
+    - "self.serve -> runs a stdio JSON-RPC loop (no external MCP gem; hand-roll the minimal stdio framing: Content-Length header + JSON body, matching the MCP stdio transport) exposing exactly the seven tools in reach.spec.yml's mcp_bridge.tools (reach_status, reach_receipts, reach_shape_check, reach_tips, reach_submit, reach_raise_hand, reach_hand_status), each delegating to the corresponding class above. Never expose anything under mcp_bridge.excluded."
+  Reach::Status:
+    - "self.summary -> the multi-line String in reach.spec.yml's status_example format, built from Reach::Enrol.current, Reach::Workspace.current_slices, the last Reach::Suite result per slice (cached, not re-run), Reach::Receipts.list, and open Reach::Hands."
+  Reach::CLI:
+    - "self.run(argv) -> Integer exit code. Subcommands exactly as reach.spec.yml's cli.subcommands table: enrol, sync, status, work, gate <session|prompt|write|shell>, shape check, tips, submit, receipts [wait|show], hand <raise|status|list>, watch, doctor, lock, mcp. `gate` prints the Reach::Messages text and exits 2 on a GateBlocked, matching hook_io_contract.claude_code.output. `doctor` runs every check in reach.spec.yml's doctor_checks and prints one line per problem with its fix, exit 0 only when every check passes. `watch` is a plain polling loop (stat mtimes under the workspace's owned files every ~2s, no gem) that re-runs Reach::Shape.check --format agent on change, for the Codex backstop."
+  bin/reach: "The executable; already requires lib/reach and calls Plugin.run(ARGV) via the existing scaffold. You may add --help text but must not change its two-line bootstrap (RPLUGIN_HOME require + require_relative ../lib/reach)."
+slices:
+  - id: slice_1_enrolment
+    owner: worker_1
+    owns_paths:
+      - lib/reach/enrol.rb
+      - lib/reach/guardrails.rb
+      - lib/reach/workspace.rb
+    depends_on_already_built: [errors, paths, messages, crypto, client, packages, corpus]
+    acceptance:
+      - ruby -c passes on Ruby running in this environment for every owned file
+      - "Reach::Enrol, Reach::Guardrails, Reach::Workspace are defined with exactly the methods in interface_contract"
+      - "A short standalone script (write it to /tmp, do not commit it) can: generate a fake RSA keypair standing in for Teach's, build a fake guardrails envelope with Reach::Crypto.seal, unpack it with Reach::Guardrails/Reach::Packages, and render an AGENTS.md that contains every {placeholder} filled in"
+  - id: slice_2_gate_and_shape
+    owner: worker_2
+    owns_paths:
+      - lib/reach/gate.rb
+      - lib/reach/shape.rb
+      - lib/reach/attempts.rb
+    depends_on_already_built: [errors, paths, messages, corpus]
+    depends_on_other_slices: "Reach::Guardrails and Reach::Workspace (slice 1) and Reach::Corpus (built) — code against the interface_contract signatures even though slice 1 may not have landed yet; do not block on it."
+    acceptance:
+      - ruby -c passes for every owned file
+      - "Reach::Gate.write raises Reach::GateBlocked for a path outside a fixture owned-files list and returns nil for a path inside it, exercised by a /tmp script"
+      - "Reach::Attempts.record reaches escalate: true on the third unresolved call for the same (slice, finding_id) and resets it after a resolved: true call, exercised by a /tmp script"
+  - id: slice_3_suite_and_submission
+    owner: worker_3
+    owns_paths:
+      - lib/reach/suite.rb
+      - lib/reach/submit.rb
+      - lib/reach/receipts.rb
+      - lib/reach/hands.rb
+      - Gemfile.ruby26.lock
+      - Gemfile.lock
+    depends_on_already_built: [errors, paths, messages, crypto, client, packages, corpus]
+    acceptance:
+      - ruby -c passes for every owned Ruby file
+      - both lockfiles list cucumber, capybara, cuprite, ferrum, nokogiri with the versions named in interface_contract
+      - "Reach::Submit and Reach::Receipts round-trip against a fixture Reach::Client double (no real network) in a /tmp script: sealing, an in-memory fake upload, and Reach::Crypto.open_envelope confirm the same bytes come back"
+  - id: slice_4_harness_and_cli
+    owner: worker_4
+    owns_paths:
+      - lib/reach/harness.rb
+      - lib/reach/mcp_bridge.rb
+      - lib/reach/status.rb
+      - lib/reach/cli.rb
+      - bin/reach
+    depends_on_already_built: [errors, paths, messages, all]
+    depends_on_other_slices: "Calls into every other slice's public interface per interface_contract; land this slice last if the four are not truly parallel, since it is the integration point."
+    acceptance:
+      - ruby -c passes for every owned file
+      - "reach --help and reach doctor run without raising, against whatever of the other three slices has landed (doctor reports missing pieces honestly rather than crashing)"
+      - "reach.rplugin.yml's contents.scripts path (bin/reach) still boots"
+shared_surfaces_resolved:
+  - path: lib/reach.rb
+    rule: "Owned by the orchestrator (already written, requires every slice's files). No worker edits it."
+  - path: reach.rplugin.yml
+    rule: "Owned by the orchestrator. No worker edits it."
+  - path: VERSION
+    rule: "Owned by the orchestrator; bumped once at integration, after all four slices land."
+integration_steps_after_all_slices_land:
+  - ruby -c every lib/**/*.rb and bin/reach
+  - "rplugin check reach, rplugin install reach, rplugin doctor reach at zero findings (symlink ~/.rplugins/reach -> this repo first)"
+  - "Exercise the CLI for real: reach --help, reach doctor, reach mcp (start and stop it), reach gate session (expect a clean GateBlocked with no install yet)"
+  - Bump VERSION and reach.rplugin.yml's version together, write CHANGELOG.md, commit

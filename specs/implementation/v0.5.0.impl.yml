@@ -1,0 +1,53 @@
+schema: reach.impl/v1
+name: reach
+version: 0.5.0
+recorded: '2026-09-28'
+builds_on: specs/implementation/v0.4.1.impl.yml
+purpose: >-
+  Move the private directive bodies off the student's disk entirely. Teach serves one body per signed request and
+  keeps the only read log; the guardrails package carries rows but no bodies; a directive carries nothing a student
+  must not know, so disclosure is a behaviour question and never a security one.
+honesty: >-
+  The student still holds the install key and can run reach directive from a terminal. What changes is where the
+  boundary sits: not "unreadable" but "every read is a logged, rate-limited, revocable request that Teach observes
+  and the student cannot rewrite". Offline, the agent gets the one-line rule from the table and carries on.
+parts:
+  teach_route:
+    where: teach lib/teach/web/app.rb, lib/teach/models/directive_read.rb, lib/teach/directives.rb, rate_limiter.rb, db.rb, cli.rb
+    route: GET /api/v1/directives/<OPCODE> (W-API-DIRECTIVE), install auth, per_install plus a directives profile of 60 per hour
+    response: "{opcode, alias, rule, body, digest}; 404 not_found for an unknown opcode; 400 for a malformed one"
+    log: >-
+      Every served body is a directive_reads row (install, student, opcode, cutout_id and slice from the signed
+      query, time) and an audit record directive.read. Teach assesses the sweep itself: three or more distinct
+      opcodes within 300 s, or every opcode within an hour, creates one directive_dump integrity event per install
+      per hour, marked "(observed by Teach)". teach directives reads lists the log.
+    revocation: A revoked install is refused by authenticate_install! before any body is served.
+  package:
+    where: teach lib/teach/packages/guardrail_content.rb, builder.rb; specs/wire.yml W-PKG-1
+    change: The guardrails package carries the directive rows and no bodies. A 0.4.x Reach then prints the rule line.
+  reach_fetch:
+    where: reach lib/reach/directives.rb, lib/reach/integrity.rb, lib/reach/paths.rb, locales/en-US.yml
+    ladder: >-
+      reach directive <OPCODE> for a private row asks Teach in quick mode (one attempt, two-second timeouts, no
+      retries); a Teach that answers 404 (older than 0.5.0) falls back to the body inside the stored package if one
+      is there; otherwise the one-line rule with M-DIRECTIVE-OFFLINE. Nothing is written to disk in any branch.
+    removed: >-
+      The client-side sweep (Reach::Integrity.note_private_read, ~/.reach/state/directive-reads.json) - Teach's log
+      is authoritative and a client counter it could not trust added nothing.
+  no_secrets:
+    standard: STD-DIRECTIVES-CARRY-NO-SECRETS in both app specs
+    rule: >-
+      A directive body says what the agent does, never why and never how it is enforced; grading, weights, rubric,
+      thresholds, keys and the seal live in Teach and never enter a body. Teach::Directives.problems flags a body
+      that mentions rubric, weight, threshold, secret, hmac or password.
+verification:
+  - scratch Teach 0.5.0 rebuilds packages; the guardrails package has no directives/ entries; reach sync leaves the vault without bodies
+  - reach directive SLICE prints the body fetched from Teach; a directive_reads row and a directive.read audit record exist
+  - reading three private opcodes within 300 s creates one directive_dump on Teach; a fourth read in the hour creates none
+  - REACH_OFFLINE=1 reach directive SLICE prints the rule with M-DIRECTIVE-OFFLINE, exit 0
+  - a revoked install gets no body
+  - ruby:2.6.10-slim runs reach directive SLICE against the scratch Teach
+  - teach directives check passes; a body with the word rubric fails it
+out_of_scope:
+  - caching bodies on the client (would put them back on disk)
+  - serving public directive bodies from Teach (they ship in the open-source repo by design)

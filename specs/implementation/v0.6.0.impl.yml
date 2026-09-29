@@ -1,0 +1,116 @@
+schema: rstack.blueprint/v1
+task: reach-0.6.0
+version: 0.6.0
+intent: >
+  Follow specs/wire.yml protocol 1 revision 2026-09-28d (already written; byte-identical to Teach's copy; do not edit
+  it): run the Dovetail checker the shape package carries, with the student's own Ruby, instead of needing dovetail on
+  the PATH; and run the tips suite from a W-RUN-1 run directory with the gems the suite package names, so a student
+  with Ruby, Reach and a Chromium runs the same suite, with the same gems, that Teach grades with.
+harness: claude-code
+worker: { model: sonnet, effort: high, definition: coding-worker-high }
+repository: bitbucket.org/paterasai/reach (the local checkout at ~/bitbucket/paterasai/foss/reach)
+spec: reach.spec.yml (shape_loop, tips_suite, layout.data), specs/wire.yml (W-PKG-3, W-PKG-4, W-RUN-1)
+
+constraints:
+  - >-
+    AGENTS.md Part S. Write no tests, no spec files, no test directories. Verify by running Reach for real with a
+    scratch REACH_HOME and scratch vault content in <scratchpad>/a1/reach/, where <scratchpad> is
+    /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/9ba9679b-41fd-4c31-b5a0-817e860e6af1/scratchpad.
+    A previous verification script for the shape check is at <scratchpad>/reachfix/verify_shape.rb; reuse its
+    approach.
+  - AGENTS.md Part Q. No comments, doc comments or docstrings in any file. Only lines a tool reads survive.
+  - AGENTS.md Part F. No authorship or agent attribution anywhere.
+  - AGENTS.md Part E. Delete nothing outside your scratch directory; never run rm -r, git clean or find -delete.
+    Reach's own runtime code keeps its existing behaviour for its run directories.
+  - AGENTS.md Part J. Query codebase memory (project home-sven-bitbucket-paterasai-foss-reach) before grepping.
+  - Do not run git add, git commit, git stash, git checkout or any other git write. The primary stages and commits.
+  - >-
+    Touch only owns_paths. reach.spec.yml carries another session's uncommitted lines (the course-reference corpus:
+    one line in harness_integration's reach-course skill contents and one line in templates' reach-course skill
+    text). Leave those lines exactly as they are; skills/reach-course/SKILL.md and corpus/ are not yours.
+  - No em-dash or en-dash characters in any user-visible string.
+  - >-
+    Ruby 2.6.10 floor for everything in lib/ and exe/ (see STD-RUBY-FLOOR in specs/app.yml); check with
+    docker run --rm -v "$PWD":/d -w /d ruby:2.6.10-slim ruby -c <file>, and run the changed paths inside that
+    container too.
+  - AGENTS.md Part B. Gem installation from rubygems.org is the only network use; keep it one-time per lock digest, as now.
+
+environment:
+  ruby_host: /usr/bin/ruby is Ruby 3.3. Ruby 4.0.6 is at ~/.rubies/ruby-4.0.6/bin/ruby.
+  ruby_floor: docker image ruby:2.6.10-slim (pulled).
+  browser: /usr/bin/google-chrome; headless.
+  dovetail: >-
+    ~/bitbucket/paterasai/dovetail (0.2.0 with dovetail checker export is being built in parallel). Until checker
+    export exists, build a stand-in vault checker by copying Dovetail's exe/ and lib/ into <vault>/shape/dovetail/ and
+    say so; the layout is dovetail/exe/dovetail, dovetail/lib/**, dovetail/VERSION.
+  suite_fixture: >-
+    The real course suite is being built in parallel. Make a scratch suite in the W-PKG-4 layout: a tiny
+    reference_build/ (a config.ru-free Ruby library is enough), features/<m>/a1.feature with an @backend and an @panel
+    scenario, features/step_definitions/, features/support/env.rb that drives a tiny Rack app with Capybara (rack_test
+    for @backend, Cuprite with REACH_CHROME for @panel), a Gemfile (cucumber, capybara, cuprite, ferrum, rack,
+    webrick) and two real locks resolved with bundle lock on Ruby 3.3 and inside ruby:2.6.10-slim.
+
+owns_paths:
+  - lib/reach/shape.rb
+  - lib/reach/suite.rb
+  - lib/reach/paths.rb
+  - reach.spec.yml
+  - specs/app.yml
+  - README.md
+  - docs/**
+  - CHANGELOG.md
+  - TODO.md
+  - VERSION
+  - plugin.json
+  - .claude-plugin/plugin.json
+  - .claude-plugin/marketplace.json
+  - .codex-plugin/plugin.json
+  - reach.rplugin.yml
+
+design:
+  shape: >-
+    Reach::Shape runs [RbConfig.ruby, <shape vault>/dovetail/exe/dovetail, "check", ...] when that file exists, and
+    ["dovetail", "check", ...] otherwise; everything else in 0.4.2's invocation (panel directory, --shape,
+    --require-signed, --format json, --changed, DOVETAIL_PUBLIC_KEYS, exit handling, classification) is unchanged.
+    The not-on-PATH error applies only to the fallback.
+  suite: >-
+    Reach::Suite assembles the run directory exactly as W-RUN-1: reference_build/**, then features/** into features/,
+    then Gemfile, Gemfile.lock, Gemfile.ruby26.lock and reasons.yml at the root, then the slice's owned files. When
+    the vault suite has a Gemfile, the bundle uses it: a bundle environment directory keyed by the SHA-256 of the
+    Gemfile and the chosen lock, holding the Gemfile and the chosen lock as Gemfile.lock, installed once into
+    ~/.reach/gems (bundle config path, not the deprecated --path where the Ruby's bundler warns), and cucumber runs from
+    the run directory with BUNDLE_GEMFILE pointing at that environment. The lock choice is W-RUN-1's (Ruby 3.1 and
+    earlier the ruby26 lock). Without a Gemfile in the suite, today's generated Gemfile and Reach's own locks stay the
+    fallback. Tags come from the workspace manifest as today (now ["@<cutout_id>", "@<slice>"]), one --tags each.
+    REACH_CHROME is set as today. Failure categories and plain reasons are unchanged.
+  version: >-
+    0.6.0 in VERSION, plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json,
+    .codex-plugin/plugin.json, reach.rplugin.yml, specs/app.yml (version line only; implementation_blueprint becomes
+    specs/implementation/v0.6.0.impl.yml), and reach.spec.yml's version lines and status example.
+  docs: >-
+    reach.spec.yml: shape_loop.invocation (the vault checker first), layout.data (vault/shape/dovetail/), tips_suite
+    steps (W-RUN-1 and the suite's own gems); specs/app.yml depends_on dovetail line (carried in the shape package);
+    README.md where it describes the shape check or tips; CHANGELOG.md [0.6.0] - 2026-09-28; TODO.md: mark only
+    existing items this completes (the Dovetail-on-PATH limitation, the suite gem locks if they are). Parse every
+    YAML you edit with Ruby YAML afterwards.
+
+acceptance:
+  - >-
+    Shape: with a vault shape package that carries dovetail/ (the export or the stand-in), a scratch REACH_HOME and no
+    dovetail on the PATH, reach shape check and Reach::Check find S-LIF-001 in a setInterval panel and nothing in a
+    clean one, on Ruby 3.3 and inside ruby:2.6.10-slim; with no dovetail/ in the vault and none on the PATH the
+    0.4.2 "cannot run" behaviour holds.
+  - >-
+    Tips: with the scratch suite unpacked into a scratch vault and a slice workspace whose manifest tags are
+    ["@<cutout>", "@backend"], reach tips runs only the @backend scenario and reports it passed; with tags
+    ["@<cutout>", "@panel"] it runs the @panel scenario in headless Chrome and reports it passed; breaking the
+    owned file makes the scenario fail with a plain reason. The first run installs gems from the suite's lock into
+    the scratch ~/.reach/gems; the second does not reinstall. The @backend run also works inside ruby:2.6.10-slim
+    (no Chrome there).
+  - A suite with no Gemfile still runs with Reach's generated gem set as before.
+  - Every Ruby file touched passes ruby -c on 2.6.10.
+
+report:
+  - What you ran for each acceptance item and what it printed (trim long output).
+  - The bundle environment layout on disk after a run.
+  - Anything in this blueprint or the wire you could not do as written, and why.

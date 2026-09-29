@@ -1,0 +1,29 @@
+---
+schema: rplugin.config/v1
+corpus:
+  id: reach
+course:
+  timezone: America/Los_Angeles
+teach:
+  url:
+rstack:
+  backup:
+    schema: rplugin.plugin-backup/v1
+    plugin: reach
+    status: pending-activation
+    source:
+      roots:
+      - name: corpus
+        path: "~/.corpora/reach"
+    policy:
+      copies: 3
+      off_disk_copies: 2
+    mirrors:
+    - name: pcloud
+      require_mount: "~/pCloudDrive"
+      encrypt: true
+      path: "~/pCloudDrive/corpora/rstack-plugins/reach-mirror"
+    - name: sven-b1
+      require_mount: "/run/media/${USER}/SVEN-B1"
+      encrypt: true
+      path: "/run/media/${USER}/SVEN-B1/corpora/rstack-plugins/reach-mirror"

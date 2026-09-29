@@ -1,0 +1,36 @@
+schema: rplugin/v1
+id: reach
+name: Reach
+version: 0.6.0
+rplugin: ">= 1.0.0-compat"
+description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run courses.
+ports:
+  required: [secrets, state, events]
+  optional: [corpus, schedule]
+extensions:
+  enabled: [claude-code, codex, os]
+corpora:
+  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt], writes_kinds: [note, tip, attempt, receipt] }
+  consumes: []
+contents:
+  skills:
+    - { id: reach-course, path: skills/reach-course/SKILL.md }
+    - { id: reach-submit, path: skills/reach-submit/SKILL.md }
+    - { id: reach-help, path: skills/reach-help/SKILL.md }
+    - { id: reach-assistant, path: skills/reach-assistant/SKILL.md }
+    - { id: reach-build, path: skills/reach-build/SKILL.md }
+    - { id: reach-fix, path: skills/reach-fix/SKILL.md }
+    - { id: reach-checkpoint, path: skills/reach-checkpoint/SKILL.md }
+    - { id: design-taste-frontend, path: skills/design-taste-frontend/SKILL.md }
+  agents:
+    - { id: reach, path: agents/reach.md }
+  specs:
+    - { path: specs/app.yml }
+  scripts:
+    - { path: exe/reach }
+  docs:
+    - { path: docs/student-guide.md }
+    - { path: INSTALL.md }
+repository:
+  remote: "git@bitbucket.org:paterasai/reach.git"
+  store_path: reach

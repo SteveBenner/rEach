@@ -1,0 +1,14 @@
+{
+  "name": "reach",
+  "owner": {"name": "PatḗrasAI"},
+  "description": "rEach, the student's academic assistant",
+  "plugins": [
+    {
+      "name": "reach",
+      "source": "./",
+      "description": "rEach, the student's academic assistant for a Teach-run course.",
+      "version": "0.6.0",
+      "category": "education"
+    }
+  ]
+}

@@ -1,0 +1,344 @@
+schema: reach.impl/v1
+version: 0.4.0
+blueprint: reach.spec.yml
+contract: specs/wire.yml
+companion_blueprint: ../teach/specs/implementation/v0.4.0.impl.yml (teach repository, same version)
+status: planned
+recorded: '2026-09-28'
+task: reach-0.4.0-engineering-directives-and-seal
+intent: >
+  Make rEach the best small engineer a student can have without spending tokens on ceremony: a directive table in
+  every slice workspace's AGENTS.md (the same opcode / rule / pointer / enforcement / condition rows the fleet uses),
+  three deterministic flows (build, fix, checkpoint) that map the instructor's /feature, /bug and /checkpoint
+  workflow onto one assignment step of one module, a mechanical checker for the Ruby and Svelte the student's
+  agent writes, git-free snapshots, a persisted slice plan, and the Seal: a provenance system that marks every
+  owned file invisibly with a Teach-issued fingerprint, witnesses every harness-mediated edit in a keyed ledger,
+  mirrors the chain outside ~/.reach, and lets Teach say for every submission whose work it is, whether it was
+  made through the harness, and whether the course rules on that computer were tampered with.
+harness: claude-code
+worker: {definition: none, model: fable, effort: primary}
+note_on_workers: >
+  The primary is Fable, so under AGENTS.md Part T.4 it implements this blueprint itself. The blueprint is still
+  written first because its value is in the specifying. The 0.3.0 blueprint (another session, in flight) owns
+  lib/reach.rb, lib/reach/{messages,status,receipts,hello,setup,course_time}.rb, config.yml, VERSION, CHANGELOG.md,
+  TODO.md, README.md, INSTALL.md, specs/app.yml, reach.spec.yml, the persona files and .rproject/WIP.md; on Teach it
+  owns lib/teach.rb, lib/teach/{cli,assignments,config,doctor,course_time}.rb, VERSION, CHANGELOG.md, TODO.md,
+  README.md, specs/app.yml and teach.spec.yml. Those files are edited only after that session releases its locks;
+  the edits are listed under deferred_edits so nothing is forgotten.
+decisions_from_the_interview:
+  - Two tiers of directives. PUBLIC rows ship in this repository under directives/ (generic engineering discipline,
+    free for any student to read). PRIVATE rows are authored in Teach's repository, travel encrypted inside the
+    guardrails package, live only in the vault, and are read by the agent through `reach directive <OPCODE>`.
+  - Web code is a Dovetail Svelte component (TypeScript script, HTML markup, Tailwind classes from tokens);
+    everything else is Ruby in the 2.6-4.0 intersection.
+  - The workflow skills are /reach-build, /reach-fix and /reach-checkpoint.
+  - Checkpoints are Reach-native snapshots with no git dependency; the agent only calls `reach checkpoint ...`.
+  - No comments in student code beyond the two header lines Reach itself reads; no tests; no subagents.
+  - The verified design-taste-frontend skill is vendored into the plugin and required for panel slices only.
+  - The full Seal is built: marks, witness ledger, sidecar, Teach-side provenance verdicts, vault integrity check.
+  - The seal is never described to the agent; tampering refuses course work until `reach sync` heals it and is
+    reported to Teach with the install and student it came from.
+  - The slice API specification is not written here; it is a TODO in both repositories.
+constraints:
+  - "AGENTS.md Part S: no tests, test files, fixtures or drills in either repository."
+  - "AGENTS.md Part Q: no comments in code; magic comments, shebangs and SPDX lines survive."
+  - "AGENTS.md Part F: no attribution anywhere."
+  - "AGENTS.md Part E: nothing deleted without an in-place backup."
+  - "Reach code parses and runs on Ruby 2.6.10 and 4.0.x: no endless methods, pattern matching, numbered block parameters, hash shorthand, argument forwarding, filter_map or Hash#except; require 'set' before Set."
+  - "Reach never prints, logs or shows the agent a mark, a ledger key, a payload or anything from seal.yml."
+  - "Every message a student sees comes from locales/en-US.yml by id (STD-STUDENT-MESSAGES)."
+  - "specs/wire.yml is amended additively (protocol stays 1): new optional fields, one new route, new package entries. A Reach 0.4.0 against a Teach 0.3.0 still enrols, syncs and submits; the new route's 404 is ignored."
+  - "Teach code targets Ruby 4.0.6 (bundle exec, gems vendored)."
+runtimes:
+  reach_modern: "/usr/bin/ruby (3.3.8) from the reach repository root"
+  reach_floor: "docker run --rm -v ~/bitbucket/paterasai/foss/reach:/reach -v <scratch>:/scratch -w /reach -e REACH_HOME=/scratch/reach-home -e REACH_WORKSPACE_ROOT=/scratch/reach-work ruby:2.6.10-slim ruby <args>"
+  teach: "cd ~/bitbucket/paterasai/teach && PATH=$HOME/.rubies/ruby-4.0.6/bin:$PATH bundle exec ruby bin/teach <args>"
+
+directive_table:
+  where: >
+    Rendered by Reach::Guardrails.render_rules into AGENTS.md, CLAUDE.md and GEMINI.md of every slice workspace
+    (W-RENDER-1 amended). Layout, in order: the existing heading and sentence; the numbered G-* rules as today;
+    a blank line; "## Course directives" (private tier rows); a blank line; "## Engineering directives" (public
+    tier rows); a blank line; the pointer sentence; a blank line; the existing Your files / Slice / Due footer.
+  pointer_sentence: >
+    "Every row binds. When a row's condition applies, run `reach directive <OPCODE>` (or the reach_directive tool)
+    and follow the full text. Rows cover different surfaces and do not override one another; the numbered rules
+    above come first."
+  row_format: >
+    "[<alias> · <OPCODE>]  <rule, padded to 88>  reach directive <OPCODE>  ⚙ <enforce>  ⚡ [<when>]" with the
+    same padding rules as ~/.ai/scripts/build-directives.sh (label 20, rule 88, pointer 26, enforce 22). One row
+    per line, no wrapping. The table for one slice stays under 6000 characters so Codex's 32 KiB instruction file
+    is never approached.
+  frontmatter_schema:
+    id: "D-<OPCODE> (private) or R-<OPCODE> (public); unique across both tiers"
+    opcode: "UPPERCASE, 3-10 letters, unique across both tiers"
+    alias: "one uppercase letter, unique across both tiers; public rows use A-M, private rows use N-Z"
+    tier: public | private
+    rule: "one sentence, at most 88 characters, imperative"
+    when: "a bracketed list of conditions in the fleet vocabulary: always, task:<slug>, path:<glob>, tool:<name>, slice:<backend|panel|verification>, event:<name>"
+    enforce: "gate:write | gate:shell | check:<rule-id-prefix> | hook:shape | tips | ledger | none"
+    slice: "optional: backend | panel | verification | all (default all); a row is rendered only for slices it applies to"
+  public_rows:
+    - {opcode: PLAN1ST, alias: A, enforce: "ledger", when: "[task:build, event:SessionStart]", rule: "before any edit, save a slice plan with reach plan save; read it back at every session start"}
+    - {opcode: RUBY, alias: B, slice: backend, enforce: "check:CK-RUBY", when: "[path:**/*.rb]", rule: "backend code is plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literals, no gems"}
+    - {opcode: PURE, alias: C, slice: backend, enforce: "check:CK-PURE", when: "[path:**/*.rb]", rule: "a behaviour is a function of input and ports: no files, network, clock, randomness, threads or globals"}
+    - {opcode: NOTEST, alias: D, enforce: "check:CK-TEST", when: "[always]", rule: "never write test code; the instructors' suite is the only test and reach tips runs it"}
+    - {opcode: NOCOM, alias: E, enforce: "check:CK-COMMENT", when: "[path:**/*.rb, path:**/*.svelte]", rule: "write no comments; the plan and README carry the why, the code carries the what"}
+    - {opcode: VERIFY, alias: F, enforce: "ledger", when: "[task:after-task]", rule: "a claim of done carries the command and its output; a passing check is not business meaning"}
+    - {opcode: TOZERO, alias: G, enforce: "hook:attempts", when: "[task:after-task]", rule: "work findings to zero: three attempts per finding then raise a hand, five loops per turn, invent none"}
+    - {opcode: CHECKPOINT, alias: H, enforce: "ledger", when: "[task:after-task, task:rewrite]", rule: "reach checkpoint save after every clean check and before any rewrite; restore, never reconstruct"}
+    - {opcode: RESUME, alias: I, enforce: "none", when: "[event:SessionStart, event:Stop]", rule: "open with reach plan show and reach status; close by updating the plan's progress and next lines"}
+    - {opcode: LEAN, alias: J, enforce: "none", when: "[always]", rule: "read only README, contract/, api/, shape/brief.md and the owned files; no subagents; one question at a time"}
+    - {opcode: DOVETAIL, alias: K, slice: panel, enforce: "check:CK-PANEL", when: "[path:**/*.svelte]", rule: "a panel is a Svelte component in TypeScript with Tailwind token classes; every seam goes through Dovetail"}
+  private_rows_authored_in_teach:
+    - {opcode: SLICE, alias: N, enforce: "gate:write", when: "[always]", rule: "the unit of work is one assignment step of one module; never work ahead of the released step"}
+    - {opcode: PORTS, alias: O, slice: backend, enforce: "check:CK-PORTS", when: "[path:**/*.rb]", rule: "the granted instructor API in api/README.md is the only way out of a behaviour"}
+    - {opcode: FUSE, alias: P, enforce: "check:CK-FUSE", when: "[path:**/*.rb, path:**/*.svelte]", rule: "your slice fuses unattended: stay in your namespace, events only from the contract"}
+    - {opcode: LANG, alias: Q, enforce: "gate:write", when: "[always]", rule: "all logic is Ruby; the only UI code is the Dovetail Svelte panel a panel slice owns"}
+    - {opcode: CRAFT, alias: R, slice: panel, enforce: "hook:shape", when: "[path:**/*.svelte]", rule: "design a panel through the design-taste-frontend skill and the brief before writing markup"}
+    - {opcode: SEAL, alias: S, enforce: "ledger", when: "[path:**/*.rb, path:**/*.svelte]", rule: "keep the first two lines of every owned file exactly as reach wrote them"}
+  body_loading:
+    command: "reach directive <OPCODE> [--format text|json]"
+    public: "reads <plugin root>/directives/<opcode>.md, strips the frontmatter, prints the body"
+    private: "reads ~/.reach/vault/guardrails/directives/<opcode>.md after the vault integrity check, prints the body"
+    unknown: "exits 1 with M-DIRECTIVE-UNKNOWN naming the known opcodes"
+    ledger: "every successful load appends a directive event {opcode, tier}"
+    mcp: "tool reach_directive {opcode} returns {opcode, tier, body}"
+
+seal:
+  purpose: >
+    Answer, for every submission, three questions the instructors cannot otherwise answer: whose work is this,
+    was it made through the harness under the course rules, and were the rules on that computer intact.
+  parts:
+    marks:
+      issued_by: teach
+      value: "HMAC-SHA256(teach seal secret, install_id + \"\\n\" + cutout_id + \"\\n\" + owned path), first 8 bytes, lowercase hex (16 chars)"
+      secret: "~/.teach/keys/seal.secret, 32 random bytes as 64 hex chars, created by Teach::Seal.secret on first use, mode 0600, never sent anywhere"
+      shipped: "guardrails package entry seal.yml: {schema: teach.seal/v1, ledger_key, marks: {<cutout_id>: {<owned path>: <mark>}}}"
+      ledger_key: "HMAC-SHA256(seal secret, \"ledger\\n\" + install_id + \"\\n\" + guardrails version) as 64 hex chars; Teach recomputes it at verification time, so nothing is stored"
+    carrier:
+      ruby: "line 1 `# frozen_string_literal: true`, line 2 `# reach <cutout_id> <slice>` followed by a space and the payload"
+      svelte: "line 1 `<!-- reach <cutout_id> <slice> ` + payload + ` -->`"
+      payload: "U+2060, then 64 characters each U+200B (bit 0) or U+200C (bit 1) for the mark's 64 bits most significant first, then U+2060"
+      verified_on: "Ruby 3.3.8 and ruby:2.6.10-slim: both orderings keep the magic comment effective; line 2 is used"
+      idempotent: "Reach rewrites a file only when its carrier is absent or its payload differs from the expected mark; an intact carrier never causes a write, so the agent's next Edit does not see an unexpected modification"
+    stamping:
+      when: "workspace provisioning (before delivered digests are computed), reach check (every PostToolUse), reach checkpoint save and restore, reach submit (before the manifest is built)"
+      classification_per_file: "own (payload equals the expected mark) | missing (no carrier or no payload) | corrupt (payload present, not decodable or wrong length) | foreign (decodes to a mark that is not this file's expected mark)"
+      actions: "own: nothing. missing: write the carrier, ledger event mark_restored. corrupt: ledger event, integrity event corrupt_mark, then rewrite. foreign: never overwrite (it is evidence); ledger event; integrity event foreign_mark; the submission carries it for Teach to identify"
+      no_seal_package: "when seal.yml is absent (a Teach older than 0.4.0), files are not stamped, the ledger uses a local key from ~/.reach/state/ledger.key, and the manifest says seal.ledger_key: local"
+    ledger:
+      path: "~/.reach/state/ledger/<course>/<assignment>/<root>.jsonl, one JSON object per line"
+      record: "{n, at, kind, ...fields, prev, tag}; prev is the previous record's tag (\"\" for n = 1); tag = HMAC-SHA256(ledger_key, canonical_json(record without tag)) as 64 hex chars"
+      kinds:
+        session: "{harness}"
+        prompt: "{}"
+        write: "{path, before, after} where before is the last witnessed after for that path (or the delivered digest), after is the current digest"
+        shell: "{command_digest, head} where head is the first 200 bytes of the command"
+        check: "{changed, findings}"
+        shape: "{findings}"
+        tips: "{passed, total, timed_out}"
+        directive: "{opcode, tier}"
+        plan: "{action}"
+        checkpoint: "{n, note_digest}"
+        restore: "{n}"
+        mark_restored: "{path}"
+        integrity: "{kind, path}"
+        submit: "{manifest_digest}"
+      key_rotation: "a new guardrails version brings a new ledger_key; the ledger records {kind: rekey, guardrails_version} and continues; Teach verifies each segment with the key for its version"
+      size_bound: "at most 20000 records per slice; when exceeded, the oldest 5000 are moved to <root>.1.jsonl (kept, never deleted) and a rekey-style record notes the split"
+    sidecar:
+      path:
+        macos: "~/Library/Application Support/reach/seal.json"
+        windows: "%LOCALAPPDATA%\\reach\\seal.json"
+        linux: "$XDG_STATE_HOME/reach/seal.json, else ~/.local/state/reach/seal.json"
+      content: "{schema: reach.sidecar/v1, sidecar_id: 32 hex (created once), installs: [{install_id, student_id, teach_url, enrolled_at}], heads: {<root>: {head, n, at}}, updated_at}"
+      written: "at enrolment (append the install), after every ledger append (update heads), never deleted by reach lock"
+      reported: "after a successful enrol, Reach sends an integrity event kind enrolled with {sidecar_id, prior_install_ids}; Teach links installs that share a sidecar and shows the chain in teach installs list"
+    integrity_events:
+      kinds: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled]
+      route: "POST /api/v1/integrity (W-API-INTEGRITY), install-authenticated, Idempotency-Key required, body {kind, detail (<= 2000 bytes), cutout_id?, slice?, path?, ledger_head?, client_created_at}"
+      offline: "queued in ~/.reach/outbox as kind integrity and sent by reach sync"
+      teach: "stored in integrity_events; teach integrity list [--student] [--kind] prints them; every event also lands in audit as integrity.<kind> with the install as actor"
+    vault_integrity:
+      manifest: "Reach::Guardrails writes ~/.reach/vault/guardrails/.manifest.json {entry => sha256} at unpack"
+      check: "Reach::Guardrails.load recomputes every entry's digest on every call (the gate calls it on SessionStart, UserPromptSubmit and directive loads)"
+      response: "silent: work continues on whatever is in the vault, nothing is shown to the student or the agent; Reach appends an integrity ledger event and sends integrity kind vault_tampered naming the entries (once per distinct mismatch, deduplicated by digest); reach sync re-unpacks the signed package whenever the manifest disagrees, which heals the vault without comment"
+    submit_gate:
+      first_attempt: "reach submit with open reach check findings exits 1 in agent format with the findings and M-SUBMIT-FIX-FIRST; the count for that findings digest is stored in ~/.reach/state/submit-gate/<root>.json"
+      second_attempt: "the same findings digest a second time: reach submit refuses with M-SUBMIT-BLOCKED-CHECK (plain words: something went wrong with the attempt to write the code properly; please see your instructor), raises a hand with trigger check_gate whose summary lists the finding ids, and tells the student a hand was raised"
+      reset: "a clean check clears the stored count; different findings restart at one"
+      wire: "W-API-HAND trigger enum gains check_gate; Teach's TRIGGER_VALUES accepts it"
+    submission_manifest_additions:
+      seal:
+        guardrails_version: integer or null
+        ledger_key: "teach | local"
+        ledger_head: "the last tag"
+        ledger_count: integer
+        witnessed: "{<owned path>: <last write.after digest or null>}"
+        marks: "{<owned path>: own | missing | corrupt | foreign}"
+        harness: "claude-code | codex | antigravity | unknown (from the last session record)"
+        sidecar_id: "32 hex or null"
+        integrity_events: integer
+      entry: "ledger.jsonl: the last 2000 ledger records for the slice, verbatim"
+    teach_verification:
+      module: Teach::Provenance
+      when: "at ingest, after SubmissionCheck.verify! and before the receipt is signed; never blocks ingest"
+      verdict:
+        marks: "{path: own | foreign:<install_id> | missing | corrupt | unmarked} by recomputing the expected mark for this install and, for a non-matching decodable mark, for every install of the course"
+        witnessed: "{path: true | false}: the submitted digest equals the last write.after for the path in the verified ledger tail"
+        ledger: "verified | broken:<n> | unverifiable (local key or no seal) | absent"
+        rules_current: "manifest guardrails_version equals the latest guardrails package version for the student"
+        summary: "clean | review: <reasons>"
+      storage: "submissions.provenance_json; the ingest receipt returned to the student never carries it"
+      cli: "teach submissions show <id> prints it; teach provenance list --assignment <A> [--only review] lists one line per submission"
+
+checker:
+  command: "reach check [--changed <path>] [--format text|agent|json] [--slice <id>]"
+  order: "stamp (Seal), then rules, then Shape.check when a shape exists, then ledger events check and shape"
+  finding: "{id, file, line, message, fix, class: invisible|visible, rule}"
+  rules:
+    CK-RUBY-SYNTAX: "ruby -wc on each owned .rb; each warning or error line is one finding (invisible)"
+    CK-RUBY-FLOOR: "endless method definitions, case/in, numbered block parameters, argument forwarding, filter_map, Hash#except, Hash shorthand `{x:}`; conservative regexes, message names the construct and the 2.6 form"
+    CK-RUBY-SHAPE: "the file's first code is `module Grokit` nesting `module <Module>`, `module Behaviours`, `class <Name> < Grokit::Behaviour` with `def call(input, ports)`, where <Module> and <Name> come from the slice's class field; no statements outside that nest except requires from the allowlist"
+    CK-COMMENT: "any comment line other than line 1 (magic comment), line 2 (carrier), a shebang or an SPDX line; any trailing ` # ` on a line with no string delimiters; in .svelte any `<!-- -->` beyond line 1 and any `//` or `/* */` in a script line without quotes"
+    CK-TEST: "require of minitest, rspec or test/unit; RSpec, describe, it \", def test_, assert_ in a .rb; vitest, jest, describe(, it(, expect( in a .svelte"
+    CK-PURE: "File, IO, Dir, Net::, Socket, open(, backticks, system(, spawn, exec(, ENV, Time.now, Date.today, rand, Random, SecureRandom, sleep, Thread, Process, $globals, @@class variables, require_relative, requires outside [bigdecimal date json set time], eval, send(, define_method, alias_method, instance_variable_set, reopening String/Hash/Array/Integer/Float/Object/Kernel/Module"
+    CK-PORTS: "a Grokit:: constant other than Grokit::Behaviour, Grokit::<Module>::Behaviours, Grokit::NotImplemented, Grokit::ContractViolation, Grokit::Unavailable, Grokit::PortNotGranted, Grokit::CurrencyMismatch; a `ports.<name>` whose <name> is not the prefix of an instructor API line in api/README.md"
+    CK-FUSE: "a constant defined outside the class nest; a top-level `def`; `$stdout`/`puts`/`print`/`p `/`warn`; in .svelte an import from a path containing another module's name, `export` of anything from the component script, `:global`"
+    CK-PANEL: "in .svelte: missing `<script lang=\"ts\">`; localStorage, sessionStorage, indexedDB, document.cookie, fetch(, XMLHttpRequest, EventSource, WebSocket, window.location, history., setInterval, setTimeout, requestAnimationFrame, position: fixed, z-index, :global, {@html}, `: any`, a hex colour, an arbitrary-value class `[...]`, a literal id=, vw/vh/dvh units, <svelte:window, <svelte:document, addEventListener; each finding names the matching Dovetail rule id (S-STO-001 and so on) so the attempt gate and Dovetail agree"
+    CK-SEAL: "does not exist; the seal enforces through the stamping pass, the ledger and integrity events, never a finding"
+  exit: "0 with no findings, 1 with findings, 2 when the gate refuses"
+  attempts: "Reach::Attempts.settle also counts check findings, keyed \"<rule>:<file>:<line-independent message>\", so the three-attempt gate and the hand raise apply to them"
+
+checkpoints:
+  command: "reach checkpoint save [--note <text>] | list | restore <n> | show <n>"
+  store: "~/.reach/checkpoints/<course>/<assignment>/<root>/<NNN>/ with files/<owned path> and meta.json {n, at, note, digests, marks, ledger_head}"
+  save: "stamps first; copies every existing owned file; n is the next integer; a save whose digests equal the previous checkpoint's is refused with M-CHECKPOINT-SAME (exit 0); ledger event"
+  restore: "saves an automatic checkpoint noted \"before restore <n>\" when the tree differs from the last checkpoint, copies files back, re-stamps, ledger event, prints M-CHECKPOINT-RESTORED"
+  list: "one line per checkpoint: n, course time, note, changed files count"
+  mcp: "tool reach_checkpoint {action: save|list|restore|show, note?, n?}"
+
+plan:
+  command: "reach plan save --behaviour <t> [--input <t>] [--output <t>] [--steps <a|b|c>] [--edge-cases <a|b>] [--scenarios <a|b>] [--evidence <t>] [--progress <t>] [--next <t>] | show [--format text|json] | note --progress <t> --next <t>"
+  store: "<workspace>/.reach/plan.yml {schema: reach.plan/v1, behaviour, input, output, steps[], edge_cases[], scenarios[], evidence, progress, next, saved_at, updated_at}"
+  limits: "each text field at most 400 characters, each list at most 12 items of 200 characters; save fails with M-PLAN-TOO-LONG naming the field"
+  never_submitted: "plan.yml is not an owned file and never enters a submission or a hand bundle unless the hand includes it explicitly (it does: hands carry plan.yml as \"plan\" so instructors see intent)"
+  mcp: "tool reach_plan {action: save|show|note, fields}"
+
+skills:
+  reach-build: "the /feature port: 1 read README, contract/, api/, shape/brief.md, owned files (LEAN); 2 restate the behaviour, the input, the output, the steps, the edge cases and the scenarios in the student's words and save the plan; 3 wait for the student's yes; 4 for a panel slice load design-taste-frontend and read the brief; 5 edit only owned files; 6 run reach check until it prints no findings (TOZERO); 7 run reach tips and read every scenario by name; 8 reach checkpoint save; 9 tell the student what was built, the exact commands and output that prove it, and what is unverified (VERIFY); 10 update the plan's progress and next; 11 when every scenario of the step passes, offer reach-submit"
+  reach-fix: "the /bug port: 1 name the failing scenario or the finding id; 2 reproduce it with the exact command; 3 reach checkpoint save --note \"before fix <name>\"; 4 the smallest change in owned files; 5 rerun the same command; 6 count attempts, three on the same finding means reach-help; 7 reach checkpoint save when green; 8 report with the output"
+  reach-checkpoint: "when the student says save, checkpoint, undo or go back: reach checkpoint save --note \"<what works now>\", list, or restore <n>; explain in one sentence what a restore will replace; never restore without the student's yes"
+  reach-course: "gains: the AGENTS.md table governs; run reach check after every change (it includes the shape check); the three flows by name; the vendored taste skill for panel slices"
+  design-taste-frontend: "vendored verbatim from ~/.claude/skills/design-taste-frontend (upstream ccbc156): SKILL.md, LICENSE, PROVENANCE.md; refreshed by the instructor's update-taste-skill.sh flow; reach doctor R-DOC-TASTE validates the frontmatter name and the body's opening heading"
+
+hooks:
+  claude_code_and_codex:
+    PostToolUse: "Write|Edit|MultiEdit(|apply_patch) -> reach check --changed <path> --format agent (timeout 60); replaces the shape check entry, which check now runs"
+    Stop: "reach attempts settle (unchanged command; extended behaviour)"
+    others: unchanged
+  ledger_from_hooks: "gate session -> session; gate prompt -> prompt; gate shell -> shell; check -> write (per changed path) + check + shape"
+
+slices:
+  - id: slice_directives
+    owns_paths:
+      - directives/README.md
+      - directives/plan1st.md
+      - directives/ruby.md
+      - directives/pure.md
+      - directives/notest.md
+      - directives/nocom.md
+      - directives/verify.md
+      - directives/tozero.md
+      - directives/checkpoint.md
+      - directives/resume.md
+      - directives/lean.md
+      - directives/dovetail.md
+      - lib/reach/directives.rb
+      - lib/reach/guardrails.rb
+      - specs/directives.yml
+    deliverable: "The public directive bodies with frontmatter, Reach::Directives (load, validate, table rows, show), and Guardrails.render_rules producing the amended W-RENDER-1 text with the vault integrity manifest and check."
+    acceptance: "ruby -w -Ilib -e 'require \"reach\"; puts Reach::Directives.table(cutout_id: \"context.a1\", slice: \"backend\")' prints eleven public rows (ten for a panel slice) under 6000 characters; reach directive PLAN1ST prints the body; a mutated vault file makes Reach::Guardrails.load raise Reach::Tampered."
+  - id: slice_seal
+    owns_paths:
+      - lib/reach/seal.rb
+      - lib/reach/ledger.rb
+      - lib/reach/sidecar.rb
+      - lib/reach/integrity.rb
+      - lib/reach/paths.rb
+      - lib/reach/errors.rb
+      - lib/reach/workspace.rb
+      - lib/reach/submit.rb
+      - lib/reach/enrol.rb
+      - lib/reach/sync.rb
+      - lib/reach/hands.rb
+      - lib/reach/gate.rb
+    deliverable: "Marks encode and decode; stamping with the four classifications; the keyed ledger with tags and rotation; the sidecar; integrity events with an outbox; the manifest seal block and ledger.jsonl entry; the marker's class and module fields; the gate's tamper path."
+    acceptance: "In a scratch REACH_HOME with a hand-built seal.yml: stamping an empty .rb yields the two header lines with a 66-character invisible payload; stamping twice does not rewrite; a decoded payload equals the mark; a ledger of three records verifies and a modified middle record breaks it at n = 2; the sidecar file appears at the platform path; a manifest built by Reach::Submit carries seal and the ledger tail."
+  - id: slice_check_and_flows
+    owns_paths:
+      - lib/reach/check.rb
+      - lib/reach/checkpoint.rb
+      - lib/reach/plan.rb
+      - lib/reach/attempts.rb
+      - lib/reach/harness.rb
+      - lib/reach/cli.rb
+      - lib/reach/mcp_bridge.rb
+      - locales/en-US.yml
+      - skills/reach-build/SKILL.md
+      - skills/reach-fix/SKILL.md
+      - skills/reach-checkpoint/SKILL.md
+      - skills/reach-course/SKILL.md
+      - skills/design-taste-frontend/SKILL.md
+      - skills/design-taste-frontend/LICENSE
+      - skills/design-taste-frontend/PROVENANCE.md
+      - reach.rplugin.yml
+      - specs/wire.yml
+    deliverable: "reach check, checkpoint, plan and directive verbs and their MCP tools; hooks calling check; attempts covering check findings; the three skills; the vendored taste skill; doctor checks R-DOC-DIRECTIVES, R-DOC-TASTE and R-DOC-SEAL; the wire amendments."
+    acceptance: "reach check on a workspace whose behaviour file contains `Time.now`, a comment and an endless method prints three findings with ids CK-PURE, CK-COMMENT and CK-RUBY-FLOOR and exits 1; reach checkpoint save, list and restore round-trip a file; reach plan save/show round-trips; reach doctor reports nothing new on the developer machine; the wire digest changes and the Teach copy is byte-identical."
+  - id: slice_teach
+    owns_paths:
+      - ../teach/directives/README.md
+      - ../teach/directives/slice.md
+      - ../teach/directives/ports.md
+      - ../teach/directives/fuse.md
+      - ../teach/directives/lang.md
+      - ../teach/directives/craft.md
+      - ../teach/directives/seal.md
+      - ../teach/lib/teach/directives.rb
+      - ../teach/lib/teach/seal.rb
+      - ../teach/lib/teach/provenance.rb
+      - ../teach/lib/teach/packages/guardrail_content.rb
+      - ../teach/lib/teach/packages/builder.rb
+      - ../teach/lib/teach/submission_check.rb
+      - ../teach/lib/teach/db.rb
+      - ../teach/lib/teach/models/submission.rb
+      - ../teach/lib/teach/models/install.rb
+      - ../teach/lib/teach/models/integrity_event.rb
+      - ../teach/lib/teach/web/app.rb
+      - ../teach/lib/teach/web/helpers.rb
+      - ../teach/lib/teach/rate_limiter.rb
+      - ../teach/specs/wire.yml
+      - ../teach/specs/implementation/v0.4.0.impl.yml
+    deliverable: "The private directive bodies; Teach::Directives (load, validate); the seal secret, marks and ledger keys; the guardrails package carrying directives.yml rows, directives/*.md and seal.yml; provenance verification at ingest stored on the submission; the integrity route, table and model; install sidecar linking; the wire copy."
+    acceptance: "teach packages build --assignment A1 --student <id> produces a guardrails package whose tar holds directives.yml with 6 D- rows, 6 directives/*.md files and seal.yml with a mark per owned path; a submission built by Reach 0.4.0 ingests with provenance_json summary clean; the same submission with one file's payload altered reports marks.<path> corrupt; POST /api/v1/integrity stores an event and repeats on the same Idempotency-Key return the same id."
+deferred_edits:
+  reach:
+    - "lib/reach.rb: require reach/directives, reach/seal, reach/ledger, reach/sidecar, reach/integrity, reach/check, reach/checkpoint, reach/plan (after guardrails and before gate)"
+    - "VERSION 0.4.0; plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, specs/app.yml versions"
+    - "CHANGELOG.md 0.4.0 entry; TODO.md: slice API specification item, Antigravity has no hooks so its edits are unwitnessed, Dovetail checker absent so CK-PANEL is the backstop"
+    - "README.md: the directive table, the flows, the checker, checkpoints, the seal in one paragraph each"
+    - "specs/app.yml: STD-DIRECTIVE-TABLE, STD-SEAL-INVISIBLE, STD-CHECK-BEFORE-SUBMIT, STD-NO-GIT-IN-WORKSPACE; STD-VAULT-PRIVATE names Reach::Directives and Reach::Seal as the other readers"
+    - "reach.spec.yml: sections directives, seal, checker, checkpoints, plan, skills additions, harness hook change"
+    - "AGENTS.md (repo): the directives/ directory and the vendored taste skill; .rproject/WIP.md entry"
+    - "skills/reach-assistant/SKILL.md and agents/reach.md: course work section names the three flows"
+  teach:
+    - "lib/teach.rb: require teach/directives, teach/seal, teach/provenance, teach/models/integrity_event"
+    - "lib/teach/cli.rb: directives check, integrity list, provenance list; submissions show prints provenance"
+    - "lib/teach/doctor.rb: seal secret present, directives valid"
+    - "VERSION 0.4.0, CHANGELOG.md, TODO.md (slice API spec), README.md, specs/app.yml, teach.spec.yml (guardrail_content gains the directive rows and seal.yml; minimum_reach_version stays 0.2.0)"
+out_of_scope:
+  - The slice API specification (a TODO in both repositories).
+  - A Dovetail shape checker binary; CK-PANEL stands in until it ships.
+  - Grading sandbox, weekly briefs in the corpus, Antigravity hooks.

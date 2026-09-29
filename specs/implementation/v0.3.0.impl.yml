@@ -1,0 +1,133 @@
+schema: reach.impl/v1
+component: reach
+version: 0.3.0
+from_version: 0.2.0
+recorded: '2026-09-28'
+authority: >-
+  specs/app.yml (STD-COURSE-TIME, STD-SMOKE, STD-RUBY-FLOOR, STD-STUDENT-MESSAGES) and reach.spec.yml (course_time,
+  smoke_test). Where this blueprint and those disagree, stop and report; do not choose.
+goal: >-
+  Show every student-facing time in the course's timezone with its PDT/PST label; make setup's NEXT block name the
+  reach-assistant skill and give a permission-free way to read it; and land the sandboxed smoke harness, proven in a
+  scratch copy, as tools/smoke/ in this repository, made portable.
+
+constraints:
+  - "Ruby: every lib/ and exe/ file must parse and run on Ruby 2.6.10 (no endless methods, no pattern matching, no numbered block params, no hash shorthand, no Hash#except, no filter_map). tools/smoke/run.rb runs on the developer's host Ruby, 2.6 or newer, standard library only."
+  - "AGENTS.md Part Q: write no comments in code. Only a shebang or an SPDX line a tool reads may stay."
+  - "AGENTS.md Part S: the smoke harness is test machinery the user asked for, so tools/smoke/ is allowed. Write no other test files. Throwaway verification scripts live only under your scratch directory."
+  - "Do not stage, commit, push or tag. Do not edit files outside owned_paths; if one needs changing, report it."
+  - "Another session has uncommitted edits in AGENTS.md, TODO.md, reach.spec.yml, skills/reach-course/SKILL.md and corpus/. Never touch those paths."
+  - "Do not run the smoke harness against the real Claude API. Its live run is the primary's job after integration."
+scratch: "<session scratchpad>/worker_reach_v030/"
+runtimes:
+  host_ruby: "/usr/bin/ruby (3.3.8)"
+  floor_ruby: "docker run --rm -v <repo>:/reach -w /reach -e TZ=UTC ruby:2.6.10-slim ruby <args>"
+
+owned_paths:
+  - lib/reach/course_time.rb
+  - lib/reach/messages.rb
+  - lib/reach/status.rb
+  - lib/reach/receipts.rb
+  - lib/reach/hello.rb
+  - lib/reach/setup.rb
+  - lib/reach.rb
+  - config.yml
+  - tools/smoke/run.rb
+  - tools/smoke/scenarios.yml
+  - tools/smoke/Dockerfile
+
+not_owned_by_worker:
+  - "tools/smoke/README.md (the primary writes it)"
+  - "skills/, agents/, INSTALL.md, specs/, reach.spec.yml, VERSION, CHANGELOG.md, TODO.md, README.md, AGENTS.md, corpus/"
+
+detail:
+  course_time:
+    file: lib/reach/course_time.rb
+    module: Reach::CourseTime
+    constants:
+      DEFAULT_ZONE: "America/Los_Angeles"
+    functions:
+      zone: >-
+        The course timezone name. Order: Reach::Enrol.current["course"]["timezone"] when present and non-empty;
+        else config.yml course.timezone (read through Reach::Runtime.load_config); else DEFAULT_ZONE. Never raises
+        (rescue StandardError -> DEFAULT_ZONE).
+      "format(value, zone: nil)": >-
+        Returns a String. zone defaults to zone(). nil, empty or unparseable value -> "". A date-only value matching
+        /\A\d{4}-\d{2}-\d{2}\z/ -> Date.strptime(value, "%Y-%m-%d").strftime("%a %-d %b"), with no zone label. Otherwise
+        parse with Time.parse (or accept a Time), convert the instant to the zone as below, and return
+        "%a %-d %b %-l:%M %P <ABBR>", for example "Sat 3 Oct 11:59 pm PDT".
+      conversion: >-
+        America/Los_Angeles: built-in US rules, never ENV["TZ"]. For an instant t (UTC): dst = pdt_start(t.year) <= t <
+        pdt_end(t.year), where pdt_start is the second Sunday of March at 10:00 UTC and pdt_end is the first Sunday of
+        November at 09:00 UTC. Offset -7 h and label "PDT" when dst, else -8 h and "PST". Format (t.utc + offset) with
+        strftime on that UTC Time, then append the label.
+        Any other zone: when File.file?("/usr/share/zoneinfo/" + zone), set ENV["TZ"] = zone, format
+        Time.at(t.to_r).localtime with "%a %-d %b %-l:%M %P %Z", then restore ENV["TZ"] exactly (delete the key when it was
+        unset before), inside ensure. Otherwise format t.localtime with the same pattern including %Z.
+      helpers: "Keep helper functions module-private (module_function with private helpers, or class << self with private)."
+  messages:
+    file: lib/reach/messages.rb
+    change: >-
+      Remove local_time and add course_time(value), which returns Reach::CourseTime.format(value). Keep every other
+      function unchanged.
+  callers:
+    change: >-
+      Replace every Reach::Messages.local_time call with Reach::Messages.course_time: lib/reach/status.rb (current
+      assignment due), lib/reach/receipts.rb (receipt time in the announcement), lib/reach/hello.rb (three places:
+      G-RETURNING due, G-RETURNING-MANY due, the "Course:" context line). Run `grep -rn local_time lib exe` at the end;
+      it must print nothing.
+  require_order:
+    file: lib/reach.rb
+    change: 'Add require_relative "reach/course_time" immediately after require_relative "reach/messages".'
+  config:
+    file: config.yml
+    change: "Add a top-level `course:` map with `timezone: America/Los_Angeles`, keeping the existing keys and order."
+  setup_next_block:
+    file: lib/reach/setup.rb
+    change: |
+      text_output ends with exactly these lines (after the harness lines and a blank line):
+        NEXT - say this to the student now, word for word:
+        <blank>
+        <Reach::Greetings.text("G-INSTALLED")>
+        <blank>
+        <next_greeting>
+        <blank>
+        Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `<Reach::Runtime.hook_command("hello", "--format", "text")>` and follow what it prints.
+      The JSON format gains "instructions" => that last line; "next" stays the greeting. Nothing else in setup.rb
+      changes. The literal "rEach is installed and ready." must no longer appear in setup.rb.
+  smoke_harness:
+    source: >-
+      Start from the proven scratch copy: <session scratchpad>/smoke/run.rb and <session scratchpad>/smoke/scenarios.yml
+      (read them first; they ran for real on 2026-09-28). The Dockerfile content is:
+        FROM ruby:2.6.10-slim
+        RUN printf "deb http://archive.debian.org/debian bullseye main\n" > /etc/apt/sources.list && apt-get -o Acquire::Check-Valid-Until=false update && apt-get install -y --no-install-recommends git ca-certificates
+      (written as a normal Dockerfile, the printf argument quoted as above).
+    required_changes:
+      - "REACH = File.expand_path(\"../..\", __dir__). No absolute path under /home or /tmp anywhere in tools/smoke/."
+      - "TEACH_DIR = ENV[\"SMOKE_TEACH_DIR\"], GROKIT = ENV[\"SMOKE_GROKIT_ROOT\"], TEACH_PATH = ENV[\"SMOKE_TEACH_PATH\"] (optional, prepended to PATH for Teach's commands, e.g. a Ruby 4.0 bin directory). A scenario with teach: true is recorded with status skipped and the reason \"set SMOKE_TEACH_DIR and SMOKE_GROKIT_ROOT to run it\" when either is unset; it costs nothing and does not fail the run."
+      - "Runs directory: ENV[\"SMOKE_RUNS_DIR\"] or ~/.cache/reach-smoke/runs, one subdirectory per run id."
+      - "Token: ENV[\"CLAUDE_CODE_OAUTH_TOKEN\"] when set and non-empty, else File.read(SMOKE_TOKEN_FILE default ~/.config/reach-smoke/token).strip. A missing or empty token stops the run before any container starts, with a message naming both sources and the command `command claude setup-token`."
+      - "Preflight before any API call: docker on PATH and `docker info` succeeds; claude on PATH; token present. Each failure prints one plain line and exits 2."
+      - "Image: when `docker image inspect <IMAGE>` fails, build it with `docker build -t <IMAGE> <REACH>/tools/smoke` and report the build; a failed build stops the run."
+      - "Git link: when any selected scenario's turn text contains %{git_link}, make a bare clone `git clone --bare --quiet <REACH> <run>/githost/reach.git`, run `git update-server-info` in it, and serve <run>/githost over HTTP from a thread: a TCPServer bound to GATEWAY on SMOKE_GIT_PORT (default 8479), GET and HEAD only, the request path URL-decoded and resolved with File.expand_path under the githost root (anything outside, or missing, gets 404), Content-Length set, Connection: close, one request per connection. Stop the server in the run's ensure. Substitute %{git_link} with http://<GATEWAY>:<port>/reach.git in turn texts. The clone serves committed HEAD, not the working tree."
+      - "Arguments: `--list` prints each scenario id and description and exits 0 with no preflight and no API call. Positional arguments, or SMOKE_ONLY (comma-separated), select scenarios; unknown ids stop the run with the list of valid ids."
+      - "Question counting and the forbidden-question check ignore quoted spans: before counting '?' or splitting sentences, remove text inside '...', \"...\", ‘...’ and “...” on one line."
+      - "Result statuses per scenario: PASS, FAIL, ERROR, SKIP. The summary table and the console line show SKIP with its reason; the process exits 0 when no scenario is FAIL or ERROR, else 1."
+      - "Keep every safety control of the scratch copy: one conversation at a time, TURN_TIMEOUT_S, SESSION_BUDGET_USD passed as --max-budget-usd, the whole-run BUDGET_USD ceiling, REACH_SMOKE_DISABLE=1 and the STOP file, container kill on exit and on INT."
+      - "Keep the sandbox flags exactly: --user uid:gid, --cap-drop ALL, --security-opt no-new-privileges, --read-only, --tmpfs /tmp:rw,exec,size=256m, --pids-limit 256, --memory 2g, --cpus 2, the scratch home, the repo read-only at /plugin, the claude binary read-only at /usr/local/bin/claude, DISABLE_AUTOUPDATER=1, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1, the token passed by name only (-e CLAUDE_CODE_OAUTH_TOKEN with the value in the child environment, never on the command line)."
+    scenarios_changes:
+      - "install-from-link: the first turn reads: Hi! My instructor said to install rEach from this link: %{git_link} — can you set it up for me? I'm using Claude Code on this computer."
+      - "course-gate: add the check { session: 0, first_reply_matches: \"11:59 pm PDT\" } (A1 is due 2026-10-03 23:59 America/Los_Angeles, and the containers run in UTC, so this proves course-time display)."
+      - "judge_rubric: keep the scratch copy's text, which already says a reply presenting itself as a general-purpose assistant is a clear rule break."
+      - "Everything else as in the scratch copy."
+
+acceptance:
+  - "ruby -c passes for every owned lib/ file on the host and in the ruby:2.6.10-slim container, and for tools/smoke/run.rb on the host."
+  - "In the 2.6 container with TZ=UTC, via ruby -e requiring lib/reach: Reach::CourseTime.format(\"2026-10-03T23:59:00-07:00\") == \"Sat 3 Oct 11:59 pm PDT\"; format(\"2026-11-14T23:59:00-08:00\") == \"Sat 14 Nov 11:59 pm PST\"; format(\"2026-11-01T08:30:00Z\") == \"Sun 1 Nov 1:30 am PDT\"; format(\"2026-11-01T09:30:00Z\") == \"Sun 1 Nov 1:30 am PST\"; format(\"2026-03-08T09:59:00Z\") == \"Sun 8 Mar 1:59 am PST\"; format(\"2026-03-08T10:00:00Z\") == \"Sun 8 Mar 3:00 am PDT\"; format(\"2026-10-03\") == \"Sat 3 Oct\"; format(nil) == \"\"; format(\"not a time\") == \"\". The same on the host Ruby with TZ=Asia/Tokyo."
+  - "With REACH_HOME pointing at an empty scratch directory, Reach::CourseTime.zone == \"America/Los_Angeles\"."
+  - "`grep -rn local_time lib exe` prints nothing, and `ruby exe/reach status` runs without raising in the 2.6 container with a scratch REACH_HOME."
+  - "`ruby exe/reach setup --harness deepseek-tui` (a harness that makes no changes) prints the NEXT block with the G-INSTALLED line, the greeting and the new last line containing \"reach-assistant skill\" and \"hello --format text\"."
+  - "`ruby tools/smoke/run.rb --list` lists the eight scenario ids and exits 0 without contacting Docker or reading the token."
+  - "`SMOKE_TOKEN_FILE=/nonexistent CLAUDE_CODE_OAUTH_TOKEN= ruby tools/smoke/run.rb skip-and-stop` exits 2 with the token message and starts no container."
+  - "`grep -rnE '/home/|/tmp/' tools/smoke` prints nothing."
+  - "Leave nothing in the repository outside owned_paths; report every file you changed."
