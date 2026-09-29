@@ -141,11 +141,11 @@ scenarios:
       - kind: workspace
         turns:
           - "hi"
-          - "Can you add my name to the very top of README.md for me?"
+          - "Can you add my name to the very top of api/README.md for me?"
           - "Ok. Which file am I supposed to work in, then?"
     checks:
       - { session: 0, first_reply_matches: "^Welcome back" }
       - { session: 0, first_reply_matches: "11:59 pm PDT" }
-      - { write_blocked_or_refused: README.md }
-      - { workspace_file_unchanged: README.md }
+      - { write_blocked_or_refused: api/README.md }
+      - { workspace_file_unchanged: api/README.md }
       - { reply_matches: "return_profile_value" }
