@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.7.1
+version: 0.7.2
 status: draft
 recorded: '2026-09-26'
 licence: undecided
@@ -108,7 +108,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.7.1
+    version: 0.7.2
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run
       courses.
@@ -396,7 +396,7 @@ harness_integration:
       - Run reach shape check after each change and resolve findings per the attempt policy
       - Run reach tips before suggesting a submission
       - How to talk to the student (plain language; the student directs creative choices)
-      - Ground explanations in corpus/course-reference/<course>/ when it covers the enrolled course, never as a source of answers
+      - Ground explanations in the encrypted course reference through reach reference (list, show, search, links), decrypted in memory only, never as a source of answers; the released contract wins
     reach-submit:
       purpose: Submitting and receipts.
       contents:
@@ -1139,24 +1139,28 @@ templates:
     name: reach-course
     description: Use in every course workspace. How to work on a student's slice under the instructors' rules.
     ---
-    Read AGENTS.md (the same rules are in CLAUDE.md and GEMINI.md), README.md and shape/brief.md first.
+    Read AGENTS.md (the same rules are in CLAUDE.md and GEMINI.md), README.md, contract/README.md, api/README.md and shape/brief.md first, and nothing else in the tree.
+    AGENTS.md ends with a table of directives: one row per rule with its opcode, its condition and `reach directive <OPCODE>`. When a row's condition applies, run that command (or the reach_directive tool) and follow the full text.
     Work only in the owned files listed in AGENTS.md.
-    After each change, run `reach shape check --format agent` and handle each finding by its class:
+    Building a step: use the reach-build skill. Fixing a failing scenario or finding: use the reach-fix skill. Saving or going back: use the reach-checkpoint skill.
+    After each change, run `reach check --format agent` (it includes the shape check) and handle each finding by its class:
     - invisible: fix it now without interrupting the student;
     - visible: stop, explain in plain words, and offer alternatives, starting with the student's idea adjusted to comply.
     Count your attempts; after three failed attempts on one finding, use the reach-help skill.
-    Before suggesting a submission, run `reach tips` and walk the student through the results by scenario name.
-    Keep the student in charge of creative choices and explain what you did in plain words.
-    When `corpus/course-reference/<course>/` in this plugin's own repo has material for the enrolled course, read its README first, then use it to ground explanations in the syllabus, glossary and assignment prompts, and to inspire or scaffold the student's thinking. Never use it to produce the student's deliverable for them, and never treat it as answers.
+    For a panel slice, load the design-taste-frontend skill and read shape/brief.md before writing any markup.
+    Before suggesting a submission, run `reach tips` and walk the student through the results by scenario name. In remote acceptance mode, pending means no signed result has returned; submit after local checks, then wait for the grade receipt and correct any returned failure.
+    Ask the student for meaningful business choices: the user, decision, information flow, expected behavior and their contribution account. Then implement all permitted code yourself, read each owned source file before changing it, and prepare the editable README from what the student actually says. Never invent personal reflection or contributions.
+    Never spawn subagents; work in this session only.
+    When the student asks about the syllabus, glossary or assignment prompts, ground the explanation with `reach reference` (or the reach_reference tool): `reach reference list` shows the files, `reach reference show <path>` prints one, `reach reference search <words>` finds the files that contain all the words, and `reach reference links` lists the textbook and other links. The material is decrypted in memory and never written to disk; do not copy it into files. If it reports locked, tell the student to run `reach sync`. Do not reveal reference answers or material outside the student's released contract; the released contract wins over the reference.
   skill_reach_submit: |
     ---
     name: reach-submit
     description: Use when the student wants to submit their slice or asks whether a submission was received.
     ---
-    Run `reach submit`. Then run `reach receipts wait --submission <id>`.
-    When the receipt arrives, tell the student immediately: what was received, the receipt number and the time.
-    If no receipt arrives within five minutes, tell the student it has not been received yet, run `reach submit` once more, and wait again.
-    When a grade receipt arrives, show the scenario results in plain words.
+    Run `reach submit`. Most of the time the receipt comes back straight away; tell the student immediately what was received, the receipt number and the time.
+    If submit says the work is queued, run `reach receipts wait --submission <id>` when you have an id, or `reach sync` when you are back online, and tell the student it has not been received yet.
+    If submit says the work wasn't accepted, read the reason and the fix to the student in plain words.
+    When a grade receipt arrives, show the signed scenario results in plain words. A queued or received submission is not passed. If a result fails, use reach-fix, rerun local checks, and submit the correction with the student's yes.
   skill_reach_help: |
     ---
     name: reach-help
@@ -1165,6 +1169,7 @@ templates:
     Run `reach hand raise --summary "<what is blocked, what you tried>"`.
     Tell the student that you asked the instructors for help and what was sent.
     Check `reach hand status` when the student returns; present any reply, and ask before applying a suggested change.
+    Include the student's saved profile only if they say yes: `reach hand raise --include-profile ...`.
 doctor_checks:
 - id: R-DOC-RUBY
   checks: Ruby is 2.6.10 to 4.0.x
@@ -1289,7 +1294,7 @@ seal:
     POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.
   submission: The manifest carries a seal block and the archive a ledger tail; Teach assesses provenance (W-PKG-5).
 status_example: |
-  rEach 0.7.1 · MGMT 327 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  rEach 0.7.2 · MGMT 327 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
   Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
     finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)
