@@ -161,6 +161,36 @@ slices:
       - Teach::Provenance.assess on a hand-built submission (tarball via lib/teach/tarball.rb) with hooked false, a verified ledger and clean marks returns summary clean, reasons [] and one note; with TEACH_UNHOOKED_HARNESS_POLICY=review returns summary review with the harness named; with a foreign mark added returns review under either policy; with no hooked key behaves exactly as before.
       - All changed Reach files pass ruby -c in ruby:2.6.10-slim; changed Teach files pass ~/.rubies/ruby-4.0.6/bin/ruby -c.
 
+  - id: slice_d_spec_owned_reference
+    repos: [grokit, teach]
+    owns_paths:
+      - grokit:bin/slice-api
+      - grokit:lib/grokit/slice_api.rb
+      - grokit:specs/schemas/slice-api.v1.json
+      - teach:lib/teach/packages/builder.rb
+      - teach:lib/teach/slice_api.rb
+    depends_on: [slice_a_generated_api]
+    deliverable: >-
+      Second wave, approved 2026-09-29 under the rule "adhere to the API via the spec; do not duplicate code". Grokit
+      owns the slice API and both of its renderings; Teach consumes it only through the tool and the published schema.
+      (1) bin/slice-api gains --format json|markdown (json default). Grokit::SliceApi.render_markdown(document) produces
+      the api/README.md text, moved from Teach::SliceApi.render_readme with its layout unchanged (same headings "Ports
+      you may call", "Hooks, props and client", "From the course spec"). (2) specs/schemas/slice-api.v1.json is a JSON
+      Schema (draft 2020-12, $id "grokit.slice-api/v1") describing the document exactly as Grokit::SliceApi.build emits
+      it, including the nullable-Hash rendering records.a1 produces; every emitted document for every A1 cutout, both
+      slices, must satisfy it. (3) Teach's builder runs the tool twice per slice (json, then markdown), writes both
+      outputs verbatim, and before packaging checks the JSON against the schema read from
+      <TEACH_GROKIT_ROOT>/specs/schemas/slice-api.v1.json: schema field equals the schema's $id and every key in the
+      schema's top-level required list is present. Teach restates no field list of its own. Any failure (tool, timeout,
+      missing schema, check) keeps today's fallback README, writes no JSON and records one warning.
+      (4) teach:lib/teach/slice_api.rb is deleted with git rm (it is committed, so history keeps it) and its require
+      removed. Grokit's code stays Ruby 2.6.10 to 4.0.x, standard library only; no JSON Schema gem anywhere.
+    acceptance:
+      - bin/slice-api --cutout context.a1 --slice backend --format markdown prints the README text the previous Teach renderer produced for the same cutout (compare against the renderer from teach commit 541f8c6 run in a scratch driver).
+      - A scratch Ruby script with no gems validates every A1 cutout's backend and panel JSON against specs/schemas/slice-api.v1.json by walking the schema's required/properties/type keywords, and reports 20 of 20 valid; say plainly this is a structural walk, not a full JSON Schema validator.
+      - Teach's builder, driven as slice_a did, writes both entries from the tool; with the schema file moved aside it writes the fallback and one warning; grep shows no Teach::SliceApi reference left.
+      - ruby -c passes for Grokit files in ruby:2.6.10-slim and for Teach files with ~/.rubies/ruby-4.0.6/bin/ruby -wc.
+
 shared_surfaces: []
 primary_after_wave:
   - When the peer releases specs/wire.yml, add W-PKG-2's "<root>/api/slice-api.json" entry and the seal's "hooked" field as a new protocol 1 revision, byte-identical in Reach and Teach.

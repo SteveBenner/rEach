@@ -277,15 +277,15 @@ packages:
         one (since 2026-09-28d), otherwise empty.
       "<root>/api/README.md": >-
         The instructor APIs the slice may call. Since protocol 1 revision 2026-09-29b, when Teach can run the course
-        repository's bin/slice-api, a rendered reference (operation, ports and their methods for a backend slice; root,
-        hooks, props, client call and runtime primitives for a panel slice), ending with the course spec's own lines;
-        otherwise, and before that revision, those lines alone, one per line.
+        repository's bin/slice-api, that tool's --format markdown output, verbatim; otherwise, and before that
+        revision, the course spec's instructor_apis lines, one per line.
       "<root>/api/slice-api.json": >-
-        Optional, since protocol 1 revision 2026-09-29b. The same reference as JSON, {"schema": "grokit.slice-api/v1",
-        cutout_id, slice, module, assignment, operation: {id, input, output}, ports: [{name, use, methods: [{name,
-        params}]}], panel: {root, hooks, props, client: {import, call}, primitives} or null, instructor_apis}. Present
-        exactly when the rendered README is. Reach reads the granted port names from it (ports[].name plus clock and
-        logger) and falls back to api/README.md when it is absent or has another schema.
+        Optional, since protocol 1 revision 2026-09-29b. The course repository's bin/slice-api --format json output,
+        verbatim, conforming to the JSON Schema grokit.slice-api/v1 that the course repository publishes at
+        specs/schemas/slice-api.v1.json; this contract does not restate its fields. Teach writes it only after checking
+        the output against that schema, and exactly when it writes the tool's README. Reach reads only the schema name
+        and the ports' names (plus clock and logger, which every backend slice receives) and falls back to
+        api/README.md when the file is absent or names another schema.
       "<root>/contract/README.md": The contract references for the slice, one per line, as given by the course spec.
     owned_file_split:
       backend: The cutout's owned_paths that end in ".rb".
