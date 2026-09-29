@@ -19,6 +19,7 @@ module Reach
     module_function
 
     def check(workspace_path:, changed: nil, format: :text)
+      @ran = false
       unless File.file?(shape_path(workspace_path))
         return format == :text ? "No shape has been published for this slice yet, so there is nothing to check." : []
       end
@@ -30,6 +31,10 @@ module Reach
       else
         findings
       end
+    end
+
+    def ran?
+      !!@ran
     end
 
     def brief_path(workspace_path)
@@ -104,6 +109,7 @@ module Reach
       env = { "DOVETAIL_PUBLIC_KEYS" => signing_key_files.join(File::PATH_SEPARATOR) }
       stdout, stderr, status = Open3.capture3(env, *args)
       report = parse_report(stdout, stderr, status)
+      @ran = true
       prefix = relative_to(File.expand_path(workspace_path.to_s), workspace_panel)
       report.map { |entry| to_finding(entry, prefix) }
     rescue Errno::ENOENT

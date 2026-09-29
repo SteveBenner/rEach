@@ -275,7 +275,17 @@ packages:
       "<root>/<owned file>": >-
         The student's starting copy of each owned file: the course repository's stub at stubs/<owned file> when it has
         one (since 2026-09-28d), otherwise empty.
-      "<root>/api/README.md": The instructor APIs the slice may call, one per line, as given by the course spec.
+      "<root>/api/README.md": >-
+        The instructor APIs the slice may call. Since protocol 1 revision 2026-09-29b, when Teach can run the course
+        repository's bin/slice-api, a rendered reference (operation, ports and their methods for a backend slice; root,
+        hooks, props, client call and runtime primitives for a panel slice), ending with the course spec's own lines;
+        otherwise, and before that revision, those lines alone, one per line.
+      "<root>/api/slice-api.json": >-
+        Optional, since protocol 1 revision 2026-09-29b. The same reference as JSON, {"schema": "grokit.slice-api/v1",
+        cutout_id, slice, module, assignment, operation: {id, input, output}, ports: [{name, use, methods: [{name,
+        params}]}], panel: {root, hooks, props, client: {import, call}, primitives} or null, instructor_apis}. Present
+        exactly when the rendered README is. Reach reads the granted port names from it (ports[].name plus clock and
+        logger) and falls back to api/README.md when it is absent or has another schema.
       "<root>/contract/README.md": The contract references for the slice, one per line, as given by the course spec.
     owned_file_split:
       backend: The cutout's owned_paths that end in ".rb".
@@ -374,7 +384,13 @@ packages:
         client_created_at, seal}. digests maps each owned file to its W-CONV-4 digest, or null when the file does not
         exist. seal (since 2026-09-28, absent from older Reach) is {guardrails_version, ledger_key: "teach" | "local",
         ledger_head, ledger_count, witnessed: {owned path: digest or null}, marks: {owned path: own | missing | corrupt
-        | foreign | unmarked}, harness, sidecar_id, integrity_events}.
+        | foreign | unmarked}, harness, sidecar_id, integrity_events}. Since protocol 1 revision 2026-09-29b the seal
+        also carries hooked (true when the slice's ledger holds at least one session record), and harness falls back
+        to the REACH_HARNESS environment value (claude-code, codex or antigravity) before "unknown". Teach assesses a
+        seal whose hooked is false, or whose harness is antigravity or unknown with no session record in the ledger
+        tail, as hookless: under its unhooked-harness policy "note" (the default) the unwitnessed files become one note
+        instead of review reasons; under "review" they stay reasons naming the harness. A seal without hooked is
+        assessed as before this revision.
       "files/<owned file>": One entry per owned file that exists, its bytes unchanged.
       ledger.jsonl: The last 2000 records of the slice's witness ledger (W-SEAL-2), verbatim; absent when the ledger is empty.
     teach_checks:

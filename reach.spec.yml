@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.8.0
+version: 0.9.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -391,7 +391,9 @@ harness_integration:
       course rules.
     limits_stated_honestly: >-
       Antigravity's hook format is undocumented, so Reach installs no Antigravity hooks; enforcement there is the
-      read-only file permissions plus the submit-time check, and no prompt reaches the course transcript. Its desktop app installs only curated plugins from its own
+      read-only file permissions plus the submit-time check, and no prompt reaches the course transcript. Since 0.9.0 a
+      submission from it is sealed hooked false with harness antigravity, and Teach notes it as unwitnessed rather than
+      flagging it for review, unless the instructors set TEACH_UNHOOKED_HARNESS_POLICY=review. Its desktop app installs only curated plugins from its own
       interface, which is why setup links the plugin directory.
   skills:
     reach-assistant:
@@ -1311,6 +1313,15 @@ check:
   rules: >-
     CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-FUSE, CK-PANEL (with
     Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed)
+  panel_deferral: >-
+    Since 0.9.0, when Reach::Shape.ran? (a signed shape was present and the Dovetail checker exited 0 or 1 with a
+    report in this run), Reach::Check drops every CK-PANEL finding whose rule starts with "S-", because CK-SHAPE
+    reports the same defect from Dovetail; CK-PANEL-TS, CK-FUSE, CK-TEST and CK-COMMENT stay. With no shape, or a
+    checker that could not run, CK-PANEL runs every rule.
+  granted_ports: >-
+    Since 0.9.0 CK-PORTS and the ruby shape's allowed constants read the granted port names from
+    <workspace>/api/slice-api.json (schema grokit.slice-api/v1: ports[].name plus clock and logger, camelized for
+    constants) and fall back to api/README.md when it is absent or has another schema (wire revision 2026-09-29b).
   finding: id, rule, file, line, message, fix, classification (invisible or visible), finding_id
   callers: >-
     The PostToolUse hooks (--changed <path>), reach attempts settle (the Stop hook), reach submit (the gate), the
@@ -1352,8 +1363,14 @@ seal:
     vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled and directive_dump go to
     POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.
   submission: The manifest carries a seal block and the archive a ledger tail; Teach assesses provenance (W-PKG-5).
+  hooked: >-
+    Since 0.9.0 the seal carries hooked (true when the slice's ledger holds a session record) and harness falls back
+    to REACH_HARNESS (claude-code, codex or antigravity) before "unknown"; rules/reach.md has Antigravity run
+    REACH_HARNESS=antigravity reach submit. Teach treats a hookless seal by its TEACH_UNHOOKED_HARNESS_POLICY (note by
+    default), so a harness that cannot witness writes is not flagged for review on that alone (wire revision
+    2026-09-29b). hooked is self-reported from the student's ledger; it is a signal, not a guarantee.
 status_example: |
-  rEach 0.8.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  rEach 0.9.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
   Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
     finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)

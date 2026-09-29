@@ -173,6 +173,8 @@ module Reach
         }
       end
 
+      ALLOWED_HARNESSES = %w[claude-code codex antigravity].freeze
+
       def seal_block(workspace)
         {
           "guardrails_version" => Reach::Guardrails.version,
@@ -181,12 +183,18 @@ module Reach
           "ledger_count" => Reach::Ledger.count(workspace),
           "witnessed" => Reach::Ledger.witnessed(workspace),
           "marks" => Reach::Seal.verify(workspace),
-          "harness" => Reach::Ledger.last_harness(workspace) || "unknown",
+          "hooked" => Reach::Ledger.records(workspace).any? { |record| record["kind"] == "session" },
+          "harness" => Reach::Ledger.last_harness(workspace) || env_harness || "unknown",
           "sidecar_id" => Reach::Sidecar.id,
           "integrity_events" => Reach::Ledger.integrity_count(workspace)
         }
       rescue StandardError
         { "ledger_key" => "local", "marks" => {}, "witnessed" => {} }
+      end
+
+      def env_harness
+        value = ENV["REACH_HARNESS"]
+        ALLOWED_HARNESSES.include?(value) ? value : nil
       end
 
       def submission_entries(manifest, workspace, tail)

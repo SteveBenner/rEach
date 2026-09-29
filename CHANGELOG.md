@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-09-29
+
+### Added
+
+- The slice API (wire protocol 1 revision 2026-09-29b). Workspaces from Teach 0.9.0 carry a generated `api/README.md`
+  and `api/slice-api.json` (schema `grokit.slice-api/v1`, from Grokit 0.3.0's `bin/slice-api`): the operation and its
+  types, the granted ports and their methods for a backend slice, and the root, hooks, props, client call and runtime
+  primitives for a panel slice. CK-PORTS and the ruby shape's allowed constants read the granted ports from the JSON
+  and fall back to `api/README.md`.
+- The submission seal carries `hooked` (true when the slice's ledger holds a session record), and its harness falls
+  back to `REACH_HARNESS` (claude-code, codex or antigravity) before `unknown`. `rules/reach.md` has Antigravity run
+  `REACH_HARNESS=antigravity reach submit`, so Teach can note an Antigravity submission as unwitnessed instead of
+  flagging it for review.
+- `corpus/course-reference/bus-201.rref`: the BUS 201 reference packed as an encrypted RREF blob, like
+  `bus-101.rref`.
+
+### Changed
+
+- `reach check` drops CK-PANEL's S-* findings whenever Dovetail's checker ran on a signed shape in the same run
+  (`Reach::Shape.ran?`), since CK-SHAPE reports the same defects; CK-PANEL-TS, CK-FUSE, CK-TEST and CK-COMMENT stay,
+  and every rule runs as before when there is no shape or the checker cannot run.
+- `reach status` shows each slice's own last tips record instead of the corpus's latest tip record for every slice.
+- `FEATURES.md` covers every surface; `reach.spec.yml` names the GitHub repository.
+
+### Fixed
+
+- A reference blob whose key id was altered, while the install holds a key for the same course, is refused instead of
+  reported as locked (`Reach::Reference.open_blob`).
+
 ## [0.8.0] - 2026-09-29
 
 ### Added
