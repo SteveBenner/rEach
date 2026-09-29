@@ -37,11 +37,11 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | Claude Code | `claude plugin marketplace add <link>` then `claude plugin install reach@reach --scope user` |
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
 | Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's start-up hook |
-| Antigravity | clone the repository, then `ruby exe/reach setup --harness antigravity` |
-| Any of the above | clone to `~/.reach/plugin`, then `ruby ~/.reach/plugin/exe/reach setup` |
+| Antigravity | install the public archive as in `INSTALL.md`, then `ruby ~/.reach/plugin/exe/reach setup --harness antigravity` |
+| Any of the above | install the public GitHub archive to `~/.reach/plugin`, then `ruby ~/.reach/plugin/exe/reach setup` |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
-Installing from a link needs the repository to be public.
+Installing from a link needs the repository and its pinned Dovetail archive to be public.
 
 ## Directives, check, plan and checkpoints
 
@@ -58,12 +58,21 @@ reach check [--changed <path>] [--format text|agent|json]   the one checker the 
 reach plan save|note|show                                    the slice plan, read back each session
 reach checkpoint save|list|show|restore <n>                  snapshots of the slice, no git needed
 reach directive <OPCODE> | --list                            the directive bodies
+reach reference list | show <path> | search <words> | links  the course reference material
 ```
 
 Every owned file carries an invisible seal and every session leaves a witness
 ledger; Teach reads both when it assesses a submission's provenance. A
 submission with `reach check` findings is sent back once with the findings and
 refused the second time, raising a hand to the instructors.
+
+## Course reference
+
+Reference material ships in `corpus/course-reference/` only as encrypted `.rref`
+blobs. The key arrives in the signed guardrails package at `reach sync`;
+`reach reference` decrypts in memory on every call and never writes plaintext
+to disk. Before enrolment, or before the key arrives, it reports the material
+as locked.
 
 ## Doctor
 

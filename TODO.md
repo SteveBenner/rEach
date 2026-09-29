@@ -15,6 +15,17 @@
 
 - [x] End-to-end against Grokit 0.2.0, Dovetail 0.2.0 and Teach 0.6.0 with Reach on Ruby 3.3: enrol, sync, a shape package compiled and signed by Teach with Dovetail's exported checker, the shape check on the overlaid panel, tips on a finance.a1 panel slice and a records.a1 backend slice from a real suite package, submit, grading at 1.0 in Teach's Docker sandbox, and the grade receipts arriving on sync. `reach check` finds nothing in any of the twenty A1 reference slices on Ruby 3.3 and 2.6.10.
 
+## Release 0.7.0 open items
+
+- [ ] Run the manual Codex dialogue pass from `docs/smoke-assignment-1.md`.
+- [ ] Run the same-WiFi second-device test from `docs/smoke-assignment-1.md`.
+- [ ] Verify the public ZIP install against real GitHub after the push; the smoke only proved a local GitHub-shaped ZIP.
+- [ ] The installer's Windows path is unverified.
+- [ ] The plaintext BUS 101 files remain in the public GitHub history (the Initial commit) unless history is rewritten.
+- [ ] The bus-201 reference still ships unencrypted.
+- [ ] A tampered blob's key id reports locked rather than refused.
+- [ ] Complete the `FEATURES.md` inventory: it covers the 0.7.0 surfaces and the core flows only.
+
 ## Slice API
 
 - [ ] Specify and ship the slice API: the generic surface a student's behaviour and panel program against, one slice per week so a module is complete by week 11 (the Grokit module guide). Until it ships, `api/README.md` in each workspace names only the granted ports.

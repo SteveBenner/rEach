@@ -4,7 +4,7 @@ These steps are for the AI agent a student asked to install rEach from this repo
 
 ## What rEach needs
 
-- Ruby 2.6.10 to 4.0.x and git.
+- Ruby 2.6.10 to 4.0.x and `curl` (built into macOS, Windows 10+ and most Linux); Git and `unzip` are not required.
   - macOS: the built-in /usr/bin/ruby (2.6.10) is fine.
   - Windows: if `ruby -v` fails, ask the student first, then install Ruby 4.0 from https://rubyinstaller.org for this user only (no administrator rights).
   - Linux: the distribution's Ruby, when it is 2.6.10 to 4.0.x.
@@ -16,13 +16,24 @@ Your shell runs in a sandbox, not on the student's computer, so do not clone any
 
 ## Everyone else (Claude Code, the Claude desktop app's Code tab, Codex, Antigravity)
 
-1. Get the code by cloning straight into its final place, exactly as written here. Git creates the folders; do not clone into the current folder and move it.
-   - macOS and Linux: `git clone <this repository's link> ~/.reach/plugin`, or `git -C ~/.reach/plugin pull --ff-only` when it is already there.
-   - Windows: the same into `%USERPROFILE%\.reach\plugin`.
+1. Run the installer. It downloads the public GitHub archive over HTTPS without GitHub credentials or Git, then downloads the exact public Dovetail revision rEach needs, unpacks both with Ruby alone (no `unzip`), and installs to `~/.reach/plugin`.
+   - macOS and Linux:
+     ```sh
+     mkdir -p ~/.reach/bootstrap
+     curl -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/main/bin/reach-install -o ~/.reach/bootstrap/reach-install
+     ruby ~/.reach/bootstrap/reach-install
+     ```
+   - Windows PowerShell:
+     ```powershell
+     New-Item -ItemType Directory -Force "$env:USERPROFILE\.reach\bootstrap" | Out-Null
+     curl.exe -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/main/bin/reach-install -o "$env:USERPROFILE\.reach\bootstrap\reach-install"
+     ruby "$env:USERPROFILE\.reach\bootstrap\reach-install" --destination "$env:USERPROFILE\.reach\plugin"
+     ```
+   The archive itself is https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip. An existing `~/.reach/plugin` is moved to `~/.reach/.backup/plugin-<timestamp>` before the new copy goes in; nothing is deleted. Set `REACH_INSTALL_KILL_SWITCH=1` to stop the installer downloading.
 2. Run setup for the app you are running in:
    `ruby ~/.reach/plugin/exe/reach setup --harness <claude-code | codex | antigravity>`
 3. Read setup's output. Tell the student about any step it says they must do themselves (for example trusting rEach's hooks in Codex).
-4. Setup ends with a NEXT block. Do exactly what it says: say its greeting to the student word for word, then run the interview from the reach-assistant skill, reading its steps with the command the NEXT block gives when the skill is not loaded in this session yet.
+4. Setup prints a NEXT block only after a harness installed successfully. Do exactly what it says: say its greeting to the student word for word, then read and follow the reach-assistant skill immediately. A new session and any explicit Codex trust action remain host actions for the student.
 
 ## Using Gemini?
 

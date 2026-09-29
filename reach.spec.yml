@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.6.0
+version: 0.7.0
 status: draft
 recorded: '2026-09-26'
 licence: undecided
@@ -108,7 +108,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.6.0
+    version: 0.7.0
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, tips, submission and receipts for Teach-run
       courses.
@@ -606,6 +606,8 @@ mcp_bridge:
     description: save, note or show the slice plan
   - name: reach_directive
     description: The full text of one directive by opcode
+  - name: reach_reference
+    description: list, show, search or list the links of the course reference material
   excluded: Nothing that reveals package contents, the vault, keys, test steps or fixture values.
   authentication: The bridge signs its Teach requests with the install key; the harness never sees the key.
 cli:
@@ -620,7 +622,8 @@ cli:
     synopsis: reach setup [--harness auto|claude-code|codex|antigravity] [--source <link or path>]
     purpose: >-
       Install rEach into the detected harnesses through their own install commands, ending with the NEXT block the
-      installing agent reads to the student
+      installing agent reads to the student. It exits 1 and prints no installed text or greeting when nothing was
+      installed, including the manual branches taken when a harness CLI is missing.
   - name: start
     synopsis: reach start [--harness ID]
     purpose: Open the chosen harness in the current folder with rEach speaking first (no course gate)
@@ -632,7 +635,9 @@ cli:
     purpose: Called by the Stop hook; records whether the turn resolved its findings, for the attempt gate
   - name: enrol
     synopsis: reach enrol <code> [--teach-url URL]
-    purpose: Generate keys, enrol with Teach, then sync
+    purpose: >-
+      Generate keys, enrol with Teach, then sync. It verifies the response fields, the wire digest equality and
+      minimum_reach_version before writing any key.
   - name: sync
     synopsis: reach sync
     purpose: Fetch new packages, verify them and refresh workspaces
@@ -650,7 +655,9 @@ cli:
     purpose: Run the shape checker
   - name: tips
     synopsis: reach tips [--slice ...]
-    purpose: Run the tips suite
+    purpose: >-
+      Run the tips suite. In a workspace whose acceptance_mode is remote it runs nothing locally and shows the
+      pending or returned signed results instead.
   - name: submit
     synopsis: reach submit [--slice ...]
     purpose: Submit and wait for the receipt
@@ -696,6 +703,12 @@ cli:
   - name: mcp
     synopsis: reach mcp
     purpose: The stdio MCP bridge
+  - name: reference
+    synopsis: reach reference list | show <path> | search <words> | links
+    purpose: >-
+      Read the encrypted course reference: list its files, show one, search for files holding every word, or list its
+      links. Blobs are decrypted in memory only; before enrolment, or when Teach sent no key, it exits nonzero with
+      the connect-to-course hint, and a blob that fails authentication is refused.
 client_safety:
   applies_to: Every call from Reach to Teach.
   timeouts:
@@ -721,6 +734,26 @@ client_safety:
   observability: >-
     Reach logs every request with route, status, latency and retry count (never bodies or keys) and reports counts
     in its status call.
+course_reference:
+  location: corpus/course-reference/
+  bus_101: >-
+    Shipped only as corpus/course-reference/bus-101.rref, an encrypted blob of 21 files; there is no plaintext
+    BUS 101 copy in the tree. bus-201 is still plaintext.
+  blob_format: >-
+    RREF version 1: the magic RREF, a format version byte, a length-prefixed key id, a length-prefixed course id, a
+    12-byte nonce, a 16-byte AES-256-GCM tag and the ciphertext, with the header authenticated as additional data.
+    The plaintext is gzip-compressed JSON of schema reach.reference/v1 holding files (path, title, media_type, text)
+    and links. Limits: 20 MiB per blob, 64 MiB plaintext, 2000 files, media types text/markdown and text/plain.
+  key_source: >-
+    reference-keys.json (schema reach.reference-keys/v1) in the guardrails package, delivered by Teach at enrolment
+    and kept in the vault. Wire protocol 1 revision 2026-09-28f made it an optional W-PKG-1 entry.
+  handling: >-
+    Decrypted in memory only, never written in plaintext. Without a key the blob is reported as locked; a blob that
+    fails authentication is refused.
+  interfaces: reach reference list|show|search|links and the reach_reference MCP tool.
+remote_acceptance: >-
+  A workspace whose metadata carries acceptance_mode remote is graded at Teach. reach tips shows the pending or
+  returned signed results and runs no local Grokit, and reach doctor skips R-DOC-GEMS when every workspace is remote.
 corpus:
   port: >-
     The rplugin corpus port when rplugin is installed (Ruby 3.3+); otherwise the plain-JSONL fallback below, which is
@@ -735,6 +768,12 @@ corpus:
     explicitly includes.
   degradation: Without the corpus port, Reach keeps the same records in plain JSONL through the state port.
 installer:
+  public_zip: >-
+    bin/reach-install installs from the repository's public ZIP with no Git and no login. It reads the ZIP with a
+    pure-Ruby reader, materialises symlinks safely, backs up an existing install before replacing it, and downloads
+    the Dovetail archive pinned in dovetail-revision.txt (Dovetail is also a git submodule at dovetail). It enforces
+    size and count limits and bounded retries, and REACH_INSTALL_KILL_SWITCH stops it. Verified only against a local
+    GitHub-shaped ZIP; the real public download and the Windows path are unverified.
   from_a_link: >-
     The student pastes the repository link into their agent (Claude Code, Cowork, Codex or Antigravity) and asks it
     to install rEach. The agent reads INSTALL.md, which tells it to run the harness's own plugin install, or to clone
@@ -1250,7 +1289,7 @@ seal:
     POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.
   submission: The manifest carries a seal block and the archive a ledger tail; Teach assesses provenance (W-PKG-5).
 status_example: |
-  rEach 0.6.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
+  rEach 0.7.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
   Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
     finance.a2s1  backend  in progress   shape: ok     tips: 3/4 passing (run 12 min ago)

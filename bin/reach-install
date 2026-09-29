@@ -1,0 +1,243 @@
+#!/usr/bin/env ruby
+
+require "fileutils"
+require "net/http"
+require "zlib"
+require "optparse"
+require "securerandom"
+require "tmpdir"
+require "uri"
+
+module ReachInstall
+  MAX_BYTES = 100 * 1024 * 1024
+  MAX_UNPACKED_BYTES = 500 * 1024 * 1024
+  MAX_ATTEMPTS = 3
+  CONNECT_TIMEOUT_S = 10
+  READ_TIMEOUT_S = 60
+  MIN_DOWNLOAD_INTERVAL_S = 1
+
+  class << self
+    def run(argv)
+      options = parse(argv)
+      raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !options[:archive]
+
+      destination = File.expand_path(options[:destination])
+      parent = File.dirname(destination)
+      FileUtils.mkdir_p(parent)
+
+      Dir.mktmpdir("reach-install-", parent) do |temp|
+        reach_archive = options[:archive] || download(options[:url], temp, "reach.zip")
+        reach_root = extract_archive(reach_archive, File.join(temp, "reach"))
+        revision = read_revision(options[:revision])
+        dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision}.zip"
+        dovetail_archive = download(dovetail_url, temp, "dovetail.zip")
+        dovetail_root = extract_archive(dovetail_archive, File.join(temp, "dovetail"))
+        dovetail_destination = File.join(reach_root, "dovetail")
+        raise "archive already contains a Dovetail directory" if File.exist?(dovetail_destination)
+
+        FileUtils.mv(dovetail_root, dovetail_destination)
+        install(reach_root, destination)
+      end
+      puts "rEach installed at #{destination}"
+      0
+    rescue StandardError => e
+      warn "reach-install: #{e.message}"
+      1
+    end
+
+    private
+
+    def parse(argv)
+      options = {
+        destination: File.expand_path("~/.reach/plugin"),
+        url: "https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip",
+        revision: File.expand_path("../dovetail-revision.txt", __dir__)
+      }
+      OptionParser.new do |parser|
+        parser.on("--archive PATH") { |value| options[:archive] = File.expand_path(value) }
+        parser.on("--url URL") { |value| options[:url] = value }
+        parser.on("--destination PATH") { |value| options[:destination] = value }
+        parser.on("--dovetail-revision PATH") { |value| options[:revision] = File.expand_path(value) }
+      end.parse!(argv)
+      raise "--archive does not exist: #{options[:archive]}" if options[:archive] && !File.file?(options[:archive])
+      options
+    end
+
+    def read_revision(path)
+      revision = File.read(path).strip
+      raise "invalid Dovetail revision in #{path}" unless revision.match?(/\A[0-9a-f]{7,64}\z/)
+
+      revision
+    rescue Errno::ENOENT
+      raise "Dovetail revision file is missing: #{path}"
+    end
+
+    def download(url, temp, name)
+      path = File.join(temp, name)
+      last_error = nil
+      MAX_ATTEMPTS.times do |attempt|
+        wait_for_download_turn
+        begin
+          fetch(URI(url), path)
+          return path
+        rescue StandardError => e
+          last_error = e
+          sleep(attempt + 1) if attempt + 1 < MAX_ATTEMPTS
+        end
+      end
+      raise "could not download #{url}: #{last_error.message}"
+    end
+
+    def wait_for_download_turn
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      previous = @last_download_at || 0
+      sleep(MIN_DOWNLOAD_INTERVAL_S - (now - previous)) if now - previous < MIN_DOWNLOAD_INTERVAL_S
+      @last_download_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    end
+
+    def fetch(uri, path, redirects = 0)
+      raise "only HTTPS archive URLs are allowed" unless uri.is_a?(URI::HTTPS)
+      raise "too many archive redirects" if redirects > 5
+
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      http.open_timeout = CONNECT_TIMEOUT_S
+      http.read_timeout = READ_TIMEOUT_S
+      request = Net::HTTP::Get.new(uri.request_uri)
+      http.request(request) do |response|
+        if response.is_a?(Net::HTTPRedirection)
+          target = URI.join(uri, response.fetch("location"))
+          return fetch(target, path, redirects + 1)
+        end
+        raise "archive download returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+        declared = response["content-length"].to_i
+        raise "archive exceeds #{MAX_BYTES} bytes" if declared > MAX_BYTES
+
+        bytes = 0
+        File.open(path, "wb", 0o600) do |file|
+          response.read_body do |chunk|
+            bytes += chunk.bytesize
+            raise "archive exceeds #{MAX_BYTES} bytes" if bytes > MAX_BYTES
+
+            file.write(chunk)
+          end
+        end
+      end
+    end
+
+    def extract_archive(archive, destination)
+      data = File.binread(archive)
+      eocd = data.rindex("PK\x05\x06".b)
+      raise "archive is not a valid ZIP file" unless eocd && data.bytesize >= eocd + 22
+
+      count, _size, cd_offset = data.byteslice(eocd + 10, 12).unpack("vVV")
+      raise "ZIP64 archives are not supported" if count == 0xFFFF || cd_offset == 0xFFFFFFFF
+      raise "archive has no files" if count.zero?
+
+      entries = read_directory(data, count, cd_offset)
+      names = entries.map { |entry| entry[:name] }
+      raise "archive contains an unsafe path" if names.any? { |name| unsafe_path?(name) }
+      roots = names.map { |name| name.split("/", 2).first }.uniq
+      raise "archive must contain one root directory" unless roots.length == 1
+      links = entries.select { |entry| entry[:symlink] }
+      files = entries.reject { |entry| entry[:symlink] || entry[:name].end_with?("/") }.map { |entry| [entry[:name], entry] }.to_h
+      links.each { |link| link[:source] = link_source(data, link, files, roots.first) }
+      raise "archive is too large when unpacked" if entries.sum { |entry| entry[:size] } > MAX_UNPACKED_BYTES
+
+      FileUtils.mkdir_p(destination)
+      (entries - links).each { |entry| write_entry(data, entry, destination) }
+      links.each { |link| write_content(inflate(data, link[:source]), File.join(destination, link[:name]), link[:source][:mode]) }
+      root = File.join(destination, roots.first)
+      raise "archive root was not created" unless Dir.exist?(root)
+
+      root
+    end
+
+    def read_directory(data, count, offset)
+      entries = []
+      count.times do
+        raise "archive directory is corrupt" unless data.byteslice(offset, 4) == "PK\x01\x02".b
+
+        _made, _need, flags, method, _time, _date, _crc, csize, size, nlen, elen, clen, _disk, _int, ext, local =
+          data.byteslice(offset + 4, 42).unpack("vvvvvvVVVvvvvvVV")
+        name = data.byteslice(offset + 46, nlen).force_encoding("UTF-8")
+        raise "encrypted archive entries are not supported" if flags & 1 == 1
+
+        entries << { name: name, method: method, csize: csize, size: size, local: local, mode: (ext >> 16) & 0o177777 }
+        offset += 46 + nlen + elen + clen
+      end
+      entries.each { |entry| entry[:symlink] = (entry[:mode] & 0o170000) == 0o120000 }
+      entries
+    end
+
+    def link_source(data, link, files, root)
+      target = inflate(data, link).force_encoding("UTF-8")
+      raise "archive contains an unsafe symbolic link: #{link[:name]}" if target.empty? || target.include?("\0") || target.include?("\\") || target.start_with?("/") || target.match?(/\A[A-Za-z]:/) || target.end_with?("/")
+
+      parts = File.dirname(link[:name]).split("/")
+      target.split("/").each do |part|
+        next if part.empty? || part == "."
+
+        raise "archive contains an unsafe symbolic link: #{link[:name]}" if part == ".." && parts.length <= 1
+
+        part == ".." ? parts.pop : parts << part
+      end
+      source = files[parts.join("/")]
+      raise "archive contains an unsafe symbolic link: #{link[:name]}" unless source && parts.first == root
+
+      source
+    end
+
+    def write_entry(data, entry, destination)
+      target = File.join(destination, entry[:name])
+      if entry[:name].end_with?("/")
+        FileUtils.mkdir_p(target)
+        return
+      end
+
+      write_content(inflate(data, entry), target, entry[:mode])
+    end
+
+    def inflate(data, entry)
+      raise "archive entry is corrupt" unless data.byteslice(entry[:local], 4) == "PK\x03\x04".b
+
+      nlen, elen = data.byteslice(entry[:local] + 26, 4).unpack("vv")
+      body = data.byteslice(entry[:local] + 30 + nlen + elen, entry[:csize])
+      content = case entry[:method]
+                when 0 then body
+                when 8 then Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(body)
+                else raise "unsupported archive compression method #{entry[:method]}"
+                end
+      raise "archive entry size mismatch: #{entry[:name]}" unless content.bytesize == entry[:size]
+
+      content
+    end
+
+    def write_content(content, target, mode)
+      FileUtils.mkdir_p(File.dirname(target))
+      File.open(target, "wb") { |file| file.write(content) }
+      File.chmod((mode & 0o111).zero? ? 0o644 : 0o755, target)
+    end
+
+    def unsafe_path?(name)
+      name.empty? || name.include?("\0") || name.include?("\\") || name.start_with?("/") || name.match?(/\A[A-Za-z]:/) || name.split("/").include?("..")
+    end
+
+    def install(source, destination)
+      backup = nil
+      if File.exist?(destination) || File.symlink?(destination)
+        backup_dir = File.join(File.dirname(destination), ".backup")
+        FileUtils.mkdir_p(backup_dir)
+        backup = File.join(backup_dir, "#{File.basename(destination)}-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}-#{SecureRandom.hex(3)}")
+        FileUtils.mv(destination, backup)
+      end
+      FileUtils.mv(source, destination)
+      puts "previous install kept at #{backup}" if backup
+    rescue StandardError
+      FileUtils.mv(backup, destination) if backup && File.exist?(backup) && !File.exist?(destination)
+      raise
+    end
+  end
+end
+
+exit ReachInstall.run(ARGV)

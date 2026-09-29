@@ -5,6 +5,47 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-28
+
+### Added
+
+- `bin/reach-install`, a public-ZIP installer that needs no Git and no GitHub login. It reads the ZIP with a pure-Ruby
+  reader, materialises symlinks safely (the smoke found that the repository's `CLAUDE.md` symlink blocked installs from
+  the public archive), backs up an existing install before replacing it, and downloads the Dovetail archive pinned in
+  `dovetail-revision.txt`. It enforces size and count limits, retries downloads a bounded number of times, and stops
+  when `REACH_INSTALL_KILL_SWITCH` is set.
+- Dovetail as a git submodule at `dovetail`, pinned by `dovetail-revision.txt`.
+- Remote acceptance mode: when a workspace's acceptance runs at Teach, `reach tips` shows the pending or returned
+  signed results instead of running a local Grokit, and `reach doctor` skips the gems check when every workspace is
+  remote.
+- Encrypted course reference: `reach reference list|show|search|links`, the `reach_reference` MCP tool, RREF version 1
+  blobs, and keys read from the guardrails package's `reference-keys.json`. Blobs are decrypted in memory only and a
+  tampered blob is refused.
+- `tools/smoke/assignment_one.rb`, a deterministic smoke that starts a real Teach, installs from a local ZIP, enrols,
+  syncs, submits and follows the receipts, and `docs/smoke-assignment-1.md`, the runbook with the manual Codex
+  dialogue and same-WiFi second-device passes.
+- Wire protocol 1 revision 2026-09-28f: `reference-keys.json` is an optional entry of the guardrails package
+  (W-PKG-1).
+- `FEATURES.md`, a partial feature registry.
+
+### Changed
+
+- `reach setup` exits 1 and prints no installed text or greeting when nothing was installed, including the manual
+  branches taken when a harness CLI is missing.
+- `reach enrol` verifies the response fields, the wire digest equality and `minimum_reach_version` before it writes
+  any key.
+- `README.md` in a workspace is student-owned and is preserved on sync.
+- `skills/persona` and the course skills now have the agent implement all permitted code while the student makes the
+  business decisions; the agent never invents the student's reflection or contributions.
+- The BUS 101 reference ships only as `corpus/course-reference/bus-101.rref`: 21 files (the Assignment 1 handout,
+  the student quizzes, the syllabus, the glossary and infographics, the Grokit module guide, the A1 course path, ten
+  contracts and the A1 cutout extract), with the OpenStax textbook as a link. The plaintext copies were removed.
+
+### Verified
+
+- The last smoke run, `~/.cache/reach-smoke/a1/20260928-203803`, ended with 31 pass, 2 skip (codex-conversation and
+  lan-second-device, not run) and 0 fail, against a real Teach and its Docker grader.
+
 ## [0.6.0] - 2026-09-28
 
 ### Added

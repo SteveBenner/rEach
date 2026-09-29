@@ -19,16 +19,17 @@ module Reach
       candidates = harness.to_s == "auto" ? detected_harnesses : [harness.to_s]
 
       results = candidates.map { |id| run_harness(id, resolved_source) }
+      results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, or Antigravity, then run setup again." } if results.empty?
       ok = results.any? { |entry| entry[:ok] }
       exit_code = ok ? 0 : 1
 
-      next_greeting = next_greeting_text
+      next_greeting = ok ? next_greeting_text : nil
 
       if format.to_s == "json"
         [JSON.generate(
           "harnesses" => results.map { |entry| { "id" => entry[:id], "ok" => entry[:ok], "message" => entry[:message] } },
           "next" => next_greeting,
-          "instructions" => instructions_line,
+          "instructions" => (ok ? instructions_line : nil),
           "exit" => exit_code
         ), exit_code]
       else
@@ -93,7 +94,7 @@ module Reach
 
     def run_claude(source)
       unless on_path?("claude")
-        return { id: "claude-code", ok: true, message: "Claude app: open Customize › Plugins › Add › Add marketplace, paste this repository's link, then add rEach." }
+        return { id: "claude-code", ok: false, message: "Claude app: open Customize › Plugins › Add › Add marketplace, paste this repository's link, then add rEach." }
       end
 
       add_out, add_err, add_status = capture(["claude", "plugin", "marketplace", "add", source])
@@ -114,7 +115,7 @@ module Reach
 
     def run_codex(source)
       unless on_path?("codex")
-        return { id: "codex", ok: true, message: "Codex app: add this repository as a plugin marketplace, then add rEach from the Plugins directory." }
+        return { id: "codex", ok: false, message: "Codex app: add this repository as a plugin marketplace, then add rEach from the Plugins directory." }
       end
 
       _add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
@@ -195,6 +196,8 @@ module Reach
 
     def text_output(results, next_greeting)
       lines = results.map { |entry| entry[:message] }
+      return lines.join("\n") unless results.any? { |entry| entry[:ok] }
+
       lines << ""
       lines << "NEXT - say this to the student now, word for word:"
       lines << ""

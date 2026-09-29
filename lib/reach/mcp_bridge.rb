@@ -147,6 +147,19 @@ module Reach
           "properties" => { "opcode" => { "type" => "string" } },
           "required" => ["opcode"]
         }
+      },
+      {
+        "name" => "reach_reference",
+        "description" => "Read the course reference material: list its files, show one, search it, or list its links",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[list show search links] },
+            "path" => { "type" => "string" },
+            "terms" => { "type" => "string", "description" => "Words that must all appear, for search" }
+          },
+          "required" => ["action"]
+        }
       }
     ].freeze
 
@@ -284,6 +297,8 @@ module Reach
           plan_tool(current_workspace!, arguments)
         when "reach_directive"
           Reach::Directives.show(arguments.fetch("opcode"), workspace: Reach::Gate.current_workspace_path)
+        when "reach_reference"
+          reference_tool(arguments)
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
         end
@@ -294,6 +309,16 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") unless workspace
 
         workspace
+      end
+
+      def reference_tool(arguments)
+        case arguments.fetch("action")
+        when "list" then { "files" => Reach::Reference.list }
+        when "show" then { "text" => Reach::Reference.show(arguments.fetch("path")) }
+        when "search" then { "results" => Reach::Reference.search(arguments.fetch("terms").to_s.split) }
+        when "links" then { "links" => Reach::Reference.links }
+        else raise Reach::Error, "reach: unknown reference action"
+        end
       end
 
       def checkpoint_tool(workspace, arguments)

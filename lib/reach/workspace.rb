@@ -58,8 +58,8 @@ module Reach
 
       kept_files = write_package_entries(target, root, entries, owned)
 
-      write_readme(target, slice)
       write_marker(target, course, assignment, slice, version)
+      write_readme(target, slice)
       write_rules_files(target)
       copy_brief(target, cutout_id)
       stamp(target)
@@ -143,6 +143,27 @@ module Reach
       "not started yet"
     end
 
+    def remote_tips(workspace_path)
+      meta = metadata(workspace_path)
+      names = Array(meta["scenarios"]).map { |item| item.is_a?(Hash) ? (item["name"] || item["scenario"]) : item }.compact
+      receipt = Reach::Receipts.latest_for(cutout_id: meta["cutout_id"], slice: meta["slice"])
+      grade = receipt && receipt["kind"] == "grade" ? receipt : nil
+      return pending_remote_tips(names) unless grade
+
+      returned = Array(grade["scenarios"])
+      scenarios = returned.map do |item|
+        result = item["result"].to_s
+        status = result == "passed" ? "pass" : (result == "failed" ? "fail" : "returned")
+        { name: item["name"] || item["scenario"] || "remote scenario", status: status, reason: item["reason"] }
+      end
+      scenarios = pending_remote_tips(names)[:scenarios] if scenarios.empty?
+      { scenarios: scenarios, remote: true }
+    end
+
+    def pending_remote_tips(names)
+      { scenarios: names.map { |name| { name: name, status: "pending", reason: Reach::Messages.text("M-TIPS-REMOTE-PENDING") } }, remote: true }
+    end
+
     def find(cutout_id:, slice:)
       current_slices.find do |path|
         meta = metadata(path)
@@ -162,6 +183,9 @@ module Reach
     end
 
     def write_readme(target, slice)
+      path = File.join(target, "README.md")
+      return if File.file?(path)
+
       contract_refs = Array(slice["contract_refs"])
       input = contract_refs.find { |line| line.to_s.start_with?("input ") }
       output = contract_refs.find { |line| line.to_s.start_with?("output ") }
@@ -176,8 +200,6 @@ module Reach
         "instructor_apis" => Array(slice["instructor_apis"]).join(", "),
         "panel_slice" => slice["panel_slice"]
       )
-      path = File.join(target, "README.md")
-      safe_chmod(0o644, path) if File.file?(path)
       File.write(path, text)
     end
 
@@ -233,6 +255,8 @@ module Reach
           "tags" => slice["tags"],
           "module" => slice["module"],
           "class" => slice["class"],
+          "acceptance_mode" => slice["acceptance_mode"],
+          "scenarios" => slice["scenarios"],
           "package_version" => version
         )
       )

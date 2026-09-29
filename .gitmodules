@@ -1,0 +1,3 @@
+[submodule "dovetail"]
+	path = dovetail
+	url = https://github.com/SteveBenner/dovetail.git
