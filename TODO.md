@@ -19,7 +19,7 @@
 
 - [ ] Run the manual Codex dialogue pass from `docs/smoke-assignment-1.md`.
 - [ ] Run the same-WiFi second-device test from `docs/smoke-assignment-1.md`.
-- [ ] Verify the public ZIP install against real GitHub after the push; the smoke only proved a local GitHub-shaped ZIP.
+- [x] Verify the public ZIP install against real GitHub after the push (passed 2026-09-28 with `--public`, after the 0.7.1 empty-submodule fix).
 - [ ] The installer's Windows path is unverified.
 - [ ] The plaintext BUS 101 files remain in the public GitHub history (the Initial commit) unless history is rewritten.
 - [ ] The bus-201 reference still ships unencrypted.
