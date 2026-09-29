@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-09-28
+
+### Fixed
+
+- `bin/reach-install` refused every public GitHub install with "archive already contains a Dovetail directory":
+  GitHub's archive of rEach carries the `dovetail` submodule as an empty directory. The installer now replaces an
+  empty, non-symlink `dovetail/` with the pinned Dovetail archive and still refuses one with content. Found by the
+  first `tools/smoke/assignment_one.rb --public` run against the published repository.
+
 ## [0.7.0] - 2026-09-28
 
 ### Added
