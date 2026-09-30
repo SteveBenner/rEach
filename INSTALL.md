@@ -33,7 +33,7 @@ Use "Claude Code, Codex, Antigravity and Hermes" below whenever you can run shel
 2. Run setup for the app you are running in:
    `ruby ~/.reach/plugin/exe/reach setup --harness <claude-code | codex | antigravity | hermes>`
 3. Read setup's output. Tell the student about any step it says they must do themselves (for example trusting rEach's hooks in Codex).
-4. Setup prints a NEXT block only after a harness installed successfully. Your next message to the student must begin with the lines after "NEXT", copied exactly as printed, starting with "rEach is installed and ready." Do not summarise them, reword them or put anything before them. After them you may add setup's host steps (a new session, trusting hooks in Codex, or opening course folders with `reach work --harness hermes` in Hermes). Then read and follow the reach-assistant skill immediately.
+4. Setup prints a NEXT block only after a harness installed successfully. Your next message to the student must begin with the lines after "NEXT", copied exactly as printed, starting with "rEach is installed and ready." Do not summarise them, reword them or put anything before them. After them you may add setup's host steps (a new session, trusting hooks in Codex, or, in Hermes, the command setup prints for opening a course folder, such as `~/.reach/bin/reach work --harness hermes`; give it exactly as printed, since `reach` alone may not be on the student's PATH). Then read and follow the reach-assistant skill immediately.
 
 ## Claude Cowork
 

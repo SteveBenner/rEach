@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.11.3
+version: 0.11.4
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.11.3
+    version: 0.11.4
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -473,7 +473,9 @@ harness_integration:
       reach work --harness hermes runs the gate, rewrites the rules files and the profile configuration, then execs
       hermes -p reach --accept-hooks chat -q "Hi rEach" in the workspace. --accept-hooks is Hermes' documented bypass of
       its first-use hook prompt; Reach passes it only on launches it makes itself, and it persists nothing. Hermes
-      reads the workspace's AGENTS.md as its project context.
+      reads the workspace's AGENTS.md as its project context. The installer puts nothing on the student's PATH, so
+      since 0.11.4 setup prints the launch as the full command (the Ruby interpreter and the absolute ~/.reach/bin/reach
+      shim, as the hooks use), and the docs give ~/.reach/bin/reach work --harness hermes, never a bare reach.
     greeting: >-
       Hermes has no session-start context injection, so reach gate prompt --harness hermes returns the rEach session
       context (reach hello's text) as pre_llm_call context on the session's first turn (extra.is_first_turn).

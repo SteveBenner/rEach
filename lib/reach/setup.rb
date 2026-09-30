@@ -195,7 +195,7 @@ module Reach
       return { id: "hermes", ok: false, message: "blocked: #{blocked} exists" } if blocked
 
       Reach::Harness.configure("hermes", nil)
-      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with reach work --harness hermes." }
+      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with: #{Reach::Runtime.hook_command("work", "--harness", "hermes")}" }
     end
 
     def ensure_hermes_profile
