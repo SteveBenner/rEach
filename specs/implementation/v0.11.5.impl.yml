@@ -1,0 +1,155 @@
+schema: impl-blueprint/v1
+name: receipt acknowledgments (receipt of a receipt)
+versions: {reach: 0.11.5, teach: 0.11.2}
+wire: specs/wire.yml revision 2026-09-30 (W-API-RECEIPT-ACK, W-RCPT-4, W-SAFE-11, W-API-RECEIPTS reach_use, W-API-SUBMISSION acknowledgments); byte-identical in teach/specs/wire.yml, already written
+repos:
+  reach: /home/sven/github/foss/rEach
+  teach: /home/sven/bitbucket/paterasai/teach
+goal: >-
+  Reach preserves every Teach receipt locally (including a sync backfill of receipts it lacks), answers each verified
+  receipt with a signed acknowledgment stored beside it, and sends that acknowledgment to Teach, which verifies it,
+  stores it linked to its own receipt, and shows it to instructors. Teach answers a plain confirmation
+  {ack_id, receipt_id, linked_at}; Teach does not counter-sign.
+constraints:
+  - Read wire.yml sections W-API-RECEIPT-ACK, W-RCPT-4, W-SAFE-11 before writing code; they are normative.
+  - Reach runs on a Ruby 2.6.10 floor. No Hash#except, no endless methods, no pattern matching, no numbered block params, no `it`.
+  - Teach runs on Ruby 4.0.6.
+  - "No comments in code at all (AGENTS.md Part Q). No tests, no spec files, no test files (Part S)."
+  - Match surrounding style (module_function / class << self, string keys, require_relative).
+  - Do not edit specs/wire.yml, reach.spec.yml, teach.spec.yml, VERSION, CHANGELOG, FEATURES, README; the primary does.
+  - Do not commit. Do not touch git.
+reach:
+  - file: lib/reach/paths.rb
+    change: add `def receipt_acks_dir; File.join(receipts_dir, "acks"); end` next to receipts_dir (use the file's multi-line def style).
+  - file: lib/reach/receipt_acks.rb
+    new: true
+    module: Reach::ReceiptAcks
+    constants:
+      SCHEMA: '"reach.receipt-ack/v1"'
+      ROUTE: '"/api/v1/receipts/%s/acknowledgment"'
+      SYNC_SEND_LIMIT: 20
+      BACKFILL_PAGE_LIMIT: 200
+      BACKFILL_MAX_PAGES: 5
+    record_file: "~/.reach/receipts/acks/<receipt_id>.json (dir 0700, file 0600, written to a tmp file then renamed)"
+    record_shape: '{"ack" => <W-RCPT-4 body with signature>, "state" => "pending|linked|mismatch|refused", "linked_at" => nil|ts, "teach_ack_id" => nil|string, "last_error" => nil|string, "attempted_at" => nil|ts}'
+    methods:
+      "record(receipt)": >-
+        Returns the record. If a record file exists for receipt["receipt_id"] and its ack install_id equals
+        Reach::Enroll.current["install_id"], return it unchanged. Otherwise build the body with keys schema, ack_id
+        ("rack_" + SecureRandom.hex(10)), receipt_id, receipt_kind (receipt["kind"]), submission_id, student_id,
+        install_id, receipt_digest (Reach::Crypto.digest_hex(Reach::Crypto.canonical_json(receipt)) over the whole
+        receipt including its signature), receipt_signing_key_id (receipt["signing_key_id"]), acknowledged_at
+        (Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")), reach_version (Reach::VERSION); then signature =
+        Base64.strict_encode64(Reach::Crypto.sign_pss(Reach::Crypto.load_private_key(File.read(Reach::Paths.install_key_file)),
+        Reach::Crypto.canonical_json(body))). Write the record with state pending, and return it. Returns nil when no
+        install is enrolled.
+      "deliver(receipt_id)": >-
+        Load the record; return its state unless state is pending. POST format(ROUTE, receipt_id) with the ack body via
+        Reach::Client.for_install(Reach::Enroll.current).post_json(path, ack, idempotency_key: ack["ack_id"]).
+        200: state linked, linked_at = response json linked_at, teach_ack_id = response ack_id, last_error nil.
+        Reach::RemoteRefused code "conflict": state mismatch, last_error message. code "invalid_request": state refused,
+        last_error message. Any other RemoteRefused (not_found, forbidden, rate_limited, ...): stay pending, last_error
+        "<code>: <message>". Reach::Offline or Reach::NetworkError: stay pending, re-raise nothing, last_error message.
+        Always set attempted_at and save. Return the state string.
+      "flush(limit: SYNC_SEND_LIMIT)": >-
+        Deliver pending records oldest acknowledged_at first, at most `limit`. Stop early (leave the rest pending) the
+        first time delivery ends on Offline/NetworkError. Return {"linked" => n newly linked, "pending" => n still
+        pending overall, "mismatch" => [receipt_ids newly marked mismatch], "refused" => [receipt_ids newly refused]}.
+      backfill: >-
+        Page GET /api/v1/receipts with query {"limit" => BACKFILL_PAGE_LIMIT.to_s} and, after the first page,
+        "cursor" => the last receipt_id of the previous page; at most BACKFILL_MAX_PAGES pages; stop when a page has
+        fewer than BACKFILL_PAGE_LIMIT receipts. For each receipt that Reach::Receipts.show(id) does not find, call
+        Reach::Receipts.accept(receipt) (below); count stored, and count a Reach::VerificationFailed as failed without
+        storing. Return {"stored" => n, "failed" => n}. Network errors propagate to the caller.
+      list: all records, sorted by ack acknowledged_at, newest first.
+      counts: '{"total", "linked", "pending", "mismatch", "refused"} over list.'
+  - file: lib/reach/receipts.rb
+    changes:
+      - "store(receipt): after writing the receipt file, call Reach::ReceiptAcks.record(receipt) inside begin/rescue StandardError => nil so storing never fails because of the acknowledgment."
+      - "add public accept(receipt): verify!(receipt); store(receipt); record_in_corpus(receipt); receipt. (record_in_corpus stays private; call it from inside the module.)"
+      - "add public acknowledge(receipt): Reach::ReceiptAcks.deliver(receipt['receipt_id']) rescued StandardError => nil. Call it in wait() after store/record_in_corpus of a fetched receipt, and in refresh_grades after store/record_in_corpus of a fetched grade receipt."
+  - file: lib/reach/submit.rb
+    change: "in handle_response, after Reach::Receipts.store(receipt) and record_in_corpus, call Reach::Receipts.acknowledge(receipt) when receipt is present."
+  - file: lib/reach/sync.rb
+    change: >-
+      Inside the `unless offline` block, after the grades refresh, add two begin/rescue StandardError blocks in the same
+      style: summary["receipts_backfilled"] = Reach::ReceiptAcks.backfill["stored"] (warning on failure:
+      "reach: could not fetch receipts from the course server (<message>)"); then result = Reach::ReceiptAcks.flush,
+      summary["receipt_acks"] = result, and for every id in result["mismatch"] add the warning
+      "reach: the course server's copy of receipt <id> does not match the one on this computer; tell your instructors"
+      (warning on failure: "reach: could not confirm receipts with the course server (<message>)").
+  - file: lib/reach/status.rb
+    change: >-
+      receipts_line: when Reach::ReceiptAcks.counts["total"] is positive, append "; <linked> confirmed with Teach" and,
+      when pending is positive, ", <pending> waiting", and when mismatch is positive, ", <mismatch> mismatched". Keep
+      "Receipts: 0" and the existing rescue.
+  - file: lib/reach/cli.rb
+    change: >-
+      cmd_receipts gains `when "acks"`: print each Reach::ReceiptAcks.list record as one JSON line, return 0. Update
+      both usage strings to "reach receipts [wait|show|acks]" and the help line at ~108 to "receipts [wait|show|acks]".
+  - file: lib/reach.rb
+    change: require_relative "reach/receipt_acks" right after require_relative "reach/receipts".
+teach:
+  - file: lib/teach/db.rb
+    change: >-
+      Append to SCHEMA: CREATE TABLE IF NOT EXISTS receipt_acks (id TEXT PRIMARY KEY, receipt_id TEXT NOT NULL,
+      install_id TEXT NOT NULL, student_id TEXT NOT NULL, submission_id TEXT NOT NULL, receipt_digest TEXT NOT NULL,
+      acknowledged_at TEXT NOT NULL, linked_at TEXT NOT NULL, body_json TEXT NOT NULL); CREATE UNIQUE INDEX IF NOT
+      EXISTS idx_receipt_acks_receipt_install ON receipt_acks(receipt_id, install_id); CREATE INDEX IF NOT EXISTS
+      idx_receipt_acks_submission ON receipt_acks(submission_id). Place it right after the receipts index.
+  - file: lib/teach/models/receipt_ack.rb
+    new: true
+    module: Teach::Models::ReceiptAck
+    methods:
+      "create(body:, linked_at:, conn:)": insert using body fields; id = body["ack_id"]; return find.
+      "find(id, conn:)": row or nil.
+      "find_for(receipt_id:, install_id:, conn:)": row or nil.
+      "for_submission(submission_id, conn:)": 'rows ordered by acknowledged_at ASC mapped to JSON.parse(body_json).merge("linked_at" => row["linked_at"])'
+  - file: lib/teach/receipt_acks.rb
+    new: true
+    module: Teach::ReceiptAcks (module_function)
+    constants:
+      FIELDS: "%w[schema ack_id receipt_id receipt_kind submission_id student_id install_id receipt_digest receipt_signing_key_id acknowledged_at reach_version signature]"
+      SCHEMA: '"reach.receipt-ack/v1"'
+    "link!(install:, receipt_id:, body:, conn: Teach::DB.handle)": >-
+      In this order. raise Teach::Forbidden "receipt acknowledgments are currently disabled" if
+      Teach::Config.receipt_acks_disabled?. receipt = Teach::Models::Receipt.find(receipt_id) or raise Teach::NotFound
+      "receipt not found". raise Teach::Forbidden "not your receipt" unless receipt["body"]["student_id"] ==
+      install["student_id"]. existing = ReceiptAck.find_for(receipt_id:, install_id: install["id"]); return
+      view(existing) if existing. Validate (Teach::InvalidRequest with a plain message each): body is a Hash whose
+      keys sorted equal FIELDS sorted; every value a String; schema == SCHEMA; ack_id =~ /\Arack_[0-9a-f]{20}\z/;
+      body receipt_id == receipt_id; install_id == install["id"]; student_id, submission_id and receipt_kind equal
+      receipt["body"]'s student_id, submission_id and kind; receipt_signing_key_id equals receipt["body"]["signing_key_id"];
+      signature verifies with Teach::Crypto.verify_pss(Teach::Crypto.load_public_key(install["public_key_pem"]),
+      Base64.strict_decode64(sig), Teach::Crypto.canonical_json(body without "signature")) (a decode error is also
+      invalid_request). Then raise Teach::Conflict "the acknowledged receipt does not match the receipt Teach issued"
+      unless body["receipt_digest"] == Teach::Crypto.sha256_hex(Teach::Crypto.canonical_json(receipt["body"])).
+      Store with linked_at = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), handling a unique-index race by re-reading
+      find_for and returning it. Return view(row).
+    "view(row)": '{"ack_id" => row["id"], "receipt_id" => row["receipt_id"], "linked_at" => row["linked_at"]}'
+  - file: lib/teach/config.rb
+    change: 'def receipt_acks_disabled?; ENV["TEACH_RECEIPT_ACKS_DISABLE"] == "1"; end next to transcripts_disabled? (multi-line def style).'
+  - file: lib/teach/rate_limiter.rb
+    change: "add profile receipt_acks: { capacity: 120, refill_amount: 120, refill_period_seconds: 3600 } beside integrity."
+  - file: lib/teach/web/app.rb
+    changes:
+      - >-
+        New route right after r.get "receipts": r.post "receipts", String, "acknowledgment" do |receipt_id|; receipt_id
+        = as_text(receipt_id); body_raw = read_body_limited!(r, BODY_LIMITS[:default]); install =
+        authenticate_install!(r, body: body_raw); enforce_rate_limit!(:per_install, install["id"]);
+        enforce_rate_limit!(:receipt_acks, install["id"]); idem_key = require_idempotency_key!(r); body =
+        parse_json!(body_raw); result = Teach::ReceiptAcks.link!(install: install, receipt_id: receipt_id, body: body);
+        Teach::Audit.record(actor: install["id"], action: "receipt.acknowledged", subject: install["student_id"],
+        details: result.merge("idempotency_key" => idem_key)); json_response(200, result).
+      - 'GET submissions/:id: respond with "acknowledgments" => Teach::Models::ReceiptAck.for_submission(id) beside receipts.'
+      - require_relative "../receipt_acks" and "../models/receipt_ack" beside the existing receipt requires.
+  - file: lib/teach/cli.rb
+    change: 'cmd_submissions show: add "acknowledgments" => Teach::Models::ReceiptAck.for_submission(row["id"]) beside "receipts".'
+  - file: lib/teach.rb
+    change: require the two new files where the other receipts/models requires sit, if teach.rb requires models explicitly.
+acceptance:
+  - "ruby -c on every changed Reach file with Ruby 2.6 if available (~/.rubies or docker ruby:2.6.10-slim), else current ruby; ruby -c on every changed Teach file."
+  - "Reach loads: cd reach && ruby -Ilib -e 'require \"reach\"; p Reach::ReceiptAcks::SCHEMA'."
+  - "Teach loads and migrates: cd teach && BUNDLE_GEMFILE=$PWD/Gemfile bundle exec ruby -Ilib -e 'require \"teach\"; ENV[\"TEACH_HOME\"]; ' with TEACH_HOME set to a scratch dir, then Teach::DB.migrate!(Teach::DB.connect) creates receipt_acks."
+  - "grep the diff for '#' comment lines added: none except none. grep for Hash#except / `it` in reach: none."
+  - Report every file changed and anything not done. The primary runs the end-to-end verification.

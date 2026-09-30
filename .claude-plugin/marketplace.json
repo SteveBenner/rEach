@@ -7,7 +7,7 @@
       "name": "reach",
       "source": "./",
       "description": "rEach, the student's academic assistant for a Teach-run course.",
-      "version": "0.11.4",
+      "version": "0.11.5",
       "category": "education"
     }
   ]

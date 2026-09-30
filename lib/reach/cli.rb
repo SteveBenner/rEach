@@ -105,7 +105,7 @@ module Reach
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             submit [--slice ...]                 submit and wait for the receipt
-            receipts [wait|show]                 receipts
+            receipts [wait|show|acks]            receipts
             hand raise|status|list               hand-raises
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor                               check the local install, one line per problem
@@ -504,8 +504,11 @@ module Reach
             warn "reach: no receipt #{id}"
             1
           end
+        when "acks"
+          Reach::ReceiptAcks.list.each { |record| puts JSON.generate(record) }
+          0
         else
-          warn "usage: reach receipts [wait|show]"
+          warn "usage: reach receipts [wait|show|acks]"
           1
         end
       end

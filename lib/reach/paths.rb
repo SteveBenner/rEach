@@ -49,6 +49,10 @@ module Reach
       File.join(home, "receipts")
     end
 
+    def receipt_acks_dir
+      File.join(receipts_dir, "acks")
+    end
+
     def logs_dir
       File.join(home, "logs")
     end

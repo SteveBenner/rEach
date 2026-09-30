@@ -84,6 +84,7 @@ module Reach
           Reach::Receipts.verify!(receipt) if receipt
           Reach::Receipts.store(receipt) if receipt
           record_in_corpus(receipt) if receipt
+          Reach::Receipts.acknowledge(receipt) if receipt
           { "submission_id" => body["submission_id"], "state" => "ingested", "receipt" => receipt, "rejection" => nil }
         else
           { "submission_id" => body["submission_id"], "state" => "rejected", "receipt" => nil, "rejection" => body["rejection"] }

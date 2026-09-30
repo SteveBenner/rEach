@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.5] - 2026-09-30
+
+### Added
+
+- Receipt acknowledgments, a receipt of each receipt (wire protocol 1 revision 2026-09-30, W-RCPT-4 and
+  W-API-RECEIPT-ACK). For every Teach receipt Reach verifies and stores, `Reach::ReceiptAcks`
+  (`lib/reach/receipt_acks.rb`) writes a `reach.receipt-ack/v1` record signed with the install key. The record holds
+  the receipt id, kind, submission, student, install and time, plus the SHA-256 digest of the receipt exactly as
+  received. It lives at `~/.reach/receipts/acks/<receipt_id>.json` (0600) and moves through the states pending,
+  linked, mismatch or refused. Reach sends it to `POST /api/v1/receipts/:receipt_id/acknowledgment` right after
+  `reach submit` or a grade poll stores the receipt. `reach sync` sends any still pending (at most 20 per sync), and
+  also acknowledges receipts stored before this version.
+- `reach sync` now preserves receipts. It pages through `GET /api/v1/receipts` (at most 5 pages of 200) and
+  verifies and stores every receipt missing from this computer. A receipt Teach cannot match is reported as a sync
+  warning.
+- `reach receipts acks` lists the acknowledgment records. `reach status` counts how many are confirmed with Teach,
+  how many are waiting and how many are mismatched.
+
 ## [0.11.4] - 2026-09-30
 
 ### Fixed

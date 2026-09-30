@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.11.4
+version: 0.11.5
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.11.4
+    version: 0.11.5
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -676,12 +676,24 @@ receipts:
   verification: Every receipt's signature is checked against the instructors' public keys before it is stored or
     announced.
   storage: "~/.reach/receipts/<receipt_id>.json and a record in Reach's corpus when available."
+  preservation: >-
+    reach sync reads the install's receipts from Teach (W-API-RECEIPTS, at most 5 pages of 200) and verifies and
+    stores every one Reach does not hold, so a receipt missed while offline or lost from disk comes back.
+  acknowledgments: >-
+    For every receipt it verifies and stores, Reach writes a receipt of the receipt (W-RCPT-4,
+    reach.receipt-ack/v1): the receipt's id, kind, submission, student, the digest of the receipt exactly as
+    received, the install id and the time, signed with the install key. It keeps it at
+    ~/.reach/receipts/acks/<receipt_id>.json with a local state (pending, linked, mismatch or refused) and sends it
+    to Teach (W-API-RECEIPT-ACK), which links it to its own receipt. It is sent once right after a submit or grade
+    poll stores the receipt, and pending ones again on reach sync (at most 20 per sync, W-SAFE-11). reach status
+    counts linked and pending acknowledgments; a mismatch is reported by reach sync as a warning.
   announcement: >-
     The agent and reach status both show new receipts; a desktop notification is sent when the harness is not in
     focus (macOS osascript, Windows toast, Linux notify-send when present).
   commands:
   - reach receipts - list receipts, newest first
   - reach receipts wait --submission <id> - block until the ingest receipt arrives or five minutes pass
+  - reach receipts acks - list the acknowledgment records with their state, newest first
   - reach receipts show <id>
 hand_raising:
   command: reach hand raise [--trigger student_request] [--summary ...] [--include-profile]
