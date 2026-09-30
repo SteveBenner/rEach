@@ -51,6 +51,13 @@ module Reach
       nil
     end
 
+    def code_tool!
+      space = current_space
+      return nil if space && space["kind"] == "extracurricular"
+
+      raise_blocked!("M-GATE-NOCODETOOL")
+    end
+
     def witness(kind, fields = {})
       workspace = current_workspace_path
       Reach::Ledger.append(workspace, kind, fields) if workspace

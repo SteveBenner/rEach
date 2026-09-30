@@ -1,12 +1,15 @@
 require "open3"
 require "json"
 require "fileutils"
+require "yaml"
+require "date"
+require "time"
 
 module Reach
   module Harness
     class << self
       def detect
-        [detect_one("claude-code", "claude"), detect_one("codex", "codex"), detect_one("antigravity", "agy")].compact
+        [detect_one("claude-code", "claude"), detect_one("codex", "codex"), detect_one("antigravity", "agy"), detect_one("hermes", "hermes")].compact
       end
 
       def configure_all(workspace_path)
@@ -20,6 +23,11 @@ module Reach
             nil
           end
         end
+        begin
+          ids << "hermes" if configure_hermes
+        rescue StandardError
+          nil
+        end
         ids
       rescue StandardError
         []
@@ -32,6 +40,8 @@ module Reach
           configure_claude_code(workspace_path, space_kind)
         when "codex"
           configure_codex(workspace_path, space_kind)
+        when "hermes"
+          configure_hermes
         when "antigravity"
           nil
         else
@@ -39,8 +49,19 @@ module Reach
         end
       end
 
+      def hermes_config_path
+        path = Reach::Paths.hermes_state_file
+        return nil unless File.file?(path)
+
+        value = JSON.parse(File.read(path))["config_path"]
+        value.is_a?(String) && !value.empty? ? value : nil
+      rescue StandardError
+        nil
+      end
+
       def launch(harness_id, workspace_path, initial_prompt: nil)
         is_workspace = workspace_launch?(workspace_path)
+        prepare_hermes if harness_id.to_s == "hermes"
         if is_workspace
           Reach::Gate.session(harness: harness_id)
           refresh_rules_files(workspace_path)
@@ -50,6 +71,13 @@ module Reach
       end
 
       private
+
+      def prepare_hermes
+        Reach::Setup.ensure_hermes_profile if hermes_config_path.nil? && which("hermes")
+        configure_hermes
+      rescue StandardError
+        nil
+      end
 
       def workspace_launch?(workspace_path)
         !Reach::Workspace.space_for(workspace_path).nil?
@@ -205,6 +233,95 @@ module Reach
         }
       end
 
+      HERMES_HOOK_WRITE_MATCHER = "write_file|patch|execute_code".freeze
+      HERMES_HOOK_SHELL_MATCHER = "terminal".freeze
+
+      def hermes_hook_entry(command, timeout, matcher: nil, fail_closed: false)
+        entry = {}
+        entry["matcher"] = matcher if matcher
+        entry["command"] = command
+        entry["timeout"] = timeout
+        entry["fail_closed"] = true if fail_closed
+        entry
+      end
+
+      def hermes_hooks_content
+        {
+          "on_session_start" => [hermes_hook_entry(h("gate", "session", "--harness", "hermes"), 10)],
+          "pre_llm_call" => [hermes_hook_entry(h("gate", "prompt", "--harness", "hermes"), 15)],
+          "pre_tool_call" => [
+            hermes_hook_entry(h("gate", "write", "--harness", "hermes"), 10, matcher: HERMES_HOOK_WRITE_MATCHER, fail_closed: true),
+            hermes_hook_entry(h("gate", "shell", "--harness", "hermes"), 10, matcher: HERMES_HOOK_SHELL_MATCHER, fail_closed: true)
+          ],
+          "post_tool_call" => [hermes_hook_entry(h("transcript", "code", "--harness", "hermes"), 15)],
+          "post_llm_call" => [hermes_hook_entry(h("transcript", "turn", "--quick", "--harness", "hermes"), 30)],
+          "on_session_end" => [hermes_hook_entry(h("transcript", "turn", "--quick", "--final", "--harness", "hermes"), 30)],
+          "pre_verify" => [hermes_hook_entry(h("check", "--format", "hermes"), 60)]
+        }
+      end
+
+      def configure_hermes(_workspace_path = nil, _space_kind = nil)
+        path = hermes_config_path
+        return nil unless path && File.file?(path)
+
+        text = File.read(path)
+        loaded = begin
+          YAML.safe_load(text, permitted_classes: [Date, Time, Symbol], aliases: false)
+        rescue StandardError, Psych::SyntaxError
+          return nil
+        end
+        loaded = {} if loaded.nil?
+        return nil unless loaded.is_a?(Hash)
+
+        computed = hermes_document(Marshal.load(Marshal.dump(loaded)))
+        return nil unless computed
+        return path if computed == loaded
+
+        backup = "#{path}.reach-backup"
+        FileUtils.cp(path, backup) unless File.exist?(backup)
+        File.write(path, YAML.dump(computed))
+        path
+      rescue StandardError
+        nil
+      end
+
+      def hermes_document(document)
+        hooks = document["hooks"]
+        hooks = {} if hooks.nil?
+        return nil unless hooks.is_a?(Hash)
+
+        shim = Reach::Runtime.shim_path
+        hermes_hooks_content.each do |event, entries|
+          existing = hooks[event]
+          existing = [] if existing.nil?
+          return nil unless existing.is_a?(Array)
+
+          kept = existing.reject { |entry| entry.is_a?(Hash) && entry["command"].to_s.include?(shim) }
+          hooks[event] = kept + entries
+        end
+        document["hooks"] = hooks
+
+        servers = document["mcp_servers"]
+        servers = {} if servers.nil?
+        return nil unless servers.is_a?(Hash)
+
+        servers["reach"] = { "command" => Reach::Runtime.ruby_path, "args" => [shim, "mcp"] }
+        document["mcp_servers"] = servers
+
+        agent = document["agent"]
+        agent = {} if agent.nil?
+        return nil unless agent.is_a?(Hash)
+
+        disabled = agent["disabled_toolsets"]
+        disabled = [] if disabled.nil?
+        return nil unless disabled.is_a?(Array)
+
+        disabled = disabled + ["code_execution"] unless disabled.include?("code_execution")
+        agent["disabled_toolsets"] = disabled
+        document["agent"] = agent
+        document
+      end
+
       def toml_string(value)
         escaped = value.gsub("\\", "\\\\\\\\").gsub("\"", "\\\"")
         "\"#{escaped}\""
@@ -224,6 +341,10 @@ module Reach
           Dir.chdir(workspace_path) { Kernel.exec(*["claude", initial_prompt].compact) }
         when "codex"
           Dir.chdir(workspace_path) { Kernel.exec(*["codex", initial_prompt].compact) }
+        when "hermes"
+          argv = ["hermes", "-p", "reach", "--accept-hooks", "chat"]
+          argv.concat(["-q", initial_prompt]) if initial_prompt
+          Dir.chdir(workspace_path) { Kernel.exec(*argv) }
         when "antigravity"
           if which("agy")
             Dir.chdir(workspace_path) { Kernel.exec(*["agy", initial_prompt].compact) }

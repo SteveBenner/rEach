@@ -177,7 +177,7 @@ module Reach
         }
       end
 
-      ALLOWED_HARNESSES = %w[claude-code codex antigravity].freeze
+      ALLOWED_HARNESSES = %w[claude-code codex antigravity hermes].freeze
 
       def seal_block(workspace)
         {

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.11.0
+version: 0.11.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.11.0
+    version: 0.11.1
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -314,6 +314,7 @@ harness_integration:
   - claude-cowork (Claude desktop; plugin added from Customize > Plugins)
   - codex (CLI, IDE, desktop app)
   - antigravity (Google's agent app and CLI, which replaced Gemini CLI in 2026)
+  - hermes (Nous Research's Hermes Agent CLI, through a dedicated Hermes profile named reach)
   not_supported:
   - deepseek-harness (developer preview; plugin installation undocumented; no official desktop app)
   - the Gemini consumer app (no plugin system)
@@ -334,7 +335,7 @@ harness_integration:
       harness configuration, so the student's other sessions are never blocked.
   install_from_link:
     directive: INSTALL.md, read by the agent the student pasted the link into.
-    command: reach setup --harness claude-code|codex|antigravity (runs the harness's own install commands, or links the plugin into Antigravity's plugin directories)
+    command: reach setup --harness claude-code|codex|antigravity|hermes (runs the harness's own install commands, or links the plugin into Antigravity's plugin directories)
     ends_with: A NEXT block the installing agent speaks word for word - "rEach is installed and ready." and the greeting.
   pattern: >
     A harness over a harness, as in rSlides: Reach detects the agent CLIs installed on the machine, the student
@@ -344,9 +345,10 @@ harness_integration:
     claude_code: The claude executable on PATH; its version from claude --version.
     codex: The codex executable on PATH; its version from codex --version.
     antigravity: The agy executable on PATH; its version from agy --version.
+    hermes: The hermes executable on PATH; its version from hermes --version.
     catalogue: A dated harness-models.json listing each harness's models and default, updated with Reach releases.
   launch:
-    command: reach work [--harness claude-code|codex|antigravity] [--slice <cutout>-<slice>]
+    command: reach work [--harness claude-code|codex|antigravity|hermes] [--slice <cutout>-<slice>]
     initial_prompt: '"Hi rEach", so a terminal harness starts with rEach speaking first.'
     steps:
     - Run the gate (below); stop with a plain message if it fails.
@@ -448,6 +450,39 @@ harness_integration:
       submission from it is sealed hooked false with harness antigravity, and Teach notes it as unwitnessed rather than
       flagging it for review, unless the instructors set TEACH_UNHOOKED_HARNESS_POLICY=review. Its desktop app installs only curated plugins from its own
       interface, which is why setup links the plugin directory.
+  hermes:
+    profile: >-
+      Hermes keeps hooks and MCP servers in a profile's config.yaml, never per folder, so Reach gives course work its
+      own Hermes profile named reach and leaves the student's other profiles untouched. reach setup --harness hermes
+      runs hermes profile create reach --clone --no-alias (so the student's model and keys carry over and no
+      ~/.local/bin/reach wrapper shadows Reach's own reach command), then links skills/reach-assistant and
+      skills/reach-course into the profile's skills directory. The profile's config file is found with
+      hermes -p reach config path, never guessed.
+    configuration: >-
+      On every configure (reach work, reach hello and workspace setup) Reach loads the profile's config.yaml, backs it
+      up once as config.yaml.reach-backup, sets only the keys it owns and writes the rest back unchanged: hooks
+      (on_session_start reach gate session --harness hermes; pre_llm_call reach gate prompt --harness hermes;
+      pre_tool_call matching write_file|patch|execute_code as reach gate write --harness hermes and matching terminal
+      as reach gate shell --harness hermes, both fail_closed, execute_code refused outside extracurricular;
+      post_tool_call reach transcript code --harness hermes; post_llm_call reach transcript turn --quick --harness
+      hermes; on_session_end reach transcript turn --quick --final --harness hermes; pre_verify reach check --format
+      hermes in a slice), mcp_servers.reach for the bridge, and agent.disabled_toolsets gaining code_execution. Every
+      hook command calls the ~/.reach/bin/reach shim; each command answers only inside a course folder and is a no-op
+      elsewhere.
+    launch: >-
+      reach work --harness hermes runs the gate, rewrites the rules files and the profile configuration, then execs
+      hermes -p reach --accept-hooks chat -q "Hi rEach" in the workspace. --accept-hooks is Hermes' documented bypass of
+      its first-use hook prompt; Reach passes it only on launches it makes itself, and it persists nothing. Hermes
+      reads the workspace's AGENTS.md as its project context.
+    greeting: >-
+      Hermes has no session-start context injection, so reach gate prompt --harness hermes returns the rEach session
+      context (reach hello's text) as pre_llm_call context on the session's first turn (extra.is_first_turn).
+    limits_stated_honestly: >-
+      Hermes' pre_llm_call cannot refuse a prompt, so a prompt the gate blocks is still sent to the model; Reach
+      records it as blocked and returns the refusal as context telling the agent to stop. Writes and shell commands are
+      refused for real (pre_tool_call exit 2). execute_code runs Python the shell gate cannot read, so its toolset is
+      off in the reach profile and the gate refuses it in a slice. Hermes started any other way than reach work, or
+      under another profile, carries none of this; the submit-time check still holds.
   skills:
     reach-assistant:
       purpose: >-
@@ -1305,6 +1340,20 @@ hook_io_contract:
     submit_time_check: >-
       Every file that differs from the delivered workspace is compared with the owned-path list; any other difference
       blocks the submission and lists the files.
+  hermes:
+    input: >-
+      Hermes shell hooks receive {hook_event_name, tool_name, tool_input, session_id, cwd, profile, extra} as JSON on
+      standard input. write_file and patch carry tool_input.path; patch in V4A mode carries the patch text in
+      tool_input.patch, which reach gate write reads for its target paths; terminal carries tool_input.command.
+      pre_llm_call carries the prompt in extra.user_message and the first-turn flag in extra.is_first_turn;
+      post_llm_call carries the reply in extra.assistant_response; pre_verify carries extra.attempt and
+      extra.changed_paths.
+    output: >-
+      pre_tool_call: exit 0 allows; exit 2 blocks and the first 400 characters of standard error are shown to the
+      agent; hooks are fail_closed, so a crash or timeout blocks. pre_llm_call: standard output {"context": text} is
+      appended to the user's message. pre_verify: standard output {"action": "continue", "message": findings} keeps the
+      agent working, only when extra.attempt is 0. Every other event's output is ignored.
+    trust: Hermes asks before running a new hook; reach work launches with --accept-hooks, which records nothing.
 shell_rules:
   purpose: How reach gate shell decides a Bash command in Claude Code.
   parsing: >-

@@ -10,7 +10,9 @@ module Reach
     module_function
 
     def ingest(session_id:, transcript_path:, harness:, space:)
-      unless transcript_path && File.file?(transcript_path)
+      return nil if transcript_path.nil? || transcript_path.to_s.empty?
+
+      unless File.file?(transcript_path)
         Reach::Transcript.log_transcript_event("ingest_skipped", "session_id" => session_id)
         return nil
       end
@@ -182,11 +184,11 @@ module Reach
     def action_summary(tool, input, base)
       input = input.is_a?(Hash) ? input : {}
       text = case tool
-             when "Bash", "shell", "exec_command"
+             when "Bash", "shell", "exec_command", "terminal"
                (input["command"] || input["cmd"]).to_s
              when "Read", "Grep", "Glob"
                relativize_path((input["path"] || input["pattern"] || input["file_path"]).to_s, base)
-             when "Write", "Edit", "MultiEdit", "NotebookEdit", "apply_patch"
+             when "Write", "Edit", "MultiEdit", "NotebookEdit", "apply_patch", "write_file", "patch"
                "wrote #{write_paths(input).map { |p| relativize_path(p, base) }.join(', ')}"
              else
                "#{tool} #{JSON.generate(input)}"
@@ -195,7 +197,9 @@ module Reach
     end
 
     def write_paths(input)
-      [input["file_path"], input["notebook_path"], input["path"]].compact.uniq
+      paths = [input["file_path"], input["notebook_path"], input["path"]].compact
+      paths.concat(Reach::Gate.patch_targets(input["patch"] || input["command"])) if paths.empty? && (input["patch"] || input["command"].to_s.start_with?("*** Begin Patch"))
+      paths.uniq
     end
 
     def relativize_path(path, base)

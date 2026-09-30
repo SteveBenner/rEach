@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-09-29
+
+### Added
+
+- Hermes Agent (Nous Research) as a supported harness. `reach setup --harness hermes` creates a Hermes profile named
+  `reach` (`hermes profile create reach --clone --no-alias`, so no `~/.local/bin/reach` wrapper shadows Reach's own
+  command) and links `skills/reach-assistant` and `skills/reach-course` into it; the profile's config path is kept in
+  `~/.reach/state/hermes.json`. Every configure writes Reach's hooks, `mcp_servers.reach` and a disabled
+  `code_execution` toolset into that profile's `config.yaml` only (backed up once to `config.yaml.reach-backup`; every
+  other key kept). `reach work --harness hermes` runs `hermes -p reach --accept-hooks chat -q "Hi rEach"` in the course
+  folder.
+- Hermes hooks: `pre_tool_call` runs `reach gate write` for `write_file`, `patch` (including V4A patches) and
+  `execute_code`, and `reach gate shell` for `terminal`, both fail-closed; `pre_llm_call` runs `reach gate prompt`,
+  which records the prompt and answers `{"context": ...}` with the rEach session context on the first turn and the
+  refusal when the gate blocks; `pre_verify` runs `reach check --format hermes` and keeps the agent working on findings
+  once per turn; `post_tool_call`, `post_llm_call` and `on_session_end` build the course record from the hook payloads
+  (Hermes has no transcript file); `on_session_start` writes the ledger's session witness. Outside a course folder
+  every hook is a silent no-op.
+- `M-GATE-NOCODETOOL`: `execute_code` is refused outside the extracurricular folder.
+- Wire protocol 1 revision 2026-09-29e: the transcript harness enum gains `hermes`. Reach sends it only when the course
+  server advertises the same wire digest, and `unknown` otherwise.
+
+### Changed
+
+- `Reach::Hello.context_text` returns the session context without printing it; `reach hello` output is unchanged.
+- `TranscriptIngest.ingest` returns quietly when a hook carries no transcript path.
+
 ## [0.11.0] - 2026-09-29
 
 ### Added

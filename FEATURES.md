@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.11.0 |
+| **Registry version** | 0.11.1 |
 | **Last audited** | 2026-09-29 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 18 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 32 catalogued |
+| **Feature count** | 33 catalogued |
 
 ## How to read this registry
 
@@ -342,8 +342,23 @@ plugin-directory link are untested.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run; `agy` not installed here).
 
+### 10.5 · Hermes
+
+Nous Research's Hermes Agent CLI, through a dedicated Hermes profile named `reach` that `reach setup --harness hermes`
+creates (`--clone --no-alias`) and `reach work --harness hermes` launches with `--accept-hooks`. Hooks, the MCP bridge
+and a disabled `code_execution` toolset live in that profile's `config.yaml` only; the student's other profiles are
+untouched. Verified 2026-09-29 against hermes-agent 2026.9.24 in a scratch `HERMES_HOME`: setup kept every base key
+and was idempotent, and a real Hermes chat session driven by a scripted local model showed the greeting context on the
+first turn, an owned write allowed, a non-owned write, a V4A patch and `git status` refused with Reach's messages,
+`execute_code` absent, `pre_verify` handing `reach check` findings back to the model, and the prompt, actions, one code
+entry, the reply and its chat snippet in the course record with harness `hermes`. Limits: Hermes cannot refuse a
+prompt (it reaches the model marked blocked, with the refusal as context), and Hermes started without `reach work` or
+under another profile is not gated. No session with a real model or against a hosted Teach has been run.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (no real-model session or hosted Teach yet).
+
 ## Appendix · Blocked by
 
 - **Access**: 1.2.
-- **Human**: 1.3, 3.2, 10.2, 10.4.
+- **Human**: 1.3, 3.2, 10.2, 10.4, 10.5.
 - **Engineering**: 1.1 (the Windows installer path is unverified).

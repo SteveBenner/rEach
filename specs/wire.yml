@@ -723,7 +723,7 @@ routes:
         Required. SHA-256 (W-CONV-4) of "<install_id>\n<session_id>\n<first seq>\n<last seq>" for the entries sent.
     request:
       session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
-      harness: {enum: [claude-code, codex, unknown]}
+      harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes only to a Teach whose advertised wire_contract_sha256 equals its own, and unknown otherwise"}
       cutout_id: {type: [string, "null"], maxBytes: 128}
       slice: {type: [string, "null"], enum: [backend, panel, verification, null]}
       entries:
@@ -912,6 +912,10 @@ transcripts:
       "[code <reply seq>.<n> -> <category root>/snippets/<seq, 4 digits>-<n>.<ext>]" and recorded as a code entry with
       origin chat_snippet, category root being deliverables/<assignment>/<cutout_id>-<slice> in a slice and
       extracurricular otherwise. Claude Code transcript entries are deduplicated by uuid; Codex rollouts by offset.
+      Since 2026-09-29e, Hermes has no transcript_path: Reach records the prompt from the pre_llm_call payload's
+      extra.user_message, the reply from the post_llm_call payload's extra.assistant_response, and each tool call as an
+      action from the post_tool_call payload's tool_name and tool_input; Hermes hook payloads carry no reasoning, so a
+      Hermes session records no reasoning entries.
   W-TRN-4:
     name: code
     rule: >-

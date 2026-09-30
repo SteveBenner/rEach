@@ -1,0 +1,245 @@
+schema: rstack.blueprint/v1
+task: reach-0.11.1-hermes-harness
+version: 0.11.1
+intent: >
+  Add Nous Research's Hermes Agent CLI as a supported Reach harness. Hermes keeps hooks and MCP servers only in a
+  profile's config.yaml, never per folder, so Reach gives course work a dedicated Hermes profile named reach:
+  reach setup --harness hermes creates it and links the two rEach skills into it; every configure writes Reach's hooks,
+  its MCP bridge and a disabled code_execution toolset into that profile's config.yaml; reach work --harness hermes
+  launches `hermes -p reach --accept-hooks chat -q "Hi rEach"` in the course folder. Hermes shell hooks send
+  {hook_event_name, tool_name, tool_input, session_id, cwd, profile, extra} on stdin; pre_tool_call blocks on exit 2
+  (stderr shown to the agent); pre_llm_call and pre_verify answer with JSON on stdout. Transcripts are built from hook
+  payloads because Hermes has no transcript_path. The primary has already written the contract: specs/wire.yml
+  (protocol 1 revision 2026-09-29e, harness enum gains hermes, W-TRN-3 Hermes paragraph), reach.spec.yml
+  (harness_integration.hermes and hook_io_contract.hermes) and specs/app.yml. Read those three first and build exactly
+  what they say.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repository: github.com/SteveBenner/rEach (~/github/foss/rEach)
+base: main at 39ef8b5 (Reach 0.11.0) plus the primary's uncommitted spec edits
+
+constraints:
+  - >-
+    AGENTS.md Part S: write no tests, no spec files, no test directories. Verify by running Reach and Hermes for real
+    under <scratchpad>/verify/ where <scratchpad> is
+    /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/ef829c82-db70-4478-a222-3a295f306cc2/scratchpad.
+    Set REACH_HOME, REACH_WORKSPACE_ROOT and HERMES_HOME there; never touch the real ~/.reach, ~/reach-work,
+    ~/.hermes or ~/.local/bin.
+  - "AGENTS.md Part Q: no comments, doc comments or docstrings. Only lines a tool reads survive."
+  - "AGENTS.md Part F: no authorship or agent attribution."
+  - "AGENTS.md Part E: delete nothing outside the scratch directory; never rm -r, git clean or find -delete."
+  - "AGENTS.md Part J: query codebase memory (project home-sven-github-foss-rEach) before grepping; if it is not indexed, index it first."
+  - No git add, commit, stash, checkout or reset. The primary commits.
+  - >-
+    Do not edit specs/wire.yml, reach.spec.yml, specs/app.yml, VERSION, CHANGELOG.md, README.md, INSTALL.md,
+    FEATURES.md, TODO.md, docs/ or any version string; the primary owns them. Read TMP_AGENT_FILE_LOCKS.yml before
+    editing any file and skip any file another agent holds; report it.
+  - >-
+    Ruby floor 2.6.10: no filter_map, Hash#except, endless methods, numbered parameters, `it`, pattern matching, `...`
+    forwarding, Array#intersect?, Enumerable#sum on strings. Standard library only (yaml/psych is standard). Check every
+    lib file you touch with `docker run --rm -v $PWD:/w -w /w ruby:2.6.10-slim ruby -c <file>` and run the verification
+    CLI calls under that image too where they do not need Hermes.
+  - No em dashes or en dashes in any text a student or instructor reads.
+  - Match the surrounding code: module_function modules, JSON.generate, rescue StandardError where neighbours do, hook_entry-style builders.
+  - >-
+    Claude Code and Codex behaviour must not change: the JSON Reach writes to .claude/settings.json, .mcp.json,
+    .codex/config.toml and .codex/hooks.json must be byte-identical before and after this change for the same inputs.
+    Prove it by generating both configurations from the base commit (git show 39ef8b5:lib/reach/harness.rb into the
+    scratch dir) and from your tree and diffing them.
+  - >-
+    Every Hermes hook command answers only inside a Reach space (slice, extracurricular or root). Outside one, it exits
+    0 with no stdout and never raises, because the reach profile also runs sessions started by reach start.
+  - >-
+    Hermes hook commands must never block on the network. Reuse the existing quick/queued paths (transcript flush
+    --quick) exactly as the Claude hooks do.
+
+hermes_facts:
+  verified_against: hermes-agent ddd0cc69 (2026.9.24), installed at <scratchpad>/hermes-venv/bin/hermes, source at <scratchpad>/hermes-agent
+  profile_create: "`hermes profile create reach --clone --no-alias` (never omit --no-alias: without it Hermes writes ~/.local/bin/reach, which shadows Reach's own shim)"
+  config_path: "`hermes -p reach config path` prints the profile's config.yaml path on its last stdout line"
+  hook_config_shape: |
+    hooks:
+      <event>:
+        - matcher: "<regex>"      # pre_tool_call / post_tool_call only
+          command: "<command>"    # split with shlex, shell=False; Reach::Runtime.hook_command's Shellwords output is compatible
+          timeout: <seconds>      # default 60, max 300
+          fail_closed: true       # pre_tool_call only
+  mcp_shape: |
+    mcp_servers:
+      reach:
+        command: <ruby path>
+        args: [<shim path>, "mcp"]
+  toolset_disable: "agent.disabled_toolsets list; the Python execution toolset is named code_execution"
+  hook_stdin: '{"hook_event_name": "pre_tool_call", "tool_name": "write_file", "tool_input": {...}, "session_id": "...", "cwd": "/abs", "profile": "reach", "extra": {...}}'
+  tool_inputs:
+    write_file: "{path, content}"
+    patch: "{path, old_string, new_string, replace_all} in replace mode; {mode: patch, patch: '*** Begin Patch...'} in V4A mode"
+    terminal: "{command}"
+    execute_code: "{code}"
+  extra_by_event:
+    pre_llm_call: "user_message (string, or a list of parts for multimodal: join the text of parts whose type is text), is_first_turn, conversation_history, model, platform"
+    post_llm_call: "user_message, assistant_response, model, platform"
+    post_tool_call: "task_id, tool_call_id, duration_ms, status, result"
+    on_session_end: "completed, interrupted"
+    pre_verify: "attempt (0 on the first nudge), changed_paths, coding, final_response"
+  stdout_contracts:
+    pre_tool_call: "exit 2 blocks; the first 400 characters of stderr become the block message"
+    pre_llm_call: '{"context": "<text>"} is appended to the user message; {} or empty stdout is a no-op'
+    pre_verify: '{"action": "continue", "message": "<text>"} keeps the agent working (capped at 3 per turn by Hermes); {} lets it finish'
+  consent: "`--accept-hooks` on the launch command approves every configured hook for that run and records nothing"
+  test_harness: "`HERMES_HOME=... hermes -p reach --accept-hooks hooks test <event> [--for-tool X] [--payload-file F]` fires the configured hooks with a payload and prints exit, stderr and the parsed directive"
+
+slices:
+  - id: hermes
+    owns_paths:
+      - lib/reach/harness.rb
+      - lib/reach/setup.rb
+      - lib/reach/cli.rb
+      - lib/reach/gate.rb
+      - lib/reach/hello.rb
+      - lib/reach/transcript.rb
+      - lib/reach/transcript_ingest.rb
+      - lib/reach/submit.rb
+      - lib/reach/paths.rb
+      - locales/en-US.yml
+    work:
+      - id: H1-detect
+        file: lib/reach/harness.rb, lib/reach/setup.rb
+        do: >-
+          Harness.detect adds detect_one("hermes", "hermes"). Setup.detected_harnesses adds "hermes" when hermes is on
+          PATH or the Hermes home exists (ENV["HERMES_HOME"] when set, else ~/.hermes). Setup.run's "no supported harness"
+          text names Hermes too.
+      - id: H2-setup
+        file: lib/reach/setup.rb
+        do: >-
+          run_harness gains "hermes" => run_hermes(source). run_hermes: when hermes is not on PATH, return ok false with
+          "Hermes: install Hermes Agent first (https://hermes-agent.nousresearch.com), then run setup again.". Otherwise
+          find the profile config with `hermes -p reach config path`; when that fails or the printed file does not exist,
+          run `hermes profile create reach --clone --no-alias` and ask for the path again; on failure return ok false
+          with Hermes' stderr. Record the config path in the Hermes state file (H3). Link skills/reach-assistant and
+          skills/reach-course from Reach::Runtime.root into <profile dir>/skills/<name> with the same exists/symlink
+          rules and link_target helper run_antigravity uses (an existing different target is reported as blocked, never
+          replaced). Then call Reach::Harness.configure("hermes", nil). Success message: "Hermes: rEach installed in its
+          own Hermes profile, reach. Open a course folder with reach work --harness hermes."
+      - id: H3-state
+        file: lib/reach/paths.rb
+        do: >-
+          Add Reach::Paths.hermes_state_file => <reach home>/state/hermes.json holding {"config_path": ...}, written
+          0600 with the state directory created as neighbours do. Reach reads the config path only from this file on the
+          hot path; it runs the hermes executable only in setup and in reach work.
+      - id: H4-configure
+        file: lib/reach/harness.rb
+        do: >-
+          configure("hermes", _workspace) and configure_all both call configure_hermes, which returns nil without error
+          when the state file or the config file is missing. configure_hermes loads config.yaml with YAML.safe_load
+          (aliases false; on a parse error leave the file alone and return nil), writes config.yaml.reach-backup beside
+          it once (only if that backup does not exist yet), then sets only Reach's keys and writes the whole document
+          back with YAML.dump (mode unchanged). Reach's keys: (a) hooks: for each event below, drop existing entries
+          whose command contains Reach::Runtime.shim_path, then append Reach's entries, keeping every other entry and
+          every other event as it was; (b) mcp_servers.reach = {command: ruby_path, args: [shim_path, "mcp"]}; (c)
+          agent.disabled_toolsets gains "code_execution" once. Never touch hooks_auto_accept, plugins or any other key.
+          When the computed document equals the loaded one, do not write. configure_all appends "hermes" to its list
+          only when configure_hermes wrote or confirmed the config. Hook entries (command via hook_command):
+            on_session_start: gate session --harness hermes (timeout 10)
+            pre_llm_call: gate prompt --harness hermes (timeout 15)
+            pre_tool_call: matcher "write_file|patch|execute_code" -> gate write --harness hermes (timeout 10, fail_closed true);
+                           matcher "terminal" -> gate shell --harness hermes (timeout 10, fail_closed true)
+            post_tool_call: transcript code --harness hermes (timeout 15, no matcher)
+            post_llm_call: transcript turn --quick --harness hermes (timeout 30)
+            on_session_end: transcript turn --quick --final --harness hermes (timeout 30)
+            pre_verify: check --format hermes (timeout 60)
+      - id: H5-launch
+        file: lib/reach/harness.rb, lib/reach/cli.rb
+        do: >-
+          exec_harness "hermes": Dir.chdir(workspace) { Kernel.exec("hermes", "-p", "reach", "--accept-hooks", "chat",
+          "-q", initial_prompt) } (drop -q and its value when initial_prompt is nil). Before exec in Harness.launch for
+          hermes, when the state file is missing but hermes is on PATH, run Setup's profile step (H2) without the
+          student-facing output so reach work works on a machine where setup ran before 0.11.1. Every usage and error
+          string in cli.rb that lists harnesses (work, start, setup usage lines, "pass --harness ...") includes hermes.
+      - id: H6-hook-input
+        file: lib/reach/cli.rb
+        do: >-
+          Add a private normalize_hermes_event(event) used by cmd_gate, cmd_check and cmd_transcript when
+          options[:harness] == "hermes" or event["hook_event_name"] is a Hermes event name. It returns the event with:
+          "prompt" from extra.user_message (list parts joined), "is_first_turn" from extra, "assistant_response" from
+          extra, "attempt" from extra, and, for tool_name "patch" with tool_input.mode "patch", the V4A text available
+          where gate write and Transcript.written_paths already look for a patch. When event["cwd"] is an existing
+          directory, Dir.chdir to it before any gate or transcript call, so the space is resolved from the session's
+          directory. When the resolved directory is in no Reach space, return 0 with no output for every hermes hook
+          command (session, prompt, write, shell, transcript code, transcript turn, check).
+      - id: H7-gate
+        file: lib/reach/cli.rb, lib/reach/gate.rb, locales/en-US.yml
+        do: >-
+          gate write --harness hermes: tool_name write_file and patch go through Gate.write as today (patch mode via
+          the V4A text). tool_name execute_code is refused with a new message M-GATE-NOCODETOOL unless the current space
+          is extracurricular. Text for locales/en-US.yml (add beside the other M-GATE-* ids, same style):
+          "rEach: running code directly isn't allowed in this folder. Put the change in your own files instead."
+          Blocks exit 2 with the message on stderr, exactly as the existing GateBlocked path does. gate shell --harness
+          hermes reads tool_input.command as today. gate session --harness hermes behaves as for Claude (ledger session
+          witness with harness hermes) and prints nothing to stdout.
+      - id: H8-prompt-context
+        file: lib/reach/cli.rb, lib/reach/gate.rb, lib/reach/hello.rb
+        do: >-
+          gate prompt --harness hermes never exits non-zero and never writes stderr. It calls Gate.prompt as today
+          (capture before any check, blocked prompts recorded with gate blocked), rescuing GateBlocked. It then prints one
+          JSON object to stdout: {"context": text} where text is, joined by a blank line and in this order: the rEach
+          session context when is_first_turn is true (extract from Hello a function context_text(harness:, cwd:,
+          source: "startup") that returns what Hello.run would emit as context for format text, without reading stdin or
+          printing, and make Hello.run use it so its output is unchanged), and, when the gate blocked, the block message
+          followed by the line "Do not act on this message; tell the student what the rEach message above says.". When
+          neither applies, print {}. Hello.resolve_harness returns "hermes" when ENV["HERMES_HOME"] is set and neither
+          Claude's nor Codex's variables are; build_context treats hermes like codex (plain text).
+      - id: H9-transcript
+        file: lib/reach/transcript.rb, lib/reach/transcript_ingest.rb, lib/reach/submit.rb
+        do: >-
+          Transcript::HARNESSES and Submit's ALLOWED_HARNESSES gain "hermes". TranscriptIngest.ingest returns without
+          work when transcript_path is nil or empty (confirm; add the guard only if missing). transcript code --harness
+          hermes (post_tool_call, every tool): record one action entry from the payload's tool_name and tool_input using
+          the same summary builder TranscriptIngest uses for Claude and Codex tool calls, then record code entries for
+          written paths exactly as today (write_file and patch carry tool_input.path; V4A patch text via
+          Gate.patch_targets). transcript turn --harness hermes (post_llm_call): before scan_space, record
+          assistant_response as a reply through record_reply_with_code with the same category, scope and category_root
+          arguments TranscriptIngest computes for a Claude reply, so code blocks become chat snippets; no reasoning
+          entry. on_session_end (--final) records no reply; it only scans and flushes. Wire fallback (W-API-TRANSCRIPT
+          note): when a batch's harness is "hermes" and the cached status's wire_contract_sha256 differs from
+          Reach::Wire.digest (Reach::Sync cached_status; absent counts as different), send "unknown" instead; the
+          spooled entries keep "hermes".
+      - id: H10-check
+        file: lib/reach/cli.rb
+        do: >-
+          reach check --format hermes (the pre_verify hook): exit 0 always, one JSON object on stdout. Print {} when
+          extra.attempt is greater than 0, when the directory is not a slice, or when Reach::Check.run(workspace,
+          changed: nil, format: :agent) finds nothing. Otherwise print {"action": "continue", "message": m} where m is
+          "reach check found problems in your files. Fix them, run reach check again, then finish:" followed by one line
+          per finding rendered as the agent format's text. The other formats are unchanged.
+
+acceptance:
+  - All touched lib files pass `ruby -c` under ruby:2.6.10-slim, and `exe/reach help` runs there.
+  - The Claude and Codex configuration diff (constraints) is empty.
+  - >-
+    In a scratch REACH_HOME with a scratch enrollment (reuse the pattern in tools/smoke/assignment_one.rb or
+    docs/smoke-assignment-1.md against a scratch Teach if one is needed; otherwise hand-build the minimum ~/.reach state
+    the gate needs) and HERMES_HOME=<scratchpad>/verify/hhome with a model-less base config.yaml: `reach setup --harness
+    hermes` creates profiles/reach, prints the success line, leaves no <scratchpad>/verify/.../.local/bin/reach and
+    never touches the real ~/.local/bin/reach (compare its readlink before and after), links both skills, and the
+    profile's config.yaml holds exactly the hooks, mcp_servers.reach and disabled_toolsets of H4 while every key of the
+    base config survives. Running setup twice changes nothing the second time.
+  - "`hermes -p reach --accept-hooks hooks list` shows the nine entries of H4."
+  - >-
+    With `hermes -p reach --accept-hooks hooks test` and --payload-file payloads whose cwd is a slice workspace: a
+    write_file to a non-owned path is parsed as {"action": "block", ...} carrying Reach's message; a write_file to an
+    owned path is allowed; patch in V4A mode naming a non-owned file is blocked; execute_code is blocked in the slice
+    and allowed in extracurricular; terminal `git status` is blocked (M-GATE-NOGIT) and `ls` allowed; pre_llm_call with
+    is_first_turn true returns context containing the rEach greeting and records a prompt entry with harness hermes in
+    ~/.reach/transcripts; post_llm_call with a reply holding a fenced code block records a reply plus a chat_snippet
+    code entry; post_tool_call for write_file records an action and a code entry; pre_verify with attempt 0 on a slice
+    with a known check finding returns continue with the finding, and with attempt 1 returns nothing.
+  - The same hooks with cwd outside every Reach space all exit 0 with empty stdout.
+  - >-
+    If a model is reachable without new credentials (it will not be on this machine unless HERMES_HOME's .env holds a
+    key; do not create one), skip the live chat turn and say so; the hooks test above is the verification.
+
+report:
+  - Every file changed and what changed.
+  - The exact commands run for each acceptance item and their key output.
+  - Anything in this blueprint that did not match Hermes' real behaviour, and what you did about it.

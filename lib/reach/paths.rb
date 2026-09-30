@@ -101,6 +101,10 @@ module Reach
       File.join(home, "transcripts")
     end
 
+    def hermes_state_file
+      File.join(state_dir, "hermes.json")
+    end
+
     def flush_lock_file
       File.join(state_dir, "transcript-flush.lock")
     end

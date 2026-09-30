@@ -1,11 +1,11 @@
 schema_version: 1
 name: reach
-version: 0.11.0
+version: 0.11.1
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
-  from its repository link into Claude Code, Claude Cowork, Codex or
-  Antigravity (and through rplugin when present) and turns the student's own
+  from its repository link into Claude Code, Claude Cowork, Codex,
+  Antigravity or Hermes (and through rplugin when present) and turns the student's own
   AI agent into rEach, a bounded course partner: it greets the student and
   runs a short interview saved on their computer only, enrolls with Teach, receives the student's
   protected materials, refuses to let the agent work until the instructors'
@@ -24,6 +24,7 @@ harnesses:
   - claude-code (terminal, desktop Code tab, VS Code) and Claude Cowork, from .claude-plugin/
   - codex (CLI, IDE, desktop app), from .codex-plugin/ and .agents/plugins/marketplace.json
   - antigravity (the Gemini harness), from plugin.json, rules/ and skills/ through reach setup
+  - hermes (Nous Research's Hermes Agent CLI), through a dedicated Hermes profile named reach that reach setup creates and reach work launches
 depends_on:
   - dovetail (the pure-Ruby shape checker the shape package carries in the vault, with a dovetail on the PATH as the fallback)
   - teach (the course server this plugin talks to, protocol 1)
@@ -39,7 +40,7 @@ standards:
   - id: STD-PROFILE-LOCAL
     text: "The student's interview profile lives only in ~/.reach/profile.yml (0600). It is sent to Teach only inside a hand-raise bundle the student agreed to include it in, and reach profile forget deletes it. Interview answers typed in a course workspace are prompts, and reach the course transcript like any other (STD-TRANSCRIPT)."
   - id: STD-TRANSCRIPT
-    text: "Everything written in a course folder on a harness with hooks (Claude Code, Codex) reaches the student's course record on Teach through W-API-TRANSCRIPT: every prompt, captured by reach gate prompt before any gate check, and since 0.10.0 the AI partner's replies, readable reasoning and actions, read from the harness's own session transcript by reach transcript code and reach transcript turn, and every version of every code file written in the space, filed as assignment or extracurricular code. Code blocks in a reply are split out as chat snippets, so the chat stays prose. Everything is spooled in ~/.reach/transcripts (0700, files 0600) and sent from the Stop and SessionEnd hooks and reach sync; no hook blocks on the network, a failure keeps every entry queued, and Reach sends only the entry kinds the course server's status lists. The student is told at enrollment (M-TRANSCRIPT-NOTICE), in every greeting inside a course folder (G-TRANSCRIPT-NOTICE) and by reach status. Conversations outside course folders and Antigravity sessions are not captured."
+    text: "Everything written in a course folder on a harness with hooks (Claude Code, Codex, Hermes) reaches the student's course record on Teach through W-API-TRANSCRIPT: every prompt, captured by reach gate prompt before any gate check, and since 0.10.0 the AI partner's replies, readable reasoning and actions, read from the harness's own session transcript by reach transcript code and reach transcript turn (on Hermes, which has no transcript file, from its hook payloads), and every version of every code file written in the space, filed as assignment or extracurricular code. Code blocks in a reply are split out as chat snippets, so the chat stays prose. Everything is spooled in ~/.reach/transcripts (0700, files 0600) and sent from the Stop and SessionEnd hooks and reach sync; no hook blocks on the network, a failure keeps every entry queued, and Reach sends only the entry kinds the course server's status lists. The student is told at enrollment (M-TRANSCRIPT-NOTICE), in every greeting inside a course folder (G-TRANSCRIPT-NOTICE) and by reach status. Conversations outside course folders and Antigravity sessions are not captured."
   - id: STD-WORKSPACE-LAYOUT
     text: "Assignment code is written only in slice workspaces under ~/reach-work/deliverables/<course>/<assignment>/<cutout>-<slice>/, and anything else the student wants to build only in ~/reach-work/extracurricular/, which is never graded or submitted. The workspace root refuses writes (M-WRITE-ROOT), extracurricular refuses writes outside itself (M-WRITE-OUTSIDE-EXTRA), and the agent is told to put code in files, never in chat (R-CODEFILE). A sync moves an older slice workspace under deliverables/ when the path is free and never deletes one."
   - id: STD-VAULT-PRIVATE
@@ -57,7 +58,7 @@ standards:
   - id: STD-FLOWS
     text: "The agent writes code only through the reach-feature or reach-bug flow (directive FLOW). The student deals in business behaviour only: student-facing text never names code, tests, scenarios, files or commands."
   - id: STD-CHECK-BEFORE-SUBMIT
-    text: "reach check is the one checker: the hooks run it after every write, reach qualify runs it first, and reach submit runs it first; only findings in the slice's own files count in qualify and submit. Findings are returned once with M-SUBMIT-FIX-FIRST; a second attempt on the same findings is refused with M-SUBMIT-BLOCKED-CHECK and raises a check_gate hand."
+    text: "reach check is the one checker: the hooks run it after every write (on Hermes, whose hooks cannot answer a write, at the end of each turn that wrote code), reach qualify runs it first, and reach submit runs it first; only findings in the slice's own files count in qualify and submit. Findings are returned once with M-SUBMIT-FIX-FIRST; a second attempt on the same findings is refused with M-SUBMIT-BLOCKED-CHECK and raises a check_gate hand."
   - id: STD-NO-GIT-IN-WORKSPACE
     text: "Checkpoints are Reach's own snapshots under ~/.reach/checkpoints, taken and restored by reach checkpoint; no git repository is created in or required by a course workspace, and since 0.11.0 the gate refuses git in slice and root spaces (M-GATE-NOGIT); the extracurricular folder is the student's own. Git support is planned for Reach 2.0 (ROADMAP.md)."
   - id: STD-COURSE-TIME

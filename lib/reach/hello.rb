@@ -18,6 +18,21 @@ module Reach
       end
 
       harness_id = resolve_harness(harness)
+      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd)
+
+      emit(format, context, banner, greeting_id, greeting_text)
+    rescue StandardError
+      emit(format, MINIMAL_CONTEXT, nil, nil, nil)
+    end
+
+    def context_text(harness:, cwd:, source: "startup")
+      harness_id = resolve_harness(harness)
+      session_parts(harness_id, "text", source, cwd).last
+    rescue StandardError
+      MINIMAL_CONTEXT
+    end
+
+    def session_parts(harness_id, format, source, cwd)
       maybe_refresh_status
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
@@ -27,10 +42,7 @@ module Reach
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-TRANSCRIPT-NOTICE")}"
       end
       context = build_context(harness_id, format, greeting_id, greeting_text)
-
-      emit(format, context, banner, greeting_id, greeting_text)
-    rescue StandardError
-      emit(format, MINIMAL_CONTEXT, nil, nil, nil)
+      [greeting_id, greeting_text, banner, context]
     end
 
     def read_stdin_json
@@ -49,6 +61,8 @@ module Reach
         "codex"
       elsif ENV["CLAUDE_PLUGIN_ROOT"] || ENV["CLAUDE_PROJECT_DIR"]
         "claude-code"
+      elsif ENV["HERMES_HOME"].to_s != ""
+        "hermes"
       else
         "unknown"
       end
@@ -232,7 +246,7 @@ module Reach
       lines << course_question_line(question) if question
 
       text = lines.join("\n")
-      if harness_id == "codex" || harness_id == "unknown" || format.to_s == "text"
+      if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"
         text = "#{text}\n\n#{persona_body}"
       end
       text
