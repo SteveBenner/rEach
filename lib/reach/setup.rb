@@ -19,7 +19,7 @@ module Reach
       candidates = harness.to_s == "auto" ? detected_harnesses : [harness.to_s]
 
       results = candidates.map { |id| run_harness(id, resolved_source) }
-      results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, or Antigravity, then run setup again." } if results.empty?
+      results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, Antigravity, or Hermes, then run setup again." } if results.empty?
       ok = results.any? { |entry| entry[:ok] }
       exit_code = ok ? 0 : 1
 
@@ -68,7 +68,13 @@ module Reach
       ids << "claude-code" if on_path?("claude") || File.directory?(File.expand_path("~/.claude"))
       ids << "codex" if on_path?("codex") || File.directory?(File.expand_path("~/.codex"))
       ids << "antigravity" if on_path?("agy") || File.directory?(File.expand_path("~/.gemini"))
+      ids << "hermes" if on_path?("hermes") || File.directory?(hermes_home)
       ids
+    end
+
+    def hermes_home
+      value = ENV["HERMES_HOME"].to_s
+      File.expand_path(value.empty? ? "~/.hermes" : value)
     end
 
     def on_path?(executable)
@@ -85,6 +91,8 @@ module Reach
         run_codex(source)
       when "antigravity"
         run_antigravity(source)
+      when "hermes"
+        run_hermes(source)
       when "deepseek-tui", "dsh"
         { id: id, ok: false, message: "DeepSeek Harness: rEach doesn't support it yet." }
       else
@@ -159,6 +167,66 @@ module Reach
       return { id: "antigravity", ok: false, message: "blocked: #{blocked} exists" } if blocked
 
       { id: "antigravity", ok: true, message: "Antigravity: rEach installed. Start a new Antigravity session to meet rEach." }
+    end
+
+    def run_hermes(_source)
+      unless on_path?("hermes")
+        return { id: "hermes", ok: false, message: "Hermes: install Hermes Agent first (https://hermes-agent.nousresearch.com), then run setup again." }
+      end
+
+      config_path, error = ensure_hermes_profile
+      return { id: "hermes", ok: false, message: "Hermes: #{error}" } unless config_path
+
+      skills_dir = File.join(File.dirname(config_path), "skills")
+      root = Reach::Runtime.root
+      blocked = nil
+      %w[reach-assistant reach-course].each do |name|
+        source_dir = File.join(root, "skills", name)
+        target = File.join(skills_dir, name)
+        FileUtils.mkdir_p(skills_dir)
+        if File.exist?(target) || File.symlink?(target)
+          next if File.symlink?(target) && File.readlink(target) == source_dir
+
+          blocked ||= target
+          next
+        end
+        link_target(source_dir, target)
+      end
+      return { id: "hermes", ok: false, message: "blocked: #{blocked} exists" } if blocked
+
+      Reach::Harness.configure("hermes", nil)
+      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with reach work --harness hermes." }
+    end
+
+    def ensure_hermes_profile
+      path = hermes_profile_config_path
+      unless path
+        _out, err, ok = capture(["hermes", "profile", "create", "reach", "--clone", "--no-alias"])
+        return [nil, err.to_s.strip.empty? ? "could not create the reach profile" : err.strip] unless ok
+
+        path = hermes_profile_config_path
+        return [nil, "could not find the reach profile's configuration file"] unless path
+      end
+      record_hermes_config(path)
+      [path, nil]
+    end
+
+    def hermes_profile_config_path
+      out, _err, ok = capture(["hermes", "-p", "reach", "config", "path"])
+      return nil unless ok
+
+      candidate = out.to_s.lines.map(&:strip).reject(&:empty?).last
+      candidate && File.file?(candidate) ? candidate : nil
+    end
+
+    def record_hermes_config(path)
+      Reach::Paths.ensure_home!
+      FileUtils.mkdir_p(Reach::Paths.state_dir)
+      state_file = Reach::Paths.hermes_state_file
+      File.write(state_file, JSON.generate("config_path" => path))
+      File.chmod(0o600, state_file)
+    rescue NotImplementedError, Errno::ENOENT
+      nil
     end
 
     def link_target(root, target)

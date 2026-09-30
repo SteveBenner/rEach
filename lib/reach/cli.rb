@@ -8,6 +8,8 @@ require "shellwords"
 module Reach
   module CLI
     STDIN_GRACE_S = 0.5
+    HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
+    HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
 
     class << self
       def run(argv)
@@ -110,10 +112,10 @@ module Reach
             lock                                 wipe the decrypted vault
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
-            setup [--harness auto|claude-code|codex|antigravity] [--source ...] [--format ...]
+            setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...]
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
-            check [--changed <path>] [--format text|agent|json]   check the slice's code against the rules
+            check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
             checkpoint save|list|show|restore    snapshots of the slice's files, kept by rEach
             plan save|show|note                  the slice plan
             directive <OPCODE> | --list          a directive's full text
@@ -247,7 +249,7 @@ module Reach
         end
         harness_id = options[:harness] || pick_harness
         unless harness_id
-          warn "reach: no supported harness found on PATH; pass --harness claude-code|codex|antigravity"
+          warn "reach: no supported harness found on PATH; pass --harness claude-code|codex|antigravity|hermes"
           return 1
         end
         Reach::Harness.launch(harness_id, workspace_path, initial_prompt: "Hi rEach")
@@ -258,7 +260,7 @@ module Reach
         options, _remaining = parse_flags(args, [:harness])
         harness_id = options[:harness] || pick_harness
         unless harness_id
-          warn "reach: no supported harness found on PATH; pass --harness claude-code|codex|antigravity"
+          warn "reach: no supported harness found on PATH; pass --harness claude-code|codex|antigravity|hermes"
           return 1
         end
         Reach::Harness.launch(harness_id, Dir.pwd, initial_prompt: "Hi rEach")
@@ -277,14 +279,21 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
+        hermes = hermes_hook?(options[:harness], event)
+        if hermes
+          event = normalize_hermes_event(event)
+          return 0 unless event
+        end
         tool_input = event["tool_input"] || {}
         case sub
         when "session"
           harness_id = options[:harness] || event["harness"] || "claude-code"
           Reach::Gate.session(harness: harness_id)
-          announce_guardrails
+          announce_guardrails unless hermes
           0
         when "prompt"
+          return gate_hermes_prompt(event) if hermes
+
           Reach::Gate.prompt(event: event, harness: options[:harness])
           0
         when "write"
@@ -292,6 +301,8 @@ module Reach
           tool_name = event["tool_name"]
           command_text = tool_input["command"]
           patch = command_text if tool_name == "apply_patch" || command_text.to_s.start_with?("*** Begin Patch")
+          patch = tool_input["patch"].to_s if tool_name == "patch" && tool_input["mode"] == "patch"
+          Reach::Gate.code_tool! if hermes && tool_name == "execute_code"
           Reach::Gate.write(path: path, patch: patch)
           0
         when "shell"
@@ -306,6 +317,79 @@ module Reach
           warn "usage: reach gate session|prompt|write|shell"
           1
         end
+      end
+
+      def hermes_hook?(harness, event)
+        return true if harness.to_s == "hermes"
+
+        event.is_a?(Hash) && HERMES_EVENTS.include?(event["hook_event_name"])
+      end
+
+      def normalize_hermes_event(event)
+        event = {} unless event.is_a?(Hash)
+        cwd = event["cwd"]
+        begin
+          Dir.chdir(cwd) if cwd.is_a?(String) && File.directory?(cwd)
+        rescue StandardError
+          nil
+        end
+        return nil unless Reach::Gate.current_space
+
+        extra = event["extra"].is_a?(Hash) ? event["extra"] : {}
+        normalized = event.dup
+        message = extra["user_message"]
+        message = message.map { |part| part.is_a?(Hash) && part["type"] == "text" ? part["text"].to_s : nil }.compact.join("\n") if message.is_a?(Array)
+        normalized["prompt"] = message if message.is_a?(String)
+        normalized["is_first_turn"] = extra["is_first_turn"]
+        normalized["assistant_response"] = extra["assistant_response"]
+        normalized["attempt"] = extra["attempt"]
+        tool_input = event["tool_input"].is_a?(Hash) ? event["tool_input"].dup : {}
+        if event["tool_name"] == "patch" && tool_input["mode"] == "patch" && tool_input["patch"].is_a?(String)
+          tool_input["command"] = tool_input["patch"]
+        end
+        normalized["tool_input"] = tool_input
+        normalized
+      end
+
+      def gate_hermes_prompt(event)
+        blocked = nil
+        begin
+          Reach::Gate.prompt(event: event, harness: "hermes")
+        rescue Reach::GateBlocked => e
+          blocked = e
+        rescue StandardError
+          nil
+        end
+        parts = []
+        parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup") if event["is_first_turn"] == true
+        parts << blocked.message << HERMES_BLOCK_NOTE if blocked
+        puts JSON.generate(parts.empty? ? {} : { "context" => parts.join("\n\n") })
+        0
+      rescue StandardError
+        puts "{}"
+        0
+      end
+
+      def check_hermes(event)
+        workspace = Reach::Gate.current_workspace_path
+        attempt = event["attempt"].to_i
+        if workspace.nil? || attempt > 0
+          puts "{}"
+          return 0
+        end
+
+        findings = Reach::Check.run(workspace, changed: nil, format: :agent)
+        if findings.empty?
+          puts "{}"
+        else
+          lines = findings.map { |finding| Reach::Check.render_text([finding]) }
+          message = (["reach check found problems in your files. Fix them, run reach check again, then finish:"] + lines).join("\n")
+          puts JSON.generate("action" => "continue", "message" => message)
+        end
+        0
+      rescue StandardError
+        puts "{}"
+        0
       end
 
       def shell_text(command)
@@ -838,6 +922,12 @@ module Reach
       def cmd_check(args)
         options, _remaining = parse_flags(args, [:changed, :format, :slice])
         event = read_stdin_json
+        if options[:format].to_s == "hermes" || hermes_hook?(nil, event)
+          event = normalize_hermes_event(event)
+          return 0 unless event
+
+          return check_hermes(event)
+        end
         tool_input = event["tool_input"] || {}
         changed = options[:changed] || tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
         workspace_path = workspace_or_fail(options[:slice])
@@ -942,11 +1032,23 @@ module Reach
           quick, remaining = parse_bare_flag(remaining, "quick")
           final, _remaining = parse_bare_flag(remaining, "final")
           event = read_stdin_json
+          if hermes_hook?(options[:harness], event)
+            event = normalize_hermes_event(event)
+            return 0 unless event
+
+            options = options.merge(harness: "hermes")
+          end
           Reach::Transcript.turn(event: event, harness: options[:harness], quick: quick, final: final)
           0
         when "code"
           options, _remaining = parse_flags(args, [:harness])
           event = read_stdin_json
+          if hermes_hook?(options[:harness], event)
+            event = normalize_hermes_event(event)
+            return 0 unless event
+
+            options = options.merge(harness: "hermes")
+          end
           Reach::Transcript.code(event: event, harness: options[:harness])
           0
         when "flush"

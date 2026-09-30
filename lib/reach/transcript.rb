@@ -17,7 +17,8 @@ module Reach
     FULL_MAX_REQUESTS = 50
     QUICK_MIN_INTERVAL_S = 60
     SESSION_ID_PATTERN = /\A[A-Za-z0-9._:-]{1,128}\z/
-    HARNESSES = %w[claude-code codex unknown].freeze
+    HARNESSES = %w[claude-code codex hermes unknown].freeze
+    HERMES_WRITE_TOOLS = %w[write_file patch].freeze
     SLICES = %w[backend panel verification].freeze
     KINDS = %w[prompt reply reasoning action code].freeze
     DEFAULT_SUPPORTED_KINDS = %w[prompt].freeze
@@ -110,6 +111,15 @@ module Reach
       slice = meta["slice"]
       assignment = meta["assignment"]
 
+      if resolved_harness == "hermes"
+        Reach::TranscriptIngest.record_action(
+          session_id, event["tool_name"], event["tool_input"], false,
+          harness: resolved_harness, cutout_id: cutout_id, slice: slice, space: space,
+          at: Reach::TranscriptIngest.normalized_at(nil), base: base_real
+        )
+        return nil unless HERMES_WRITE_TOOLS.include?(event["tool_name"])
+      end
+
       written_paths(event).each do |absolute|
         next if File.symlink?(absolute)
         next unless path_allowed?(absolute, space, workspace, base_real)
@@ -141,6 +151,7 @@ module Reach
           resolved_harness = resolve_harness(harness)
           space = safe_space_kind
           if space
+            record_hermes_reply(session_id, event, space) if resolved_harness == "hermes" && !final
             Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: resolved_harness, space: space)
             scan_space(session_id, resolved_harness, space)
           end
@@ -149,6 +160,25 @@ module Reach
         log_transcript_event("turn_failed", "error" => e.class.name)
       end
       flush(quick: quick, final: final)
+      nil
+    end
+
+    def record_hermes_reply(session_id, event, space)
+      reply = event["assistant_response"]
+      return nil unless reply.is_a?(String) && !reply.strip.empty?
+
+      workspace = space == "slice" ? safe_current_workspace : nil
+      meta = workspace ? safe_metadata(workspace) : {}
+      cutout_id = meta["cutout_id"]
+      slice = meta["slice"]
+      category, scope, category_root = Reach::TranscriptIngest.category_info(space, meta["assignment"], cutout_id, slice, workspace)
+      record_reply_with_code(
+        session_id, harness: "hermes", cutout_id: cutout_id, slice: slice, space: space,
+        at: Reach::TranscriptIngest.normalized_at(nil), raw_text: reply,
+        category: category, scope: scope, category_root: category_root
+      )
+    rescue StandardError => e
+      log_transcript_event("reply_failed", "error" => e.class.name)
       nil
     end
 
@@ -289,7 +319,7 @@ module Reach
       tool_input = event["tool_input"] || {}
       tool_name = event["tool_name"]
       command_text = tool_input["command"]
-      if tool_name == "apply_patch" || command_text.to_s.start_with?("*** Begin Patch")
+      if tool_name == "apply_patch" || command_text.to_s.start_with?("*** Begin Patch") || (tool_name == "patch" && tool_input["mode"] == "patch")
         patch_text = tool_input["patch"] || command_text
         Reach::Gate.patch_targets(patch_text).map { |relative| File.expand_path(relative) }
       else
@@ -779,13 +809,23 @@ module Reach
 
     def batch_bytesize(session_id, entries)
       last_entry = entries.last
-      harness = HARNESSES.include?(last_entry["harness"]) ? last_entry["harness"] : "unknown"
+      harness = wire_harness(last_entry["harness"])
       JSON.generate(batch_body(session_id, harness, last_entry["cutout_id"], last_entry["slice"], entries)).bytesize
+    end
+
+    def wire_harness(value)
+      harness = HARNESSES.include?(value) ? value : "unknown"
+      return harness unless harness == "hermes"
+
+      status = Reach::Sync.cached_status
+      status && status["wire_contract_sha256"] == Reach::Wire.digest ? "hermes" : "unknown"
+    rescue StandardError
+      "unknown"
     end
 
     def send_batch(install, session_id:, batch:, quick:)
       last_entry = batch.last
-      harness = HARNESSES.include?(last_entry["harness"]) ? last_entry["harness"] : "unknown"
+      harness = wire_harness(last_entry["harness"])
       body = batch_body(session_id, harness, last_entry["cutout_id"], last_entry["slice"], batch)
       first_seq = batch.first["seq"]
       last_seq = batch.last["seq"]

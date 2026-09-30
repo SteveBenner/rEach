@@ -1,8 +1,8 @@
 # rEach: the student guide
 
 rEach is your academic assistant. It introduces itself, gets to know you a
-little, then connects your AI agent (Claude Code, Claude Cowork, Codex or
-Antigravity) to your instructors' course server, keeps your agent inside the
+little, then connects your AI agent (Claude Code, Claude Cowork, Codex,
+Antigravity or Hermes) to your instructors' course server, keeps your agent inside the
 part of the assignment that is yours to write, checks your work as you go,
 and sends it in when you are ready.
 
@@ -10,7 +10,8 @@ and sends it in when you are ready.
 
 1. Paste this repository's link into your AI app and ask it to install rEach.
    Cowork users: add it under Customize › Plugins › Add › Add marketplace
-   instead.
+   instead. Hermes users: rEach sets up its own Hermes profile, so always
+   open your course with `reach work --harness hermes`.
 2. rEach introduces itself and asks a few questions. Answer as many or as few
    as you like; you can always finish later.
 3. Then enroll with your code: give rEach the enrollment code your instructor

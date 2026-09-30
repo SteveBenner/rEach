@@ -4,7 +4,7 @@
 > this repository's link? Follow [`INSTALL.md`](INSTALL.md).
 
 The student's side of the course software: a harness plugin that installs into
-Claude Code, Claude Cowork, Codex or Antigravity and turns the student's own AI
+Claude Code, Claude Cowork, Codex, Antigravity or Hermes and turns the student's own AI
 agent into **rEach**, a bounded course partner for a
 [Teach](https://bitbucket.org/paterasai/teach)-run course.
 
@@ -34,7 +34,9 @@ everything to `~/.reach/transcripts/` with no network call; the Stop and
 SessionEnd hooks and `reach sync` send the queue, and `reach transcript status`
 shows what is sent and what is waiting. The student is told at enrollment and
 in every greeting inside a course folder. Conversations outside course folders
-and Antigravity sessions (no hooks) are not captured.
+and Antigravity sessions (no hooks) are not captured. Hermes has no transcript
+file, so its hooks hand Reach the prompt, the reply and each tool call directly;
+it records no reasoning.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -57,10 +59,21 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
 | Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's start-up hook |
 | Antigravity | install the public archive as in `INSTALL.md`, then `ruby ~/.reach/plugin/exe/reach setup --harness antigravity` |
+| Hermes | install the public archive as in `INSTALL.md`, then `ruby ~/.reach/plugin/exe/reach setup --harness hermes`; open course folders with `reach work --harness hermes` |
 | Any of the above | install the public GitHub archive to `~/.reach/plugin`, then `ruby ~/.reach/plugin/exe/reach setup` |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
+
+Hermes keeps hooks and MCP servers in a profile's `config.yaml`, never per
+folder, so setup creates a Hermes profile named `reach` (`hermes profile create
+reach --clone --no-alias`, which copies the student's model settings and adds
+no `reach` wrapper command) and Reach keeps its hooks, its MCP bridge and a
+disabled `code_execution` toolset in that profile only. `reach work --harness
+hermes` starts `hermes -p reach --accept-hooks chat` in the course folder; the
+student's own Hermes profiles are never changed. Hermes started any other way
+is not gated, and a prompt the gate refuses still reaches the model, marked as
+refused, because Hermes cannot block a prompt.
 
 ## Directives, check, plan and checkpoints
 

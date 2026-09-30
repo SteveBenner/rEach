@@ -12,9 +12,9 @@ These steps are for the AI agent a student asked to install rEach from this repo
 
 ## Which section is yours
 
-Use "Claude Code, Codex and Antigravity" below whenever you can run shell commands for the student: Claude Code in a terminal, the Claude desktop app's Code tab, VS Code, Codex or Antigravity. If the student says they are using Claude Code, that section is yours, even when your shell is a container or sandbox. Use "Claude Cowork" only when you are the Claude desktop app's Cowork mode.
+Use "Claude Code, Codex, Antigravity and Hermes" below whenever you can run shell commands for the student: Claude Code in a terminal, the Claude desktop app's Code tab, VS Code, Codex, Antigravity or Hermes Agent. If the student says they are using Claude Code, that section is yours, even when your shell is a container or sandbox. Use "Claude Cowork" only when you are the Claude desktop app's Cowork mode.
 
-## Claude Code, Codex and Antigravity
+## Claude Code, Codex, Antigravity and Hermes
 
 1. Run the installer. It downloads the public GitHub archive over HTTPS without GitHub credentials or Git, then downloads the exact public Dovetail revision rEach needs, unpacks both with Ruby alone (no `unzip`), and installs to `~/.reach/plugin`.
    - macOS and Linux:
@@ -31,9 +31,9 @@ Use "Claude Code, Codex and Antigravity" below whenever you can run shell comman
      ```
    The archive itself is https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip. An existing `~/.reach/plugin` is moved to `~/.reach/.backup/plugin-<timestamp>` before the new copy goes in; nothing is deleted. Set `REACH_INSTALL_KILL_SWITCH=1` to stop the installer downloading.
 2. Run setup for the app you are running in:
-   `ruby ~/.reach/plugin/exe/reach setup --harness <claude-code | codex | antigravity>`
+   `ruby ~/.reach/plugin/exe/reach setup --harness <claude-code | codex | antigravity | hermes>`
 3. Read setup's output. Tell the student about any step it says they must do themselves (for example trusting rEach's hooks in Codex).
-4. Setup prints a NEXT block only after a harness installed successfully. Your next message to the student must begin with the lines after "NEXT", copied exactly as printed, starting with "rEach is installed and ready." Do not summarise them, reword them or put anything before them. After them you may add setup's host steps (a new session, trusting hooks in Codex). Then read and follow the reach-assistant skill immediately.
+4. Setup prints a NEXT block only after a harness installed successfully. Your next message to the student must begin with the lines after "NEXT", copied exactly as printed, starting with "rEach is installed and ready." Do not summarise them, reword them or put anything before them. After them you may add setup's host steps (a new session, trusting hooks in Codex, or opening course folders with `reach work --harness hermes` in Hermes). Then read and follow the reach-assistant skill immediately.
 
 ## Claude Cowork
 

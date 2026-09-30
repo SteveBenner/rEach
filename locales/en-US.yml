@@ -37,6 +37,7 @@ messages:
   M-LADDER-STOPPED: "I've made {limit} passes at this part without getting it right, so I'm stopping until your instructors reply. Nothing is lost; your work is saved as it is."
   M-LADDER-NOT-NEEDED: "There's nothing to continue: the passes for this part haven't run out."
   M-GATE-NOGIT: "rEach keeps this work's history for you with checkpoints, so that version-history command isn't used here yet. Save a checkpoint instead with reach checkpoint save."
+  M-GATE-NOCODETOOL: "rEach: running code directly isn't allowed in this folder. Put the change in your own files instead."
   M-CHECKPOINT-SAVED: "Checkpoint {n} saved."
   M-CHECKPOINT-SAME: "Nothing changed since checkpoint {n}, so there is nothing new to save."
   M-CHECKPOINT-RESTORED: "Your files are back to checkpoint {n}. The version you had a moment ago was saved first, so nothing is lost."
