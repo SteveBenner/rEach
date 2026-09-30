@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2026-09-29
+
+### Fixed
+
+- The reply splitter (`Reach::Transcript.split_reply`) missed a fenced code block indented under a list item, so its
+  code stayed in the chat record instead of becoming a chat snippet. `CODE_FENCE_OPEN` and the closing fence now accept
+  leading spaces or tabs; the pointer line keeps the fence's indent and the snippet drops it from each line. Found in
+  the Hermes smoke with Qwen3-Coder-30B; it affected every harness.
+
 ## [0.11.1] - 2026-09-29
 
 ### Added

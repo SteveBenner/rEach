@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.11.1
+version: 0.11.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.11.1
+    version: 0.11.2
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -1026,7 +1026,8 @@ transcripts:
     prompt: What the student submitted (0.8.0, unchanged).
     reply: >-
       One block of the AI's visible text, with every fenced code block cut out and replaced by the line
-      "[code <reply seq>.<n> -> <folder>/<snippet path>]".
+      "[code <reply seq>.<n> -> <folder>/<snippet path>]". Since 0.11.2 a fence indented under a list item counts too:
+      the pointer line keeps the fence's indent and the snippet drops it from each line.
     reasoning: >-
       One block of the AI's reasoning where the harness stores it readably (Claude thinking text, Codex reasoning
       summaries); an unreadable block is recorded with text null and note "reasoning not readable".

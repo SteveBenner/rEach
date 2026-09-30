@@ -35,7 +35,7 @@ module Reach
       "json" => "json", "yaml" => "yml", "yml" => "yml", "bash" => "sh", "sh" => "sh", "shell" => "sh",
       "sql" => "sql", "erb" => "erb", "markdown" => "md", "md" => "md"
     }.freeze
-    CODE_FENCE_OPEN = /\A(`{3,}|~{3,})([A-Za-z0-9_+-]*)\s*\z/
+    CODE_FENCE_OPEN = /\A([ \t]*)(`{3,}|~{3,})([A-Za-z0-9_+-]*)\s*\z/
 
     module_function
 
@@ -464,23 +464,24 @@ module Reach
         line = lines[i]
         match = CODE_FENCE_OPEN.match(line.chomp)
         if match
-          fence_char = match[1][0]
-          lang = match[2].to_s
+          indent = match[1]
+          fence_char = match[2][0]
+          lang = match[3].to_s
           body = []
           i += 1
           while i < lines.length
             candidate = lines[i]
-            if candidate.chomp.match?(/\A#{Regexp.escape(fence_char)}{3,}\s*\z/)
+            if candidate.chomp.match?(/\A[ \t]*#{Regexp.escape(fence_char)}{3,}\s*\z/)
               i += 1
               break
             end
-            body << candidate
+            body << (indent.empty? ? candidate : candidate.sub(/\A[ \t]{0,#{indent.length}}/, ""))
             i += 1
           end
           n += 1
           ext = CODE_EXT[lang.downcase] || "txt"
           path = "snippets/#{format('%04d', reply_seq)}-#{n}.#{ext}"
-          out << "[code #{reply_seq}.#{n} -> #{category_root}/#{path}]\n"
+          out << "#{indent}[code #{reply_seq}.#{n} -> #{category_root}/#{path}]\n"
           blocks << { "path" => path, "text" => body.join }
         else
           out << line
