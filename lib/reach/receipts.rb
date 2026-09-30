@@ -21,6 +21,7 @@ module Reach
             verify!(fetched)
             store(fetched)
             record_in_corpus(fetched)
+            acknowledge(fetched)
             return fetched
           end
 
@@ -50,6 +51,24 @@ module Reach
         FileUtils.mkdir_p(Reach::Paths.receipts_dir)
         id = receipt["receipt_id"]
         File.write(File.join(Reach::Paths.receipts_dir, "#{id}.json"), JSON.generate(receipt))
+        begin
+          Reach::ReceiptAcks.record(receipt)
+        rescue StandardError
+          nil
+        end
+      end
+
+      def accept(receipt)
+        verify!(receipt)
+        store(receipt)
+        record_in_corpus(receipt)
+        receipt
+      end
+
+      def acknowledge(receipt)
+        Reach::ReceiptAcks.deliver(receipt["receipt_id"])
+      rescue StandardError
+        nil
       end
 
       def list
@@ -89,6 +108,7 @@ module Reach
           verify!(fetched)
           store(fetched)
           record_in_corpus(fetched)
+          acknowledge(fetched)
           announced << announce(fetched)
         end
       end

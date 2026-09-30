@@ -107,6 +107,22 @@ module Reach
           rescue StandardError => e
             summary["warnings"] << "reach: could not check for grades (#{e.message})"
           end
+
+          begin
+            summary["receipts_backfilled"] = Reach::ReceiptAcks.backfill["stored"]
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not fetch receipts from the course server (#{e.message})"
+          end
+
+          begin
+            result = Reach::ReceiptAcks.flush
+            summary["receipt_acks"] = result
+            Array(result["mismatch"]).each do |id|
+              summary["warnings"] << "reach: the course server's copy of receipt #{id} does not match the one on this computer; tell your instructors"
+            end
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not confirm receipts with the course server (#{e.message})"
+          end
         end
 
         summary

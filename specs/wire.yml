@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-09-29'
+recorded: '2026-09-30'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -597,7 +597,12 @@ routes:
     method: GET
     path: /api/v1/submissions/:id
     auth: install
-    response_200: {submission: "the submission record", receipts: "[receipt bodies], oldest first"}
+    response_200:
+      submission: the submission record
+      receipts: "[receipt bodies], oldest first"
+      acknowledgments: >-
+        Since protocol 1 revision 2026-09-30. [W-RCPT-4 acknowledgment bodies, each with linked_at added], oldest
+        first; absent from an older Teach.
     reach_use: Polled no more often than every 30 seconds for a grade receipt, only while one is outstanding.
   - id: W-API-QUALIFY
     method: POST
@@ -644,6 +649,36 @@ routes:
     auth: install
     query: {since: "W-CONV-3 timestamp, optional", limit: "1-200, default 50", cursor: "a receipt_id, optional"}
     response_200: {receipts: "[receipt bodies], newest first"}
+    reach_use: >-
+      Since protocol 1 revision 2026-09-30, reach sync pages through this route (limit 200, at most 5 pages) and stores
+      every receipt Reach does not already hold, after verifying it (W-RCPT-2), so a receipt Reach missed or lost is
+      preserved on the student's machine too.
+  - id: W-API-RECEIPT-ACK
+    method: POST
+    path: /api/v1/receipts/:receipt_id/acknowledgment
+    auth: install
+    since: 2026-09-30
+    request_headers:
+      Idempotency-Key: Required. The acknowledgment's ack_id, reused on every retry of it.
+    request: The W-RCPT-4 acknowledgment body, signature included; its receipt_id equals the path's.
+    response_200: {ack_id: string, receipt_id: string, linked_at: W-CONV-3 timestamp}
+    notes: >-
+      Teach links the acknowledgment to the receipt it names and keeps it beside that receipt for instructors. One
+      acknowledgment per receipt per install: a repeat for a receipt this install already acknowledged answers 200
+      with the stored ack_id and linked_at, and Reach adopts them. Teach checks, in order: the receipt exists (404
+      not_found); it belongs to the install's student (403 forbidden); the body has exactly the W-RCPT-4 fields, its
+      install_id is the authenticated install and its student_id, submission_id and receipt_kind match the stored
+      receipt (400 invalid_request); the signature verifies with the install's public key (400 invalid_request);
+      receipt_digest equals the W-CONV-4 digest of canonical_json of the receipt body Teach issued, signature included
+      (409 conflict). A Teach that predates the route answers 404 not_found, and one whose operator switched
+      acknowledgments off (TEACH_RECEIPT_ACKS_DISABLE=1) answers 403 forbidden; Reach keeps the acknowledgment pending
+      in both cases and sends it on a later sync.
+    errors:
+      400 invalid_request: a field outside W-RCPT-4, a field that does not match the receipt or install, or a signature that does not verify
+      403 forbidden: not the student's receipt, or acknowledgments are switched off on this Teach
+      404 not_found: no receipt by that id
+      409 conflict: receipt_digest does not match the receipt Teach issued
+      429 rate_limited: over 120 acknowledgments per hour per install
   - id: W-API-HAND
     method: POST
     path: /api/v1/hands
@@ -836,6 +871,30 @@ receipts:
     rule: >-
       Received: slice, cutout_id, received_at in the student's local time as "%a %-d %b %-l:%M %P", receipt_id.
       Graded: passed = the number of scenarios whose result is "passed", total = the number of scenarios.
+  W-RCPT-4:
+    name: acknowledgment (receipt of a receipt)
+    since: 2026-09-30
+    fields:
+      schema: '"reach.receipt-ack/v1"'
+      ack_id: '"rack_" followed by 20 lowercase hexadecimal characters'
+      receipt_id: the acknowledged receipt's receipt_id
+      receipt_kind: the acknowledged receipt's kind
+      submission_id: the acknowledged receipt's submission_id
+      student_id: the acknowledged receipt's student_id
+      install_id: the install that verified the receipt
+      receipt_digest: W-CONV-4 digest of canonical_json(the receipt body as received, signature included)
+      receipt_signing_key_id: the acknowledged receipt's signing_key_id
+      acknowledged_at: W-CONV-3 timestamp
+      reach_version: string
+      signature: W-CONV-5 base64 of W-CONV-6 by the install's private key over canonical_json(body without the signature key)
+    rule: >-
+      Reach writes one acknowledgment for every receipt it verifies and stores, whichever route brought the receipt
+      (the submit response, a grade poll, or a sync backfill), and never for a receipt that fails verification. It
+      keeps the acknowledgment on disk beside the receipt with a local state of pending, linked (Teach answered 200;
+      linked_at recorded), mismatch (Teach answered 409) or refused (Teach answered 400), and sends pending ones
+      through W-API-RECEIPT-ACK. A new install acknowledges again with its own install_id. The pair, Teach's signed
+      receipt and Reach's signed acknowledgment, proves on both machines that the receipt was issued and that the
+      student's install received the same bytes.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
@@ -877,6 +936,7 @@ reach_client_safety:
   W-SAFE-7: {name: logging, rule: "every request is logged to ~/.reach/logs/requests.jsonl with method, route, status, latency and retry count; never bodies, headers or keys"}
   W-SAFE-8: {name: integrity events, rule: "sent in quick mode with no retries and queued in the outbox when they fail; each distinct (kind, path, detail) is sent at most once per install"}
   W-SAFE-10: {name: qualifications, rule: "since 2026-09-29d: one POST per reach qualify that reaches the remote step, then GET /api/v1/qualifications/:id no more often than every 10 s and at most 36 times; still pending after that leaves the record pending_remote and a later reach qualify with unchanged files resumes polling the same id"}
+  W-SAFE-11: {name: receipt acknowledgments, rule: "since 2026-09-30: no polling; one POST in normal mode right after a receipt is stored by reach submit or a grade poll, and reach sync sends at most 20 pending acknowledgments and reads at most 5 pages of W-API-RECEIPTS; a network failure, 403 or 404 keeps the acknowledgment pending"}
   W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
 transcripts:
   W-TRN-1:

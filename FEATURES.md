@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.11.4 |
-| **Last audited** | 2026-09-29 |
+| **Registry version** | 0.11.5 |
+| **Last audited** | 2026-09-30 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 18 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 33 catalogued |
+| **Feature count** | 34 catalogued |
 
 ## How to read this registry
 
@@ -23,12 +23,12 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 32 | 100% |
+| ✅ Shipped | 33 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 2 | 6% |
-| 🔵 Built, not enabled | 29 | 91% |
+| 🔵 Built, not enabled | 30 | 88% |
 | ⚫ No runtime path | 1 | 3% |
 
 ## 1 · Install
@@ -192,6 +192,21 @@ workspaces there and never deletes one) and `extracurricular/`, the student's ow
 submitted, opened with `reach work --extracurricular`. Each folder, the root included, gets its own rules and
 hooks: extracurricular allows writes only inside itself, the root refuses every write, and the public directive
 CODEFILE tells the agent to put code in files, never in chat.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.16 · Receipt acknowledgments and preservation
+
+Since 0.11.5 (wire revision 2026-09-30), every receipt Reach verifies and stores gets a receipt of its own. This is
+a `reach.receipt-ack/v1` record at `~/.reach/receipts/acks/<receipt_id>.json`, signed with the install key and
+carrying the digest of the receipt as received. Reach sends it to Teach, which links it to its receipt. The sends
+happen at submit, at a grade poll and on `reach sync`. Sync also fetches any receipt Teach holds that this computer
+lacks. `reach receipts acks` lists the records, and `reach status` counts confirmed, waiting and mismatched ones. The
+A1 smoke against a scratch Teach 0.11.2 linked the ingest and grade receipts. Then, on the same scratch Teach:
+- a deleted ingest receipt came back byte-identical on sync;
+- Teach refused a tampered digest (409), a bad signature (400), an extra field (400), a wrong kind (400) and an
+  unknown receipt (404);
+- with the kill switch on, the acknowledgment stayed pending and linked on the next sync after it was turned off.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

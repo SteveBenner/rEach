@@ -22,7 +22,7 @@ and sends it in when you are ready.
 
 - `reach status` shows your enrollment, your slices, whether each one has passed its checks, and any receipts.
 - Your AI partner writes and checks all the code. Before anything is submitted it proves the work against checks of its own and the instructors' checks on the course server; you only talk about what the business needs.
-- `reach submit` sends your work in. You will see the receipt number as soon as it arrives.
+- `reach submit` sends your work in. You will see the receipt number as soon as it arrives. rEach keeps every receipt on your computer, confirms each one back to the course server with a signed receipt of its own, and `reach sync` fetches any receipt your computer is missing, so you and your instructors hold matching copies.
 - If your AI partner needs a second try, it tells you. After three tries it asks your instructors for help on its own, tells you, and keeps trying only if you say yes. After ten tries it stops until your instructors reply.
 
 ## Your course folders

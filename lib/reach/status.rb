@@ -117,9 +117,22 @@ module Reach
         receipts = Reach::Receipts.list
         return "Receipts: 0" if receipts.nil? || receipts.empty?
 
-        "Receipts: #{receipts.size} (latest #{receipts.first['receipt_id']})"
+        line = "Receipts: #{receipts.size} (latest #{receipts.first['receipt_id']})"
+        counts = ack_counts
+        if counts["total"].positive?
+          line += "; #{counts['linked']} confirmed with Teach"
+          line += ", #{counts['pending']} waiting" if counts["pending"].positive?
+          line += ", #{counts['mismatch']} mismatched" if counts["mismatch"].positive?
+        end
+        line
       rescue StandardError
         "Receipts: 0"
+      end
+
+      def ack_counts
+        Reach::ReceiptAcks.counts
+      rescue StandardError
+        { "total" => 0 }
       end
 
       def hands_line
