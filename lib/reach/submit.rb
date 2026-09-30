@@ -9,19 +9,21 @@ module Reach
 
     class << self
       def submit(slice:)
+        Reach::Login.require_active!
         workspace = resolve_workspace(slice)
         run_preconditions(workspace)
         qualification = Reach::Qualify.current?(workspace)
         raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNQUALIFIED") unless qualification
 
         meta = Reach::Workspace.metadata(workspace)
+        require_part!(meta["assignment"])
         manifest = build_manifest(workspace, meta)
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
-        tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification))
+        tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification, meta["assignment"]))
         envelope = seal_submission(install, meta, tar_bytes)
         idempotency_key = SecureRandom.uuid
         body = {
@@ -202,8 +204,24 @@ module Reach
         ALLOWED_HARNESSES.include?(value) ? value : nil
       end
 
-      def submission_entries(manifest, workspace, tail, qualification)
+      def require_part!(assignment)
+        return unless Reach::Part.required?(assignment)
+
+        open_questions = Reach::Part.missing(assignment)
+        unless open_questions.empty?
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-NO-PART", missing: open_questions.map { |question| question["question"] }.join("; "))
+        end
+
+        begin
+          Reach::Transcript.flush(quick: false)
+        rescue Reach::Offline, Reach::NetworkError
+          nil
+        end
+      end
+
+      def submission_entries(manifest, workspace, tail, qualification, assignment)
         entries = { "manifest.json" => JSON.generate(manifest) }
+        entries["part.json"] = JSON.generate(Reach::Part.document(assignment)) unless Reach::Part.questions(assignment).empty?
         Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data }
         entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" })
         Array(manifest["owned_files"]).each do |relative_path|

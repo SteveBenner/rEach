@@ -56,6 +56,7 @@ module Reach
         ledger_key, version = key
         record = { "n" => last["n"].to_i + 1, "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "kind" => kind.to_s }
         fields.each { |k, v| record[k.to_s] = v }
+        record["student_id"] = enrolled_student_id
         record["gv"] = version
         record["prev"] = last["tag"].to_s
         record["tag"] = tag(record, ledger_key)
@@ -66,6 +67,13 @@ module Reach
       split_if_large(workspace)
       Reach::Sidecar.update_head(File.basename(workspace), record["tag"], record["n"])
       record
+    rescue StandardError
+      nil
+    end
+
+    def enrolled_student_id
+      install = Reach::Enroll.current
+      install && install["student_id"]
     rescue StandardError
       nil
     end

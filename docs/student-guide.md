@@ -20,6 +20,12 @@ and sends it in when you are ready.
 
 ## Every day
 
+- Each time you start, rEach asks for your student ID and then "Am I speaking with <your name>?". Type yes and you're signed in. If you're not the student this computer is enrolled for, rEach won't do course work.
+- `reach next` tells you your next step. Your AI partner uses it too when you're not sure where to start.
+- Each assignment has a few questions only you can answer, about your business and your decisions. Your AI partner asks them one at a time; answer in your own words. rEach sends your answers with your work, and won't submit until they're all answered (`reach part` shows which).
+- rEach only works inside your course folders. To share a file for the course, drag it into the chat or paste its text; rEach copies it into the folder's `materials/`. Share only what the course needs.
+- If your course lets you choose your modules, `reach modules` shows the options. Once you say yes to the lock-in question, your choice is fixed for the course; only your instructor can change it. If your instructor moved you to other modules, tell rEach: it asks whether to notify the professor, who confirms the move.
+- If you're having a hard time, run `reach support`, or just say so. If it's an emergency, call 911.
 - `reach status` shows your enrollment, your slices, whether each one has passed its checks, and any receipts.
 - Your AI partner writes and checks all the code. Before anything is submitted it proves the work against checks of its own and the instructors' checks on the course server; you only talk about what the business needs.
 - `reach submit` sends your work in. You will see the receipt number as soon as it arrives. rEach keeps every receipt on your computer, confirms each one back to the course server with a signed receipt of its own, and `reach sync` fetches any receipt your computer is missing, so you and your instructors hold matching copies.

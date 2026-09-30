@@ -7,15 +7,37 @@ require "openssl"
 module Reach
   module Integrity
     ROUTE = "/api/v1/integrity".freeze
-    KINDS = %w[vault_tampered corrupt_mark foreign_mark ledger_break sidecar_conflict enrolled directive_dump].freeze
+    KINDS = %w[vault_tampered corrupt_mark foreign_mark ledger_break sidecar_conflict enrolled directive_dump login_failed identity_denied outside_access].freeze
 
     module_function
 
     def report(kind, detail:, workspace: nil, path: nil, once: true)
+      body = build_body(kind, detail: detail, workspace: workspace, path: path, once: once)
+      return nil unless body
+
+      send_or_queue(body)
+    rescue StandardError
+      nil
+    end
+
+    def queue(kind, detail:, workspace: nil, path: nil, once: true)
+      body = build_body(kind, detail: detail, workspace: workspace, path: path, once: once)
+      return nil unless body
+
+      install = Reach::Enroll.current
+      return nil unless install
+
+      write_outbox(SecureRandom.uuid, body)
+      body
+    rescue StandardError
+      nil
+    end
+
+    def build_body(kind, detail:, workspace:, path:, once:)
       kind = kind.to_s
       return nil unless KINDS.include?(kind)
 
-      detail = truncate(detail.to_s)
+      detail = truncate(detail.is_a?(Hash) || detail.is_a?(Array) ? JSON.generate(detail) : detail.to_s)
       digest = OpenSSL::Digest::SHA256.hexdigest("#{kind}\n#{path}\n#{detail}")
       return nil if once && seen?(digest)
 
@@ -32,9 +54,7 @@ module Reach
         "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
       }
       remember(digest) if once
-      send_or_queue(body)
-    rescue StandardError
-      nil
+      body
     end
 
     def send_or_queue(body)

@@ -5,12 +5,20 @@ module Reach
         lines = []
         lines << header_line
         lines << assignment_line
+        lines << signed_in_line
+        lines << modules_line
+        transfer = transfer_line
+        lines << transfer if transfer
         lines << "Your slices:"
         slice_lines.each { |line| lines << "  #{line}" }
         lines << receipts_line
         lines << hands_line
         lines << rules_line
         line = transcript_line
+        lines << line if line
+        line = part_line
+        lines << line if line
+        line = next_line
         lines << line if line
         lines.join("\n")
       end
@@ -113,6 +121,46 @@ module Reach
         "not run"
       end
 
+      def signed_in_line
+        Reach::Login.any_active? ? "Signed in: yes" : "Signed in: no"
+      rescue StandardError
+        "Signed in: no"
+      end
+
+      def modules_line
+        record = Reach::Modules.current
+        if record
+          how = { "student_choice" => "chosen", "transfer" => "moved" }[record["source"]] || "assigned"
+          "Modules: #{Reach::Modules.names(record['modules'])} (#{how} #{Reach::Messages.course_time(record['issued_at'])})"
+        else
+          data = Reach::Modules.options_data
+          if data && data["mode"] == "student_choice" && data["open"]
+            closes = data["window"].is_a?(Hash) ? Reach::Messages.course_time(data["window"]["closes_at"]) : ""
+            "Modules: choose #{data['count']} by #{closes}"
+          else
+            "Modules: not set yet"
+          end
+        end
+      rescue StandardError
+        "Modules: not set yet"
+      end
+
+      def transfer_line
+        data = Reach::Transfer.stored
+        return nil unless data
+
+        case data["state"]
+        when "pending"
+          "Module move: waiting for your instructor since #{Reach::Messages.course_time(data['created_at'])}"
+        when "approved"
+          "Module move: approved"
+        when "denied"
+          "Module move: not approved"
+        end
+      rescue StandardError
+        nil
+      end
+
       def receipts_line
         receipts = Reach::Receipts.list
         return "Receipts: 0" if receipts.nil? || receipts.empty?
@@ -142,6 +190,26 @@ module Reach
         "Open hands: #{hands.size}"
       rescue StandardError
         "Open hands: none"
+      end
+
+      def part_line
+        status = cached_status || {}
+        current = status["current_assignment"]
+        return nil unless current.is_a?(Hash)
+
+        rows = Reach::Part.status(current["id"])
+        return nil if rows.empty?
+
+        "Your part: #{rows.count { |row| row['answered'] }} of #{rows.size} answered"
+      rescue StandardError
+        nil
+      end
+
+      def next_line
+        step = Reach::Next.compute
+        "Next: #{step['text']}"
+      rescue StandardError
+        nil
       end
 
       def rules_line
