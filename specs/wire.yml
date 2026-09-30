@@ -237,7 +237,9 @@ packages:
         {id, opcode, alias, tier: private, slice, rule, when, enforce}, one per file in Teach's directives/ directory
         (id "D-<OPCODE>", alias N-Z). A Reach that predates the rows renders them as numbered rules, which is harmless.
       course.yml: >-
-        YAML map {id, title, term, timezone, current_assignment: {id, due}, interview: {course_question}}.
+        YAML map {id, title, term, timezone, current_assignment: {id, due}, interview: {course_question}}. Since
+        protocol 1 revision 2026-09-30b it also carries the course policy (W-POL-1): login, limits, support,
+        student_part and module_selection. A Reach older than that revision ignores the extra keys.
         interview.course_question is teach.spec.yml course_model.interview.course_question, or null when absent.
       tips.yml: >-
         YAML list of {cutout_id, text}, one per string in each of the student's cutouts' "tips" list. Absent since
@@ -416,10 +418,18 @@ packages:
         Since 2026-09-29d. The passing qualification record (W-QUAL-5) whose files_digest and tests_digest equal the
         submitted owned files and evidence files. Teach stores and lists every evidence entry with the submission and
         never grades one; a submission from an older Reach carries none.
+      part.json: >-
+        Since protocol 1 revision 2026-09-30b. The student's own part for the submission's assignment (W-PART-2):
+        {"schema": "reach.part/v1", assignment, student_id, answers: [{question_id, text, words, session_id, seq,
+        digest, recorded_at}]}. Required when the course policy's student_part.required is true and the assignment
+        has questions; Teach answers 400 invalid_request "the student's part is missing" otherwise.
     teach_checks:
       - manifest.cutout_id, manifest.slice and manifest.assignment equal the request body's cutout_id, slice and assignment.
       - Every files/ entry's path (without the files/ prefix) is in manifest.owned_files, and its digest equals manifest.digests for that path.
-      - Every other entry is manifest.json, ledger.jsonl or under evidence/; since 2026-09-29d any other entry rejects the submission.
+      - Every other entry is manifest.json, ledger.jsonl, part.json (since 2026-09-30b) or under evidence/; since 2026-09-29d any other entry rejects the submission.
+      - >-
+        Since 2026-09-30b, part.json is checked by W-PART-3; its verdict (part_verified, part_suspect) is stored on the
+        submission for instructors and never rejects a submission or changes a grade.
       - When the course spec is available, manifest.owned_files equals the W-PKG-2 owned_file_split for that cutout and slice.
       - A failed check rejects the submission with code invalid_request and reason "the package does not match the slice".
       - >-
@@ -560,6 +570,18 @@ routes:
       transcripts: >-
         Since protocol 1 revision 2026-09-29c. {kinds: [entry kinds W-API-TRANSCRIPT accepts], max_text_bytes: 131072}.
         Absent from an older Teach, which Reach reads as kinds [prompt].
+      modules: >-
+        Since protocol 1 revision 2026-09-30b. The student's current signed module record (W-MOD-1), or null when the
+        course is student_choice and the student has not chosen yet. For an instructor-mode course Teach issues the
+        first record itself, source instructor, from the distinct modules of the student's slice assignments, the
+        first time status is asked for after the student has any.
+      module_selection: >-
+        Since 2026-09-30b. {mode: "instructor | student_choice", open: boolean, closes_at: "W-CONV-3 or null",
+        chosen: boolean}. open is true only in student_choice mode, inside the window, with no module record yet.
+      transfer: "Since 2026-09-30b. The student's open transfer request {transfer_id, state, modules, created_at}, or null."
+      policy_digest: >-
+        Since 2026-09-30b. The W-CONV-4 digest of canonical_json of the course policy (W-POL-1) in the current
+        guardrails package, so Reach can tell a stale package from a changed policy without fetching it.
   - id: W-API-PACKAGE
     method: GET
     path: /api/v1/packages/:kind
@@ -569,6 +591,11 @@ routes:
     response_200: The envelope (W-ENV-1) of the latest package of that kind for this install's student, with ETag "<content_digest>" in double quotes.
     response_304: Empty body; the stored package is current.
     errors: {404 not_found: "no package of this kind has been built for the student yet"}
+    notes: >-
+      Since protocol 1 revision 2026-09-30b Teach builds and serves the guardrails package for the current assignment
+      even when it is not released or the student has no slices yet (a student_choice course before the student
+      chooses), so Reach can load the course policy, sign the student in and ask the lock-in question. Every other
+      kind still needs a released assignment and the student's slices (403 not_released otherwise).
     reach_use: >-
       Reach stores the verified envelope at ~/.reach/packages/<kind>/<header.version>.pkg. A 404 is not an error; the
       kind has not been built yet.
@@ -688,7 +715,7 @@ routes:
     request:
       cutout_id: string
       slice: {enum: [backend, panel, verification]}
-      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only"}
+      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2)"}
       originator: {enum: [agent, student], required: false, note: "since 2026-09-29d; absent means student"}
       summary: {type: string, maxBytes: 2000}
       bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2)
@@ -697,7 +724,9 @@ routes:
       check_gate (since 2026-09-28) is raised by reach submit when reach check still reports findings on a second
       attempt. Since 2026-09-29d Teach keeps originator and the bundle's hand_ref with the hand and shows instructors
       the originator, the attempt count and history, the task, and the code and tests in full. An instructor's reply is
-      what resets the slice's attempt ladder (W-QUAL-6).
+      what resets the slice's attempt ladder (W-QUAL-6). Since 2026-09-30b a wellbeing hand (W-SUP-2) may carry
+      cutout_id and slice null, its bundle is reach.hand.wellbeing/v1, and Teach lists open wellbeing hands before
+      every other hand.
   - id: W-API-HAND-STATUS
     method: GET
     path: /api/v1/hands/:id
@@ -710,7 +739,7 @@ routes:
     request_headers:
       Idempotency-Key: Required, as for submissions.
     request:
-      kind: {enum: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled, directive_dump]}
+      kind: {enum: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled, directive_dump, login_failed, identity_denied, outside_access], note: "login_failed, identity_denied and outside_access since 2026-09-30b (W-ID-3, W-SBX-3)"}
       detail: {type: string, maxBytes: 2000}
       cutout_id: {type: [string, "null"], required: false}
       slice: {type: [string, "null"], required: false}
@@ -833,6 +862,80 @@ routes:
       403 forbidden: transcripts are switched off on this Teach (TEACH_TRANSCRIPTS_DISABLE=1)
       413 too_large: the body is over 1 MiB, or storing it would take the student's subcorpus over its limit
       429 rate_limited: over 120 requests per hour per install
+  - id: W-API-MODULES
+    method: GET
+    path: /api/v1/modules
+    auth: install
+    since: 2026-09-30b
+    response_200:
+      mode: "instructor | student_choice"
+      count: integer, the number of modules each student carries (2)
+      options: "[{id, title}] the modules a student_choice course offers, [] in instructor mode"
+      window: "{opens_at, closes_at} W-CONV-3 timestamps or null"
+      open: boolean, as in status module_selection.open
+      current: the student's current signed module record (W-MOD-1) or null
+      history: "[signed module records], oldest first, the current one last"
+      full: "[module ids] that reached capacity_per_module, [] when no capacity is set"
+  - id: W-API-MODULE-SELECT
+    method: POST
+    path: /api/v1/modules/selection
+    auth: install
+    since: 2026-09-30b
+    request_headers:
+      Idempotency-Key: Required. A UUID Reach generates once per selection and reuses on every retry of it.
+    request:
+      modules: "[module id] exactly count distinct ids from options"
+      consent: W-CONSENT-1 record of the student's yes to the lock-in question
+      client_created_at: W-CONV-3 timestamp
+    response_200: The new signed module record (W-MOD-1), source student_choice.
+    notes: >-
+      Teach checks, in order: mode is student_choice (403 forbidden "modules are assigned by your instructor"); the
+      window is open (403 forbidden "module choice is closed"); the student has no module record (409 conflict
+      "your modules are already locked"); modules are count distinct ids from options (400 invalid_request); none is
+      full (409 conflict naming it); consent.kind is module_lock and consent.subject_digest equals the W-CONV-4 digest
+      of canonical_json({"modules": sorted modules}) (400 invalid_request). Then it writes the record and the
+      student's slice assignments for every assignment in the course (W-MOD-3). A repeat with the same
+      Idempotency-Key answers the same record.
+    errors:
+      400 invalid_request: modules or consent outside the rules above
+      403 forbidden: instructor mode, or the window is closed
+      409 conflict: already locked, or a chosen module is full
+      429 rate_limited: over 10 selections per hour per install
+  - id: W-API-TRANSFER
+    method: POST
+    path: /api/v1/transfers
+    auth: install
+    since: 2026-09-30b
+    request_headers:
+      Idempotency-Key: Required, as for submissions.
+    request:
+      modules: "[module id] the count distinct modules the student says they were moved to"
+      note: {type: string, maxBytes: 2000, note: "the student's own words, from the captured prompt, about who approved it"}
+      consent: W-CONSENT-1 record of the student's yes to notifying the professor
+      client_created_at: W-CONV-3 timestamp
+    response_200: {transfer_id: string, state: pending, created_at: W-CONV-3 timestamp}
+    notes: >-
+      A request changes nothing: the student keeps their current modules until an instructor approves it. One open
+      request per student (409 conflict otherwise). consent.kind is transfer_request and consent.subject_digest is
+      the W-CONV-4 digest of canonical_json({"modules": sorted modules}). Teach records transfer.requested in the
+      audit log and lists the request for instructors. TEACH_TRANSFERS_DISABLE=1 answers 403 forbidden.
+    errors:
+      400 invalid_request: modules not valid course modules, the same as the current pair, or a bad consent
+      403 forbidden: transfers are switched off
+      409 conflict: an open request exists
+      429 rate_limited: over 5 requests per day per install
+  - id: W-API-TRANSFER-STATUS
+    method: GET
+    path: /api/v1/transfers/:id
+    auth: install
+    since: 2026-09-30b
+    response_200:
+      transfer_id: string
+      state: "pending | approved | denied | withdrawn"
+      modules: "[module id]"
+      reply: "{text, decided_by, decided_at} or null"
+      module_record: "the new signed module record (W-MOD-1) when approved, else null"
+    reach_use: Polled on reach sync, and by the session hook, no more often than every 60 seconds and only while the request is pending (W-SAFE-12).
   - id: W-API-HEALTH
     method: GET
     path: /api/v1/health
@@ -926,6 +1029,10 @@ compatibility:
       digest of its own specs/wire.yml; reach doctor reports R-DOC-WIRE when they differ.
   W-COMPAT-3:
     rule: Protocol 1 does not interoperate with Reach 0.1.0 or Teach 0.1.0.
+  W-COMPAT-4:
+    rule: >-
+      Since revision 2026-09-30b Teach's default minimum_reach_version is 0.12.0, so a Reach without the login,
+      the student's part and the read gate cannot keep doing course work against a Teach of that revision.
 reach_client_safety:
   W-SAFE-1: {name: timeouts, rule: "connect 5 s, read 30 s, upload read 120 s; quick mode (hooks) connect 2 s, read 2 s, no retries"}
   W-SAFE-2: {name: rate limit, rule: "a token bucket of 20 requests per minute shared by every Reach process on the machine through ~/.reach/state/bucket.json under an exclusive file lock; Teach allows 30"}
@@ -937,6 +1044,7 @@ reach_client_safety:
   W-SAFE-8: {name: integrity events, rule: "sent in quick mode with no retries and queued in the outbox when they fail; each distinct (kind, path, detail) is sent at most once per install"}
   W-SAFE-10: {name: qualifications, rule: "since 2026-09-29d: one POST per reach qualify that reaches the remote step, then GET /api/v1/qualifications/:id no more often than every 10 s and at most 36 times; still pending after that leaves the record pending_remote and a later reach qualify with unchanged files resumes polling the same id"}
   W-SAFE-11: {name: receipt acknowledgments, rule: "since 2026-09-30: no polling; one POST in normal mode right after a receipt is stored by reach submit or a grade poll, and reach sync sends at most 20 pending acknowledgments and reads at most 5 pages of W-API-RECEIPTS; a network failure, 403 or 404 keeps the acknowledgment pending"}
+  W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
   W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
 transcripts:
   W-TRN-1:
@@ -1094,3 +1202,205 @@ seal:
       sent. rules_current is whether seal.guardrails_version equals the latest guardrails package for the student. The
       summary is clean when every file is own and witnessed, the ledger is verified and the rules are current;
       otherwise review with the reasons listed.
+alignment:
+  summary: >-
+    Since protocol 1 revision 2026-09-30b. The rules that keep a student, their course and their instructors aligned:
+    the course policy Teach ships, the student's login at the start of every session, the student's consent to
+    anything that commits them, the signed record of which modules they carry, the student's own part of each
+    assignment, the sandbox around the workspace, the time gate, and the support message.
+  W-POL-1:
+    name: course policy
+    rule: >-
+      Teach writes the policy into the guardrails package's course.yml (W-PKG-1) under these keys, from its course
+      policy file (TEACH_COURSE_POLICY, default <TEACH_HOME>/course_policy.yml) merged over teach.spec.yml
+      course_model defaults. Reach reads it from the verified guardrails package only.
+    keys:
+      login: "{required: boolean (default true), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
+      limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}"
+      support: "{text: string, the course's own support line appended to W-SUP-1}"
+      student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
+      module_selection: "{mode: instructor | student_choice, count (2), options: [{id, title}], opens_at, closes_at, capacity_per_module (null), slices: [slice kinds each chosen module gets, default [backend, panel]]}"
+  W-CONSENT-1:
+    name: consent record
+    rule: >-
+      A student's explicit yes, captured by Reach's prompt hook, never by the agent. A Reach command that commits the
+      student (module lock, transfer request) first writes a pending question {kind, subject, subject_digest,
+      message_id, asked_at} to ~/.reach/state/consent/pending.json and prints the exact question for the agent to
+      relay. The prompt hook reads the next student prompt in any course space within 30 minutes: a yes-word prompt
+      (W-ID-4) answers yes, a no-word prompt answers no, anything else leaves the question pending. The answered
+      record is {kind, subject_digest, message_id, answer: yes | no, session_id, seq, digest (the W-TRN-1 digest of
+      the student's prompt), asked_at, answered_at}. Commands accept only a yes whose subject_digest matches their
+      own subject and whose answered_at is at most 30 minutes old, and use it once.
+    kinds: [module_lock, transfer_request]
+  W-ID-1:
+    name: login
+    rule: >-
+      When the policy's login.required is true, every harness session in every course space (slice, extracurricular
+      and root) starts logged out. Reach's prompt hook runs a state machine per harness session, stored at
+      ~/.reach/state/login/<session_id>.json: logged_out -> (the hook blocks the prompt with M-LOGIN-ASK) ->
+      awaiting_id -> (a prompt whose trimmed text contains the enrolled student id as a whole token, compared
+      case-insensitively, moves to awaiting_confirm and the hook blocks with M-LOGIN-CONFIRM naming the student's
+      display_name) -> (a yes-word prompt: confirmed, blocked with M-LOGIN-OK; a no-word prompt: denied, blocked with
+      M-LOGIN-DENIED; anything else: blocked with M-LOGIN-CONFIRM again). A prompt without the id in awaiting_id is a
+      failure (M-LOGIN-WRONG); lockout_failures failures within lockout_minutes lock the session out for
+      lockout_minutes (M-LOGIN-LOCKED). A denied session stays denied. Every login step prompt is blocked, so the
+      agent never sees the id or the answer; each is still captured to the transcript with gate blocked and note
+      "login". Confirmed lasts until the harness session ends or max_hours pass. While a session is not confirmed the
+      write, shell and read gates refuse everything with M-LOGIN-ASK, and the agent context from reach hello names no
+      student.
+    harnesses: >-
+      Claude Code and Codex block prompts, so the login is enforced. Hermes cannot block a prompt; its hook injects
+      the login message as context and the gates still refuse tool calls until confirmed, but the agent sees what the
+      student typed. Antigravity has no hooks and no login.
+  W-ID-2:
+    name: identity tags
+    rule: >-
+      Every record Reach writes on the student's computer (ledger records, transcript entries, corpus records,
+      receipt acknowledgments, consent records, part answers, module records, import records) carries student_id,
+      the enrolled student's id. Reach commands that commit the student (submit, qualify, modules choose, transfer
+      request, part record) refuse with M-LOGIN-ASK unless some session confirmed a login within max_hours and no
+      session was denied since.
+  W-ID-3:
+    name: identity events
+    rule: >-
+      A lockout queues integrity kind login_failed (detail {session_id, failures, harness}); a denial queues
+      identity_denied (detail {session_id, harness}). Both are queued in the outbox by the hook (W-SAFE-12) and sent
+      at the next flush; each at most once per session.
+  W-ID-4:
+    name: yes and no words
+    rule: >-
+      After lowercasing, trimming and dropping trailing punctuation, a prompt is a yes when it is one of: yes, y,
+      yep, yeah, yes it is, that's me, thats me, it's me, its me, correct, confirm, confirmed, sure, ok, okay; and a
+      no when it is one of: no, n, nope, not me, that's not me, thats not me, wrong. Anything else is neither.
+  W-MOD-1:
+    name: signed module record
+    fields:
+      schema: '"teach.module-assignment/v1"'
+      record_id: '"mod_" followed by 20 lowercase hexadecimal characters'
+      student_id: string
+      course_id: string
+      modules: "[module id], sorted, count long"
+      source: "instructor | student_choice | transfer"
+      version: integer, 1 for the first record of the student, then +1
+      supersedes: "the previous record_id or null"
+      reason: "string or null, the instructor's reason for an instructor record after the first"
+      consent_digest: "the W-CONSENT-1 digest of the student's yes for student_choice, else null"
+      transfer_id: "the approved transfer for source transfer, else null"
+      issued_at: W-CONV-3 timestamp
+      signing_key_id: string
+      signature: W-CONV-5 base64 of W-CONV-6 by the key named in signing_key_id over canonical_json(body without signature)
+    rule: >-
+      The newest record is the student's current pair. Records are never edited or deleted; a change is a new record
+      that supersedes the old one.
+  W-MOD-2:
+    name: Reach's use of the record
+    rule: >-
+      Reach verifies the record's signature as a receipt's (W-RCPT-2), stores the current one at
+      ~/.reach/state/modules/current.json and every one it has seen under ~/.reach/state/modules/history/, and
+      refuses writes (M-GATE-NOT-YOUR-MODULE) in a slice whose cutout's module (the cutout id before its first dot)
+      is not in the current record. Before sending a student_choice selection Reach seals it locally as
+      ~/.reach/state/modules/pending.json, signed with the install key, and deletes it only after a signed record
+      for the same modules is stored.
+  W-MOD-3:
+    name: slice assignments follow the record
+    rule: >-
+      On a student_choice record Teach assigns, for every assignment in the course and every chosen module, each
+      slice kind in module_selection.slices for the cutout <module>.<slot> of each of the assignment's cutout slots
+      that exists in the course spec. On a later record (instructor reassignment or approved transfer) Teach replaces
+      the student's slice assignments of every assignment that is not yet released, and, only when the instructor
+      says include_current, of the current released assignment, mapping each removed cutout <old>.<slot> to
+      <new>.<slot> with the same slice kind, old and new paired in sorted order. Released past assignments, their
+      submissions, receipts and grades are never changed. Reach keeps the old slice workspaces read-only.
+  W-MOD-5:
+    name: prompts before a choice
+    rule: >-
+      Reach's prompt gate normally refuses course prompts until the student has a slice workspace. While the course
+      policy's module_selection.mode is student_choice and the student has no module record, it lets prompts through
+      so the student can sign in and answer the lock-in question; writes stay refused because there is no workspace.
+  W-MOD-4:
+    name: transfers
+    rule: >-
+      A transfer request is only ever raised by the student's yes (W-CONSENT-1, kind transfer_request) and changes
+      nothing until an instructor approves it. Approval issues a new record, source transfer, which W-MOD-3 applies;
+      denial closes the request with the instructor's reply. Reach shows the reply to the student in plain words.
+  W-PART-1:
+    name: the student's own part
+    rule: >-
+      The questions for an assignment are the policy's student_part.questions[<assignment id>]: things only the
+      student can answer (their professional use case, their users, their baseline, the human decision, what they
+      decided and why). Each has an id (for example A1-Q1), the question text and min_words.
+  W-PART-2:
+    name: recording an answer
+    rule: >-
+      reach part record <question id> takes the latest captured prompt (W-TRN-1) of the student in the current
+      slice's space that was allowed by the gate, is at most 30 minutes old, and has at least min_words words, and
+      stores it verbatim as the answer at ~/.reach/state/part/<assignment>.json with {question_id, text, words,
+      session_id, seq, digest, recorded_at, student_id}. The agent never supplies the text. A new record for the same
+      question replaces the old one. reach submit refuses with M-SUBMIT-NO-PART until every question of the slice's
+      assignment has an answer, then flushes the transcript spool and adds part.json (W-PKG-5).
+  W-PART-3:
+    name: Teach's check of the part
+    rule: >-
+      For each answer Teach looks for the transcript entry with the same session_id and seq in the student's
+      subcorpus: part_verified is true when every answer's entry exists, is a prompt, and has the same digest; false
+      when any entry exists with a different digest or kind; pending when some entry has not arrived yet (Teach
+      re-checks pending submissions when later transcripts arrive and when an instructor shows the submission).
+      part_suspect lists the question ids whose answer shares at least 60% of its word 5-grams with any reply entry
+      of the same student in the 24 hours before recorded_at; answers under 5 words are never suspect. Both are
+      shown to instructors only and never reject or grade anything.
+  W-SBX-1:
+    name: read gate
+    rule: >-
+      In every course space Reach refuses (M-GATE-OUTSIDE) any tool call that reads, lists or searches a path
+      outside the student's workspace root, and any shell command with a path argument that resolves outside it,
+      except the Reach shim itself and /dev/null. In slices and the root it also refuses web fetch and web search
+      tools (M-GATE-NOWEB). Claude Code: PreToolUse Read|Glob|Grep|NotebookRead|LS|WebFetch|WebSearch runs
+      reach gate read. Codex and Hermes: their read-like tools run the same gate; their shell goes through reach
+      gate shell, which applies the same outside-path test to every argument.
+  W-SBX-2:
+    name: imports
+    rule: >-
+      When the student's prompt contains absolute paths (as a drag-and-drop pastes them, quoted or with escaped
+      spaces) to existing regular files outside the workspace, the prompt hook copies each, at most
+      import_max_per_prompt, into <current space>/materials/ when it is at most import_max_bytes, its extension is
+      one of txt md csv tsv json yml yaml pdf png jpg jpeg gif webp xlsx docx pptx, and materials/ stays under
+      materials_max_bytes; the copy gets a unique name, mode 0600, and an import record {source_name, name, bytes,
+      digest, at, student_id} in ~/.reach/state/imports.jsonl and the slice ledger. The hook tells the agent, as
+      context, "The file the student dropped is now materials/<name>" or why it was not copied. The agent never
+      reads the original path. materials/ is never submitted and is skipped by the course-record scan (W-TRN).
+  W-SBX-3:
+    name: outside access events
+    rule: The third refused outside read in one harness session queues integrity kind outside_access (detail {session_id, tool, count}), once per session.
+  W-PACE-1:
+    name: time gate
+    rule: >-
+      Reach refuses writes (M-GATE-NOT-CURRENT) in a slice whose assignment is not status.current_assignment, or
+      whose due time has passed by Teach's clock (server_time from the last status plus the time elapsed locally
+      since it was fetched). Reads stay allowed. extracurricular/ is outside the time gate.
+  W-SUP-1:
+    name: support message
+    rule: >-
+      reach support prints M-SUPPORT, fixed text beginning "If this is an emergency, call 911 now." then the 988
+      line, then the policy's support.text, then whether the instructors were told. The agent relays it verbatim and
+      does not counsel.
+  W-SUP-2:
+    name: wellbeing hand
+    rule: >-
+      reach support raises a hand with trigger wellbeing, originator agent, cutout_id and slice of the current slice
+      or null, summary "The student may need support.", and bundle reach.hand.wellbeing/v1 {schema, student_id,
+      raised_at, harness, space}; no code, no transcript text, no profile. It is queued in the outbox when offline
+      and raised at most once per 60 minutes per install.
+  W-SUP-3:
+    name: crisis safety net
+    rule: >-
+      Before any login step, Reach's prompt hook checks every student prompt in every course space against a fixed
+      list of crisis phrases (lowercased, punctuation dropped, whole-phrase match): kill myself, killing myself, end
+      my life, ending my life, want to die, wanna die, suicide, suicidal, hurt myself, hurting myself, harm myself,
+      self harm, self-harm, cut myself, cutting myself, no reason to live, better off dead, hurt someone, kill
+      someone, overdose. On a match in a session that is not confirmed, the hook blocks the prompt with M-SUPPORT
+      (W-SUP-1) instead of any login message and queues the wellbeing hand (W-SUP-2) in the outbox; in a confirmed
+      session it lets the prompt through and adds the context "The student may be in crisis: run reach support now and
+      relay it word for word." A match never locks out, never counts as a login failure, and is captured to the
+      transcript like any prompt. Right after queuing the hand the hook starts a detached `reach support --flush`,
+      which sends only queued wellbeing hands, in quick mode (W-SAFE-1), so the instructors hear within seconds
+      without the hook waiting on the network.

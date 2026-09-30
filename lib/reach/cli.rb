@@ -74,8 +74,22 @@ module Reach
           cmd_directive(args)
         when "reference"
           cmd_reference(args)
+        when "part"
+          cmd_part(args)
+        when "next"
+          cmd_next(args)
+        when "support"
+          cmd_support(args)
         when "transcript"
           cmd_transcript(args)
+        when "import"
+          cmd_import(args)
+        when "modules"
+          cmd_modules(args)
+        when "transfer"
+          cmd_transfer(args)
+        when "login"
+          cmd_login(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -101,7 +115,7 @@ module Reach
             status                               enrollment, slices, receipts, open hands
             work [--harness ...] [--slice ... | --extracurricular]   open a slice, or your own folder
             start [--harness ...]                launch a harness outside a course workspace
-            gate session|prompt|write|shell      called by harness hooks
+            gate session|prompt|write|shell|read  called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             submit [--slice ...]                 submit and wait for the receipt
@@ -118,9 +132,15 @@ module Reach
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
             checkpoint save|list|show|restore    snapshots of the slice's files, kept by rEach
             plan save|show|note                  the slice plan
+            part [record <id>]                   the questions only you can answer for this assignment
+            next                                 the next step
+            support                              help if you are having a hard time
             directive <OPCODE> | --list          a directive's full text
             reference list|show <path>|search <words>|links   the course reference material
             transcript turn [--quick [--final]] --harness H | code --harness H | flush [--quick [--final]] | status [--format text|json]
+            modules [choose <a> <b>]             your modules; choose them when your course lets you
+            transfer request --modules a,b       ask your instructor to confirm a module move
+            login status                         whether this session is signed in
         USAGE
       end
 
@@ -224,6 +244,10 @@ module Reach
         puts "Sent #{summary["outbox_sent"]} queued item(s)." if summary["outbox_sent"].to_i > 0
         puts "Transcript: sent #{Reach::Transcript.entries_label(summary["transcript_sent"])}." if summary["transcript_sent"].to_i > 0
         Array(summary["grades"]).each { |text| puts text }
+        if summary["transfer"]
+          puts summary["transfer"]
+          Reach::Transfer.mark_announced!
+        end
         Array(summary["warnings"]).each { |warning| puts warning }
         puts Reach::Messages.text("M-OFFLINE") if summary["state"] == "offline"
         puts Reach::Messages.text("M-GATE-REVOKED") if summary["state"] == "revoked"
@@ -294,7 +318,8 @@ module Reach
         when "prompt"
           return gate_hermes_prompt(event) if hermes
 
-          Reach::Gate.prompt(event: event, harness: options[:harness])
+          context = Reach::Gate.prompt(event: event, harness: options[:harness])
+          puts JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => context }) if context
           0
         when "write"
           path = options[:path] || tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
@@ -303,18 +328,21 @@ module Reach
           patch = command_text if tool_name == "apply_patch" || command_text.to_s.start_with?("*** Begin Patch")
           patch = tool_input["patch"].to_s if tool_name == "patch" && tool_input["mode"] == "patch"
           Reach::Gate.code_tool! if hermes && tool_name == "execute_code"
-          Reach::Gate.write(path: path, patch: patch)
+          Reach::Gate.write(path: path, patch: patch, event: event, harness: options[:harness])
           0
         when "shell"
           command = shell_text(options[:command] || tool_input["command"] || tool_input["cmd"])
           if command.include?("*** Begin Patch")
-            Reach::Gate.write(patch: command)
+            Reach::Gate.write(patch: command, event: event, harness: options[:harness])
           else
-            Reach::Gate.shell(command: command)
+            Reach::Gate.shell(command: command, event: event, harness: options[:harness])
           end
           0
+        when "read"
+          Reach::Gate.read(event: event, harness: options[:harness])
+          0
         else
-          warn "usage: reach gate session|prompt|write|shell"
+          warn "usage: reach gate session|prompt|write|shell|read"
           1
         end
       end
@@ -353,15 +381,17 @@ module Reach
 
       def gate_hermes_prompt(event)
         blocked = nil
+        context = nil
         begin
-          Reach::Gate.prompt(event: event, harness: "hermes")
+          context = Reach::Gate.prompt(event: event, harness: "hermes")
         rescue Reach::GateBlocked => e
           blocked = e
         rescue StandardError
           nil
         end
         parts = []
-        parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup") if event["is_first_turn"] == true
+        parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup") if event["is_first_turn"] == true && blocked.nil?
+        parts << context if context
         parts << blocked.message << HERMES_BLOCK_NOTE if blocked
         puts JSON.generate(parts.empty? ? {} : { "context" => parts.join("\n\n") })
         0
@@ -611,7 +641,10 @@ module Reach
         problems.concat(check_directives)
         problems.concat(check_taste)
         problems.concat(check_sidecar)
+        limit_lines = limits_report
+        problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
         problems.each { |line| puts line }
+        limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
         problems.empty? ? 0 : 1
       end
 
@@ -634,6 +667,31 @@ module Reach
         []
       rescue StandardError
         ["R-DOC-TASTE: the taste skill could not be checked"]
+      end
+
+      def limits_report
+        Reach::Limits.report
+      rescue StandardError
+        ["R-DOC-LIMITS the local size limits could not be checked"]
+      end
+
+      def cmd_import(args)
+        path = args.shift
+        unless path
+          warn "usage: reach import <path>"
+          return 1
+        end
+        space = Reach::Gate.current_space
+        raise Reach::Refused, Reach::Messages.text("M-GATE-OUTSIDE") unless space
+
+        result = Reach::Imports.import!(path, space_path: space["path"])
+        if result["ok"]
+          puts Reach::Messages.text("M-IMPORT-OK", name: result["name"])
+          0
+        else
+          warn Reach::Messages.text("M-IMPORT-REFUSED", source_name: result["source_name"], reason: result["reason"])
+          1
+        end
       end
 
       def check_sidecar
@@ -1027,6 +1085,67 @@ module Reach
         end
       end
 
+      def cmd_part(args)
+        if args.first == "record"
+          args.shift
+          question_id = args.shift
+          unless question_id
+            warn "usage: reach part record <question id>"
+            return 1
+          end
+          workspace = Reach::Gate.current_workspace_path
+          unless workspace
+            warn "reach: no matching slice workspace found; run reach sync"
+            return 1
+          end
+          answer = Reach::Part.record!(question_id, workspace: workspace)
+          question = Reach::Part.questions(Reach::Workspace.metadata(workspace)["assignment"]).find { |item| item["id"] == answer["question_id"] }
+          puts Reach::Messages.text("M-PART-RECORDED", question: question ? question["question"] : answer["question_id"])
+          return 0
+        end
+
+        format, args = parse_flags(args, [:format, :slice])
+        workspace = resolve_workspace(format[:slice]) || Reach::Gate.current_workspace_path
+        assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
+        status = Reach::Sync.cached_status || {}
+        assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil
+        rows = assignment ? Reach::Part.status(assignment) : []
+        if (format[:format] || "text") == "json"
+          answers = assignment ? Reach::Part.document(assignment)["answers"] : []
+          questions = rows.map do |row|
+            answer = answers.find { |item| item["question_id"] == row["id"] }
+            row.merge("text" => answer && answer["text"])
+          end
+          puts JSON.generate("assignment" => assignment, "questions" => questions)
+        elsif rows.empty?
+          puts Reach::Messages.text("M-PART-LIST-EMPTY")
+        else
+          rows.each { |row| puts "#{row['id']}  #{row['answered'] ? 'answered' : 'not answered yet'}  #{row['question']}" }
+        end
+        0
+      end
+
+      def cmd_next(args)
+        options, _remaining = parse_flags(args, [:format])
+        step = Reach::Next.compute
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(step)
+        else
+          puts step["text"]
+        end
+        0
+      end
+
+      def cmd_support(args)
+        if args.include?("--flush")
+          Reach::Support.flush_queued!(quick: true)
+          return 0
+        end
+
+        Reach::Support.run!
+        0
+      end
+
       def cmd_transcript(args)
         sub = args.shift
         case sub
@@ -1081,6 +1200,80 @@ module Reach
           warn "usage: reach transcript turn [--quick [--final]] --harness H | code --harness H | flush [--quick [--final]] | status [--format text|json]"
           1
         end
+      end
+
+      def cmd_modules(args)
+        if args.first == "choose"
+          args.shift
+          chosen = args.reject { |token| token.start_with?("--") }.flat_map { |token| token.split(",") }.map(&:strip).reject(&:empty?)
+          return print_choice_result(Reach::Modules.choose!(chosen))
+        end
+
+        options, _remaining = parse_flags(args, [:format])
+        if options[:format].to_s == "json"
+          response = begin
+            Reach::Modules.refresh!(quick: true)
+          rescue Reach::NetworkError, Reach::RemoteRefused
+            nil
+          end
+          puts JSON.generate(response || Reach::Modules.current || {})
+          return 0
+        end
+        puts Reach::Modules.summary_text
+        0
+      end
+
+      def cmd_transfer(args)
+        sub = args.shift
+        case sub
+        when "request"
+          options, _remaining = parse_flags(args, [:modules, :note])
+          wanted = options[:modules].to_s.split(",").map(&:strip).reject(&:empty?)
+          if wanted.empty?
+            warn "usage: reach transfer request --modules a,b [--note "..."]"
+            return 1
+          end
+          print_choice_result(Reach::Transfer.request!(modules: wanted, note: options[:note]))
+        when "status"
+          answer = Reach::Transfer.poll!
+          if answer
+            puts answer
+            Reach::Transfer.mark_announced!
+          else
+            puts(Reach::Transfer.status_text || Reach::Modules.summary_text)
+          end
+          0
+        else
+          warn "usage: reach transfer request --modules a,b [--note <text>] | status"
+          1
+        end
+      end
+
+      def print_choice_result(result)
+        case result["state"]
+        when "asked"
+          puts result["text"]
+          3
+        when "locked", "queued", "sent"
+          puts result["text"]
+          0
+        else
+          warn result["text"]
+          1
+        end
+      end
+
+      def cmd_login(args)
+        sub = args.shift
+        unless sub == "status"
+          warn "usage: reach login status"
+          return 1
+        end
+        latest = Reach::Login.last_session_state
+        recent = latest && Reach::Login.session_confirmed?(latest["session_id"])
+        puts "Most recent session: #{recent ? 'signed in' : 'not signed in'}"
+        puts "Any active sign-in: #{Reach::Login.any_active? ? 'yes' : 'no'}"
+        0
       end
 
       def cmd_reference(args)

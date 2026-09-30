@@ -121,6 +121,38 @@ module Reach
       File.join(logs_dir, "transcript.jsonl")
     end
 
+    def login_state_dir
+      File.join(state_dir, "login")
+    end
+
+    def consent_dir
+      File.join(state_dir, "consent")
+    end
+
+    def modules_state_dir
+      File.join(state_dir, "modules")
+    end
+
+    def part_state_dir
+      File.join(state_dir, "part")
+    end
+
+    def sandbox_state_dir
+      File.join(state_dir, "sandbox")
+    end
+
+    def imports_file
+      File.join(state_dir, "imports.jsonl")
+    end
+
+    def transcripts_archive_dir
+      File.join(transcripts_dir, "archive")
+    end
+
+    def corpus_fallback_dir
+      File.join(home, "corpus-fallback")
+    end
+
     def ensure_home!
       [home, keys_dir, packages_dir, vault_dir, outbox_dir, receipts_dir, logs_dir, state_dir].each do |dir|
         FileUtils.mkdir_p(dir)

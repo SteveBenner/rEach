@@ -99,6 +99,7 @@ module AssignmentOne
       step("reference-after-sync", "reference") { reference_after_sync }
       step("reference-tamper-refused", "reference") { reference_tamper_refused }
       step("status-after-sync", "handshake") { status_after_sync }
+      step("login-gate-and-sign-in", "local") { login_sign_in }
       step("guarded-write-owned", "local") { guarded_write_owned }
       step("edit-outside-owned-blocked", "local") { edit_outside_blocked }
       step("plan-save", "local") { plan_save }
@@ -110,7 +111,10 @@ module AssignmentOne
       step("qualify-scenarios-written", "local") { write_qualify_scenarios }
       step("qualify-list", "local") { qualify_list }
       if step("grader-started", "remote") { start_grader }
-        if step("qualify-passes", "remote") { qualify_passes } && step("submit-and-ingest-receipt", "ingest") { submit }
+        if step("qualify-passes", "remote") { qualify_passes } &&
+           step("submit-refused-without-part", "local") { submit_refused_without_part } &&
+           step("student-part-recorded", "local") { record_student_part } &&
+           step("submit-and-ingest-receipt", "ingest") { submit }
           step("ingest-receipt-ids", "ingest") { ingest_receipt_ids }
           if step("grader", "remote") { run_grader }
             step("sync-grade-receipt", "remote") { sync_grade }
@@ -637,6 +641,61 @@ module AssignmentOne
       raise Fail, "checkpoint list is empty" if list.strip.empty?
 
       out.strip
+    end
+
+    LOGIN_SESSION = "smoke-login-session"
+
+    def hook_prompt(text)
+      event = JSON.generate("hook_event_name" => "UserPromptSubmit", "session_id" => LOGIN_SESSION, "cwd" => @workspace, "prompt" => text)
+      reach("gate", "prompt", "--harness", "claude-code", chdir: @workspace, stdin: event)
+    end
+
+    def login_sign_in
+      target = File.join(@workspace, owned_path)
+      write_event = JSON.generate("tool_name" => "Write", "session_id" => LOGIN_SESSION, "tool_input" => { "file_path" => target })
+      out, status = reach("gate", "write", chdir: @workspace, stdin: write_event)
+      raise Fail, "an owned write was allowed before sign-in" if status.success?
+
+      out, status = hook_prompt("hi there")
+      raise Fail, "first prompt was not asked for an id: #{out}" if status.success? || !out.include?("student ID")
+      out, status = hook_prompt("I am someone else")
+      raise Fail, "a wrong id was not refused: #{out}" if status.success? || !out.include?("doesn't match")
+      out, status = hook_prompt("my id is #{STUDENT_ID}")
+      raise Fail, "the id was not confirmed by name: #{out}" if status.success? || !out.include?("Synthetic Student One")
+      out, status = hook_prompt("Yes!")
+      raise Fail, "yes did not sign in: #{out}" if status.success? || !out.include?("signed in")
+
+      login = reach!("login", "status", chdir: @workspace)
+      raise Fail, "login status does not show an active sign-in: #{login}" unless login.include?("yes")
+
+      "write refused before sign-in; ask, wrong id, confirm by name, yes -> signed in"
+    end
+
+    def submit_refused_without_part
+      out, status = reach("submit", "--slice", slice_id, chdir: @workspace, timeout: 120)
+      raise Fail, "submit succeeded without the student's part" if status.success?
+      raise Fail, "submit refused for another reason: #{out.lines.last(4).join}" unless out.include?("isn't finished yet")
+
+      "refused: #{out.strip[0, 120]}"
+    end
+
+    def record_student_part
+      listing = JSON.parse(reach!("part", "--format", "json", chdir: @workspace))
+      questions = listing.is_a?(Hash) ? Array(listing["questions"]) : Array(listing)
+      raise Fail, "no student part questions listed: #{listing.inspect[0, 200]}" if questions.empty?
+
+      questions.each_with_index do |question, index|
+        answer = "For question #{index + 1}, I chose a small neighborhood cafe where the owner decides each week which drinks to keep, based on margins and what regulars actually order."
+        out, status = hook_prompt(answer)
+        raise Fail, "the answer prompt was blocked: #{out}" unless status.success?
+        reach!("part", "record", question["id"], chdir: @workspace)
+      end
+      after = JSON.parse(reach!("part", "--format", "json", chdir: @workspace))
+      rows = after.is_a?(Hash) ? Array(after["questions"]) : Array(after)
+      missing = rows.reject { |row| row["answered"] }
+      raise Fail, "questions still unanswered: #{missing.map { |row| row['id'] }.join(', ')}" unless missing.empty?
+
+      "recorded #{rows.length} answers from typed prompts"
     end
 
     def submit_refused_unqualified

@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-09-30
+
+### Added
+
+- Course alignment (wire protocol 1 revision 2026-09-30b; design record `docs/course-alignment-design.md`, build
+  record `specs/implementation/v0.12.0.impl.yml`).
+- Sign-in every session (`lib/reach/login.rb`). The prompt hook asks for the student ID, then "Am I speaking with
+  <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Three wrong IDs lock
+  the session for 15 minutes; a no ends course work for the session; both are reported to Teach. Until the student
+  is signed in, every tool gate refuses and submit, qualify and the commitment commands need a sign-in.
+  `reach login status`.
+- The student's own part (`lib/reach/part.rb`). `reach part` lists the questions only the student can answer for
+  the assignment; `reach part record <id>` takes the student's own typed words verbatim, linked to the transcript.
+  `reach submit` refuses until every question is answered and sends the answers as `part.json`.
+- Modules (`lib/reach/modules.rb`, `lib/reach/consent.rb`). Reach verifies and keeps Teach's signed record of the
+  student's modules and refuses writes in another module's slice. In a course where students choose,
+  `reach modules choose <a> <b>` asks the student to confirm the lock-in, seals the choice locally and sends it
+  with their yes; it is then locked.
+- Transfer requests (`lib/reach/transfer.rb`). `reach transfer request --modules a,b` asks "Would you like to notify
+  the professor to verify?" and, on yes, sends the request; nothing changes until an instructor decides.
+- Sandbox (`lib/reach/gate.rb`, `lib/reach/imports.rb`). A read gate and the shell gate refuse any path outside the
+  workspace and web lookups in slices and the root, for Claude Code, Codex and Hermes. A file the student drags into
+  the chat is copied into `materials/` within size and type limits; `reach import <path>` from their own terminal.
+- Time gate (`lib/reach/pace.rb`). Writes are refused outside the current assignment or after its due time, by
+  Teach's clock.
+- `reach next` (`lib/reach/next.rb`) gives the student's next step, and every prompt carries a short anchor naming
+  the current step for the agent.
+- `reach support` (`lib/reach/support.rb`) prints a fixed message beginning "If this is an emergency, call 911 now.",
+  then 988 and the course's support line, and raises a wellbeing hand to the instructors. The prompt hook catches
+  crisis phrases even before sign-in and sends the hand within seconds.
+- Local limits (`lib/reach/limits.rb`). `reach sync` prunes Reach's own corpus and archives acknowledged transcripts
+  above the course's caps; `reach doctor` reports the sizes.
+- `reach status` shows sign-in, modules, a pending module move, the student's part and the next step. Every local
+  record carries the student ID.
+- Skills and the rEach persona tell the agent to coach kindly and honestly, keep to the course, never write the
+  student's part, run `reach support` in a crisis, and route module moves through `reach transfer request`.
+
+### Changed
+
+- Needs Teach 0.12.0; Teach refuses older Reach for course work. The A1 smoke signs in and records the student's
+  part before submitting.
+
 ## [0.11.5] - 2026-09-30
 
 ### Added

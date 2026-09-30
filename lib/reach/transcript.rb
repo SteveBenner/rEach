@@ -39,7 +39,7 @@ module Reach
 
     module_function
 
-    def capture(event, harness:, gate:)
+    def capture(event, harness:, gate:, note: nil)
       return nil unless Reach::Enroll.current
       return nil if Reach::Enroll.revoked?
 
@@ -61,7 +61,7 @@ module Reach
         cutout_id: cutout_id,
         slice: slice,
         space: space,
-        fields: prompt_fields(event, gate: gate)
+        fields: note ? prompt_fields(event, gate: gate).merge("note" => note) : prompt_fields(event, gate: gate)
       )
     rescue StandardError => e
       log_transcript_event("capture_failed", "error" => e.class.name, "session_id" => session_id)
@@ -271,7 +271,7 @@ module Reach
         end
 
         if File.directory?(path)
-          Find.prune if SCAN_SKIP_DIRS.include?(File.basename(path))
+          Find.prune if SCAN_SKIP_DIRS.include?(File.basename(path)) || relative == "materials"
           next
         end
 
@@ -381,7 +381,7 @@ module Reach
         seq = state["last_seq"].to_i
         drafts.each do |draft|
           seq += 1
-          entry = { "seq" => seq, "session_id" => session_id }.merge(draft)
+          entry = { "seq" => seq, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft)
           entry["at"] ||= Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
           entries << entry
           file.write(JSON.generate(entry) + "\n")
@@ -404,7 +404,8 @@ module Reach
         plain_text, blocks = split_reply(raw_text, reply_seq: reply_seq, category_root: category_root)
         reply_entry = {
           "seq" => reply_seq, "session_id" => session_id, "at" => at, "harness" => harness.to_s,
-          "cutout_id" => cutout_id, "slice" => slice, "space" => space, "kind" => "reply"
+          "cutout_id" => cutout_id, "slice" => slice, "space" => space, "kind" => "reply",
+          "student_id" => enrolled_student_id
         }.merge(text_fields(plain_text))
         file.write(JSON.generate(reply_entry) + "\n")
         entries << reply_entry
@@ -416,7 +417,7 @@ module Reach
             "seq" => seq, "session_id" => session_id, "at" => at, "harness" => harness.to_s,
             "cutout_id" => cutout_id, "slice" => slice, "space" => space, "kind" => "code",
             "category" => category, "scope" => scope, "path" => block["path"], "origin" => "chat_snippet",
-            "deleted" => false, "binary" => false, "reply_seq" => reply_seq
+            "deleted" => false, "binary" => false, "reply_seq" => reply_seq, "student_id" => enrolled_student_id
           }.merge(code_text_fields(block["text"]))
           file.write(JSON.generate(code_entry) + "\n")
           entries << code_entry
@@ -599,6 +600,13 @@ module Reach
 
     def truncate_to_bytes(text, max_bytes)
       text.byteslice(0, max_bytes).scrub("")
+    end
+
+    def enrolled_student_id
+      install = Reach::Enroll.current
+      install && install["student_id"]
+    rescue StandardError
+      nil
     end
 
     def safe_current_workspace

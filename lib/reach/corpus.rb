@@ -50,13 +50,20 @@ module Reach
     private
 
     def write(kind, data)
-      record = data.merge("kind" => kind, "at" => Time.now.utc.iso8601)
+      record = data.merge("kind" => kind, "at" => Time.now.utc.iso8601, "student_id" => enrolled_student_id)
       if available?
         corpus_port.put(kind: kind, data: record)
       else
         jsonl_append(kind, record)
       end
       record
+    end
+
+    def enrolled_student_id
+      install = Reach::Enroll.current
+      install && install["student_id"]
+    rescue StandardError
+      nil
     end
 
     def corpus_port

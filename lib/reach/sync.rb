@@ -123,6 +123,24 @@ module Reach
           rescue StandardError => e
             summary["warnings"] << "reach: could not confirm receipts with the course server (#{e.message})"
           end
+
+          begin
+            Reach::Modules.refresh!
+            Reach::Modules.flush_pending!
+            transfer_text = Reach::Transfer.poll!
+            summary["modules"] = Reach::Modules.module_ids
+            summary["transfer"] = transfer_text if transfer_text
+          rescue Reach::Offline, Reach::NetworkError
+            nil
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not check your modules (#{e.message})"
+          end
+
+          begin
+            Reach::Limits.enforce!
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not apply the local size limits (#{e.message})"
+          end
         end
 
         summary

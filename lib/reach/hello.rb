@@ -18,24 +18,29 @@ module Reach
       end
 
       harness_id = resolve_harness(harness)
-      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd)
+      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event)
 
       emit(format, context, banner, greeting_id, greeting_text)
     rescue StandardError
       emit(format, MINIMAL_CONTEXT, nil, nil, nil)
     end
 
-    def context_text(harness:, cwd:, source: "startup")
+    def context_text(harness:, cwd:, source: "startup", event: nil)
       harness_id = resolve_harness(harness)
-      session_parts(harness_id, "text", source, cwd).last
+      session_parts(harness_id, "text", source, cwd, event).last
     rescue StandardError
       MINIMAL_CONTEXT
     end
 
-    def session_parts(harness_id, format, source, cwd)
+    def session_parts(harness_id, format, source, cwd, event = nil)
       maybe_refresh_status
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
+
+      if login_pending?(event)
+        greeting_text = [nil, "startup", "clear"].include?(source) ? Reach::Greetings.text("G-LOGIN") : nil
+        return [greeting_text && "G-LOGIN", greeting_text, nil, login_context]
+      end
 
       greeting_id, greeting_text, banner = choose_greeting(source)
       if greeting_text && in_course_folder?(cwd)
@@ -43,6 +48,23 @@ module Reach
       end
       context = build_context(harness_id, format, greeting_id, greeting_text)
       [greeting_id, greeting_text, banner, context]
+    end
+
+    def login_pending?(event)
+      return false unless safe_enrol_current
+      return false unless Reach::Login.required?
+
+      if event.is_a?(Hash) && event["session_id"]
+        !Reach::Login.session_confirmed?(Reach::Login.session_id(event))
+      else
+        !Reach::Login.any_active?
+      end
+    rescue StandardError
+      false
+    end
+
+    def login_context
+      "#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}"
     end
 
     def read_stdin_json
@@ -242,6 +264,7 @@ module Reach
       lines << "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."
       lines << profile_line
       lines << course_line
+      lines.concat(alignment_lines)
       question = safe_course_question
       lines << course_question_line(question) if question
 
@@ -250,6 +273,21 @@ module Reach
         text = "#{text}\n\n#{persona_body}"
       end
       text
+    end
+
+    def alignment_lines
+      return [] unless safe_enrol_current
+
+      lines = []
+      ids = Reach::Modules.module_ids
+      lines << "- Modules: #{Reach::Modules.names(ids)}" unless ids.empty?
+      pending = Reach::Transfer.current
+      lines << "- Module move: waiting for the student's instructor (asked #{Reach::Messages.course_time(pending['created_at'])})" if pending
+      answer = Reach::Transfer.announcement!
+      lines << "- Tell the student about their module move request, in these words: #{answer}" if answer
+      lines
+    rescue StandardError
+      []
     end
 
     def profile_line

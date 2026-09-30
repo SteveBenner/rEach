@@ -52,6 +52,54 @@ module Reach
         end
       end
 
+      def raise_wellbeing(harness:, space:, queue_only: false)
+        install = Reach::Enroll.current
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
+
+        workspace = Reach::Gate.current_workspace_path
+        meta = workspace ? Reach::Workspace.metadata(workspace) : {}
+        slice_kind = %w[backend panel verification].include?(meta["slice"]) ? meta["slice"] : nil
+        cutout_id = slice_kind ? meta["cutout_id"] : nil
+        space_kind = space.is_a?(Hash) ? space["kind"] : space
+        raised_at = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        hand_ref = SecureRandom.uuid
+        bundle = {
+          "schema" => "reach.hand.wellbeing/v1",
+          "student_id" => install["student_id"],
+          "raised_at" => raised_at,
+          "harness" => harness.to_s,
+          "space" => space_kind
+        }
+        tar_bytes = Reach::Tarball.write("bundle.json" => JSON.generate(bundle))
+        seal_meta = {
+          "course" => meta["course"] || (install["course"].is_a?(Hash) ? install["course"]["id"] : nil),
+          "assignment" => meta["assignment"]
+        }
+        envelope = seal_hand(install, seal_meta, tar_bytes)
+        idempotency_key = SecureRandom.uuid
+        body = {
+          "cutout_id" => cutout_id,
+          "slice" => slice_kind,
+          "trigger" => "wellbeing",
+          "originator" => "agent",
+          "summary" => "The student may need support.",
+          "bundle" => envelope
+        }
+        slice_name = workspace && slice_kind ? File.basename(workspace) : nil
+        outbox_path = write_outbox(idempotency_key, ROUTE, body, slice_name, hand_ref)
+        return :queued if queue_only
+
+        begin
+          response = client(install).post_json(ROUTE, body, idempotency_key: idempotency_key)
+          result = response.json || {}
+          FileUtils.rm_f(outbox_path)
+          track(result["hand_id"], slice: slice_name, hand_ref: hand_ref, originator: "agent") if result["hand_id"]
+          :sent
+        rescue Reach::RemoteRefused, Reach::Offline, Reach::NetworkError
+          :queued
+        end
+      end
+
       def track(hand_id, slice: nil, hand_ref: nil, originator: "student")
         return if hand_id.nil?
 

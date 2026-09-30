@@ -143,6 +143,9 @@ module Reach
         settings_path
       end
 
+      CLAUDE_READ_MATCHER = "Read|Glob|Grep|NotebookRead|LS|WebFetch|WebSearch".freeze
+      CODEX_READ_MATCHER = "view_image".freeze
+
       def claude_settings_content(space_kind = "slice")
         post_tool_use = []
         post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if space_kind == "slice"
@@ -156,8 +159,9 @@ module Reach
             "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "claude-code"), 10)],
             "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "claude-code"), 10)],
             "PreToolUse" => [
-              hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("gate", "write"), 10),
-              hook_entry("Bash", h("gate", "shell"), 10)
+              hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("gate", "write", "--harness", "claude-code"), 10),
+              hook_entry("Bash", h("gate", "shell", "--harness", "claude-code"), 10),
+              hook_entry(CLAUDE_READ_MATCHER, h("gate", "read", "--harness", "claude-code"), 10)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks,
@@ -191,15 +195,16 @@ module Reach
         dir = File.join(workspace_path, ".codex")
         FileUtils.mkdir_p(dir)
         config_path = File.join(dir, "config.toml")
-        write_protected(config_path, codex_config_toml)
+        write_protected(config_path, codex_config_toml(space_kind))
         hooks_path = File.join(dir, "hooks.json")
         write_protected(hooks_path, JSON.pretty_generate(codex_hooks_content(space_kind)))
         config_path
       end
 
-      def codex_config_toml
+      def codex_config_toml(space_kind = "slice")
         lines = []
         lines << "sandbox_mode = \"workspace-write\""
+        lines << "web_search = \"disabled\"" if %w[slice root].include?(space_kind.to_s)
         lines << ""
         lines << "[sandbox_workspace_write]"
         lines << "writable_roots = [#{toml_string(Reach::Paths.home)}]"
@@ -224,8 +229,9 @@ module Reach
             "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "codex"), 10)],
             "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "codex"), 10)],
             "PreToolUse" => [
-              hook_entry("apply_patch|Write|Edit", h("gate", "write"), 10),
-              hook_entry("Bash|shell|exec_command", h("gate", "shell"), 10)
+              hook_entry("apply_patch|Write|Edit", h("gate", "write", "--harness", "codex"), 10),
+              hook_entry("Bash|shell|exec_command", h("gate", "shell", "--harness", "codex"), 10),
+              hook_entry(CODEX_READ_MATCHER, h("gate", "read", "--harness", "codex"), 10)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks
@@ -235,6 +241,7 @@ module Reach
 
       HERMES_HOOK_WRITE_MATCHER = "write_file|patch|execute_code".freeze
       HERMES_HOOK_SHELL_MATCHER = "terminal".freeze
+      HERMES_HOOK_READ_MATCHER = "read_file|search_files|list_files|list_directory|web_search|web_extract|browser_.*".freeze
 
       def hermes_hook_entry(command, timeout, matcher: nil, fail_closed: false)
         entry = {}
@@ -251,7 +258,8 @@ module Reach
           "pre_llm_call" => [hermes_hook_entry(h("gate", "prompt", "--harness", "hermes"), 15)],
           "pre_tool_call" => [
             hermes_hook_entry(h("gate", "write", "--harness", "hermes"), 10, matcher: HERMES_HOOK_WRITE_MATCHER, fail_closed: true),
-            hermes_hook_entry(h("gate", "shell", "--harness", "hermes"), 10, matcher: HERMES_HOOK_SHELL_MATCHER, fail_closed: true)
+            hermes_hook_entry(h("gate", "shell", "--harness", "hermes"), 10, matcher: HERMES_HOOK_SHELL_MATCHER, fail_closed: true),
+            hermes_hook_entry(h("gate", "read", "--harness", "hermes"), 10, matcher: HERMES_HOOK_READ_MATCHER, fail_closed: true)
           ],
           "post_tool_call" => [hermes_hook_entry(h("transcript", "code", "--harness", "hermes"), 15)],
           "post_llm_call" => [hermes_hook_entry(h("transcript", "turn", "--quick", "--harness", "hermes"), 30)],

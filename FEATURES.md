@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.11.5 |
+| **Registry version** | 0.12.0 |
 | **Last audited** | 2026-09-30 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 18 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 34 catalogued |
+| **Feature count** | 42 catalogued |
 
 ## How to read this registry
 
@@ -23,13 +23,13 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 33 | 100% |
+| ✅ Shipped | 41 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 2 | 6% |
-| 🔵 Built, not enabled | 30 | 88% |
-| ⚫ No runtime path | 1 | 3% |
+| 🟢 Live | 2 | 5% |
+| 🔵 Built, not enabled | 38 | 93% |
+| ⚫ No runtime path | 1 | 2% |
 
 ## 1 · Install
 
@@ -207,6 +207,54 @@ A1 smoke against a scratch Teach 0.11.2 linked the ingest and grade receipts. Th
 - Teach refused a tampered digest (409), a bad signature (400), an extra field (400), a wrong kind (400) and an
   unknown receipt (404);
 - with the kill switch on, the acknowledgment stayed pending and linked on the next sync after it was turned off.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.17 · Sign-in every session
+
+Since 0.12.0 the prompt hook asks for the student ID, then "Am I speaking with <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Wrong IDs lock the session after three tries; a no ends course work for the session; both reach Teach as integrity events. The A1 smoke signs in this way before any write.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.18 · The student's own part
+
+Since 0.12.0 `reach part` lists the questions only the student can answer, `reach part record` takes their typed words verbatim, and `reach submit` refuses until all are answered and sends `part.json`. In the smoke, submit was refused without the part, four answers were recorded, and Teach verified them against the transcript.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.19 · Modules, module choice and transfers
+
+Since 0.12.0 Reach verifies Teach's signed module record and refuses writes in another module's slice. In a choose-your-modules course the student locks in two modules with their own yes; `reach transfer request` asks the professor to confirm a move. On scratch data a student chose and locked two modules, a second choice was refused, a transfer was approved, and an instructor reassignment moved the student's slices.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.20 · Sandbox and drag-and-drop files
+
+Since 0.12.0 the read and shell gates refuse paths outside the workspace and web lookups in course folders, on Claude Code, Codex and Hermes. A dropped file is copied into `materials/` within size and type limits. Driven with hook events on Claude Code; the Codex and Hermes hooks are configured but not run live.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.21 · Time gate
+
+Since 0.12.0 writes are refused in a slice that is not the current assignment or whose due time has passed, by Teach's clock.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.22 · Next step and focus anchor
+
+Since 0.12.0 `reach next` names the student's next step, and every prompt gives the agent a short anchor naming the current step. The directives COACH, PACE and FOCUS carry the tone and topic rules; whether a model follows them has not been judged in a live session yet.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.23 · Support in a crisis
+
+Since 0.12.0 `reach support` prints a fixed message beginning "If this is an emergency, call 911 now." and raises a wellbeing hand to the instructors; the prompt hook catches crisis phrases even before sign-in. On scratch data the hand reached Teach's queue, listed first, within seconds.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.24 · Local size limits
+
+Since 0.12.0 `reach sync` keeps Reach's own corpus and transcript spool under the course's caps, and `reach doctor` reports the sizes.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
