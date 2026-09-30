@@ -11,7 +11,8 @@ and sends it in when you are ready.
 1. Paste this repository's link into your AI app and ask it to install rEach.
    Cowork users: add it under Customize › Plugins › Add › Add marketplace
    instead. Hermes users: rEach sets up its own Hermes profile, so always
-   open your course with `reach work --harness hermes`.
+   open your course with `~/.reach/bin/reach work --harness hermes`
+   (setup shows the exact command for your computer).
 2. rEach introduces itself and asks a few questions. Answer as many or as few
    as you like; you can always finish later.
 3. Then enroll with your code: give rEach the enrollment code your instructor

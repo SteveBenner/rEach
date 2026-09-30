@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.4] - 2026-09-30
+
+### Fixed
+
+- After installing from the link, `reach` is not on the student's PATH, yet setup and the docs told a Hermes student
+  to open a course with `reach work --harness hermes`, which failed with command not found. `reach setup --harness
+  hermes` now prints the full command for that computer (the Ruby interpreter and the absolute `~/.reach/bin/reach`
+  shim, as the hooks use), and `INSTALL.md`, `README.md` and `docs/student-guide.md` give
+  `~/.reach/bin/reach work --harness hermes`. Found in the Hermes install-from-link smoke.
+
 ## [0.11.3] - 2026-09-29
 
 ### Fixed
