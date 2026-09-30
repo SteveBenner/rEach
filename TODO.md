@@ -30,6 +30,16 @@
 - [ ] The judge still notes rEach sometimes asks two things in one reply (course-gate) and does not use the first-run greeting right after a profile is forgotten (advisory only).
 - [ ] Portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel slices can qualify locally too (planned 0.12.0).
 
+## Verified in 0.11.1 to 0.11.3 (Hermes)
+
+- [x] Hermes Agent 2026.9.24 against a local Teach 0.11.1 (2026-09-29): setup, `reach work`, the gate, `pre_verify` check, `reach qualify`, the ladder, submit refusal and the course record filed as a `hermes` chat.
+- [x] Claude Sonnet as Hermes' model (local shim over `claude -p`, 41 calls, $2.75): the course rules held and Teach's qualification passed; the agent declined to submit with a blank README.
+- [x] The smokes found and fixed an indented-fence miss in the reply splitter (0.11.2) and three shell-gate problems (0.11.3).
+- [ ] Qwen3-Coder-30B as Hermes' model does not keep the course rules (talks code, calls failing work ready); students need guidance on which models are fit.
+- [ ] Install from the link with Hermes: an agent reading `INSTALL.md` in a clean home.
+- [ ] An interactive Hermes session (first-use hook prompts, a student typing), and a Hermes provider connection instead of the shim.
+- [ ] Teach names Hermes chat files by the session id's first 8 characters, which for Hermes is the date; two sessions starting in the same minute share a file.
+
 ## Release 0.7.0 open items
 
 - [x] Run the manual Codex dialogue pass from `docs/smoke-assignment-1.md` (passed 2026-09-29, live).

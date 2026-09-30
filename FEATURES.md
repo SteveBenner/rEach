@@ -353,9 +353,21 @@ first turn, an owned write allowed, a non-owned write, a V4A patch and `git stat
 `execute_code` absent, `pre_verify` handing `reach check` findings back to the model, and the prompt, actions, one code
 entry, the reply and its chat snippet in the course record with harness `hermes`. Limits: Hermes cannot refuse a
 prompt (it reaches the model marked blocked, with the refusal as context), and Hermes started without `reach work` or
-under another profile is not gated. No session with a real model or against a hosted Teach has been run.
+under another profile is not gated.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (no real-model session or hosted Teach yet).
+Verified again 2026-09-29 against a local Teach 0.11.1 (a real enrollment code, the real `context.a1` backend slice
+and Teach's own course rules): `reach setup --harness hermes` and `reach work --harness hermes` from a clean student
+home, the gate, `reach check` through `pre_verify`, `reach qualify` and the attempt ladder (a hand at the third
+failure), submit refused while unqualified, and 28 to 42 course-record entries per session filed on Teach as a
+`hermes` chat. With Claude Sonnet as Hermes' model (through a local shim over `claude -p`, not a Hermes provider) the
+agent followed the course skill and the feature flow, planned first, spoke only in business terms, wrote its own
+scenarios and passed Teach's qualification (4 of 4 on the build, 4 of 4 failing on the starting copy, hidden 3 of 3),
+and declined to submit while the student's README was blank. With Qwen3-Coder-30B (llama.cpp) the agent named code
+to the student and called failing work ready; Reach's submit refusal held. Not yet run: installing from the link
+through `INSTALL.md`, an interactive Hermes session, a Hermes provider connection (Anthropic, OpenRouter, Nous),
+macOS or Windows, and a hosted Teach.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (install-from-link, an interactive session and a hosted Teach not yet run).
 
 ## Appendix · Blocked by
 
