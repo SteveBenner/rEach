@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.3] - 2026-09-29
+
+### Fixed
+
+- The shell gate refused `ruby <shim> qualify` (`/usr/bin/ruby3.3 ~/.reach/bin/reach ...`), the exact form rEach's
+  session context prints, so an agent that followed it could not qualify. `Reach::Gate.readonly_command?` now treats a
+  `ruby`/`rubyX.Y` interpreter followed by Reach's own shim path like `reach`.
+- `Reach::Gate.subshell_or_substitution?` reads quotes as the shell does: nothing inside single quotes counts, `$(` and
+  backticks still count inside double quotes, and a backslash escapes the next character, so `grep -E '(a|b)'` is no
+  longer refused as a subshell.
+- Inline interpreter code (`ruby -e`, `python -c`, `node -e`/`-p`/`--eval`, `perl -e`/`-E`, `bash`/`sh`/`zsh -c`) is
+  refused outside the extracurricular folder with `M-GATE-NOCODETOOL`. It had passed whenever the script held a `/`
+  and no parenthesis, because the script token read as a relative path inside the workspace; the old parenthesis check
+  was the only thing catching the rest. Found in the real-Teach Hermes smoke.
+
 ## [0.11.2] - 2026-09-29
 
 ### Fixed

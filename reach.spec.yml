@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.11.2
+version: 0.11.3
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.11.2
+    version: 0.11.3
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -1359,7 +1359,11 @@ shell_rules:
   purpose: How reach gate shell decides a Bash command in Claude Code.
   parsing: >-
     The command is split on ;, &&, ||, | and newlines; each part is tokenised with Shellwords; subshells and command
-    substitution ($(), backticks) are refused outright.
+    substitution ($(), backticks) are refused outright. Since 0.11.3 that test reads quotes as the shell does: nothing
+    inside single quotes counts, $( and backticks still count inside double quotes, and a backslash escapes the next
+    character, so grep -E '(a|b)' is not a subshell. Code handed to an interpreter inline (ruby -e, python -c, node -e/-p/
+    --eval, perl -e/-E, bash/sh/zsh -c) cannot be read, so outside the extracurricular folder it is refused with
+    M-GATE-NOCODETOOL, as Hermes' execute_code is; ruby -c <file> stays allowed.
   allowed_readonly:
   - ls
   - cat
@@ -1373,6 +1377,7 @@ shell_rules:
   - diff
   - ruby -c
   - reach
+  - ruby (or rubyX.Y) followed by Reach's own shim, ~/.reach/bin/reach, the form rEach's session context prints (since 0.11.3)
   write_commands:
   - cp
   - mv

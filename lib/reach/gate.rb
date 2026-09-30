@@ -10,6 +10,13 @@ module Reach
     WRITE_SINGLE = %w[cp mv rm mkdir touch tee truncate chmod npm npx bundle gem].freeze
     WRITE_INPLACE_COMMANDS = %w[sed perl].freeze
     NETWORK_COMMANDS = %w[curl wget ssh scp nc].freeze
+    INLINE_CODE_FLAGS = {
+      /\Aruby[0-9.]*\z/ => %w[-e],
+      /\Apython[0-9.]*\z/ => %w[-c],
+      /\Anode\z/ => %w[-e -p --eval --print],
+      /\Aperl\z/ => %w[-e -E],
+      /\A(ba|z)?sh\z/ => %w[-c]
+    }.freeze
 
     module_function
 
@@ -303,7 +310,26 @@ module Reach
     end
 
     def subshell_or_substitution?(text)
-      text.include?("$(") || text.include?("`") || text.include?("(")
+      quote = nil
+      chars = text.chars
+      i = 0
+      while i < chars.length
+        ch = chars[i]
+        if quote == "'"
+          quote = nil if ch == "'"
+        elsif ch == "\\"
+          i += 1
+        elsif quote == '"'
+          return true if ch == "`" || (ch == "$" && chars[i + 1] == "(")
+          quote = nil if ch == '"'
+        elsif ch == "'" || ch == '"'
+          quote = ch
+        elsif ch == "`" || ch == "("
+          return true
+        end
+        i += 1
+      end
+      false
     end
 
     def split_segments(text)
@@ -371,6 +397,7 @@ module Reach
 
       check_vault_or_keys_reads!(plain_tokens, workspace)
       raise_blocked!("M-GATE-NOGIT") if cmd == "git" && kind != "extracurricular"
+      raise_blocked!("M-GATE-NOCODETOOL") if kind != "extracurricular" && inline_code?(plain_tokens)
 
       if NETWORK_COMMANDS.include?(cmd)
         raise_blocked!("M-SHELL-BLOCKED")
@@ -446,10 +473,29 @@ module Reach
     def readonly_command?(tokens)
       cmd = tokens[0]
       return true if cmd == "reach"
+      return true if reach_shim_call?(tokens)
       return true if cmd == "ruby" && tokens[1] == "-c"
       return !(tokens.include?("-delete") || tokens.include?("-exec")) if cmd == "find"
 
       READONLY_SINGLE.include?(cmd)
+    end
+
+    def inline_code?(tokens)
+      name = File.basename(tokens[0].to_s)
+      flags = INLINE_CODE_FLAGS.find { |pattern, _| name =~ pattern }
+      return false unless flags
+
+      tokens[1..-1].to_a.any? do |tok|
+        flags[1].include?(tok) || flags[1].any? { |flag| flag.length == 2 && tok =~ /\A-[a-zA-Z]{1,3}\z/ && !tok.start_with?("-I", "-r") && tok.end_with?(flag[1]) }
+      end
+    end
+
+    def reach_shim_call?(tokens)
+      return false unless File.basename(tokens[0].to_s) =~ /\Aruby[0-9.]*\z/ && tokens[1]
+
+      File.expand_path(tokens[1]) == File.expand_path(Reach::Runtime.shim_path)
+    rescue StandardError
+      false
     end
 
     def write_command?(tokens)
