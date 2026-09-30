@@ -36,7 +36,7 @@
 - [x] Claude Sonnet as Hermes' model (local shim over `claude -p`, 41 calls, $2.75): the course rules held and Teach's qualification passed; the agent declined to submit with a blank README.
 - [x] The smokes found and fixed an indented-fence miss in the reply splitter (0.11.2) and three shell-gate problems (0.11.3).
 - [ ] Qwen3-Coder-30B as Hermes' model does not keep the course rules (talks code, calls failing work ready); students need guidance on which models are fit.
-- [ ] Install from the link with Hermes: an agent reading `INSTALL.md` in a clean home.
+- [x] Install from the link with Hermes: an agent reading `INSTALL.md` in a clean home (2026-09-30, Claude via the shim, public `main` 0.11.4): installer, `reach setup --harness hermes` and a working launch command. The agent still skipped the NEXT lines on purpose ("you didn't ask for that"), as Sonnet does in Claude Code.
 - [ ] An interactive Hermes session (first-use hook prompts, a student typing), and a Hermes provider connection instead of the shim.
 - [ ] Teach names Hermes chat files by the session id's first 8 characters, which for Hermes is the date; two sessions starting in the same minute share a file.
 
