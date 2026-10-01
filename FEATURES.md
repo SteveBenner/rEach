@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.14.3 |
+| **Registry version** | 0.14.4 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -143,7 +143,10 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 `reach hand raise|status|list` sends a signed, encrypted context bundle to the instructors and polls for replies.
 Since 0.11.0 the bundle is `reach.hand/v2`: originator (agent or student), the task, the attempt history, every owned
-file and scenario file in full and the last qualification's output.
+file and scenario file in full and the last qualification's output. Since 0.14.4 a hand Teach refuses says why
+(M-HAND-REFUSED with Teach's reason, from the CLI and the reach_raise_hand tool) and a hand that could not reach Teach
+says it was saved for later (M-HAND-QUEUED); verified 2026-10-01 against a scratch Teach with hand-raises disabled,
+enabled and stopped.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 

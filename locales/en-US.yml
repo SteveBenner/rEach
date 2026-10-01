@@ -21,6 +21,8 @@ messages:
   M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."
   M-SHAPE-VISIBLE: "The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways to get close to it that fit."
   M-HAND-RAISED: "rEach got stuck on the same problem three times, so it asked your instructors for help. You'll see their answer here."
+  M-HAND-REFUSED: "The course server didn't take this request for help: {reason}. Your instructors haven't been asked yet."
+  M-HAND-QUEUED: "rEach can't reach the course server right now, so your request for help is saved and will be sent when you're back online."
   M-SUBMIT-RECEIVED: "Your {slice} work for {cutout} was received at {time}. Receipt {receipt_id}."
   M-SUBMIT-PENDING: "Your submission hasn't been received yet. rEach will keep trying; keep your computer online."
   M-SUBMIT-REJECTED: "Your submission wasn't accepted: {reason}. {fix}"
