@@ -15,7 +15,7 @@ username (`FLLLNNN@school.example`) and their seven-digit student ID, so the age
 never sees them. Teach checks them against its roster and returns a signed
 enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
-`tools/fake_teach` stands in for Teach's half until Teach ships it.
+Teach 0.16.0 implements its half; `tools/fake_teach` remains a local stand-in for wire revision 2026-10-01b only.
 
 rEach then introduces itself and runs a short intake
 interview, saved on the student's computer only. It enrolls with Teach, receives

@@ -1483,9 +1483,10 @@ state_machines:
     - awaiting_username
     - awaiting_student_id
     - awaiting_confirm
+    - awaiting_move
     - enrolled
     notes: >-
-      Since 0.16.0, W-ENR-7. Stored machine-wide at ~/.reach/state/enroll/flow.json (0600) and removed on success;
+      Since 0.16.0, W-ENR-7; awaiting_move (W-ENR-8) waits for an instructor-approved device move. Stored machine-wide at ~/.reach/state/enroll/flow.json (0600) and removed on success;
       start over, restart or cancel return to awaiting_code; enrollment_refused returns to awaiting_username.
   slice_workspace:
     states:
