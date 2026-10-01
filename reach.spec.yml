@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.14.3
+version: 0.14.4
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.14.3
+    version: 0.14.4
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -758,6 +758,10 @@ hand_raising:
     agreed to share it.
   transport: Encrypted to Teach's key and signed like a submission; uploaded with an idempotency key.
   student_notice: The agent tells the student that a hand was raised and what was sent.
+  outcomes: >-
+    Since 0.14.4 a hand Teach refuses (hand-raises disabled, or another non-retryable refusal) is reported with
+    M-HAND-REFUSED naming Teach's reason, from both reach hand raise (non-zero exit) and reach_raise_hand (an error
+    result); a hand that could not reach Teach is saved to the outbox and reported with M-HAND-QUEUED (queued true).
   replies: >-
     Polled every 60 seconds while a hand is open, and on every reach status; delivered to the agent through the
     MCP bridge and shown to the student; a suggested patch is applied only with the student's agreement and only

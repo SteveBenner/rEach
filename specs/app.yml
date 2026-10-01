@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.14.3
+version: 0.14.4
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs

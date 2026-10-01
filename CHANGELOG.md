@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.4] - 2026-10-01
+
+### Fixed
+
+- A hand Teach refuses now says why. `reach hand raise` and the `reach_raise_hand` tool used to answer with a null
+  hand id and no reason when Teach refused the hand (for example with hand-raises disabled), and printed
+  "Hand raised: " with nothing after it. They now report M-HAND-REFUSED with Teach's reason, and a hand saved for
+  later because Teach could not be reached is reported as queued (M-HAND-QUEUED). Reported by a peer session during
+  the 0.14.3 verification.
+
 ## [0.14.3] - 2026-10-01
 
 ### Added

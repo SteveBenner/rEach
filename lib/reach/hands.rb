@@ -13,8 +13,12 @@ module Reach
 
     class << self
       def raise_hand(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
-        raise_record(trigger: trigger, summary: summary, slice: slice, include_profile: include_profile,
-                     originator: originator, details: details)["hand_id"]
+        record = raise_record(trigger: trigger, summary: summary, slice: slice, include_profile: include_profile,
+                              originator: originator, details: details)
+        refused = record["refused"]
+        raise Reach::Refused, Reach::Messages.text("M-HAND-REFUSED", reason: refused["message"]) if refused
+
+        record["hand_id"]
       end
 
       def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
@@ -44,9 +48,9 @@ module Reach
           FileUtils.rm_f(outbox_path)
           track(result["hand_id"], slice: File.basename(workspace), hand_ref: bundle["hand_ref"], originator: originator) if result["hand_id"]
           record.merge("hand_id" => result["hand_id"])
-        rescue Reach::RemoteRefused
+        rescue Reach::RemoteRefused => e
           FileUtils.rm_f(outbox_path)
-          record
+          record.merge("refused" => { "code" => e.code.to_s, "message" => e.message.to_s })
         rescue Reach::Offline, Reach::NetworkError
           record.merge("queued" => true)
         end

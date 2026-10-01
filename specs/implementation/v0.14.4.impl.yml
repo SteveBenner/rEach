@@ -1,0 +1,50 @@
+schema: impl-blueprint/v1
+name: a refused hand says why
+versions: {reach: 0.14.4}
+repos:
+  reach: /home/sven/github/foss/rEach
+origin: >-
+  Reported by a peer session (rstack-uber-bd) during the 0.14.3 verification; Sven chose to fix it. When Teach refuses a
+  hand (403 hand-raises disabled, or any other non-retryable refusal), Hands.raise_record rescues Reach::RemoteRefused
+  and returns a record with hand_id nil and no reason, so reach_raise_hand answers {"hand_id": null} and `reach hand
+  raise` prints "Hand raised: " with nothing after it. A queued hand (offline) looks the same.
+normative:
+  - specs/app.yml STD-STUDENT-MESSAGES (student-facing text from the catalogue), STD-RUBY-FLOOR
+constraints:
+  - Ruby 2.6.10 floor. Standard library only. Match surrounding style.
+  - "No comments in code (Part Q). No tests or test files (Part S)."
+  - Do not edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md, reach.spec.yml, specs/*, tools/smoke/*; the primary does.
+  - Do not commit, push or touch git.
+changes:
+  - id: H1
+    title: keep the refusal
+    file: lib/reach/hands.rb
+    change: >-
+      raise_record: `rescue Reach::RemoteRefused => e`, still delete the outbox file, and return
+      record.merge("refused" => { "code" => e.code.to_s, "message" => e.message.to_s }).
+      raise_hand: take the record from raise_record; when it carries "refused", raise Reach::Refused with
+      Reach::Messages.text("M-HAND-REFUSED", reason: refused["message"]); otherwise return record["hand_id"] as now.
+      The ladder (Ladder.raise_ladder_hand calls raise_record) and Submit (calls raise_hand inside rescue StandardError)
+      keep working unchanged; do not edit them.
+  - id: H2
+    title: say queued, and surface the refusal
+    files: [lib/reach/mcp_bridge.rb, lib/reach/cli.rb]
+    change: >-
+      MCP reach_raise_hand: call Reach::Hands.raise_record with the same arguments; when it carries "refused" raise
+      Reach::Refused with M-HAND-REFUSED {reason} (the bridge's existing Reach::Error rescue turns it into the error
+      result); otherwise return {"hand_id" => record["hand_id"], "queued" => record["queued"] == true} plus
+      "text" => Reach::Messages.text("M-HAND-QUEUED") and "relay_verbatim" => true when queued.
+      CLI `reach hand raise`: same call; a refusal raises Reach::Refused with M-HAND-REFUSED (the CLI's existing
+      Reach::Error handling prints it and exits non-zero); a queued hand prints M-HAND-QUEUED and exits 0; otherwise
+      prints "Hand raised: <id>" as now.
+  - id: H3
+    title: messages
+    file: locales/en-US.yml
+    change: >-
+      Next to M-HAND-RAISED add:
+      M-HAND-REFUSED: "The course server didn't take this request for help: {reason}. Your instructors haven't been asked yet."
+      M-HAND-QUEUED: "rEach can't reach the course server right now, so your request for help is saved and will be sent when you're back online."
+acceptance:
+  - ruby -c on every changed .rb file; `ruby exe/reach --help` runs.
+  - "Against a real scratch Teach provisioned as tools/smoke/assignment_one.rb does (scratch TEACH_HOME, its own scratch PostgreSQL database created with createdb and dropped at the end; run `unset TEACH_DATABASE_URL` first in every shell; never use the database named teach or port 7400), served with TEACH_HANDS_DISABLE=1: `reach hand raise --summary test` prints the M-HAND-REFUSED text naming Teach's reason and exits non-zero; the MCP bridge (newline-delimited JSON-RPC to `ruby exe/reach mcp`, initialize then tools/call reach_raise_hand) returns an error result carrying the same text. Restart the scratch Teach without TEACH_HANDS_DISABLE: the CLI prints Hand raised: <id> and the MCP call returns a non-null hand_id with queued false. With the scratch Teach stopped: the CLI prints M-HAND-QUEUED and the MCP result has queued true and the text."
+  - Report every command and its real output; never claim a pass you did not observe.

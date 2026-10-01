@@ -328,12 +328,18 @@ module Reach
           result = result.merge("announcement" => Reach::Receipts.announce(result["receipt"])) if result["state"] == "ingested"
           result
         when "reach_raise_hand"
-          hand_id = Reach::Hands.raise_hand(
+          record = Reach::Hands.raise_record(
             trigger: arguments.fetch("trigger", "student_request"),
             summary: arguments.fetch("summary"),
             slice: slice_argument(arguments)
           )
-          { "hand_id" => hand_id }
+          if record["refused"]
+            raise Reach::Refused, Reach::Messages.text("M-HAND-REFUSED", reason: record["refused"]["message"])
+          end
+
+          result = { "hand_id" => record["hand_id"], "queued" => record["queued"] == true }
+          result = result.merge("text" => Reach::Messages.text("M-HAND-QUEUED"), "relay_verbatim" => true) if result["queued"]
+          result
         when "reach_hand_status"
           Reach::Hands.status(arguments.fetch("hand_id"))
         when "reach_hello"

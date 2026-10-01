@@ -562,13 +562,21 @@ module Reach
             warn "usage: reach hand raise --summary <text> [--trigger student_request] [--slice <id>] [--include-profile]"
             return 1
           end
-          hand_id = Reach::Hands.raise_hand(
+          record = Reach::Hands.raise_record(
             trigger: options[:trigger] || "student_request",
             summary: options[:summary],
             slice: default_slice_id(options[:slice]),
             include_profile: include_profile
           )
-          puts "Hand raised: #{hand_id}"
+          if record["refused"]
+            raise Reach::Refused, Reach::Messages.text("M-HAND-REFUSED", reason: record["refused"]["message"])
+          end
+
+          if record["queued"]
+            puts Reach::Messages.text("M-HAND-QUEUED")
+          else
+            puts "Hand raised: #{record['hand_id']}"
+          end
           0
         when "status"
           id = args.shift
