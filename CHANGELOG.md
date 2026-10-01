@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-10-01
+
+### Fixed
+
+- The workspace layout in reach.spec.yml listed a fixtures/ folder of demo-business data, which no Teach workspace
+  carries and which the rule against reading test data forbids. It is gone; the answer-free qualify kit is what a
+  slice's scenarios read. No code changed.
+
 ## [0.14.0] - 2026-10-01
 
 ### Added
