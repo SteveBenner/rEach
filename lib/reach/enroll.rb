@@ -41,6 +41,7 @@ module Reach
       write_install_file(body, teach_url)
       Reach::Stamp.drop!
       Reach::EnrollmentLock.clear_moved!
+      write_notice(body)
       announce_sidecar(current)
 
       current
@@ -95,12 +96,15 @@ module Reach
       end
 
       Reach::Paths.ensure_home!
+      previous = current
+      FileUtils.rm_f(Reach::Paths.status_cache_file) if previous && previous["student_id"] != body["student_id"]
       write_private_key(key)
       write_install_file(body, teach_url, "shape" => "v2", "username" => username, "display_name" => body["display_name"])
       Reach::Fingerprint.store!(fingerprint)
       Reach::Stamp.store!(stamp)
       Reach::Fingerprint.clear_cache!
       Reach::EnrollmentLock.clear_moved!
+      write_notice(body)
       announce_sidecar(current)
 
       current
@@ -125,6 +129,12 @@ module Reach
       return unless Gem::Version.new(Reach::VERSION) < Gem::Version.new(body["minimum_reach_version"].to_s)
 
       raise Reach::Refused, Reach::Messages.text("M-REACH-OUTDATED", version: Reach::VERSION, minimum: body["minimum_reach_version"])
+    end
+
+    def write_notice(body)
+      Reach::Login.write_json(Reach::Paths.enroll_notice_file, "course_title" => (body["course"] || {})["title"], "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    rescue StandardError
+      nil
     end
 
     def announce_sidecar(install)

@@ -7,10 +7,6 @@ require "fileutils"
 require "openssl"
 
 module Reach
-  class RemoteRefused
-    attr_accessor :details
-  end
-
   class CircuitBreaker
     def initialize(failure_threshold: 5, cooldown_s: 60)
       @failure_threshold = failure_threshold

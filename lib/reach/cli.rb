@@ -447,7 +447,12 @@ module Reach
         end
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
         if decision.nil?
-          puts "{}" if hermes
+          notice = Reach::EnrollFlow.consume_notice
+          if hermes
+            puts JSON.generate(notice ? { "context" => notice } : {})
+          elsif notice
+            puts JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => notice })
+          end
           return 0
         end
 

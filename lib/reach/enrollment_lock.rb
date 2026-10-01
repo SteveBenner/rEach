@@ -102,22 +102,7 @@ module Reach
     end
 
     def queue_mismatch(record)
-      return nil unless Reach::Enroll.current
-
-      detail = JSON.generate("stamp_id" => record["stamp_id"], "changed" => record["changed"])
-      body = {
-        "kind" => MOVED_KIND,
-        "detail" => detail,
-        "cutout_id" => nil,
-        "slice" => nil,
-        "path" => nil,
-        "ledger_head" => nil,
-        "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-      }
-      Reach::Integrity.write_outbox(SecureRandom.uuid, body)
-      body
-    rescue StandardError
-      nil
+      Reach::Integrity.queue("fingerprint_mismatch", detail: { "stamp_id" => record["stamp_id"], "changed" => record["changed"] })
     end
   end
 end

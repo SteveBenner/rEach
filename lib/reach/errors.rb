@@ -28,6 +28,7 @@ module Reach
 
   class RemoteRefused < Error
     attr_reader :code, :status
+    attr_accessor :details
 
     def initialize(code, status, message)
       @code = code
