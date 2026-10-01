@@ -44,6 +44,12 @@ jobs:
             runner: windows-11-arm
             ruby: '4.0'
     steps:
+      - name: Keep LF line endings
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - name: Check out
         timeout-minutes: 5
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -102,6 +108,11 @@ jobs:
           - win10
           - win11
     steps:
+      - name: Keep LF line endings
+        timeout-minutes: 2
+        shell: powershell
+        run: git config --global core.autocrlf false
+
       - name: Check out
         timeout-minutes: 5
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
