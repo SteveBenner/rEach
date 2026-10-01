@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.1
+version: 0.16.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.1
+    version: 0.16.2
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -1786,7 +1786,7 @@ doctor_checks:
   checks: The instructors' public keys are present and current
   fix: reach sync
 - id: R-DOC-GUARD
-  checks: The guardrails package verifies and is the latest known
+  checks: After enrollment, the guardrails package verifies and is the latest known
   fix: reach sync
 - id: R-DOC-WS
   checks: Each current slice's workspace exists, read-only files unchanged, harness configuration intact
@@ -1819,7 +1819,7 @@ doctor_checks:
   checks: The reach-assistant skill and the rEach agent carry the same persona, quoting the first-run greeting
   fix: A packaging fault; reinstall rEach
 - id: R-DOC-DIRECTIVES
-  checks: Every file in directives/ (README.md aside) parses, its opcode is 3 to 10 capitals or digits, its rule fits 88 characters and aliases are unique
+  checks: Every file in directives/ (README.md aside) parses, its opcode is 3 to 10 capitals or digits, its rule fits 88 characters and aliases are unique; a file that does not parse is named with the reason (no --- block, not a mapping, or the read or YAML error)
   fix: A packaging fault; reinstall rEach
 - id: R-DOC-TASTE
   checks: skills/design-taste-frontend is the official tasteskill (name, opening line, MIT licence, provenance)

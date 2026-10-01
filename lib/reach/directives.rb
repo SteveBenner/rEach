@@ -135,7 +135,7 @@ module Reach
         row = parse_file(path, "public")
         name = File.basename(path)
         if row.nil?
-          found << "#{name}: unreadable frontmatter"
+          found << "#{name}: unreadable frontmatter (#{unreadable_reason(path)})"
           next
         end
         REQUIRED.each { |key| found << "#{name}: missing #{key}" if row[key].to_s.empty? }
@@ -163,6 +163,16 @@ module Reach
       normalize(front.merge("tier" => tier, "path" => path))
     rescue StandardError
       nil
+    end
+
+    def unreadable_reason(path)
+      front, _body = split_frontmatter(File.read(path))
+      return "no --- block at the top" if front.nil?
+      return "the block is not a mapping" unless front.is_a?(Hash)
+
+      "the block could not be read as a directive"
+    rescue StandardError => e
+      "#{e.class}: #{e.message.sub(/ @ .*\z/m, '')}"
     end
 
     def normalize(entry)
