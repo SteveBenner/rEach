@@ -758,7 +758,10 @@ module Reach
       def cmd_doctor(args)
         install_chrome, _rest = parse_bare_flag(args, "install-chromium")
         if install_chrome
-          Reach::RuntimeKit.install!(only: "chrome")
+          if Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(only: "chrome") } == :busy
+            warn Reach::RuntimeAuto::BUSY
+            return 1
+          end
         end
         problems = []
         problems.concat(check_ruby)
@@ -1071,8 +1074,14 @@ module Reach
         case sub
         when "install"
           _yes, args = parse_bare_flag(args, "yes")
+          auto, args = parse_bare_flag(args, "auto")
+          return Reach::RuntimeAuto.run if auto
+
           options, _remaining = parse_flags(args, [:only, :from])
-          Reach::RuntimeKit.install!(only: options[:only], from: options[:from])
+          if Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(only: options[:only], from: options[:from]) } == :busy
+            warn Reach::RuntimeAuto::BUSY
+            return 1
+          end
           0
         when "status"
           json, _rest = parse_bare_flag(args, "json")

@@ -17,6 +17,7 @@ module Reach
         cwd = event["cwd"] if event["cwd"]
       end
 
+      Reach::RuntimeAuto.start
       harness_id = resolve_harness(harness)
       greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event)
 

@@ -80,7 +80,13 @@ module Reach
         env["PATH"] = "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" if ruby_bin
         stdout, stderr, status = Open3.capture3(env, *command, chdir: env_dir)
         unless status.success?
-          hint = runtime ? "" : " (run `reach runtime install` to get the course's checking tools)"
+          hint = if runtime
+                   ""
+                 elsif Reach::RuntimeAuto.installing?
+                   Reach::RuntimeAuto::STILL_INSTALLING
+                 else
+                   " (run `reach runtime install` to get the course's checking tools)"
+                 end
           raise Reach::Error, "reach: could not install the checking tools (#{install_failure_reason(stdout, stderr)})#{hint}"
         end
 
