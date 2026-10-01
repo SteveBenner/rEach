@@ -48,7 +48,7 @@
 - [x] Verify the public ZIP install against real GitHub after the push (passed 2026-09-28 with `--public`, after the 0.7.1 empty-submodule fix).
 - [ ] The installer's Windows path is unverified.
 - [ ] The plaintext MGMT 327 files remain in the public GitHub history (the Initial commit) unless history is rewritten.
-- [x] The 695ad-781 reference now ships as an encrypted `.rref` (packed 2026-09-29 from the existing hand-vetted copy, key id `09d72206a5d3b1ae`; parity with mgmt-327). The plaintext source copy still sits under `corpus/course-reference/.backup/` pending a human's go-ahead to delete it (AGENTS.md Part E; the delete itself was refused by the auto-mode classifier as irreversible).
+- [x] The 695ad-781 reference now ships as an encrypted `.rref` (packed 2026-09-29 from the existing hand-vetted copy, key id `09d72206a5d3b1ae`; parity with mgmt-327). The plaintext source copy still sits under `corpus/course-reference/.backup/` pending a human's go-ahead to delete it (AGENTS.md Part E; the delete itself was refused by the auto-mode classifier as irreversible). Resolved in 0.14.5: `corpus/` is gone and the source copy lives with Teach.
 - [x] A tampered blob's key id now reports refused, not locked, when we hold a key for the same course under a different key id (fixed 2026-09-29 in `Reach::Reference.open_blob`).
 - [ ] Complete the `FEATURES.md` inventory: it covers the 0.7.0 surfaces and the core flows only.
 
@@ -86,8 +86,8 @@
 
 ## Course reference corpus
 
-- [ ] `corpus/course-reference/` (MGMT 327 and 695AD-781) is a one-time hand-vetted copy from the instructor's AIvoryTower course stores, made 2026-09-28. It does not stay in sync with the instructor's evolving syllabus, glossary or assignments. Build a live-update mechanism (re-running the same vetted copy from AIvoryTower, or a future instructor-upload path) so this directory tracks the real course material instead of going stale. Deferred; not started.
-- [ ] Whatever sync mechanism gets built must carry forward the same hard exclusion by hand: instructor-only material (answer keys, instructor keys, grading rubrics with solutions, or anything else marked as an instructor/answer-key artifact) must never land in `corpus/course-reference/`, no matter how the sync pulls its source.
+- [x] `corpus/course-reference/` (MGMT 327 and 695AD-781) is a one-time hand-vetted copy from the instructor's AIvoryTower course stores, made 2026-09-28. It does not stay in sync with the instructor's evolving syllabus, glossary or assignments. Build a live-update mechanism (re-running the same vetted copy from AIvoryTower, or a future instructor-upload path) so this directory tracks the real course material instead of going stale. Deferred; not started. Moved to Teach in 0.14.5: Reach carries no course material.
+- [x] Whatever sync mechanism gets built must carry forward the same hard exclusion by hand: instructor-only material (answer keys, instructor keys, grading rubrics with solutions, or anything else marked as an instructor/answer-key artifact) must never land in `corpus/course-reference/`, no matter how the sync pulls its source. Moved to Teach in 0.14.5: Reach carries no course material.
 
 ## Housekeeping
 

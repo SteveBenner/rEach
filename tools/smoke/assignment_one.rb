@@ -224,6 +224,7 @@ module AssignmentOne
       {
         "PATH" => "#{@ruby4_bin}:#{ENV["PATH"]}",
         "TEACH_HOME" => @teach_home,
+        "TEACH_REFERENCE_DIR" => @reference_dir.to_s,
         "TEACH_DATABASE_URL" => @db_url,
         "TEACH_PORT" => @port.to_s,
         "TEACH_BIND" => "127.0.0.1",
@@ -247,8 +248,7 @@ module AssignmentOne
         "REACH_WORKSPACE_ROOT" => @workspace_root,
         "REACH_TEACH_URL" => @teach_url,
         "HOME" => @student_home,
-        "CODEX_HOME" => @codex_home,
-        "REACH_REFERENCE_DIR" => @reference_dir.to_s
+        "CODEX_HOME" => @codex_home
       }
     end
 

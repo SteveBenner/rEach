@@ -257,10 +257,16 @@ packages:
         characters. The seal secret never leaves Teach; Reach stores seal.yml only in the vault.
       reference-keys.json: >-
         Optional, since protocol 1 revision 2026-09-28f. JSON map {schema: reach.reference-keys/v1, keys: [{key_id,
-        course, key_b64}]}: the AES-256-GCM content keys of the encrypted course reference blobs (corpus/course-reference/
-        <name>.rref in the Reach repository, format RREF version 1) that Teach delivers to this install. A Teach of that
-        revision always writes it, with an empty keys list when it holds none; an older Teach omits it and Reach reports
-        every blob as locked. Reach keeps it only in the vault and decrypts blobs in memory, never writing plaintext.
+        course, key_b64}]}: the AES-256-GCM content keys of the encrypted course reference blobs (format RREF version
+        1) that Teach delivers to this install. A Teach of that revision always writes it, with an empty keys list when
+        it holds none; an older Teach omits it and Reach reports every blob as locked. Reach keeps it only in the vault
+        and decrypts blobs in memory, never writing plaintext.
+      "reference/<name>.rref": >-
+        Optional, since protocol 1 revision 2026-10-01a. The encrypted course reference blobs themselves, one entry
+        per course whose content key Teach delivers in reference-keys.json, byte for byte as `teach reference pack`
+        wrote them. Before that revision the blobs were committed to the Reach repository under
+        corpus/course-reference/; since it, the Reach repository carries no course material at all and Reach reads
+        blobs only from its vault copy of this package. Reach never writes a blob's plaintext.
     reach_use: >-
       The guardrails version is header.version (an integer). Reach renders AGENTS.md, CLAUDE.md and GEMINI.md for a slice
       as W-RENDER-1, writes a digest manifest of the unpacked entries and re-checks it on every load (W-SEAL-3), and
@@ -277,9 +283,13 @@ packages:
         workspace. tags is ["@<cutout_id>", "@<slice>"] since protocol 1 revision 2026-09-28d (["@<cutout_id>"]
         before it); every tag must hold for a scenario to run (W-RUN-1). acceptance_mode is "remote" and scenarios
         lists the names of the cutout's graded scenarios. qualify (since protocol 1 revision 2026-09-29d; absent before
-        and when the course repository's slice API carries none) is {tag, local}, copied from the slice API's qualify
-        object: tag is the Cucumber tag every scenario the agent writes for the slice carries ("@backend" or "@panel"),
-        and local is true when those scenarios can also run away from Teach (W-QUAL-2).
+        and when the course repository's slice API carries none) is {tag, local, env?}, copied from the slice API's
+        qualify object: tag is the Cucumber tag every scenario the agent writes for the slice carries ("@backend" or
+        "@panel"), and local is true when those scenarios can also run away from Teach (W-QUAL-2). env (since protocol
+        1 revision 2026-10-01a, optional) maps environment variable names to relative paths inside the qualify kit;
+        Teach drops any name outside [A-Z][A-Z0-9_]{0,63}, any of PATH, HOME, RUBYOPT, RUBYLIB, any name starting with
+        BUNDLE_, GEM_, LD_, DYLD_, REACH_ or TEACH_, and any value that is absolute, contains "..", or passes 512 bytes,
+        and Reach applies the same rule again before it sets them for a local run.
       "<root>/<owned file>": >-
         The student's starting copy of each owned file: the course repository's stub at stubs/<owned file> when it has
         one (since 2026-09-28d), otherwise empty.

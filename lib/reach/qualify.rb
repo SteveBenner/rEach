@@ -188,12 +188,12 @@ module Reach
           failing = rows.reject { |row| row["result"] == "passed" }
           record["steps"][id] = { "ran" => true, "passed" => failing.empty?, "rows" => rows.map { |row| row.slice("name", "result", "step", "message") } }
           failing.each do |row|
-          if practice_miss?(row, output)
-            record["findings"] << { "code" => "QF-PRACTICE", "name" => row["name"], "step" => row["step"], "detail" => PRACTICE_DETAIL }
-          else
-            record["findings"] << { "code" => "QF-LOCAL-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
+            if practice_miss?(row, output)
+              record["findings"] << { "code" => "QF-PRACTICE", "name" => row["name"], "step" => row["step"], "detail" => PRACTICE_DETAIL }
+            else
+              record["findings"] << { "code" => "QF-LOCAL-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
+            end
           end
-        end
           failing.empty?
         end
       end

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.14.4 |
+| **Registry version** | 0.14.5 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -135,7 +135,10 @@ the slice allows it (and again on the starting copy, where they must fail), then
 (W-API-QUALIFY) that runs the agent's scenarios on the real build and on the starting copy and the instructors' hidden
 scenarios. `--list` prints the tag and graded names; `--local-only` never counts. Verified end to end on 2026-09-29
 against a scratch Teach 0.11.0 and Grokit 0.5.0, a backend slice (context.a1) and a panel slice (finance.a1). Replaces
-`reach tips`, which is gone.
+`reach tips`, which is gone. Since 0.14.5 a panel slice's local run that asks the practice recording for an answer it
+does not hold gives QF-PRACTICE instead of QF-LOCAL-FAIL, naming `qualify/kit/practice/README.md`, and the record
+carries `practice_readme`; checked on 2026-10-01 with one such row and one ordinary failure, which gave QF-PRACTICE and
+QF-LOCAL-FAIL.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -293,21 +296,13 @@ corrupted or forged, while we hold a different key for the same course, is refus
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
-### 3.2 · MGMT 327 reference blob
+### 3.2 · Reference blobs come only from Teach
 
-`corpus/course-reference/mgmt-327.rref` carries 21 files: the Assignment 1 handout, the student quizzes, the
-syllabus, the glossary and infographics, the Grokit module guide, the A1 course path, ten contracts and the A1
-cutout extract, with the OpenStax textbook as a link. The plaintext copies were removed from the tree but remain in
-the public GitHub history (the Initial commit) unless history is rewritten.
-
-Build ✅ · Deploy 🔵 · Blocker: Human (the history rewrite decision).
-
-### 3.3 · 695ad-781 reference
-
-`corpus/course-reference/695ad-781.rref` carries the syllabus draft, the online lecture map and the final dossier
-rubric, packed 2026-09-29 from the same hand-vetted copy `TODO.md` already described, at parity with 3.2's format.
-The plaintext it was packed from is kept only as a pre-deletion safety copy under `corpus/course-reference/.backup/`
-(AGENTS.md Part E) pending a human's go-ahead to remove it.
+Since 0.14.5 the repository carries no course material: `corpus/` is gone, and `reach reference` reads `.rref` blobs
+only from its vault copy of the guardrails package, where Teach ships them as `reference/<name>.rref` entries (wire
+protocol 1 revision 2026-10-01a). `REACH_REFERENCE_DIR` still overrides the directory. On a scratch install whose
+vault held two blobs and their keys, `reach reference list` listed both and `search` found hits; with the keys file
+removed both reported locked; with no reference directory at all, list reported no reference material.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
