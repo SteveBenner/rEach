@@ -33,6 +33,12 @@ module Reach
     end
 
     def session_parts(harness_id, format, source, cwd, event = nil)
+      lock = Reach::EnrollmentLock.state
+      if lock["locked"]
+        message = Reach::EnrollFlow.next_message(lock)
+        return [nil, message, message, Reach::Messages.text("M-ENR-AGENT-CONTEXT")]
+      end
+
       maybe_refresh_status
       workspace = find_workspace(cwd)
       configure_workspace(workspace)

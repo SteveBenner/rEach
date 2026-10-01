@@ -9,6 +9,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
 
     class << self
@@ -21,6 +22,14 @@ module Reach
 
         args = argv.dup
         command = args.shift
+
+        unless UNLOCKED_COMMANDS.include?(command)
+          lock = Reach::EnrollmentLock.state
+          if lock["locked"]
+            warn Reach::Messages.text(lock["message_id"])
+            return 2
+          end
+        end
 
         case command
         when nil, "--help", "-h", "help"
@@ -114,12 +123,13 @@ module Reach
           usage: reach <command> [options]
 
           commands:
-            enroll <code> [--teach-url URL]       generate keys and enroll with Teach
+            enroll [--course-code C --username U --student-id I] [--teach-url URL]   enroll with your course code, username and student ID (asks for them when none are given)
+            enroll <code> [--teach-url URL]      enroll with a per-student code
             sync                                 fetch new packages and refresh workspaces
             status                               enrollment, slices, receipts, open hands
             work [--harness ...] [--slice ... | --extracurricular]   open a slice, or your own folder
             start [--harness ...]                launch a harness outside a course workspace
-            gate session|prompt|write|shell|read  called by harness hooks
+            gate session|prompt|enroll|write|shell|read  called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             submit [--slice ...]                 submit and wait for the receipt
@@ -207,21 +217,90 @@ module Reach
       end
 
       def cmd_enroll(args)
-        options, remaining = parse_flags(args, [:teach_url])
+        options, remaining = parse_flags(args, [:teach_url, :course_code, :username, :student_id])
         code = remaining.shift
-        unless code
-          warn "usage: reach enroll <code> [--teach-url URL]"
-          return 1
-        end
         teach_url = options[:teach_url] || Reach::Runtime.default_teach_url
         unless teach_url
           warn "reach: no --teach-url given and no default teach url is configured"
           return 1
         end
+        if options[:course_code] || (code.nil? && STDIN.tty?)
+          return enroll_with_identity(options, teach_url)
+        end
+
+        unless code
+          warn "usage: reach enroll [--course-code C --username U --student-id I] [--teach-url URL] | reach enroll <code> [--teach-url URL]"
+          return 1
+        end
         install = Reach::Enroll.generate_and_register(code, teach_url)
+        finish_enroll(install)
+      end
+
+      def enroll_with_identity(options, teach_url)
+        interactive = options[:course_code].nil?
+        parsed = interactive ? ask_course_code : Reach::Identity.parse_course_code(options[:course_code])
+        unless parsed
+          warn Reach::Messages.text("M-ENR-CODE-FORMAT")
+          return 1
+        end
+        begin
+          preview = Reach::Enroll.preview(parsed["code"], teach_url)
+        rescue Reach::RemoteRefused => e
+          warn Reach::EnrollFlow.refusal_text(e)
+          return 1
+        end
+        course = preview["course"]
+        rules = Reach::Identity.rules(preview["identity"])
+        asked = Reach::Messages.text(
+          "M-ENR-ASK-USERNAME",
+          course_title: course["title"], course_id: course["id"], term: course["term"],
+          institution: rules["institution_name"], domain: rules["username_domain"]
+        )
+        username = interactive ? ask_value(asked, Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: rules["institution_name"], domain: rules["username_domain"])) { |text| Reach::Identity.normalize_username(text, rules) } : Reach::Identity.normalize_username(options[:username], rules)
+        unless username
+          warn Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: rules["institution_name"], domain: rules["username_domain"])
+          return 1
+        end
+        student_id = interactive ? ask_value(Reach::Messages.text("M-ENR-ASK-ID", institution: rules["institution_name"]), Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])) { |text| Reach::Identity.normalize_student_id(text, rules) } : Reach::Identity.normalize_student_id(options[:student_id], rules)
+        unless student_id
+          warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])
+          return 1
+        end
+        begin
+          install = Reach::Enroll.register_v2(
+            course_code: parsed["code"], username: username, student_id: student_id,
+            teach_url: teach_url, harness: "cli", enrolled_via: "cli"
+          )
+        rescue Reach::RemoteRefused => e
+          warn(e.code == "enrollment_refused" ? Reach::Messages.text("M-ENR-REFUSED", course_id: course["id"]) : Reach::EnrollFlow.refusal_text(e))
+          return 1
+        end
+        finish_enroll(install)
+      end
+
+      def ask_course_code
+        ask_value(Reach::Messages.text("M-ENR-ASK-CODE"), Reach::Messages.text("M-ENR-CODE-FORMAT")) { |text| Reach::Identity.parse_course_code(text) }
+      end
+
+      def ask_value(question, retry_text)
+        puts question
+        5.times do
+          line = STDIN.gets
+          return nil if line.nil?
+
+          value = yield(line.strip)
+          return value if value
+
+          puts retry_text
+        end
+        nil
+      end
+
+      def finish_enroll(install)
         course_title = install["course"] && install["course"]["title"]
         puts Reach::Messages.text("M-ENROLL-DONE", course: course_title)
         puts Reach::Messages.text("M-TRANSCRIPT-NOTICE")
+        puts Reach::Messages.text("M-FINGERPRINT-NOTICE") if install["shape"] == "v2"
         summary = Reach::Sync.run
         print_sync_summary(summary)
         if Array(summary["workspaces"]).empty?
@@ -310,6 +389,8 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
+        return gate_enroll(options[:harness], event) if sub == "enroll"
+
         hermes = hermes_hook?(options[:harness], event)
         if hermes
           event = normalize_hermes_event(event)
@@ -349,9 +430,32 @@ module Reach
           Reach::Gate.read(event: event, harness: options[:harness])
           0
         else
-          warn "usage: reach gate session|prompt|write|shell|read"
+          warn "usage: reach gate session|prompt|enroll|write|shell|read"
           1
         end
+      end
+
+      def gate_enroll(harness, event)
+        hermes = hermes_hook?(harness, event)
+        harness_id = hermes ? "hermes" : (harness || "claude-code")
+        event = {} unless event.is_a?(Hash)
+        if hermes
+          extra = event["extra"].is_a?(Hash) ? event["extra"] : {}
+          message = extra["user_message"]
+          message = message.map { |part| part.is_a?(Hash) && part["type"] == "text" ? part["text"].to_s : nil }.compact.join("\n") if message.is_a?(Array)
+          event = event.merge("prompt" => message) if message.is_a?(String)
+        end
+        decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
+        if decision.nil?
+          puts "{}" if hermes
+          return 0
+        end
+
+        if hermes
+          puts JSON.generate("context" => Reach::Messages.text("M-ENR-HERMES", message: decision["message"]))
+          return 0
+        end
+        raise Reach::GateBlocked.new("M-ENR", decision["message"])
       end
 
       def hermes_hook?(harness, event)
@@ -746,7 +850,10 @@ module Reach
       end
 
       def check_enroll
-        Reach::Enroll.current ? [] : ["R-DOC-ENROLL: install.yml or the install key is missing - run reach enroll <code>"]
+        lock = Reach::EnrollmentLock.state
+        return [] unless lock["locked"]
+
+        ["R-DOC-ENROLL: rEach is locked (#{lock["reason"]}): #{Reach::Messages.text(lock["message_id"])}"]
       rescue StandardError
         ["R-DOC-ENROLL: enrollment could not be checked - run reach enroll <code>"]
       end

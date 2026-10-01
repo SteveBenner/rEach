@@ -1,6 +1,6 @@
 module Reach
   module Policy
-    SECTIONS = %w[login limits support student_part module_selection].freeze
+    SECTIONS = %w[login limits support student_part module_selection enrollment].freeze
 
     DEFAULTS = {
       "login" => { "required" => true, "max_hours" => 12, "lockout_failures" => 3, "lockout_minutes" => 15 },
@@ -12,6 +12,7 @@ module Reach
         "import_max_per_prompt" => 5
       },
       "support" => { "text" => "" },
+      "enrollment" => {},
       "student_part" => { "required" => true, "questions" => {} },
       "module_selection" => {
         "mode" => "instructor",
@@ -52,6 +53,20 @@ module Reach
 
     def student_part
       all["student_part"]
+    end
+
+    def enrollment
+      given = all["enrollment"]
+      given = {} unless given.is_a?(Hash)
+      configured = Reach::Runtime.load_config["enrollment"]
+      configured = {} unless configured.is_a?(Hash)
+      mode = given["fingerprint_match"] || configured["fingerprint_match"]
+      {
+        "require_stamp" => given["require_stamp"] == true,
+        "fingerprint_match" => mode.to_s == "strict" ? "strict" : "binding"
+      }
+    rescue StandardError
+      { "require_stamp" => false, "fingerprint_match" => "binding" }
     end
 
     def module_selection

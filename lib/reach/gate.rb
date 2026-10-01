@@ -56,7 +56,8 @@ module Reach
       end
       login_block = decision && decision["action"] == "block"
 
-      entry = begin
+      locked = !blocked.nil? && Reach::EnrollmentLock::MESSAGES.value?(blocked.message_id)
+      entry = locked ? nil : begin
         resolved_harness = Reach::Transcript.resolve_harness(harness)
         options = { harness: resolved_harness, gate: blocked || login_block ? "blocked" : "allowed" }
         options[:note] = decision["note"] if login_block && decision["note"]
@@ -147,6 +148,7 @@ module Reach
     def write(path: nil, patch: nil, event: nil, harness: nil)
       return nil if path.nil? && patch.nil?
 
+      check_enrolled!
       require_login!(event)
       Reach::Update.hold!
       space = current_space
@@ -228,6 +230,7 @@ module Reach
       text = command.to_s
       return nil if support_command?(text)
 
+      check_enrolled!
       require_login!(event)
       Reach::Update.hold!
       raise_blocked!("M-SHELL-BLOCKED") if subshell_or_substitution?(text)
@@ -258,6 +261,7 @@ module Reach
 
     def read(event: {}, harness: nil)
       event = {} unless event.is_a?(Hash)
+      check_enrolled!
       require_login!(event)
 
       tool = event["tool_name"].to_s
@@ -537,19 +541,10 @@ module Reach
     end
 
     def check_enrolled!
-      install = begin
-        Reach::Enroll.current
-      rescue StandardError
-        nil
-      end
-      raise_blocked!("M-GATE-NOENROLL") unless install
-
-      revoked = begin
-        Reach::Enroll.revoked?
-      rescue StandardError
-        false
-      end
-      raise_blocked!("M-GATE-REVOKED") if revoked
+      Reach::EnrollmentLock.check!
+    rescue Reach::GateBlocked => e
+      log_refusal(e.message_id, e.message)
+      raise
     end
 
     def check_guardrails!

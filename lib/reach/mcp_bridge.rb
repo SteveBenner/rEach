@@ -219,6 +219,8 @@ module Reach
       }
     ].freeze
 
+    UNLOCKED_TOOLS = %w[reach_hello reach_support].freeze
+
     class << self
       PROTOCOL_VERSIONS = %w[2025-06-18 2025-03-26 2024-11-05].freeze
 
@@ -310,6 +312,11 @@ module Reach
       end
 
       def dispatch(name, arguments)
+        lock = UNLOCKED_TOOLS.include?(name) ? nil : Reach::EnrollmentLock.state
+        if lock && lock["locked"]
+          raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? "M-GATE-NOENROLL" : lock["message_id"])
+        end
+
         case name
         when "reach_status"
           { "summary" => Reach::Status.summary }
