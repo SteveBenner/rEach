@@ -266,12 +266,22 @@ module Reach
           warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])
           return 1
         end
+        pending = Reach::Enroll.load_pending
         begin
           install = Reach::Enroll.register_v2(
             course_code: parsed["code"], username: username, student_id: student_id,
-            teach_url: teach_url, harness: "cli", enrolled_via: "cli"
+            teach_url: teach_url, harness: "cli", enrolled_via: "cli",
+            key: pending && pending[:key], fingerprint: pending && pending[:fingerprint]
           )
         rescue Reach::RemoteRefused => e
+          if e.code == "device_move_pending"
+            warn Reach::Messages.text("M-ENR-MOVE-PENDING")
+            return 3
+          end
+          if e.code == "device_move_denied"
+            warn Reach::Messages.text("M-ENR-MOVE-DENIED", reason: Reach::EnrollFlow.denial_reason(e))
+            return 1
+          end
           warn(e.code == "enrollment_refused" ? Reach::Messages.text("M-ENR-REFUSED", course_id: course["id"]) : Reach::EnrollFlow.refusal_text(e))
           return 1
         end
