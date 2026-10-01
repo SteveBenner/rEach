@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.3] - 2026-10-01
+
+### Fixed
+
+- `runtime/relocate_check.rb` no longer fails a Windows runtime build after every check has passed. Chrome for
+  Testing, launched by the Ferrum check, can still hold `chrome.dll` open while it exits, and the temp directory's
+  cleanup raised `Errno::EACCES` (CI run 36838426832, tag `runtime-4.0.7-r2`, windows-x86_64). Cleanup now retries
+  a busy or locked tree for up to a minute and then warns instead of failing.
+
 ## [0.16.2] - 2026-10-01
 
 ### Fixed
