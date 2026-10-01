@@ -539,7 +539,12 @@ routes:
     path: /api/v1/enroll
     auth: none (rate limited per IP)
     request:
-      code: {type: string, minLength: 12, maxLength: 32}
+      code: {type: string, minLength: 12, maxLength: 32, note: "shape v1 only: a per-student single-use code"}
+      shape: {type: string, enum: [v1, v2], required: false, note: "since revision 2026-10-01b; absent means v1"}
+      course_code: {type: string, required: false, note: "shape v2 only: the class-wide course code, normalized by W-ENR-1 before sending"}
+      username: {type: string, required: false, note: "shape v2 only: the student's institutional username, normalized by W-ENR-3"}
+      student_id: {type: string, required: false, note: "shape v2 only: the student's institutional id, normalized by W-ENR-3"}
+      fingerprint: {type: object, required: false, note: "shape v2 only: the W-ENR-4 fingerprint document"}
       public_key_pem: {type: string, maxLength: 4096}
       reach_version: {type: string}
       platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
@@ -552,14 +557,41 @@ routes:
       encryption_key: "{key_id, pem}"
       minimum_reach_version: string
       wire_contract_sha256: string
-    errors: {400 invalid_request: "a bad, expired or used code, or a malformed body", 400 reach_outdated: "reach_version is below minimum_reach_version (the code is not used)", 429 rate_limited: "too many attempts"}
+      display_name: "shape v2 only: the roster display name of the student"
+      enrollment_stamp: "shape v2 only: the signed W-ENR-5 enrollment stamp"
+    errors:
+      400 invalid_request: "a bad, expired or used code, or a malformed body"
+      400 reach_outdated: "reach_version is below minimum_reach_version (the code is not used)"
+      400 course_code_unknown: "shape v2: no live course code matches (W-ENR-1); details may carry {did_you_mean: course id}"
+      400 course_code_expired: "shape v2: the course code matched but its course has ended"
+      403 enrollment_refused: "shape v2: the username and student id do not name one roster entry of the code's course; never says which field failed"
+      429 rate_limited: "too many attempts"
     notes: >-
       Spelled /api/v1/enroll since protocol 1 revision 2026-09-29c. Since the same revision Teach compares reach_version
       with its minimum_reach_version before it redeems the code, and refuses an older Reach with 400 reach_outdated
       and a message naming both versions, so the student can update Reach and enroll again with the same code. Teach 0.10.0 and later also answer the old
       /api/v1/enrol with the same handler, unlisted, so an installed older Reach can still enroll; Reach 0.10.0 and
       later post to /api/v1/enroll and retry once at /api/v1/enrol when a Teach older than 0.10.0 answers 404
-      not_found.
+      not_found. Since revision 2026-10-01b a request carries shape v2 (W-ENR-1..5): Teach resolves course_code to
+      exactly one course, finds the roster entry of that course whose username and student_id both equal the
+      request's, creates the install, stores the fingerprint and answers with a signed enrollment stamp. Teach keeps
+      answering shape v1 until an operator retires per-student codes. Reach checks that response student_id equals
+      the student_id it sent and refuses the enrollment (M-ENROLL-INCOMPLETE) when it does not.
+  - id: W-API-ENROLL-PREVIEW
+    method: GET
+    path: /api/v1/enrollment/preview
+    auth: none (rate limited per IP, shared with W-API-ENROLL)
+    request_query:
+      course_code: the course code, normalized by W-ENR-1
+    response_200:
+      course: {id: string, title: string, term: string, ends_on: "YYYY-MM-DD or null"}
+      expires_at: "W-CONV-3 timestamp, the end of the course's last day in the course timezone"
+      identity: "{institution_name, username_domain, username_pattern, student_id_pattern}, the W-ENR-3 rules Teach enforces for this course"
+    errors: {400 course_code_unknown: "as W-API-ENROLL", 400 course_code_expired: "as W-API-ENROLL", 429 rate_limited: "too many attempts"}
+    notes: >-
+      Since revision 2026-10-01b. Reveals only what the class-wide code already reveals to anyone who holds it: the
+      course and the identity format. Reach calls it once per code typed in the enrollment flow (W-ENR-7) and uses the
+      identity rules it returns over its own config defaults.
   - id: W-API-STATUS
     method: GET
     path: /api/v1/status
@@ -749,7 +781,7 @@ routes:
     request_headers:
       Idempotency-Key: Required, as for submissions.
     request:
-      kind: {enum: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled, directive_dump, login_failed, identity_denied, outside_access], note: "login_failed, identity_denied and outside_access since 2026-09-30b (W-ID-3, W-SBX-3)"}
+      kind: {enum: [vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled, directive_dump, login_failed, identity_denied, outside_access, fingerprint_mismatch], note: "login_failed, identity_denied and outside_access since 2026-09-30b (W-ID-3, W-SBX-3); fingerprint_mismatch since 2026-10-01b (W-ENR-6)"}
       detail: {type: string, maxBytes: 2000}
       cutout_id: {type: [string, "null"], required: false}
       slice: {type: [string, "null"], required: false}
@@ -1027,6 +1059,10 @@ errors:
       internal: {status: 500, reach: retried}
       reach_outdated: {status: 400, reach: "never retried; the message names the Reach version and the minimum and is shown as the reason (since revision 2026-09-29c, at enrollment)"}
       unavailable: {status: 503, reach: "retried after Retry-After seconds, within the retry budget; since revision 2026-09-29d, sent when an operator has switched a feature off"}
+      course_code_unknown: {status: 400, reach: "never retried; M-ENR-CODE-UNKNOWN, or M-ENR-CODE-SUGGEST when details.did_you_mean is present (since 2026-10-01b)"}
+      course_code_expired: {status: 400, reach: "never retried; M-ENR-CODE-EXPIRED (since 2026-10-01b)"}
+      enrollment_refused: {status: 403, reach: "never retried; M-ENR-REFUSED; counts toward the local enrollment lockout (since 2026-10-01b)"}
+      fingerprint_mismatch: {status: 403, reach: "never retried; Reach drops its stamp and locks into the enrollment flow with M-ENR-MOVED (since 2026-10-01b)"}
     rule: Reach branches on error.code, never on the HTTP status alone, because five codes share 403.
 compatibility:
   W-COMPAT-1:
@@ -1043,6 +1079,12 @@ compatibility:
     rule: >-
       Since revision 2026-09-30b Teach's default minimum_reach_version is 0.12.0, so a Reach without the login,
       the student's part and the read gate cannot keep doing course work against a Teach of that revision.
+  W-COMPAT-5:
+    rule: >-
+      Since revision 2026-10-01b. A Reach of this revision enrolls with shape v2 from the enrollment flow and from
+      reach enroll --course-code, and with shape v1 only from reach enroll <code>. An install enrolled with shape v1
+      carries no stamp; it keeps working unless the course policy sets enrollment.require_stamp, in which case Reach
+      locks into the enrollment flow until the student enrolls with shape v2.
 reach_client_safety:
   W-SAFE-1: {name: timeouts, rule: "connect 5 s, read 30 s, upload read 120 s; quick mode (hooks) connect 2 s, read 2 s, no retries"}
   W-SAFE-2: {name: rate limit, rule: "a token bucket of 20 requests per minute shared by every Reach process on the machine through ~/.reach/state/bucket.json under an exclusive file lock; Teach allows 30"}
@@ -1055,6 +1097,7 @@ reach_client_safety:
   W-SAFE-10: {name: qualifications, rule: "since 2026-09-29d: one POST per reach qualify that reaches the remote step, then GET /api/v1/qualifications/:id no more often than every 10 s and at most 36 times; still pending after that leaves the record pending_remote and a later reach qualify with unchanged files resumes polling the same id"}
   W-SAFE-11: {name: receipt acknowledgments, rule: "since 2026-09-30: no polling; one POST in normal mode right after a receipt is stored by reach submit or a grade poll, and reach sync sends at most 20 pending acknowledgments and reads at most 5 pages of W-API-RECEIPTS; a network failure, 403 or 404 keeps the acknowledgment pending"}
   W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
+  W-SAFE-13: {name: enrollment, rule: "since 2026-10-01b: only the enrollment prompt hook and reach enroll call W-API-ENROLL-PREVIEW and W-API-ENROLL, never in quick mode: connect 5 s, read 10 s, no retries, at most one preview per typed code and one enroll per yes; the local lockout (W-ENR-7) stops calls entirely while it lasts; X-Reach-Fingerprint is sent only on GET /api/v1/status"}
   W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
 transcripts:
   W-TRN-1:
@@ -1226,6 +1269,7 @@ alignment:
       course_model defaults. Reach reads it from the verified guardrails package only.
     keys:
       login: "{required: boolean (default true), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
+      enrollment: "since 2026-10-01b: {require_stamp: boolean (default false), fingerprint_match: binding | strict (default binding)}"
       limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}"
       support: "{text: string, the course's own support line appended to W-SUP-1}"
       student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
@@ -1416,3 +1460,101 @@ alignment:
       transcript like any prompt. Right after queuing the hand the hook starts a detached `reach support --flush`,
       which sends only queued wellbeing hands, in quick mode (W-SAFE-1), so the instructors hear within seconds
       without the hook waiting on the network.
+enrollment:
+  W-ENR-1:
+    name: course code
+    rule: >-
+      Since revision 2026-10-01b. Teach mints one class-wide course code per course; a code names exactly one course
+      and no course has two live codes at once. The code is the course id (W-ENR-2) followed by a secret of eight
+      Crockford base32 characters (0-9 and A-Z without I, L, O, U), displayed as <course id>-XXXX-XXXX, for example
+      BUS101-K7QX-94TD. It expires at the end of the course's last day (courses.ends_on in the course timezone); a
+      course with no ends_on cannot mint a code. Normalization, applied by Reach before sending and again by Teach:
+      uppercase; drop every character that is not A-Z or 0-9; the last eight characters are the secret, the rest is
+      the course id; in the secret only, O becomes 0 and I and L become 1. The normalized form is <course id>-<secret>
+      with one hyphen. A value with fewer than nine characters after dropping, or a course id part longer than
+      sixteen, is not a code. The secret is unique across Teach and is what Teach looks a code up by; the course id
+      part is a human check. Teach accepts a code whose course id part is within Damerau-Levenshtein distance 2 of the
+      secret's course id, and refuses one further away with course_code_unknown. When no code matches and the course
+      id part alone is within distance 2 of exactly one live course id, Teach puts that id in details.did_you_mean.
+  W-ENR-2:
+    name: course id
+    rule: >-
+      A course id is 1 to 16 characters A-Z and 0-9, for example BUS101. Wherever a course id is typed or stored it
+      is normalized by uppercasing and dropping every other character, so bus-101, "bus 101" and Bus_101 are all
+      BUS101. Teach refuses to create a course whose normalized id collides with another course's.
+  W-ENR-3:
+    name: institutional identity
+    rule: >-
+      The student is identified by two values that must name the same roster entry of the code's course. username is
+      the institutional email: Reach lowercases and trims it, and appends @<username_domain> when the student typed no
+      @; its local part must match username_pattern and its domain must equal username_domain. student_id is the
+      institutional id: Reach drops spaces and hyphens and it must match student_id_pattern. The rules come from
+      W-API-ENROLL-PREVIEW and fall back to Reach's config enrollment block. For Example University the rules are
+      institution_name "school", username_domain school.example, username_pattern ^[a-z][a-z0-9._-]{1,31}$ (first letter of
+      the first name, first three of the last name, three digits) and student_id_pattern ^[0-9]{5,10}$. The roster's
+      student_id becomes the install's student_id.
+  W-ENR-4:
+    name: fingerprint
+    rule: >-
+      A document {schema: "reach.fingerprint/v1", salt, binding, descriptive, digest, strict_digest} describing the
+      computer, the computer account and the harness the student enrolled from. salt is 32 lowercase hexadecimal
+      characters, generated once per enrollment. Every component value is sent as the lowercase hexadecimal SHA-256
+      of "reach.fingerprint/v1" NUL salt NUL name NUL value, never in the clear, except where marked plain. binding
+      components: machine_id (Linux /etc/machine-id, else /var/lib/dbus/machine-id; macOS IOPlatformUUID from
+      ioreg -rd1 -c IOPlatformExpertDevice; Windows MachineGuid under HKLM\SOFTWARE\Microsoft\Cryptography; the
+      literal "unknown" when none can be read), os_user (the login name, plus ":" and the uid on POSIX), platform
+      (plain, W-API-ENROLL's value) and install_key (the SHA-256 of the install public key's DER). descriptive
+      components: hostname, harness (plain), os_version (plain), ruby_version (plain), reach_version (plain) and
+      enrolled_via (plain, chat or cli). digest is the W-CONV-4 digest of canonical_json of binding; strict_digest is
+      the same over binding plus hostname. Reach stores the document at ~/.reach/fingerprint.json (0600).
+  W-ENR-5:
+    name: enrollment stamp
+    fields:
+      schema: '"teach.enrollment-stamp/v1"'
+      stamp_id: '"stm_" followed by 20 lowercase hexadecimal characters'
+      install_id: string
+      student_id: string
+      username: string
+      course_id: string
+      fingerprint_digest: the W-ENR-4 digest Teach stored
+      fingerprint_strict_digest: the W-ENR-4 strict_digest Teach stored
+      issued_at: W-CONV-3 timestamp
+      expires_at: W-CONV-3 timestamp, the course code's expires_at
+      signing_key_id: string
+      signature: W-CONV-5 base64 of W-CONV-6 by the key named in signing_key_id over canonical_json(body without signature)
+    rule: >-
+      Reach verifies the signature with the signing keys of the same enrollment response, checks every field against
+      what it sent and holds, and stores the stamp at ~/.reach/stamp.json (0600). A stamp that fails any check is not
+      stored and the enrollment is refused (M-ENROLL-INCOMPLETE).
+  W-ENR-6:
+    name: lockdown
+    rule: >-
+      Reach is locked when there is no install, when the install was revoked, when the install has a stamp that does
+      not verify, names another install or student, or has expired, when the live fingerprint's digest (strict_digest
+      when the policy's enrollment.fingerprint_match is strict) differs from the stamp's, when Teach answered
+      fingerprint_mismatch, and, when the policy sets enrollment.require_stamp, when the install has no stamp. While
+      locked: every prompt in every harness session is blocked by the enrollment flow (W-ENR-7); every gate (write,
+      shell, read) refuses; every reach command refuses with exit 2 and the lock's message except help, version,
+      enroll, setup, doctor, support, update, runtime, hello, gate and mcp; and every MCP tool refuses with the
+      lock's message. A fingerprint mismatch queues integrity kind fingerprint_mismatch with detail {stamp_id,
+      changed: [component names whose hashes differ]} once per stamp. On GET /api/v1/status Reach sends the live
+      digest in X-Reach-Fingerprint; Teach compares it with the stored digest and answers 403 fingerprint_mismatch
+      when they differ. The header is not covered by the request signature, so the check deters a copied ~/.reach,
+      not a modified Reach.
+  W-ENR-7:
+    name: enrollment flow
+    rule: >-
+      A prompt hook installed by the plugin itself (not by a workspace) runs in every harness session while Reach is
+      locked, and passes every prompt untouched while it is not. It runs a machine-wide state machine stored at
+      ~/.reach/state/enroll/flow.json: awaiting_code -> awaiting_username -> awaiting_student_id -> awaiting_confirm
+      -> enrolled. Every prompt it sees while locked is blocked, so the agent never sees a code, username, student id
+      or answer, and none is written to a transcript. Before any step it checks the prompt for the W-SUP-3 crisis
+      phrases and on a match blocks with M-SUPPORT and changes nothing. The words start over, restart and cancel
+      return to awaiting_code from any step. In awaiting_code a prompt that normalizes to a code (W-ENR-1) is sent to
+      W-API-ENROLL-PREVIEW; a prompt that normalizes to a course id alone gets M-ENR-CODE-COURSE-ONLY. In
+      awaiting_confirm a yes (W-ID-4) generates the install key, builds the fingerprint and posts shape v2; a no
+      returns to awaiting_code. enrollment_refused returns to awaiting_username; lockout_refusals refusals within
+      lockout_minutes (config, default 5 and 15) lock the flow for lockout_minutes, during which no call is made.
+      On success the hook starts a detached reach sync and blocks with M-ENR-DONE. Harnesses that cannot block a
+      prompt (Hermes) get the flow's message injected as context and the gates still refuse; Antigravity has no
+      hooks and enrolls with reach enroll.
