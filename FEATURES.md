@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.4 |
+| **Registry version** | 0.16.5 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -55,7 +55,9 @@ Build ✅ · Deploy 🔵 · Blocker: Access (not pushed).
 
 `reach setup` installs rEach into the detected harnesses through their own install commands and ends with the NEXT
 block the installing agent reads to the student. It exits 1 and prints no installed text or greeting when nothing was
-installed, including the manual branches taken when a harness CLI is missing.
+installed, including the manual branches taken when a harness CLI is missing. Since 0.16.5 `INSTALL.md` runs the
+bootstrap download, the installer and setup as one command, so an app that sandboxes commands (Codex) asks the student
+once; the macOS/Linux command ran end to end with `--harness codex` in a scratch home on 2026-10-01.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (Antigravity remains untested; the live Codex session ran 2026-09-29, see 10.3).
 
@@ -279,7 +281,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.25 · Portable runtime kit
 
-Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only. The published r1 Linux kit needs glibc 2.38 and fails on Debian 11/12 and Ubuntu 22.04. Since Reach 0.14.6 the workflow builds the Linux kits from source in a manylinux_2_28 container for glibc 2.28; a locally built linux-x86_64 kit installed in clean debian:bullseye and ubuntu:22.04 containers and ran Ruby 4.0.7 and Cucumber 11.1.1, and both Linux kits passed in CI under runtime-4.0.7-r2, but its Windows build failed the relocation check because Chrome still held chrome.dll during cleanup. Reach 0.16.3 fixed the cleanup, runtime-4.0.7-r3 passed on all five platforms and was published, and since 0.16.4 Reach pins r3. When Chrome's system libraries are missing, `reach runtime install` names them.
+Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only. The published r1 Linux kit needs glibc 2.38 and fails on Debian 11/12 and Ubuntu 22.04. Since Reach 0.14.6 the workflow builds the Linux kits from source in a manylinux_2_28 container for glibc 2.28; a locally built linux-x86_64 kit installed in clean debian:bullseye and ubuntu:22.04 containers and ran Ruby 4.0.7 and Cucumber 11.1.1, and both Linux kits passed in CI under runtime-4.0.7-r2, but its Windows build failed the relocation check because Chrome still held chrome.dll during cleanup. Reach 0.16.3 fixed the cleanup, runtime-4.0.7-r3 passed on all five platforms and was published, and since 0.16.4 Reach pins r3. When Chrome's system libraries are missing, `reach runtime install` names them. Since 0.16.5 the session-start hook installs the kit in the background when it is missing (`config.yml` `runtime.auto_install`, default on; a lock, an hourly jittered limit and five attempts per pinned kit), so nobody asks the student; verified on Linux x86_64 in a scratch home and inside `codex sandbox`, where nothing starts.
 
 Build ✅ · Deploy 🔵 · runtime-4.0.7-r3 published and pinned; installed from the release on Linux x86_64 only, the other platforms are relocation-checked in CI
 

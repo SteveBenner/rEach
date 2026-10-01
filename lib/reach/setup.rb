@@ -49,7 +49,9 @@ module Reach
 
       if install
         begin
-          state = Reach::RuntimeKit.install!(out: StringIO.new)
+          state = Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(out: StringIO.new) }
+          return { text: Reach::RuntimeAuto::BUSY, json: { "installed" => false, "installing" => true } } if state == :busy
+
           line = Reach::RuntimeKit.copy(:installed, runtime_id: state["runtime_id"], ruby: state["ruby"] || "none", chrome: state["chrome"] || "none", profiles: state["profiles"].length)
           return { text: line, json: { "installed" => true, "runtime_id" => state["runtime_id"] } }
         rescue Reach::Error => e
@@ -58,6 +60,7 @@ module Reach
       end
 
       return {} if Reach::RuntimeKit.active
+      return { text: Reach::RuntimeAuto::SETUP_NOTE, json: { "installed" => false, "auto" => true } } if Reach::RuntimeAuto.enabled?
 
       offer = Reach::RuntimeKit.copy(:offer)
       { text: offer, json: { "installed" => false, "offer" => offer } }

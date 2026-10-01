@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.4
+version: 0.16.5
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.4
+    version: 0.16.5
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -1063,6 +1063,20 @@ runtime_kit_platforms: >-
   and Alma 8+); runtime/relocate_check.rb fails a kit that needs a newer glibc. Chrome for Testing still needs the
   system's graphics and NSS libraries; when they are missing, reach runtime install names them. When the checking
   tools fail to install without the kit, the error carries bundler's own reason and points at reach runtime install.
+runtime_kit_auto: >-
+  Since 0.16.5 the student is never asked about the runtime kit. reach hello (the session-start hook) starts reach
+  runtime install --auto in a detached process when no kit is active, the platform has a kit, the kit is pinned,
+  config.yml runtime.auto_install is not false and neither REACH_RUNTIME_DISABLE=1 nor REACH_OFFLINE=1 is set.
+  Attempts are recorded in ~/.reach/state/runtime-auto.json per pinned RUNTIME_ID: one starts at most once per
+  runtime.interval_s (3600) plus a random 0 to runtime.jitter_s (600), at most runtime.max_attempts (5) per pinned kit,
+  and the count resets after a success or a new pin. Nothing starts when that state file cannot be written, which is
+  the case for an agent shell inside a sandbox. Every install path (the background run, reach runtime install, reach
+  setup --runtime, reach doctor --install-chromium) takes ~/.reach/state/runtime-install.lock without waiting; the
+  background run skips when it is held and the others are refused with a message. reach setup reports that the kit
+  installs itself and offers reach runtime install only when runtime.auto_install is false. A local qualify without a
+  kit says the checking tools are still installing while the lock is held. Verified 2026-10-01 on Linux x86_64 in a
+  scratch home (the r3 kit installed in about 22 s) and inside codex sandbox (nothing started); macOS and Windows are
+  unverified.
 corpus:
   port: >-
     Every record is first one rcorpus.spool/v1 line (tier private) in <rplugin state>/reach/brain-spool/<UTC
@@ -1092,8 +1106,9 @@ installer:
     GitHub-shaped ZIP; the real public download and the Windows path are unverified.
   from_a_link: >-
     The student pastes the repository link into their agent (Claude Code, Cowork, Codex or Antigravity) and asks it
-    to install rEach. The agent reads INSTALL.md, which tells it to run the harness's own plugin install, or to clone
-    the repository to ~/.reach/plugin and run exe/reach setup; setup ends with the NEXT block, which the agent reads
+    to install rEach. The agent reads INSTALL.md, which tells it to run the harness's own plugin install, or (since
+    0.16.5) one command that downloads bin/reach-install, installs ~/.reach/plugin and runs exe/reach setup, asked to
+    run outside the sandbox from the start so a sandboxing app asks the student once; setup ends with the NEXT block, which the agent reads
     to the student word for word ("rEach is installed and ready." and the greeting). In the Claude app and Codex app
     the student adds the link as a plugin marketplace in the app's plugin settings instead.
   public_repository: >-

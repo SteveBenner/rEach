@@ -56,8 +56,9 @@ Students: see [`docs/student-guide.md`](docs/student-guide.md).
 Ruby 2.6.10 to 4.0.x, standard library only, no native gems. macOS's built-in
 `/usr/bin/ruby` is enough.
 
-Local qualification runs the course's Cucumber suite, which needs Ruby 4 gems and Chrome. `reach runtime install`
-fetches Reach's runtime kit for this computer: Ruby 4.0.7 with the gems prebuilt and Chrome for Testing
+Local qualification runs the course's Cucumber suite, which needs Ruby 4 gems and Chrome. The session-start hook
+installs Reach's runtime kit in the background when it is missing (`config.yml` `runtime.auto_install`), and `reach
+runtime install` does the same by hand. It fetches Reach's runtime kit for this computer: Ruby 4.0.7 with the gems prebuilt and Chrome for Testing
 154.0.8037.92, the same versions Teach grades with, verified against a manifest pinned in Reach and kept in
 `~/.reach/runtime/`. Reach itself keeps running on the student's own Ruby; the runtime only runs the checks. [rplugin](https://bitbucket.org/paterasai/rplugin) is
 optional: Reach uses its ports when it is installed and runs standalone otherwise.
@@ -72,8 +73,8 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | Claude Code | `claude plugin marketplace add <link>` then `claude plugin install reach@reach --scope user` |
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
 | Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's start-up hook |
-| Antigravity | install the public archive as in `INSTALL.md`, then `ruby ~/.reach/plugin/exe/reach setup --harness antigravity` |
-| Hermes | install the public archive as in `INSTALL.md`, then `ruby ~/.reach/plugin/exe/reach setup --harness hermes`; open course folders with `~/.reach/bin/reach work --harness hermes` (setup prints the exact command) |
+| Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
+| Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/.reach/bin/reach work --harness hermes` (setup prints the exact command) |
 | Any of the above | install the public GitHub archive to `~/.reach/plugin`, then `ruby ~/.reach/plugin/exe/reach setup` |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 

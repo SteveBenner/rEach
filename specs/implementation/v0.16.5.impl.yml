@@ -1,0 +1,32 @@
+schema: impl-blueprint/v1
+name: 0.16.5 - one install command and a self-installing runtime kit
+versions:
+  reach: 0.16.5
+slices:
+  F1_one_command:
+    change: INSTALL.md chains the bootstrap download, bin/reach-install and reach setup into one command per platform, asks to run it outside a sandbox from the start, and drops the runtime offer
+    files:
+      - INSTALL.md
+      - README.md
+  F2_runtime_auto:
+    change: Reach::RuntimeAuto starts reach runtime install --auto from reach hello when the kit is missing, under a non-waiting lock, a jittered hourly limit and an attempt cap per pinned kit; setup and qualify report it; config.yml runtime.auto_install toggles it
+    files:
+      - lib/reach/runtime_auto.rb
+      - lib/reach.rb
+      - lib/reach/hello.rb
+      - lib/reach/cli.rb
+      - lib/reach/setup.rb
+      - lib/reach/suite.rb
+      - config.yml
+  version_and_docs:
+    files:
+      - VERSION
+      - plugin.json
+      - .claude-plugin/plugin.json
+      - .claude-plugin/marketplace.json
+      - .codex-plugin/plugin.json
+      - reach.rplugin.yml
+      - reach.spec.yml
+      - specs/app.yml
+      - CHANGELOG.md
+      - FEATURES.md

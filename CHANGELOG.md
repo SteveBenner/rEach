@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.5] - 2026-10-01
+
+### Added
+
+- The runtime kit installs itself. The session-start hook (`reach hello`) starts `reach runtime install --auto` in a
+  detached process when no kit is active (`lib/reach/runtime_auto.rb`), so the student is never asked about it. One
+  install runs at a time (`~/.reach/state/runtime-install.lock`; a manual `reach runtime install`, `reach setup
+  --runtime` or `reach doctor --install-chromium` meanwhile is refused with a message), an attempt starts at most once
+  per `interval_s` (3600) plus up to `jitter_s` (600), and at most `max_attempts` (5) per pinned kit, recorded in
+  `~/.reach/state/runtime-auto.json`, with `runtime.auto.start` and `runtime.auto.skip` in the runtime log. Nothing
+  starts when that state cannot be written (an agent shell inside a sandbox), under `REACH_RUNTIME_DISABLE=1` or
+  `REACH_OFFLINE=1`, or when `config.yml` sets `runtime.auto_install: false`.
+
+### Changed
+
+- `INSTALL.md` gives one command per platform that downloads the bootstrap, runs `bin/reach-install` and runs `reach
+  setup`, so an app that sandboxes commands asks the student once instead of three times, and tells the agent to ask
+  to run it outside the sandbox from the start. It no longer has the agent offer the runtime kit.
+- `reach setup` says the checking tools install themselves in the background instead of offering `reach runtime
+  install` (the offer returns when `runtime.auto_install` is false), and a local qualify that has no kit says the tools
+  are still installing while the background install runs.
+
 ## [0.16.4] - 2026-10-01
 
 ### Changed
