@@ -171,11 +171,11 @@ module Reach
       end
     end
 
-    def choose!(modules)
+    def choose!(modules, quick: false)
       Reach::Login.require_active!
       data = nil
       begin
-        refresh!(quick: false)
+        refresh!(quick: quick)
         data = options_data
       rescue Reach::NetworkError
         data = options_data
@@ -210,12 +210,12 @@ module Reach
 
       consent = Reach::Consent.take!(kind: "module_lock", subject: subject)
       unless consent
-        question = Reach::Consent.ask!(kind: "module_lock", subject: subject, message_id: "M-MODULES-LOCK-ASK", fields: { modules: names(chosen) })
+        question = Reach::Consent.ask!(kind: "module_lock", subject: subject, message_id: "M-MODULES-LOCK-ASK", fields: { modules: names(chosen) }, replay: {})
         return { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
       end
 
       write_pending(chosen, consent)
-      outcome = send_pending
+      outcome = send_pending(quick: quick)
       case outcome[:state]
       when :locked
         { "state" => "locked", "text" => Reach::Messages.text("M-MODULES-LOCKED", modules: names(outcome[:record]["modules"])) }
@@ -271,21 +271,21 @@ module Reach
       outcome[:record]
     end
 
-    def send_pending
+    def send_pending(quick: false)
       pending = Reach::Login.read_json(pending_path)
       return { state: :queued, record: nil } unless pending_valid?(pending)
 
       install = Reach::Enroll.current
       body = { "modules" => pending["modules"], "consent" => pending["consent"], "client_created_at" => pending["created_at"] }
       begin
-        response = Reach::Client.for_install(install).post_json(SELECT_ROUTE, body, idempotency_key: pending["idempotency_key"])
+        response = Reach::Client.for_install(install, quick: quick).post_json(SELECT_ROUTE, body, idempotency_key: pending["idempotency_key"])
       rescue Reach::Offline, Reach::NetworkError
         return { state: :queued, record: nil }
       rescue Reach::RemoteRefused => e
         FileUtils.rm_f(pending_path) unless e.code == "rate_limited"
         if e.code == "conflict"
           begin
-            refresh!(quick: false)
+            refresh!(quick: quick)
           rescue Reach::NetworkError
             nil
           end

@@ -10,6 +10,7 @@ require "socket"
 require "time"
 require "yaml"
 require "timeout"
+require "securerandom"
 
 module AssignmentOne
   REPO = File.expand_path("../..", __dir__)
@@ -59,11 +60,13 @@ module AssignmentOne
       guard_real_homes!
       FileUtils.mkdir_p(@run_dir)
       prepare_paths
+      create_scratch_database
       begin
         execute
       ensure
         stop_process(@grader_pid)
         stop_process(@teach_pid)
+        drop_scratch_database
         write_summary
       end
       @results.none? { |result| result.status == "fail" }
@@ -196,6 +199,20 @@ module AssignmentOne
       @teach_url = "http://127.0.0.1:#{@port}"
     end
 
+    def create_scratch_database
+      @db_name = "reach_smoke_#{Time.now.strftime("%Y%m%d%H%M%S")}_#{SecureRandom.hex(3)}"
+      _out, err, status = Open3.capture3("createdb", @db_name)
+      raise Fatal, "createdb #{@db_name} failed: #{err.strip}" unless status.success?
+
+      @db_url = "postgres:///#{@db_name}"
+    end
+
+    def drop_scratch_database
+      return unless @db_name.to_s.start_with?("reach_smoke_")
+
+      Open3.capture3("dropdb", "--if-exists", @db_name)
+    end
+
     def free_port
       server = TCPServer.new("127.0.0.1", 0)
       server.addr[1]
@@ -207,6 +224,7 @@ module AssignmentOne
       {
         "PATH" => "#{@ruby4_bin}:#{ENV["PATH"]}",
         "TEACH_HOME" => @teach_home,
+        "TEACH_DATABASE_URL" => @db_url,
         "TEACH_PORT" => @port.to_s,
         "TEACH_BIND" => "127.0.0.1",
         "TEACH_GROKIT_SPEC" => File.join(@grokit, "specs", "app.yml"),

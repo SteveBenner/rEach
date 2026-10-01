@@ -34,7 +34,7 @@ Feature: Looking up one profile setting
     And the result "value" is "42000"
 
   @backend @cafe
-  Scenario: A setting of zero is still found
+  Scenario: A zero value is returned as ok, not treated as missing
     Given the profile holds "discount_floor" as the number 0
     When I call "context.return_profile_value" with:
       """

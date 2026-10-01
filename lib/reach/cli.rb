@@ -1312,6 +1312,11 @@ module Reach
       end
 
       def cmd_modules(args)
+        if args.first == "--flush"
+          Reach::Modules.flush_pending!
+          return 0
+        end
+
         if args.first == "choose"
           args.shift
           chosen = args.reject { |token| token.start_with?("--") }.flat_map { |token| token.split(",") }.map(&:strip).reject(&:empty?)
@@ -1335,6 +1340,9 @@ module Reach
       def cmd_transfer(args)
         sub = args.shift
         case sub
+        when "--flush"
+          Reach::Transfer.flush_queued!
+          0
         when "request"
           options, _remaining = parse_flags(args, [:modules, :note])
           wanted = options[:modules].to_s.split(",").map(&:strip).reject(&:empty?)

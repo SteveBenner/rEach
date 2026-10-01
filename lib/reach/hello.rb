@@ -278,6 +278,7 @@ module Reach
       if greeting_text
         lines << "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:"
         greeting_text.each_line { |line| lines << "  #{line.chomp}" }
+        lines << "- Exception: if the student's first message says they are in crisis or might hurt themselves or someone else, skip the greeting and give reach support's message first (run reach support or the reach_support tool)."
       else
         lines << "- This session continues an earlier one. Do not greet again."
       end

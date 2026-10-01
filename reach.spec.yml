@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.14.2
+version: 0.14.3
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.14.2
+    version: 0.14.3
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -718,7 +718,9 @@ course_alignment:
   consent: >-
     Anything that commits the student (module lock, transfer request) needs their own yes, captured by the prompt hook
     within 30 minutes of the question and used once (W-CONSENT-1). The command prints the question for the agent to
-    relay and exits 3 until the yes arrives.
+    relay and exits 3 until the answer arrives. Since 0.14.3 the prompt hook that captures the yes or no runs the
+    pending action itself (quick network timeouts; offline or slow means queued and flushed later) and gives the
+    agent M-CONSENT-DONE with the outcome to relay word for word.
   modules:
     - Teach signs a record of the student's modules (W-MOD-1). Reach verifies it, keeps current and history under ~/.reach/state/modules/, and refuses writes in a slice of a module that is not the student's (M-GATE-NOT-YOUR-MODULE). Old workspaces stay on disk.
     - In a student_choice course (695AD-781), reach modules lists the options until the window closes; reach modules choose <a> <b> asks "Lock in A and B for the rest of the course?", seals the choice locally, sends it with the student's yes, and stores Teach's signed record. It is then locked; a second choice is refused.
@@ -801,6 +803,16 @@ mcp_bridge:
     description: The full text of one directive by opcode
   - name: reach_reference
     description: list, show, search or list the links of the course reference material
+  - name: reach_support
+    description: The fixed crisis message (911, 988, the course's support line) to relay word for word; raises the wellbeing hand like reach support
+  - name: reach_part
+    description: List the student's own-part questions, or record one from the student's latest typed prompt (never text the agent supplies)
+  - name: reach_transfer_request
+    description: Ask Reach to request a module move; returns Reach's own question until the student's captured yes, then sends it to Teach
+  - name: reach_modules
+    description: Show the student's modules or options, or choose them; returns Reach's lock-in question until the student's captured yes
+  - name: reach_next
+    description: The deterministic next step for the student, in business terms
   excluded: Nothing that reveals package contents, the vault, keys, graded steps or fixture values.
   authentication: The bridge signs its Teach requests with the install key; the harness never sees the key.
 cli:
@@ -1841,7 +1853,7 @@ persona:
     how: >-
       reach hello decides the greeting from the profile and enrollment state (first run, resume, not enrolled,
       returning with the assignment and slice state) and hands it to the agent through the SessionStart context, the
-      reach_hello tool, or setup's NEXT block; the agent opens its first reply with it word for word.
+      reach_hello tool, or setup's NEXT block; the agent opens its first reply with it word for word, unless the student's first message is a crisis, which gets reach support's message first and no greeting (since 0.14.3).
     first_run: >-
       "Hi, I'm rEach, your academic assistant! Since I don't know anything about you yet, let's start with a brief
       interview. It takes about five minutes, and you can skip any question. What I save about you stays on this
@@ -1852,7 +1864,7 @@ persona:
       and rEach introduces itself in its first reply.
     transcript_notice: >-
       When reach hello runs inside a course folder (any workspace_layout space), the greeting ends with a blank line and
-      G-TRANSCRIPT-NOTICE: "Everything we write in this course folder, your messages, my replies and any code, is saved
+      G-TRANSCRIPT-NOTICE: "Everything we write in this course folder, your messages, my replies and everything we make, is saved
       in your course record, which your instructors can read." When a student asks what rEach shares, the persona
       answers with the same facts: everything written in their course folders, replies and code included, goes to the
       course record; the profile file stays on this computer; what they type outside their course folders is not sent.

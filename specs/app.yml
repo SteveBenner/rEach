@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.14.2
+version: 0.14.3
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -67,5 +67,7 @@ standards:
     text: "tools/smoke is the release smoke test: real Claude sessions in a Docker sandbox with no access to the developer's home or Claude configuration, driven by scripted or model-played students, checked by hard assertions and advised by a model judge. Run it before tagging any release that changes the persona, greetings, hooks, install path or anything else a student sees."
   - id: STD-AUTO-UPDATE
     text: "Reach keeps a managed ~/.reach/plugin install (VERSION present, no .git) current by itself: GitHub releases first and tags as the fallback, checked at session start and hourly from detached processes, staged in the background, installed at the next session start by the release's own update/apply.rb, with every phase recorded in ~/.reach/state/update.json so an interrupted update resumes. Course work waits only while an install is running; REACH_UPDATE_DISABLE=1 turns it off. See reach.spec.yml auto_update."
+  - id: STD-CONSENT-FROM-REACH
+    text: "A module move or module choice is asked by Reach, never by the agent: the agent runs reach transfer request or reach modules choose (or the matching reach_* tool) and relays the question it prints word for word, and never offers, promises or claims a notification in its own words. Reach acts on the student's captured yes or no itself, from the prompt hook, and hands the agent the outcome to relay (since 0.14.3), so the agent never makes the second call. A crisis message from the student is answered with reach support's message before anything else, the session greeting included."
   - id: STD-STUDENT-MESSAGES
     text: "Every message shown to a student comes from a catalogue by id, never an inline string: Reach::Messages (locales/en-US.yml) for course messages and Reach::Greetings (locales/greetings.en-US.yml) for rEach's greetings, so both stay translatable and consistent."

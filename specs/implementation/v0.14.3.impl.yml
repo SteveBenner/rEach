@@ -1,0 +1,117 @@
+schema: impl-blueprint/v1
+name: alignment verification fixes (consent from Reach, process-only own part, crisis first, five MCP tools, notice wording)
+versions: {reach: 0.14.3}
+repos:
+  reach: /home/sven/github/foss/rEach
+origin: >-
+  Found by the course-alignment live smoke (tools/smoke course-* scenarios, Haiku and Sonnet, 2026-10-01). Sven chose
+  every resolution. Teach carries the matching rule and directive text in its own 0.14.3 blueprint.
+normative:
+  - specs/app.yml STD-CONSENT-FROM-REACH (new), STD-FLOWS, STD-PERSONA-ONE-SOURCE, STD-STUDENT-MESSAGES, STD-RUBY-FLOOR
+  - reach.spec.yml mcp_bridge.tools (five new tools listed), greeting section (crisis exception), G-TRANSCRIPT-NOTICE wording
+  - specs/wire.yml is already updated by the primary; do not edit it.
+constraints:
+  - Ruby 2.6.10 floor. Standard library only. Match surrounding style.
+  - "No comments in code (Part Q). No tests or test files (Part S)."
+  - Do not edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md, reach.spec.yml, specs/app.yml, specs/wire.yml, tools/smoke/*; the primary does.
+  - Do not commit, push or touch git.
+  - skills/reach-assistant/SKILL.md and agents/reach.md bodies must stay byte-identical after your edit (STD-PERSONA-ONE-SOURCE); `ruby exe/reach doctor` must not report R-DOC-PERSONA.
+changes:
+  - id: R1
+    title: five MCP tools
+    file: lib/reach/mcp_bridge.rb
+    change: >-
+      Add tool definitions next to the existing ones (same JSON-schema style) and dispatch branches that call the same
+      library functions the CLI commands call (read lib/reach/cli.rb cmd_support, cmd_part, cmd_transfer, cmd_modules,
+      cmd_next first and reuse their library calls, not the CLI printing):
+      reach_support (no arguments) -> the same text reach support prints, including the told/queued line, and the same
+      wellbeing hand behaviour;
+      reach_part (arguments: optional "record" question id) -> the question list with answered flags, or the result of
+      recording from the student's latest captured prompt exactly as reach part record does (never accepts answer text
+      as an argument);
+      reach_transfer_request (arguments: "modules" array of 2 ids, optional "note") -> exactly what reach transfer
+      request returns: Reach's question to relay while no captured yes exists, then the sent/open/same/off message;
+      reach_modules (arguments: optional "choose" array of module ids) -> the summary/options, or exactly what reach
+      modules choose returns (Reach's lock-in question until the captured yes);
+      reach_next -> the reach next text.
+      Each payload carries "relay_verbatim": true and "text" when the result is a question or message the agent must
+      give the student word for word. Sign-in requirements are the same as the CLI's (read how cmd_submit/qualify
+      require sign-in and apply the same check to reach_part record, reach_transfer_request and reach_modules choose).
+  - id: R2
+    title: crisis before greeting
+    files: [lib/reach/hello.rb, skills/reach-assistant/SKILL.md, agents/reach.md]
+    change: >-
+      hello.rb build_context: right after the "- Greeting for this session: open your first reply with exactly this
+      text, then continue as it asks:" line and its greeting text, add the line "- Exception: if the student's first
+      message says they are in crisis or might hurt themselves or someone else, skip the greeting and give reach
+      support's message first (run reach support or the reach_support tool)." Skill and agent persona: change the line
+      "- When it gives you a greeting, open your first reply with that greeting word for word, then continue as the
+      greeting asks. Greet once per session." to append " If the student's first message says they are in crisis or
+      might hurt themselves or someone else, skip the greeting and give reach support's message first." in both
+      files identically.
+  - id: R3
+    title: notice without code
+    file: locales/greetings.en-US.yml
+    change: 'G-TRANSCRIPT-NOTICE becomes "Everything we write in this course folder, your messages, my replies and everything we make, is saved in your course record, which your instructors can read." Grep lib/, skills/, agents/, tools/smoke/ and docs/ for the old sentence or for "any code, is saved" and report every other copy you find (do not edit tools/smoke).'
+  - id: R4
+    title: skill wording for consent and own part
+    file: skills/reach-course/SKILL.md
+    change: >-
+      Read it first. (a) Where it says to run reach transfer request and relay its question, make it explicit: run it
+      (or reach_transfer_request) as soon as the student says they were moved or someone approved a move, give the
+      question it prints word for word, never offer, promise or claim a notification in your own words, and keep
+      working on the current modules until Teach answers. Add the same rule for module choice with reach modules
+      choose / reach_modules. (b) Where it covers the student's own part, add: coach only how to answer (think of a
+      real case, a sentence or two is enough, a rough answer is fine); never offer candidate answers, examples,
+      options to pick from or sentences the student could copy. Keep the skill's existing voice and length discipline.
+acceptance:
+  - ruby -c on every changed .rb file; `ruby exe/reach --help` still runs; `ruby exe/reach doctor` reports no R-DOC-PERSONA.
+  - "MCP: with REACH_HOME pointing into a scratch dir under /tmp/claude-1000/ and no enrollment, start `ruby exe/reach mcp`, send newline-delimited JSON-RPC initialize, tools/list and a tools/call for each new tool, and show that tools/list contains all five and each call returns a result or a clear Reach error (not enrolled / sign in first), never a crash."
+  - "MCP against a real Teach (follow tools/smoke/assignment_one.rb's provisioning: scratch TEACH_HOME, teach keys generate, course init, students import, slices assign A1, release, serve on a free port; reach enroll, sync; sign in through `reach gate prompt` events for a session id as the smoke's login_sign_in does): reach_next returns text; reach_transfer_request with [\"records\",\"finance\"] returns Reach's notify question first and sends nothing (teach transfers list is empty); after a `reach gate prompt` event with prompt \"yes\" for the same session, a second call sends it (teach transfers list has one pending); reach_support returns text with 911 and 988 and Teach shows a wellbeing hand; reach_part lists the A1 questions."
+  - "hello: `ruby exe/reach hello --format text` (scratch home) shows the new exception line after the greeting line."
+  - Report every command and its real output; never claim a pass you did not observe.
+  - id: R5
+    title: Reach acts on the captured yes or no itself
+    files: [lib/reach/consent.rb, lib/reach/gate.rb, lib/reach/transfer.rb, lib/reach/modules.rb, locales/en-US.yml, skills/reach-course/SKILL.md]
+    change: >-
+      Sven's decision after the live smoke (Haiku claimed "I've sent that to Teach" without the second call). When the
+      prompt hook captures the student's yes or no to a pending consent question, Reach runs the pending action at once
+      and hands the agent the outcome to relay; the agent no longer has to make a second call.
+      (a) Consent.ask! takes an optional replay: {} hash and stores it in pending.json as "replay" (transfer passes
+      {"note" => note} so the agent's note survives; modules passes {}).
+      (b) Consent.observe keeps writing the answered record exactly as now (same keys, nothing new on disk in
+      answered.jsonl) but returns record.merge("subject" => pending["subject"], "replay" => pending["replay"] || {}).
+      (c) New Consent.follow_up!(observed): for kind transfer_request call
+      Reach::Transfer.request!(modules: subject["modules"], note: replay["note"], quick: true); for module_lock call
+      Reach::Modules.choose!(subject["modules"], quick: true). Return the result hash's "text"; rescue Reach::Refused
+      and return its message; rescue StandardError and return nil. Either answer goes through the same call: a yes is
+      taken by Consent.take! and sent, a no hits the existing declined branch (M-CONSENT-DECLINED).
+      (d) Thread quick: (default false) through Transfer.request! -> submit -> post_request
+      (Client.for_install(install, quick: quick)) and Modules.choose! (refresh!(quick: quick)) -> send_pending
+      (Client.for_install(install, quick: quick)); flush_pending! keeps calling send_pending without quick. The hook has
+      a 10 s budget, so quick keeps the network to the quick timeouts; a timeout or offline is the existing queued path
+      (transfer flushed by poll!, module choice by sync's flush_pending!), with the stored idempotency key.
+      (e) Gate.prompt_context: replace `safely { Reach::Consent.observe(entry) } if entry` with: observed = safely {
+      Reach::Consent.observe(entry) } if entry; when observed, text = safely { Reach::Consent.follow_up!(observed) };
+      when text is non-empty, append Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: text) to
+      context.
+      (f) locales/en-US.yml, next to M-CONSENT-DECLINED: M-CONSENT-DONE: "The student answered {answer} to Reach's
+      question, and Reach has already acted on it. Give the student this word for word and do not run the command again: {text}"
+      Change M-CONSENT-NEEDED to: "The student hasn't answered yet. Relay this question exactly and wait for their
+      answer; Reach acts on the answer itself: {question}"
+      (g) skills/reach-course/SKILL.md line with "until the student's captured yes": end that paragraph instead with
+      "Reach acts on the student's yes or no itself and tells you what to say; never run the command a second time and
+      never say anything was sent unless Reach's message says so."
+    acceptance_r5:
+      - ruby -c on every changed .rb; `ruby exe/reach doctor` reports no R-DOC-PERSONA; R-DOC messages check passes if doctor has one.
+      - "Against a real Teach provisioned as tools/smoke/assignment_one.rb does (scratch TEACH_HOME AND a scratch PostgreSQL database: createdb reach_smoke_r5_<hex>, TEACH_DATABASE_URL=postgres:///<that db> for every teach command, dropdb --if-exists at the end; NEVER use the shell's own TEACH_DATABASE_URL, run `unset TEACH_DATABASE_URL` first): sign in through reach gate prompt events; reach transfer request --modules records,finance prints the question and Teach has 0 transfers; then a single `reach gate prompt` event with prompt \"yes\" for the same session prints hook output whose additionalContext contains M-CONSENT-DONE text with the M-TRANSFER-SENT sentence, and teach transfers list shows 1 pending, with no second reach transfer request call. Repeat with \"no\" on a fresh question (after denying or on a second install) and show M-CONSENT-DECLINED in the context and still no new transfer."
+      - Report every command and its real output.
+  - id: R6
+    title: a queued yes is flushed at once
+    files: [lib/reach/consent.rb, lib/reach/cli.rb]
+    change: >-
+      Found by the alignment driver: with the client's token bucket drained, quick mode gives up and the send on the
+      yes is queued (transfer_id null) while the student is told the professor was asked; it then waited for the next
+      reach sync or transfer status. Consent.follow_up! now spawns a detached `reach transfer --flush` or
+      `reach modules --flush` (the reach support --flush pattern) when the result state is queued; the detached process
+      uses the normal client, which waits up to 30 s for the bucket. Both --flush verbs are hidden and print nothing.
