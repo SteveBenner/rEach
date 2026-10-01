@@ -1,0 +1,22 @@
+schema: impl-blueprint/v1
+name: doctor patch 0.16.2 - pre-enrollment and sandbox findings
+versions:
+  reach: 0.16.2
+slices:
+  F1_doctor_after_enrollment:
+    change: check_guard and check_sidecar return no finding until Reach::Enroll.current exists; R-DOC-DIRECTIVES names why an unreadable file did not parse
+    files:
+      - lib/reach/cli.rb
+      - lib/reach/directives.rb
+  version_and_docs:
+    files:
+      - VERSION
+      - plugin.json
+      - .claude-plugin/plugin.json
+      - .claude-plugin/marketplace.json
+      - .codex-plugin/plugin.json
+      - reach.rplugin.yml
+      - reach.spec.yml
+      - specs/app.yml
+      - CHANGELOG.md
+      - FEATURES.md

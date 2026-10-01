@@ -834,6 +834,8 @@ module Reach
       end
 
       def check_sidecar
+        return [] unless Reach::Enroll.current
+
         Reach::Sidecar.ensure_written
         File.file?(Reach::Sidecar.path) ? [] : ["R-DOC-SEAL: the seal sidecar at #{Reach::Sidecar.path} could not be written"]
       rescue StandardError
@@ -882,6 +884,8 @@ module Reach
       end
 
       def check_guard
+        return [] unless Reach::Enroll.current
+
         Reach::Guardrails.load
         []
       rescue StandardError

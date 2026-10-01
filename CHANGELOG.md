@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2] - 2026-10-01
+
+### Fixed
+
+- `reach doctor` no longer reports R-DOC-GUARD or R-DOC-SEAL before enrollment. The guardrails package and the
+  seal sidecar arrive with enrollment, so a student who had not enrolled yet saw both as faults, and under the
+  Codex app's sandbox on macOS doctor's attempt to pre-create `~/Library/Application Support/reach/seal.json` was
+  refused. Both checks run as before once `install.yml` exists (`lib/reach/cli.rb`).
+- An R-DOC-DIRECTIVES "unreadable frontmatter" finding now names the reason: no `---` block, not a mapping, or the
+  read or YAML error (`lib/reach/directives.rb`).
+
 ## [0.16.1] - 2026-10-01
 
 ### Fixed

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.1 |
+| **Registry version** | 0.16.2 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -401,7 +401,10 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 workspaces, Chrome (for the taste skill's pre-flight), gems, network reachability, the outbox, outdated packages,
 the wire contract digest, version agreement across manifests, the persona files, the public directive table
 (R-DOC-DIRECTIVES), the vendored taste skill's provenance (R-DOC-TASTE), and the sidecar — printing one line per
-finding and exiting 1 if any fired.
+finding and exiting 1 if any fired. Since 0.16.2 R-DOC-GUARD and R-DOC-SEAL wait for enrollment, so a
+student who has not enrolled yet (or whose AI app sandbox cannot write the seal) no longer sees them, and an
+R-DOC-DIRECTIVES finding names why the file did not parse. Verified 2026-10-01 inside `codex sandbox` (codex-cli
+0.159.3) before and after enrollment.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
