@@ -562,7 +562,7 @@ routes:
     errors:
       400 invalid_request: "a bad, expired or used code, or a malformed body"
       400 reach_outdated: "reach_version is below minimum_reach_version (the code is not used)"
-      400 course_code_unknown: "shape v2: no live course code matches (W-ENR-1); details may carry {did_you_mean: course id}"
+      400 course_code_unknown: "shape v2: no live course code matches (W-ENR-1); details may carry {did_you_mean: course id}, or since 2026-10-01d {course_only: course id}"
       400 course_code_expired: "shape v2: the course code matched but its course has ended"
       403 enrollment_refused: "shape v2: the username and student id do not name one roster entry of the code's course; never says which field failed"
       409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the policy wants an instructor's approval (W-ENR-8)"
@@ -1061,7 +1061,7 @@ errors:
       internal: {status: 500, reach: retried}
       reach_outdated: {status: 400, reach: "never retried; the message names the Reach version and the minimum and is shown as the reason (since revision 2026-09-29c, at enrollment)"}
       unavailable: {status: 503, reach: "retried after Retry-After seconds, within the retry budget; since revision 2026-09-29d, sent when an operator has switched a feature off"}
-      course_code_unknown: {status: 400, reach: "never retried; M-ENR-CODE-UNKNOWN, or M-ENR-CODE-SUGGEST when details.did_you_mean is present (since 2026-10-01b)"}
+      course_code_unknown: {status: 400, reach: "never retried; M-ENR-CODE-UNKNOWN, or M-ENR-CODE-SUGGEST when details.did_you_mean is present (since 2026-10-01b), or M-ENR-CODE-COURSE-ONLY when details.course_only is present (since 2026-10-01d)"}
       course_code_expired: {status: 400, reach: "never retried; M-ENR-CODE-EXPIRED (since 2026-10-01b)"}
       enrollment_refused: {status: 403, reach: "never retried; M-ENR-REFUSED; counts toward the local enrollment lockout (since 2026-10-01b)"}
       fingerprint_mismatch: {status: 403, reach: "never retried; Reach drops its stamp and locks into the enrollment flow with M-ENR-MOVED (since 2026-10-01b)"}
@@ -1484,7 +1484,10 @@ enrollment:
       sixteen, is not a code. The secret is unique across Teach and is what Teach looks a code up by; the course id
       part is a human check. Teach accepts a code whose course id part is within Damerau-Levenshtein distance 2 of the
       secret's course id, and refuses one further away with course_code_unknown. When no code matches and the course
-      id part alone is within distance 2 of exactly one live course id, Teach puts that id in details.did_you_mean.
+      id part alone is within distance 2 of exactly one live course id, Teach puts that id in details.did_you_mean. Since
+      revision 2026-10-01d, when no code matches and the whole value with every hyphen dropped equals the id of a
+      course with a live code, Teach puts that id in details.course_only instead: a course id of nine or more
+      characters typed alone has the shape of a code.
   W-ENR-2:
     name: course id
     rule: >-
@@ -1516,7 +1519,8 @@ enrollment:
       components: hostname, harness (plain), os_version (plain), ruby_version (plain), reach_version (plain) and
       enrolled_via (plain, chat or cli). Since revision 2026-10-01c Reach reuses the salt of an existing
       ~/.reach/fingerprint.json when it enrolls again, so the same computer, account and install key family keeps the
-      same digest across re-enrollments on one machine; a new install key still changes install_key. digest is the W-CONV-4 digest of canonical_json of binding; strict_digest is
+      same digest across re-enrollments on one machine; a new install key still changes install_key, which Teach
+      leaves out when it decides whether a request comes from the same computer (W-ENR-8). digest is the W-CONV-4 digest of canonical_json of binding; strict_digest is
       the same over binding plus hostname. Reach stores the document at ~/.reach/fingerprint.json (0600).
   W-ENR-5:
     name: enrollment stamp
@@ -1562,7 +1566,8 @@ enrollment:
       or answer, and none is written to a transcript. Before any step it checks the prompt for the W-SUP-3 crisis
       phrases and on a match blocks with M-SUPPORT and changes nothing. The words start over, restart and cancel
       return to awaiting_code from any step. In awaiting_code a prompt that normalizes to a code (W-ENR-1) is sent to
-      W-API-ENROLL-PREVIEW; a prompt that normalizes to a course id alone gets M-ENR-CODE-COURSE-ONLY. In
+      W-API-ENROLL-PREVIEW; a prompt that normalizes to a course id alone gets M-ENR-CODE-COURSE-ONLY, and since
+      revision 2026-10-01d so does a preview answered with details.course_only. In
       awaiting_confirm a yes (W-ID-4) generates the install key, builds the fingerprint and posts shape v2; a no
       returns to awaiting_code. enrollment_refused returns to awaiting_username; lockout_refusals refusals within
       lockout_minutes (config, default 5 and 15) lock the flow for lockout_minutes, during which no call is made.
@@ -1577,7 +1582,9 @@ enrollment:
     rule: >-
       Since revision 2026-10-01c. When a shape v2 enrollment names a student who already holds an active (not revoked)
       install with a stored fingerprint, Teach compares the request's fingerprint.digest with each. Equal digest: the
-      same computer, account and salt; Teach enrolls the new install and revokes the old one. Different digest: a
+      same computer, account and salt; Teach enrolls the new install and revokes the old one. Since revision
+      2026-10-01d the same holds when the salts are equal and the machine_id, os_user and platform hashes are equal,
+      whatever install_key says, because every enrollment generates a new install key. Different digest: a
       device move. With the course policy's enrollment.device_moves auto, Teach enrolls the new install and revokes
       the old one. With approve (the default), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
       student_id, course_id, fingerprint digest and descriptive components, harness, platform, requested_at} and
@@ -1591,6 +1598,6 @@ enrollment:
       Since revision 2026-10-01c. Teach keeps a roster per course: {course_id, student_id, username, display_name,
       group, status} with (course_id, student_id) and (course_id, username) unique, validated against the course's
       identity rules on import. A shape v2 enrollment succeeds only for a roster entry whose status is active. Beyond
-      the per-IP limit Teach answers 429 rate_limited for more than 60 enrollment or preview requests per minute
-      naming one course code, and for more than 5 enrollment_refused answers within 15 minutes naming one student_id
+      the per-IP limit Teach answers 429 rate_limited for more than 150 enrollment or preview requests per minute
+      naming one course code (60 before revision 2026-10-01d), and for more than 5 enrollment_refused answers within 15 minutes naming one student_id
       or one username. Every refusal, move and mismatch is an audit record and appears on the console.

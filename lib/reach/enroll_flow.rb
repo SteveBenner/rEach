@@ -109,6 +109,8 @@ module Reach
       case error.code
       when "course_code_unknown"
         details = error.details.is_a?(Hash) ? error.details : {}
+        course_only = details["course_only"].to_s
+        return Reach::Messages.text("M-ENR-CODE-COURSE-ONLY", course_id: course_only) unless course_only.empty?
         suggestion = details["did_you_mean"].to_s
         suggestion.empty? ? Reach::Messages.text("M-ENR-CODE-UNKNOWN") : Reach::Messages.text("M-ENR-CODE-SUGGEST", course_id: suggestion)
       when "course_code_expired"

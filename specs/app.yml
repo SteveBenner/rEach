@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.0
+version: 0.16.1
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -18,7 +18,7 @@ purpose: >
   hand to the instructors by itself after three failed qualifications.
 blueprint: The full design is in reach.spec.yml (schema reach.spec/v1) at the project root.
 wire_contract: specs/wire.yml (Teach-Reach protocol 1; teach carries a byte-identical pinned copy)
-implementation_blueprint: specs/implementation/v0.16.0.impl.yml
+implementation_blueprint: specs/implementation/v0.16.1.impl.yml
 runtime:
   ruby: "2.6.10 to 4.0.x, standard library only, no native gems"
   sdk: "optional: rplugin (Ruby 3.3+) is loaded when present; otherwise Reach runs standalone from a harness's own plugin copy"

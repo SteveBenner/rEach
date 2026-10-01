@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.0 |
+| **Registry version** | 0.16.1 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -311,6 +311,10 @@ Verified 2026-10-01 against `tools/fake_teach`, the stand-in for Teach's half:
   the unlock notice afterwards.
 
 Since 2026-10-01c a second computer waits for the instructor's approval and an expired handout code says so.
+
+Since 0.16.1 a bare course id of nine or more characters (`BUS101FA26`) is answered with the course-only message
+when Teach reports `details.course_only`. Built in 0.16.1 against wire revision 2026-10-01d and needing Teach 0.16.1;
+not deployed live.
 
 Re-verified 2026-10-01 against the real Teach 0.16.0 on a scratch database:
 - chat and CLI enrollment;
