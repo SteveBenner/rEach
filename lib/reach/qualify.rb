@@ -469,7 +469,11 @@ module Reach
 
       def write_record(workspace, record)
         File.write(record_path(workspace), JSON.generate(record))
-        Reach::Corpus.new(Reach.ports).qualification(record.reject { |key, _| key == "ladder" })
+        begin
+          Reach::Corpus.new(Reach.ports).qualification(record.reject { |key, _| key == "ladder" })
+        rescue StandardError => e
+          Reach::BrainSpool.log("qualification_write_failed", "error" => e.class.name, "message" => e.message)
+        end
         Reach::Ledger.append(
           workspace, "qualify",
           "attempt" => record["attempt"], "passed" => record["passed"], "pending" => record["pending"],
