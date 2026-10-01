@@ -5,6 +5,44 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-10-01
+
+### Added
+
+- Enrollment v2 (wire protocol 1 revision 2026-10-01b, `specs/wire.yml` W-ENR-1..7, W-API-ENROLL shape v2,
+  W-API-ENROLL-PREVIEW). Students enroll with a class-wide course code tied to one course and expiring at the
+  course's end (`MGMT327-K7QX-94TD`, normalized from any spacing, case or Crockford look-alikes; a course id within
+  two edits still matches), their institutional username (`FLLLNNN@lasierra.edu`) and their seven-digit student ID.
+  Institution rules come from Teach's preview and fall back to the new `config.yml` `enrollment` block.
+- Lockdown until enrolled (`lib/reach/enrollment_lock.rb`, `lib/reach/enroll_flow.rb`). A plugin-level
+  UserPromptSubmit hook (`hooks/hooks.json`, `reach gate enroll`) blocks every prompt and runs the enrollment
+  conversation itself, so the agent never sees the code, username or ID. The crisis check runs first. The flow
+  supports start over and a local lockout (5 refusals in 15 minutes), and tells the agent once when Reach unlocks.
+  Every CLI verb except help, enroll, setup, doctor, support, update, runtime and the hooks, every MCP tool, and the
+  write, shell and read gates refuse while locked. Hermes gets the flow as context.
+- Fingerprint and enrollment stamp (`lib/reach/fingerprint.rb`, `lib/reach/stamp.rb`).
+  - The fingerprint is a salted, hashed record of the machine id, OS user, platform and install key, with
+    descriptive extras: hostname hash, harness, OS, Ruby and Reach versions.
+  - Teach signs a `teach.enrollment-stamp/v1`, and Reach verifies it before writing anything.
+  - Reach locks as moved when the live fingerprint differs or Teach answers `fingerprint_mismatch` to the
+    `X-Reach-Fingerprint` header on status. It then queues integrity kind `fingerprint_mismatch`.
+  - Policy `enrollment.fingerprint_match` chooses binding (the default) or strict matching.
+  - Policy `enrollment.require_stamp` makes shape v1 installs re-enroll.
+- `reach enroll --course-code C --username U --student-id I`, or `reach enroll` with no arguments on a terminal,
+  enrolls with shape v2; `reach enroll <code>` still sends shape v1. `lib/reach/identity.rb` normalizes codes,
+  course ids, usernames and IDs.
+- `tools/fake_teach`: a local stand-in for Teach's half of enrollment v2 (WEBrick bound to 127.0.0.1, fixture
+  courses and roster), until Teach implements it.
+
+### Changed
+
+- The `reach_enroll` MCP tool no longer enrolls while Reach is locked: a student's identity never passes through the
+  agent.
+- Enrolling a different student over an existing install drops the cached status, so `reach status` never names
+  the previous student.
+- The privacy notice, the student guide and `reach.spec.yml` disclose the fingerprint, and that enrollment now
+  sends the username and student ID.
+
 ## [0.14.5] - 2026-10-01
 
 ### Changed

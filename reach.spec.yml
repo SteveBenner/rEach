@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.14.5
+version: 0.15.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.14.5
+    version: 0.15.0
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -250,7 +250,17 @@ library:
   - name: Reach::CLI
     role: The reach command and its subcommands
   - name: Reach::Enroll
-    role: Key generation and the enrollment call
+    role: Key generation and the enrollment call, shape v1 (single-use code) and shape v2 (course code, username, student id; since 0.15.0)
+  - name: Reach::Identity
+    role: Normalizes course codes, course ids, institutional usernames and student ids (W-ENR-1..3); since 0.15.0
+  - name: Reach::Fingerprint
+    role: The salted, hashed computer, account and install-key fingerprint (W-ENR-4); since 0.15.0
+  - name: Reach::Stamp
+    role: Verifies and stores Teach's signed enrollment stamp (W-ENR-5); since 0.15.0
+  - name: Reach::EnrollmentLock
+    role: Decides whether Reach is locked and why (W-ENR-6); since 0.15.0
+  - name: Reach::EnrollFlow
+    role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.15.0
   - name: Reach::Client
     role: Signed HTTPS requests to Teach with timeouts, retries and a circuit breaker
   - name: Reach::Crypto
@@ -795,7 +805,10 @@ mcp_bridge:
   - name: reach_profile_forget
     description: Delete the student's profile
   - name: reach_enroll
-    description: Enroll with a course code, then sync
+    description: >-
+      Since 0.15.0 it never enrolls: it answers with M-GATE-NOENROLL, because the student's code, username and
+      student ID go to rEach's own enrollment flow and never through the agent. While Reach is locked every other tool
+      refuses with the lock's message too (W-ENR-6).
   - name: reach_sync
     description: Fetch new packages, verify them and refresh workspaces
   - name: reach_check
@@ -858,9 +871,12 @@ cli:
       (the PostToolUse write hook) records the files just written; flush sends the spool to Teach; status says how
       many entries are sent and how many wait
   - name: enroll
-    synopsis: reach enroll <code> [--teach-url URL]
+    synopsis: reach enroll [--course-code CODE --username USER --student-id ID | <code>] [--teach-url URL]
     purpose: >-
-      Generate keys, enroll with Teach, then sync. It verifies the response fields, the wire digest equality and
+      Since 0.15.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
+      it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and
+      fingerprint, prints M-ENROLL-DONE, M-TRANSCRIPT-NOTICE and M-FINGERPRINT-NOTICE, then syncs; a bare <code>
+      enrolls with shape v1 as before. Generate keys, enroll with Teach, then sync. It verifies the response fields, the wire digest equality and
       minimum_reach_version before writing any key. Since 0.10.0 the old spelling reach enrol still works as a hidden
       alias (not listed in help), and Reach posts to /api/v1/enroll, retrying once at /api/v1/enrol on a 404 so an
       older Teach still enrolls it.
@@ -960,6 +976,10 @@ client_safety:
     Receipts and hand replies are polled no more often than every 30 seconds, and only while something is outstanding.
   kill_switch: REACH_OFFLINE=1 stops all network calls (for exams or debugging); the gate's offline allowance still
     applies.
+  enrollment: >-
+    Since 0.15.0 (W-SAFE-13) the plugin-level enrollment prompt hook is the one hook that calls Teach: at most one
+    W-API-ENROLL-PREVIEW per typed code and one W-API-ENROLL per yes, connect 5 s, read 10 s, no retries, and none
+    while the local enrollment lockout (5 refusals in 15 minutes) lasts. It runs only while Reach is locked.
   observability: >-
     Reach logs every request with route, status, latency and retry count (never bodies or keys) and reports counts
     in its status call.
@@ -1114,7 +1134,9 @@ auto_update:
   untagged_patches: Only tagged releases reach students; an untagged patch version is never offered.
 privacy_and_integrity:
   student_data_sent: >-
-    Enrollment (code, public key, platform, versions), submissions (owned files and manifest), hand bundles, status
+    Enrollment (code, public key, platform, versions; since 0.15.0 also the course code, the institutional username
+    and student ID, and the W-ENR-4 fingerprint, whose computer, account and hostname values are salted SHA-256
+    hashes), the live fingerprint digest on every status request, submissions (owned files and manifest), hand bundles, status
     counts, and the course record (transcripts): since 0.8.0 every prompt the student submits in a course folder, and
     since 0.10.0 the AI partner's replies, readable reasoning and actions there and every code file written in a
     course folder (deliverables and extracurricular). Nothing else.
@@ -1268,7 +1290,7 @@ student_messages:
   - id: M-UPDATE-RETRY
     text: rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own.
   - id: M-GATE-NOENROLL
-    text: Reach isn't connected to your course yet. Run reach enroll with the code your instructor gave you.
+    text: rEach is locked until you enroll in your course. Type anything in a chat with your AI partner and rEach will walk you through it, or run reach enroll in a terminal.
   - id: M-GATE-NOGUARD
     text: >-
       Your course rules haven't arrived yet, so your AI partner can't start. Run reach sync, and if that doesn't
@@ -1390,7 +1412,18 @@ state_machines:
     - revoked
     notes: >-
       synced means all current packages verified; active means a harness session is running with the gate passing;
-      offline is entered when the circuit breaker is open.
+      offline is entered when the circuit breaker is open. Since 0.15.0 not_enrolled is also re-entered (locked) when
+      the stamp fails, the course ends or the fingerprint stops matching (W-ENR-6).
+  enrollment_flow:
+    states:
+    - awaiting_code
+    - awaiting_username
+    - awaiting_student_id
+    - awaiting_confirm
+    - enrolled
+    notes: >-
+      Since 0.15.0, W-ENR-7. Stored machine-wide at ~/.reach/state/enroll/flow.json (0600) and removed on success;
+      start over, restart or cancel return to awaiting_code; enrollment_refused returns to awaiting_username.
   slice_workspace:
     states:
     - absent
@@ -1683,8 +1716,8 @@ doctor_checks:
   checks: The ~/.reach/bin/reach shim and its root file exist, and the root holds exe/reach
   fix: Run any reach command once (it rewrites the shim), or reach setup
 - id: R-DOC-ENROLL
-  checks: install.yml and the install key exist and match
-  fix: reach enroll <code>
+  checks: install.yml and the install key exist and match, and Reach is not locked (W-ENR-6); the finding names the lock reason
+  fix: reach enroll --course-code CODE --username USER --student-id ID
 - id: R-DOC-KEYS
   checks: The instructors' public keys are present and current
   fix: reach sync
@@ -1839,7 +1872,9 @@ privacy_notice:
     every greeting in a course folder (G-TRANSCRIPT-NOTICE).
   text: >-
     Reach sends your submitted slice files, your enrollment details, your course record and, when your AI partner asks
-    for help, a short summary with your recent changes to the course server. Your course record is everything you and
+    for help, a short summary with your recent changes to the course server. To keep your enrollment yours, it also
+    sends a scrambled fingerprint of this computer and computer account (never your files or passwords), which your
+    course server checks. Your course record is everything you and
     your AI partner write in your course folders (your deliverables and your extracurricular folder): what you type,
     your AI partner's replies, its reasoning where your AI tool shows it, the actions it takes, and every version of
     the code written there. Your instructors can read it. Reach does not send what you type outside your course

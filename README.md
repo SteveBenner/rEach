@@ -8,7 +8,16 @@ Claude Code, Claude Cowork, Codex, Antigravity or Hermes and turns the student's
 agent into **rEach**, a bounded course partner for a
 [Teach](https://bitbucket.org/paterasai/teach)-run course.
 
-rEach introduces itself as soon as it is installed and runs a short intake
+Until the student enrolls, rEach refuses everything else: it blocks every
+prompt and asks the student itself, one at a time, for the class-wide course
+code their instructor shared (like `MGMT327-K7QX-94TD`), their institutional
+username (`FLLLNNN@lasierra.edu`) and their seven-digit student ID, so the agent
+never sees them. Teach checks them against its roster and returns a signed
+enrollment stamp tied to a scrambled fingerprint of the computer and account;
+a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
+`tools/fake_teach` stands in for Teach's half until Teach ships it.
+
+rEach then introduces itself and runs a short intake
 interview, saved on the student's computer only. It enrolls with Teach, receives
 the student's protected course materials, refuses to let the agent work until
 the instructors' guardrails are installed, keeps the agent inside the student's

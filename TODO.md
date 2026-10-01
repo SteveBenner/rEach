@@ -1,5 +1,19 @@
 # TODO
 
+## Enrollment v2 (0.15.0, branch `enrollment-v2`)
+
+- [ ] Teach's half (roster, course codes, preview and shape v2 routes, stamp signing, fingerprint check,
+      `minimum_reach_version` 0.15.0, byte-identical wire): tracked in Teach's TODO.md. Until then this Reach cannot
+      enroll against a real Teach, so 0.15.0 stays on the branch, unmerged and untagged; auto-update offers only tags.
+- [ ] Merge `enrollment-v2` into main after the peer's 0.14.6 lands, then tag v0.15.0 once Teach is live with v2.
+- [ ] Verify a real Codex session: the shared `hooks/hooks.json` passes `--harness claude-code` and
+      `${CLAUDE_PLUGIN_ROOT}`; whether Codex's plugin hooks honor that and block a prompt is unproven.
+- [ ] Verify a real Hermes session (enroll hook as context) and Antigravity (CLI only).
+- [ ] Verify machine ids on macOS (ioreg) and Windows (reg query); only Linux and a Docker container were exercised.
+- [ ] tools/smoke still enrolls with shape v1 codes; move the smoke to the v2 flow once Teach mints course codes.
+- [ ] The plugin-level hook runs in every Claude Code session on a machine with rEach installed; a developer
+      machine with the plugin enabled is locked too until it enrolls.
+
 ## Verified in 0.2.0
 
 - [x] End-to-end against a real Teach 0.2.0 on Ruby 3.3 and in a Ruby 2.6.10 container: enroll, sync, read-only workspace, gate (including Codex patch and argv forms), submit with a verified ingest receipt, hand raised and answered, a non-owned file rejected by Teach, revocation.
