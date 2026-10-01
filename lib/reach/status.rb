@@ -62,7 +62,7 @@ module Reach
         course_part = course["title"]
         course_part = "#{course_part} (#{course['term']})" if course["term"]
 
-        student_part = student["display_name"] || data["student_id"] || "unknown student"
+        student_part = student["display_name"] || data["display_name"] || data["student_id"] || "unknown student"
         student_part = "#{student_part} (#{student['group']})" if student["group"]
 
         "rEach #{Reach::VERSION} · #{course_part} · enrolled as #{student_part}"
