@@ -37,16 +37,23 @@ module Reach
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
 
+      session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Transcript.resolve_session_id(event) : nil
+
       if login_pending?(event)
+        updating = safe_update_start(session_id, source)
         greeting_text = [nil, "startup", "clear"].include?(source) ? Reach::Greetings.text("G-LOGIN") : nil
-        return [greeting_text && "G-LOGIN", greeting_text, nil, login_context]
+        return [greeting_text && "G-LOGIN", greeting_text, nil, login_context(updating)]
       end
 
       greeting_id, greeting_text, banner = choose_greeting(source)
+      updating = safe_update_start(session_id, source)
+      if updating && greeting_text
+        greeting_text = "#{Reach::Greetings.text("G-UPDATING", version: updating)}\n\n#{greeting_text}"
+      end
       if greeting_text && in_course_folder?(cwd)
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-TRANSCRIPT-NOTICE")}"
       end
-      context = build_context(harness_id, format, greeting_id, greeting_text)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating)
       [greeting_id, greeting_text, banner, context]
     end
 
@@ -63,8 +70,21 @@ module Reach
       false
     end
 
-    def login_context
-      "#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}"
+    def login_context(updating = nil)
+      text = "#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}"
+      updating ? "#{text}\n#{update_line(updating)}" : text
+    end
+
+    def update_line(version)
+      "- rEach is installing an update (version #{version}) in the background. Course work waits until it finishes; tell the student it is required and their work is safe."
+    end
+
+    def safe_update_start(session_id, source)
+      return nil unless [nil, "startup", "clear"].include?(source)
+
+      Reach::Update.on_session_start(session_id)
+    rescue StandardError
+      nil
     end
 
     def read_stdin_json
@@ -251,7 +271,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil)
       lines = []
       lines << "rEach session context (from reach hello)"
       lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
@@ -262,6 +282,7 @@ module Reach
         lines << "- This session continues an earlier one. Do not greet again."
       end
       lines << "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."
+      lines << update_line(updating) if updating
       lines << profile_line
       lines << course_line
       lines.concat(alignment_lines)

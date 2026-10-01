@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-09-30
+
+### Added
+
+- Automatic updates (`lib/reach/update.rb`, `update/apply.rb`, `reach.spec.yml` `auto_update`, STD-AUTO-UPDATE; build
+  record `specs/implementation/v0.13.0.impl.yml`). Reach keeps a managed `~/.reach/plugin` install current: it reads
+  published GitHub releases first (with a stored ETag, skipping drafts and prereleases) and falls back to the
+  repository's tags through git's own `info/refs` listing when there are no releases or the API is limited or
+  unreachable. It checks at session start and hourly from the prompt gate, always in a detached process with up to
+  10 minutes of jitter, and backs off exponentially (to 24 h) after failures.
+- An update manifest at `~/.reach/state/update.json` records the local version, every remote version ahead of it,
+  the target and the phase (detected, downloaded, staged, swapped, refreshed, completed). Every phase is safe to
+  repeat: a download killed mid-way, a crash after the swap and a crash between the two renames each resume on the
+  next session start, and the `~/.reach/bin/reach` shim restores a missing install from the staged release or the
+  backup before it loads Reach.
+- The release installs itself: Reach downloads and stages the tag's archive (with the pinned Dovetail), then runs
+  that release's `update/apply.rb`, which moves the old install to `~/.reach/.backup/`, swaps the new one in, runs
+  any `update/migrations/<version>.rb`, points the shim at it and refreshes Claude Code (`claude plugin marketplace
+  update reach`, `claude plugin update reach@reach`) and Codex (`codex plugin marketplace upgrade reach`,
+  `codex plugin add reach@reach`).
+- Student experience: a release found mid-session is staged in the background and announced once (M-UPDATE-READY);
+  nothing is swapped mid-session. At the next session start the greeting opens with G-UPDATING and the install runs;
+  course work (prompts, writes, shell, qualify, submit, sync) waits only while it is actually running
+  (M-UPDATE-INSTALLING), sessions that started earlier are told M-UPDATE-DONE, and a failed install is reported once
+  (M-UPDATE-RETRY) while the student keeps working.
+- `reach update status|check|run [--apply] [--background] [--force] [--format text|json]`; `config.yml`
+  `updates:` (repository, interval_s, jitter_s, max_attempts); `REACH_UPDATE_DISABLE=1` and
+  `REACH_UPDATE_REPOSITORY`. A git checkout at `~/.reach/plugin` is never updated. Log at `~/.reach/logs/update.log`.
+
+### Changed
+
+- `bin/reach-install` can be loaded as a library (`ReachInstall.stage`) and behaves as before when run.
+- `Reach::Runtime.ensure_shim!` no longer points the shim back at an older copy of Reach.
+
 ## [0.12.0] - 2026-09-30
 
 ### Added

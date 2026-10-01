@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.12.0
+version: 0.13.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -65,5 +65,7 @@ standards:
     text: "Every time shown to a student (due dates, receipt times) is in the course's timezone with its abbreviation, e.g. 'Sat 3 Oct 11:59 pm PDT', whatever zone the student's computer is in. The zone comes from Teach's enrollment (course.timezone) and defaults to America/Los_Angeles, the zone BUS 101 and BUS 201 run on. America/Los_Angeles is computed from built-in US daylight-time rules, so it is right on every platform, Windows included."
   - id: STD-SMOKE
     text: "tools/smoke is the release smoke test: real Claude sessions in a Docker sandbox with no access to the developer's home or Claude configuration, driven by scripted or model-played students, checked by hard assertions and advised by a model judge. Run it before tagging any release that changes the persona, greetings, hooks, install path or anything else a student sees."
+  - id: STD-AUTO-UPDATE
+    text: "Reach keeps a managed ~/.reach/plugin install (VERSION present, no .git) current by itself: GitHub releases first and tags as the fallback, checked at session start and hourly from detached processes, staged in the background, installed at the next session start by the release's own update/apply.rb, with every phase recorded in ~/.reach/state/update.json so an interrupted update resumes. Course work waits only while an install is running; REACH_UPDATE_DISABLE=1 turns it off. See reach.spec.yml auto_update."
   - id: STD-STUDENT-MESSAGES
     text: "Every message shown to a student comes from a catalogue by id, never an inline string: Reach::Messages (locales/en-US.yml) for course messages and Reach::Greetings (locales/greetings.en-US.yml) for rEach's greetings, so both stay translatable and consistent."

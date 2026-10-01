@@ -6,6 +6,11 @@ course:
   timezone: America/Los_Angeles
 teach:
   url:
+updates:
+  repository: https://github.com/SteveBenner/rEach
+  interval_s: 3600
+  jitter_s: 600
+  max_attempts: 5
 rstack:
   backup:
     schema: rplugin.plugin-backup/v1

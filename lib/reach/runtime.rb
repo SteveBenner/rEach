@@ -32,6 +32,26 @@ module Reach
       [
         shebang,
         "root = File.read(File.join(__dir__, \"root\")).strip",
+        "unless File.file?(File.join(root, \"exe\", \"reach\"))",
+        "  begin",
+        "    require \"json\"",
+        "    state = JSON.parse(File.read(File.join(__dir__, \"..\", \"state\", \"update.json\")))",
+        "    managed = File.join(__dir__, \"..\", \"plugin\")",
+        "    unless File.exist?(managed)",
+        "      if state[\"staged_path\"].is_a?(String) && File.directory?(state[\"staged_path\"])",
+        "        File.rename(state[\"staged_path\"], managed)",
+        "      elsif state[\"backup_path\"].is_a?(String) && File.directory?(state[\"backup_path\"])",
+        "        File.rename(state[\"backup_path\"], managed)",
+        "      end",
+        "    end",
+        "    if File.file?(File.join(managed, \"exe\", \"reach\"))",
+        "      root = File.expand_path(managed)",
+        "      File.write(File.join(__dir__, \"root\"), \"\#{root}\\n\")",
+        "    end",
+        "  rescue StandardError",
+        "    nil",
+        "  end",
+        "end",
         "load File.join(root, \"exe\", \"reach\")",
         ""
       ].join("\n")
@@ -42,7 +62,7 @@ module Reach
       dir = File.dirname(shim_path)
       FileUtils.mkdir_p(dir)
       write_if_different(shim_path, shim_content)
-      write_if_different(shim_root_path, "#{root}\n")
+      write_if_different(shim_root_path, "#{root}\n") if shim_root_replaceable?
       begin
         File.chmod(0o755, shim_path)
       rescue NotImplementedError, Errno::ENOENT
@@ -51,6 +71,18 @@ module Reach
       nil
     rescue StandardError
       nil
+    end
+
+    def shim_root_replaceable?
+      recorded = File.file?(shim_root_path) ? File.read(shim_root_path).strip : ""
+      return true if recorded.empty? || !File.directory?(recorded)
+
+      version_file = File.join(recorded, "VERSION")
+      return true unless File.file?(version_file)
+
+      Gem::Version.new(File.read(version_file).strip) <= Gem::Version.new(Reach::VERSION)
+    rescue StandardError
+      true
     end
 
     def write_if_different(path, content)

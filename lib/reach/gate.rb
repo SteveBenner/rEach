@@ -41,6 +41,7 @@ module Reach
         check_enrolled!
         check_guardrails!
         check_has_workspace!
+        Reach::Update.hold!
       rescue Reach::GateBlocked => e
         blocked = e
       end
@@ -93,6 +94,7 @@ module Reach
         context << safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup") } if safely { Reach::Login.consume_just_confirmed(session) }
         context << decision["context"] if decision["context"]
       end
+      context.concat(Array(safely { Reach::Update.prompt_notices(session) }))
       safely { Reach::Consent.observe(entry) } if entry
       if space
         imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"], session_id: session, harness: harness) }
@@ -142,6 +144,7 @@ module Reach
       return nil if path.nil? && patch.nil?
 
       require_login!(event)
+      Reach::Update.hold!
       space = current_space
       kind = space && space["kind"]
 
@@ -222,6 +225,7 @@ module Reach
       return nil if support_command?(text)
 
       require_login!(event)
+      Reach::Update.hold!
       raise_blocked!("M-SHELL-BLOCKED") if subshell_or_substitution?(text)
 
       space = current_space
