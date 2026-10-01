@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.7
+version: 0.16.8
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -18,7 +18,7 @@ purpose: >
   hand to the instructors by itself after three failed qualifications.
 blueprint: The full design is in reach.spec.yml (schema reach.spec/v1) at the project root.
 wire_contract: specs/wire.yml (Teach-Reach protocol 1; teach carries a byte-identical pinned copy)
-implementation_blueprint: specs/implementation/v0.16.5.impl.yml
+implementation_blueprint: specs/implementation/platform-smoke.impl.yml
 runtime:
   ruby: "2.6.10 to 4.0.x, standard library only, no native gems"
   sdk: "optional: rplugin (Ruby 3.3+) is loaded when present; otherwise Reach runs standalone from a harness's own plugin copy"
@@ -67,6 +67,8 @@ standards:
     text: "Every time shown to a student (due dates, receipt times) is in the course's timezone with its abbreviation, e.g. 'Sat 3 Oct 11:59 pm PDT', whatever zone the student's computer is in. The zone comes from Teach's enrollment (course.timezone) and defaults to America/Los_Angeles, the zone MGMT 327 and 695AD-781 run on. America/Los_Angeles is computed from built-in US daylight-time rules, so it is right on every platform, Windows included."
   - id: STD-SMOKE
     text: "tools/smoke is the release smoke test: real Claude sessions in a Docker sandbox with no access to the developer's home or Claude configuration, driven by scripted or model-played students, checked by hard assertions and advised by a model judge. Run it before tagging any release that changes the persona, greetings, hooks, install path or anything else a student sees."
+  - id: STD-PLATFORM-SMOKE
+    text: "tools/platform_smoke/run.rb installs Reach from the checkout into a scratch path with a space, enrolls it against tools/fake_teach and runs the hook command lines, status, the machine-id fingerprint, the runtime kit (waiting for the background self-install) and doctor. .github/workflows/platforms.yml runs it on every push to main and on dispatch, never on pull requests, on GitHub-hosted Linux (Ruby 2.6.10), macOS arm64 and Intel (the system Ruby 2.6.10), Windows x64 and Windows 11 arm64 (Ruby 4.0), and on self-hosted Windows 10 and Windows 11 VMs (labels win10, win11) when the repository variable REACH_VM_RUNNERS is on or a dispatch sets vms. Windows checkouts keep LF line endings. A doctor finding outside R-DOC-GUARD, R-DOC-HARNESS and, when no kit was installed, R-DOC-CHROME fails the run."
   - id: STD-AUTO-UPDATE
     text: "Reach keeps a managed ~/.reach/plugin install (VERSION present, no .git) current by itself: GitHub releases first and tags as the fallback, checked at session start and hourly from detached processes, staged in the background, installed at the next session start by the release's own update/apply.rb, with every phase recorded in ~/.reach/state/update.json so an interrupted update resumes. Course work waits only while an install is running; REACH_UPDATE_DISABLE=1 turns it off. See reach.spec.yml auto_update."
   - id: STD-CONSENT-FROM-REACH

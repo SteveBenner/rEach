@@ -1,13 +1,14 @@
 schema: impl-blueprint/v1
 name: platform smoke - Reach on Windows 10, Windows 11, macOS and Linux in CI
 versions:
-  reach: next patch after 0.16.4 (claimed at commit time)
+  reach: 0.16.8
 decisions:
   - The smoke runs Reach's own commands and its harness hook command lines; it starts no agent session and needs no secret.
   - It runs on push to main and on workflow_dispatch only. There is no pull_request trigger, because self-hosted runners serve a public repository.
   - GitHub-hosted legs - ubuntu-24.04 (Ruby 2.6.10, the floor), macos-15 arm64 and macos-15-intel (the system /usr/bin/ruby, what INSTALL.md tells macOS students to use), windows-2025 and windows-11-arm (Ruby 4.0 through ruby/setup-ruby, what INSTALL.md tells Windows students to install).
   - Self-hosted legs - two Windows VMs labelled win10 and win11, using the Ruby installed in the VM. They run only when the repository variable REACH_VM_RUNNERS is on, or when a workflow_dispatch sets the vms input.
   - The VMs are prepared by tools/platform_smoke/windows-runner/bootstrap.ps1 and registered by register.ps1; the registration token is passed at run time and never stored in the repository.
+  - "As built, the runtime step runs before doctor so doctor sees the runtime Chrome, and it waits for the background self-install Reach starts at session start (0.16.5+)."
 slices:
   S1_smoke_script:
     owns:
@@ -17,7 +18,7 @@ slices:
       invocation: "ruby tools/platform_smoke/run.rb [--skip-runtime] [--report PATH] [--keep]"
       ruby: Parses and runs on Ruby 2.6.10 through 4.0.x with the standard library only (STD-RUBY-FLOOR applies to this script because macOS legs run it under the system Ruby 2.6.10).
       platforms: Linux, macOS, Windows (x64 and arm64). No shell-specific syntax; every child process is spawned with an argv array except the hook steps, which deliberately go through a shell.
-      output: One line per step, "PASS <step> <detail>" or "FAIL <step> <detail>" or "SKIP <step> <reason>", then "platform smoke: N passed, M failed, K skipped". Exit 0 only when no step failed. With --report, also write a JSON report (schema reach.platform-smoke/v1) with platform, ruby version, os version and each step's name, result, detail and duration.
+      output: "One line per step, \"PASS <step> <detail>\" or \"FAIL <step> <detail>\" or \"SKIP <step> <reason>\", then \"platform smoke: N passed, M failed, K skipped\". Exit 0 only when no step failed. With --report, also write a JSON report (schema reach.platform-smoke/v1) with platform, ruby version, os version and each step's name, result, detail and duration."
       environment: Start from a copy of ENV with every TEACH_* and REACH_* variable removed, then set REACH_HOME to the scratch home and REACH_UPDATE_DISABLE=1 (STD-AUTO-UPDATE must not swap the install mid-run). Never read or write the real ~/.reach.
       scratch: One scratch root under Dir.tmpdir with a short name, containing a directory whose name has a space ("reach smoke"), so install paths with spaces are exercised. Chrome's socket path limit means the root itself must stay short. Removed at the end unless --keep, retrying a locked tree on Windows for up to 60 s and then warning, never failing a run that passed.
     steps:

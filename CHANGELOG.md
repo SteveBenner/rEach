@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.8] - 2026-10-01
+
+### Added
+
+- Platform smoke, `tools/platform_smoke/run.rb`: on Linux, macOS or Windows, with no agent and no secret, it installs
+  Reach from the checkout's HEAD with `bin/reach-install --archive` into a scratch path containing a space, starts
+  `tools/fake_teach` (installing `webrick` into scratch gems when Ruby lacks it), runs the SessionStart and
+  UserPromptSubmit hook command lines from `hooks/hooks.json` and `hooks/codex.json` the way the harness does (Git
+  Bash on Windows), and checks that the gate blocks before enrollment and opens after it, `reach enroll`,
+  `reach status` with the fingerprint, the machine id (`ioreg` on macOS, `reg query` on Windows, `/etc/machine-id`
+  on Linux), the runtime kit (waiting for the background self-install) and `reach doctor` against a list of findings
+  the fixture explains. `--report` writes `reach.platform-smoke/v1` JSON.
+- `.github/workflows/platforms.yml` runs it on every push to main and on dispatch, never on pull requests: GitHub
+  Linux x64 (Ruby 2.6.10), macOS arm64 and Intel (the system Ruby 2.6.10), Windows x64 and Windows 11 arm64
+  (Ruby 4.0), plus self-hosted Windows 10 and Windows 11 VM legs (labels `win10`, `win11`) gated by the repository
+  variable `REACH_VM_RUNNERS` or the dispatch input `vms`. Actions are pinned by SHA and Windows checkouts keep LF.
+- `tools/platform_smoke/windows-runner/bootstrap.ps1` prepares a Windows VM (OpenSSH Server, Git for Windows
+  2.56.0, RubyInstaller 4.0.7-1, GitHub Actions runner 2.337.0, each SHA-256 pinned) and `register.ps1` registers it
+  as a runner service with a token passed at run time. STD-PLATFORM-SMOKE in `specs/app.yml`; blueprint
+  `specs/implementation/platform-smoke.impl.yml`.
+
 ## [0.16.7] - 2026-10-01
 
 ### Fixed
