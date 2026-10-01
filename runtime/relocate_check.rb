@@ -67,6 +67,20 @@ def capture(env, *cmd)
   end
 end
 
+def remove_tree(dir)
+  attempts = 0
+  begin
+    FileUtils.remove_entry(dir)
+  rescue Errno::EACCES, Errno::EBUSY, Errno::ENOTEMPTY => e
+    attempts += 1
+    if attempts < 30
+      sleep(2)
+      retry
+    end
+    warn("relocate_check: left #{dir} behind: #{e.message}")
+  end
+end
+
 chrome_zip = nil
 parser = OptionParser.new { |o| o.on("--chrome-zip PATH") { |v| chrome_zip = File.expand_path(v) } }
 args = parser.parse(ARGV)
@@ -74,7 +88,8 @@ fail_with("usage: relocate_check.rb TARBALL [--chrome-zip PATH]") unless args.le
 tarball = File.expand_path(args.first)
 fail_with("no such file #{tarball}") unless File.file?(tarball)
 
-Dir.mktmpdir("relocated-") do |dir|
+dir = Dir.mktmpdir("relocated-")
+begin
   target = File.join(dir, "elsewhere", "deep", "location")
   FileUtils.mkdir_p(target)
   fail_with("tar extraction failed") unless system(tar_command, "-xzf", tarball, "-C", target)
@@ -125,5 +140,7 @@ Dir.mktmpdir("relocated-") do |dir|
     puts(text)
     fail_with("ferrum text was #{text.inspect}") unless text == "hi"
   end
+ensure
+  remove_tree(dir)
 end
 puts "relocate_check passed"
