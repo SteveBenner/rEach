@@ -9,9 +9,9 @@ require "timeout"
 
 module Reach
   module RuntimeKit
-    RUNTIME_TAG = "runtime-4.0.7-r1".freeze
-    RUNTIME_ID = "4.0.7-r1".freeze
-    MANIFEST_SHA256 = "779a53d586268580137c3f62bc25409f86082f54ac7f088463cff19718cf1c84".freeze
+    RUNTIME_TAG = "runtime-4.0.7-r3".freeze
+    RUNTIME_ID = "4.0.7-r3".freeze
+    MANIFEST_SHA256 = "cd79747a0bb564f2210ee744cfdc28274ccd21ef868457587b39ed28c0bbc6a2".freeze
     RELEASE_BASE = "https://github.com/SteveBenner/rEach/releases/download".freeze
     MANIFEST_ASSET = "runtime-manifest.json".freeze
     MANIFEST_SCHEMA = "reach.runtime-manifest/v1".freeze

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.3
+version: 0.16.4
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.3
+    version: 0.16.4
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -1057,7 +1057,7 @@ remote_acceptance: >-
     files (or findings with no file): Teach ships no suite package, so the instructors' panel files are absent from the
     workspace and the checker's findings on them cannot be acted on.
 runtime_kit_platforms: >-
-  The runtime workflow (since the runtime-4.0.7-r2 build; r2 is not yet published, Reach 0.14.6 still pins r1) builds
+  The runtime workflow (since the runtime-4.0.7-r2 build; r2 never published, Reach 0.16.4 pins runtime-4.0.7-r3) builds
   the Linux kits in a manylinux_2_28 container from Ruby's own source,
   with OpenSSL, libyaml, libffi and zlib linked in, so they need glibc 2.28 or newer (Debian 10+, Ubuntu 20.04+, RHEL
   and Alma 8+); runtime/relocate_check.rb fails a kit that needs a newer glibc. Chrome for Testing still needs the
