@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reach enroll --course-code C --username U --student-id I`, or `reach enroll` with no arguments on a terminal,
   enrolls with shape v2; `reach enroll <code>` still sends shape v1. `lib/reach/identity.rb` normalizes codes,
   course ids, usernames and IDs.
+- Device moves and handout expiry (wire revision 2026-10-01c, W-ENR-8, W-ENR-9).
+  - A second computer for an enrolled student waits for the instructor's approval (`device_move_pending`): rEach says
+    so and re-posts the identical request when the student types yes. The pending install key and fingerprint are
+    kept in `~/.reach/state/enroll/` (0600), and are reused only for the same code, username and ID.
+  - `reach enroll --course-code` exits 3 while a move waits.
+  - A denial shows the instructor's reason.
+  - An expired handout code says so (M-ENR-CODE-OLD).
+  - Re-enrolling on the same computer keeps the fingerprint salt.
 - `tools/fake_teach`: a local stand-in for Teach's half of enrollment v2 (WEBrick bound to 127.0.0.1, fixture
   courses and roster), until Teach implements it.
 
@@ -38,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `reach_enroll` MCP tool no longer enrolls while Reach is locked: a student's identity never passes through the
   agent.
+- The plugin's enroll hook is declared in `hooks/reach.hooks.yml`, and `rplugin package` generates
+  `hooks/hooks.json` and `hooks/codex.json` from it.
+- `reach status` names the student from `install.yml` before the first sync.
 - Enrolling a different student over an existing install drops the cached status, so `reach status` never names
   the previous student.
 - The privacy notice, the student guide and `reach.spec.yml` disclose the fingerprint, and that enrollment now

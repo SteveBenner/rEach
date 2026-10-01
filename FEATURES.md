@@ -12,7 +12,7 @@ agent harness.
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 44 catalogued |
+| **Feature count** | 45 catalogued |
 
 ## How to read this registry
 
@@ -23,13 +23,13 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 43 | 100% |
+| ✅ Shipped | 45 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 2 | 5% |
-| 🔵 Built, not enabled | 39 | 93% |
-| ⚫ No runtime path | 2 | 5% |
+| 🟢 Live | 1 | 2% |
+| 🔵 Built, not enabled | 43 | 96% |
+| ⚫ No runtime path | 1 | 2% |
 
 ## 1 · Install
 
@@ -289,7 +289,7 @@ Since 0.15.0 every note, tip, attempt, receipt and qualification is first an rco
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
-### 2.26 · Enrollment v2 and lockdown
+### 2.27 · Enrollment v2 and lockdown
 
 Since 0.16.0 rEach does nothing until it is enrolled. A plugin-level prompt hook blocks every prompt in every
 harness session and asks, one at a time, for the class-wide course code (`MGMT327-K7QX-94TD`, typed any way:
@@ -310,9 +310,17 @@ Verified 2026-10-01 against `tools/fake_teach`, the stand-in for Teach's half:
 - a real Claude Code 2.1.286 session: every enrollment prompt was blocked, the agent saw none of them, and it got
   the unlock notice afterwards.
 
+Since 2026-10-01c a second computer waits for the instructor's approval and an expired handout code says so.
+
+Re-verified 2026-10-01 against the real Teach 0.16.0 on a scratch database:
+- chat and CLI enrollment;
+- a device move held, approved and synced, with the old computer then reporting itself switched off;
+- an expired handout code;
+- a sandboxed Claude Code session enrolling through the hook.
+
 Not verified: Codex, Hermes and Antigravity sessions, and macOS and Windows machine ids.
 
-Build ✅ · Deploy ⚫ · Blocker: Engineering (Teach's half: roster, course codes, routes, stamp; Teach TODO.md).
+Build ✅ · Deploy 🔵 · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
 
 ## 3 · Course reference
 

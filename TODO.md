@@ -2,10 +2,11 @@
 
 ## Enrollment v2 (0.16.0, branch `enrollment-v2`)
 
-- [ ] Teach's half (roster, course codes, preview and shape v2 routes, stamp signing, fingerprint check,
-      `minimum_reach_version` 0.15.0, byte-identical wire): tracked in Teach's TODO.md. Until then this Reach cannot
-      enroll against a real Teach, so 0.15.0 stays on the branch, unmerged and untagged; auto-update offers only tags.
-- [ ] Merge `enrollment-v2` into main after the peer's 0.14.6 lands, then tag v0.15.0 once Teach is live with v2.
+- [x] Teach's half (roster, course codes, preview and shape v2 routes, stamp signing, fingerprint check,
+      `minimum_reach_version`, byte-identical wire). Done in Teach 0.16.0 (wire 2026-10-01c), with device moves and
+      handout expiry.
+- [x] Merge `enrollment-v2` into main and tag. Shipped as 0.16.0 on top of the peer's 0.15.0.
+- [ ] A student can enroll with a course code only once the live Teach runs 0.16.0 with a roster and a minted code.
 - [ ] Verify a real Codex session: the shared `hooks/hooks.json` passes `--harness claude-code` and
       `${CLAUDE_PLUGIN_ROOT}`; whether Codex's plugin hooks honor that and block a prompt is unproven.
 - [ ] Verify a real Hermes session (enroll hook as context) and Antigravity (CLI only).
