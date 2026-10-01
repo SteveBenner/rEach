@@ -151,3 +151,22 @@ and `summary.md` under `~/.cache/reach-smoke/a1/<timestamp>/`. Its reference ste
 `reference-tamper-refused`; the smoke packs the reference blob before releasing, so the key
 exists when Teach builds the guardrails package. The manual Codex
 dialogue and the same-WiFi test are in `docs/smoke-assignment-1.md`.
+
+## Slice-build smoke
+
+`ruby tools/smoke/slice_build.rb` runs the course path once per Grokit module with real models: a model-played student and a real Claude agent with rEach loaded build that module's panel cutout on Dovetail from a clean cafe workspace, inside the same Docker sandbox, against a scratch Teach. Each run is graded by Teach's grade, the Dovetail strict shape findings, the qualification attempts, wall time and cost. The harness never calls `reach part record` or `reach submit`; everything goes through the plugin, so a stall is a finding.
+
+Teach serves only its current assignment, so a run has one phase per assignment (A3, then A4). Each phase gets its own throwaway clone of Teach at the `origin/main` sha, its own PostgreSQL database (`reach_smoke_<run id>_<assignment>`, created with `createdb` and never dropped), its own `TEACH_HOME`, a Teach grader, and a `teach.spec.yml` whose due dates are shifted in the clone only so that the phase's assignment is current. Grokit is cloned at `v0.8.0`.
+
+Prerequisites: everything the Reach smoke needs (Docker, the token file, the `reach-smoke:ruby2.6` image), plus Ruby 4.0.6 at `~/.rubies/ruby-4.0.6/bin`, a Teach checkout at `~/bitbucket/paterasai/teach` whose `vendor/bundle` holds the `pg` gem, a Grokit checkout at `~/bitbucket/paterasai/grokit`, Dovetail built at `~/github/foss/dovetail`, PostgreSQL reachable with `createdb` and `psql` as your user, and the Docker images `teach-grader:ruby-4.0` and `teach-grader:ruby-2.6.10`. It never touches the live Teach.
+
+```
+ruby tools/smoke/slice_build.rb --list              # the ten targets
+ruby tools/smoke/slice_build.rb --dry-run           # provision, enroll, sync, check workspaces; no model calls
+ruby tools/smoke/slice_build.rb assurance           # one module
+ruby tools/smoke/slice_build.rb                     # all ten, A3 then A4
+```
+
+Limits, all overridable: `SMOKE_SLICE_MODEL` (sonnet), `SMOKE_STUDENT_MODEL` (haiku), `SMOKE_SLICE_SESSION_BUDGET_USD` (4), `SMOKE_SLICE_BUDGET_USD` (30, whole run), `SMOKE_SLICE_TURN_TIMEOUT_S` (900), `SMOKE_SLICE_MAX_TURNS` (40), `SMOKE_SLICE_MODULE_TIMEOUT_S` (2700), `GRADER_TIMEOUT_S` (900), `SMOKE_SLICE_TEACH_BUNDLE`, `SMOKE_SLICE_RUNS_DIR`. A run stops cleanly on the spend ceiling, on SIGINT and when `<run dir>/STOP` exists; Teach and the grader are stopped on every exit. A failed turn is not retried. Cost is about one to two dollars per module; the whole run is budgeted at 30 dollars.
+
+Reports land in `~/.cache/reach-smoke/slice-build/<run id>/`: `report.md` (a verdict table, the run total, then per module the failing scenarios, shape findings and the last three agent replies), `report.json`, and per module the session JSONL, transcript and shape-check files.
