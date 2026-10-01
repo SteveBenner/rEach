@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.5
+version: 0.16.6
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -48,7 +48,7 @@ standards:
   - id: STD-VAULT-PRIVATE
     text: "Decrypted guardrails, the suite and the reference build live only under ~/.reach/vault (0700) and are never read by generic file-listing code paths outside Reach::Guardrails, Reach::Directives, Reach::Seal and Reach::Suite."
   - id: STD-DIRECTIVE-TABLE
-    text: "Every course workspace's AGENTS.md ends with a directive table in the fleet's opcode form (alias, opcode, rule of at most 88 characters, reach directive <OPCODE>, enforcement, condition). Public engineering rows come from directives/ in this repo; course rows come only from the guardrails package, and a course row's body is served by Teach for one signed reach directive request (W-API-DIRECTIVE), never stored on the install; offline, the agent has the one-line rule. reach doctor reports R-DOC-DIRECTIVES when a public row does not parse or fit."
+    text: "Every course workspace's AGENTS.md ends with a directive table in the fleet's opcode form (alias, opcode, rule of at most 88 characters, reach directive <OPCODE>, enforcement, condition). Public engineering rows come from directives/ in this repo; course rows come only from the guardrails package, and a course row's body is served by Teach for one signed reach directive request (W-API-DIRECTIVE), never stored on the install; offline, the agent has the one-line rule. reach doctor reports R-DOC-DIRECTIVES when a public row does not parse or fit. Frontmatter reads the same under libyaml 0.1.x (macOS system Ruby 2.6.10) as under 0.2.x: when the old parser rejects an unquoted colon inside a flow list, the list items are quoted and the block is read again."
   - id: STD-DIRECTIVES-CARRY-NO-SECRETS
     text: "A directive body, public or private, says what the agent does and never why or how it is enforced. Grading, weights, rubrics, thresholds, keys and the seal live in Teach and never enter a body, so any body could be disclosed without harm; keeping it private is a behaviour the OPAQUE directive asks of the agent, not a security boundary Reach claims."
   - id: STD-SEAL-INVISIBLE

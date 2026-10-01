@@ -193,8 +193,22 @@ module Reach
       closing = text.index("\n---\n", 4)
       return [nil, text] unless closing
 
-      front = YAML.safe_load(text[4...closing])
+      block = text[4...closing]
+      front = begin
+        YAML.safe_load(block)
+      rescue Psych::SyntaxError
+        YAML.safe_load(quote_flow_items(block))
+      end
       [front, text[(closing + 5)..-1].to_s]
+    end
+
+    def quote_flow_items(block)
+      block.gsub(/^(\s*[A-Za-z_][\w-]*:\s*)\[([^\]\n]*)\]\s*$/) do
+        head = Regexp.last_match(1)
+        items = Regexp.last_match(2).split(",").map(&:strip).reject(&:empty?)
+        quoted = items.map { |item| item.start_with?("\"", "'") ? item : item.inspect }
+        "#{head}[#{quoted.join(", ")}]"
+      end
     end
   end
 end
