@@ -6,6 +6,14 @@ course:
   timezone: America/Los_Angeles
 teach:
   url:
+enrollment:
+  institution_name: La Sierra
+  username_domain: lasierra.edu
+  username_pattern: "^[a-z]{4}[0-9]{3}$"
+  student_id_pattern: "^[0-9]{7}$"
+  lockout_refusals: 5
+  lockout_minutes: 15
+  fingerprint_match: binding
 updates:
   repository: https://github.com/SteveBenner/rEach
   interval_s: 3600

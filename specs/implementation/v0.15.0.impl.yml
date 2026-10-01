@@ -1,0 +1,241 @@
+schema: impl-blueprint/v1
+name: enrollment v2 - class-wide course code, institutional identity, fingerprint, signed stamp and lockdown
+versions:
+  reach: 0.15.0
+  teach: "unchanged; the Teach half is stubbed by tools/fake_teach and owed (TODO.md, Teach follow-ups)"
+recorded: '2026-10-01'
+author: primary (Opus), for two Sonnet coding-workers running in parallel
+repos:
+  reach_worktree: /home/sven/github/foss/.rEach-wt/enrollment-v2
+  branch: enrollment-v2
+  never_touch: /home/sven/github/foss/rEach (the main checkout; a peer holds its locks for 0.14.6)
+wire:
+  file: specs/wire.yml, protocol 1 revision 2026-10-01b, ALREADY WRITTEN by the primary
+  read_first:
+    - "enrollment: (W-ENR-1 .. W-ENR-7, the end of the file)"
+    - W-API-ENROLL (shape v2 request, response, errors) and W-API-ENROLL-PREVIEW
+    - W-ERR-2 codes course_code_unknown, course_code_expired, enrollment_refused, fingerprint_mismatch
+    - W-COMPAT-5, W-SAFE-13, W-POL-1 key enrollment, W-API-INTEGRITY kind fingerprint_mismatch
+    - W-SUP-3 (crisis phrases), W-ID-4 (yes and no words), W-ID-1 (the login state machine this flow mirrors)
+  rule: No worker edits specs/wire.yml. If the wire is wrong or silent on something you need, implement the most literal reading and list the gap in your report.
+
+already_written_by_primary:
+  - path: specs/wire.yml
+    what: revision 2026-10-01b
+  - path: locales/en-US.yml
+    what: every M-ENR-* message, M-FINGERPRINT-NOTICE and the new M-GATE-NOENROLL text. Workers only read it; a needed message that is missing is a gap to report, not a text to invent.
+  - path: config.yml
+    what: the enrollment block (institution_name, username_domain, username_pattern, student_id_pattern, lockout_refusals, lockout_minutes, fingerprint_match)
+  - path: specs/implementation/v0.15.0.impl.yml
+    what: this file
+
+decisions:
+  D1: The course code is <COURSE ID>-<8 Crockford base32>; Reach normalizes per W-ENR-1 before sending. Teach is authoritative; Reach's normalizer only decides whether a prompt is a code, a bare course id, or neither.
+  D2: Username and student id rules come from W-API-ENROLL-PREVIEW's identity block, falling back to config.yml enrollment. Nothing in lib/ hard-codes lasierra.edu or the patterns.
+  D3: The enrollment flow is a plugin-level UserPromptSubmit hook (hooks/hooks.json) running `reach gate enroll --harness <h>`. It is distinct from the workspace hook `reach gate prompt`, does nothing at all when Reach is not locked, and never captures a transcript entry (there is no student to attribute it to).
+  D4: The flow state is machine-wide (~/.reach/state/enroll/flow.json), not per harness session, so a student who closes the chat mid-flow resumes where they were.
+  D5: The flow is the only network caller in a prompt hook: normal-mode client with connect 5 s, read 10 s, no retries (W-SAFE-13). The hook timeout in hooks/hooks.json is 60 s so RSA-4096 key generation plus one POST fit.
+  D6: Fingerprint binding components are hashed with a per-enrollment salt (W-ENR-4). Default match mode binding; strict adds hostname. Mode comes from the guardrails policy enrollment.fingerprint_match, else config.yml.
+  D7: Live fingerprint is cached in ~/.reach/state/enroll/fingerprint_cache.json for 600 s keyed by salt, so a prompt hook does not shell out to ioreg or reg query on every prompt.
+  D8: A shape v1 install (no stamp) stays usable unless policy enrollment.require_stamp is true (W-COMPAT-5). reach enroll <code> still sends shape v1.
+  D9: The MCP tool reach_enroll no longer takes a code from the agent while locked: it returns M-GATE-NOENROLL, because the student's identity must never pass through the agent. Every other MCP tool refuses with the lock's message while locked.
+  D10: After enrollment the course ends at the stamp's expires_at; Reach then locks with M-ENR-COURSE-ENDED and the flow does not start (an ended course has no live code to enroll with).
+  D11: No tests are written (AGENTS.md Part S). tools/fake_teach is a development fixture the user asked for, not a test suite, and carries no assertions.
+
+shared_contracts:
+  module_Reach_Identity:
+    file: lib/reach/identity.rb
+    owner: W1
+    api:
+      - "Reach::Identity.rules(preview_identity = nil) -> {'institution_name','username_domain','username_pattern','student_id_pattern'}: preview values win over config.yml enrollment values"
+      - "Reach::Identity.normalize_course_id(text) -> String or nil (W-ENR-2: uppercase, drop non A-Z0-9, 1..16 chars)"
+      - "Reach::Identity.parse_course_code(text) -> {'course_id','secret','code'} or nil (W-ENR-1; code is '<course id>-<secret>')"
+      - "Reach::Identity.normalize_username(text, rules) -> String or nil (W-ENR-3)"
+      - "Reach::Identity.normalize_student_id(text, rules) -> String or nil (W-ENR-3)"
+      - "Reach::Identity.display_code(code) -> '<course id>-XXXX-XXXX'"
+  module_Reach_Fingerprint:
+    file: lib/reach/fingerprint.rb
+    owner: W1
+    api:
+      - "Reach::Fingerprint.build(install_public_key:, harness:, enrolled_via:, salt: nil) -> the W-ENR-4 document"
+      - "Reach::Fingerprint.live(salt:) -> {'digest','strict_digest','binding','hostname'} computed now (cached per D7); install_key from Reach::Paths.install_key_file"
+      - "Reach::Fingerprint.stored -> the document at ~/.reach/fingerprint.json or nil"
+      - "Reach::Fingerprint.changed_components(stored, live) -> [names]"
+  module_Reach_Stamp:
+    file: lib/reach/stamp.rb
+    owner: W1
+    api:
+      - "Reach::Stamp.verify!(stamp, signing_public_keys:, expect: {install_id, student_id, username, course_id, fingerprint_digest, fingerprint_strict_digest}) raises Reach::VerificationFailed"
+      - "Reach::Stamp.store!(stamp) writes ~/.reach/stamp.json 0600; Reach::Stamp.current -> Hash or nil; Reach::Stamp.drop! renames it to stamp.json.dropped-<UTC stamp> (never deletes)"
+  module_Reach_Lock:
+    file: lib/reach/lock.rb
+    owner: W1
+    note: "lib/reach/lock.rb may already exist for `reach lock`; if so name the module Reach::EnrollmentLock in lib/reach/enrollment_lock.rb and use that name everywhere below"
+    api:
+      - "Reach::EnrollmentLock.state -> {'locked' => bool, 'reason' => one of nil|not_enrolled|revoked|stamp_invalid|moved|restamp|course_ended, 'message_id' => locale id}"
+      - "reason -> message_id: not_enrolled M-GATE-NOENROLL, revoked M-GATE-REVOKED, stamp_invalid M-ENR-STAMP-INVALID, moved M-ENR-MOVED, restamp M-ENR-RESTAMP, course_ended M-ENR-COURSE-ENDED"
+      - "Reach::EnrollmentLock.check! raises Reach::GateBlocked(message_id, text) when locked"
+      - "Reach::EnrollmentLock.mark_moved!(changed) records a Teach fingerprint_mismatch or a local mismatch: drops the stamp, writes ~/.reach/state/enroll/moved.json, queues integrity fingerprint_mismatch once per stamp_id (Reach::Integrity.queue)"
+  module_Reach_EnrollFlow:
+    file: lib/reach/enroll_flow.rb
+    owner: W1
+    api:
+      - "Reach::EnrollFlow.evaluate(event:, harness:) -> nil when not locked (pass), else {'action' => 'block', 'message' => text}"
+  enroll_v2:
+    file: lib/reach/enroll.rb
+    owner: W1
+    api:
+      - "Reach::Enroll.preview(course_code, teach_url) -> W-API-ENROLL-PREVIEW body; raises Reach::RemoteRefused with code course_code_unknown|course_code_expired (details kept on the error)"
+      - "Reach::Enroll.register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:) -> install Hash; writes install.yml with shape v2, username and display_name, ~/.reach/fingerprint.json and ~/.reach/stamp.json"
+      - "Reach::Enroll.generate_and_register(code, teach_url) unchanged (shape v1)"
+
+slices:
+  W1_reach_enrollment:
+    worker: coding-worker
+    owns_paths:
+      - lib/reach/identity.rb
+      - lib/reach/fingerprint.rb
+      - lib/reach/stamp.rb
+      - lib/reach/enrollment_lock.rb
+      - lib/reach/enroll_flow.rb
+      - lib/reach/enroll.rb
+      - lib/reach/gate.rb
+      - lib/reach/cli.rb
+      - lib/reach/mcp_bridge.rb
+      - lib/reach/hello.rb
+      - lib/reach/harness.rb
+      - lib/reach/client.rb
+      - lib/reach/sync.rb
+      - lib/reach/policy.rb
+      - lib/reach/paths.rb
+      - lib/reach.rb
+      - hooks/hooks.json
+    tasks:
+      - id: T1
+        what: Reach::Identity per shared_contracts. Crockford mapping applies to the secret only. A value whose normalized course-id part is longer than 16 or whose total is under 9 characters is not a code. parse_course_code must not treat a bare course id (for example MGMT327, 7 characters) as a code.
+      - id: T2
+        what: >-
+          Reach::Fingerprint per W-ENR-4. machine_id readers per platform with Open3 and a 3 s timeout each, "unknown" on
+          any failure. os_user: Etc.getlogin || ENV USER || ENV USERNAME, plus ":" + Process.uid on POSIX. hostname:
+          Socket.gethostname. os_version: "#{platform} #{uname -r or ver output, best effort}". digest and
+          strict_digest per W-ENR-4 using Reach::Crypto.canonical_json and digest_hex. Write ~/.reach/fingerprint.json
+          0600. Cache per D7. Ruby 2.6 compatible (no endless methods, no pattern matching, no Hash#except).
+      - id: T3
+        what: Reach::Stamp per W-ENR-5, verifying exactly like Reach::Modules.verify! verifies a module record (find the key by signing_key_id among the enrollment response's signing_public_keys).
+      - id: T4
+        what: >-
+          Enroll shape v2: Reach::Enroll.preview and register_v2 per shared_contracts and W-API-ENROLL. The client for
+          both is Reach::Client.anonymous with timeouts connect 5 s and read 10 s and no retries (add a constructor
+          option to Reach::Client if it has none; keep every existing caller's behavior). Reach::RemoteRefused must
+          expose error.details when Teach sends them (needed for did_you_mean). register_v2 order: generate key;
+          build fingerprint (salt fresh); POST; verify_response! (existing) plus student_id equality; verify stamp;
+          only then write the key, install.yml (adds shape: v2, username, display_name), fingerprint.json and
+          stamp.json; announce_sidecar as today; clear ~/.reach/state/enroll/moved.json. Nothing is written when any
+          check fails.
+      - id: T5
+        what: >-
+          Reach::EnrollmentLock per W-ENR-6 and shared_contracts. Order of checks: no install -> not_enrolled; revoked
+          -> revoked; moved.json present -> moved; install shape v2 or a stamp present: stamp missing or failing
+          Reach::Stamp verification against install.yml's signing_public_keys -> stamp_invalid, expires_at past ->
+          course_ended, live digest (strict_digest when policy fingerprint_match is strict) differs from the stamp's ->
+          mark_moved!(changed) then moved; shape v1 with no stamp -> restamp only when policy enrollment.require_stamp
+          is true. Add Reach::Policy.enrollment returning {'require_stamp' => false, 'fingerprint_match' => config value}
+          merged with the guardrails course.yml enrollment key when the package is present.
+      - id: T6
+        what: >-
+          Reach::EnrollFlow per W-ENR-7, modelled on Reach::Login (decision hashes, read/write JSON, normalize, yes?/no?,
+          crisis_match? reused from Reach::Login, not copied). States and messages: first prompt ever (no flow.json)
+          -> awaiting_code with M-ENR-WELCOME, or M-ENR-MOVED / M-ENR-STAMP-INVALID / M-ENR-RESTAMP as the lock
+          reason says; awaiting_code: code -> preview -> awaiting_username with M-ENR-ASK-USERNAME (store course,
+          identity rules, code), bare course id -> M-ENR-CODE-COURSE-ONLY, otherwise M-ENR-CODE-FORMAT; preview
+          errors -> M-ENR-CODE-UNKNOWN / M-ENR-CODE-SUGGEST (details.did_you_mean) / M-ENR-CODE-EXPIRED, offline ->
+          M-ENR-OFFLINE and stay; awaiting_username: valid -> awaiting_student_id with M-ENR-ASK-ID, else
+          M-ENR-USERNAME-FORMAT; awaiting_student_id: valid -> awaiting_confirm with M-ENR-CONFIRM, else
+          M-ENR-ID-FORMAT; awaiting_confirm: yes -> register_v2 (enrolled_via chat), success -> state enrolled, spawn a
+          detached `reach sync` (Process.spawn with all three std streams to File::NULL, Process.detach), M-ENR-DONE
+          with first_name from display_name and launch = the command Reach::Setup tells students to run; no ->
+          M-ENR-RESTART; anything else -> M-ENR-CONFIRM again; enrollment_refused -> awaiting_username with
+          M-ENR-REFUSED and a refusal timestamp; lockout per config (M-ENR-LOCKED, no network while locked); offline
+          or 5xx -> stay in awaiting_confirm with M-ENR-OFFLINE; any other Reach::Error -> M-ENR-FAILED with its
+          message. start over / restart / cancel -> M-ENR-RESTART from any state. Crisis first: block with
+          Reach::Support's M-SUPPORT text, change nothing, queue nothing (there is no install to raise a hand from).
+          Never write the username or student id anywhere but flow.json (0600), which is removed after enrollment
+          succeeds. Every unexpected exception blocks with the current state's ask message, never passes.
+      - id: T7
+        what: >-
+          Hook wiring. hooks/hooks.json gains UserPromptSubmit running ruby "${CLAUDE_PLUGIN_ROOT}/exe/reach" gate
+          enroll --harness claude-code, timeout 60. `reach gate enroll --harness <h>` in cli.rb reads the event from
+          stdin like `gate prompt`, calls Reach::EnrollFlow.evaluate and on a block emits exactly what `gate prompt`
+          emits on a block for that harness (Claude Code and Codex block; Hermes gets M-ENR-HERMES context); when
+          not locked it prints nothing and exits 0. Reach::Harness hermes_hooks_content gains the enroll hook on the
+          same event the Hermes prompt hook uses. The workspace hook `reach gate prompt` and Reach::Gate.session call
+          Reach::EnrollmentLock.check! in place of check_enrolled!, so a moved or unstamped install is refused there
+          too. GET /api/v1/status requests (find them in sync.rb and wherever status is fetched) send
+          X-Reach-Fingerprint with the live digest when a stamp exists; a 403 fingerprint_mismatch calls
+          EnrollmentLock.mark_moved! with changed [] and surfaces M-ENR-MOVED.
+      - id: T8
+        what: >-
+          CLI and MCP lockdown per W-ENR-6. In Reach::CLI.run, before dispatch, every command except help, --help,
+          -h, nil, version, enroll, enrol, setup, doctor, support, update, runtime, hello, gate and mcp calls
+          Reach::EnrollmentLock.state and, when locked, prints its message to stderr and returns 2. reach enroll gains
+          --course-code C --username U --student-id I [--teach-url URL]; with --course-code it calls preview then
+          register_v2 (enrolled_via cli, harness "cli") and prints M-ENROLL-DONE, M-TRANSCRIPT-NOTICE,
+          M-FINGERPRINT-NOTICE, then syncs as today; with no arguments and a TTY on stdin it asks for the three values
+          one per line using the M-ENR-ASK-CODE / M-ENR-ASK-USERNAME / M-ENR-ASK-ID texts; reach enroll <code> keeps
+          shape v1. Update the usage text. Reach::MCPBridge: every tool call checks the lock first and returns the
+          lock's message as a tool error; reach_enroll returns M-GATE-NOENROLL's text and never enrolls (D9).
+          Reach::Hello: while locked the context is M-ENR-AGENT-CONTEXT and the banner/greeting is the flow's next
+          message (M-ENR-WELCOME when no flow.json); it must not call Teach. reach doctor reports R-DOC-ENROLL with
+          the lock reason.
+    acceptance:
+      - ruby -c on every changed file passes under the system Ruby, and nothing uses syntax newer than Ruby 2.6.
+      - "With REACH_HOME pointing at an empty scratch dir: `ruby exe/reach status` exits 2 and prints M-GATE-NOENROLL; `ruby exe/reach help` exits 0."
+      - "With REACH_HOME empty, piping {\"session_id\":\"s1\",\"prompt\":\"hello\"} into `ruby exe/reach gate enroll --harness claude-code` emits a block carrying M-ENR-WELCOME; then \"mgmt 327\" gives M-ENR-CODE-COURSE-ONLY; then \"I want to die\" gives the M-SUPPORT text and leaves the state awaiting_code."
+      - Reach::Identity.parse_course_code on "mgmt-327 k7qx 94td", "MGMT327K7QX94TD" and "Mgmt327-K7QX-94TO" returns code MGMT327-K7QX94TD, MGMT327-K7QX94TD and MGMT327-K7QX9410 respectively (only the secret gets the O->0, I/L->1 mapping); on "MGMT327" it returns nil.
+      - normalize_username("JSMI123", rules) is "jsmi123@lasierra.edu"; "jsmi123@gmail.com" is nil; normalize_student_id("123 4567", rules) is "1234567"; "123456" is nil.
+      - The full enroll against tools/fake_teach is driven by the primary after both slices land; W1 need not run it.
+    report: list every file changed, every acceptance item with what you ran and saw, and every wire gap.
+
+  W2_fake_teach:
+    worker: coding-worker
+    owns_paths:
+      - tools/fake_teach/**
+    tasks:
+      - id: F1
+        what: >-
+          tools/fake_teach/server.rb, a WEBrick server (Ruby 2.6 stdlib compatible) that binds 127.0.0.1 ONLY (pass
+          BindAddress explicitly; WEBrick's nil default binds every interface), port from --port (default 9480), state
+          in --home (default a fresh Dir.mktmpdir). It implements, byte-faithful to specs/wire.yml revision 2026-10-01b
+          and W-ERR-1 error shape: GET /api/v1/health; GET /api/v1/enrollment/preview; POST /api/v1/enroll shape v2
+          (and answers shape v1 with 400 invalid_request "shape v1 is not served by the fake"); GET /api/v1/status
+          for an install-signed request (verify the W-AUTH request signature exactly as specs/wire.yml
+          request_authentication says, with the install public key stored at enroll) returning a minimal valid
+          W-API-STATUS body with no slices and no packages, and comparing X-Reach-Fingerprint with the stored digest
+          (403 fingerprint_mismatch). Every other /api/v1 route answers 404 not_found in the W-ERR-1 shape.
+          wire_contract_sha256 is the SHA-256 of the specs/wire.yml in the same checkout. It generates an RSA signing
+          key and an RSA encryption key at start (key ids "fake-sign-1", "fake-enc-1"), signs the W-ENR-5 stamp with
+          RSA-PSS SHA-256 over canonical JSON exactly as lib/reach/crypto.rb canonical_json and sign_pss do (require
+          lib/reach/crypto.rb from the checkout rather than re-implementing canonical JSON - the fake is a fixture of
+          this repo).
+      - id: F2
+        what: >-
+          tools/fake_teach/fixtures/courses.yml with course MGMT327 (title "Management 327: AI-Assisted Business
+          Systems", term "Fall 2026", timezone America/Los_Angeles, ends_on 2026-12-18, course code
+          MGMT327-K7QX-94TD) and course ACCT201 (ends_on 2026-06-01, already ended, code ACCT201-2M8R-QW3Z), and
+          tools/fake_teach/fixtures/roster.yml with five MGMT327 students (username, student_id 7 digits,
+          display_name), all fictional, one with a two-letter last name padded the way the user's format implies is
+          NOT assumed: use only names with three or more letters. Course code matching and did_you_mean follow W-ENR-1
+          (Damerau-Levenshtein distance 2) exactly. Rate limit enroll and preview at 30 per minute per IP (429 with
+          Retry-After).
+      - id: F3
+        what: tools/fake_teach/README.md stating what it is (a local fixture of the Teach half of enrollment v2, not Teach), how to start it, the fixture identities, and how to point Reach at it (REACH_TEACH_URL, REACH_HOME scratch dir).
+    acceptance:
+      - ruby -c passes on every file; the server starts and `curl -s 127.0.0.1:9480/api/v1/health` answers.
+      - "`ss -ltn` shows the port bound on 127.0.0.1 only."
+      - preview with "MGMT327-K7QX94TD" answers 200; with "MGMT372-K7QX94TD" answers 200 (distance 1 prefix); with "ACCT201-2M8RQW3Z" answers 400 course_code_expired; with "MGMT327-AAAAAAAA" answers 400 course_code_unknown with details.did_you_mean MGMT327.
+      - The fake never writes outside --home.
+    report: list every file, every acceptance item with what you ran and saw, and every wire gap.
+
+after_slices_primary:
+  - drive the full chat flow and the CLI flow against tools/fake_teach from scratch REACH_HOME dirs, including refused, lockout, crisis, start over, moved (edit fingerprint cache salt or copy REACH_HOME), course ended, Teach-side fingerprint_mismatch
+  - version 0.15.0 everywhere, CHANGELOG, FEATURES.md, TODO.md (Teach follow-ups), README, specs/app.yml, reach.spec.yml
