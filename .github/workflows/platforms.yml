@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - platform-smoke
   workflow_dispatch:
     inputs:
       vms:
