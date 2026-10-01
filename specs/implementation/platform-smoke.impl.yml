@@ -1,0 +1,95 @@
+schema: impl-blueprint/v1
+name: platform smoke - Reach on Windows 10, Windows 11, macOS and Linux in CI
+versions:
+  reach: next patch after 0.16.4 (claimed at commit time)
+decisions:
+  - The smoke runs Reach's own commands and its harness hook command lines; it starts no agent session and needs no secret.
+  - It runs on push to main and on workflow_dispatch only. There is no pull_request trigger, because self-hosted runners serve a public repository.
+  - GitHub-hosted legs - ubuntu-24.04 (Ruby 2.6.10, the floor), macos-15 arm64 and macos-15-intel (the system /usr/bin/ruby, what INSTALL.md tells macOS students to use), windows-2025 and windows-11-arm (Ruby 4.0 through ruby/setup-ruby, what INSTALL.md tells Windows students to install).
+  - Self-hosted legs - two Windows VMs labelled win10 and win11, using the Ruby installed in the VM. They run only when the repository variable REACH_VM_RUNNERS is on, or when a workflow_dispatch sets the vms input.
+  - The VMs are prepared by tools/platform_smoke/windows-runner/bootstrap.ps1 and registered by register.ps1; the registration token is passed at run time and never stored in the repository.
+slices:
+  S1_smoke_script:
+    owns:
+      - tools/platform_smoke/run.rb
+      - tools/platform_smoke/README.md
+    contract:
+      invocation: "ruby tools/platform_smoke/run.rb [--skip-runtime] [--report PATH] [--keep]"
+      ruby: Parses and runs on Ruby 2.6.10 through 4.0.x with the standard library only (STD-RUBY-FLOOR applies to this script because macOS legs run it under the system Ruby 2.6.10).
+      platforms: Linux, macOS, Windows (x64 and arm64). No shell-specific syntax; every child process is spawned with an argv array except the hook steps, which deliberately go through a shell.
+      output: One line per step, "PASS <step> <detail>" or "FAIL <step> <detail>" or "SKIP <step> <reason>", then "platform smoke: N passed, M failed, K skipped". Exit 0 only when no step failed. With --report, also write a JSON report (schema reach.platform-smoke/v1) with platform, ruby version, os version and each step's name, result, detail and duration.
+      environment: Start from a copy of ENV with every TEACH_* and REACH_* variable removed, then set REACH_HOME to the scratch home and REACH_UPDATE_DISABLE=1 (STD-AUTO-UPDATE must not swap the install mid-run). Never read or write the real ~/.reach.
+      scratch: One scratch root under Dir.tmpdir with a short name, containing a directory whose name has a space ("reach smoke"), so install paths with spaces are exercised. Chrome's socket path limit means the root itself must stay short. Removed at the end unless --keep, retrying a locked tree on Windows for up to 60 s and then warning, never failing a run that passed.
+    steps:
+      - id: install
+        does: Build a zip of the checkout's HEAD with git archive (the checkout is the repository root, found from the script's own path), then run bin/reach-install from the checkout with --archive <zip> --destination "<scratch>/reach smoke/plugin" and any further option the installer needs to take Dovetail from the pinned revision. Use the installer the way INSTALL.md does.
+        pass: Installer exits 0; <destination>/VERSION equals the checkout's VERSION; <destination>/exe/reach exists.
+      - id: fake_teach
+        does: Start ruby tools/fake_teach/server.rb --port <free port> --home <scratch>/teach from the checkout as a child process; poll GET /api/v1/health with a 2 s timeout per request, up to 30 attempts with 1 s between.
+        pass: health answers 200 within the attempts. The server is stopped in an ensure block on every exit path (Process.kill, then wait with a timeout).
+      - id: hook_session_start
+        does: Read hooks/hooks.json from the INSTALLED copy, take the SessionStart command, substitute ${CLAUDE_PLUGIN_ROOT} with the install path the way the harness does, and run it through the harness's shell with an empty JSON object on stdin.
+        pass: exit 0.
+      - id: hook_prompt_locked
+        does: Same for the UserPromptSubmit command, with a Claude Code UserPromptSubmit payload on stdin (session_id, hook_event_name, prompt "hello", cwd = scratch root).
+        pass: The gate blocks, because Reach is not enrolled yet (STD-ENROLL-LOCKDOWN). Determine the block signal from lib/reach/cli.rb gate_enroll and Reach::GateBlocked and assert exactly that signal.
+      - id: hook_codex
+        does: Read hooks/codex.json from the installed copy, substitute ${PLUGIN_ROOT}, and run its UserPromptSubmit command the same way.
+        pass: Same block signal as hook_prompt_locked.
+      - id: enroll
+        does: ruby <install>/exe/reach enroll --course-code MGMT327-K7QX-94TD --username mdel101 --student-id 1040217 --teach-url <fake teach url>, stdin closed.
+        pass: exit 0 and the output says the student is connected to the course.
+      - id: machine_id
+        does: In a child Ruby with -I <install>/lib, require Reach and print Reach::Fingerprint.machine_id.
+        pass: Not "unknown". On Windows it matches the MachineGuid form (8-4-4-4-12 hex), on macOS the IOPlatformUUID form, on Linux 32 hex characters. The detail line shows only the first 8 characters.
+      - id: hook_prompt_open
+        does: Rerun the UserPromptSubmit command from hook_prompt_locked.
+        pass: exit 0 and no block (the gate opens once enrolled).
+      - id: status
+        does: ruby <install>/exe/reach status, stdin closed.
+        pass: exit 0; the output names the enrolled student; it does not mention fingerprint_mismatch (fake_teach compares X-Reach-Fingerprint, so this proves the live fingerprint matches the stored one on this OS).
+      - id: doctor
+        does: ruby <install>/exe/reach doctor.
+        pass: Every finding code it prints is in an EXPECTED_DOCTOR_FINDINGS list kept in run.rb, which holds only findings caused by fake_teach being a fixture (for example a wire contract digest it does not advertise, or no packages released). Establish that list by running the script on Linux against this checkout, and record each entry's reason in tools/platform_smoke/README.md. Any other finding fails the step and is printed in full.
+      - id: runtime
+        does: Unless --skip-runtime, ruby <install>/exe/reach runtime install, then reach runtime status.
+        pass: On a platform in Reach::RuntimeKit::PLATFORMS, install exits 0, status shows the pinned runtime id active, and the installed runtime's ruby prints 4.0.7. On any other platform (windows arm64), the output is RuntimeKit's unsupported message and the step passes, reporting that no kit exists for the platform.
+    hook_shells:
+      posix: sh -c "<command>"
+      windows: Claude Code on Windows runs hook commands through Git Bash, so run them through bash -c "<command>" found next to git.exe (Git for Windows' bin/bash.exe; never WSL's System32\bash.exe). If no Git Bash exists, the hook steps fail with that reason.
+    acceptance:
+      - ruby -c tools/platform_smoke/run.rb passes on this host's Ruby, and the script runs to "0 failed" on Linux against this checkout, with the runtime step.
+      - The same run in a Ruby 2.6.10 Docker container (ruby:2.6.10) with git installed reaches the end with 0 failed, using --skip-runtime.
+      - Breaking the machine id (temporarily pointing the check at a platform branch that returns nil) makes the machine_id step FAIL and the exit non-zero; the breakage is not committed.
+      - No comment lines in any file (AGENTS.md Part Q); shebang allowed.
+  S2_workflow:
+    owns:
+      - .github/workflows/platforms.yml
+    contract:
+      triggers: push to main; workflow_dispatch with a boolean input vms (default false). No pull_request or pull_request_target.
+      permissions: contents read.
+      concurrency: platforms-${{ github.ref }}, cancel-in-progress true.
+      actions: Pinned by full commit SHA like runtime.yml (actions/checkout at the same SHA runtime.yml uses; ruby/setup-ruby at the SHA of its latest release tag, resolved with gh api).
+      hosted_job: name "smoke <leg>", matrix legs linux-x64 (ubuntu-24.04, setup-ruby 2.6.10), macos-arm64 (macos-15, /usr/bin/ruby), macos-x64 (macos-15-intel, /usr/bin/ruby), windows-x64 (windows-2025, setup-ruby 4.0), windows-arm64 (windows-11-arm, setup-ruby 4.0). fail-fast false, timeout-minutes 30, each step with its own timeout-minutes. Checkout with submodules false. Print ruby -v, then run the smoke with --report, then upload the report as an artifact (retention 14 days) even on failure. On macOS legs, put /usr/bin first on PATH so the system Ruby is the one used and assert ruby -v starts with "ruby 2.6".
+      vm_job: name "smoke <label>", matrix label win10 and win11, runs-on [self-hosted, windows, <label>], if vars.REACH_VM_RUNNERS == 'on' or inputs.vms, timeout-minutes 45, same steps without setup-ruby (the VM's Ruby on PATH), shell pwsh or powershell for the Ruby call, bash available from Git for Windows.
+    acceptance:
+      - The YAML parses; actionlint, if installed, reports nothing.
+      - Pushed to main, every hosted leg runs; a leg that fails is investigated and fixed in the script or the workflow, or reported with its log if the failure is in Reach itself (then it is a Reach bug, not a smoke bug, and it is NOT papered over in EXPECTED_DOCTOR_FINDINGS).
+  S3_windows_runner_kit:
+    owns:
+      - tools/platform_smoke/windows-runner/bootstrap.ps1
+      - tools/platform_smoke/windows-runner/register.ps1
+    contract:
+      bootstrap: Windows PowerShell 5.1 compatible, run as Administrator once in a fresh Windows 10 or 11 VM. Idempotent. Installs and enables the OpenSSH Server capability with a firewall rule for port 22 and sets PowerShell as the default SSH shell; installs Git for Windows (pinned version, SHA-256 verified, silent, Git Bash included); installs RubyInstaller 4.0.7-1 x64 for all users with the bin directory on the machine PATH (pinned URL, SHA-256 verified); downloads the GitHub Actions runner for win-x64 (pinned version, SHA-256 verified) into C:\actions-runner. Each download uses curl.exe or Invoke-WebRequest with a timeout and at most 3 attempts with backoff. Prints what it did and exits non-zero on any failure.
+      register: Parameters -Url, -Token, -Label (win10|win11), -Name. Runs config.cmd --unattended --url --token --labels <Label> --name <Name> --runasservice --replace from C:\actions-runner. The token is never written to disk by the script.
+    acceptance:
+      - Both scripts parse under pwsh (pwsh -NoProfile -Command "[ScriptBlock]::Create((Get-Content -Raw <file>)) | Out-Null") if pwsh is available on this host; otherwise a careful read.
+      - Pinned hashes are the real published hashes, fetched and checked during implementation.
+shared_surfaces_resolved:
+  owned_by_primary:
+    - specs/app.yml
+    - VERSION and every version location
+    - CHANGELOG.md
+    - FEATURES.md
+    - TODO.md
+    - README.md
