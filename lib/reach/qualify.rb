@@ -193,6 +193,7 @@ module Reach
 
       def assemble_local(workspace, meta, stub:)
         run_dir = File.join(Reach::Paths.vault_dir, "runs", "#{File.basename(workspace)}-#{stub ? 'stub' : 'pass'}")
+        make_writable(run_dir)
         FileUtils.rm_rf(run_dir)
         FileUtils.mkdir_p(run_dir)
         kit = File.join(workspace, KIT_DIR)
@@ -203,6 +204,7 @@ module Reach
             FileUtils.rm_f(target)
           else
             FileUtils.mkdir_p(File.dirname(target))
+            FileUtils.rm_f(target)
             File.binwrite(target, data)
           end
         end
@@ -251,8 +253,21 @@ module Reach
             FileUtils.mkdir_p(target)
           else
             FileUtils.mkdir_p(File.dirname(target))
+            FileUtils.rm_f(target)
             FileUtils.cp(path, target)
+            File.chmod(File.executable?(path) ? 0o755 : 0o644, target)
           end
+        end
+      end
+
+      def make_writable(dir)
+        return unless File.directory?(dir)
+
+        File.chmod(0o755, dir)
+        Dir.glob(File.join(dir, "**", "*"), File::FNM_DOTMATCH).each do |path|
+          next if File.symlink?(path) || %w[. ..].include?(File.basename(path))
+
+          File.chmod(File.directory?(path) ? 0o755 : 0o644, path)
         end
       end
 

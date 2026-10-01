@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.2] - 2026-10-01
+
+### Fixed
+
+- `reach sync` removes qualify-kit files that a newer workspace package no longer ships. A stale kit file used to stay
+  in the workspace, read-only, for good.
+- A local qualification run can always clear and rebuild its run directory: a folder left read-only by an earlier
+  run is made writable before it is replaced, kit files are copied writable, and the slice's own files are written
+  over any kit copy at the same path. Before this, a kit that shipped a file at an owned path, or a run that stopped
+  half way, made every later local run fail with Permission denied.
+- Exercised with a panel slice end to end: Teach 0.14.0 packaged context.a1 panel with Grokit's practice replay, and
+  `reach qualify --local-only` under the runtime kit passed the agent's three scenarios and failed them on the
+  starting copy.
+
 ## [0.14.1] - 2026-10-01
 
 ### Fixed

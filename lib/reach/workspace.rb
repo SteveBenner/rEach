@@ -59,6 +59,7 @@ module Reach
       owned = Array(slice["owned_files"])
       target = Reach::Paths.workspace_path(course, assignment, cutout_id, slice_name)
 
+      prune_stale_kit(target, root, entries)
       kept_files = write_package_entries(target, root, entries, owned)
 
       write_marker(target, course, assignment, slice, version)
@@ -72,6 +73,19 @@ module Reach
       configure_harness(target)
 
       { "path" => target, "cutout_id" => cutout_id, "slice" => slice_name, "kept_files" => kept_files }
+    end
+
+    def prune_stale_kit(target, root, entries)
+      prefix = "#{root}/"
+      wanted = entries.keys.select { |name| name.start_with?(prefix) }.map { |name| name.sub(prefix, "") }
+      delivered = read_delivered_digests(target).fetch("readonly", {}).keys.select { |relative| relative.start_with?("qualify/kit/") }
+      (delivered - wanted).each do |relative|
+        full_path = File.join(target, relative)
+        next unless File.file?(full_path)
+
+        open_path(target, File.dirname(relative))
+        FileUtils.rm_f(full_path)
+      end
     end
 
     def write_package_entries(target, root, entries, owned)
