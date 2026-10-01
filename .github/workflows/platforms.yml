@@ -1,0 +1,129 @@
+name: platforms
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      vms:
+        description: 'Also run the self-hosted Windows 10 and Windows 11 VM legs'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platforms-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hosted:
+    name: smoke ${{ matrix.leg }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: linux-x64
+            runner: ubuntu-24.04
+            ruby: '2.6.10'
+          - leg: macos-arm64
+            runner: macos-15
+            ruby: ''
+          - leg: macos-x64
+            runner: macos-15-intel
+            ruby: ''
+          - leg: windows-x64
+            runner: windows-2025
+            ruby: '4.0'
+          - leg: windows-arm64
+            runner: windows-11-arm
+            ruby: '4.0'
+    steps:
+      - name: Check out
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Set up Ruby
+        if: matrix.ruby != ''
+        timeout-minutes: 10
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: ${{ matrix.ruby }}
+
+      - name: Use the system Ruby
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          echo "/usr/bin" >> "$GITHUB_PATH"
+
+      - name: Print Ruby
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          ruby -v
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            ruby -v | grep -q '^ruby 2\.6' || { echo "expected the system Ruby 2.6, got: $(ruby -v)"; exit 1; }
+          fi
+
+      - name: Platform smoke
+        timeout-minutes: 20
+        shell: bash
+        run: ruby tools/platform_smoke/run.rb --report "${RUNNER_TEMP}/platform-smoke-${{ matrix.leg }}.json"
+
+      - name: Upload report
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: platform-smoke-${{ matrix.leg }}
+          path: ${{ runner.temp }}/platform-smoke-${{ matrix.leg }}.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  vm:
+    name: smoke ${{ matrix.label }}
+    if: ${{ vars.REACH_VM_RUNNERS == 'on' || inputs.vms }}
+    runs-on: [self-hosted, windows, '${{ matrix.label }}']
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        label:
+          - win10
+          - win11
+    steps:
+      - name: Check out
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Print Ruby
+        timeout-minutes: 2
+        shell: powershell
+        run: ruby -v
+
+      - name: Platform smoke
+        timeout-minutes: 30
+        shell: powershell
+        run: ruby tools/platform_smoke/run.rb --report "$env:RUNNER_TEMP\platform-smoke-${{ matrix.label }}.json"
+
+      - name: Upload report
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: platform-smoke-${{ matrix.label }}
+          path: ${{ runner.temp }}\platform-smoke-${{ matrix.label }}.json
+          retention-days: 14
+          if-no-files-found: warn
