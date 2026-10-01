@@ -18,7 +18,8 @@ module Reach
     module_function
 
     def build(install_public_key:, harness:, enrolled_via:, salt: nil)
-      salt = salt.to_s.empty? ? SecureRandom.hex(16) : salt
+      salt = (stored || {})["salt"] if salt.to_s.empty?
+      salt = SecureRandom.hex(16) if salt.to_s.empty?
       binding_hashes = binding_for(salt, install_public_key)
       hostname_hash = component(salt, "hostname", hostname)
       descriptive = {

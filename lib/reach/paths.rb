@@ -145,6 +145,14 @@ module Reach
       File.join(enroll_state_dir, "moved.json")
     end
 
+    def enroll_pending_key_file
+      File.join(enroll_state_dir, "pending_key.pem")
+    end
+
+    def enroll_pending_fingerprint_file
+      File.join(enroll_state_dir, "pending_fingerprint.json")
+    end
+
     def enroll_notice_file
       File.join(enroll_state_dir, "just_enrolled.json")
     end

@@ -48,6 +48,7 @@ module Reach
       return block(Reach::Messages.text("M-ENR-LOCKED", minutes: remaining)) if remaining
 
       if RESTART_WORDS.include?(Reach::Login.normalize(text))
+        Reach::Enroll.clear_pending
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
         return block(Reach::Messages.text("M-ENR-RESTART"))
       end
@@ -56,6 +57,7 @@ module Reach
                 when "awaiting_username" then step_username(flow, text)
                 when "awaiting_student_id" then step_student_id(flow, text)
                 when "awaiting_confirm" then step_confirm(flow, text, now, harness)
+                when "awaiting_move" then step_move(flow, text, now, harness)
                 else step_code(flow, text)
                 end
       block(message)
@@ -110,7 +112,8 @@ module Reach
         suggestion = details["did_you_mean"].to_s
         suggestion.empty? ? Reach::Messages.text("M-ENR-CODE-UNKNOWN") : Reach::Messages.text("M-ENR-CODE-SUGGEST", course_id: suggestion)
       when "course_code_expired"
-        Reach::Messages.text("M-ENR-CODE-EXPIRED")
+        details = error.details.is_a?(Hash) ? error.details : {}
+        details["reason"].to_s == "code_expired" ? Reach::Messages.text("M-ENR-CODE-OLD") : Reach::Messages.text("M-ENR-CODE-EXPIRED")
       else
         Reach::Messages.text("M-ENR-FAILED", reason: error.message)
       end
@@ -149,17 +152,39 @@ module Reach
       end
     end
 
-    def register(flow, now, harness)
+    def step_move(flow, text, now, harness)
+      if Reach::Login.yes?(text)
+        register(flow, now, harness, Reach::Enroll.load_pending)
+      elsif Reach::Login.no?(text)
+        Reach::Enroll.clear_pending
+        write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
+        Reach::Messages.text("M-ENR-RESTART")
+      else
+        Reach::Messages.text("M-ENR-MOVE-PENDING")
+      end
+    end
+
+    def register(flow, now, harness, pending = nil)
       url = teach_url
       return Reach::Messages.text("M-ENR-FAILED", reason: "No course server address is configured.") unless url
 
       begin
         install = Reach::Enroll.register_v2(
           course_code: flow["code"], username: flow["username"], student_id: flow["student_id"],
-          teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat"
+          teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat",
+          key: pending && pending[:key], fingerprint: pending && pending[:fingerprint]
         )
       rescue Reach::RemoteRefused => e
         return refused(flow, now) if e.code == "enrollment_refused"
+
+        if e.code == "device_move_pending"
+          write_flow(flow.merge("state" => "awaiting_move", "updated_at" => iso(now)))
+          return Reach::Messages.text("M-ENR-MOVE-PENDING")
+        end
+        if e.code == "device_move_denied"
+          write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
+          return Reach::Messages.text("M-ENR-MOVE-DENIED", reason: denial_reason(e))
+        end
 
         return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
       rescue Reach::NetworkError
@@ -175,6 +200,12 @@ module Reach
         "M-ENR-DONE",
         course_title: (install["course"] || {})["title"], first_name: first_name, launch: Reach::Runtime.hook_command("work")
       )
+    end
+
+    def denial_reason(error)
+      details = error.details.is_a?(Hash) ? error.details : {}
+      reason = details["reason"].to_s.strip
+      reason.empty? ? error.message.to_s : reason
     end
 
     def consume_notice
@@ -238,6 +269,7 @@ module Reach
       when "awaiting_username" then ask_username(flow)
       when "awaiting_student_id" then Reach::Messages.text("M-ENR-ASK-ID", institution: (flow["identity"] || {})["institution_name"])
       when "awaiting_confirm" then confirm_text(flow)
+      when "awaiting_move" then Reach::Messages.text("M-ENR-MOVE-PENDING")
       else Reach::Messages.text("M-ENR-ASK-CODE")
       end
     end

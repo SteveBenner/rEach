@@ -2,6 +2,8 @@
 
 A local development fixture of the Teach half of enrollment v2 (specs/wire.yml, revision 2026-10-01b). It is not Teach: it serves only health, enrollment preview, enroll shape v2 and an install-signed status, and answers every other route 404 not_found. It carries no assertions and is not a test suite.
 
+It serves wire revision 2026-10-01b only and is superseded by Teach 0.16.0 for anything newer (device moves, per-course codes, the roster).
+
 ## Start
 
     ruby tools/fake_teach/server.rb [--port 9480] [--home DIR]

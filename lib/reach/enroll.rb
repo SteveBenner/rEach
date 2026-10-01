@@ -59,9 +59,11 @@ module Reach
       body
     end
 
-    def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:)
-      key = Reach::Crypto.generate_install_key
-      fingerprint = Reach::Fingerprint.build(install_public_key: key.public_key, harness: harness, enrolled_via: enrolled_via)
+    def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, key: nil, fingerprint: nil)
+      key ||= Reach::Crypto.generate_install_key
+      fingerprint ||= Reach::Fingerprint.build(
+        install_public_key: key.public_key, harness: harness, enrolled_via: enrolled_via, salt: (Reach::Fingerprint.stored || {})["salt"]
+      )
       body_fields = {
         "shape" => "v2",
         "course_code" => course_code,
@@ -74,7 +76,15 @@ module Reach
         "ruby_version" => RUBY_VERSION
       }
 
-      response = post_enroll(flow_client(teach_url), body_fields)
+      begin
+        response = post_enroll(flow_client(teach_url), body_fields)
+      rescue Reach::RemoteRefused => e
+        case e.code
+        when "device_move_pending" then save_pending(key, fingerprint)
+        when "device_move_denied" then clear_pending
+        end
+        raise
+      end
       body = response.json || {}
       verify_response!(body)
       raise Reach::Refused, Reach::Messages.text("M-ENROLL-INCOMPLETE") unless body["student_id"].to_s == student_id.to_s
@@ -104,10 +114,36 @@ module Reach
       Reach::Stamp.store!(stamp)
       Reach::Fingerprint.clear_cache!
       Reach::EnrollmentLock.clear_moved!
+      clear_pending
       write_notice(body)
       announce_sidecar(current)
 
       current
+    end
+
+    def save_pending(key, fingerprint)
+      path = Reach::Paths.enroll_pending_key_file
+      FileUtils.mkdir_p(File.dirname(path))
+      File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(key.to_pem) }
+      File.chmod(0o600, path)
+      Reach::Login.write_json(Reach::Paths.enroll_pending_fingerprint_file, fingerprint)
+      nil
+    end
+
+    def load_pending
+      key_path = Reach::Paths.enroll_pending_key_file
+      fingerprint = Reach::Login.read_json(Reach::Paths.enroll_pending_fingerprint_file)
+      return nil unless File.file?(key_path) && fingerprint.is_a?(Hash)
+
+      { key: Reach::Crypto.load_private_key(File.read(key_path)), fingerprint: fingerprint }
+    rescue StandardError
+      nil
+    end
+
+    def clear_pending
+      FileUtils.rm_f(Reach::Paths.enroll_pending_key_file)
+      FileUtils.rm_f(Reach::Paths.enroll_pending_fingerprint_file)
+      nil
     end
 
     def post_enroll(client, body_fields)
