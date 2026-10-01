@@ -1,7 +1,7 @@
 {
   "name": "reach",
   "displayName": "rEach",
-  "version": "0.14.5",
+  "version": "0.15.0",
   "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
   "author": {"name": "PatḗrasAI"},
   "repository": "https://bitbucket.org/paterasai/reach",

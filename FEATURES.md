@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.14.5 |
+| **Registry version** | 0.15.0 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 43 catalogued |
+| **Feature count** | 44 catalogued |
 
 ## How to read this registry
 
@@ -23,13 +23,13 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 42 | 100% |
+| ✅ Shipped | 43 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 2 | 5% |
 | 🔵 Built, not enabled | 39 | 93% |
-| ⚫ No runtime path | 1 | 2% |
+| ⚫ No runtime path | 2 | 5% |
 
 ## 1 · Install
 
@@ -282,6 +282,31 @@ Build ✅ · Deploy 🔵 · Blocker: -
 Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only.
 
 Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.26 · Enrollment v2 and lockdown
+
+Since 0.15.0 rEach does nothing until it is enrolled. A plugin-level prompt hook blocks every prompt in every
+harness session and asks, one at a time, for the class-wide course code (`BUS101-K7QX-94TD`, typed any way:
+dashes, spaces, case and O/0, I/L/1 in the secret are forgiven; a course id within two edits still matches), the
+school username (`FLLLNNN@school.example`) and the seven-digit student ID. It confirms, then enrolls with wire
+shape v2. Teach answers with a signed enrollment stamp binding the install, the student, the course and a salted,
+hashed fingerprint of the computer, the account and the install key. Every CLI verb except help, enroll, setup,
+doctor, support, update and the hooks, and every MCP tool, refuses while locked. Reach locks again when the stamp
+fails, the course ends, or the fingerprint stops matching, locally or on Teach's status check. The crisis check runs
+before every step. `reach enroll --course-code ... --username ... --student-id ...` does the same from a terminal.
+
+Verified 2026-10-01 against `tools/fake_teach`, the stand-in for Teach's half:
+- every flow branch: format errors, course id only, did-you-mean, expired code, refusal, five-refusal lockout with no
+  further calls, start over, crisis;
+- the CLI;
+- a copied `~/.reach` run as another user in a Ruby 2.6.10 container (locked as moved, `fingerprint_mismatch`
+  queued, then re-enrolled);
+- a real Claude Code 2.1.286 session: every enrollment prompt was blocked, the agent saw none of them, and it got
+  the unlock notice afterwards.
+
+Not verified: Codex, Hermes and Antigravity sessions, and macOS and Windows machine ids.
+
+Build ✅ · Deploy ⚫ · Blocker: Engineering (Teach's half: roster, course codes, routes, stamp; Teach TODO.md).
 
 ## 3 · Course reference
 
