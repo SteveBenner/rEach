@@ -1,0 +1,7 @@
+schema: rplugin.hooks/v1
+hooks:
+  - event: session_start
+    match: any
+    run: ["ruby", "${PLUGIN_ROOT}/exe/reach", "hello"]
+    timeout_s: 10
+    blocking: false

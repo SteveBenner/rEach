@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruby \"${CLAUDE_PLUGIN_ROOT}/exe/reach\" hello",
+            "command": "ruby \"${PLUGIN_ROOT}/exe/reach\" hello",
             "timeout": 10
           }
         ]

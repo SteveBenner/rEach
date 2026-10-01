@@ -1,9 +1,31 @@
 {
   "name": "reach",
   "displayName": "rEach",
-  "version": "0.14.6",
+  "version": "0.15.0",
   "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
-  "author": {"name": "PatḗrasAI"},
-  "repository": "https://bitbucket.org/paterasai/reach",
-  "keywords": ["education", "course", "students", "assistant"]
+  "author": {
+    "name": "PatḗrasAI"
+  },
+  "repository": "https://github.com/SteveBenner/rEach",
+  "keywords": [
+    "education",
+    "course",
+    "students",
+    "assistant"
+  ],
+  "skills": [
+    "./skills/reach-course",
+    "./skills/reach-submit",
+    "./skills/reach-help",
+    "./skills/reach-assistant",
+    "./skills/reach-build",
+    "./skills/reach-fix",
+    "./skills/reach-feature",
+    "./skills/reach-bug",
+    "./skills/reach-checkpoint",
+    "./skills/design-taste-frontend"
+  ],
+  "agents": [
+    "./agents/reach.md"
+  ]
 }
