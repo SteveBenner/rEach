@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.4] - 2026-10-01
+
+### Changed
+
+- Reach pins the portable runtime `runtime-4.0.7-r3` (manifest sha256 `cd79747a...c0bbc6a2`) instead of r1
+  (`lib/reach/runtime_kit.rb`). r3 is the r2 build, whose Linux kits need only glibc 2.28, plus the 0.16.3
+  relocation-check fix; all five kits passed CI and were published. Installed from the release on Linux x86_64 into a
+  scratch home, and its Ruby ran in a Debian 11 container, where the r1 kit could not.
+
 ## [0.16.3] - 2026-10-01
 
 ### Fixed
