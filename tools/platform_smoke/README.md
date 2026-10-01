@@ -6,6 +6,8 @@
 
 Every step prints `PASS <step> <detail>`, `FAIL <step> <detail>` or `SKIP <step> <reason>`, then `platform smoke: N passed, M failed, K skipped`. The exit status is 0 only when no step failed. `--report` also writes a JSON report (`reach.platform-smoke/v1`) with the platform, Ruby version, OS version and each step's name, result, detail and duration. `--keep` leaves the scratch directory in place.
 
+The fixture Teach needs the `webrick` gem, which Ruby 3.0 and later no longer bundle. When `require "webrick"` fails, the script runs `gem install --no-document --install-dir <scratch>/gems webrick` (one attempt and one retry, each with a timeout) and starts the fixture with `GEM_PATH` including that directory and `GEM_HOME` unset. The outcome is part of the fake_teach step detail, so the machine needs network access to rubygems.org in that case.
+
 The script starts from a copy of the environment with every `TEACH_*` and `REACH_*` variable removed, sets `REACH_HOME` to the scratch home and `REACH_UPDATE_DISABLE=1`, and never touches the real `~/.reach`. The scratch root sits directly under the system temp directory with a short name, because Chrome cannot start when its socket path is long. Set no long `TMPDIR` when you run it.
 
 ## Steps

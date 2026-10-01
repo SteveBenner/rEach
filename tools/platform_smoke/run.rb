@@ -212,14 +212,44 @@ module PlatformSmoke
       port
     end
 
+    def webrick_loads?(extra_env = {})
+      code, _out, _err = spawn_capture([RbConfig.ruby, "-e", 'require "webrick"'], timeout: 60, chdir: @scratch, extra_env: extra_env)
+      code == 0
+    end
+
+    def ensure_webrick
+      return [{}, "webrick present"] if webrick_loads?
+
+      dir = File.join(@scratch, "gems")
+      gem_env = {
+        "GEM_HOME" => nil,
+        "GEM_PATH" => ([dir] + Gem.path).join(File::PATH_SEPARATOR)
+      }
+      note = nil
+      2.times do |attempt|
+        code, out, err = spawn_capture(
+          [RbConfig.ruby, "-S", "gem", "install", "--no-document", "--install-dir", dir, "webrick"],
+          timeout: 180, chdir: @scratch, extra_env: { "GEM_HOME" => nil, "GEM_PATH" => nil }
+        )
+        if code == 0 && webrick_loads?(gem_env)
+          return [gem_env, "webrick installed into scratch gems (attempt #{attempt + 1})"]
+        end
+
+        note = "gem install attempt #{attempt + 1} exit #{code.inspect}: #{tail(out, err)}"
+        sleep 3 if attempt == 0
+      end
+      raise "webrick is missing and could not be installed: #{note}"
+    end
+
     def fake_teach_step
+      gem_env, webrick_note = ensure_webrick
       port = free_port
       @teach_url = "http://127.0.0.1:#{port}"
       @server_log = File.join(@scratch, "fake_teach.log")
       log = File.open(@server_log, "w")
       begin
         @server_pid = Process.spawn(
-          @env,
+          @env.merge(gem_env),
           RbConfig.ruby, File.join(ROOT, "tools", "fake_teach", "server.rb"), "--port", port.to_s, "--home", File.join(@scratch, "teach"),
           in: File::NULL, out: log, err: log, chdir: ROOT
         )
@@ -232,7 +262,7 @@ module PlatformSmoke
           http.open_timeout = 2
           http.read_timeout = 2
           response = http.get("/api/v1/health")
-          return [:pass, "health 200 on #{@teach_url} after #{attempt + 1} attempt(s)"] if response.code == "200"
+          return [:pass, "health 200 on #{@teach_url} after #{attempt + 1} attempt(s); #{webrick_note}"] if response.code == "200"
         rescue StandardError
           nil
         end
