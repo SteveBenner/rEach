@@ -28,7 +28,8 @@
 - [x] Assignment-one transport smoke on 0.11.0 against the Teach 0.11.0 tree (2026-09-29): 33 pass, 2 manual skips; submit refused before qualifying, then qualified locally and on Teach, graded 1.0.
 - [x] Real-Claude smoke (Haiku, from a clean clone of the release commit) run 20260929-060009: 8 of 8 scenarios pass. In course-gate rEach now answers "which file do I work in?" with "I write and check all the code". Earlier runs that day failed on a model-played student inventing a different install link and on a privacy check that fired on the word email; both passed on rerun and the check was narrowed.
 - [ ] The judge still notes rEach sometimes asks two things in one reply (course-gate) and does not use the first-run greeting right after a profile is forgotten (advisory only).
-- [ ] Portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel slices can qualify locally too (planned 0.12.0).
+- [x] Portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel slices can qualify locally too. (Shipped in 0.14.0 as `reach runtime install`; panels qualify locally where the course ships a practice recording.)
+- [ ] The runtime bundles for macOS, Windows and Linux arm64 are built and relocation-checked only in CI; no student machine on those platforms has installed one yet.
 
 ## Verified in 0.11.1 to 0.11.3 (Hermes)
 

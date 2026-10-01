@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-10-01
+
+### Added
+
+- The portable runtime kit. `reach runtime install [--only ruby|chrome] [--from DIR]` downloads one bundle for this
+  computer (Ruby 4.0.7 with bundler 4.0.19 and the course's gems already built) and Chrome for Testing 154.0.8037.92
+  from Google's own storage, checks both against a manifest whose sha256 is pinned in Reach, extracts them in pure Ruby
+  (`lib/reach/untar.rb`, `lib/reach/unzip.rb`), smoke-checks them and moves them into `~/.reach/runtime/<id>/` only when
+  everything verified; a failed or interrupted install leaves the previous runtime in place. `reach runtime status`
+  and `reach runtime remove --yes [--old]`. `--from DIR` installs from a folder of release files (a classroom can share
+  one download). `REACH_RUNTIME_DISABLE=1` or `REACH_OFFLINE=1` turns network installs off.
+- Local qualification uses the runtime when one is installed: its Ruby runs cucumber, and when the run's Gemfile.lock
+  matches a prebuilt profile its gems are used as they are (frozen, nothing compiled); otherwise the runtime Ruby
+  installs the gems. Chrome resolves as `REACH_CHROME`, then the runtime's Chrome, then browsers on PATH. On Linux,
+  `CUPRITE_NO_SANDBOX=1` is set when running as root, or for the runtime Chrome where AppArmor restricts user
+  namespaces.
+- A qualify kit may carry `qualify.env` (for example the Grokit practice replay); Reach passes it to cucumber after
+  checking every name and value, and records anything it dropped.
+- `reach setup` offers the runtime when none is installed, and `reach setup --runtime` installs it in the same run.
+  `reach doctor --install-chromium` now works (it installs the runtime's Chrome); R-DOC-CHROME points at
+  `reach runtime install`, and doctor reports the runtime.
+- `.github/workflows/runtime.yml` and `runtime/`: a tag `runtime-<ruby>-r<n>` builds the bundles on macOS arm64, macOS
+  x86_64, Linux x86_64, Linux arm64 and Windows x64 from the lock profiles in `runtime/locks/`, checks each one after
+  moving it to a new path (Ruby, the native gems, and a headless Chrome page), and publishes them with
+  `runtime-manifest.json` as a GitHub release that is never marked latest. Google publishes no Chrome for Testing for
+  Linux arm64, so that platform uses the distribution's chromium.
+
 ## [0.13.0] - 2026-09-30
 
 ### Added

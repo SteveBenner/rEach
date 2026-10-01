@@ -9,6 +9,9 @@ These steps are for the AI agent a student asked to install rEach from this repo
   - Windows: if `ruby -v` fails, ask the student first, then install Ruby 4.0 from https://rubyinstaller.org for this user only (no administrator rights).
   - Linux: the distribution's Ruby, when it is 2.6.10 to 4.0.x.
 - Never install anything system-wide or with sudo.
+- After setup, offer the student `reach runtime install` (about 250 MB, into `~/.reach/runtime`): it lets their panel
+  and backend work be checked on their own computer with the same Ruby and Chrome the course grades with. It needs no
+  administrator rights.
 
 ## Which section is yours
 

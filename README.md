@@ -45,7 +45,12 @@ Students: see [`docs/student-guide.md`](docs/student-guide.md).
 ## Runtime
 
 Ruby 2.6.10 to 4.0.x, standard library only, no native gems. macOS's built-in
-`/usr/bin/ruby` is enough. [rplugin](https://bitbucket.org/paterasai/rplugin) is
+`/usr/bin/ruby` is enough.
+
+Local qualification runs the course's Cucumber suite, which needs Ruby 4 gems and Chrome. `reach runtime install`
+fetches Reach's runtime kit for this computer: Ruby 4.0.7 with the gems prebuilt and Chrome for Testing
+154.0.8037.92, the same versions Teach grades with, verified against a manifest pinned in Reach and kept in
+`~/.reach/runtime/`. Reach itself keeps running on the student's own Ruby; the runtime only runs the checks. [rplugin](https://bitbucket.org/paterasai/rplugin) is
 optional: Reach uses its ports when it is installed and runs standalone otherwise.
 
 ## Install

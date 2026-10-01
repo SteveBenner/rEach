@@ -25,5 +25,6 @@ Until then, checkpoints are the history.
 
 ## Before 2.0
 
-- 0.12.0: a portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel
-  slices can qualify locally as well as on Teach.
+- Shipped in 0.14.0: the portable runtime kit (Ruby 4.0.7 with prebuilt gems and Chrome for Testing), so slices
+  qualify locally with the versions Teach grades with. Panel slices qualify locally once a course ships a practice
+  recording (Grokit's practice set).
