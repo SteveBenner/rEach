@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.15.0 |
+| **Registry version** | 0.16.0 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -273,19 +273,25 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.24 · Local size limits
 
-Since 0.12.0 `reach sync` keeps Reach's own corpus and transcript spool under the course's caps, and `reach doctor` reports the sizes. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
+Since 0.12.0 `reach sync` keeps the transcript spool under the course's caps, and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.25 · Portable runtime kit
 
-Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only.
+Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only. The published r1 Linux kit needs glibc 2.38 and fails on Debian 11/12 and Ubuntu 22.04. Since Reach 0.14.6 the workflow builds the Linux kits from source in a manylinux_2_28 container for glibc 2.28; a locally built linux-x86_64 kit installed in clean debian:bullseye and ubuntu:22.04 containers and ran Ruby 4.0.7 and Cucumber 11.1.1, and both Linux kits passed in CI under runtime-4.0.7-r2, but its Windows build failed the relocation check, so r2 is unpublished and Reach still pins r1. When Chrome's system libraries are missing, `reach runtime install` names them.
 
-Build ✅ · Deploy 🔵 · Blocker: -
+Build ✅ · Deploy 🔵 · Blocker: runtime-4.0.7-r2 unpublished (Windows relocation check failed in CI) - Linux below glibc 2.38 cannot use the kit yet
+
+### 2.26 · Microbrain records
+
+Since 0.15.0 every note, tip, attempt, receipt and qualification is first an rcorpus.spool/v1 line in `<rplugin state>/reach/brain-spool/`, written on any Ruby, and is admitted into Reach's own corpus (private tier, `tiers.split`) as soon as rplugin and rcorpus load. The ledger never depends on the corpus. Verified 2026-10-01 in scratch homes: without the SDK, a note, a receipt and a qualification landed as spool lines and `recent` returned them; with the SDK and a minted corpus, the same writes were admitted into `kv.private.jsonl` and `rcorpus check` reported 0; a corpus-fallback file migrated once and a rerun added nothing; with the corpus unwritable, the qualification still reached the ledger and the failure was logged. The live `~/.corpora/reach` (empty) was given the five kinds and `tiers.split`, and `rplugin corpus verify` reports 0.
+
+Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 2.26 · Enrollment v2 and lockdown
 
-Since 0.15.0 rEach does nothing until it is enrolled. A plugin-level prompt hook blocks every prompt in every
+Since 0.16.0 rEach does nothing until it is enrolled. A plugin-level prompt hook blocks every prompt in every
 harness session and asks, one at a time, for the class-wide course code (`BUS101-K7QX-94TD`, typed any way:
 dashes, spaces, case and O/0, I/L/1 in the secret are forgiven; a course id within two edits still matches), the
 school username (`FLLLNNN@school.example`) and the seven-digit student ID. It confirms, then enrolls with wire
@@ -397,6 +403,10 @@ rules (S-LIF/S-ID/S-STO/S-DAT/S-EVT/S-KEY/S-DYN/S-I18N/S-CSS, one code each) and
 an error. A real signed Dovetail shape has verified the parser end to end (0.4.2, 0.6.0). Since 0.9.0, when the
 checker ran on a signed shape, `reach check` drops CK-PANEL's S-* findings, which CK-SHAPE already reports, and keeps
 CK-PANEL-TS, CK-FUSE, CK-TEST and CK-COMMENT; with no shape or an unrunnable checker every CK-PANEL rule runs.
+Since 0.14.6 shape findings are kept only for the workspace's owned files: Teach ships no suite package, so the
+instructors' Panel.svelte is absent and the checker reported S-STATE-001 on it. Verified on a copy of a peer's
+finance.a3s2 panel workspace: the two Panel.svelte findings are gone, status reads "shape: ok", and a literal colour
+put into the student's own cutout is still reported.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
@@ -416,9 +426,10 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 ### 10.1 · Claude Code
 
 Terminal, desktop Code tab and VS Code, installed via `.claude-plugin/plugin.json` +
-`.claude-plugin/marketplace.json`; connects the MCP bridge and the `SessionStart` hook. Verified with a scratch-home
-`claude -p --plugin-dir` session (v0.2.0) that connected the bridge and opened with the greeting; no fresh session
-was run this pass.
+`.claude-plugin/marketplace.json`; connects the MCP bridge and the `SessionStart` hook. Since 0.15.0 the package is
+generated by rplugin 1.2.0. Verified 2026-10-01 by installing the 0.15.0 tree from a local marketplace into a scratch
+Claude config: the `SessionStart` hook ran `reach hello` and returned rEach's context, and `plugin:reach:reach` was
+connected (the model turn itself hit the smoke token's weekly limit).
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
@@ -432,13 +443,16 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run).
 ### 10.3 · Codex
 
 CLI, IDE and desktop app, installed via `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json` (Codex
-reads `hooks/hooks.json` through its manifest and sets `CLAUDE_PLUGIN_ROOT` for compatibility; it carries no MCP
-server of its own, so Reach falls back to its CLI outside course workspaces). The operator ran a live Codex session
+reads its hook through its manifest). Since 0.15.0 the package is generated by rplugin 1.2.0 and carries the MCP
+bridge: installed from a local marketplace into a scratch Codex home on 2026-10-01, Codex loaded all 24 `reach_*`
+tools from its plugin cache through `${PLUGIN_ROOT}`. The start-up hook moved to `hooks/codex.json` and was not run
+in that test, since Codex runs plugin hooks only after the trust review; it asks the student to trust it again. The
+operator ran a live Codex session
 with the plugin installed on 2026-09-29 — hook-trust prompt, `SessionStart` context and greeting all confirmed — and
 separately ran the manual Codex dialogue pass and the same-WiFi second-device test from `docs/smoke-assignment-1.md`
 the same day.
 
-Build ✅ · Deploy 🟢 · Blocker: -.
+Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session has not yet trusted and run the 0.15.0 start-up hook in `hooks/codex.json`).
 
 ### 10.4 · Antigravity
 

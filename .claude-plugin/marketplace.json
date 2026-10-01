@@ -1,13 +1,15 @@
 {
   "name": "reach",
-  "owner": {"name": "PatḗrasAI"},
-  "description": "rEach, the student's academic assistant",
+  "owner": {
+    "name": "PatḗrasAI"
+  },
+  "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
   "plugins": [
     {
       "name": "reach",
       "source": "./",
-      "description": "rEach, the student's academic assistant for a Teach-run course.",
-      "version": "0.15.0",
+      "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
+      "version": "0.16.0",
       "category": "education"
     }
   ]

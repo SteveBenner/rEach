@@ -95,7 +95,8 @@ module Reach
 
       def record_in_corpus(receipt)
         Reach::Corpus.new(Reach.ports).receipt(receipt)
-      rescue StandardError
+      rescue StandardError => e
+        Reach::BrainSpool.log("receipt_write_failed", "error" => e.class.name, "message" => e.message)
         nil
       end
 
