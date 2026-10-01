@@ -145,3 +145,14 @@ model-played students. See [`tools/smoke/README.md`](tools/smoke/README.md).
 ```
 ruby tools/smoke/run.rb
 ```
+
+## Platform smoke
+
+`tools/platform_smoke/run.rb` installs Reach from this checkout and runs its commands and hook command lines
+against the fixture Teach on Linux, macOS and Windows, with no agent and no secret.
+`.github/workflows/platforms.yml` runs it on every push to main. See
+[`tools/platform_smoke/README.md`](tools/platform_smoke/README.md).
+
+```
+ruby tools/platform_smoke/run.rb
+```

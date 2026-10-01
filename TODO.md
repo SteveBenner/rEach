@@ -10,7 +10,7 @@
 - [ ] Verify a real Codex session: the shared `hooks/hooks.json` passes `--harness claude-code` and
       `${CLAUDE_PLUGIN_ROOT}`; whether Codex's plugin hooks honor that and block a prompt is unproven.
 - [ ] Verify a real Hermes session (enroll hook as context) and Antigravity (CLI only).
-- [ ] Verify machine ids on macOS (ioreg) and Windows (reg query); only Linux and a Docker container were exercised.
+- [x] Verify machine ids on macOS (ioreg) and Windows (reg query); only Linux and a Docker container were exercised. (Done in 0.16.8: the platform smoke reads IOPlatformUUID on GitHub macOS arm64 and Intel and MachineGuid on Windows x64 and arm64, and the fake Teach accepts the fingerprint on status.)
 - [ ] tools/smoke still enrolls with shape v1 codes; move the smoke to the v2 flow once Teach mints course codes.
 - [ ] The plugin-level hook runs in every Claude Code session on a machine with rEach installed; a developer
       machine with the plugin enabled is locked too until it enrolls.
