@@ -153,6 +153,30 @@ module Reach
       File.join(home, "corpus-fallback")
     end
 
+    def managed_install_dir
+      File.join(home, "plugin")
+    end
+
+    def update_manifest_file
+      File.join(state_dir, "update.json")
+    end
+
+    def update_lock_file
+      File.join(state_dir, "update.lock")
+    end
+
+    def update_log_file
+      File.join(logs_dir, "update.log")
+    end
+
+    def updates_dir
+      File.join(home, "updates")
+    end
+
+    def install_backup_dir
+      File.join(home, ".backup")
+    end
+
     def ensure_home!
       [home, keys_dir, packages_dir, vault_dir, outbox_dir, receipts_dir, logs_dir, state_dir].each do |dir|
         FileUtils.mkdir_p(dir)

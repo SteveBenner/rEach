@@ -65,6 +65,15 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
 
+### Updates
+
+An install at `~/.reach/plugin` updates itself. rEach looks for a newer GitHub release (or, when there are none, a
+newer tag) when a session starts and once an hour while you work, downloads it in the background, and installs it
+when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
+`~/.reach/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
+things stand; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
+is never updated.
+
 Hermes keeps hooks and MCP servers in a profile's `config.yaml`, never per
 folder, so setup creates a Hermes profile named `reach` (`hermes profile create
 reach --clone --no-alias`, which copies the student's model settings and adds

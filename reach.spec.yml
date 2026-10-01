@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.12.0
+version: 0.13.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.12.0
+    version: 0.13.0
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -812,6 +812,12 @@ cli:
     purpose: >-
       rEach's greeting and session context - the first-run introduction when there is no profile, a welcome back
       otherwise; never blocks and always exits 0
+  - name: update
+    synopsis: reach update status|check|run [--apply] [--background] [--format text|json]
+    purpose: >-
+      status shows the update manifest; check looks for newer releases (tags as fallback) and records them; run
+      checks, downloads and stages the newest release and, with --apply, installs it through the release's own
+      update/apply.rb, resuming an interrupted update first. Hooks call it with --background.
   - name: setup
     synopsis: reach setup [--harness auto|claude-code|codex|antigravity] [--source <link or path>]
     purpose: >-
@@ -1006,6 +1012,88 @@ installer:
   uninstall: >-
     The harness's own plugin removal (or rplugin uninstall reach) removes the plugin; reach profile forget, reach
     lock and removing ~/.reach remove the student's data after the course.
+auto_update:
+  summary: >-
+    Since 0.13.0 Reach keeps the install at ~/.reach/plugin current by itself. It looks for newer releases when a
+    session starts and once an hour while the student works, downloads a newer one in the background, and installs
+    it at the next session start through scripts the release itself carries. The student is told calmly and is never
+    interrupted mid-work; course work waits only while an install is actually running.
+  managed_install: >-
+    Only ~/.reach/plugin (Reach::Paths.home + /plugin) is managed, and only when it holds a VERSION file and no .git
+    entry. A git checkout, a missing install (Cowork, a harness that installed straight from the repository link) or
+    REACH_UPDATE_DISABLE=1 leaves Reach notify-only or silent: it never writes over a developer's tree. The local
+    version is that install's VERSION, not the version of whichever harness copy is running.
+  sources:
+    order: GitHub releases first, tags as the fallback
+    releases: >-
+      GET https://api.github.com/repos/<owner>/<repo>/releases?per_page=30 with Accept application/vnd.github+json and
+      If-None-Match from the stored ETag (a 304 does not count against GitHub's 60 per hour unauthenticated limit).
+      Drafts and prereleases are skipped; tag_name must parse as v?X.Y.Z. A 403/429, a network failure or an empty
+      list falls through to tags.
+    tags: >-
+      GET https://github.com/<owner>/<repo>.git/info/refs?service=git-upload-pack (git's own smart-HTTP ref
+      advertisement, no git binary and no API limit). refs/tags/v?X.Y.Z entries are versions; peeled ^{} lines are
+      ignored.
+    archive: >-
+      https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip, read with bin/reach-install's own ZIP reader and
+      completed with the Dovetail archive pinned in the release's dovetail-revision.txt. The unpacked VERSION must
+      equal the tag's version or the stage is refused.
+    repository: >-
+      config.yml updates.repository (default https://github.com/SteveBenner/rEach), overridable by
+      REACH_UPDATE_REPOSITORY. Only https URLs are accepted.
+  cadence: >-
+    A check runs at session start (reach hello) when the last one is older than updates.interval_s (default 3600)
+    and from the prompt gate once that interval has passed, plus a jitter of up to 600 s per install so a class
+    behind one address does not poll in step. Every check runs in a detached process; no hook waits on the network.
+    After consecutive failures the next check is pushed back exponentially (interval x 2^failures, capped at 86400 s).
+  manifest:
+    file: ~/.reach/state/update.json (0600, written to a tmp file then renamed)
+    fields: >-
+      schema reach.update/v1, local_version, remote_versions (every remote version ahead of local, ascending, with
+      tag and source), source (releases|tags), target_version, target_tag, phase, staged_path, backup_path,
+      started_at, updated_at, attempts, last_check_at, next_check_at, failures, last_error, etag, harness_results,
+      announced (which session ids were told what), completed_version, completed_at
+    phases: idle -> detected -> downloaded -> staged -> swapped -> refreshed -> completed
+    resume: >-
+      Every phase is safe to repeat. Any reach start that finds a phase other than idle or completed and no live
+      update lock resumes from the last phase recorded: detected re-downloads, downloaded re-stages, staged re-runs the
+      release's update/apply.rb, swapped re-runs it with --resume (which skips the swap and finishes the refresh and
+      migrations). If ~/.reach/plugin is missing, the shim completes the swap from staged_path or restores
+      backup_path before loading Reach. Attempts are counted; after 5 failed attempts at one target the manifest
+      keeps the error and waits for the next newer release or a manual reach update run.
+    lock: ~/.reach/state/update.lock holds the pid and a heartbeat; a lock older than 900 s or whose pid is gone is stale.
+  release_scripts: >-
+    The old Reach only finds, downloads and stages a release; the release installs itself. It runs
+    ruby <staged>/update/apply.rb --staged DIR --destination ~/.reach/plugin --manifest FILE --from X --to Y
+    [--resume]. apply.rb (Ruby 2.6-safe, standard library only) moves the current install to
+    ~/.reach/.backup/plugin-<timestamp>, moves the staged tree in, runs every update/migrations/<version>.rb with
+    from < version <= to in version order, rewrites the shim root to the new install, refreshes the harness copies
+    (Claude Code: claude plugin marketplace update reach, then claude plugin update reach@reach --scope user; Codex:
+    codex plugin marketplace upgrade reach, then codex plugin add reach@reach; Hermes and Antigravity link to the
+    install and need nothing), records each harness result, and writes phase completed. A harness CLI that is absent
+    or refuses is recorded and does not fail the update.
+  student_experience:
+    session_start: >-
+      When an update is ready or under way, the greeting starts with G-UPDATING and the install runs in the
+      background; the next prompt after it completes carries M-UPDATE-DONE for the agent to pass on.
+    mid_session: >-
+      A release found mid-session is downloaded and staged in the background; the agent is told once, after its
+      current answer, to give the student M-UPDATE-READY. Nothing is swapped mid-session.
+    hold: >-
+      While an install is actually running (a live update lock in phase staged or swapped), the prompt gate and the
+      write and shell gates refuse with M-UPDATE-INSTALLING, and reach qualify, submit and sync refuse the same way.
+      If an install cannot finish (offline, GitHub down) the student keeps working, is told M-UPDATE-RETRY once, and
+      Reach retries; Teach's minimum_reach_version stays the only hard lock.
+  shim_non_downgrade: >-
+    Reach::Runtime.ensure_shim! rewrites ~/.reach/bin/root only when the recorded root is missing or its VERSION is not
+    newer than the running copy, so a stale harness copy cannot point the shim back at older code.
+  kill_switches: REACH_UPDATE_DISABLE=1 (no checks, no installs), REACH_OFFLINE=1 (no checks), REACH_INSTALL_KILL_SWITCH=1 (no downloads)
+  limits: >-
+    connect timeout 10 s, read timeout 30 s for listings and 60 s for archives, at most 3 attempts per request with
+    full-jitter exponential backoff from 1 s, Retry-After honoured up to 300 s, archives capped at 100 MiB by the
+    installer's reader.
+  log: ~/.reach/logs/update.log (one JSON line per check, stage, apply and failure)
+  untagged_patches: Only tagged releases reach students; an untagged patch version is never offered.
 privacy_and_integrity:
   student_data_sent: >-
     Enrollment (code, public key, platform, versions), submissions (owned files and manifest), hand bundles, status
@@ -1153,6 +1241,14 @@ student_messages:
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses
     no jargon without a short explanation.
   catalogue:
+  - id: M-UPDATE-INSTALLING
+    text: rEach is installing an update (version {version}) that you need to keep using it. Give it a minute, then try again; your work is safe.
+  - id: M-UPDATE-READY
+    text: A rEach update (version {version}) is ready. It installs the next time you start a session, so nothing changes in the middle of your work.
+  - id: M-UPDATE-DONE
+    text: rEach is up to date (version {version}). Start a new session when it suits you to load everything.
+  - id: M-UPDATE-RETRY
+    text: rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own.
   - id: M-GATE-NOENROLL
     text: Reach isn't connected to your course yet. Run reach enroll with the code your instructor gave you.
   - id: M-GATE-NOGUARD

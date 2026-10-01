@@ -26,20 +26,7 @@ module ReachInstall
       FileUtils.mkdir_p(parent)
 
       Dir.mktmpdir("reach-install-", parent) do |temp|
-        reach_archive = options[:archive] || download(options[:url], temp, "reach.zip")
-        reach_root = extract_archive(reach_archive, File.join(temp, "reach"))
-        revision = read_revision(options[:revision] || File.join(reach_root, "dovetail-revision.txt"))
-        dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision}.zip"
-        dovetail_archive = download(dovetail_url, temp, "dovetail.zip")
-        dovetail_root = extract_archive(dovetail_archive, File.join(temp, "dovetail"))
-        dovetail_destination = File.join(reach_root, "dovetail")
-        if File.directory?(dovetail_destination) && !File.symlink?(dovetail_destination) && Dir.empty?(dovetail_destination)
-          Dir.rmdir(dovetail_destination)
-        elsif File.exist?(dovetail_destination) || File.symlink?(dovetail_destination)
-          raise "archive already contains a Dovetail directory"
-        end
-
-        FileUtils.mv(dovetail_root, dovetail_destination)
+        reach_root = stage(url: options[:url], temp: temp, archive: options[:archive], revision: options[:revision])
         install(reach_root, destination)
       end
       puts "rEach installed at #{destination}"
@@ -47,6 +34,27 @@ module ReachInstall
     rescue StandardError => e
       warn "reach-install: #{e.message}"
       1
+    end
+
+    def stage(url:, temp:, archive: nil, revision: nil)
+      raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !archive
+
+      FileUtils.mkdir_p(temp)
+      reach_archive = archive || download(url, temp, "reach.zip")
+      reach_root = extract_archive(reach_archive, File.join(temp, "reach"))
+      revision_value = read_revision(revision || File.join(reach_root, "dovetail-revision.txt"))
+      dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision_value}.zip"
+      dovetail_archive = download(dovetail_url, temp, "dovetail.zip")
+      dovetail_root = extract_archive(dovetail_archive, File.join(temp, "dovetail"))
+      dovetail_destination = File.join(reach_root, "dovetail")
+      if File.directory?(dovetail_destination) && !File.symlink?(dovetail_destination) && Dir.empty?(dovetail_destination)
+        Dir.rmdir(dovetail_destination)
+      elsif File.exist?(dovetail_destination) || File.symlink?(dovetail_destination)
+        raise "archive already contains a Dovetail directory"
+      end
+
+      FileUtils.mv(dovetail_root, dovetail_destination)
+      reach_root
     end
 
     private
@@ -243,4 +251,4 @@ module ReachInstall
   end
 end
 
-exit ReachInstall.run(ARGV)
+exit ReachInstall.run(ARGV) if $PROGRAM_NAME == __FILE__

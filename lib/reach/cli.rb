@@ -60,6 +60,8 @@ module Reach
           cmd_hello(args)
         when "setup"
           cmd_setup(args)
+        when "update"
+          cmd_update(args)
         when "profile"
           cmd_profile(args)
         when "attempts"
@@ -127,6 +129,7 @@ module Reach
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...]
+            update status|check|run [--apply]    look for, download and install a newer rEach
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
@@ -227,6 +230,7 @@ module Reach
       end
 
       def cmd_sync(_args)
+        Reach::Update.hold!
         summary = Reach::Sync.run
         print_sync_summary(summary)
         return 2 if summary["state"] == "revoked"
@@ -459,6 +463,7 @@ module Reach
       end
 
       def cmd_qualify(args)
+        Reach::Update.hold!
         local_only, args = parse_bare_flag(args, "local-only")
         listing, args = parse_bare_flag(args, "list")
         options, _remaining = parse_flags(args, [:slice, :format, :task, :summary])
@@ -480,6 +485,7 @@ module Reach
       end
 
       def cmd_submit(args)
+        Reach::Update.hold!
         options, _remaining = parse_flags(args, [:slice])
         slice = default_slice_id(options[:slice])
         unless slice
@@ -907,6 +913,61 @@ module Reach
         )
         puts output
         exit_code
+      end
+
+      def cmd_update(args)
+        sub = args.shift || "status"
+        apply, args = parse_bare_flag(args, "apply")
+        background, args = parse_bare_flag(args, "background")
+        force, args = parse_bare_flag(args, "force")
+        options, _remaining = parse_flags(args, [:format])
+        json = options[:format] == "json"
+        case sub
+        when "status"
+          if json
+            puts JSON.pretty_generate(Reach::Update.load_manifest)
+          else
+            puts Reach::Update.status_lines
+          end
+          0
+        when "check"
+          result = Reach::Update.with_lock { Reach::Update.check(Reach::Update.load_manifest) }
+          if result == :locked
+            puts "reach: an update is already running"
+            return 0
+          end
+          if json
+            puts JSON.pretty_generate(result)
+          else
+            versions = Array(result["remote_versions"]).map { |entry| entry["version"] }
+            puts "source: #{result['source']}"
+            puts "local version: #{result['local_version']}"
+            puts "remote versions: #{versions.empty? ? 'none newer' : versions.join(', ')}"
+            puts "last error: #{result['last_error']}" if result["last_error"].to_s != ""
+          end
+          0
+        when "run"
+          if background
+            Reach::Update.spawn_background(apply: apply)
+            return 0
+          end
+          result = Reach::Update.run(apply: apply, force: force || STDIN.tty?)
+          if json
+            puts JSON.pretty_generate(result)
+          elsif result["skipped"]
+            puts "update skipped: #{result['skipped']}"
+          elsif result["held"]
+            puts "update held: #{result['held']}"
+          elsif result["error"]
+            puts "update error: #{result['error']}"
+          else
+            puts "update phase: #{result['phase']} (local #{result['local']}, target #{result['target'] || 'none'})"
+          end
+          0
+        else
+          warn "usage: reach update status|check|run [--apply] [--background] [--force] [--format text|json]"
+          2
+        end
       end
 
       def cmd_profile(args)

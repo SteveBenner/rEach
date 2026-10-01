@@ -1,0 +1,249 @@
+schema: impl-blueprint/v1
+name: auto-update (releases first, tags as fallback, resumable)
+versions: {reach: 0.13.0}
+repos:
+  reach: /home/sven/github/foss/rEach
+normative:
+  - reach.spec.yml section auto_update (read it in full before writing code; it wins over this file where they differ)
+  - reach.spec.yml cli subcommand update
+  - specs/app.yml STD-AUTO-UPDATE, STD-RUBY-FLOOR, STD-STUDENT-MESSAGES
+  - locales/en-US.yml M-UPDATE-INSTALLING M-UPDATE-READY M-UPDATE-DONE M-UPDATE-RETRY; locales/greetings.en-US.yml G-UPDATING (already written; use them by id, never inline text)
+goal: >-
+  A managed ~/.reach/plugin install finds newer GitHub releases (tags when there are no releases or the API is
+  unavailable), records them in a manifest, downloads and stages the newest one in a detached process, and installs
+  it at session start by running the staged release's own update/apply.rb. Every phase is recorded so an interrupted
+  update resumes. The student is told by catalogue messages and is held only while an install is running.
+constraints:
+  - Ruby 2.6.10 floor for every file (lib/, update/apply.rb, bin/reach-install, the shim). No endless methods, no pattern matching, no numbered block params, no `it`, no Hash#except, no hash shorthand, no `filter_map` (2.7), no `Array#intersect?`. Standard library only.
+  - No comments in code at all (Part Q). Only the shebang and an existing SPDX line survive.
+  - No tests, no spec files, no test files (Part S).
+  - Match surrounding style (module_function, string keys in JSON, safe-rescue helpers like Hello's safe_*).
+  - Do not edit reach.spec.yml, specs/app.yml, locales, VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md; the primary does.
+  - Do not commit, do not touch git, do not push.
+  - Never run anything that writes to the real ~/.reach, ~/.claude or ~/.codex while validating. Validate with HOME and REACH_HOME pointed at a directory under /tmp/claude-1000/ and REACH_UPDATE_REPOSITORY unset (real GitHub, read-only listings are fine) or REACH_UPDATE_DISABLE=1.
+  - Every network call goes through Reach::Update's own http helper with the timeouts and retry policy below; no other code calls GitHub.
+files:
+  - file: config.yml
+    change: >-
+      Add a top-level `updates:` mapping after `teach:` with keys repository: https://github.com/SteveBenner/rEach,
+      interval_s: 3600, jitter_s: 600, max_attempts: 5.
+  - file: bin/reach-install
+    change:
+      - Replace the last line with `exit ReachInstall.run(ARGV) if $PROGRAM_NAME == __FILE__` so the file can be `load`ed by Reach::Update without exiting.
+      - "Add a public singleton method `stage(url:, temp:, archive: nil)` (above `private`) that does exactly what run does between Dir.mktmpdir and install: download (unless archive given), extract_archive into File.join(temp, \"reach\"), read dovetail-revision.txt, download and extract Dovetail, move it into reach_root/dovetail with the same empty-dir/conflict rules, and return reach_root. It raises when REACH_INSTALL_KILL_SWITCH=1 and no archive is given."
+      - run calls stage(url: options[:url], temp: temp, archive: options[:archive]) (with options[:revision] still honoured; give stage a `revision: nil` keyword too) and then install. Behaviour of the CLI installer must be byte-for-byte the same as before.
+  - file: lib/reach/paths.rb
+    change: >-
+      Add (multi-line def style) managed_install_dir -> File.join(home, "plugin"); update_manifest_file ->
+      File.join(state_dir, "update.json"); update_lock_file -> File.join(state_dir, "update.lock"); update_log_file ->
+      File.join(logs_dir, "update.log"); updates_dir -> File.join(home, "updates"); install_backup_dir ->
+      File.join(home, ".backup").
+  - file: lib/reach/update.rb
+    new: true
+    module: Reach::Update
+    require: [json, net/http, uri, time, fileutils, rbconfig, securerandom]
+    constants:
+      SCHEMA: '"reach.update/v1"'
+      DEFAULT_REPOSITORY: '"https://github.com/SteveBenner/rEach"'
+      DEFAULT_INTERVAL_S: 3600
+      DEFAULT_JITTER_S: 600
+      MAX_BACKOFF_S: 86_400
+      DEFAULT_MAX_ATTEMPTS: 5
+      CONNECT_TIMEOUT_S: 10
+      LISTING_READ_TIMEOUT_S: 30
+      HTTP_ATTEMPTS: 3
+      RETRY_AFTER_CAP_S: 300
+      RELEASES_PER_PAGE: 30
+      APPLY_TIMEOUT_S: 600
+      ANNOUNCE_KEEP: 50
+      DONE_WINDOW_S: 3600
+      ACTIVE_PHASES: '%w[detected downloaded staged swapped refreshed].freeze'
+      VERSION_TAG: '/\Av?(\d+\.\d+\.\d+)\z/'
+    manifest:
+      shape: >-
+        {"schema", "local_version", "remote_versions" => [{"version","tag","source"}...ascending], "source",
+        "target_version", "target_tag", "phase" (idle|detected|downloaded|staged|swapped|refreshed|completed),
+        "applying" (bool), "staged_path", "backup_path", "started_at", "updated_at", "attempts" (int, per target),
+        "last_check_at", "next_check_at", "failures" (consecutive check failures), "last_error", "etag",
+        "releases_blocked_until", "harness_results" => {id => "ok"|"absent"|"failed: msg"}, "announced" =>
+        {"<kind>:<version>" => [session ids]}, "completed_version", "completed_at"}
+      io: >-
+        load_manifest returns {} merged over defaults when the file is missing or unparsable. save_manifest(m) sets
+        updated_at, mkdir_p state_dir, writes "#{file}.tmp.#{pid}.#{rand}" with 0600 then File.rename. All times are
+        Time.now.utc.iso8601.
+    methods:
+      "config": >-
+        Merge DEFAULT_* with Reach::Runtime.load_config["updates"] (Hash or ignored). repository =
+        ENV["REACH_UPDATE_REPOSITORY"] when non-empty, else config value. Return {"repository","interval_s","jitter_s","max_attempts"}.
+      "disabled?": ENV["REACH_UPDATE_DISABLE"] == "1".
+      "offline?": ENV["REACH_OFFLINE"] == "1".
+      "managed?": >-
+        dir = Reach::Paths.managed_install_dir; File.file?(File.join(dir, "VERSION")) && !File.exist?(File.join(dir, ".git")).
+      "local_version": >-
+        managed? ? File.read(VERSION).strip : Reach::VERSION. Rescue -> Reach::VERSION.
+      "owner_repo": >-
+        Parse config repository with URI; require scheme https (raise Reach::Error-like StandardError otherwise);
+        path stripped of leading "/" and trailing ".git" and "/" must be "owner/repo"; return [owner, repo, host].
+      "list_releases(manifest)": >-
+        Return nil (meaning fall through) when manifest releases_blocked_until is in the future. GET
+        https://api.github.com/repos/<owner>/<repo>/releases?per_page=RELEASES_PER_PAGE with headers Accept
+        application/vnd.github+json, User-Agent "rEach/<Reach::VERSION>", X-GitHub-Api-Version 2022-11-28,
+        If-None-Match manifest["etag"] when present. 304: return manifest["cached_releases"] (store the parsed list
+        under that key on 200). 200: parse JSON array; keep entries where draft != true and prerelease != true and
+        tag_name matches VERSION_TAG; map to {"version" => captured, "tag" => tag_name, "source" => "releases"}; store
+        etag from the ETag header and cached_releases; return the list (may be empty). 403 or 429: set
+        releases_blocked_until = max(X-RateLimit-Reset epoch, now + 3600) as iso8601 and return nil. Any other status or
+        network error: return nil.
+      "list_tags": >-
+        GET https://<host>/<owner>/<repo>.git/info/refs?service=git-upload-pack (host from repository, normally
+        github.com) with User-Agent "git/2.0 (rEach/<version>)". Parse pkt-lines: each line is a 4-hex length prefix
+        (0000 is a flush) followed by "<sha> <ref>" and optional "\0capabilities"; strip the trailing newline and the
+        NUL tail. Keep refs matching %r{\Arefs/tags/(v?\d+\.\d+\.\d+)\z} (skip ^{} peeled lines). Map to {"version",
+        "tag" => the tag name, "source" => "tags"}. Raise on non-200.
+      "check(manifest)": >-
+        local = local_version. releases = list_releases(manifest). candidates = releases if releases && !releases.empty?
+        else list_tags. Dedupe by version (first wins), keep versions > local by Gem::Version, sort ascending. Write
+        local_version, remote_versions, source (candidates' source or "none"), last_check_at = now, failures = 0,
+        next_check_at = now + interval_s + rand(jitter_s+1). If the list is non-empty and its last version differs from
+        target_version: set target_version/target_tag to the newest, phase "detected", attempts 0, last_error nil,
+        staged_path nil. If the list is empty and phase is not in ACTIVE_PHASES: phase "idle". Save and log. On any
+        exception: failures += 1, last_error = message, next_check_at = now + min(interval_s * 2**failures,
+        MAX_BACKOFF_S) + rand(jitter_s+1), save, log, return manifest (never raise out of check).
+      "check_due?(manifest)": >-
+        !disabled? && !offline? && (next_check_at nil or unparsable or <= now).
+      "http_get(uri, headers, read_timeout, destination: nil)": >-
+        Net::HTTP with use_ssl true (refuse non-https), open_timeout CONNECT_TIMEOUT_S, read_timeout given. Up to
+        HTTP_ATTEMPTS: on Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNRESET/ECONNREFUSED/EHOSTUNREACH,
+        OpenSSL::SSL::SSLError or a 5xx, sleep rand * (2**attempt) seconds (full jitter, attempt from 0) or the
+        Retry-After seconds (capped at RETRY_AFTER_CAP_S) when present, then retry. Follow at most 5 redirects (only
+        to https). Return the Net::HTTPResponse (body read). 304/403/429/404 are returned, not retried.
+      "stage(manifest)": >-
+        Requires phase detected or downloaded and a target_tag. Archive URL https://<host>/<owner>/<repo>/archive/refs/tags/<tag>.zip.
+        Load the installer once with `load File.join(Reach::Runtime.root, "bin", "reach-install")` guarded by
+        `defined?(::ReachInstall)`. temp = File.join(Reach::Paths.updates_dir, "staging-<target_version>-<hex6>")
+        (mkdir_p updates_dir 0700; remove nothing, Part E: older staging dirs are left alone except as below).
+        reach_root = ReachInstall.stage(url: archive_url, temp: temp). Read reach_root/VERSION; unless it equals
+        target_version raise "release <tag> carries VERSION <x>". Unless File.file?(reach_root/update/apply.rb) raise
+        "release <tag> carries no update/apply.rb". Set phase "downloaded" right after ReachInstall.stage returns and
+        save, then phase "staged", staged_path = reach_root, save. On failure: attempts += 1, last_error, save, re-raise.
+      "apply(manifest, resume: false)": >-
+        Requires managed? (else raise "no managed install"), phase staged/swapped/refreshed and staged_path present (for
+        staged: File.directory?(staged_path) else set phase "detected" and raise "staged release vanished"). Set
+        applying true, started_at if nil, save. Run Open3.capture3(RbConfig.ruby, File.join(staged_path or the managed
+        install when phase is swapped/refreshed, "update", "apply.rb"), "--staged", staged_path, "--destination",
+        managed_install_dir, "--manifest", update_manifest_file, "--from", manifest["local_version"], "--to",
+        target_version, ("--resume" when phase is swapped or refreshed)) under Timeout APPLY_TIMEOUT_S. Then reload
+        the manifest (apply.rb wrote it). If exit status 0 and phase is "completed": applying false, attempts 0,
+        completed_version = target_version, completed_at (apply.rb may already set it), local_version =
+        target_version, remote_versions = those > target_version, last_error nil, save, log. Else: applying false,
+        attempts += 1, last_error = last stderr line or "apply.rb exited N", save, log, raise.
+      "run(apply: false)": >-
+        Returns a short status hash. Return {"skipped" => "disabled"} when disabled?. Take the lock (with_lock below);
+        if it is held elsewhere return {"skipped" => "locked"}. Inside: m = load_manifest. Resume first: if
+        m["phase"] in swapped/refreshed and apply -> apply(m, resume: true). Then if check_due?(m) or phase idle/
+        completed with no remote_versions known and not offline? -> m = check(m). If attempts >=
+        config max_attempts for the current target, return {"held" => "too many attempts"} (a manual `reach update
+        run` passes force: true and bypasses this). If phase detected/downloaded and managed? -> stage(m). If apply and
+        phase staged and managed? -> apply(m). Rescue StandardError around stage/apply (they already recorded the
+        error) and return {"error" => message}. Return {"phase" => m["phase"], "target" => m["target_version"],
+        "local" => m["local_version"]}.
+      "with_lock": >-
+        mkdir_p state_dir; File.open(update_lock_file, File::RDWR | File::CREAT, 0o600); flock(LOCK_EX |
+        LOCK_NB) false -> return :locked without yielding; write "#{Process.pid}\n" (truncate first); yield; ensure
+        flock LOCK_UN and close. flock is released by the OS if the process dies, which is the stale-lock rule.
+      "lock_live?": >-
+        Open the lock file read-only (missing -> false); flock(LOCK_SH | LOCK_NB) returning false means another
+        process holds it -> true; otherwise unlock and false.
+      "installing?(manifest = load_manifest)": manifest["applying"] == true && lock_live?.
+      "hold!": >-
+        Called by gates and commands. When installing? raise Reach::GateBlocked.new("M-UPDATE-INSTALLING",
+        Reach::Messages.text("M-UPDATE-INSTALLING", version: manifest["target_version"])). Any other error is
+        swallowed (never block on a broken manifest).
+      "spawn_background(apply:)": >-
+        Return nil when disabled?. pid = Process.spawn(RbConfig.ruby, File.join(Reach::Runtime.root, "exe", "reach"),
+        "update", "run", *(apply ? ["--apply"] : []), in: File::NULL, out: File::NULL, err: File::NULL, pgroup: true)
+        (on Windows pass new_pgroup: true instead of pgroup: true when Reach::Runtime.windows?), Process.detach(pid).
+        Rescue -> nil. Same pattern as Reach::Support.spawn_flush.
+      "pending_version(manifest)": >-
+        target_version when phase in ACTIVE_PHASES and Gem::Version(target_version) > Gem::Version(local_version), else nil.
+      "on_session_start(session_id)": >-
+        Returns the version string to announce with G-UPDATING, or nil. Never raises, never touches the network, must
+        finish in well under a second. Return nil when disabled? or !managed?. m = load_manifest. If installing?(m):
+        return m["target_version"]. If pending_version(m) and m["attempts"].to_i < max_attempts and !lock_live?:
+        spawn_background(apply: true); mark announced "updating:<version>" for session_id; return the version. Else if
+        check_due?(m) and !lock_live?: spawn_background(apply: true); return nil.
+      "prompt_notices(session_id)": >-
+        Returns an array of context strings (possibly empty), each at most once per session per kind and version,
+        recorded under announced (keep the newest ANNOUNCE_KEEP session ids per key). Never raises, never touches the
+        network. Return [] when disabled?. m = load_manifest. If check_due?(m) and !lock_live? and managed?:
+        spawn_background(apply: false). Then, in this order, at most one notice:
+        (a) completed_version present, completed_at within DONE_WINDOW_S, and Gem::Version(completed_version) >
+        Gem::Version(Reach::VERSION) or the session was announced "updating:<completed_version>" or "ready:<completed_version>"
+        -> "rEach update: when you finish your current answer, tell the student, in a message of its own, exactly: " +
+        Reach::Messages.text("M-UPDATE-DONE", version: completed_version), key "done:<version>".
+        (b) phase staged and not applying and pending_version(m) -> same sentence with M-UPDATE-READY, key "ready:<version>".
+        (c) last_error present, not applying, pending_version(m) and attempts >= 1 -> same with M-UPDATE-RETRY, key
+        "retry:<version>". Save the manifest only when a key was added.
+      "status_lines": human text for `reach update status` (managed or not and why, local version, source, remote versions, target, phase, attempts, last check, next check, last error, harness results).
+      "log(event, fields = {})": >-
+        Append one JSON line {"at","event", **fields} to Reach::Paths.update_log_file (mkdir_p logs_dir, file 0600).
+        Rescue -> nil. Events: check, stage, apply, error, skipped.
+  - file: lib/reach.rb
+    change: add `require_relative "reach/update"` immediately before `require_relative "reach/harness"`.
+  - file: lib/reach/runtime.rb
+    change:
+      - "ensure_shim!: write shim_root_path only when the recorded root (read and stripped) is empty, its directory or its VERSION file is missing, or Gem::Version.new(File.read(recorded_root/VERSION).strip) <= Gem::Version.new(Reach::VERSION) (equal versions: write, so the most recently running copy of the same version wins). Rescue a bad version string by writing. shim_path content is always written with write_if_different as now."
+      - >-
+        shim_content: after the `root = ...` line, add recovery lines that run only when
+        File.file?(File.join(root, "exe", "reach")) is false: require "json"; read
+        File.join(__dir__, "..", "state", "update.json"); if the managed dir File.join(__dir__, "..", "plugin") does not
+        exist, File.rename(staged_path, managed) when staged_path is a directory, else File.rename(backup_path,
+        managed) when backup_path is a directory; then if File.file?(File.join(managed, "exe", "reach")) set root to
+        managed and File.write(File.join(__dir__, "root"), "#{managed}\n"). Wrap the recovery in begin/rescue
+        StandardError/end. Then the existing load line. Keep it Ruby 2.6-safe and comment-free. Build it as an array
+        of lines joined by "\n" like now.
+  - file: update/apply.rb
+    new: true
+    shebang: "#!/usr/bin/env ruby"
+    purpose: The release's own install script. Self-contained, standard library only, Ruby 2.6-safe; it must not require anything from lib/.
+    args: --staged DIR --destination DIR --manifest FILE --from VERSION --to VERSION [--resume] (OptionParser)
+    steps:
+      - read the manifest JSON (missing -> {}); define save that sets updated_at and writes tmp+rename 0600.
+      - "unless --resume or manifest phase is swapped/refreshed: verify File.read(staged/VERSION).strip == --to (exit 1 with a message on stderr otherwise). backup = File.join(File.dirname(destination), \".backup\", \"plugin-#{Time.now.utc.strftime('%Y%m%d%H%M%S')}-#{SecureRandom.hex(3)}\"); mkdir_p its parent. Record backup_path in the manifest and save BEFORE moving. If destination exists: File.rename(destination, backup). File.rename(staged, destination). On failure between the two renames, rename backup back when destination is missing, then re-raise. Set phase swapped, save."
+      - "migrations: Dir[destination/update/migrations/*.rb], version = basename without .rb, keep those that parse as Gem::Version with from < v <= to, sort by Gem::Version, run each with system(RbConfig.ruby, path, \"--destination\", destination, \"--from\", from, \"--to\", to) and exit 1 on a false result (the manifest stays swapped, so the next run resumes here). Record each finished migration version under manifest migrations_done and skip ones already listed there on resume."
+      - "shim: home = File.dirname(destination); bin = File.join(home, \"bin\"); when File.directory?(bin) write File.join(bin, \"root\") with \"#{destination}\\n\" (unconditionally; the new install is the newest copy)."
+      - "harness refresh, each under Timeout 120 with Open3.capture3, each recorded in manifest harness_results as ok, absent (CLI not on PATH) or \"failed: <first stderr line>\": claude-code: when `claude` is on PATH run [claude, plugin, marketplace, update, reach] then [claude, plugin, update, reach@reach, --scope, user]; codex: when `codex` is on PATH run [codex, plugin, marketplace, upgrade, reach] then [codex, plugin, add, reach@reach]. A failure never fails apply.rb. Set phase refreshed, save."
+      - "finish: phase completed, completed_version = --to, completed_at = now, applying stays as the caller sets it, save, print \"rEach updated to #{to}\" and exit 0."
+    on_path: "PATH split on File::PATH_SEPARATOR, File.executable? and not a directory, also trying .exe/.cmd/.bat on Windows."
+  - file: lib/reach/cli.rb
+    change:
+      - "Add `when \"update\"` -> cmd_update(args) to the dispatcher (after \"setup\")."
+      - "cmd_update(args): sub = args.shift || \"status\"; options --apply, --background, --force, --format text|json (parse like the other cmd_* methods do). status: print Reach::Update.status_lines (json: the manifest). check: m = Reach::Update.check(Reach::Update.load_manifest) inside with_lock (locked -> say so, exit 0); print remote versions. run: when --background, Reach::Update.spawn_background(apply: options[:apply]) and print nothing, exit 0; else print the run result (json or one line). Exit 0 except an unknown subcommand (exit 2, usage)."
+      - "At the top of cmd_qualify, cmd_submit and cmd_sync, call Reach::Update.hold! so they refuse with M-UPDATE-INSTALLING through the existing GateBlocked/Refused handling those commands already use (read how cmd_qualify reports a Reach::GateBlocked today and follow it; if they do not rescue GateBlocked, rescue it there and print e.message, exit 1)."
+      - add `update status|check|run [--apply]` to print_usage.
+  - file: lib/reach/gate.rb
+    change:
+      - "prompt: inside the first begin block, after check_has_workspace!, call Reach::Update.hold! (it raises Reach::GateBlocked, which the block already collects into `blocked`, so the prompt is still captured before refusal)."
+      - "write and shell: call Reach::Update.hold! as the first statement after any early returns for non-course paths that already exist at the top of those methods (read them; place it where check_enrolled! style checks run)."
+      - "prompt_context: after the login/consent lines and before imports, `context.concat(Array(safely { Reach::Update.prompt_notices(session) }))`."
+  - file: lib/reach/hello.rb
+    change: >-
+      In session_parts, after the login_pending? branch returns (so sign-in is not disturbed) and after
+      choose_greeting: updating = safe { Reach::Update.on_session_start(event.is_a?(Hash) ? event["session_id"] : nil) }
+      (write a safe_update_start helper in the safe_* style). When updating is a version string and greeting_text is
+      present, greeting_text = Reach::Greetings.text("G-UPDATING", version: updating) + "\n\n" + greeting_text; when
+      greeting_text is nil (resume/compact sources) leave it nil. In both cases, when updating, append to the context a
+      line "- rEach is installing an update (version X) in the background. Course work waits until it finishes;
+      tell the student it is required and their work is safe." Also call on_session_start in the login_pending branch
+      (so a pending install still starts) but do not change the login greeting there.
+acceptance:
+  - ruby -c on every changed .rb file and update/apply.rb and bin/reach-install passes; `ruby exe/reach --help` lists update.
+  - With HOME=$S REACH_HOME=$S/.reach (S a fresh dir under /tmp/claude-1000/), `ruby exe/reach update status` reports "not managed" and exit 0; `REACH_UPDATE_DISABLE=1 ruby exe/reach update run` reports disabled.
+  - "Managed simulation: copy the working tree (without .git, via git archive or rsync --exclude .git) to $S/.reach/plugin, write 0.11.9 into its VERSION. `ruby $S/.reach/plugin/exe/reach update check` (real network, read-only) lists the real remote versions above 0.11.9 from tags (there are no GitHub releases yet), source tags, and writes $S/.reach/state/update.json with phase detected and target the newest tag."
+  - "`ruby $S/.reach/plugin/exe/reach update run` (no --apply) downloads and stages it. EXPECTED today: the newest real tag (v0.12.0) carries no update/apply.rb, so stage must fail with \"carries no update/apply.rb\", attempts 1, phase stays downloaded, and nothing under $S/.reach/plugin changes. Report the manifest."
+  - "Apply path without network: build a fake staged release dir from the working tree with VERSION 0.13.0 and update/apply.rb, set the manifest by hand to phase staged, target_version 0.13.0, staged_path that dir, local_version 0.11.9, then `PATH=<dir without claude/codex> ruby $S/.reach/plugin/exe/reach update run --apply` with REACH_OFFLINE=1: $S/.reach/plugin/VERSION becomes 0.13.0, the old copy sits in $S/.reach/.backup/plugin-*, phase completed, harness_results absent for both, $S/.reach/bin/root points at $S/.reach/plugin."
+  - "Interruption: repeat the apply setup, but after apply.rb's first rename (simulate by doing only `mv $S/.reach/plugin <backup>` and setting phase staged + backup_path by hand) run `ruby $S/.reach/bin/reach --help`: the shim restores a working install and loads; then `reach update run --apply` completes."
+  - "hold!: while a process holds the update lock (ruby -e that flocks $S/.reach/state/update.lock and sleeps) and the manifest has applying true, `ruby $S/.reach/plugin/exe/reach gate prompt --harness claude-code` with a JSON prompt event on stdin inside a course slice is not testable without enrollment; instead check `ruby -e` calling Reach::Update.installing? returns true and hold! raises GateBlocked with the M-UPDATE-INSTALLING text, and false once the lock holder exits."
+  - "prompt_notices and on_session_start return within 200 ms with no network (time them) and never raise on a corrupt manifest (write garbage to update.json and call them)."
+  - "bin/reach-install still installs end to end: `ruby bin/reach-install --destination $S/inst` (real network) exits 0 and prints the installed path."
+  - Report every command run and its output; report anything that did not pass and why. Do not claim a pass you did not observe.
