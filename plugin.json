@@ -1,6 +1,16 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "reach",
-  "version": "0.14.6",
-  "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
+  "version": "0.15.0",
+  "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
+  "author": {
+    "name": "PatḗrasAI"
+  },
+  "repository": "https://github.com/SteveBenner/rEach",
+  "keywords": [
+    "education",
+    "course",
+    "students",
+    "assistant"
+  ]
 }

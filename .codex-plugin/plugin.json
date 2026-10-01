@@ -1,17 +1,35 @@
 {
   "name": "reach",
-  "version": "0.14.6",
+  "version": "0.15.0",
   "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
-  "author": {"name": "PatḗrasAI"},
-  "repository": "https://bitbucket.org/paterasai/reach",
-  "keywords": ["education", "course", "students", "assistant"],
+  "author": {
+    "name": "PatḗrasAI"
+  },
+  "repository": "https://github.com/SteveBenner/rEach",
+  "keywords": [
+    "education",
+    "course",
+    "students",
+    "assistant"
+  ],
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
+  "hooks": "./hooks/codex.json",
+  "mcpServers": {
+    "reach": {
+      "command": "ruby",
+      "args": [
+        "${PLUGIN_ROOT}/exe/reach",
+        "mcp"
+      ]
+    }
+  },
   "interface": {
     "displayName": "rEach",
     "shortDescription": "Your academic assistant for a Teach-run course",
     "developerName": "PatḗrasAI",
     "category": "Education",
-    "defaultPrompt": ["Hi rEach"]
+    "defaultPrompt": [
+      "Hi rEach"
+    ]
   }
 }

@@ -1,0 +1,97 @@
+# Implementation Spec — Reach 0.15.0: rplugin 1.2 native packages and the microbrain
+# Generated: 2026-10-01
+# Spec schema: is.v1
+# Concurrency model: worktree-isolated / file-ownership-disjoint / wave-synchronized
+schema: is.v1
+metadata:
+  name: Reach 0.15.0 on rplugin 1.2 and the current microbrain
+  slug: reach-v0-15-0
+  version: 0.1.0
+  created: 2026-10-01
+  authors: [Sven]
+  status: accepted
+  decisions:
+    - "Sven 2026-09-30: the brain is written through the runtime kit or any Ruby >= 3.3; on older Ruby Reach queues rcorpus.spool/v1 lines admitted later; the 2.6 floor stays otherwise"
+    - "Sven 2026-09-30: hooks, MCP and native packages come from rplugin, not hand-kept files"
+    - "Sven 2026-10-01: plan approved as proposed (records in the private tier, native: true, rplugin 1.2.0 adds the interface fields)"
+
+vision:
+  problem: |
+    Reach 0.14.6 calls corpus.put(kind:, data:) and corpus.recall(kind:, limit:)
+    on what the corpus port returns, an Rcorpus::Corpus, which has neither. With
+    the SDK present every receipt and qualification write raises and the
+    callers' rescue drops it; in Qualify#write_record the raise also skips
+    Ledger.append. Without the SDK it writes an ad-hoc corpus-fallback/*.jsonl
+    nothing ever admits. Reach.ports passes ~/.reach as the plugin root, so the
+    SDK cannot find the manifest. Its native packages are hand-kept and drift.
+  outcome: |
+    Every Reach record is an rcorpus.spool/v1 line first, on any Ruby, and is
+    admitted into the owned corpus's private tier as soon as rcorpus loads. The
+    ledger never depends on the corpus. The manifest declares kinds, hooks, MCP,
+    compatibility and native packaging; rplugin generates the packages without
+    losing rEach's display name, Codex category or default prompt.
+  non_goals: ["no change to Teach, the wire, grading or submission semantics", "no tests (Part S)", "no comments (Part Q)"]
+
+requirements:
+  functional:
+    - id: FR-1
+      statement: "rplugin SHALL accept manifest native as true or a hash with optional claude_agent, interface {display_name, short_description, developer_name, category, default_prompt (list of strings)}, keywords (list) and author {name, email?, url?}, validated by Rplugin::Manifest"
+      slice: slice_1_rplugin
+    - id: FR-2
+      statement: "rplugin package SHALL put author and keywords into every identity document, displayName into .claude-plugin/plugin.json, the category (lowercased) and the author name as owner into .claude-plugin/marketplace.json, interface {displayName, shortDescription, developerName, category, defaultPrompt} into .codex-plugin/plugin.json and displayName plus plugins[0].category into .agents/plugins/marketplace.json, each only when declared; defaults stay as in 1.1.0"
+      slice: slice_1_rplugin
+    - id: FR-3
+      statement: "rplugin package SHALL write repository as a browsable https URL: git@host:owner/repo(.git) and ssh://git@host/owner/repo(.git) become https://host/owner/repo; an https remote is kept without .git"
+      slice: slice_1_rplugin
+    - id: FR-4
+      statement: "Reach SHALL write every corpus record as one rcorpus.spool/v1 line (spool, operation_id uuid v4, corpus reach, op put, kind, id, tier private, record, written_at RFC 3339 UTC, writer 'reach <version>') appended to <state home>/reach/brain-spool/<UTC date>.jsonl (mode 0600; state home = Rplugin::Paths.state_home when the SDK is loaded, else ${XDG_STATE_HOME:-~/.local/state}/rplugin), using only the Ruby standard library and Ruby 2.6 syntax"
+      slice: slice_1_reach_brain
+    - id: FR-5
+      statement: "Reach SHALL, when Rplugin and rcorpus load (Ruby >= 3.3 or the runtime kit), open its owned corpus through Reach.ports.corpus.open('reach') and run Rcorpus::Spool.new(corpus, dir).admit after each write; a refusal or error is logged through Reach's existing log facility and never raised to the caller"
+      slice: slice_1_reach_brain
+    - id: FR-6
+      statement: "Reach::Corpus#recent(kind, limit:) SHALL return the newest records of that kind from corpus.kv.list(kind:) plus any unadmitted spool lines when the corpus is available, else from the spool files (pending and admitted/), newest last, at most limit"
+      slice: slice_1_reach_brain
+    - id: FR-7
+      statement: "record ids SHALL match Rcorpus::Envelope::ID_RE: receipt:<submission or receipt id>, qualification:<qualification_id>, and note|tip|attempt:<uuid>; ids are lowercased and every character outside [a-z0-9_.:-] becomes '-'; a record never carries revision, recorded_at, actor or operation_id, and a receipt's own kind field is stored as receipt_kind"
+      slice: slice_1_reach_brain
+    - id: FR-8
+      statement: "Reach SHALL migrate ~/.reach/corpus-fallback/*.jsonl once: each line becomes a spool line with an operation_id derived deterministically from the line's SHA-256 (formatted as a uuid) so a rerun is idempotent, then the file is renamed <name>.jsonl.migrated"
+      slice: slice_1_reach_brain
+    - id: FR-9
+      statement: "Qualify#write_record SHALL append to the ledger even when the corpus write fails; receipts and submit SHALL log a corpus failure instead of dropping it silently"
+      slice: slice_1_reach_brain
+    - id: FR-10
+      statement: "Reach.ports SHALL pass the plugin root (the directory holding reach.rplugin.yml) to Rplugin::Ports.for"
+      slice: slice_1_reach_brain
+    - id: FR-11
+      statement: "specs/kinds.yml SHALL declare kinds note, tip, attempt, receipt and qualification in the canonical rcorpus.kinds/v1 shape (graph.node_kinds [] and graph.relations []), each kind's required_fields being fields Reach always writes for it"
+      slice: slice_1_reach_brain
+    - id: FR-12
+      statement: "reach.rplugin.yml SHALL declare rplugin '>= 1.2.0', repository.remote git@github.com:SteveBenner/rEach.git, native with claude_agent reach:reach and the rEach interface, contents.hooks (an rplugin.hooks/v1 file with the session_start hello hook), contents.mcp (reach: ruby ${PLUGIN_ROOT}/exe/reach mcp), compatibility {ruby: '>= 2.6', harnesses claude-code and codex supported}, corpora.owns kinds_file specs/kinds.yml, and no scripts entry; the native packages are regenerated by rplugin package"
+      slice: slice_2_integration
+
+slices:
+  - id: slice_1_rplugin
+    repo: ~/rstack/foss/rplugin
+    owns_paths: [lib/rplugin/manifest.rb, lib/rplugin/package.rb, specs/plugin.yml, docs/guides/harness-surfaces.md]
+    satisfies: [FR-1, FR-2, FR-3]
+    verification:
+      - "ruby -c; rplugin check and install --dry-run for aivorytower, likeaboss, rubric, integration-bitbucket and peer unchanged"
+      - "a scratch plugin with native interface fields: rplugin package writes every field; package --check reports no drift"
+  - id: slice_1_reach_brain
+    repo: ~/github/foss/rEach
+    owns_paths: [lib/reach.rb, lib/reach/corpus.rb, lib/reach/brain_spool.rb, lib/reach/qualify.rb, lib/reach/receipts.rb, lib/reach/submit.rb, lib/reach/limits.rb, specs/kinds.yml]
+    satisfies: [FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11]
+    verification:
+      - "ruby -c under the system Ruby; the changed files parse under Ruby 2.6 syntax rules (no endless methods, no numbered block params, no hash shorthand)"
+      - "with REACH_HOME and XDG_STATE_HOME scratch and the SDK hidden (ruby without -I rplugin): a note, a receipt and a qualification land as spool lines and recent returns them"
+      - "with the SDK loaded against a scratch rplugin home and a minted scratch reach corpus: the same writes are admitted, data/kv.private.jsonl holds them, recent reads them, rcorpus check reports 0"
+      - "a corpus-fallback file migrates once and a second run adds nothing"
+  - id: slice_2_integration
+    owner: orchestrator
+    steps:
+      - "merge; reach.rplugin.yml per FR-12; hooks/reach.hooks.yml; rplugin package; rplugin check 0"
+      - "install natively into scratch Claude Code and Codex homes; claude -p shows the reach MCP server connected and the SessionStart hook runs"
+      - "repoint plugins/reach and ~/.rplugins/reach to ~/github/foss/rEach"
+      - "versions: Reach 0.15.0, rplugin 1.2.0; changelogs, FEATURES, README; push; pins"
