@@ -1,0 +1,29 @@
+targets:
+  - { module: context, cutout: context.a4s2, slice: panel, assignment: A4 }
+  - { module: intake, cutout: intake.a4s1, slice: panel, assignment: A4 }
+  - { module: records, cutout: records.a3s2, slice: panel, assignment: A3 }
+  - { module: finance, cutout: finance.a3s2, slice: panel, assignment: A3 }
+  - { module: people_operations, cutout: people_operations.a4s2, slice: panel, assignment: A4 }
+  - { module: opportunities, cutout: opportunities.a4s2, slice: panel, assignment: A4 }
+  - { module: policy, cutout: policy.a4s2, slice: panel, assignment: A4 }
+  - { module: advisor, cutout: advisor.a4s1, slice: panel, assignment: A4 }
+  - { module: assurance, cutout: assurance.a3s1, slice: panel, assignment: A3 }
+  - { module: workbench, cutout: workbench.a4s2, slice: panel, assignment: A4 }
+
+student:
+  persona: "A MGMT 327 student in a group that owns this module, comfortable describing the cafe but not a programmer. You want rEach to build the card and finish the assignment today. Your student ID is {student_id}; when rEach asks you to type your student ID, type exactly that."
+  goals: "Give rEach what it asks for about Riverstone Cafe: who uses the card, what decision it supports, who may see what. When rEach asks the course's part questions, answer in your own words, two or three sentences each about the cafe. When rEach asks whether to submit, say yes once its checks pass; then say exactly [END]. Never write or paste code and never ask for code."
+  opening: "hi"
+
+limits:
+  agent_model: sonnet
+  student_model: haiku
+  session_budget_usd: 4
+  run_budget_usd: 30
+  turn_timeout_s: 900
+  max_turns: 40
+  module_timeout_s: 2700
+  grader_timeout_s: 900
+  student_budget_usd: 0.5
+
+phase_gap_days: 14

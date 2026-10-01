@@ -1,0 +1,136 @@
+schema: rstack.blueprint/v1
+task: reach-smoke-slice-build
+intent: >
+  A real-agent smoke test of the course path, one run per Grokit module: a model-played student and a real Claude
+  agent with Reach loaded build that module's richest panel cutout on Dovetail from a clean café workspace, inside
+  the sandbox tools/smoke already uses, against a scratch Teach. Each run is graded by Teach's grade (Grokit's café
+  acceptance suite), the Dovetail strict shape findings, qualify attempts, wall time and cost, and all ten land in one
+  report. This tests the course software (slice API, kit, Reach, Teach, Grokit, Dovetail), not the student. Where
+  this file is silent, stop and report instead of choosing.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repository: ~/github/foss/.reach-wt/slice-build (git worktree of rEach on branch slice-build-smoke, from origin/main e1552c3, Reach 0.14.2)
+scratchpad: /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/c370e549-9dae-4b05-b811-d4baca48f7c9/scratchpad/slicebuild
+
+read_first:
+  - tools/smoke/README.md, tools/smoke/run.rb (Docker sandbox, Session, model-played student, spend ceiling, the "workspace" session kind), tools/smoke/scenarios.yml (student_prompt)
+  - tools/smoke/assignment_one.rb (scratch Teach provisioning, release before enroll, enroll, sync, the student part flow through typed prompts and reach part record, grader start, qualify, submit, grades export, receipts)
+  - specs/wire.yml and reach.spec.yml sections on qualify, submit, part, attempt ladder and the workspace layout
+  - ~/bitbucket/paterasai/teach (Teach 0.14.2 at origin/main dc2d479; bin/teach --help; its CLI for course init, students import, slices assign, enroll codes, packages build, release, grader, grades export and any qualification listing)
+  - ~/bitbucket/paterasai/grokit/specs/app.yml cutouts (Grokit 0.8.0) for the ten cutouts below
+
+constraints:
+  - >-
+    AGENTS.md Part S permits this: Sven asked for these smoke tests in this session, and tools/smoke is Reach's test
+    machinery. Write no other tests. Add nothing a student installs: tools/smoke is never part of the plugin.
+  - AGENTS.md Part Q. No comments in any file. Only the frozen_string_literal magic comment and shebangs survive.
+  - AGENTS.md Part F. No attribution. Part E. Delete nothing outside your scratch directory; never rm -r, git clean, find -delete, dropdb.
+  - Do not run any git write. Touch only tools/smoke/** and this repository's docs named in owns_paths.
+  - >-
+    AGENTS.md Part B. Every model call goes through claude -p with --max-budget-usd, a turn timeout, and the harness's
+    shared Spend ceiling; a run stops cleanly on the ceiling, on SIGINT, and on a stop file
+    (<run dir>/STOP), and never retries a failed turn more than once.
+  - >-
+    Never touch Sven's real homes, credentials or the live Teach (port 7400, ~/.teach, database "teach", the
+    teach-* systemd units). The scratch Teach uses its own port, TEACH_HOME under the run directory, and its own
+    PostgreSQL database created with createdb reach_smoke_<run id> (never dropped by the harness; the report lists
+    it). Auth for the sandboxed claude is CLAUDE_CODE_OAUTH_TOKEN from ~/.config/reach-smoke/token only.
+  - >-
+    Run the course software as it ships: a clean git clone of Teach checked out at the origin/main sha (not the
+    clone's default HEAD) and of Grokit at tag v0.8.0 into the run directory. Teach's clone gets .bundle/config
+    with BUNDLE_PATH ~/bitbucket/paterasai/.teach-wt/foundation/vendor/bundle (it has pg and bigdecimal; the
+    .bundle/config value wins over the environment), TEACH_DATABASE_URL=postgres:///<db>,
+    TEACH_GRADER_IMAGE=teach-grader:ruby-4.0, TEACH_DOVETAIL=~/github/foss/dovetail/exe/dovetail (Dovetail
+    0.3.2, runtime already built), and this worktree's Reach mounted read-only at /plugin as run.rb does.
+  - American English in every message and report.
+
+design:
+  entry: >-
+    tools/smoke/slice_build.rb, run as ruby tools/smoke/slice_build.rb [--list] [--dry-run] [module ...]. It reuses
+    run.rb's Smoke::Docker, Smoke::Session, Smoke::Spend and constants by require_relative "run"; make run.rb's last
+    line run its CLI only when run.rb is the program ($PROGRAM_NAME == __FILE__ or equivalent), changing nothing
+    else in run.rb's behaviour.
+  targets: >-
+    tools/smoke/slice_build.yml lists the ten runs, in this order, each {module, cutout, slice: panel, assignment}
+    with assignment read from the cutout's spec entry (A3 or A4): context.a4s2, intake.a4s1, records.a3s2,
+    finance.a3s2, people_operations.a4s2, opportunities.a4s2, policy.a4s2, advisor.a4s1, assurance.a3s1,
+    workbench.a4s2. It also holds the student persona and goals (below) and the limits.
+  models: >-
+    The agent (the session with Reach loaded, kind workspace) runs SMOKE_SLICE_MODEL, default "sonnet". The student
+    actor runs SMOKE_STUDENT_MODEL, default "haiku", with no tools. Limits, overridable by env: agent session
+    --max-budget-usd 4 (SMOKE_SLICE_SESSION_BUDGET_USD), whole run ceiling 30 USD (SMOKE_SLICE_BUDGET_USD), turn
+    timeout 900 s (SMOKE_SLICE_TURN_TIMEOUT_S), at most 40 student turns per module (SMOKE_SLICE_MAX_TURNS), and a
+    wall-clock cap of 45 minutes per module (SMOKE_SLICE_MODULE_TIMEOUT_S).
+  teach: >-
+    Teach serves only its current assignment (the earliest whose due date is still ahead, from teach.spec.yml), so
+    the run has one phase per assignment among the selected targets (A3, then A4). Each phase gets its own Teach
+    clone, database (reach_smoke_<run id>_<assignment>, run id with underscores) and TEACH_HOME, and, as Sven
+    decided on 2026-10-01, the only change to that throwaway clone: its teach.spec.yml due dates rewritten so every
+    assignment before the phase's is due in the past and the phase's assignment and later ones are due ahead, in
+    the same order and spacing (for example the phase's assignment due 14 days from today). The report records the
+    dates used. Each phase is provisioned the way assignment_one.rb does it for its students (one per target, s01..,
+    each assigned only its target cutout's panel slice); release the phase's assignment before enrolling; one
+    enroll code per student. Start teach serve and teach grader (needs docker images
+    teach-grader:ruby-4.0 and teach-grader:ruby-2.6.10; refuse to start without them). Stop both at the end, and on
+    any abort.
+  per_module: >-
+    For each selected target, sequentially: a fresh Reach home under the run directory; reach enroll with that
+    student's code and sync (in the container, as run.rb's reach_cli does); then a workspace-kind session in the
+    slice's workspace with the student actor conversing (run.rb's converse_with_llm_student pattern) until a
+    submission receipt for the slice exists in that Reach home, or the student says [END], or a limit is reached.
+    The student types their own answers to the part questions when Reach asks (the hook records typed prompts); the
+    harness never calls reach part record or submit itself: everything the agent and student do goes through the
+    plugin, so a stall is a finding. After the session, wait (bounded by GRADER_TIMEOUT_S) for the grade.
+  student: >-
+    Persona: a MGMT 327 student in a group that owns the module, comfortable describing the café but not a
+    programmer, who wants rEach to build the card and finish the assignment today. Goals: give rEach what it asks
+    for about Riverstone Cafe (who uses the card, what decision it supports, who may see what); answer the course's
+    part questions in their own words when asked (two or three sentences each about the café); when rEach asks
+    whether to submit, say yes once its checks pass; then say [END]. Never write or paste code; never ask for code.
+  grading: >-
+    Per module record: outcome (graded | not_submitted | stalled | aborted with reason); the Teach grade score from grades export
+    and the passed/total counts and failed scenario names from the grade receipt body (teach submissions show <id>,
+    its scenarios); qualify attempts (every qualification Teach recorded for that student and slice, with pass or fail);
+    read from the scratch database's qualifications table with psql (Teach has no CLI for them); the
+    attempt-ladder hands Reach raised (from the Reach home's ladder state); the Dovetail strict findings on the
+    agent's final panel file (compile the module contract from the Grokit clone, then $TEACH_DOVETAIL check
+    <a scratch panel dir holding the Grokit clone's panel with the agent's cutout file swapped in> <shape> --profile
+    strict, errors and warnings with rule ids); agent turns, student turns, wall time, agent cost and student cost
+    (from each turn's total_cost_usd); and whether the agent ever wrote outside its owned files (the workspace's
+    guarded-write refusals in the session log).
+  report: >-
+    <run dir>/report.json (the records above, plus run id, commits of Reach, Teach, Grokit and Dovetail, models,
+    limits, the scratch database name) and <run dir>/report.md: a one-line verdict per module in a table (module,
+    cutout, outcome, score, passed/total, qualify attempts, shape errors/warnings, minutes, cost), the run total
+    cost, then per module the failing scenario names, shape findings, and the last three agent replies. Runs land
+    in ~/.cache/reach-smoke/slice-build/<run id>/ with each session's jsonl as run.rb writes them.
+  dry_run: >-
+    --dry-run provisions the scratch Teach, enrolls and syncs every selected target, checks each workspace has the
+    owned panel file, api/slice-api.json and qualify/, prints what each run would do, makes no model call, and
+    stops Teach and the grader.
+
+owns_paths:
+  - tools/smoke/slice_build.rb
+  - tools/smoke/slice_build.yml
+  - tools/smoke/run.rb (only the last line, per design.entry)
+  - tools/smoke/README.md (a short "Slice-build smoke" section: what it does, prerequisites, how to run, cost, where reports land)
+
+acceptance:
+  - ruby -c on both Ruby files with the host Ruby and in ruby:2.6.10-slim.
+  - ruby tools/smoke/run.rb --list still prints the eight scenarios, and ruby tools/smoke/slice_build.rb --list prints the ten targets.
+  - >-
+    ruby tools/smoke/slice_build.rb --dry-run (all ten) succeeds end to end: scratch Teach up on its own port with
+    its own database, ten enrollments, ten synced workspaces each holding its owned panel file, api/slice-api.json
+    and qualify/, Teach and the grader stopped afterwards, no process left listening, the live Teach untouched
+    (systemctl --user is-active teach-web stays active; its port 7400 answers health as before).
+  - >-
+    One real run of a single module, the cheapest likely one (assurance), with SMOKE_SLICE_BUDGET_USD=6: it
+    completes with an outcome and a report.md and report.json that hold every field above. Report its numbers. Do
+    not run the other nine; the primary runs them.
+  - An abort test: start a single-module real run and touch <run dir>/STOP after the first agent turn; the run stops within one turn, Teach and the grader stop, and report.md says aborted.
+
+report:
+  - What you ran for each acceptance item and what it printed, trimmed.
+  - Every file you changed.
+  - The assurance run's report.md in full, and its cost.
+  - Anything in this blueprint that did not fit how Teach, Reach or Grokit actually behave, and what you did instead.

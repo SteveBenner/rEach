@@ -894,4 +894,4 @@ module Smoke
   end
 end
 
-exit(Smoke::CLI.run(ARGV))
+exit(Smoke::CLI.run(ARGV)) if $PROGRAM_NAME == __FILE__
