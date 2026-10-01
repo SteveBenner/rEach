@@ -9,6 +9,9 @@ module Reach
     FEATURES_DIR = "qualify/features"
     STEPS_DIR = "qualify/step_definitions"
     KIT_DIR = "qualify/kit"
+    PRACTICE_README_RELATIVE = "practice/README.md".freeze
+    PRACTICE_README = "qualify/kit/practice/README.md".freeze
+    PRACTICE_DETAIL = "the local check replays the course's reference on practice data, and it holds no answer for this call; write this scenario with the practice values in qualify/kit/practice/README.md (the course server still runs your graded scenarios on the real data)".freeze
     RECORD_FILE = "qualification.json"
     POLL_INTERVAL_S = 10
     MAX_POLLS = 36
@@ -153,6 +156,9 @@ module Reach
         id = stub ? "local_stub" : "local_pass"
         env, dropped = sanitize_env(qualify["env"])
         passed = run_local(workspace, meta, qualify, record, env, stub: stub)
+        if qualify["env"].is_a?(Hash) && qualify["env"].key?("GROKIT_REPLAY") || File.file?(File.join(workspace, KIT_DIR, PRACTICE_README_RELATIVE))
+          record["practice_readme"] = PRACTICE_README
+        end
         step = record["steps"][id]
         step["env_dropped"] = dropped if step.is_a?(Hash) && !dropped.empty?
         passed
@@ -181,9 +187,21 @@ module Reach
         else
           failing = rows.reject { |row| row["result"] == "passed" }
           record["steps"][id] = { "ran" => true, "passed" => failing.empty?, "rows" => rows.map { |row| row.slice("name", "result", "step", "message") } }
-          failing.each { |row| record["findings"] << { "code" => "QF-LOCAL-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["message"] } }
+          failing.each do |row|
+          if practice_miss?(row, output)
+            record["findings"] << { "code" => "QF-PRACTICE", "name" => row["name"], "step" => row["step"], "detail" => PRACTICE_DETAIL }
+          else
+            record["findings"] << { "code" => "QF-LOCAL-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
+          end
+        end
           failing.empty?
         end
+      end
+
+      def practice_miss?(row, output)
+        return true if row["message"].to_s.include?("not_recorded")
+
+        row["message"].to_s.empty? && "#{output['stdout']}#{output['stderr']}".include?("not_recorded")
       end
 
       def first_error_line(text)
