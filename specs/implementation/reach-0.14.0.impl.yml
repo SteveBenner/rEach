@@ -1,0 +1,341 @@
+# Implementation Spec: Reach 0.14.0, the portable runtime kit
+# Generated: 2026-09-30
+# Spec schema: is.v1
+# Concurrency model: worktree-isolated / file-ownership-disjoint / wave-synchronized
+# Conforms to: ISO/IEC/IEEE 29148:2018 (requirements), ISO/IEC 25010:2011 (quality), Semantic Versioning 2.0
+
+schema: is.v1
+metadata:
+  name: "Reach 0.14.0 runtime kit"
+  slug: reach-0-14-0
+  version: 0.1.0
+  created: 2026-09-30
+  authors: [primary (Opus), coding-worker (Sonnet, medium) per slice]
+  status: accepted
+  supersedes: null
+  standards_referenced:
+    - { id: "ISO/IEC/IEEE 29148:2018", role: "requirements engineering" }
+    - { id: "ISO/IEC 25010:2011", role: "portability, installability, security" }
+    - { id: "Semantic Versioning 2.0", role: "0.13.0 -> 0.14.0" }
+    - { id: "Keep a Changelog 1.1.0", role: "CHANGELOG [0.14.0]" }
+    - { id: "APPNOTE.TXT 6.3.10 (PKWARE ZIP)", role: "the pure-Ruby zip reader" }
+
+vision:
+  problem: |
+    A student's local qualification needs Ruby with compiled gems (bigdecimal, racc, ffi, websocket-driver) and a
+    Chrome that matches grading. Today Reach uses whatever Ruby and bundle are on PATH, compiles gems on the
+    student's machine (often without a compiler), and finds Chrome on PATH or nowhere; `reach doctor` points at a
+    `--install-chromium` flag that does not exist. The grader runs Debian's chromium on a floating Ruby image, so a
+    pass at home can differ from a pass in grading.
+  outcome: |
+    `reach runtime install` downloads one verified bundle for the student's platform (Ruby 4.0.7 plus prebuilt gems
+    for the course's Gemfile.lock) and Chrome for Testing 154.0.8037.92 from Google's official storage, both checked
+    against a manifest whose sha256 is pinned in Reach itself. Local qualification then uses that Ruby, those gems
+    and that Chrome, which are the same versions Teach 0.14.0 pins in the grader image. `reach setup` offers the
+    download, `reach doctor --install-chromium` works, and a GitHub Actions workflow on rEach builds the bundles for
+    macOS arm64, macOS x86_64, Linux x86_64, Linux arm64 and Windows x64.
+  success_metrics:
+    - { id: SM-1, statement: "A clean REACH_HOME on this Linux host installs the runtime from the GitHub release and qualifies a slice locally with it", measurement: "reach runtime status; a local qualify run log", target: "installed, active; cucumber ran under ~/.reach/runtime ruby", deadline: "integration" }
+    - { id: SM-2, statement: "The workflow publishes five platform bundles and a manifest", measurement: "the release page assets", target: "5 bundles + runtime-manifest.json, each bundle smoke-tested in CI after relocation", deadline: "integration" }
+  non_goals:
+    - "Changing which Ruby runs Reach itself. Reach still runs on the student's Ruby 2.6.10 to 4.0.x; the runtime is only for qualification runs."
+    - "Linux musl, 32-bit, or Windows arm64."
+    - "Re-hosting Chrome. Chrome for Testing is downloaded from storage.googleapis.com; only its sha256 is recorded."
+    - "Chrome on Linux arm64: Google publishes no Chrome for Testing build for it; Reach says so and uses the distribution's chromium."
+
+constraints:
+  technical:
+    - "Every file under lib/ and exe/ stays valid Ruby 2.6.10: no numbered block params, no `it`, no pattern matching, no endless methods, no anonymous block/rest forwarding, no Hash#except, no Array#intersect?, no filter_map, no `...` forwarding. Check with ~/.rubies or a Ruby 2.6 parse if available; otherwise review by hand against this list."
+    - "Pure Ruby only for download and extraction: Net::HTTP, Zlib, Gem::Package::TarReader, Digest. No shelling out to tar, unzip, curl or 7z in lib/."
+    - "https only; redirects followed at most 5 times; every request has explicit open and read timeouts."
+  organizational:
+    - "AGENTS.md Part S: no tests. Part Q: no comments. Part F: no attribution. Part E: never rm -r, git clean, find -delete from the shell; product code may remove its own runtime directory when the user runs `reach runtime remove --yes`. Part B: limiter, bounded jittered retries, timeouts, kill switch."
+    - "rEach is public and canonical on GitHub (SteveBenner/rEach). Never name a course, school or client in code, manifest or docs; the lock profile is named for its gem stack."
+    - "No em dashes or en dashes in any string. American English."
+
+requirements:
+  functional:
+    - { id: FR-1, statement: "`reach runtime install [--only ruby|chrome] [--from DIR] [--yes]` SHALL download, verify, extract and smoke-check the runtime for the current platform into ~/.reach/runtime/<runtime_id>/ atomically.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-2, statement: "The manifest SHALL be accepted only when its sha256 equals Reach::RuntimeKit::MANIFEST_SHA256; every asset SHALL be accepted only when its sha256 and size equal the manifest's.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-3, statement: "`reach runtime status` SHALL print platform, runtime id, components installed, Ruby and Chrome versions, lock profiles and whether the runtime is active; `reach runtime remove --yes` SHALL remove it.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-4, statement: "Local qualification SHALL use the runtime Ruby and its prebuilt gems when the run's Gemfile.lock sha256 matches a lock profile, and the runtime Ruby with a normal bundle install otherwise.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-5, statement: "Chrome resolution order SHALL be REACH_CHROME, runtime Chrome, browsers on PATH, ~/.reach/chromium/chrome.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-6, statement: "On Linux, Reach SHALL set CUPRITE_NO_SANDBOX=1 when running as root, or when the runtime Chrome is in use and /proc/sys/kernel/apparmor_restrict_unprivileged_userns reads 1.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-7, statement: "Local qualification SHALL pass the workspace metadata's qualify.env map to cucumber after validating it.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-8, statement: "`reach setup` SHALL print an offer to install the runtime when none is installed and the platform is supported; `reach setup --runtime` SHALL install it in the same run.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-9, statement: "`reach doctor --install-chromium` SHALL run `reach runtime install --only chrome`; R-DOC-CHROME SHALL name `reach runtime install`.", verification: demonstration, priority: must, satisfied_by_slices: [slice_1_client] }
+    - { id: FR-10, statement: "A tag push matching runtime-* SHALL run .github/workflows/runtime.yml, which builds, relocation-smoke-tests and publishes the five bundles and the manifest as a GitHub release.", verification: demonstration, priority: must, satisfied_by_slices: [slice_2_ci] }
+  non_functional:
+    reliability:
+      - { id: NFR-R-1, axis: atomicity, budget: "an interrupted install leaves no runtime marked complete and the previous runtime still active" }
+    security:
+      - { id: NFR-S-1, axis: integrity, requirement: "pinned manifest digest; per-asset sha256 and size; extraction rejects absolute paths, '..' segments, and symlinks resolving outside the target root" }
+    api_safety:
+      - { id: NFR-B-1, axis: limiter, requirement: "one download at a time per process (a Mutex), at most 3 attempts per asset, full-jitter backoff up to 2^attempt s, Retry-After honored up to 300 s, open timeout 10 s, read timeout 60 s, wall cap 1800 s per asset" }
+      - { id: NFR-B-2, axis: kill_switch, requirement: "REACH_RUNTIME_DISABLE=1 or REACH_OFFLINE=1 refuses network installs with a one-line message; --from DIR still works" }
+    observability:
+      logs:
+        - { event: "runtime.download", fields: [asset, bytes, seconds, attempt], level: info, schema: "one JSON line appended to ~/.reach/logs/runtime.jsonl" }
+        - { event: "runtime.install", fields: [runtime_id, components, result], level: info, schema: "same file" }
+
+interfaces:
+  release:
+    repository: "https://github.com/SteveBenner/rEach"
+    tag: "runtime-4.0.7-r1"
+    asset_url: "https://github.com/SteveBenner/rEach/releases/download/<tag>/<asset>"
+    manifest_asset: "runtime-manifest.json"
+  platforms:
+    macos-arm64: { rv_ruby_asset: "ruby-4.0.7.arm64_sonoma.tar.gz", cft: "mac-arm64", runner: macos-14 }
+    macos-x86_64: { rv_ruby_asset: "ruby-4.0.7.ventura.tar.gz", cft: "mac-x64", runner: macos-13 }
+    linux-x86_64: { rv_ruby_asset: "ruby-4.0.7.x86_64_linux.tar.gz", cft: "linux64", runner: ubuntu-24.04 }
+    linux-arm64: { rv_ruby_asset: "ruby-4.0.7.arm64_linux.tar.gz", cft: null, runner: ubuntu-24.04-arm }
+    windows-x86_64: { rubyinstaller_asset: "rubyinstaller-4.0.7-1-x64.7z", cft: "win64", runner: windows-2025 }
+  platform_detection: "RbConfig host_os darwin -> macos, mswin|mingw -> windows, linux -> linux (musl detected by /lib/ld-musl-* -> unsupported); host_cpu arm64|aarch64 -> arm64, x86_64|x64|amd64 -> x86_64; anything else unsupported"
+  sources:
+    rv_ruby: "https://github.com/spinel-coop/rv-ruby/releases/download/20260929/<rv_ruby_asset>"
+    rubyinstaller: "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-4.0.7-1/<rubyinstaller_asset>"
+    chrome_for_testing: "https://storage.googleapis.com/chrome-for-testing-public/154.0.8037.92/<cft>/chrome-<cft>.zip"
+  chrome_executable:
+    linux64: "chrome-linux64/chrome"
+    mac-arm64: "chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+    mac-x64: "chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+    win64: "chrome-win64/chrome.exe"
+  lock_profiles:
+    dir: "runtime/locks/<profile>/{Gemfile,Gemfile.lock}"
+    first_profile: "capybara-cuprite-1, copied byte for byte from ~/bitbucket/paterasai/grokit features/Gemfile and features/Gemfile.lock at Grokit HEAD (git show HEAD:features/Gemfile.lock)"
+    identity: "lock_sha256 = sha256 of the original Gemfile.lock bytes; gemfile_sha256 = sha256 of the Gemfile bytes"
+  bundle_layout: |
+    reach-runtime-<runtime_id>-<platform>.tar.gz, gzip tar, every path under a top directory named runtime/:
+      runtime/ruby/                    the relocatable Ruby (rv-ruby tree, or the RubyInstaller tree on Windows)
+      runtime/ruby/bin/ruby[.exe]      ruby_exe
+      runtime/gems/<lock12>/           BUNDLE_PATH for one profile (lock12 = first 12 hex of lock_sha256)
+      runtime/gems/<lock12>/Gemfile    the profile Gemfile
+      runtime/gems/<lock12>/Gemfile.lock  the profile lock after `bundle lock --add-platform <current platform>` when the platform was missing (Windows: x64-mingw-ucrt)
+      runtime/BUILD.json               {runtime_id, platform, ruby_version, bundler_version, built_at, profiles: [...]}
+    bundler 4.0.19 (the lock's BUNDLED WITH) is installed into runtime/ruby so no network is needed at run time.
+  manifest_schema: |
+    {
+      "schema": "reach.runtime-manifest/v1",
+      "runtime_id": "4.0.7-r1",
+      "ruby_version": "4.0.7",
+      "bundler_version": "4.0.19",
+      "chrome_version": "154.0.8037.92",
+      "profiles": [{"name": "capybara-cuprite-1", "lock_sha256": "<hex>", "gemfile_sha256": "<hex>"}],
+      "platforms": {
+        "<platform>": {
+          "bundle": {"asset": "reach-runtime-4.0.7-r1-<platform>.tar.gz", "sha256": "<hex>", "size": <bytes>,
+                     "ruby_exe": "runtime/ruby/bin/ruby" or "runtime/ruby/bin/ruby.exe"},
+          "chrome": null or {"url": "<cft url>", "sha256": "<hex>", "size": <bytes>, "exe": "<chrome_executable>"}
+        }
+      }
+    }
+    Keys are written sorted, two-space indented, with a trailing newline, so the sha256 is reproducible.
+  reach_constants:
+    file: lib/reach/runtime_kit.rb
+    values:
+      RUNTIME_TAG: "runtime-4.0.7-r1"
+      RUNTIME_ID: "4.0.7-r1"
+      MANIFEST_SHA256: "the primary fills this in after the workflow publishes; until then the literal string PENDING, and installs from the network refuse with 'this Reach build has no runtime pin yet'"
+  install_layout: |
+    ~/.reach/runtime/<runtime_id>/            complete runtime (ruby/, gems/, chrome/, BUILD.json, .complete)
+    ~/.reach/runtime/<runtime_id>/chrome/     the unzipped Chrome for Testing tree
+    ~/.reach/runtime/current                  text file holding the active runtime_id
+    ~/.reach/runtime/.staging-<hex>/          in-progress install, renamed into place only after verification
+    ~/.reach/runtime/<runtime_id>.old-<UTC stamp>/  a replaced runtime, kept until `reach runtime remove --yes --old`
+  qualify_env_rules: "keys match /\\A[A-Z][A-Z0-9_]{0,63}\\z/ and are not PATH, HOME, RUBYOPT, RUBYLIB, and do not start with BUNDLE_, GEM_, LD_, DYLD_, REACH_ or TEACH_; values are Strings of at most 512 bytes, relative, with no '..' segment; invalid entries are dropped and named in the qualification record under steps.local_pass.env_dropped"
+
+copy:
+  offer: "Local checks run best with Reach's runtime (Ruby 4.0.7, prebuilt gems, Chrome for Testing 154). Install it with: reach runtime install"
+  no_pin: "reach: this Reach build has no runtime pin yet; update Reach, or install from a folder with --from"
+  disabled: "reach: runtime downloads are turned off (REACH_RUNTIME_DISABLE or REACH_OFFLINE); install from a folder with --from"
+  unsupported: "reach: no runtime is built for this platform (%{platform}); local checks use the Ruby and Chrome already installed"
+  no_cft: "Google publishes no Chrome for Testing build for %{platform}; install your distribution's chromium and Reach will find it"
+  doctor_chrome: "R-DOC-CHROME: no usable Chrome was found - run reach runtime install"
+  installed: "Reach runtime %{runtime_id} installed: Ruby %{ruby}, Chrome %{chrome}, %{profiles} gem profile(s)"
+
+concurrency_model:
+  doctrine: "worktree-isolated / file-ownership-disjoint / wave-synchronized"
+  isolation:
+    mechanism: "git -C ~/github/foss/rEach worktree add ~/github/foss/.reach-wt/<slice_id> -b wt/<slice_id> <spec commit on release-0.14.0>"
+    rule: "Each worker writes only in its own worktree; never in ~/github/foss/rEach or another worktree."
+  reintegration:
+    step: "The primary merges both branches into release-0.14.0 (--no-ff), then pushes runtime-4.0.7-r1 to start the workflow."
+    conflict_expectation: "Conflict-free: slice_1 owns lib/ exe/ bin/ docs; slice_2 owns .github/ and runtime/."
+
+parallel_groups:
+  wave_1:
+    slices: [slice_1_client, slice_2_ci]
+    execution: "two coding-worker agents, each in its own worktree, started together; the interfaces block is their contract"
+  wave_final:
+    slices: [slice_9_integration]
+    execution: "the primary"
+
+environment:
+  ruby_for_reach: "Reach runs under whatever Ruby the student has. Locally use /usr/bin/ruby (3.3.8) and $HOME/.rubies/ruby-4.0.6/bin/ruby to run reach commands; both must work."
+  scratch: "/tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/7c7bcaff-fa23-4fbf-ac9e-23adeb250ead/scratchpad/r14/<slice_id>/"
+  reach_home: "REACH_HOME=<scratch>/home for every reach command you run; never touch ~/.reach"
+  downloads: "Each upstream file at most once per slice, cached in <scratch>/cache/; rv-ruby x86_64_linux about 40 MB, CfT linux64 about 170 MB."
+
+slices:
+  - id: slice_1_client
+    wave: 1
+    owns_paths:
+      - lib/reach/runtime_kit.rb
+      - lib/reach/download.rb
+      - lib/reach/unzip.rb
+      - lib/reach/untar.rb
+      - lib/reach/suite.rb
+      - lib/reach/qualify.rb
+      - lib/reach/cli.rb
+      - lib/reach/setup.rb
+      - lib/reach/paths.rb
+      - lib/reach.rb
+      - locales/
+    satisfies_requirements: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9]
+    agent_brief: |
+      Build the client side exactly as the interfaces block says.
+      1. lib/reach/download.rb, module Reach::Download: get_to_file(url, destination, expected_sha256:, expected_size:)
+         streams with Net::HTTP#request + read_body in chunks into destination.part, hashing as it goes, following
+         https redirects (at most 5), honoring NFR-B-1, refusing when bytes exceed expected_size, verifying sha256
+         and size, then renaming to destination. get_small(url, max_bytes: 1_048_576) returns the body for the
+         manifest. A process-wide Mutex serializes downloads. Retries only on network errors, 5xx and 429; 4xx other
+         than 408/429 fail at once. Each attempt logs runtime.download.
+      2. lib/reach/untar.rb, Reach::Untar.extract(gz_path, into:, strip: "runtime/") using Zlib::GzipReader and
+         Gem::Package::TarReader: regular files (mode preserved, 0755 when any x bit), directories, symlinks
+         (POSIX only; refuse on Windows; refuse targets that resolve outside into), hard links refused. Paths must
+         start with strip; strip it; reject absolute paths and '..'.
+      3. lib/reach/unzip.rb, Reach::Unzip.extract(zip_path, into:): read the end of central directory (search the
+         last 65_557 bytes), support Zip64 end records, walk central directory entries, read each local header,
+         methods 0 (stored) and 8 (deflate, Zlib::Inflate.new(-Zlib::MAX_WBITS)); CRC32 check per entry; unix mode
+         from external attributes >> 16 when the creator is Unix (made-by high byte 3), else 0644/0755 by name;
+         S_IFLNK entries become symlinks (content = target) with the same containment rule; directories by
+         trailing '/'. Stream large entries in 1 MiB chunks; never read a whole entry into memory.
+      4. lib/reach/runtime_kit.rb, module Reach::RuntimeKit: constants from interfaces.reach_constants; platform;
+         supported?; manifest(from: nil) (network: Download.get_small of the manifest URL, sha256 must equal
+         MANIFEST_SHA256; from DIR: read DIR/runtime-manifest.json and check the same pin unless
+         REACH_RUNTIME_ALLOW_UNPINNED=1); install!(only: nil, from: nil, out: $stdout) following
+         interfaces.install_layout: staging dir, download or copy each component (bundle unless only == "chrome",
+         chrome unless only == "ruby" or the platform has none), verify, extract, smoke checks (ruby_exe -v
+         contains ruby_version; chrome --version contains chrome_version, run with a 30 s timeout; skip the Chrome
+         check on Windows if --version prints nothing and instead require the file to exist), write BUILD.json if
+         absent, write .complete, rename into place (an existing complete runtime_id dir is first renamed to
+         <id>.old-<stamp>), write current. When only one component is requested and a runtime with that id is
+         already complete, install that component into it in place (still through staging for that component).
+         status -> Hash; remove!(old_only: false) removes ~/.reach/runtime/<id> and current, or only *.old-*
+         dirs. active -> nil or {"root", "ruby_exe", "ruby_bin", "chrome_exe", "profiles" => [{"lock_sha256",
+         "dir"}]}, reading BUILD.json and checking .complete. gems_for(lock_bytes) -> nil or {"dir", "gemfile",
+         "lock"} when sha256(lock_bytes) matches a profile and the dir exists.
+      5. lib/reach/suite.rb: install_gems(run_dir) returns {"gemfile", "bundle_path", "ruby_bin"}. With an active
+         runtime and a matching profile: env dir as today but its Gemfile and Gemfile.lock are the runtime
+         profile's files and bundle_path is the profile dir; no bundle install is run; check with `<ruby_exe>
+         <ruby_bin>/bundle check` (60 s timeout) and fall through to the next branch if it fails. With an active
+         runtime and no match: today's bundle install, run as [ruby_exe, File.join(ruby_bin, "bundle"), "install",
+         "--quiet"] into Reach::Paths.gems_dir. Without a runtime: today's behavior exactly. cucumber(run_dir,
+         gems, tags, extra_env = {}): PATH is prefixed with ruby_bin when present; the command is [ruby_exe,
+         bundle, "exec", "cucumber", ...] when a runtime is active, else today's ["bundle", "exec", ...];
+         BUNDLE_PATH from gems; BUNDLE_FROZEN=true with a runtime profile; chromium_binary per FR-5;
+         CUPRITE_NO_SANDBOX per FR-6; extra_env merged last. Keep RUN_TIMEOUT_S.
+      6. lib/reach/qualify.rb step_local: validate meta["qualify"]["env"] per interfaces.qualify_env_rules, pass it
+         to Suite.cucumber, record dropped keys; adapt to the new install_gems return value. Nothing else changes
+         in qualify.rb.
+      7. lib/reach/cli.rb: `reach runtime install|status|remove` (dispatch beside the other verbs; status prints
+         JSON with --json, else lines); `reach doctor --install-chromium` runs RuntimeKit.install!(only: "chrome");
+         check_chrome uses copy.doctor_chrome and accepts the runtime Chrome; a new doctor line reports the runtime
+         (installed id or "not installed") without counting as a problem. Help text lists the new verb.
+      8. lib/reach/setup.rb: after the harness results, when RuntimeKit.supported? and nothing is active, print
+         copy.offer (text format) or add "runtime" => {"installed" => false, "offer" => copy.offer} (json format);
+         `reach setup --runtime` calls install! after the harness steps and reports the result.
+      9. lib/reach/paths.rb: runtime_dir, runtime_logs_file. lib/reach.rb requires the new files.
+      Locales: if Reach's messages live in locales/, put the copy strings there following the existing pattern;
+      otherwise keep them as constants in runtime_kit.rb.
+      Verify locally with a local release folder (FR-1 --from): run slice_2's packaging recipe yourself only if it
+      exists in your tree (it does not; you are parallel), so build a minimal folder by hand: download rv-ruby
+      ruby-4.0.7.x86_64_linux.tar.gz once, lay it out as runtime/ruby/, bundle install the profile (copy the Grokit
+      lock from git show) into runtime/gems/<lock12>/ with that Ruby (gem install bundler -v 4.0.19 first), write
+      BUILD.json, tar czf it as reach-runtime-4.0.7-r1-linux-x86_64.tar.gz, download the CfT linux64 zip once,
+      write runtime-manifest.json per the schema, and install with REACH_RUNTIME_ALLOW_UNPINNED=1 reach runtime
+      install --from <folder>. This folder is also what the primary uses later, so leave it in your scratch dir.
+    verification:
+      - { run: "REACH_HOME=<scratch>/home REACH_RUNTIME_ALLOW_UNPINNED=1 /usr/bin/ruby exe/reach runtime install --from <folder>", shows: "copy.installed; ~/.reach-like tree under <scratch>/home/runtime/4.0.7-r1 with .complete; current holds 4.0.7-r1" }
+      - { run: "reach runtime status --json under /usr/bin/ruby and under ruby 4.0.6", shows: "the same JSON; active true; chrome 154.0.8037.92; ruby 4.0.7" }
+      - { run: "corrupt one byte of the bundle in the folder; install again", shows: "sha256 mismatch refusal; the previous runtime still active; no staging dir left" }
+      - { run: "REACH_RUNTIME_DISABLE=1 reach runtime install", shows: "copy.disabled, exit 1" }
+      - { run: "reach runtime install (network) with MANIFEST_SHA256 PENDING", shows: "copy.no_pin, no network request made" }
+      - { run: "a qualify local run: use tools/smoke/assignment_one.rb only if Teach 0.13.0 is reachable; otherwise call Reach::Suite.install_gems and Reach::Suite.cucumber directly on a run dir assembled from Grokit HEAD's features/ (git archive HEAD features lib modules fixtures into the run dir) with tags @backend and a backend scenario of finance.a1", shows: "cucumber ran under the runtime ruby (log the command), scenarios passed, no bundle install happened (profile match)" }
+      - { run: "same run dir with a Gemfile.lock edited by one byte in a comment-free way (append a newline)", shows: "the no-match branch: bundle install with the runtime ruby into the gems dir" }
+      - { run: "Suite.cucumber with extra_env {\"GROKIT_REPLAY\"=>\"x\", \"PATH\"=>\"/x\"} through qualify's validation", shows: "GROKIT_REPLAY passed, PATH dropped and recorded" }
+      - { run: "ruby -c on every changed file with /usr/bin/ruby; then grep the changed files for the forbidden 2.7+ constructs listed in constraints", shows: "Syntax OK; none" }
+      - { run: "Reach::Unzip on the CfT zip vs `unzip -l` file count and a sha256 of chrome-linux64/chrome compared with unzip's output extracted to a scratch dir", shows: "equal" }
+    deliverable: "The runtime client; qualify uses it; setup and doctor wired."
+
+  - id: slice_2_ci
+    wave: 1
+    owns_paths:
+      - .github/workflows/runtime.yml
+      - runtime/
+    satisfies_requirements: [FR-10]
+    agent_brief: |
+      Build the GitHub Actions pipeline that produces exactly the bundle_layout and manifest_schema in interfaces.
+      Files:
+      - runtime/locks/capybara-cuprite-1/Gemfile and Gemfile.lock: byte copies from Grokit HEAD (git -C
+        ~/bitbucket/paterasai/grokit show HEAD:features/Gemfile and HEAD:features/Gemfile.lock).
+      - runtime/README.md: what the runtime is, how to add a profile (copy a course's Gemfile and lock into a new
+        runtime/locks/<name>/, bump the r-number in the tag and RUNTIME_ID), how to cut a release (push
+        runtime-<ruby>-r<n>), and that MANIFEST_SHA256 in lib/reach/runtime_kit.rb must then be updated.
+      - runtime/package.rb (plain Ruby, run by the portable Ruby itself in CI, any Ruby >= 3.0): arguments
+        --platform P --runtime-id ID --ruby-dir DIR --out DIR. For each profile: copy Gemfile and lock to
+        <stage>/runtime/gems/<lock12>/, add the platform to the lock when bundler reports it missing (bundle lock
+        --add-platform x64-mingw-ucrt on Windows; on others only when needed), run bundle install with
+        BUNDLE_PATH=<that dir>, BUNDLE_GEMFILE=<that Gemfile>, BUNDLE_FROZEN unset, using DIR/bin/ruby and the
+        bundler 4.0.19 installed into DIR first (gem install bundler -v 4.0.19 --no-document). Write BUILD.json.
+        Create the tar.gz with the system tar (tar -czf, available on all three runner OSes), compute sha256 and
+        size, write <out>/<asset>.json {asset, sha256, size, ruby_exe}.
+      - runtime/relocate_check.rb: extract the tar.gz into a fresh temp dir under a different path, then run the
+        extracted ruby: `<ruby> -e 'puts RUBY_VERSION'` must print 4.0.7; with BUNDLE_GEMFILE and BUNDLE_PATH
+        pointing into the extracted gems dir and BUNDLE_FROZEN=true, `<ruby> <ruby_bin>/bundle exec ruby -e
+        'require "nokogiri"; require "ffi"; require "bigdecimal"; require "racc/parser"; require "capybara";
+        require "capybara/cuprite"; puts :ok'` must print ok. When a Chrome zip is given, unzip it with the
+        system tool and run a 20-line Ferrum script (Ferrum::Browser.new(browser_path:, headless: true,
+        process_timeout: 30, browser_options: {"no-sandbox" => nil} on Linux), goto data:text/html,<p id=x>hi</p>,
+        assert the text) under the extracted bundle.
+      - runtime/manifest.rb: inputs the per-platform <asset>.json files and, for each CfT platform, downloads the
+        zip once (curl in the workflow, path passed in), computes sha256 and size; writes runtime-manifest.json per
+        manifest_schema with sorted keys, two-space indent, trailing newline; prints its sha256.
+      - .github/workflows/runtime.yml: on push tags 'runtime-*' and workflow_dispatch (input tag). permissions:
+        contents: write. Job build, matrix over interfaces.platforms (runner per platform), steps: checkout; fetch
+        the Ruby (curl -fsSL with --retry 3 --retry-all-errors --max-time 600) from interfaces.sources; on
+        Windows extract the 7z with 7z x and use MSYS2 for native builds (ridk enable is not available outside the
+        installer; set PATH to C:\msys64\ucrt64\bin;C:\msys64\usr\bin and install mingw-w64-ucrt-x86_64-gcc and
+        make with pacman --noconfirm if missing); on Linux install build-essential and libffi-dev if missing; on
+        macOS rely on Xcode command line tools; run package.rb, relocate_check.rb (with the CfT zip for platforms
+        that have one, downloaded with the same curl flags), upload the tar.gz and its .json as artifacts.
+        Job publish (needs build, ubuntu-24.04): download artifacts, download the four CfT zips, run manifest.rb,
+        create the release with `gh release create "$TAG" --title "Reach runtime $TAG" --notes-file
+        runtime/RELEASE_NOTES.md <assets> runtime-manifest.json` using GITHUB_TOKEN, and write the manifest sha256
+        into the job summary. concurrency: group runtime-${{ github.ref }}, cancel-in-progress false. Every step
+        has timeout-minutes. Pin every third-party action by full commit SHA (actions/checkout,
+        actions/upload-artifact, actions/download-artifact) and record the version next to it in runtime/README.md,
+        not in the YAML.
+      - runtime/RELEASE_NOTES.md: short, what is in the release and the sha256 of the manifest placeholder line
+        filled by the publish job (append it, do not template).
+      Local verification is limited to Linux x86_64: run package.rb and relocate_check.rb for linux-x86_64 with
+      rv-ruby 4.0.7 downloaded once; run manifest.rb with only that platform and the linux64 CfT zip; validate the
+      workflow YAML parses (ruby -ryaml) and passes actionlint if available (go install is not allowed; skip if
+      absent and say so).
+    verification:
+      - { run: "ruby runtime/package.rb --platform linux-x86_64 --runtime-id 4.0.7-r1 --ruby-dir <rv-ruby dir> --out <scratch>/out", shows: "a tar.gz with runtime/ruby, runtime/gems/<lock12>, runtime/BUILD.json; its .json" }
+      - { run: "ruby runtime/relocate_check.rb <tar.gz> --chrome-zip <cft zip>", shows: "4.0.7, ok, and the Ferrum page text hi" }
+      - { run: "ruby runtime/manifest.rb ... (linux-x86_64 only)", shows: "a manifest matching manifest_schema; its sha256 printed; running it twice gives the same sha256" }
+      - { run: "ruby -ryaml -e 'YAML.load_file(\".github/workflows/runtime.yml\")'", shows: "parses; jobs build and publish; matrix has five platforms" }
+    deliverable: "Workflow and scripts that build and publish the runtime release."
+
+  - id: slice_9_integration
+    wave: final
+    prerequisites: [slice_1_client, slice_2_ci]
+    owns_paths: [VERSION, CHANGELOG.md, README.md, INSTALL.md, ROADMAP.md, TODO.md, FEATURES.md, reach.spec.yml, specs/app.yml, plugin.json, reach.rplugin.yml]
+    agent_brief: |
+      Primary only. Merge both branches; push main and tag runtime-4.0.7-r1; watch the workflow through the
+      public API (curl https://api.github.com/repos/SteveBenner/rEach/actions/runs, one request per 60 s, at most
+      60 requests); fetch runtime-manifest.json from the release, compute its sha256, set MANIFEST_SHA256; install
+      from the network into a scratch REACH_HOME and run a local qualify; version 0.14.0, CHANGELOG, README,
+      INSTALL (runtime step), ROADMAP and TODO refreshed (the kit was listed as 0.12.0); tag v0.14.0 and push.
