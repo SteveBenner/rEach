@@ -255,7 +255,10 @@ module Reach
       def hermes_hooks_content
         {
           "on_session_start" => [hermes_hook_entry(h("gate", "session", "--harness", "hermes"), 10)],
-          "pre_llm_call" => [hermes_hook_entry(h("gate", "prompt", "--harness", "hermes"), 15)],
+          "pre_llm_call" => [
+            hermes_hook_entry(h("gate", "enroll", "--harness", "hermes"), 60),
+            hermes_hook_entry(h("gate", "prompt", "--harness", "hermes"), 15)
+          ],
           "pre_tool_call" => [
             hermes_hook_entry(h("gate", "write", "--harness", "hermes"), 10, matcher: HERMES_HOOK_WRITE_MATCHER, fail_closed: true),
             hermes_hook_entry(h("gate", "shell", "--harness", "hermes"), 10, matcher: HERMES_HOOK_SHELL_MATCHER, fail_closed: true),

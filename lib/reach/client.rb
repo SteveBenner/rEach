@@ -7,6 +7,10 @@ require "fileutils"
 require "openssl"
 
 module Reach
+  class RemoteRefused
+    attr_accessor :details
+  end
+
   class CircuitBreaker
     def initialize(failure_threshold: 5, cooldown_s: 60)
       @failure_threshold = failure_threshold
@@ -149,15 +153,18 @@ module Reach
       new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick)
     end
 
-    def self.anonymous(base_url, quick: false)
-      new(base_url: base_url, install_id: nil, install_private_key: nil, quick: quick)
+    def self.anonymous(base_url, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
+      new(base_url: base_url, install_id: nil, install_private_key: nil, quick: quick, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries)
     end
 
-    def initialize(base_url:, install_id:, install_private_key:, quick: false)
+    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
       @base_url = base_url.to_s.sub(%r{/+\z}, "")
       @install_id = install_id
       @install_private_key = install_private_key
       @quick = quick
+      @connect_timeout = connect_timeout
+      @read_timeout = read_timeout
+      @max_retries = max_retries
     end
 
     def get(path, query: nil, headers: {})
@@ -179,7 +186,7 @@ module Reach
       query_string = (query && !query.empty?) ? URI.encode_www_form(query) : nil
       target = query_string ? "#{path}?#{query_string}" : path
 
-      max_attempts = @quick ? 1 : (MAX_RETRIES + 1)
+      max_attempts = @max_retries ? (@max_retries + 1) : (@quick ? 1 : (MAX_RETRIES + 1))
       attempt = 0
       loop do
         attempt += 1
@@ -212,7 +219,9 @@ module Reach
           end
 
           self.class.breaker.record_success
-          raise Reach::RemoteRefused.new(code, response.status, message)
+          refusal = Reach::RemoteRefused.new(code, response.status, message)
+          refusal.details = error["details"] || (parsed || {})["details"]
+          raise refusal
         rescue Reach::Offline, Reach::RemoteRefused
           raise
         rescue *RETRYABLE_EXCEPTIONS => e
@@ -233,8 +242,8 @@ module Reach
       uri.query = query_string if query_string
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = (uri.scheme == "https")
-      http.open_timeout = @quick ? QUICK_CONNECT_TIMEOUT_S : CONNECT_TIMEOUT_S
-      http.read_timeout = @quick ? QUICK_READ_TIMEOUT_S : READ_TIMEOUT_S
+      http.open_timeout = @connect_timeout || (@quick ? QUICK_CONNECT_TIMEOUT_S : CONNECT_TIMEOUT_S)
+      http.read_timeout = @read_timeout || (@quick ? QUICK_READ_TIMEOUT_S : READ_TIMEOUT_S)
 
       request_class = (method == :get) ? Net::HTTP::Get : Net::HTTP::Post
       req = request_class.new(uri.request_uri)

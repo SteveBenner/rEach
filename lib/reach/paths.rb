@@ -133,6 +133,30 @@ module Reach
       File.join(state_dir, "login")
     end
 
+    def enroll_state_dir
+      File.join(state_dir, "enroll")
+    end
+
+    def enroll_flow_file
+      File.join(enroll_state_dir, "flow.json")
+    end
+
+    def enroll_moved_file
+      File.join(enroll_state_dir, "moved.json")
+    end
+
+    def fingerprint_cache_file
+      File.join(enroll_state_dir, "fingerprint_cache.json")
+    end
+
+    def fingerprint_file
+      File.join(home, "fingerprint.json")
+    end
+
+    def stamp_file
+      File.join(home, "stamp.json")
+    end
+
     def consent_dir
       File.join(state_dir, "consent")
     end

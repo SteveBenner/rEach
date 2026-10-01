@@ -151,7 +151,7 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         client = Reach::Client.for_install(install, quick: quick)
-        response = client.get("/api/v1/status")
+        response = client.get("/api/v1/status", headers: fingerprint_headers)
         status = response.json || {}
 
         FileUtils.mkdir_p(Reach::Paths.state_dir)
@@ -169,8 +169,23 @@ module Reach
 
         status
       rescue Reach::RemoteRefused => e
+        if e.code == "fingerprint_mismatch"
+          Reach::EnrollmentLock.mark_moved!([])
+          raise Reach::GateBlocked.new("M-ENR-MOVED", Reach::Messages.text("M-ENR-MOVED"))
+        end
         Reach::Enroll.mark_revoked! if %w[revoked not_enrolled].include?(e.code)
         raise
+      end
+
+      def fingerprint_headers
+        return {} unless Reach::Stamp.current
+
+        stored = Reach::Fingerprint.stored
+        return {} unless stored
+
+        { "X-Reach-Fingerprint" => Reach::Fingerprint.live(salt: stored["salt"])["digest"] }
+      rescue StandardError
+        {}
       end
 
       def cached_status

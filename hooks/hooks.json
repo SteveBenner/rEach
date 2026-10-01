@@ -1,5 +1,5 @@
 {
-  "description": "rEach: greet the student and load the persona at session start",
+  "description": "rEach: greet the student and load the persona at session start, and enroll the student while rEach is locked",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,17 @@
             "type": "command",
             "command": "ruby \"${CLAUDE_PLUGIN_ROOT}/exe/reach\" hello",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ruby \"${CLAUDE_PLUGIN_ROOT}/exe/reach\" gate enroll --harness claude-code",
+            "timeout": 60
           }
         ]
       }
