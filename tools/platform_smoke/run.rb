@@ -21,6 +21,9 @@ module PlatformSmoke
   BLOCK_EXIT = 2
   STEP_TIMEOUT_S = 120
   RUNTIME_TIMEOUT_S = 900
+  BACKGROUND_WAIT_S = 900
+  BACKGROUND_POLL_S = 10
+  RUNTIME_BUSY = "the runtime is already being installed in the background".freeze
   EXPECTED_DOCTOR_FINDINGS = %w[R-DOC-GUARD R-DOC-HARNESS].freeze
   CHROME_FINDING = "R-DOC-CHROME".freeze
 
@@ -473,7 +476,15 @@ module PlatformSmoke
       end
 
       code, out, err = reach("runtime", "install", timeout: RUNTIME_TIMEOUT_S)
-      return [:fail, "runtime install exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+      origin = "installed by reach runtime install"
+      if code != 0
+        return [:fail, "runtime install exit #{code.inspect}: #{tail(out, err)}"] unless (out + err).include?(RUNTIME_BUSY)
+
+        waited, failure = wait_for_background_install
+        return [:fail, failure] if failure
+
+        origin = "installed by the background self-install after waiting #{waited.round}s"
+      end
 
       code, out, err = reach("runtime", "status", "--json")
       return [:fail, "runtime status exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
@@ -489,12 +500,77 @@ module PlatformSmoke
       return [:fail, "runtime ruby prints #{out.strip.inspect}, not #{RUNTIME_RUBY}"] unless out.strip == RUNTIME_RUBY
 
       @kit_installed = true
-      [:pass, "#{platform} runtime #{RUNTIME_ID} active, ruby #{out.strip}"]
+      [:pass, "#{platform} runtime #{RUNTIME_ID} active, ruby #{out.strip}, #{origin}"]
+    end
+
+    def state_dir
+      File.join(@env["REACH_HOME"], "state")
+    end
+
+    def install_lock_free?
+      path = File.join(state_dir, "runtime-install.lock")
+      return true unless File.file?(path)
+
+      File.open(path, File::RDWR) do |file|
+        free = file.flock(File::LOCK_EX | File::LOCK_NB)
+        file.flock(File::LOCK_UN) if free
+        free ? true : false
+      end
+    rescue StandardError
+      true
+    end
+
+    def background_last_error
+      path = File.join(state_dir, "runtime-auto.json")
+      return nil unless File.file?(path)
+
+      data = JSON.parse(File.read(path))
+      error = data.is_a?(Hash) ? data["last_error"].to_s : ""
+      error.empty? ? nil : error
+    rescue StandardError
+      nil
+    end
+
+    def wait_for_background_install
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      last = ""
+      loop do
+        elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+        code, out, err = reach("runtime", "status", "--json")
+        last = tail(out, err)
+        if code == 0
+          begin
+            state = JSON.parse(out)
+            return [elapsed, nil] if state["runtime_id"] == RUNTIME_ID && state["active"]
+          rescue JSON::ParserError
+            nil
+          end
+        end
+        error = background_last_error
+        if error && install_lock_free?
+          return [elapsed, "background runtime install failed and is not running: #{error}"]
+        end
+        return [elapsed, "background runtime install did not finish in #{BACKGROUND_WAIT_S}s: #{last}"] if elapsed >= BACKGROUND_WAIT_S
+
+        sleep BACKGROUND_POLL_S
+      end
+    end
+
+    def wait_for_install_lock
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 120
+      until install_lock_free?
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          warn "warning: a background runtime install still holds the lock"
+          return
+        end
+        sleep 2
+      end
     end
 
     def cleanup
       return unless @scratch && File.exist?(@scratch)
 
+      wait_for_install_lock
       if @options[:keep]
         puts "scratch kept at #{@scratch}"
         return
