@@ -25,7 +25,10 @@ module Reach
 
     def dir
       value = ENV["REACH_REFERENCE_DIR"].to_s
-      File.expand_path(value.empty? ? File.join(Reach::Runtime.root, "corpus", "course-reference") : value)
+      return File.expand_path(value) unless value.empty?
+
+      Reach::Guardrails.ensure_current
+      File.join(Reach::Paths.guardrails_vault_dir, "reference")
     end
 
     def blob_paths

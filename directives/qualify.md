@@ -48,6 +48,12 @@ course server answers with scenario names, pass or fail, the failing step
 and the kind of failure; never with course code, and never with the graded
 scenarios' steps. Do not try to learn them.
 
+For a panel slice whose local check is on, the local run answers the panel's
+calls from a recording of the course's reference on a practice business. Read
+`qualify/kit/practice/README.md` first and write the local scenarios with its
+example labels and values; the course server runs the graded scenarios on the
+real data.
+
 A qualification that failed counts on the attempt ladder (TOZERO). One
 that could not reach the course server is pending and counts for nothing;
 run `reach qualify` again later. `reach submit` refuses until the latest
