@@ -30,6 +30,7 @@
 - [ ] The judge still notes rEach sometimes asks two things in one reply (course-gate) and does not use the first-run greeting right after a profile is forgotten (advisory only).
 - [x] Portable Ruby 4.0.7 and Chrome for Testing on the student side, so panel slices can qualify locally too. (Shipped in 0.14.0 as `reach runtime install`; panels qualify locally where the course ships a practice recording.)
 - [ ] The runtime bundles for macOS, Windows and Linux arm64 are built and relocation-checked only in CI; no student machine on those platforms has installed one yet.
+- [ ] Publish runtime-4.0.7-r2 and pin it (lib/reach/runtime_kit.rb RUNTIME_TAG and MANIFEST_SHA256): the tag's CI run 36838426832 built and passed both Linux kits (glibc 2.28) and both macOS kits, but windows-x86_64 failed its relocation check and publish was skipped. Read that job's log (needs a GitHub login), fix or re-run it ("Re-run failed jobs" on the run page), then pin. Until then Linux below glibc 2.38 cannot use the kit.
 
 ## Verified in 0.11.1 to 0.11.3 (Hermes)
 

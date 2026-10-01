@@ -1,0 +1,76 @@
+schema: impl-blueprint/v1
+name: runtime kit on older Linux, a real reason when the checking tools fail to install, no shape findings on files the student does not hold
+versions: {reach: 0.14.6, runtime: runtime-4.0.7-r2}
+repos:
+  reach: /home/sven/github/foss/rEach
+origin: >-
+  Reported by peer session rstack-uber-bd from its full slice-build smoke (run 20261001_004709, Reach 0.14.3, Grokit
+  0.9.1); Sven chose to fix all three, including rebuilding the Linux kit on an older glibc and publishing
+  runtime-4.0.7-r2.
+normative:
+  - specs/app.yml STD-RUBY-FLOOR (lib/ on Ruby 2.6.10), STD-STUDENT-MESSAGES
+  - reach.spec.yml runtime kit section (reach runtime install|status|remove, pinned manifest sha256)
+constraints:
+  - lib/ stays Ruby 2.6.10-compatible, standard library only. Match surrounding style.
+  - "No comments in code (Part Q), except lines a tool reads. No tests or test files (Part S)."
+  - Do not edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md, reach.spec.yml, specs/app.yml, plugin manifests; the primary does.
+  - Do not commit, push, tag or touch git. Do not create GitHub releases. The primary publishes.
+  - Every network fetch in a script or workflow keeps the existing bounded retries and timeouts (CURL_FLAGS).
+slices:
+  - id: K
+    title: Linux runtime kit built for glibc 2.28
+    owns: [.github/workflows/runtime.yml, runtime/package.rb, runtime/relocate_check.rb, runtime/build_ruby_linux.sh, runtime/README.md, runtime/RELEASE_NOTES.md]
+    problem: >-
+      The linux-x86_64 and linux-arm64 kits use spinel-coop/rv-ruby's prebuilt Ruby 4.0.7, which needs glibc 2.38
+      (libm GLIBC_2.38), so reach runtime install fails on Debian 11 (2.31), Debian 12 (2.36) and Ubuntu 22.04 (2.35).
+      rv-ruby publishes only that one glibc Linux build. The kit's native gems are also compiled on the ubuntu-24.04
+      runner, so they would carry glibc 2.39 symbols even with an older Ruby.
+    change: >-
+      (a) New runtime/build_ruby_linux.sh, run inside quay.io/pypa/manylinux_2_28_x86_64 (and _aarch64 for arm64):
+      builds static OpenSSL 3 (latest 3.x LTS), libyaml, libffi and zlib from pinned source tarballs (sha256 checked),
+      then Ruby 4.0.7 from the official cache.ruby-lang.org tarball (sha256 checked) with --enable-load-relative
+      --disable-install-doc --enable-shared=no (or shared with $ORIGIN rpath if static fails; say which and why), linking
+      those libraries statically so the result needs only glibc, libm, libpthread, libdl, libcrypt-compat-free system
+      libs present on glibc 2.28 systems. Output directory layout must match what runtime/package.rb's --ruby-dir expects
+      (bin/ruby, lib/ruby/...). Fail closed on any mismatch.
+      (b) Workflow: the two Linux matrix entries get ruby_source: manylinux and an image; their fetch-ruby, package and
+      relocation-check steps run inside that container (docker run with the workspace mounted, or a job-level container
+      if actions/checkout and upload-artifact work there), so native gems are compiled against glibc 2.28 too. macOS and
+      Windows entries are unchanged. Install the container's build deps with dnf (gcc, make, perl for OpenSSL, plus the
+      libraries Chrome for Testing needs to launch for the ferrum relocation check: nss, atk, at-spi2-atk, cups-libs,
+      libdrm, libxkbcommon, libXcomposite, libXdamage, libXrandr, mesa-libgbm, pango, alsa-lib, or whatever
+      relocate_check proves is missing).
+      (c) relocate_check.rb gains a Linux check: after unpacking, run objdump -T (or readelf --version-info) over every
+      ELF file in the kit except Chrome itself and fail if any requires a GLIBC_ version above 2.28.
+      (d) runtime/README.md and RELEASE_NOTES.md say the Linux kits need glibc 2.28 or newer (Debian 10+, Ubuntu 20.04+,
+      RHEL/Alma 8+).
+    acceptance:
+      - "Locally with Docker: run runtime/build_ruby_linux.sh in quay.io/pypa/manylinux_2_28_x86_64, then runtime/package.rb --platform linux-x86_64 --runtime-id 4.0.7-r2 --ruby-dir <built> --out <dist> in the same container, then runtime/relocate_check.rb on the asset with the linux64 CfT zip (CFT_VERSION from the workflow). All three succeed; paste the GLIBC ceiling the new check reports."
+      - "Build a local manifest with runtime/manifest.rb for just that asset (or whatever manifest.rb needs; if it insists on all platforms, say so and build a manifest by its rules for linux-x86_64 only in a scratch dir) and install it into a clean debian:bullseye container (apt-get only ruby for Reach's own 2.6+ floor, nothing else) with REACH_HOME in a scratch dir: REACH_RUNTIME_ALLOW_UNPINNED=1 ruby exe/reach runtime install --from <dir>, then reach runtime status. Show `<kit ruby> -v` prints 4.0.7 and the kit's cucumber --version runs. Repeat in ubuntu:22.04. Do not touch the user's real ~/.reach."
+      - The workflow YAML parses (ruby -ryaml), and actionlint passes if available (say if it is not).
+      - Report every command and its real output; never claim a pass you did not observe.
+  - id: E
+    title: the checking-tools install says why it failed
+    owns: [lib/reach/suite.rb]
+    change: >-
+      Suite env install (the `bundle install` call near line 82): capture stdout and stderr; the reason is the first
+      line of stderr+stdout matching /error|could not|failed|cannot/i, else the last non-empty line of stdout, else of
+      stderr, stripped and cut to 300 characters. When no runtime kit is active, append " (run `reach runtime install`
+      to get the course's checking tools)". Never an empty pair of parentheses.
+    acceptance:
+      - "ruby -c lib/reach/suite.rb; with a scratch REACH_HOME and no runtime kit, force a failing install (for example a Gemfile.lock naming a gem version that does not exist, or PATH without a compiler for a native gem) and show the message carries bundler's real error line and the hint."
+  - id: S
+    title: no shape findings on panel files the student does not hold
+    owns: [lib/reach/shape.rb]
+    problem: >-
+      Teach no longer builds the suite package ("suite package skipped: remote acceptance runs on Teach"), so
+      Suite.reference_panel_dir is always nil and Shape.run_checker checks the workspace's bare panel, where the
+      instructors' Panel.svelte is absent; dovetail then reports S-STATE-001 "view 'X' has no <View>" on
+      modules/<m>/panel/src/Panel.svelte, a file the student cannot see or change, and reach status shows "shape: N open".
+    change: >-
+      In Shape (where run_checker's findings are returned, before callers see them): when the workspace has owned files,
+      keep only findings whose file is one of the workspace's owned files (compare workspace-relative paths, as
+      to_finding builds them) or that carry no file; drop the rest. Keep the reference-panel overlay path as it is.
+    acceptance:
+      - "Reproduce on the peer's workspace without modifying it: copy ~/.cache/reach-smoke/slice-build/20261001_004709/finance/home (HOME) to a NEW scratch dir, and with HOME pointing at the copy and cwd at the copied workspace reach-work/deliverables/mgmt327-fa26/A3/finance.a3s2-panel, run `ruby <repo>/exe/reach shape check --format json` (or the reach_shape_check MCP tool / reach check) before and after the change: before shows the two S-STATE-001 findings on modules/finance/panel/src/Panel.svelte, after shows none on that file, and reach status shows shape clear (or what it shows, verbatim). Then introduce a deliberate shape error into the copied RestrictSensitive.svelte (for example remove a required element the shape names; read the cutout's shape.json first) and show that finding is still reported."
+      - Report every command and its real output.

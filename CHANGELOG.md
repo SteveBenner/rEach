@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.6] - 2026-10-01
+
+### Fixed
+
+- The runtime workflow builds the Linux kits for glibc 2.28 and newer (Debian 10+, Ubuntu 20.04+). r1 used a
+  prebuilt Ruby that needs glibc 2.38, so `reach runtime install` fails on Debian 11 and 12 and Ubuntu 22.04. Ruby
+  4.0.7 is now built from source in a manylinux_2_28 container with its libraries linked in, the kit's gems are
+  compiled there too, and the relocation check fails any kit that needs a newer glibc. Both Linux kits built and
+  passed in CI under the tag runtime-4.0.7-r2, but the Windows build failed its relocation check, so r2 is not
+  published and Reach still pins r1. Until it is, Linux below glibc 2.38 still cannot use the kit.
+- `reach runtime install` names the system libraries Chrome for Testing lacks on a minimal or server Linux instead of
+  "did not report <version>".
+- When the checking tools fail to install, the error carries bundler's own reason (bundler writes it to stdout, and
+  Reach read only stderr, so the reason was empty) and points at `reach runtime install`.
+- `reach check`, `reach shape check` and `reach status` no longer report shape findings on the instructors' panel
+  files a workspace does not hold (S-STATE-001 on Panel.svelte, "shape: 2 open"). Teach ships no suite package, so
+  the reference panel is absent and those findings could not be acted on.
+
+All four were reported by a peer session's full slice-build smoke on Reach 0.14.3.
+
 ## [0.14.5] - 2026-10-01
 
 ### Changed
