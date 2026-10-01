@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.14.4
+version: 0.14.5
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.14.4
+    version: 0.14.5
     rplugin: ">= 1.0.0-compat"
     description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
       Teach-run courses.
@@ -604,7 +604,8 @@ qualification:
   - >-
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
-    QF-VACUOUS). Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
+    QF-VACUOUS). A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
+    agent at qualify/kit/practice/README.md (since 0.14.5). Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,
@@ -963,10 +964,12 @@ client_safety:
     Reach logs every request with route, status, latency and retry count (never bodies or keys) and reports counts
     in its status call.
 course_reference:
-  location: corpus/course-reference/
-  bus_101: >-
-    Shipped only as corpus/course-reference/bus-101.rref, an encrypted blob of 21 files; there is no plaintext
-    BUS 101 copy in the tree. bus-201 is still plaintext.
+  location: >-
+    ~/.reach/vault/guardrails/reference/, unpacked from the guardrails package's reference/<name>.rref entries (wire
+    protocol 1 revision 2026-10-01a); REACH_REFERENCE_DIR overrides it.
+  repository: >-
+    Since 0.14.5 the Reach repository carries no course material, encrypted or not. Teach keeps the blobs and their
+    keys and ships them to each enrolled install.
   blob_format: >-
     RREF version 1: the magic RREF, a format version byte, a length-prefixed key id, a length-prefixed course id, a
     12-byte nonce, a 16-byte AES-256-GCM tag and the ciphertext, with the header authenticated as additional data.

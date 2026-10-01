@@ -114,9 +114,9 @@ refused the second time, raising a hand to the instructors.
 
 ## Course reference
 
-Reference material ships in `corpus/course-reference/` only as encrypted `.rref`
-blobs. The key arrives in the signed guardrails package at `reach sync`;
-`reach reference` decrypts in memory on every call and never writes plaintext
+Reference material never ships in this repository. Teach sends each enrolled
+install its course's encrypted `.rref` blobs and their keys in the signed
+guardrails package at `reach sync`; `reach reference` decrypts in memory on every call and never writes plaintext
 to disk. Before enrollment, or before the key arrives, it reports the material
 as locked.
 

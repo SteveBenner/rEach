@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.5] - 2026-10-01
+
+### Changed
+
+- The repository carries no course material. `corpus/` is removed, and `reach reference` reads `.rref` blobs only from
+  `~/.reach/vault/guardrails/reference/`, where Teach ships them as `reference/<name>.rref` entries of the guardrails
+  package (`lib/reach/reference.rb`; `REACH_REFERENCE_DIR` still overrides the directory). Wire protocol 1 revision
+  2026-10-01a (`specs/wire.yml`) adds those entries and documents the qualify object's `env` rule.
+- `reach qualify`: a local failure whose answer the practice recording does not hold (`not_recorded`) is the finding
+  QF-PRACTICE, which points at `qualify/kit/practice/README.md`, and the record carries `practice_readme`
+  (`lib/reach/qualify.rb`). `directives/qualify.md` tells the agent to read that README before writing a panel slice's
+  local scenarios.
+- `tools/smoke/assignment_one.rb` packs the smoke's reference blob for Teach (`<Teach setting>`) and no longer
+  points Reach at it, so the reference steps prove delivery through the guardrails package.
+
 ## [0.14.4] - 2026-10-01
 
 ### Fixed

@@ -32,12 +32,11 @@ reach is a plugin built on rplugin, the SDK for agent-harness plugins.
   `reach doctor` reports R-DOC-DIRECTIVES otherwise.
 - If it owns a corpus, rplugin created it for the plugin. Read and write it
   only through the plugin or `rcorpus`, never by editing its files.
-- `corpus/course-reference/` is a different thing: a plain, git-tracked
-  directory in this repo with student-safe reference material (syllabus,
-  glossary, assignment prompts) for the courses this plugin currently serves.
-  It is not an rstack corpus and not the `Reach::Corpus` port above; read its
-  own README before touching it. reach-course wires it in as grounding
-  material only, never as a source of answers.
+- This repository carries no course material, encrypted or not. Course
+  reference blobs reach an install only from Teach, as `reference/<name>.rref`
+  entries in the encrypted guardrails package, and `reach reference` reads
+  them from the vault. reach-course wires them in as grounding material only,
+  never as a source of answers.
 
 ## Changing it
 
