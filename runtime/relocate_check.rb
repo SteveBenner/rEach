@@ -38,6 +38,29 @@ def fail_with(message)
   exit(1)
 end
 
+GLIBC_CEILING = Gem::Version.new("2.28")
+
+def elf?(path)
+  File.file?(path) && !File.symlink?(path) && File.open(path, "rb") { |f| f.read(4) } == "\x7FELF".b
+end
+
+def glibc_ceiling(runtime)
+  fail_with("objdump is required for the glibc check") unless system("objdump", "--version", out: File::NULL, err: File::NULL)
+  worst = nil
+  worst_file = nil
+  Dir.glob(File.join(runtime, "**", "*"), File::FNM_DOTMATCH).sort.each do |path|
+    next unless elf?(path)
+
+    out = IO.popen(["objdump", "-T", path], err: File::NULL, &:read)
+    out.scan(/GLIBC_(\d+(?:\.\d+)*)/).flatten.uniq.each do |text|
+      version = Gem::Version.new(text)
+      worst, worst_file = version, path if worst.nil? || version > worst
+      fail_with("#{path.sub("#{runtime}/", '')} requires GLIBC_#{text}, above #{GLIBC_CEILING}") if version > GLIBC_CEILING
+    end
+  end
+  [worst, worst_file]
+end
+
 def capture(env, *cmd)
   IO.popen(env, cmd, err: [:child, :out], &:read).tap do
     fail_with("command failed: #{cmd.join(' ')}\n#{$?.inspect}") unless $?.success?
@@ -71,6 +94,11 @@ Dir.mktmpdir("relocated-") do |dir|
     "BUNDLE_PATH" => gems_dir,
     "BUNDLE_FROZEN" => "true"
   )
+
+  if build["platform"].start_with?("linux")
+    worst, worst_file = glibc_ceiling(runtime)
+    puts("glibc ceiling GLIBC_#{worst} (#{worst_file&.sub("#{runtime}/", '')}), limit #{GLIBC_CEILING}")
+  end
 
   version = capture(env, ruby, "-e", "puts RUBY_VERSION").strip
   puts(version)
