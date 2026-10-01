@@ -34,11 +34,11 @@ decisions:
   D2: Username and student id rules come from W-API-ENROLL-PREVIEW's identity block, falling back to config.yml enrollment. Nothing in lib/ hard-codes lasierra.edu or the patterns.
   D3: The enrollment flow is a plugin-level UserPromptSubmit hook (hooks/hooks.json) running `reach gate enroll --harness <h>`. It is distinct from the workspace hook `reach gate prompt`, does nothing at all when Reach is not locked, and never captures a transcript entry (there is no student to attribute it to).
   D4: The flow state is machine-wide (~/.reach/state/enroll/flow.json), not per harness session, so a student who closes the chat mid-flow resumes where they were.
-  D5: The flow is the only network caller in a prompt hook: normal-mode client with connect 5 s, read 10 s, no retries (W-SAFE-13). The hook timeout in hooks/hooks.json is 60 s so RSA-4096 key generation plus one POST fit.
+  D5: 'The flow is the only network caller in a prompt hook: normal-mode client with connect 5 s, read 10 s, no retries (W-SAFE-13). The hook timeout in hooks/hooks.json is 60 s so RSA-4096 key generation plus one POST fit.'
   D6: Fingerprint binding components are hashed with a per-enrollment salt (W-ENR-4). Default match mode binding; strict adds hostname. Mode comes from the guardrails policy enrollment.fingerprint_match, else config.yml.
   D7: Live fingerprint is cached in ~/.reach/state/enroll/fingerprint_cache.json for 600 s keyed by salt, so a prompt hook does not shell out to ioreg or reg query on every prompt.
   D8: A shape v1 install (no stamp) stays usable unless policy enrollment.require_stamp is true (W-COMPAT-5). reach enroll <code> still sends shape v1.
-  D9: The MCP tool reach_enroll no longer takes a code from the agent while locked: it returns M-GATE-NOENROLL, because the student's identity must never pass through the agent. Every other MCP tool refuses with the lock's message while locked.
+  D9: 'The MCP tool reach_enroll no longer takes a code from the agent while locked: it returns M-GATE-NOENROLL, because the student''s identity must never pass through the agent. Every other MCP tool refuses with the lock''s message while locked.'
   D10: After enrollment the course ends at the stamp's expires_at; Reach then locks with M-ENR-COURSE-ENDED and the flow does not start (an ended course has no live code to enroll with).
   D11: No tests are written (AGENTS.md Part S). tools/fake_teach is a development fixture the user asked for, not a test suite, and carries no assertions.
 
@@ -191,7 +191,7 @@ slices:
       - ruby -c on every changed file passes under the system Ruby, and nothing uses syntax newer than Ruby 2.6.
       - "With REACH_HOME pointing at an empty scratch dir: `ruby exe/reach status` exits 2 and prints M-GATE-NOENROLL; `ruby exe/reach help` exits 0."
       - "With REACH_HOME empty, piping {\"session_id\":\"s1\",\"prompt\":\"hello\"} into `ruby exe/reach gate enroll --harness claude-code` emits a block carrying M-ENR-WELCOME; then \"mgmt 327\" gives M-ENR-CODE-COURSE-ONLY; then \"I want to die\" gives the M-SUPPORT text and leaves the state awaiting_code."
-      - Reach::Identity.parse_course_code on "mgmt-327 k7qx 94td", "MGMT327K7QX94TD" and "Mgmt327-K7QX-94TO" returns code MGMT327-K7QX94TD, MGMT327-K7QX94TD and MGMT327-K7QX9410 respectively (only the secret gets the O->0, I/L->1 mapping); on "MGMT327" it returns nil.
+      - Reach::Identity.parse_course_code on "mgmt-327 k7qx 94td", "MGMT327K7QX94TD" and "Mgmt327-K7QX-94TO" returns code MGMT327-K7QX94TD, MGMT327-K7QX94TD and MGMT327-K7QX94T0 respectively (only the secret gets the O->0, I/L->1 mapping); on "MGMT327" it returns nil.
       - normalize_username("JSMI123", rules) is "jsmi123@lasierra.edu"; "jsmi123@gmail.com" is nil; normalize_student_id("123 4567", rules) is "1234567"; "123456" is nil.
       - The full enroll against tools/fake_teach is driven by the primary after both slices land; W1 need not run it.
     report: list every file changed, every acceptance item with what you ran and saw, and every wire gap.
