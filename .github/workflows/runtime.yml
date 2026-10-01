@@ -1,0 +1,226 @@
+name: runtime
+
+on:
+  push:
+    tags:
+      - 'runtime-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, runtime-<ruby>-r<n>'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUBY_VERSION_PIN: '4.0.7'
+  CFT_VERSION: '154.0.8037.92'
+  CURL_FLAGS: '-fsSL --retry 3 --retry-all-errors --max-time 600'
+
+jobs:
+  build:
+    name: build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64
+            runner: macos-14
+            ruby_asset: ruby-4.0.7.arm64_sonoma.tar.gz
+            ruby_source: rv
+            cft: mac-arm64
+          - platform: macos-x86_64
+            runner: macos-13
+            ruby_asset: ruby-4.0.7.ventura.tar.gz
+            ruby_source: rv
+            cft: mac-x64
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+            ruby_asset: ruby-4.0.7.x86_64_linux.tar.gz
+            ruby_source: rv
+            cft: linux64
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            ruby_asset: ruby-4.0.7.arm64_linux.tar.gz
+            ruby_source: rv
+            cft: ''
+          - platform: windows-x86_64
+            runner: windows-2025
+            ruby_asset: rubyinstaller-4.0.7-1-x64.7z
+            ruby_source: rubyinstaller
+            cft: win64
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: checkout
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: resolve runtime id
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG_INPUT" =~ ^runtime-([0-9]+\.[0-9]+\.[0-9]+)-r([0-9]+)$ ]]; then
+            echo "tag $TAG_INPUT does not match runtime-<ruby>-r<n>" >&2
+            exit 1
+          fi
+          if [ "${BASH_REMATCH[1]}" != "$RUBY_VERSION_PIN" ]; then
+            echo "tag ruby ${BASH_REMATCH[1]} is not the pinned $RUBY_VERSION_PIN" >&2
+            exit 1
+          fi
+          echo "RUNTIME_ID=${TAG_INPUT#runtime-}" >> "$GITHUB_ENV"
+
+      - name: install linux toolchain
+        if: runner.os == 'Linux'
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          if ! dpkg -s build-essential libffi-dev libyaml-dev >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends build-essential libffi-dev libyaml-dev
+          fi
+
+      - name: install windows toolchain
+        if: runner.os == 'Windows'
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          /c/msys64/usr/bin/pacman.exe --noconfirm --needed -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-make make
+
+      - name: fetch ruby
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          mkdir -p work/ruby-src
+          if [ "${{ matrix.ruby_source }}" = "rv" ]; then
+            url="https://github.com/spinel-coop/rv-ruby/releases/download/20260929/${{ matrix.ruby_asset }}"
+            curl $CURL_FLAGS -o "work/${{ matrix.ruby_asset }}" "$url"
+            tar -xzf "work/${{ matrix.ruby_asset }}" -C work/ruby-src
+          else
+            url="https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-4.0.7-1/${{ matrix.ruby_asset }}"
+            curl $CURL_FLAGS -o "work/${{ matrix.ruby_asset }}" "$url"
+            7z x -y -owork/ruby-src "work/${{ matrix.ruby_asset }}" >/dev/null
+          fi
+          ruby_bin=$(find work/ruby-src -type f \( -path '*/bin/ruby' -o -path '*/bin/ruby.exe' \) | awk '{print length, $0}' | sort -n | head -1 | cut -d' ' -f2-)
+          if [ -z "$ruby_bin" ]; then
+            echo "no ruby executable found in ${{ matrix.ruby_asset }}" >&2
+            exit 1
+          fi
+          ruby_dir=$(dirname "$(dirname "$ruby_bin")")
+          echo "RUBY_DIR=$ruby_dir" >> "$GITHUB_ENV"
+
+      - name: fetch chrome for testing
+        if: matrix.cft != ''
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          curl $CURL_FLAGS -o work/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${{ matrix.cft }}/chrome-${{ matrix.cft }}.zip"
+          mkdir -p work/cft
+          mv work/chrome.zip "work/cft/chrome-${{ matrix.cft }}.zip"
+
+      - name: package
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export PATH="$PATH:/c/msys64/ucrt64/bin:/c/msys64/usr/bin"
+          fi
+          ruby_exe="$RUBY_DIR/bin/ruby"
+          [ -f "$ruby_exe" ] || ruby_exe="$RUBY_DIR/bin/ruby.exe"
+          "$ruby_exe" runtime/package.rb --platform "${{ matrix.platform }}" --runtime-id "$RUNTIME_ID" --ruby-dir "$RUBY_DIR" --out dist
+
+      - name: relocation check
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          ruby_exe="$RUBY_DIR/bin/ruby"
+          [ -f "$ruby_exe" ] || ruby_exe="$RUBY_DIR/bin/ruby.exe"
+          asset="dist/reach-runtime-${RUNTIME_ID}-${{ matrix.platform }}.tar.gz"
+          if [ -n "${{ matrix.cft }}" ]; then
+            "$ruby_exe" runtime/relocate_check.rb "$asset" --chrome-zip "work/cft/chrome-${{ matrix.cft }}.zip"
+          else
+            "$ruby_exe" runtime/relocate_check.rb "$asset"
+          fi
+
+      - name: upload bundle
+        timeout-minutes: 10
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: runtime-${{ matrix.platform }}
+          path: |
+            dist/reach-runtime-*.tar.gz
+            dist/reach-runtime-*.tar.gz.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: checkout
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: resolve runtime id
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG_INPUT" =~ ^runtime-([0-9]+\.[0-9]+\.[0-9]+)-r([0-9]+)$ ]]; then
+            echo "tag $TAG_INPUT does not match runtime-<ruby>-r<n>" >&2
+            exit 1
+          fi
+          echo "RUNTIME_ID=${TAG_INPUT#runtime-}" >> "$GITHUB_ENV"
+
+      - name: download bundles
+        timeout-minutes: 10
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: runtime-*
+          path: dist
+          merge-multiple: true
+
+      - name: download chrome for testing
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          mkdir -p cft
+          for cft in mac-arm64 mac-x64 linux64 win64; do
+            curl $CURL_FLAGS -o "cft/chrome-${cft}.zip" "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${cft}/chrome-${cft}.zip"
+          done
+
+      - name: build manifest
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          ruby runtime/manifest.rb --runtime-id "$RUNTIME_ID" --ruby-version "$RUBY_VERSION_PIN" --asset-dir dist --cft-dir cft --out runtime-manifest.json | tee manifest.sha256
+          {
+            echo "### Runtime manifest"
+            echo
+            echo "tag: $TAG_INPUT"
+            echo
+            echo "runtime-manifest.json sha256: \`$(cat manifest.sha256)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: create release
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          cp runtime/RELEASE_NOTES.md release-notes.md
+          printf '\nruntime-manifest.json sha256: %s\n' "$(cat manifest.sha256)" >> release-notes.md
+          gh release create "$TAG_INPUT" --target "$GITHUB_SHA" --title "Reach runtime $TAG_INPUT" --notes-file release-notes.md dist/reach-runtime-*.tar.gz runtime-manifest.json
