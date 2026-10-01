@@ -1,0 +1,25 @@
+courses:
+  - id: BUS101
+    title: "Business 101: Demo Course"
+    term: Fall 2026
+    timezone: America/Los_Angeles
+    utc_offset: "-08:00"
+    ends_on: "2026-12-18"
+    course_code: BUS101-K7QX-94TD
+    identity:
+      institution_name: school
+      username_domain: school.example
+      username_pattern: "^[a-z][a-z0-9._-]{1,31}$"
+      student_id_pattern: "^[0-9]{5,10}$"
+  - id: ACCT201
+    title: "Accounting 201: Managerial Accounting"
+    term: Spring 2026
+    timezone: America/Los_Angeles
+    utc_offset: "-07:00"
+    ends_on: "2026-06-01"
+    course_code: ACCT201-2M8R-QW3Z
+    identity:
+      institution_name: school
+      username_domain: school.example
+      username_pattern: "^[a-z][a-z0-9._-]{1,31}$"
+      student_id_pattern: "^[0-9]{5,10}$"
