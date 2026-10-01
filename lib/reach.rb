@@ -6,7 +6,7 @@ module Reach
   def self.ports
     return nil unless defined?(Rplugin::Ports)
 
-    Rplugin::Ports.for("reach", root: Reach::Paths.home)
+    Rplugin::Ports.for("reach", root: File.expand_path("..", __dir__))
   rescue StandardError
     nil
   end
@@ -21,6 +21,7 @@ require_relative "reach/tarball"
 require_relative "reach/crypto"
 require_relative "reach/client"
 require_relative "reach/packages"
+require_relative "reach/brain_spool"
 require_relative "reach/corpus"
 
 require_relative "reach/runtime"

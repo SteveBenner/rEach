@@ -24,7 +24,7 @@ module Reach
         return format == :text ? "No shape has been published for this slice yet, so there is nothing to check." : []
       end
 
-      findings = run_checker(workspace_path, changed)
+      findings = held_findings(workspace_path, run_checker(workspace_path, changed))
       case format
       when :text
         render_text(findings)
@@ -101,6 +101,13 @@ module Reach
         end
         check_panel(check_dir, shape_file, panel_relative, workspace_path, panel)
       end
+    end
+
+    def held_findings(workspace_path, findings)
+      owned = Reach::Workspace.owned_files(workspace_path)
+      return findings if owned.empty?
+
+      findings.select { |finding| finding[:file].to_s.empty? || owned.include?(finding[:file].to_s) }
     end
 
     def check_panel(check_dir, shape_file, panel_relative, workspace_path, workspace_panel)

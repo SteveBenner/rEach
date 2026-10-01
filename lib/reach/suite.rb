@@ -78,11 +78,22 @@ module Reach
         env = { "BUNDLE_GEMFILE" => env_gemfile, "BUNDLE_PATH" => Reach::Paths.gems_dir }
         command = runtime ? [ruby_exe, File.join(ruby_bin, "bundle"), "install", "--quiet"] : ["bundle", "install", "--quiet"]
         env["PATH"] = "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" if ruby_bin
-        _stdout, stderr, status = Open3.capture3(env, *command, chdir: env_dir)
-        raise Reach::Error, "reach: could not install the checking tools (#{stderr.strip.lines.first.to_s.strip})" unless status.success?
+        stdout, stderr, status = Open3.capture3(env, *command, chdir: env_dir)
+        unless status.success?
+          hint = runtime ? "" : " (run `reach runtime install` to get the course's checking tools)"
+          raise Reach::Error, "reach: could not install the checking tools (#{install_failure_reason(stdout, stderr)})#{hint}"
+        end
 
         File.write(marker, Time.now.utc.iso8601)
         result
+      end
+
+      def install_failure_reason(stdout, stderr)
+        out_lines = stdout.to_s.lines.map(&:strip).reject(&:empty?)
+        err_lines = stderr.to_s.lines.map(&:strip).reject(&:empty?)
+        line = (err_lines + out_lines).find { |candidate| candidate =~ /error|could not|failed|cannot/i } ||
+               err_lines.first || out_lines.last || "bundle install exited without a message"
+        line[0, 300]
       end
 
       def profile_ready?(ruby_exe, ruby_bin, profile)

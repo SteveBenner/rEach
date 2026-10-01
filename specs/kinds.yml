@@ -1,0 +1,21 @@
+schema: rcorpus.kinds/v1
+kinds:
+  - kind: note
+    required_fields: [text, at]
+    description: A free-text note the student or the agent kept about the work.
+  - kind: tip
+    required_fields: [text, at]
+    description: A tip kept for later, with the slice and source it came from when known.
+  - kind: attempt
+    required_fields: [finding_id, slice, resolved, at]
+    description: One attempt at resolving a finding in a slice.
+  - kind: receipt
+    required_fields: [receipt_id, receipt_kind, at]
+    description: A signed course-server receipt; its own kind is kept as receipt_kind.
+  - kind: qualification
+    required_fields: [slice, attempt, passed, at]
+    description: One qualification run of a slice, pending or settled.
+graph:
+  node_kinds: []
+  relations: []
+open: false

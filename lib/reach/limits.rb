@@ -10,7 +10,6 @@ module Reach
       "transcript_spool_max_bytes" => 209_715_200,
       "materials_max_bytes" => 209_715_200
     }.freeze
-    PRUNABLE_KINDS = %w[note tip].freeze
 
     module_function
 
@@ -71,10 +70,7 @@ module Reach
     end
 
     def corpus_files
-      dir = Reach::Paths.corpus_fallback_dir
-      return [] unless File.directory?(dir)
-
-      Dir.glob(File.join(dir, "*.jsonl")).sort
+      Reach::BrainSpool.spool_files(include_admitted: false)
     end
 
     def corpus_bytes
@@ -82,55 +78,11 @@ module Reach
     end
 
     def enforce_corpus
-      return { "state" => "managed by the corpus port" } if corpus_port?
-
-      cap = cap_for("corpus_max_bytes")
       total = corpus_bytes
-      return { "state" => "within cap", "bytes" => total } if total <= cap
+      return { "state" => "managed by the corpus port", "bytes" => total } if corpus_port?
 
-      candidates = []
-      lines_by_file = {}
-      corpus_files.each do |path|
-        kind = File.basename(path, ".jsonl")
-        lines = File.readlines(path)
-        lines_by_file[path] = lines
-        next unless PRUNABLE_KINDS.include?(kind)
-
-        lines.each_with_index do |line, index|
-          record = begin
-            JSON.parse(line)
-          rescue StandardError
-            nil
-          end
-          next unless record.is_a?(Hash)
-          next if record["tag"].to_s == "part" || record["kind"].to_s == "part"
-
-          candidates << [record["at"].to_s, path, index, line.bytesize]
-        end
-      end
-
-      dropped = Hash.new { |hash, key| hash[key] = [] }
-      removed_bytes = 0
-      candidates.sort_by { |at, path, index, _| [at, path, index] }.each do |_, path, index, size|
-        break if total - removed_bytes <= cap
-
-        dropped[path] << index
-        removed_bytes += size
-      end
-
-      dropped.each do |path, indexes|
-        kept = lines_by_file[path].each_with_index.reject { |_, index| indexes.include?(index) }.map(&:first)
-        rewrite(path, kept.join)
-      end
-      { "state" => "pruned", "records" => dropped.values.map(&:length).sum, "bytes" => corpus_bytes }
-    end
-
-    def rewrite(path, content)
-      tmp = "#{path}.tmp.#{Process.pid}"
-      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(content) }
-      File.rename(tmp, path)
-    ensure
-      FileUtils.rm_f(tmp) if tmp
+      state = total <= cap_for("corpus_max_bytes") ? "queued for admission" : "queued for admission, over cap"
+      { "state" => state, "bytes" => total }
     end
 
     def spool_files

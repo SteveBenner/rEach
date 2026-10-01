@@ -1,0 +1,12 @@
+schema: rplugin.hooks/v1
+hooks:
+  - event: session_start
+    match: any
+    run: ["ruby", "${PLUGIN_ROOT}/exe/reach", "hello"]
+    timeout_s: 10
+    blocking: false
+  - event: prompt_submit
+    match: any
+    run: ["ruby", "${PLUGIN_ROOT}/exe/reach", "gate", "enroll", "--harness", "claude-code"]
+    timeout_s: 60
+    blocking: true

@@ -1,11 +1,19 @@
 {
   "name": "reach",
-  "interface": {"displayName": "rEach"},
+  "interface": {
+    "displayName": "rEach"
+  },
   "plugins": [
     {
       "name": "reach",
-      "source": {"source": "local", "path": "./"},
-      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
       "category": "Education"
     }
   ]

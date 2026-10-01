@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.15.0
+version: 0.16.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,10 +126,11 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.15.0
-    rplugin: ">= 1.0.0-compat"
-    description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for
-      Teach-run courses.
+    version: 0.16.0
+    rplugin: ">= 1.2.0"
+    description: >-
+      rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
+      checks work, submits it and shows receipts.
     ports:
       required:
       - secrets
@@ -158,6 +159,8 @@ plugin_manifest:
         - attempt
         - receipt
         - qualification
+        kinds_file: specs/kinds.yml
+        tiers_split: true
       consumes: []
     contents:
       skills:
@@ -169,20 +172,57 @@ plugin_manifest:
         path: skills/reach-help/SKILL.md
       - id: reach-assistant
         path: skills/reach-assistant/SKILL.md
+      - id: reach-build
+        path: skills/reach-build/SKILL.md
+      - id: reach-fix
+        path: skills/reach-fix/SKILL.md
       - id: reach-feature
         path: skills/reach-feature/SKILL.md
       - id: reach-bug
         path: skills/reach-bug/SKILL.md
+      - id: reach-checkpoint
+        path: skills/reach-checkpoint/SKILL.md
+      - id: design-taste-frontend
+        path: skills/design-taste-frontend/SKILL.md
       agents:
       - id: reach
         path: agents/reach.md
-      scripts:
-      - path: exe/reach
+      specs:
+      - path: specs/app.yml
+      hooks: hooks/reach.hooks.yml
+      mcp:
+      - id: reach
+        command: ruby
+        args:
+        - "${PLUGIN_ROOT}/exe/reach"
+        - mcp
       docs:
       - path: docs/student-guide.md
       - path: INSTALL.md
+    native:
+      claude_agent: reach:reach
+      interface:
+        display_name: rEach
+        short_description: Your academic assistant for a Teach-run course
+        developer_name: PatḗrasAI
+        category: Education
+        default_prompt:
+        - Hi rEach
+      keywords:
+      - education
+      - course
+      - students
+      - assistant
+      author:
+        name: PatḗrasAI
+    compatibility:
+      ruby: ">= 2.6"
+      harnesses:
+        claude-code: supported
+        codex: supported
     repository:
-      remote: git@bitbucket.org:paterasai/reach.git
+      remote: git@github.com:SteveBenner/rEach.git
+      store_path: reach
 layout:
   install_root: "~/.rplugins/reach (the plugin) and ~/.reach (the student's data)"
   data:
@@ -250,17 +290,17 @@ library:
   - name: Reach::CLI
     role: The reach command and its subcommands
   - name: Reach::Enroll
-    role: Key generation and the enrollment call, shape v1 (single-use code) and shape v2 (course code, username, student id; since 0.15.0)
+    role: Key generation and the enrollment call, shape v1 (single-use code) and shape v2 (course code, username, student id; since 0.16.0)
   - name: Reach::Identity
-    role: Normalizes course codes, course ids, institutional usernames and student ids (W-ENR-1..3); since 0.15.0
+    role: Normalizes course codes, course ids, institutional usernames and student ids (W-ENR-1..3); since 0.16.0
   - name: Reach::Fingerprint
-    role: The salted, hashed computer, account and install-key fingerprint (W-ENR-4); since 0.15.0
+    role: The salted, hashed computer, account and install-key fingerprint (W-ENR-4); since 0.16.0
   - name: Reach::Stamp
-    role: Verifies and stores Teach's signed enrollment stamp (W-ENR-5); since 0.15.0
+    role: Verifies and stores Teach's signed enrollment stamp (W-ENR-5); since 0.16.0
   - name: Reach::EnrollmentLock
-    role: Decides whether Reach is locked and why (W-ENR-6); since 0.15.0
+    role: Decides whether Reach is locked and why (W-ENR-6); since 0.16.0
   - name: Reach::EnrollFlow
-    role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.15.0
+    role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0
   - name: Reach::Client
     role: Signed HTTPS requests to Teach with timeouts, retries and a circuit breaker
   - name: Reach::Crypto
@@ -297,7 +337,7 @@ library:
   - name: Reach::Status
     role: The status summary
   - name: Reach::Corpus
-    role: Notes, tips, attempts, qualifications and receipts in Reach's own corpus through the corpus port, when available
+    role: Notes, tips, attempts, qualifications and receipts as brain-spool lines, admitted into Reach's own corpus when rcorpus loads (Reach::BrainSpool)
   - name: Reach::Directives
     role: The public directive files, the private rows from the vault, the AGENTS.md table and reach directive (a private body fetched from Teach per call)
   - name: Reach::Check
@@ -328,7 +368,10 @@ harness_integration:
   - deepseek-harness (developer preview; plugin installation undocumented; no official desktop app)
   - the Gemini consumer app (no plugin system)
   packaging:
-    principle: One repository that each harness reads as its own kind of plugin; the repository is its own marketplace.
+    principle: >-
+      One repository that each harness reads as its own kind of plugin; the repository is its own marketplace. Every
+      file below except skills/, agents/ and rules/ is generated by rplugin package (rplugin 1.2.0) from
+      reach.rplugin.yml and checked by rplugin check; none is edited by hand.
     files:
       .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
       .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add <link>, codex plugin add reach@reach).
@@ -336,8 +379,11 @@ harness_integration:
       skills/: Every harness.
       agents/reach.md and settings.json: The rEach persona as Claude's main session agent.
       rules/reach.md: Antigravity's always-on pointer to reach hello and the persona.
-      hooks/hooks.json: SessionStart only, running reach hello; read by Claude and, through its manifest, by Codex (Codex sets CLAUDE_PLUGIN_ROOT for compatibility).
+      hooks/reach.hooks.yml: The harness-neutral hook source (rplugin.hooks/v1), SessionStart only, running reach hello.
+      hooks/hooks.json: Claude's rendering of it (${CLAUDE_PLUGIN_ROOT}).
+      hooks/codex.json: Codex's rendering, named by .codex-plugin/plugin.json (${PLUGIN_ROOT}, which Codex sets for plugin hooks).
       .mcp.json: Claude's and Cowork's MCP bridge (runs on the student's computer).
+      mcp.json: The Agent Plugins MCP bridge, read by Codex from its plugin cache; ${PLUGIN_ROOT} expands to that copy.
     no_top_level_bin: Claude Cowork refuses a plugin with a top-level bin/ directory, so the executable is exe/reach.
     enforcement_scope: >-
       Plugin-level hooks only greet. Course enforcement (gate, shape check, attempts) lives in each slice workspace's own
@@ -756,8 +802,8 @@ course_alignment:
     - reach support prints a fixed message beginning "If this is an emergency, call 911 now.", then 988 and the course's support line, and raises a wellbeing hand to the instructors (no code, no transcript), at most once an hour; it works signed out and offline (queued).
     - The prompt hook matches a fixed list of crisis phrases before sign-in, answers with the same message, queues the hand, and sends it at once through a detached quick flush (W-SUP-3); in a signed-in session it tells the agent to run reach support.
   limits: >-
-    reach sync enforces the policy limits: Reach's own JSONL corpus is pruned oldest note and tip first above 50 MB
-    (receipts, attempts and qualifications are kept), and fully acknowledged transcript sessions are gzipped into
+    reach sync enforces the policy limits: the corpus spool still waiting for admission is measured against the 50 MB
+    cap and reported (spool lines are never rewritten, since admission depends on them), and fully acknowledged transcript sessions are gzipped into
     ~/.reach/transcripts/archive/ above 200 MB. reach doctor reports the sizes (R-DOC-LIMITS).
 hand_raising:
   command: reach hand raise [--trigger student_request] [--summary ...] [--include-profile]
@@ -806,7 +852,7 @@ mcp_bridge:
     description: Delete the student's profile
   - name: reach_enroll
     description: >-
-      Since 0.15.0 it never enrolls: it answers with M-GATE-NOENROLL, because the student's code, username and
+      Since 0.16.0 it never enrolls: it answers with M-GATE-NOENROLL, because the student's code, username and
       student ID go to rEach's own enrollment flow and never through the agent. While Reach is locked every other tool
       refuses with the lock's message too (W-ENR-6).
   - name: reach_sync
@@ -873,7 +919,7 @@ cli:
   - name: enroll
     synopsis: reach enroll [--course-code CODE --username USER --student-id ID | <code>] [--teach-url URL]
     purpose: >-
-      Since 0.15.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
+      Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and
       fingerprint, prints M-ENROLL-DONE, M-TRANSCRIPT-NOTICE and M-FINGERPRINT-NOTICE, then syncs; a bare <code>
       enrolls with shape v1 as before. Generate keys, enroll with Teach, then sync. It verifies the response fields, the wire digest equality and
@@ -977,7 +1023,7 @@ client_safety:
   kill_switch: REACH_OFFLINE=1 stops all network calls (for exams or debugging); the gate's offline allowance still
     applies.
   enrollment: >-
-    Since 0.15.0 (W-SAFE-13) the plugin-level enrollment prompt hook is the one hook that calls Teach: at most one
+    Since 0.16.0 (W-SAFE-13) the plugin-level enrollment prompt hook is the one hook that calls Teach: at most one
     W-API-ENROLL-PREVIEW per typed code and one W-API-ENROLL per yes, connect 5 s, read 10 s, no retries, and none
     while the local enrollment lockout (5 refusals in 15 minutes) lasts. It runs only while Reach is locked.
   observability: >-
@@ -1006,10 +1052,27 @@ remote_acceptance: >-
   Every slice is graded at Teach. Since 0.11.0 no graded suite reaches the student and reach tips is gone; the
   qualification's remote step is the only place the hidden scenarios run before grading, and reach doctor checks gems
   only for slices whose qualify kit runs locally.
+  shape_findings: >-
+    Since 0.14.6 reach check, reach shape check and reach status report shape findings only for the workspace's owned
+    files (or findings with no file): Teach ships no suite package, so the instructors' panel files are absent from the
+    workspace and the checker's findings on them cannot be acted on.
+runtime_kit_platforms: >-
+  The runtime workflow (since the runtime-4.0.7-r2 build; r2 is not yet published, Reach 0.14.6 still pins r1) builds
+  the Linux kits in a manylinux_2_28 container from Ruby's own source,
+  with OpenSSL, libyaml, libffi and zlib linked in, so they need glibc 2.28 or newer (Debian 10+, Ubuntu 20.04+, RHEL
+  and Alma 8+); runtime/relocate_check.rb fails a kit that needs a newer glibc. Chrome for Testing still needs the
+  system's graphics and NSS libraries; when they are missing, reach runtime install names them. When the checking
+  tools fail to install without the kit, the error carries bundler's own reason and points at reach runtime install.
 corpus:
   port: >-
-    The rplugin corpus port when rplugin is installed (Ruby 3.3+); otherwise the plain-JSONL fallback below, which is
-    what a harness-installed Reach uses.
+    Every record is first one rcorpus.spool/v1 line (tier private) in <rplugin state>/reach/brain-spool/<UTC
+    date>.jsonl, mode 0600, written with the standard library on any Ruby. When rplugin and rcorpus load (Ruby 3.3+ or
+    the runtime kit), Reach opens its owned corpus through Reach.ports.corpus.open("reach") and runs
+    Rcorpus::Spool#admit after each write; a refusal or error goes to ~/.reach/logs/brain.jsonl and is never raised.
+    recent reads corpus.kv.list plus unadmitted spool lines, or the spool alone without the corpus. Ids are
+    receipt:<id>, qualification:<id> and note|tip|attempt:<uuid>; a receipt's own kind is kept as receipt_kind.
+    ~/.reach/corpus-fallback/*.jsonl from earlier versions is migrated into the spool once.
+  kinds_file: specs/kinds.yml
   kinds:
     note: The agent's working notes about the slice (what was tried, what the student prefers).
     tip: Tips delivered by the suite or the instructors, so the agent does not repeat mistakes across sessions.
@@ -1019,7 +1082,7 @@ corpus:
   privacy: >-
     The corpus lives on the student's disk only; nothing in it is sent to Teach except what a hand-raise bundle
     explicitly includes.
-  degradation: Without the corpus port, Reach keeps the same records in plain JSONL through the state port.
+  degradation: Without rplugin and rcorpus, records stay in the spool until a run that can load them admits them.
 installer:
   public_zip: >-
     bin/reach-install installs from the repository's public ZIP with no Git and no login. It reads the ZIP with a
@@ -1134,7 +1197,7 @@ auto_update:
   untagged_patches: Only tagged releases reach students; an untagged patch version is never offered.
 privacy_and_integrity:
   student_data_sent: >-
-    Enrollment (code, public key, platform, versions; since 0.15.0 also the course code, the institutional username
+    Enrollment (code, public key, platform, versions; since 0.16.0 also the course code, the institutional username
     and student ID, and the W-ENR-4 fingerprint, whose computer, account and hostname values are salted SHA-256
     hashes), the live fingerprint digest on every status request, submissions (owned files and manifest), hand bundles, status
     counts, and the course record (transcripts): since 0.8.0 every prompt the student submits in a course folder, and
@@ -1412,7 +1475,7 @@ state_machines:
     - revoked
     notes: >-
       synced means all current packages verified; active means a harness session is running with the gate passing;
-      offline is entered when the circuit breaker is open. Since 0.15.0 not_enrolled is also re-entered (locked) when
+      offline is entered when the circuit breaker is open. Since 0.16.0 not_enrolled is also re-entered (locked) when
       the stamp fails, the course ends or the fingerprint stops matching (W-ENR-6).
   enrollment_flow:
     states:
@@ -1422,7 +1485,7 @@ state_machines:
     - awaiting_confirm
     - enrolled
     notes: >-
-      Since 0.15.0, W-ENR-7. Stored machine-wide at ~/.reach/state/enroll/flow.json (0600) and removed on success;
+      Since 0.16.0, W-ENR-7. Stored machine-wide at ~/.reach/state/enroll/flow.json (0600) and removed on success;
       start over, restart or cancel return to awaiting_code; enrollment_refused returns to awaiting_username.
   slice_workspace:
     states:

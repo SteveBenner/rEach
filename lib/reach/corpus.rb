@@ -11,10 +11,7 @@ module Reach
     end
 
     def available?
-      corpus_port
-      true
-    rescue StandardError
-      false
+      !owned_corpus.nil?
     end
 
     def note(text, slice: nil)
@@ -40,23 +37,48 @@ module Reach
     def recent(kind, limit: 20)
       raise ArgumentError, "reach: unknown corpus kind #{kind.inspect}" unless KINDS.include?(kind.to_s)
 
-      if available?
-        corpus_port.recall(kind: kind.to_s, limit: limit)
-      else
-        jsonl_read(kind).last(limit)
+      migrate
+      corpus = owned_corpus
+      return Reach::BrainSpool.recent_from_spool(kind.to_s, limit) unless corpus
+
+      stored = begin
+        corpus.kv.list(kind: kind.to_s)
+      rescue StandardError => e
+        Reach::BrainSpool.log("corpus_list_failed", "kind" => kind.to_s, "error" => e.class.name, "message" => e.message)
+        return Reach::BrainSpool.recent_from_spool(kind.to_s, limit)
       end
+      known = {}
+      stored.each { |row| known[row["operation_id"]] = true }
+      pending = Reach::BrainSpool.pending_rows(kind.to_s).reject { |row| known[row["operation_id"]] }
+      Reach::BrainSpool.latest_per_id(stored + pending, "recorded_at").last(limit)
     end
 
     private
 
     def write(kind, data)
-      record = data.merge("kind" => kind, "at" => Time.now.utc.iso8601, "student_id" => enrolled_student_id)
-      if available?
-        corpus_port.put(kind: kind, data: record)
-      else
-        jsonl_append(kind, record)
-      end
-      record
+      migrate
+      record = data.merge("at" => Time.now.utc.iso8601, "student_id" => enrolled_student_id)
+      Reach::BrainSpool.append(kind, record)
+      admit
+      record.merge("kind" => kind)
+    end
+
+    def migrate
+      moved = Reach::BrainSpool.migrate_legacy
+      admit if moved.positive?
+      moved
+    rescue StandardError => e
+      Reach::BrainSpool.log("migrate_failed", "error" => e.class.name, "message" => e.message)
+      nil
+    end
+
+    def admit
+      corpus = owned_corpus
+      Reach::BrainSpool.admit(corpus) if corpus
+      nil
+    rescue StandardError => e
+      Reach::BrainSpool.log("admit_failed", "error" => e.class.name, "message" => e.message)
+      nil
     end
 
     def enrolled_student_id
@@ -66,25 +88,14 @@ module Reach
       nil
     end
 
-    def corpus_port
-      @ports.corpus.open("reach")
-    end
+    def owned_corpus
+      return @owned if defined?(@owned) && @owned
+      return nil unless @ports
 
-    def jsonl_path(kind)
-      File.join(Reach::Paths.home, "corpus-fallback", "#{kind}.jsonl")
-    end
-
-    def jsonl_append(kind, record)
-      path = jsonl_path(kind)
-      FileUtils.mkdir_p(File.dirname(path))
-      File.open(path, "a") { |f| f.puts(JSON.generate(record)) }
-    end
-
-    def jsonl_read(kind)
-      path = jsonl_path(kind)
-      return [] unless File.file?(path)
-
-      File.readlines(path).map { |line| JSON.parse(line) }
+      @owned = @ports.corpus.open("reach")
+    rescue StandardError => e
+      Reach::BrainSpool.log("corpus_unavailable", "error" => e.class.name, "message" => e.message)
+      nil
     end
   end
 end

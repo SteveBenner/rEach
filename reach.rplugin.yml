@@ -1,16 +1,16 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.15.0
-rplugin: ">= 1.0.0-compat"
-description: The student's course partner - guardrails, shape checks, qualification, submission and receipts for Teach-run courses.
+version: 0.16.0
+rplugin: ">= 1.2.0"
+description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
   required: [secrets, state, events]
   optional: [corpus, schedule]
 extensions:
   enabled: [claude-code, codex, os]
 corpora:
-  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification], writes_kinds: [note, tip, attempt, receipt, qualification] }
+  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification], writes_kinds: [note, tip, attempt, receipt, qualification], kinds_file: specs/kinds.yml, tiers_split: true }
   consumes: []
 contents:
   skills:
@@ -28,11 +28,25 @@ contents:
     - { id: reach, path: agents/reach.md }
   specs:
     - { path: specs/app.yml }
-  scripts:
-    - { path: exe/reach }
+  hooks: hooks/reach.hooks.yml
+  mcp:
+    - { id: reach, command: ruby, args: ["${PLUGIN_ROOT}/exe/reach", "mcp"] }
   docs:
     - { path: docs/student-guide.md }
     - { path: INSTALL.md }
+native:
+  claude_agent: "reach:reach"
+  interface:
+    display_name: rEach
+    short_description: Your academic assistant for a Teach-run course
+    developer_name: PatḗrasAI
+    category: Education
+    default_prompt: ["Hi rEach"]
+  keywords: [education, course, students, assistant]
+  author: { name: PatḗrasAI }
+compatibility:
+  ruby: ">= 2.6"
+  harnesses: { claude-code: supported, codex: supported }
 repository:
-  remote: "git@bitbucket.org:paterasai/reach.git"
+  remote: "git@github.com:SteveBenner/rEach.git"
   store_path: reach

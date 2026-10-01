@@ -232,7 +232,23 @@ module Reach
       ok, output = run_checked([exe, "--version"])
       return if Reach::Untar.windows? && output.to_s.strip.empty?
 
-      raise Reach::Error, "reach: the runtime Chrome did not report #{version} (#{output.to_s.strip[0, 120]})" unless ok && output.include?(version.to_s)
+      return if ok && output.include?(version.to_s)
+
+      missing = missing_libraries(exe)
+      unless missing.empty?
+        raise Reach::Error, "reach: the runtime Chrome cannot start because this computer lacks system libraries it needs: #{missing.join(', ')}. Install your distribution's packages that provide them (a desktop Linux has them; a minimal or server install often does not), then run reach runtime install again"
+      end
+
+      raise Reach::Error, "reach: the runtime Chrome did not report #{version} (#{output.to_s.strip[0, 120]})"
+    end
+
+    def missing_libraries(exe)
+      return [] unless RbConfig::CONFIG["host_os"] =~ /linux/
+
+      stdout, _stderr, _status = Open3.capture3("ldd", exe)
+      stdout.to_s.lines.map { |line| line[/\A\s*(\S+)\s+=>\s+not found/, 1] }.compact.uniq
+    rescue StandardError
+      []
     end
 
     def sweep_staging
