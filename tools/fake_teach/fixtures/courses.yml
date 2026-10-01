@@ -1,0 +1,25 @@
+courses:
+  - id: MGMT327
+    title: "Management 327: AI-Assisted Business Systems"
+    term: Fall 2026
+    timezone: America/Los_Angeles
+    utc_offset: "-08:00"
+    ends_on: "2026-12-18"
+    course_code: MGMT327-K7QX-94TD
+    identity:
+      institution_name: La Sierra
+      username_domain: lasierra.edu
+      username_pattern: "^[a-z]{4}[0-9]{3}$"
+      student_id_pattern: "^[0-9]{7}$"
+  - id: ACCT201
+    title: "Accounting 201: Managerial Accounting"
+    term: Spring 2026
+    timezone: America/Los_Angeles
+    utc_offset: "-07:00"
+    ends_on: "2026-06-01"
+    course_code: ACCT201-2M8R-QW3Z
+    identity:
+      institution_name: La Sierra
+      username_domain: lasierra.edu
+      username_pattern: "^[a-z]{4}[0-9]{3}$"
+      student_id_pattern: "^[0-9]{7}$"

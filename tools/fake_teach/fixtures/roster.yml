@@ -1,0 +1,17 @@
+rosters:
+  MGMT327:
+    - username: mdel101@lasierra.edu
+      student_id: "1040217"
+      display_name: Maria Delgado
+    - username: joka204@lasierra.edu
+      student_id: "1040358"
+      display_name: James Okafor
+    - username: pram317@lasierra.edu
+      student_id: "1040471"
+      display_name: Priya Raman
+    - username: hwhi418@lasierra.edu
+      student_id: "1040592"
+      display_name: Hannah Whitfield
+    - username: tbre529@lasierra.edu
+      student_id: "1040634"
+      display_name: Tomas Brennan
