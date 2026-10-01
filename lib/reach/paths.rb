@@ -61,6 +61,14 @@ module Reach
       File.join(home, "gems")
     end
 
+    def runtime_dir
+      File.join(home, "runtime")
+    end
+
+    def runtime_logs_file
+      File.join(logs_dir, "runtime.jsonl")
+    end
+
     def chromium_dir
       File.join(home, "chromium")
     end

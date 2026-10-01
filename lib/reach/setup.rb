@@ -3,12 +3,13 @@ require "timeout"
 require "fileutils"
 require "rbconfig"
 require "json"
+require "stringio"
 
 module Reach
   module Setup
     module_function
 
-    def run(harness: "auto", source: nil, format: "text")
+    def run(harness: "auto", source: nil, format: "text", runtime: false)
       ruby_problem = check_ruby
       return [ruby_problem, 1] if ruby_problem
 
@@ -24,17 +25,44 @@ module Reach
       exit_code = ok ? 0 : 1
 
       next_greeting = ok ? next_greeting_text : nil
+      runtime_note = runtime_section(runtime)
+      exit_code = 1 if runtime_note[:failed]
 
       if format.to_s == "json"
-        [JSON.generate(
+        payload = {
           "harnesses" => results.map { |entry| { "id" => entry[:id], "ok" => entry[:ok], "message" => entry[:message] } },
           "next" => next_greeting,
           "instructions" => (ok ? instructions_line : nil),
           "exit" => exit_code
-        ), exit_code]
+        }
+        payload["runtime"] = runtime_note[:json] if runtime_note[:json]
+        [JSON.generate(payload), exit_code]
       else
-        [text_output(results, next_greeting), exit_code]
+        output = text_output(results, next_greeting)
+        output = "#{output}\n\n#{runtime_note[:text]}" if runtime_note[:text]
+        [output, exit_code]
       end
+    end
+
+    def runtime_section(install)
+      return {} unless Reach::RuntimeKit.supported?
+
+      if install
+        begin
+          state = Reach::RuntimeKit.install!(out: StringIO.new)
+          line = Reach::RuntimeKit.copy(:installed, runtime_id: state["runtime_id"], ruby: state["ruby"] || "none", chrome: state["chrome"] || "none", profiles: state["profiles"].length)
+          return { text: line, json: { "installed" => true, "runtime_id" => state["runtime_id"] } }
+        rescue Reach::Error => e
+          return { text: e.message, json: { "installed" => false, "error" => e.message }, failed: true }
+        end
+      end
+
+      return {} if Reach::RuntimeKit.active
+
+      offer = Reach::RuntimeKit.copy(:offer)
+      { text: offer, json: { "installed" => false, "offer" => offer } }
+    rescue StandardError
+      {}
     end
 
     def platform

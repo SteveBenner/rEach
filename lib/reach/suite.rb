@@ -37,6 +37,9 @@ module Reach
       end
 
       def select_lock!(run_dir)
+        runtime = Reach::RuntimeKit.active
+        return if runtime && runtime["ruby_exe"]
+
         chosen = gemfile_lock_for
         return if chosen == "Gemfile.lock"
 
@@ -51,25 +54,54 @@ module Reach
 
         gemfile_bytes = File.binread(gemfile)
         lock_bytes = File.binread(lock)
+        runtime = Reach::RuntimeKit.active
+        runtime = nil unless runtime && runtime["ruby_exe"]
+        ruby_exe = runtime && runtime["ruby_exe"]
+        ruby_bin = runtime && runtime["ruby_bin"]
+
+        if runtime
+          profile = Reach::RuntimeKit.gems_for(lock_bytes)
+          if profile && profile_ready?(ruby_exe, ruby_bin, profile)
+            return { "gemfile" => profile["gemfile"], "bundle_path" => profile["dir"], "ruby_bin" => ruby_bin, "ruby_exe" => ruby_exe, "profile" => true }
+          end
+        end
+
         env_dir = File.join(Reach::Paths.gems_dir, "bundle-envs", Digest::SHA256.hexdigest(gemfile_bytes + lock_bytes))
         marker = File.join(env_dir, ".installed")
         env_gemfile = File.join(env_dir, "Gemfile")
-        return env_gemfile if File.file?(marker)
+        result = { "gemfile" => env_gemfile, "bundle_path" => Reach::Paths.gems_dir, "ruby_bin" => ruby_bin, "ruby_exe" => ruby_exe, "profile" => false }
+        return result if File.file?(marker)
 
         FileUtils.mkdir_p(env_dir)
         File.binwrite(env_gemfile, gemfile_bytes)
         File.binwrite(File.join(env_dir, "Gemfile.lock"), lock_bytes)
         env = { "BUNDLE_GEMFILE" => env_gemfile, "BUNDLE_PATH" => Reach::Paths.gems_dir }
-        _stdout, stderr, status = Open3.capture3(env, "bundle", "install", "--quiet", chdir: env_dir)
+        command = runtime ? [ruby_exe, File.join(ruby_bin, "bundle"), "install", "--quiet"] : ["bundle", "install", "--quiet"]
+        env["PATH"] = "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" if ruby_bin
+        _stdout, stderr, status = Open3.capture3(env, *command, chdir: env_dir)
         raise Reach::Error, "reach: could not install the checking tools (#{stderr.strip.lines.first.to_s.strip})" unless status.success?
 
         File.write(marker, Time.now.utc.iso8601)
-        env_gemfile
+        result
+      end
+
+      def profile_ready?(ruby_exe, ruby_bin, profile)
+        env = { "BUNDLE_GEMFILE" => profile["gemfile"], "BUNDLE_PATH" => profile["dir"], "BUNDLE_FROZEN" => "true",
+                "PATH" => "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" }
+        _stdout, _stderr, status = Timeout.timeout(60) do
+          Open3.capture3(env, ruby_exe, File.join(ruby_bin, "bundle"), "check", chdir: profile["dir"])
+        end
+        status.success?
+      rescue StandardError
+        false
       end
 
       def chromium_binary
         candidate = ENV["REACH_CHROME"].to_s
         return candidate unless candidate.empty?
+
+        runtime = Reach::RuntimeKit.active
+        return runtime["chrome_exe"] if runtime && runtime["chrome_exe"]
 
         %w[google-chrome chromium chromium-browser microsoft-edge].each do |name|
           found = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |dir| File.join(dir, name) }.find { |path| File.executable?(path) }
@@ -79,11 +111,32 @@ module Reach
         File.file?(pinned) ? pinned : nil
       end
 
-      def cucumber(run_dir, gemfile, tags)
-        env = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_PATH" => Reach::Paths.gems_dir, "CUCUMBER_PUBLISH_QUIET" => "true" }
+      def sandbox_blocked?(chrome)
+        return false unless RUBY_PLATFORM =~ /linux/
+
+        return true if Process.uid.zero?
+
+        runtime = Reach::RuntimeKit.active
+        return false unless runtime && runtime["chrome_exe"] && chrome == runtime["chrome_exe"]
+
+        File.file?("/proc/sys/kernel/apparmor_restrict_unprivileged_userns") &&
+          File.read("/proc/sys/kernel/apparmor_restrict_unprivileged_userns").strip == "1"
+      rescue SystemCallError
+        false
+      end
+
+      def cucumber(run_dir, gems, tags, extra_env = {})
+        gems = { "gemfile" => gems, "bundle_path" => Reach::Paths.gems_dir } if gems.is_a?(String)
+        ruby_exe = gems["ruby_exe"]
+        ruby_bin = gems["ruby_bin"]
+        env = { "BUNDLE_GEMFILE" => gems["gemfile"], "BUNDLE_PATH" => gems["bundle_path"], "CUCUMBER_PUBLISH_QUIET" => "true" }
+        env["BUNDLE_FROZEN"] = "true" if gems["profile"]
+        env["PATH"] = "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" if ruby_bin
         chrome = chromium_binary
         env["REACH_CHROME"] = chrome if chrome
-        args = ["bundle", "exec", "cucumber", "--format", "json"]
+        env["CUPRITE_NO_SANDBOX"] = "1" if sandbox_blocked?(chrome)
+        env.merge!(extra_env)
+        args = ruby_exe && ruby_bin ? [ruby_exe, File.join(ruby_bin, "bundle"), "exec", "cucumber", "--format", "json"] : ["bundle", "exec", "cucumber", "--format", "json"]
         Array(tags).each { |tag| args += ["--tags", tag] }
 
         stdout = +""
@@ -107,7 +160,7 @@ module Reach
           stderr = err_reader.value.to_s
           status = wait_thr.value
         end
-        { "stdout" => stdout, "stderr" => stderr, "status" => status && status.exitstatus, "timed_out" => timed_out }
+        { "stdout" => stdout, "stderr" => stderr, "status" => status && status.exitstatus, "timed_out" => timed_out, "command" => args }
       end
 
       def report_rows(stdout)
