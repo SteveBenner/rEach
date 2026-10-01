@@ -60,6 +60,8 @@ module Reach
           cmd_hello(args)
         when "setup"
           cmd_setup(args)
+        when "runtime"
+          cmd_runtime(args)
         when "update"
           cmd_update(args)
         when "profile"
@@ -124,11 +126,12 @@ module Reach
             receipts [wait|show|acks]            receipts
             hand raise|status|list               hand-raises
             watch [--slice ...]                  polling shape-check backstop for Codex
-            doctor                               check the local install, one line per problem
+            doctor [--install-chromium]          check the local install, one line per problem
             lock                                 wipe the decrypted vault
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
-            setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...]
+            setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...] [--runtime]
+            runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
@@ -627,7 +630,11 @@ module Reach
         nil
       end
 
-      def cmd_doctor(_args)
+      def cmd_doctor(args)
+        install_chrome, _rest = parse_bare_flag(args, "install-chromium")
+        if install_chrome
+          Reach::RuntimeKit.install!(only: "chrome")
+        end
         problems = []
         problems.concat(check_ruby)
         problems.concat(check_shim)
@@ -650,6 +657,7 @@ module Reach
         limit_lines = limits_report
         problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
         problems.each { |line| puts line }
+        puts doctor_runtime_line
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
         problems.empty? ? 0 : 1
       end
@@ -764,12 +772,21 @@ module Reach
       end
 
       def check_chrome
+        runtime = Reach::RuntimeKit.active
         found = (ENV["REACH_CHROME"] && File.exist?(ENV["REACH_CHROME"])) ||
+                (runtime && runtime["chrome_exe"]) ||
                 which_binary("google-chrome") || which_binary("chromium") || which_binary("chromium-browser") ||
                 which_binary("microsoft-edge") || File.directory?(Reach::Paths.chromium_dir)
-        found ? [] : ["R-DOC-CHROME: no usable Chromium was found - run reach doctor --install-chromium"]
+        found ? [] : [Reach::RuntimeKit.copy(:doctor_chrome)]
       rescue StandardError
-        ["R-DOC-CHROME: Chromium could not be checked - run reach doctor --install-chromium"]
+        ["R-DOC-CHROME: Chrome could not be checked - run reach runtime install"]
+      end
+
+      def doctor_runtime_line
+        state = Reach::RuntimeKit.status
+        state["installed"] ? "runtime: #{state['runtime_id']} installed (#{state['components'].join(', ')})" : "runtime: not installed"
+      rescue StandardError
+        "runtime: not installed"
       end
 
       def which_binary(name)
@@ -905,14 +922,45 @@ module Reach
       end
 
       def cmd_setup(args)
+        with_runtime, args = parse_bare_flag(args, "runtime")
         options, _remaining = parse_flags(args, [:harness, :source, :format])
         output, exit_code = Reach::Setup.run(
           harness: options[:harness] || "auto",
           source: options[:source],
-          format: options[:format] || "text"
+          format: options[:format] || "text",
+          runtime: with_runtime
         )
         puts output
         exit_code
+      end
+
+      def cmd_runtime(args)
+        sub = args.shift
+        case sub
+        when "install"
+          _yes, args = parse_bare_flag(args, "yes")
+          options, _remaining = parse_flags(args, [:only, :from])
+          Reach::RuntimeKit.install!(only: options[:only], from: options[:from])
+          0
+        when "status"
+          json, _rest = parse_bare_flag(args, "json")
+          state = Reach::RuntimeKit.status
+          puts(json ? JSON.pretty_generate(state) : Reach::RuntimeKit.status_lines(state))
+          0
+        when "remove"
+          yes, args = parse_bare_flag(args, "yes")
+          old_only, _rest = parse_bare_flag(args, "old")
+          unless yes
+            warn "reach: runtime remove deletes the installed runtime; run it again with --yes"
+            return 1
+          end
+          removed = Reach::RuntimeKit.remove!(old_only: old_only)
+          puts(removed.empty? ? "nothing to remove" : removed.map { |dir| "removed #{dir}" })
+          0
+        else
+          warn "usage: reach runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]"
+          1
+        end
       end
 
       def cmd_update(args)
