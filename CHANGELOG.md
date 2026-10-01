@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.6] - 2026-10-01
+
+### Fixed
+
+- On macOS's built-in Ruby 2.6.10, which INSTALL.md tells students to use, 11 of the 13 public engineering
+  directives silently dropped out of the course directive table and `reach doctor` reported R-DOC-DIRECTIVES for
+  each. That Ruby links libyaml 0.1.x, which rejects an unquoted colon inside a flow list such as
+  `when: [task:after-task, task:rewrite]`. `Reach::Directives` now quotes the list items and reads the block again
+  when the first parse raises `Psych::SyntaxError` (`lib/reach/directives.rb`); newer libyaml never takes that path.
+  Under libyaml 0.1.7 the public rows went from 2 to 13 and the table is byte-identical to libyaml 0.2.5. Course
+  rows from the guardrails package were not affected: Teach writes them with `YAML.dump` in block style, which
+  libyaml 0.1.7 reads. Found by the platform smoke on GitHub macos-15 and macos-15-intel.
+
 ## [0.16.5] - 2026-10-01
 
 ### Added
