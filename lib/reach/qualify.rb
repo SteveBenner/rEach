@@ -121,12 +121,49 @@ module Reach
         names.uniq
       end
 
+      ENV_KEY = /\A[A-Z][A-Z0-9_]{0,63}\z/.freeze
+      ENV_DENIED = %w[PATH HOME RUBYOPT RUBYLIB].freeze
+      ENV_DENIED_PREFIXES = %w[BUNDLE_ GEM_ LD_ DYLD_ REACH_ TEACH_].freeze
+
+      def sanitize_env(raw)
+        accepted = {}
+        dropped = []
+        return [accepted, dropped] unless raw.is_a?(Hash)
+
+        raw.each do |key, value|
+          name = key.to_s
+          valid = name =~ ENV_KEY &&
+                  !ENV_DENIED.include?(name) &&
+                  ENV_DENIED_PREFIXES.none? { |prefix| name.start_with?(prefix) } &&
+                  value.is_a?(String) &&
+                  value.bytesize <= 512 &&
+                  !value.start_with?("/", "\\") &&
+                  value !~ /\A[A-Za-z]:/ &&
+                  !value.split(%r{[/\\]}).include?("..")
+          if valid
+            accepted[name] = value
+          else
+            dropped << name
+          end
+        end
+        [accepted, dropped]
+      end
+
       def step_local(workspace, meta, qualify, record, stub:)
+        id = stub ? "local_stub" : "local_pass"
+        env, dropped = sanitize_env(qualify["env"])
+        passed = run_local(workspace, meta, qualify, record, env, stub: stub)
+        step = record["steps"][id]
+        step["env_dropped"] = dropped if step.is_a?(Hash) && !dropped.empty?
+        passed
+      end
+
+      def run_local(workspace, meta, qualify, record, env, stub:)
         id = stub ? "local_stub" : "local_pass"
         run_dir = assemble_local(workspace, meta, stub: stub)
         Reach::Suite.select_lock!(run_dir)
-        gemfile = Reach::Suite.install_gems(run_dir)
-        output = Reach::Suite.cucumber(run_dir, gemfile, [qualify["tag"]])
+        gems = Reach::Suite.install_gems(run_dir)
+        output = Reach::Suite.cucumber(run_dir, gems, [qualify["tag"]], env)
         rows = output["timed_out"] ? nil : Reach::Suite.report_rows(output["stdout"])
         if rows.nil? || rows.empty?
           reason = output["timed_out"] ? "the run did not finish in #{Reach::Suite::RUN_TIMEOUT_S} s" : first_error_line(output["stderr"])
