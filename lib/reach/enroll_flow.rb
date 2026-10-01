@@ -154,7 +154,7 @@ module Reach
 
     def step_move(flow, text, now, harness)
       if Reach::Login.yes?(text)
-        register(flow, now, harness, Reach::Enroll.load_pending)
+        register(flow, now, harness)
       elsif Reach::Login.no?(text)
         Reach::Enroll.clear_pending
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
@@ -164,15 +164,14 @@ module Reach
       end
     end
 
-    def register(flow, now, harness, pending = nil)
+    def register(flow, now, harness)
       url = teach_url
       return Reach::Messages.text("M-ENR-FAILED", reason: "No course server address is configured.") unless url
 
       begin
         install = Reach::Enroll.register_v2(
           course_code: flow["code"], username: flow["username"], student_id: flow["student_id"],
-          teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat",
-          key: pending && pending[:key], fingerprint: pending && pending[:fingerprint]
+          teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat"
         )
       rescue Reach::RemoteRefused => e
         return refused(flow, now) if e.code == "enrollment_refused"
