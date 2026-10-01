@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.6
+version: 0.16.7
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.6
+    version: 0.16.7
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -1063,6 +1063,8 @@ runtime_kit_platforms: >-
   and Alma 8+); runtime/relocate_check.rb fails a kit that needs a newer glibc. Chrome for Testing still needs the
   system's graphics and NSS libraries; when they are missing, reach runtime install names them. When the checking
   tools fail to install without the kit, the error carries bundler's own reason and points at reach runtime install.
+  On Windows the install checks the Chrome version from the <version>.manifest file Chrome for Testing ships beside
+  chrome.exe, because chrome.exe --version opens a browser there and never exits (since 0.16.7).
 runtime_kit_auto: >-
   Since 0.16.5 the student is never asked about the runtime kit. reach hello (the session-start hook) starts reach
   runtime install --auto in a detached process when no kit is active, the platform has a kit, the kit is pinned,

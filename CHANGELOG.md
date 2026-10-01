@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.7] - 2026-10-01
+
+### Fixed
+
+- `reach runtime install` failed on every Windows x64 computer, and since 0.16.5 so did the automatic background
+  install: `RuntimeKit.smoke_chrome!` ran `chrome.exe --version`, which on Windows opens a browser and never exits, so
+  it was killed after 30 seconds and the install refused with "the runtime Chrome did not report 154.0.8037.92 (timed
+  out)". On Windows the check now looks for the `<version>.manifest` file Chrome for Testing ships beside
+  `chrome.exe` (the zip itself is already verified against the pinned SHA-256), and never launches Chrome
+  (`lib/reach/runtime_kit.rb`). Linux and macOS keep the `--version` check. Found by the platform smoke on GitHub
+  windows-2025.
+
 ## [0.16.6] - 2026-10-01
 
 ### Fixed

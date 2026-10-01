@@ -229,8 +229,13 @@ module Reach
     def smoke_chrome!(exe, version)
       raise Reach::Error, "reach: the runtime has no Chrome where the manifest says" unless File.file?(exe)
 
+      if Reach::Untar.windows?
+        return if File.file?(File.join(File.dirname(exe), "#{version}.manifest"))
+
+        raise Reach::Error, "reach: the runtime Chrome did not report #{version} (no #{version}.manifest beside chrome.exe)"
+      end
+
       ok, output = run_checked([exe, "--version"])
-      return if Reach::Untar.windows? && output.to_s.strip.empty?
 
       return if ok && output.include?(version.to_s)
 
