@@ -145,6 +145,10 @@ module Reach
       File.join(enroll_state_dir, "moved.json")
     end
 
+    def enroll_notice_file
+      File.join(enroll_state_dir, "just_enrolled.json")
+    end
+
     def fingerprint_cache_file
       File.join(enroll_state_dir, "fingerprint_cache.json")
     end

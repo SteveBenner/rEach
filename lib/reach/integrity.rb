@@ -7,7 +7,7 @@ require "openssl"
 module Reach
   module Integrity
     ROUTE = "/api/v1/integrity".freeze
-    KINDS = %w[vault_tampered corrupt_mark foreign_mark ledger_break sidecar_conflict enrolled directive_dump login_failed identity_denied outside_access].freeze
+    KINDS = %w[vault_tampered corrupt_mark foreign_mark ledger_break sidecar_conflict enrolled directive_dump login_failed identity_denied outside_access fingerprint_mismatch].freeze
 
     module_function
 

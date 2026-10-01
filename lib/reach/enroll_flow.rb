@@ -177,6 +177,18 @@ module Reach
       )
     end
 
+    def consume_notice
+      path = Reach::Paths.enroll_notice_file
+      return nil unless File.file?(path)
+
+      data = Reach::Login.read_json(path)
+      FileUtils.rm_f(path)
+      title = data.is_a?(Hash) ? data["course_title"] : nil
+      Reach::Messages.text("M-ENR-AGENT-ENROLLED", course_title: title || "the course")
+    rescue StandardError
+      nil
+    end
+
     def refused(flow, now)
       minutes = lockout_minutes
       cutoff = now - (minutes * 60)
