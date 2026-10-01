@@ -1,6 +1,7 @@
 require "json"
 require "time"
 require "fileutils"
+require "rbconfig"
 
 module Reach
   module Consent
@@ -35,13 +36,13 @@ module Reach
       Reach::Login.no?(text)
     end
 
-    def ask!(kind:, subject:, message_id:, fields: {})
+    def ask!(kind:, subject:, message_id:, fields: {}, replay: {})
       question = Reach::Messages.text(message_id, **fields.each_with_object({}) { |(key, value), memo| memo[key.to_sym] = value })
       Reach::Login.write_json(
         pending_path,
         "schema" => SCHEMA, "kind" => kind.to_s, "subject" => subject, "subject_digest" => digest(subject),
         "message_id" => message_id.to_s, "question" => question, "asked_at" => iso(Time.now.utc),
-        "student_id" => Reach::Login.enrolled_id
+        "student_id" => Reach::Login.enrolled_id, "replay" => replay
       )
       question
     end
@@ -73,7 +74,24 @@ module Reach
       FileUtils.mkdir_p(dir)
       File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
       FileUtils.rm_f(pending_path)
-      record
+      record.merge("subject" => pending["subject"], "replay" => pending["replay"] || {})
+    rescue StandardError
+      nil
+    end
+
+    def follow_up!(observed)
+      subject = observed["subject"] || {}
+      replay = observed["replay"] || {}
+      result = case observed["kind"]
+               when "transfer_request"
+                 Reach::Transfer.request!(modules: subject["modules"], note: replay["note"], quick: true)
+               when "module_lock"
+                 Reach::Modules.choose!(subject["modules"], quick: true)
+               end
+      spawn_flush(observed["kind"]) if result.is_a?(Hash) && result["state"] == "queued"
+      result.is_a?(Hash) ? result["text"] : nil
+    rescue Reach::Refused => e
+      e.message
     rescue StandardError
       nil
     end
@@ -95,6 +113,15 @@ module Reach
       chosen["used_at"] = iso(now)
       write_all(records)
       WIRE_KEYS.each_with_object({}) { |key, memo| memo[key] = chosen[key] }
+    rescue StandardError
+      nil
+    end
+
+    def spawn_flush(kind)
+      command = kind == "module_lock" ? %w[modules --flush] : %w[transfer --flush]
+      exe = File.expand_path("../../exe/reach", __dir__)
+      pid = Process.spawn(RbConfig.ruby, exe, *command, in: File::NULL, out: File::NULL, err: File::NULL, pgroup: true)
+      Process.detach(pid)
     rescue StandardError
       nil
     end

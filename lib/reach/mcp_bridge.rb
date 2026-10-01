@@ -1,4 +1,5 @@
 require "json"
+require "stringio"
 
 module Reach
   module MCPBridge
@@ -177,6 +178,44 @@ module Reach
           },
           "required" => ["action"]
         }
+      },
+      {
+        "name" => "reach_support",
+        "description" => "The fixed crisis message (911, 988, the course's support line) to give the student word for word; raises the wellbeing hand like reach support",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
+        "name" => "reach_part",
+        "description" => "List the student's own-part questions with answered flags, or record one from the student's latest typed prompt (never from text you supply)",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "record" => { "type" => "string", "description" => "A question id to record from the student's latest captured prompt" } }
+        }
+      },
+      {
+        "name" => "reach_transfer_request",
+        "description" => "Ask Reach to request a module move; returns Reach's own question to give the student word for word until the student's captured yes, then sends the request to Teach",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "modules" => { "type" => "array", "items" => { "type" => "string" }, "minItems" => 2, "maxItems" => 2 },
+            "note" => { "type" => "string" }
+          },
+          "required" => ["modules"]
+        }
+      },
+      {
+        "name" => "reach_modules",
+        "description" => "Show the student's modules or options, or choose them; returns Reach's lock-in question to give the student word for word until the student's captured yes",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "choose" => { "type" => "array", "items" => { "type" => "string" } } }
+        }
+      },
+      {
+        "name" => "reach_next",
+        "description" => "The deterministic next step for the student, in business terms",
+        "inputSchema" => { "type" => "object", "properties" => {} }
       }
     ].freeze
 
@@ -320,9 +359,62 @@ module Reach
           Reach::Directives.show(arguments.fetch("opcode"), workspace: Reach::Gate.current_workspace_path)
         when "reach_reference"
           reference_tool(arguments)
+        when "reach_support"
+          { "text" => capture_stdout { Reach::Support.run! }.to_s.strip, "relay_verbatim" => true }
+        when "reach_part"
+          part_tool(arguments)
+        when "reach_transfer_request"
+          modules = Array(arguments["modules"]).map { |item| item.to_s.strip }.reject(&:empty?)
+          raise Reach::Refused, "reach: reach_transfer_request needs the two module ids in modules" if modules.empty?
+
+          choice_payload(Reach::Transfer.request!(modules: modules, note: arguments["note"]))
+        when "reach_modules"
+          chosen = Array(arguments["choose"]).map { |item| item.to_s.strip }.reject(&:empty?)
+          chosen.empty? ? { "text" => Reach::Modules.summary_text, "relay_verbatim" => true } : choice_payload(Reach::Modules.choose!(chosen))
+        when "reach_next"
+          step = Reach::Next.compute
+          step.merge("relay_verbatim" => true)
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
         end
+      end
+
+      def capture_stdout
+        original = $stdout
+        buffer = StringIO.new
+        $stdout = buffer
+        yield
+        buffer.string
+      ensure
+        $stdout = original
+      end
+
+      def choice_payload(result)
+        result.merge("relay_verbatim" => true)
+      end
+
+      def part_tool(arguments)
+        question_id = arguments["record"].to_s
+        unless question_id.empty?
+          workspace = current_workspace!
+          answer = Reach::Part.record!(question_id, workspace: workspace)
+          question = Reach::Part.questions(Reach::Workspace.metadata(workspace)["assignment"]).find { |item| item["id"] == answer["question_id"] }
+          return { "text" => Reach::Messages.text("M-PART-RECORDED", question: question ? question["question"] : answer["question_id"]), "relay_verbatim" => true }
+        end
+
+        workspace = Reach::Gate.current_workspace_path
+        assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
+        status = Reach::Sync.cached_status || {}
+        assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil
+        rows = assignment ? Reach::Part.status(assignment) : []
+        answers = assignment ? Reach::Part.document(assignment)["answers"] : []
+        questions = rows.map do |row|
+          answer = answers.find { |item| item["question_id"] == row["id"] }
+          row.merge("text" => answer && answer["text"])
+        end
+        payload = { "assignment" => assignment, "questions" => questions }
+        payload["text"] = Reach::Messages.text("M-PART-LIST-EMPTY") if rows.empty?
+        payload
       end
 
       def workspace_for(slice)

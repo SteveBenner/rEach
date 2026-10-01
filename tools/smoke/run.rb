@@ -286,7 +286,8 @@ module Smoke
       FileUtils.mkdir_p(@home)
       path = ENV["PATH"]
       path = "#{TEACH_PATH}:#{path}" if TEACH_PATH && !TEACH_PATH.empty?
-      @env = { "PATH" => path, "TEACH_HOME" => @home, "TEACH_PORT" => TEACH_PORT.to_s,
+      @db_name = "reach_smoke_#{Time.now.strftime("%Y%m%d%H%M%S")}_#{SecureRandom.hex(3)}"
+      @env = { "PATH" => path, "TEACH_HOME" => @home, "TEACH_DATABASE_URL" => "postgres:///#{@db_name}", "TEACH_PORT" => TEACH_PORT.to_s,
                "TEACH_BIND" => GATEWAY, "TEACH_GROKIT_SPEC" => File.join(GROKIT, "specs", "app.yml"), "TEACH_GROKIT_ROOT" => GROKIT }
     end
 
@@ -296,6 +297,8 @@ module Smoke
 
     def start!
       raise Abort, "port #{GATEWAY}:#{TEACH_PORT} is busy" if listening?
+      _out, err, status = Open3.capture3("createdb", @db_name)
+      raise Abort, "createdb #{@db_name} failed: #{err.strip}" unless status.success?
 
       File.write(File.join(@dir, "roster.csv"), "id,display_name,email,group\ns001,Dana Ruiz,,G1\n")
       File.write(File.join(@dir, "slices.csv"), "student_id,cutout_id,slice\ns001,context.a1,backend\n")
@@ -314,18 +317,28 @@ module Smoke
       raise Abort, "teach did not start"
     end
 
+    def json(*args)
+      out = teach(*args)
+      JSON.parse(out[out.index(/[\[{]/)..])
+    rescue StandardError
+      []
+    end
+
     def build_and_release!
       teach("packages", "build", "--assignment", "A1")
       teach("release", "--assignment", "A1")
     end
 
     def stop!
-      return unless @pid
-
-      Process.kill("TERM", -@pid)
-      Process.wait(@pid)
-    rescue StandardError
-      nil
+      if @pid
+        begin
+          Process.kill("TERM", -@pid)
+          Process.wait(@pid)
+        rescue StandardError
+          nil
+        end
+      end
+      Open3.capture3("dropdb", "--if-exists", @db_name) if @db_name.to_s.start_with?("reach_smoke_")
     end
 
     private
@@ -449,8 +462,8 @@ module Smoke
           stop_check!
           result["sessions"] << run_session(scenario, spec, index, home, dir, workspace)
         end
-        result["checks"] = evaluate(scenario, result, home, workspace)
         result["judge"] = judge(scenario, result, dir)
+        result["checks"] = evaluate(scenario, result, home, workspace, teach)
       rescue SpendExceeded, StopRequested
         raise
       rescue Abort => e
@@ -459,7 +472,8 @@ module Smoke
       ensure
         teach&.stop!
         result["cost"] = (@spend.total - started_cost).round(4)
-        result["status"] = result["error"] ? "error" : (result["checks"].any? { |c| c["status"] == "fail" } ? "fail" : "pass")
+        judge_failed = scenario["judge_gates"] && result.dig("judge", "pass") == false
+        result["status"] = result["error"] ? "error" : (result["checks"].any? { |c| c["status"] == "fail" } || judge_failed ? "fail" : "pass")
         File.write(File.join(dir, "transcript.md"), transcript(result))
         File.write(File.join(dir, "result.json"), JSON.pretty_generate(result))
       end
@@ -468,6 +482,11 @@ module Smoke
     end
 
     def seed_home(scenario, home)
+      (scenario["seed_files"] || {}).each do |relative, content|
+        path = File.join(home, relative)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, content)
+      end
       if scenario["home_from"]
         source = File.join(@run_dir, scenario["home_from"], "home")
         raise Abort, "needs #{scenario["home_from"]} to have run first" unless File.directory?(source)
@@ -516,8 +535,8 @@ module Smoke
       when "bare"
         base + ["--tools", "Bash", "Read", "Glob", "Grep", "Skill", "--allowedTools", "Bash"]
       when "workspace"
-        base + ["--plugin-dir", "/plugin", "--tools", "Read", "Glob", "Grep", "Skill", "Edit", "Write",
-                "--allowedTools", "mcp__plugin_reach_reach", "mcp__reach", "Edit", "Write"]
+        base + ["--plugin-dir", "/plugin", "--tools", "Bash", "Read", "Glob", "Grep", "Skill", "Edit", "Write",
+                "--allowedTools", "mcp__plugin_reach_reach", "mcp__reach", "Edit", "Write", "Bash"]
       else
         raise Abort, "unknown session kind #{kind}"
       end
@@ -546,7 +565,7 @@ module Smoke
       ensure
         session.close
       end
-      { "kind" => kind, "turns" => session.turns }
+      { "kind" => kind, "workdir" => workdir, "turns" => session.turns }
     end
 
     def converse_with_llm_student(scenario, session, dir, timeout_s)
@@ -610,20 +629,42 @@ module Smoke
       end
     end
 
-    def evaluate(scenario, result, home, workspace)
+    def evaluate(scenario, result, home, workspace, teach = nil)
       scenario["checks"].map do |check|
         begin
-          evaluate_one(check, result, home, workspace)
+          evaluate_one(check, result, home, workspace, teach)
         rescue StandardError => e
           { "check" => check.to_json, "status" => "fail", "detail" => "check crashed: #{e.message}" }
         end
       end
     end
 
-    def evaluate_one(check, result, home, workspace)
+    def evaluate_one(check, result, home, workspace, teach = nil)
       session = check["session"]
       label = check.to_json
       status, detail = case
+      when check.key?("turn_reply_matches")
+        spec = check["turn_reply_matches"]
+        turn = result["sessions"][session || 0]["turns"][spec["turn"]]
+        actual = turn ? reply_of(turn) : ""
+        actual.match?(Regexp.new(spec["pattern"])) ? ["pass", nil] : ["fail", "turn #{spec["turn"]} reply: #{actual[0, 220].inspect}"]
+      when check.key?("tool_input_matches")
+        uses = result["sessions"].flat_map { |s| s["turns"].flat_map { |t| t["tool_uses"] } }
+        hit = uses.find { |u| u["input"].to_json.match?(Regexp.new(check["tool_input_matches"])) }
+        hit ? ["pass", "#{hit["name"]} #{hit["input"].to_json[0, 120]}"] : ["fail", "no tool call matched; tools: #{uses.map { |u| u["name"] }.uniq.inspect}"]
+      when check.key?("workspace_file_exists")
+        File.file?(File.join(workspace[:host], check["workspace_file_exists"])) ? ["pass", nil] : ["fail", "#{check["workspace_file_exists"]} missing"]
+      when check.key?("no_tool_result_matches")
+        results = result["sessions"].flat_map { |s| s["turns"].flat_map { |t| t["tool_results"] } }
+        hit = results.find { |r| r["text"].match?(Regexp.new(check["no_tool_result_matches"])) }
+        hit ? ["fail", "a tool returned: #{hit["text"][0, 200].inspect}"] : ["pass", nil]
+      when check.key?("teach_hand_trigger")
+        hands = teach ? teach.json("hands", "list") : []
+        found = Array(hands).any? { |h| h.to_json.include?(check["teach_hand_trigger"]) }
+        found ? ["pass", nil] : ["fail", "no #{check["teach_hand_trigger"]} hand at Teach (#{Array(hands).length} hands)"]
+      when check.key?("teach_transfers_count")
+        rows = teach ? teach.json("transfers", "list") : []
+        Array(rows).length == check["teach_transfers_count"] ? ["pass", nil] : ["fail", "#{Array(rows).length} transfer requests at Teach"]
       when check.key?("first_reply_greeting")
         expected = @greetings.fetch(check["first_reply_greeting"]).gsub("{name}", result["profile_name_at_start"].to_s)
         first = result["sessions"][session]["turns"].first
@@ -707,14 +748,21 @@ module Smoke
       return { "skipped" => "no rEach session" } if sessions.empty? || result["error"]
 
       text = sessions.each_with_index.map do |s, i|
-        "Session #{i + 1}\n" + s["turns"].map { |t| "Student: #{t["student"]}\nrEach: #{t["texts"].join("\n")}" }.join("\n\n")
+        "Session #{i + 1} (working directory #{s["workdir"]})\n" + s["turns"].map do |t|
+          tools = (t["tool_uses"].map { |u| "[tool #{u["name"]} #{u["input"].to_json[0, 160]}]" } + t["tool_results"].map { |r| "[result#{r["error"] ? " error" : ""} #{r["text"].to_s.gsub(/\s+/, " ")[0, 160]}]" }).join("\n")
+          "Student: #{t["student"]}\n#{tools.empty? ? "" : "#{tools}\n"}rEach: #{t["texts"].join("\n")}"
+        end.join("\n\n")
       end.join("\n\n")
+      acted = consent_answers(dir)
+      text = "#{text}\n\n#{acted.join("\n")}" unless acted.empty?
+      rubric = scenario["judge_rubric"] ? @config.fetch(scenario["judge_rubric"]) : @config["judge_rubric"]
+      rubric = "#{rubric}\nThis scenario tests: #{scenario["judge_focus"]}" if scenario["judge_focus"]
       judge_home = File.join(dir, "judge-home")
       FileUtils.mkdir_p(judge_home)
       docker = Docker.args(name: "reach-smoke-#{@run_id}-#{scenario["id"]}-judge", home: judge_home, workdir: CONTAINER_HOME, plugin: false)
       out, _err, _status = Open3.capture3({ "CLAUDE_CODE_OAUTH_TOKEN" => @token }, "timeout", "180", *docker, "claude", "-p",
                                           "--output-format", "json", "--model", JUDGE_MODEL, "--tools", "",
-                                          "--system-prompt", @config["judge_rubric"], "--max-budget-usd", "0.3", stdin_data: text)
+                                          "--system-prompt", rubric, "--max-budget-usd", "0.5", stdin_data: text)
       data = JSON.parse(out)
       @spend.add(data["total_cost_usd"])
       JSON.parse(data["result"].to_s[/\{.*\}/m].to_s)
@@ -722,6 +770,15 @@ module Smoke
       raise
     rescue StandardError => e
       { "pass" => nil, "concerns" => ["judge failed: #{e.class}: #{e.message[0, 160]}"] }
+    end
+
+    def consent_answers(dir)
+      path = File.join(dir, "home", ".reach", "state", "consent", "answered.jsonl")
+      return [] unless File.file?(path)
+
+      File.readlines(path).map { |line| JSON.parse(line) rescue nil }.compact.map do |record|
+        "[Reach acted on the student's answer \"#{record["answer"]}\" to its #{record["message_id"]} question itself and gave rEach the outcome to relay]"
+      end
     end
 
     def report_line(result)

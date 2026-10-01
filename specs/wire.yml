@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-09-30'
+recorded: '2026-10-01'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -1344,7 +1344,9 @@ alignment:
       For each answer Teach looks for the transcript entry with the same session_id and seq in the student's
       subcorpus: part_verified is true when every answer's entry exists, is a prompt, and has the same digest; false
       when any entry exists with a different digest or kind; pending when some entry has not arrived yet (Teach
-      re-checks pending submissions when later transcripts arrive and when an instructor shows the submission).
+      re-checks pending submissions when later transcripts arrive and when an instructor shows the submission);
+      unverifiable when an entry falls inside a transcript gap Reach reported, or is still missing 7 days after the
+      submission was received (re-checked the same way, so a late entry still turns it true or false).
       part_suspect lists the question ids whose answer shares at least 60% of its word 5-grams with any reply entry
       of the same student in the 24 hours before recorded_at; answers under 5 words are never suspect. Both are
       shown to instructors only and never reject or grade anything.

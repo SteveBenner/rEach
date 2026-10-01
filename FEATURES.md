@@ -8,9 +8,9 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.13.0 |
-| **Last audited** | 2026-09-30 |
-| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 18 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
+| **Registry version** | 0.14.3 |
+| **Last audited** | 2026-10-01 |
+| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
 | **Feature count** | 43 catalogued |
 
@@ -225,49 +225,49 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.17 · Sign-in every session
 
-Since 0.12.0 the prompt hook asks for the student ID, then "Am I speaking with <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Wrong IDs lock the session after three tries; a no ends course work for the session; both reach Teach as integrity events. The A1 smoke signs in this way before any write.
+Since 0.12.0 the prompt hook asks for the student ID, then "Am I speaking with <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Wrong IDs lock the session after three tries; a no ends course work for the session; both reach Teach as integrity events. The A1 smoke signs in this way before any write. Re-verified 2026-10-01 against a scratch Teach: every gate refused before sign-in, the ID stayed out of the greeting, another student's ID was refused, offline sign-in worked, three wrong tries locked the install for a minute, and Teach recorded login_failed and identity_denied.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.18 · The student's own part
 
-Since 0.12.0 `reach part` lists the questions only the student can answer, `reach part record` takes their typed words verbatim, and `reach submit` refuses until all are answered and sends `part.json`. In the smoke, submit was refused without the part, four answers were recorded, and Teach verified them against the transcript.
+Since 0.12.0 `reach part` lists the questions only the student can answer, `reach part record` takes their typed words verbatim, and `reach submit` refuses until all are answered and sends `part.json`. In the smoke, submit was refused without the part, four answers were recorded, and Teach verified them against the transcript. Re-verified 2026-10-01: a two-word answer was refused as too short, and in live sessions Haiku and Sonnet coached the own part on process only, without candidate answers.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.19 · Modules, module choice and transfers
 
-Since 0.12.0 Reach verifies Teach's signed module record and refuses writes in another module's slice. In a choose-your-modules course the student locks in two modules with their own yes; `reach transfer request` asks the professor to confirm a move. On scratch data a student chose and locked two modules, a second choice was refused, a transfer was approved, and an instructor reassignment moved the student's slices.
+Since 0.12.0 Reach verifies Teach's signed module record and refuses writes in another module's slice. In a choose-your-modules course the student locks in two modules with their own yes; `reach transfer request` asks the professor to confirm a move. On scratch data a student chose and locked two modules, a second choice was refused, a transfer was approved, and an instructor reassignment moved the student's slices. Since 0.14.3 Reach acts on the student's yes or no itself from the prompt hook, and a send that had to queue is flushed by a detached process. Re-verified 2026-10-01: the ask sent nothing; the yes alone sent it (Teach had it 3 s later); a second request while one was open was refused; a denial showed the professor's reply; approval moved the modules; a write in the old module was refused; a reassignment without a reason was refused; a choice locked on the yes, a second choice was refused, and a full module was refused. Live on Haiku and Sonnet, rEach ran the request, relayed Reach's question, and Teach received exactly one transfer after the yes.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.20 · Sandbox and drag-and-drop files
 
-Since 0.12.0 the read and shell gates refuse paths outside the workspace and web lookups in course folders, on Claude Code, Codex and Hermes. A dropped file is copied into `materials/` within size and type limits. Driven with hook events on Claude Code; the Codex and Hermes hooks are configured but not run live.
+Since 0.12.0 the read and shell gates refuse paths outside the workspace and web lookups in course folders, on Claude Code, Codex and Hermes. A dropped file is copied into `materials/` within size and type limits. Driven with hook events on Claude Code; the Codex and Hermes hooks are configured but not run live. Re-verified 2026-10-01: Read, Grep, Glob, shell cat, ls of the home folder, cp and both web tools were refused outside the workspace; a .txt drop was copied, an .exe and an oversized file were refused; live, Sonnet declined to search Documents, and the dropped file was copied into materials/ and read there.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.21 · Time gate
 
-Since 0.12.0 writes are refused in a slice that is not the current assignment or whose due time has passed, by Teach's clock.
+Since 0.12.0 writes are refused in a slice that is not the current assignment or whose due time has passed, by Teach's clock. Re-verified 2026-10-01: an unreleased A2 was not delivered, and a past-due or non-current slice gave M-GATE-NOT-CURRENT.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.22 · Next step and focus anchor
 
-Since 0.12.0 `reach next` names the student's next step, and every prompt gives the agent a short anchor naming the current step. The directives COACH, PACE and FOCUS carry the tone and topic rules; whether a model follows them has not been judged in a live session yet.
+Since 0.12.0 `reach next` names the student's next step, and every prompt gives the agent a short anchor naming the current step. The directives COACH, PACE and FOCUS carry the tone and topic rules; judged live on 2026-10-01 with Haiku and Sonnet: rEach stayed on the course through a chain of off-topic questions, declined life advice and pointed to people who can help, and coached a stuck student without writing the answer. Haiku occasionally praised more than the COACH rule allows and once described a step inaccurately; agents sometimes named code or files to the student.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.23 · Support in a crisis
 
-Since 0.12.0 `reach support` prints a fixed message beginning "If this is an emergency, call 911 now." and raises a wellbeing hand to the instructors; the prompt hook catches crisis phrases even before sign-in. On scratch data the hand reached Teach's queue, listed first, within seconds.
+Since 0.12.0 `reach support` prints a fixed message beginning "If this is an emergency, call 911 now." and raises a wellbeing hand to the instructors; the prompt hook catches crisis phrases even before sign-in. On scratch data the hand reached Teach's queue, listed first, within seconds. Since 0.14.3 the session context, the skill and the agent put a crisis before the greeting; live on Sonnet and Haiku the first reply gave 911 and 988 with no greeting, and Teach got a wellbeing hand.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.24 · Local size limits
 
-Since 0.12.0 `reach sync` keeps Reach's own corpus and transcript spool under the course's caps, and `reach doctor` reports the sizes.
+Since 0.12.0 `reach sync` keeps Reach's own corpus and transcript spool under the course's caps, and `reach doctor` reports the sizes. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -341,11 +341,14 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 6.1 · MCP tools beyond reference
 
-The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 18 tools beyond `reach_reference` (3.1): `reach_hello`,
+The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 23 tools beyond `reach_reference` (3.1): `reach_hello`,
 `reach_enroll`, `reach_sync`, `reach_status`, `reach_check`, `reach_shape_check`, `reach_checkpoint`, `reach_plan`,
 `reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
-`reach_profile_show`, `reach_profile_save`, `reach_profile_forget` — each a thin wrapper the agent calls instead of
-shelling out to the `reach` CLI.
+`reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, and since 0.14.3 `reach_support`, `reach_part`,
+`reach_transfer_request`, `reach_modules` and `reach_next` — each a thin wrapper the agent calls instead of shelling out to
+the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
+returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
+tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 

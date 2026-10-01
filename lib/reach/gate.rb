@@ -95,7 +95,11 @@ module Reach
         context << decision["context"] if decision["context"]
       end
       context.concat(Array(safely { Reach::Update.prompt_notices(session) }))
-      safely { Reach::Consent.observe(entry) } if entry
+      observed = safely { Reach::Consent.observe(entry) } if entry
+      if observed
+        done = safely { Reach::Consent.follow_up!(observed) }
+        context << Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: done) unless done.to_s.empty?
+      end
       if space
         imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"], session_id: session, harness: harness) }
         context.concat(Array(imports))

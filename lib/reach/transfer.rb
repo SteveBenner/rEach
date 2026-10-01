@@ -32,7 +32,7 @@ module Reach
       Reach::Login.write_json(path, data.merge("student_id" => Reach::Login.enrolled_id))
     end
 
-    def request!(modules:, note: nil)
+    def request!(modules:, note: nil, quick: false)
       Reach::Login.require_active!
       previous = stored
       now = Time.now.utc
@@ -58,22 +58,22 @@ module Reach
 
       consent = Reach::Consent.take!(kind: "transfer_request", subject: subject)
       unless consent
-        question = Reach::Consent.ask!(kind: "transfer_request", subject: subject, message_id: "M-TRANSFER-ASK", fields: { modules: Reach::Modules.names(wanted) })
+        question = Reach::Consent.ask!(kind: "transfer_request", subject: subject, message_id: "M-TRANSFER-ASK", fields: { modules: Reach::Modules.names(wanted) }, replay: { "note" => note })
         return { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
       end
 
       body = { "modules" => wanted, "consent" => consent, "client_created_at" => iso(now) }
       composed = compose_note(note)
       body["note"] = composed unless composed.empty?
-      submit(body, wanted, now)
+      submit(body, wanted, now, quick: quick)
     end
 
-    def submit(body, wanted, now)
+    def submit(body, wanted, now, quick: false)
       key = SecureRandom.uuid
       record = { "transfer_id" => nil, "state" => "pending", "modules" => wanted, "created_at" => iso(now),
                  "last_polled_at" => nil, "reply" => nil, "announced" => false, "request" => body, "idempotency_key" => key }
       save(record)
-      outcome = post_request(record)
+      outcome = post_request(record, quick: quick)
       sent_text = Reach::Messages.text("M-TRANSFER-SENT", modules: Reach::Modules.names(wanted), current: Reach::Modules.names(Reach::Modules.module_ids))
       case outcome
       when :sent
@@ -87,9 +87,9 @@ module Reach
       end
     end
 
-    def post_request(record)
+    def post_request(record, quick: false)
       install = Reach::Enroll.current
-      response = Reach::Client.for_install(install).post_json(ROUTE, record["request"], idempotency_key: record["idempotency_key"])
+      response = Reach::Client.for_install(install, quick: quick).post_json(ROUTE, record["request"], idempotency_key: record["idempotency_key"])
       result = response.json || {}
       save(record.merge("transfer_id" => result["transfer_id"], "request" => nil, "idempotency_key" => nil))
       :sent

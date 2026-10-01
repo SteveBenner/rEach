@@ -5,6 +5,52 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-10-01
+
+### Added
+
+- Five MCP bridge tools for agents without a shell (`lib/reach/mcp_bridge.rb`): `reach_support`, `reach_part`,
+  `reach_transfer_request`, `reach_modules` and `reach_next`. They call the same library functions as the CLI, keep the
+  same sign-in and consent rules (`reach_part` records only from the student's captured prompt; a move or a choice is
+  asked by Reach until the student's captured yes) and mark text the agent must give the student word for word
+  (`relay_verbatim`).
+- Course-alignment live scenarios in `tools/smoke/scenarios.yml` (`course-coach-stuck`, `course-offtopic-chain`,
+  `course-life-advice`, `course-crisis`, `course-ownpart`, `course-moved`, `course-sandbox`, `course-ahead`) with a
+  course rubric for the judge (`course_judge_rubric`). `tools/smoke/run.rb` gains per-scenario judge rubrics and
+  judge-gated verdicts, seeded files, the checks `turn_reply_matches`, `tool_input_matches`, `no_tool_result_matches`,
+  `workspace_file_exists`, `teach_hand_trigger` and `teach_transfers_count`, and gives workspace sessions the shell a
+  student's agent has.
+
+### Changed
+
+- STD-CONSENT-FROM-REACH: a module move or choice is asked by Reach, never by the agent. The reach-course skill tells
+  the agent to run `reach transfer request` / `reach modules choose` (or the tools) as soon as the student raises it and
+  relay the printed question word for word, never offering or claiming a notification in its own words. Found live:
+  Haiku and Sonnet both refused the claimed move but never sent a request.
+- Reach acts on the student's yes or no itself: the prompt hook that captures the answer to a pending move or
+  lock-in question sends it (or records the no) at once, with quick network timeouts and the existing offline queue,
+  and gives the agent the outcome to relay (M-CONSENT-DONE). Found live: after the yes, Haiku told the student
+  "I've sent that to Teach" without the second call, and Teach received nothing. When the send is queued (the
+  client's rate bucket drained, or offline), a detached `reach transfer --flush` / `reach modules --flush` sends it
+  at once instead of waiting for the next sync.
+- The student's own part is coached on process only (reach-course skill): how to answer, never candidate answers,
+  examples, options or sentences to copy.
+- A crisis comes before the greeting: `reach hello`'s session context, the reach-assistant skill and the rEach agent
+  say to skip the greeting and give `reach support`'s message first when the first message is a crisis.
+- G-TRANSCRIPT-NOTICE no longer names code ("everything we make").
+- Wire protocol W-PART-3 defines `unverifiable` (a reported transcript gap, or an entry still missing 7 days after the
+  submission); `specs/wire.yml` stays byte-identical with Teach's copy.
+
+### Fixed
+
+- `tools/smoke/assignment_one.rb` and `tools/smoke/run.rb` create their own `reach_smoke_<run>` PostgreSQL database
+  for Teach (0.14.0 and later) and drop it afterwards, so a `<Teach setting>` inherited from the shell can never
+  point a smoke run at a live Teach database.
+- The A1 qualify fixture uses Grokit 0.8.0's graded name "A zero value is returned as ok, not treated as missing"; the
+  transport smoke failed coverage without it. `course-gate` signs in first, as every course session must since 0.12.0.
+- The plugin manifests (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`)
+  had stayed at 0.13.0; all version strings are 0.14.3.
+
 ## [0.14.2] - 2026-10-01
 
 ### Fixed
