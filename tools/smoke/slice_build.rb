@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+ENV["SMOKE_IMAGE"] = ENV.fetch("SMOKE_SLICE_IMAGE", "reach-smoke:noble")
 require_relative "run"
 require "date"
 require "tmpdir"
@@ -20,6 +21,7 @@ module SliceBuild
   RUNS_DIR = File.expand_path(ENV["SMOKE_SLICE_RUNS_DIR"].to_s.empty? ? "~/.cache/reach-smoke/slice-build" : ENV["SMOKE_SLICE_RUNS_DIR"])
   TEACH_SRC = File.expand_path(ENV.fetch("SMOKE_SLICE_TEACH_SRC", "~/bitbucket/paterasai/teach"))
   GROKIT_SRC = File.expand_path(ENV.fetch("SMOKE_SLICE_GROKIT_SRC", "~/bitbucket/paterasai/grokit"))
+  TEACH_REF = ENV.fetch("SMOKE_SLICE_TEACH_REF", "origin/main")
   GROKIT_TAG = ENV.fetch("SMOKE_SLICE_GROKIT_TAG", "v0.9.1")
   DOVETAIL_ROOT = File.expand_path(ENV.fetch("SMOKE_SLICE_DOVETAIL_ROOT", "~/github/foss/dovetail"))
   TEACH_BUNDLE = File.expand_path(ENV.fetch("SMOKE_SLICE_TEACH_BUNDLE", "~/bitbucket/paterasai/teach/vendor/bundle"))
@@ -74,6 +76,7 @@ module SliceBuild
 
     def initialize(run, assignment, targets)
       @run = run
+      @teach_sha = run.teach_sha
       @assignment = assignment
       @targets = targets
       @dir = File.join(run.dir, "phase-#{assignment}")
@@ -202,7 +205,6 @@ module SliceBuild
     end
 
     def clone_teach
-      @teach_sha = SliceBuild.sh!("git", "-C", TEACH_SRC, "rev-parse", "origin/main").strip
       SliceBuild.sh!("git", "clone", "--quiet", TEACH_SRC, @teach_dir)
       SliceBuild.sh!("git", "-C", @teach_dir, "checkout", "--quiet", "--detach", @teach_sha)
       FileUtils.mkdir_p(File.join(@teach_dir, ".bundle"))
@@ -266,7 +268,7 @@ module SliceBuild
   end
 
   class Run
-    attr_reader :id, :dir, :grokit_dir
+    attr_reader :id, :dir, :grokit_dir, :teach_sha
 
     def initialize(targets, dry_run:)
       @targets = targets
@@ -294,8 +296,11 @@ module SliceBuild
       FileUtils.mkdir_p(@dir)
       puts "run #{@id} -> #{@dir}#{@dry_run ? " (dry run)" : ""}"
       preflight!
+      @teach_sha = SliceBuild.sh!("git", "-C", TEACH_SRC, "rev-parse", TEACH_REF).strip
+      puts "teach #{@teach_sha[0, 10]} (#{TEACH_REF}) for every phase"
       clone_grokit
       load_spec
+      fetch_runtime_kit
       assign_students
       phases = @targets.group_by { |t| t["assignment"] }.sort.map { |a, list| Phase.new(self, a, list) }
       @phases = phases
@@ -327,7 +332,7 @@ module SliceBuild
       @token = Smoke.load_token
       raise Smoke::PreflightFailed, "no token: write one to #{Smoke::TOKEN_FILE}" if @token.nil? && !@dry_run
 
-      Smoke.ensure_image!
+      ensure_image!
       GRADER_IMAGES.each do |image|
         raise Smoke::PreflightFailed, "docker image #{image} is missing; teach grader cannot start" unless system("docker", "image", "inspect", image, out: File::NULL, err: File::NULL)
       end
@@ -336,6 +341,41 @@ module SliceBuild
       raise Smoke::PreflightFailed, "teach bundle at #{TEACH_BUNDLE} has no pg gem" if Dir.glob(File.join(TEACH_BUNDLE, "ruby", "*", "gems", "pg-*")).empty?
       raise Smoke::PreflightFailed, "teach source #{TEACH_SRC} is not a repository" unless File.directory?(File.join(TEACH_SRC, ".git"))
       raise Smoke::PreflightFailed, "grokit source #{GROKIT_SRC} is not a repository" unless File.directory?(File.join(GROKIT_SRC, ".git"))
+    end
+
+    def ensure_image!
+      return if system("docker", "image", "inspect", Smoke::IMAGE, out: File::NULL, err: File::NULL)
+
+      dockerfile = Smoke::IMAGE == "reach-smoke:noble" ? "Dockerfile.noble" : "Dockerfile"
+      puts "building #{Smoke::IMAGE} from #{dockerfile}"
+      raise Smoke::PreflightFailed, "docker build for #{Smoke::IMAGE} failed" unless system("docker", "build", "-q", "-t", Smoke::IMAGE, "-f", File.join(__dir__, dockerfile), __dir__, out: File::NULL)
+    end
+
+    def runtime_constants
+      text = File.read(File.join(Smoke::REACH, "lib", "reach", "runtime_kit.rb"))
+      { "tag" => text[/RUNTIME_TAG = "([^"]+)"/, 1], "base" => text[/RELEASE_BASE = "([^"]+)"/, 1], "manifest" => text[/MANIFEST_ASSET = "([^"]+)"/, 1] }
+    end
+
+    def fetch_runtime_kit
+      constants = runtime_constants
+      raise Smoke::PreflightFailed, "could not read the runtime pin from lib/reach/runtime_kit.rb" if constants.values.any?(&:nil?)
+
+      @kit_dir = File.join(@dir, "runtime-kit")
+      FileUtils.mkdir_p(@kit_dir)
+      manifest_path = File.join(@kit_dir, constants["manifest"])
+      SliceBuild.sh!("curl", "-fsSL", "-o", manifest_path, "#{constants["base"]}/#{constants["tag"]}/#{constants["manifest"]}", timeout: 120)
+      data = JSON.parse(File.read(manifest_path))
+      entry = data.fetch("platforms").fetch("linux-x86_64")
+      assets = []
+      assets << [entry.dig("bundle", "asset"), "#{constants["base"]}/#{constants["tag"]}/#{entry.dig("bundle", "asset")}", entry["bundle"]]
+      assets << [File.basename(entry["chrome"]["url"]), entry["chrome"]["url"], entry["chrome"]] if entry["chrome"]
+      assets.each do |name, url, meta|
+        path = File.join(@kit_dir, name)
+        puts "runtime kit: downloading #{name}"
+        SliceBuild.sh!("curl", "-fsSL", "-o", path, url, timeout: 900)
+        raise Smoke::PreflightFailed, "runtime asset #{name} failed its checksum" unless Digest::SHA256.file(path).hexdigest == meta["sha256"].to_s
+      end
+      @runtime = { "tag" => constants["tag"], "runtime_id" => data["runtime_id"], "ruby_version" => data["ruby_version"], "chrome_version" => data["chrome_version"] }
     end
 
     def clone_grokit
@@ -415,9 +455,23 @@ module SliceBuild
       out
     end
 
+    def install_runtime(home, target, record)
+      docker = Smoke::Docker.args(name: "reach-slice-#{@id}-#{target["module"]}-rt-#{SecureRandom.hex(3)}", home: home, workdir: Smoke::CONTAINER_HOME, interactive: false)
+      docker.insert(docker.index("-w"), "-v", "#{@kit_dir}:/kit:ro")
+      out, err, status = Open3.capture3({}, "timeout", "600", *docker, "ruby", "/plugin/exe/reach", "runtime", "install", "--from", "/kit", "--yes")
+      File.write(File.join(File.dirname(home), "reach-runtime-install.log"), out + err)
+      raise Smoke::Abort, "reach runtime install failed: #{(out + err)[-400..] || (out + err)}" unless status.success?
+
+      status_out = reach_cli(home, target["module"], "runtime", "status", "--json")
+      info = JSON.parse(status_out[status_out.index("{")..])
+      record["runtime"] = { "installed" => info["installed"], "runtime_id" => info["runtime_id"], "ruby" => info["ruby"], "chrome" => info["chrome"], "profiles" => info["profiles"], "components" => info["components"] }
+      raise Smoke::Abort, "runtime not installed in #{target["module"]}'s home" unless info["installed"]
+    end
+
     def enroll_and_sync(phase, target, record)
       home = record["home"]
       reach_cli(home, target["module"], "enroll", phase.code_for(target["student"]), "--teach-url", phase.url)
+      install_runtime(home, target, record)
       reach_cli(home, target["module"], "sync")
       marker = Dir.glob(File.join(home, "reach-work", "**", ".reach", "slice.json")).first
       raise Smoke::Abort, "no slice workspace after sync for #{target["module"]}" unless marker
@@ -657,6 +711,8 @@ module SliceBuild
     end
 
     def shape_findings(target, record)
+      return { "not_run" => true, "errors" => nil, "warnings" => nil, "findings" => [] } unless record["workspace"]
+
       work = File.join(record["dir"], "shape-check")
       FileUtils.mkdir_p(work)
       mod = target["module"]
@@ -696,7 +752,7 @@ module SliceBuild
     end
 
     def commits
-      { "reach" => SliceBuild.git_head(Smoke::REACH), "teach" => @phases.map(&:teach_sha).compact.first, "grokit" => SliceBuild.git_head(@grokit_dir),
+      { "reach" => SliceBuild.git_head(Smoke::REACH), "teach" => @teach_sha, "grokit" => SliceBuild.git_head(@grokit_dir),
         "dovetail" => SliceBuild.git_head(DOVETAIL_ROOT) }
     end
 
@@ -712,6 +768,9 @@ module SliceBuild
       report = {
         "run_id" => @id, "dry_run" => @dry_run, "status" => verdict, "aborted" => @aborted, "run_dir" => @dir,
         "commits" => commits,
+        "teach_ref" => TEACH_REF,
+        "image" => Smoke::IMAGE,
+        "runtime" => @runtime,
         "models" => { "agent" => AGENT_MODEL, "student" => STUDENT_MODEL },
         "limits" => { "session_budget_usd" => SESSION_BUDGET_USD, "run_budget_usd" => RUN_BUDGET_USD, "turn_timeout_s" => TURN_TIMEOUT_S,
                       "max_turns" => MAX_TURNS, "module_timeout_s" => MODULE_TIMEOUT_S, "grader_timeout_s" => GRADER_TIMEOUT_S },
@@ -728,6 +787,7 @@ module SliceBuild
     def markdown(report)
       lines = ["# Slice-build smoke #{@id}", "", "Status: #{report["status"]}#{@dry_run ? " (dry run)" : ""}", ""]
       lines << "Commits: #{report["commits"].map { |k, v| "#{k} #{v.to_s[0, 10]}" }.join(", ")}"
+      lines << "Teach ref #{report["teach_ref"]}; image #{report["image"]}; runtime #{report["runtime"] ? "#{report["runtime"]["runtime_id"]} (Ruby #{report["runtime"]["ruby_version"]}, Chrome #{report["runtime"]["chrome_version"]})" : "not fetched"}"
       lines << "Models: agent #{AGENT_MODEL}, student #{STUDENT_MODEL}"
       lines << "Limits: #{report["limits"].map { |k, v| "#{k} #{v}" }.join(", ")}"
       lines << "Scratch databases (never dropped): #{report["databases"].map { |d| "#{d["database"]} (#{d["assignment"]}, port #{d["port"]})" }.join(", ")}"
@@ -739,7 +799,7 @@ module SliceBuild
         grade = m["grade"] || {}
         shape = m["shape"] || {}
         outcome = m["outcome"] == "aborted" || m["reason"] ? "#{m["outcome"]}#{m["reason"] ? " (#{m["reason"].to_s.gsub("|", "/")[0, 80]})" : ""}" : m["outcome"]
-        lines << "| #{m["module"]} | #{m["cutout"]} | #{outcome} | #{grade["score"].inspect} | #{grade["passed"].inspect}/#{grade["total"].inspect} | #{m["qualify_attempts"].inspect} | #{shape["errors"].inspect}/#{shape["warnings"].inspect} | #{m["minutes"].inspect} | $#{m["cost"].to_f.round(4)} |"
+        lines << "| #{m["module"]} | #{m["cutout"]} | #{outcome} | #{grade["score"].inspect} | #{grade["passed"].inspect}/#{grade["total"].inspect} | #{m["qualify_attempts"].inspect} | #{shape.empty? || shape["not_run"] ? "not run" : "#{shape["errors"].inspect}/#{shape["warnings"].inspect}"} | #{m["minutes"].inspect} | $#{m["cost"].to_f.round(4)} |"
       end
       lines << ""
       lines << "Run total cost: $#{report["total_cost_usd"]}"
@@ -755,7 +815,7 @@ module SliceBuild
         lines << "Failing scenarios: #{failed.empty? ? "none" : failed.map { |s| "#{s["name"]} (#{s["reason"] || s["result"]})" }.join("; ")}"
         shape = m["shape"] || {}
         findings = Array(shape["findings"])
-        lines << "Shape findings: #{findings.empty? ? (shape["error"] || "none") : findings.map { |f| "#{f["severity"]} #{f["rule"]}: #{f["message"]}" }.join("; ")}"
+        lines << "Shape findings: #{shape.empty? || shape["not_run"] ? "not run" : findings.empty? ? (shape["error"] || "none") : findings.map { |f| "#{f["severity"]} #{f["rule"]}: #{f["message"]}" }.join("; ")}"
         lines << "Last agent replies:"
         Array(m["agent_replies_tail"]).each { |r| lines << "  > #{r.to_s.gsub(/\s+/, " ")[0, 600]}" }
       end
