@@ -31,6 +31,8 @@ module SliceBuild
   LIVE_TEACH_PORT = 7400
 
   class Interrupted < Smoke::Abort; end
+  class UsageLimit < Interrupted; end
+  USAGE_LIMIT = /hit your (?:weekly |daily |session |usage )?limit|usage limit reached|limit .{0,20}resets \d/i
 
   $interrupted = false
 
@@ -564,6 +566,7 @@ module SliceBuild
             break
           end
           turn = session.say(message, timeout_s: [TURN_TIMEOUT_S, remaining.ceil].min)
+          usage_limit!(turn, "agent")
           spend_add(agent_cost, turn)
           record["agent_turns"] += 1
           reply = reply_of(turn)
@@ -578,6 +581,7 @@ module SliceBuild
 
           stop_check!
           answer = actor.say(reply, timeout_s: TURN_TIMEOUT_S)
+          usage_limit!(answer, "student")
           spend_add(student_cost, answer)
           record["student_turns"] += 1
           message = answer["result"].to_s.strip
@@ -613,6 +617,13 @@ module SliceBuild
         File.write(File.join(record["dir"], "transcript.md"), render_transcript(transcript)) if File.directory?(record["dir"])
       end
       finish_module(phase, target, record) unless record["outcome"] == "aborted"
+    end
+
+    def usage_limit!(turn, who)
+      text = turn["result"].to_s
+      return unless turn["cost"].to_f.zero? && text.match?(USAGE_LIMIT)
+
+      raise UsageLimit, "the #{who}'s Claude account hit a usage limit: #{text.gsub(/\s+/, " ")[0, 160]}"
     end
 
     def spend_add(tracker, turn)
