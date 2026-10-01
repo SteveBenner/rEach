@@ -6,7 +6,8 @@ The runtime is a per-platform bundle that `reach runtime install` downloads for 
 
 - `locks/<profile>/Gemfile` and `Gemfile.lock`: one directory per lock profile. `capybara-cuprite-1` is the first.
 - `package.rb`: stages the Ruby, installs bundler 4.0.19 and the profile gems, writes `runtime/BUILD.json`, and creates `reach-runtime-<runtime_id>-<platform>.tar.gz` and its `.json` (asset, sha256, size, ruby_exe).
-- `relocate_check.rb`: extracts a bundle somewhere else, loads the gems under `BUNDLE_FROZEN=true`, and, given a Chrome zip, drives it with Ferrum.
+- `build_ruby_linux.sh`: builds the Linux Ruby (static OpenSSL, libyaml, libffi, zlib) into an output directory laid out as `package.rb --ruby-dir` expects.
+- `relocate_check.rb`: extracts a bundle somewhere else, on Linux checks that no ELF file needs glibc above 2.28, loads the gems under `BUNDLE_FROZEN=true`, and, given a Chrome zip, drives it with Ferrum.
 - `manifest.rb`: combines the per-platform `.json` files and the Chrome zips into `runtime-manifest.json` and prints its sha256.
 - `RELEASE_NOTES.md`: the release body; the publish job appends the manifest sha256 line.
 
@@ -16,7 +17,9 @@ Every path sits under a top directory `runtime/`: `runtime/ruby/` (with `bin/rub
 
 ## Ruby sources
 
-rv-ruby release 20260929 supplies the macOS and Linux Rubies. Their tarballs hold the tree under `rv-ruby@4.0.7/4.0.7/`, and the workflow locates `bin/ruby` after extraction instead of assuming that prefix. Windows uses the RubyInstaller 4.0.7-1 7z with MSYS2 (ucrt64) for native gems.
+rv-ruby release 20260929 supplies the macOS Rubies. Their tarballs hold the tree under `rv-ruby@4.0.7/4.0.7/`, and the workflow locates `bin/ruby` after extraction instead of assuming that prefix. Windows uses the RubyInstaller 4.0.7-1 7z with MSYS2 (ucrt64) for native gems.
+
+The Linux Rubies are built from the official ruby-lang.org 4.0.7 source by `build_ruby_linux.sh`, inside the `quay.io/pypa/manylinux_2_28_x86_64` and `_aarch64` images, so the kit needs only glibc 2.28 or newer (Debian 10+, Ubuntu 20.04+, RHEL and Alma 8+). The script builds OpenSSL 3.5 LTS, libyaml, libffi and zlib as static libraries from sha256-checked source tarballs, links them into Ruby (`--enable-shared=no --enable-load-relative`), and refuses to finish if any ELF file needs a GLIBC symbol version above 2.28 or links one of those libraries dynamically. The workflow runs the build, `package.rb` and `relocate_check.rb` for Linux inside the same container, so the native gems are compiled against glibc 2.28 too. `relocate_check.rb` repeats the glibc check over every ELF file in the unpacked kit (Chrome is not part of it) and prints the highest version found.
 
 ## Add a lock profile
 
@@ -44,4 +47,5 @@ Third-party actions are pinned by full commit SHA in the workflow. Versions at p
 
 - Each step has `timeout-minutes`, and concurrency per ref does not cancel a running release.
 - The Windows package step appends the MSYS2 ucrt64 and usr bin directories to PATH after the runner's own, so System32 `tar.exe` (bsdtar) is used for archives.
+- The Linux jobs pull the manylinux image and run each build step with `docker run` (the workspace mounted at the same path, files chowned back to the runner user on exit) rather than a job-level container, which keeps `actions/checkout` and `actions/upload-artifact` on the host. Inside the container, `dnf` installs `perl-IPC-Cmd`, `perl-Time-Piece` and the libraries Chrome for Testing needs to start.
 - Linux arm64 has no Chrome for Testing build, so its manifest entry has `chrome: null` and its relocation check skips the browser step.

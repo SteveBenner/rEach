@@ -51,6 +51,7 @@ end
 
 platform = options[:platform]
 windows = platform.start_with?("windows")
+linux = platform.start_with?("linux")
 exe_suffix = windows ? ".exe" : ""
 ruby_dir = File.expand_path(options[:ruby_dir])
 out_dir = File.expand_path(options[:out])
@@ -106,6 +107,8 @@ Dir.mktmpdir("reach-runtime-stage") do |stage|
       entry != "ruby" && Gem::Platform.new(entry) === Gem::Platform.new(local_platform)
     end
     run!(env, *bundle, "lock", "--add-platform", local_platform) unless covered
+
+    run!(env, *bundle, "config", "set", "--local", "force_ruby_platform", "true") if linux
 
     run!(env, *bundle, "install", "--jobs", "4")
     entries << { "name" => name, "lock12" => lock12, "lock_sha256" => lock_sha, "gemfile_sha256" => gemfile_sha,

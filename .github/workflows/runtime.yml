@@ -44,13 +44,15 @@ jobs:
             cft: mac-x64
           - platform: linux-x86_64
             runner: ubuntu-24.04
-            ruby_asset: ruby-4.0.7.x86_64_linux.tar.gz
-            ruby_source: rv
+            ruby_asset: ''
+            ruby_source: manylinux
+            image: quay.io/pypa/manylinux_2_28_x86_64
             cft: linux64
           - platform: linux-arm64
             runner: ubuntu-24.04-arm
-            ruby_asset: ruby-4.0.7.arm64_linux.tar.gz
-            ruby_source: rv
+            ruby_asset: ''
+            ruby_source: manylinux
+            image: quay.io/pypa/manylinux_2_28_aarch64
             cft: ''
           - platform: windows-x86_64
             runner: windows-2025
@@ -81,15 +83,39 @@ jobs:
           fi
           echo "RUNTIME_ID=${TAG_INPUT#runtime-}" >> "$GITHUB_ENV"
 
-      - name: install linux toolchain
-        if: runner.os == 'Linux'
+      - name: prepare linux container
+        if: matrix.ruby_source == 'manylinux'
         timeout-minutes: 15
+        env:
+          BUILD_IMAGE: ${{ matrix.image }}
         run: |
           set -euo pipefail
-          if ! dpkg -s build-essential libffi-dev libyaml-dev >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends build-essential libffi-dev libyaml-dev
-          fi
+          for attempt in 1 2 3; do
+            if docker pull "$BUILD_IMAGE"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "could not pull $BUILD_IMAGE" >&2
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+          runner="$RUNNER_TEMP/in-container"
+          cat > "$runner" <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec docker run --rm \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e HOME=/tmp \
+            -e RUNTIME_ID -e CFT_VERSION -e RUBY_DIR -e CURL_FLAGS \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" \
+            "$BUILD_IMAGE" bash -euo pipefail -c '
+              trap "chown -R $HOST_UID:$HOST_GID ." EXIT
+              dnf install -y perl-IPC-Cmd perl-Time-Piece nss atk at-spi2-atk cups-libs libdrm libxkbcommon libXcomposite libXdamage libXrandr mesa-libgbm pango alsa-lib
+              "$@"' _ "$@"
+          SCRIPT
+          chmod +x "$runner"
+          echo "RUN_PREFIX=$runner" >> "$GITHUB_ENV"
+          echo "BUILD_IMAGE=$BUILD_IMAGE" >> "$GITHUB_ENV"
 
       - name: install windows toolchain
         if: runner.os == 'Windows'
@@ -103,7 +129,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p work/ruby-src
-          if [ "${{ matrix.ruby_source }}" = "rv" ]; then
+          if [ "${{ matrix.ruby_source }}" = "manylinux" ]; then
+            exit 0
+          elif [ "${{ matrix.ruby_source }}" = "rv" ]; then
             url="https://github.com/spinel-coop/rv-ruby/releases/download/20260929/${{ matrix.ruby_asset }}"
             curl $CURL_FLAGS -o "work/${{ matrix.ruby_asset }}" "$url"
             tar -xzf "work/${{ matrix.ruby_asset }}" -C work/ruby-src
@@ -119,6 +147,16 @@ jobs:
           fi
           ruby_dir=$(dirname "$(dirname "$ruby_bin")")
           echo "RUBY_DIR=$ruby_dir" >> "$GITHUB_ENV"
+
+      - name: build ruby in linux container
+        if: matrix.ruby_source == 'manylinux'
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          export RUBY_DIR="$GITHUB_WORKSPACE/work/ruby-built"
+          mkdir -p "$RUBY_DIR"
+          "$RUN_PREFIX" runtime/build_ruby_linux.sh "$RUBY_DIR" "$GITHUB_WORKSPACE/work/ruby-build"
+          echo "RUBY_DIR=$RUBY_DIR" >> "$GITHUB_ENV"
 
       - name: fetch chrome for testing
         if: matrix.cft != ''
@@ -138,7 +176,7 @@ jobs:
           fi
           ruby_exe="$RUBY_DIR/bin/ruby"
           [ -f "$ruby_exe" ] || ruby_exe="$RUBY_DIR/bin/ruby.exe"
-          "$ruby_exe" runtime/package.rb --platform "${{ matrix.platform }}" --runtime-id "$RUNTIME_ID" --ruby-dir "$RUBY_DIR" --out dist
+          ${RUN_PREFIX:-} "$ruby_exe" runtime/package.rb --platform "${{ matrix.platform }}" --runtime-id "$RUNTIME_ID" --ruby-dir "$RUBY_DIR" --out dist
 
       - name: relocation check
         timeout-minutes: 15
@@ -148,9 +186,9 @@ jobs:
           [ -f "$ruby_exe" ] || ruby_exe="$RUBY_DIR/bin/ruby.exe"
           asset="dist/reach-runtime-${RUNTIME_ID}-${{ matrix.platform }}.tar.gz"
           if [ -n "${{ matrix.cft }}" ]; then
-            "$ruby_exe" runtime/relocate_check.rb "$asset" --chrome-zip "work/cft/chrome-${{ matrix.cft }}.zip"
+            ${RUN_PREFIX:-} "$ruby_exe" runtime/relocate_check.rb "$asset" --chrome-zip "work/cft/chrome-${{ matrix.cft }}.zip"
           else
-            "$ruby_exe" runtime/relocate_check.rb "$asset"
+            ${RUN_PREFIX:-} "$ruby_exe" runtime/relocate_check.rb "$asset"
           fi
 
       - name: upload bundle
