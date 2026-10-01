@@ -1,0 +1,24 @@
+schema: impl-blueprint/v1
+name: enrollment v2 patch 0.16.1 - course-only answer
+versions:
+  reach: 0.16.1
+  teach: 0.16.1
+wire:
+  file: specs/wire.yml, protocol 1 revision 2026-10-01d, written by the primary
+slices:
+  F4_course_only:
+    change: refusal_text answers M-ENR-CODE-COURSE-ONLY when course_code_unknown carries details.course_only, before the did_you_mean check; the CLI enroll path shares refusal_text
+    files:
+      - lib/reach/enroll_flow.rb
+  version_and_docs:
+    files:
+      - VERSION
+      - plugin.json
+      - .claude-plugin/plugin.json
+      - .claude-plugin/marketplace.json
+      - .codex-plugin/plugin.json
+      - reach.rplugin.yml
+      - reach.spec.yml
+      - specs/app.yml
+      - CHANGELOG.md
+      - FEATURES.md

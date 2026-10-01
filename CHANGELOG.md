@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2026-10-01
+
+### Fixed
+
+- A bare course id of nine or more characters (`MGMT327FA26`) that Teach reports as `course_code_unknown` with
+  `details.course_only` is now answered with M-ENR-CODE-COURSE-ONLY naming the course, in the chat flow and in
+  `reach enroll --course-code`, before the did-you-mean check.
+- Wire revision 2026-10-01d (`specs/wire.yml`). Needs Teach 0.16.1.
+
 ## [0.16.0] - 2026-10-01
 
 ### Added
