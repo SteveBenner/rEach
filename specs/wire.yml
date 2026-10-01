@@ -565,6 +565,8 @@ routes:
       400 course_code_unknown: "shape v2: no live course code matches (W-ENR-1); details may carry {did_you_mean: course id}"
       400 course_code_expired: "shape v2: the course code matched but its course has ended"
       403 enrollment_refused: "shape v2: the username and student id do not name one roster entry of the code's course; never says which field failed"
+      409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the policy wants an instructor's approval (W-ENR-8)"
+      403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
       429 rate_limited: "too many attempts"
     notes: >-
       Spelled /api/v1/enroll since protocol 1 revision 2026-09-29c. Since the same revision Teach compares reach_version
@@ -1063,6 +1065,8 @@ errors:
       course_code_expired: {status: 400, reach: "never retried; M-ENR-CODE-EXPIRED (since 2026-10-01b)"}
       enrollment_refused: {status: 403, reach: "never retried; M-ENR-REFUSED; counts toward the local enrollment lockout (since 2026-10-01b)"}
       fingerprint_mismatch: {status: 403, reach: "never retried; Reach drops its stamp and locks into the enrollment flow with M-ENR-MOVED (since 2026-10-01b)"}
+      device_move_pending: {status: 409, reach: "never retried automatically; M-ENR-MOVE-PENDING, the student's yes re-posts the same request; details {move_id} (since 2026-10-01c)"}
+      device_move_denied: {status: 403, reach: "never retried; M-ENR-MOVE-DENIED with details.reason (since 2026-10-01c)"}
     rule: Reach branches on error.code, never on the HTTP status alone, because five codes share 403.
 compatibility:
   W-COMPAT-1:
@@ -1269,7 +1273,10 @@ alignment:
       course_model defaults. Reach reads it from the verified guardrails package only.
     keys:
       login: "{required: boolean (default true), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
-      enrollment: "since 2026-10-01b: {require_stamp: boolean (default false), fingerprint_match: binding | strict (default binding)}"
+      enrollment: >-
+        since 2026-10-01b: {require_stamp: boolean (default false), fingerprint_match: binding | strict (default
+        binding)}; since 2026-10-01c also device_moves: approve | auto (default approve) and identity:
+        {institution_name, username_domain, username_pattern, student_id_pattern}, which W-API-ENROLL-PREVIEW serves.
       limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}"
       support: "{text: string, the course's own support line appended to W-SUP-1}"
       student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
@@ -1467,8 +1474,10 @@ enrollment:
       Since revision 2026-10-01b. Teach mints one class-wide course code per course; a code names exactly one course
       and no course has two live codes at once. The code is the course id (W-ENR-2) followed by a secret of eight
       Crockford base32 characters (0-9 and A-Z without I, L, O, U), displayed as <course id>-XXXX-XXXX, for example
-      MGMT327-K7QX-94TD. It expires at the end of the course's last day (courses.ends_on in the course timezone); a
-      course with no ends_on cannot mint a code. Normalization, applied by Reach before sending and again by Teach:
+      MGMT327-K7QX-94TD. It expires at the end of the course's last day (courses.ends_on in the course timezone), or,
+      since revision 2026-10-01c, at an earlier expiry the instructor sets when minting it (for a handout that should
+      stop working after the first week); a course with no ends_on cannot mint a code. An expired code answers
+      course_code_expired with details.reason course_ended or code_expired. Normalization, applied by Reach before sending and again by Teach:
       uppercase; drop every character that is not A-Z or 0-9; the last eight characters are the secret, the rest is
       the course id; in the secret only, O becomes 0 and I and L become 1. The normalized form is <course id>-<secret>
       with one hyphen. A value with fewer than nine characters after dropping, or a course id part longer than
@@ -1505,7 +1514,9 @@ enrollment:
       literal "unknown" when none can be read), os_user (the login name, plus ":" and the uid on POSIX), platform
       (plain, W-API-ENROLL's value) and install_key (the SHA-256 of the install public key's DER). descriptive
       components: hostname, harness (plain), os_version (plain), ruby_version (plain), reach_version (plain) and
-      enrolled_via (plain, chat or cli). digest is the W-CONV-4 digest of canonical_json of binding; strict_digest is
+      enrolled_via (plain, chat or cli). Since revision 2026-10-01c Reach reuses the salt of an existing
+      ~/.reach/fingerprint.json when it enrolls again, so the same computer, account and install key family keeps the
+      same digest across re-enrollments on one machine; a new install key still changes install_key. digest is the W-CONV-4 digest of canonical_json of binding; strict_digest is
       the same over binding plus hostname. Reach stores the document at ~/.reach/fingerprint.json (0600).
   W-ENR-5:
     name: enrollment stamp
@@ -1555,6 +1566,31 @@ enrollment:
       awaiting_confirm a yes (W-ID-4) generates the install key, builds the fingerprint and posts shape v2; a no
       returns to awaiting_code. enrollment_refused returns to awaiting_username; lockout_refusals refusals within
       lockout_minutes (config, default 5 and 15) lock the flow for lockout_minutes, during which no call is made.
+      Since revision 2026-10-01c device_move_pending moves the flow to awaiting_move (M-ENR-MOVE-PENDING), keeping the
+      pending install key and fingerprint in ~/.reach/state/enroll/ (0600) so a yes re-posts the identical request;
+      device_move_denied returns to awaiting_code with M-ENR-MOVE-DENIED.
       On success the hook starts a detached reach sync and blocks with M-ENR-DONE. Harnesses that cannot block a
       prompt (Hermes) get the flow's message injected as context and the gates still refuse; Antigravity has no
       hooks and enrolls with reach enroll.
+  W-ENR-8:
+    name: device moves
+    rule: >-
+      Since revision 2026-10-01c. When a shape v2 enrollment names a student who already holds an active (not revoked)
+      install with a stored fingerprint, Teach compares the request's fingerprint.digest with each. Equal digest: the
+      same computer, account and salt; Teach enrolls the new install and revokes the old one. Different digest: a
+      device move. With the course policy's enrollment.device_moves auto, Teach enrolls the new install and revokes
+      the old one. With approve (the default), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
+      student_id, course_id, fingerprint digest and descriptive components, harness, platform, requested_at} and
+      answers 409 device_move_pending; a repeat of the same request (same student and digest) answers the same move.
+      An instructor approves or denies the move with a reason. After approval the same request enrolls the new install
+      and revokes the old ones, once; after a denial it answers 403 device_move_denied with the reason. Installs
+      without a stored fingerprint (shape v1) never make a move.
+  W-ENR-9:
+    name: roster and limits on Teach
+    rule: >-
+      Since revision 2026-10-01c. Teach keeps a roster per course: {course_id, student_id, username, display_name,
+      group, status} with (course_id, student_id) and (course_id, username) unique, validated against the course's
+      identity rules on import. A shape v2 enrollment succeeds only for a roster entry whose status is active. Beyond
+      the per-IP limit Teach answers 429 rate_limited for more than 60 enrollment or preview requests per minute
+      naming one course code, and for more than 5 enrollment_refused answers within 15 minutes naming one student_id
+      or one username. Every refusal, move and mismatch is an audit record and appears on the console.
