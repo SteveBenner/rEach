@@ -38,7 +38,7 @@ jobs:
             ruby_source: rv
             cft: mac-arm64
           - platform: macos-x86_64
-            runner: macos-13
+            runner: macos-15-intel
             ruby_asset: ruby-4.0.7.ventura.tar.gz
             ruby_source: rv
             cft: mac-x64
@@ -223,4 +223,4 @@ jobs:
           set -euo pipefail
           cp runtime/RELEASE_NOTES.md release-notes.md
           printf '\nruntime-manifest.json sha256: %s\n' "$(cat manifest.sha256)" >> release-notes.md
-          gh release create "$TAG_INPUT" --target "$GITHUB_SHA" --title "Reach runtime $TAG_INPUT" --notes-file release-notes.md dist/reach-runtime-*.tar.gz runtime-manifest.json
+          gh release create "$TAG_INPUT" --target "$GITHUB_SHA" --title "Reach runtime $TAG_INPUT" --latest=false --notes-file release-notes.md dist/reach-runtime-*.tar.gz runtime-manifest.json
