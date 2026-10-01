@@ -11,7 +11,7 @@ module Reach
   module RuntimeKit
     RUNTIME_TAG = "runtime-4.0.7-r1".freeze
     RUNTIME_ID = "4.0.7-r1".freeze
-    MANIFEST_SHA256 = "PENDING".freeze
+    MANIFEST_SHA256 = "779a53d586268580137c3f62bc25409f86082f54ac7f088463cff19718cf1c84".freeze
     RELEASE_BASE = "https://github.com/SteveBenner/rEach/releases/download".freeze
     MANIFEST_ASSET = "runtime-manifest.json".freeze
     MANIFEST_SCHEMA = "reach.runtime-manifest/v1".freeze

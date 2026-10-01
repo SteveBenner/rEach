@@ -271,6 +271,12 @@ Since 0.12.0 `reach sync` keeps Reach's own corpus and transcript spool under th
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
+### 2.25 · Portable runtime kit
+
+Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
 ## 3 · Course reference
 
 ### 3.1 · Encrypted reference
