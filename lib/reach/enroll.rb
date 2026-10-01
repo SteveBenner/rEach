@@ -60,6 +60,9 @@ module Reach
     end
 
     def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, key: nil, fingerprint: nil)
+      identity = { "course_code" => course_code, "username" => username, "student_id" => student_id }
+      pending = key ? nil : load_pending(identity)
+      key, fingerprint = pending[:key], pending[:fingerprint] if pending
       key ||= Reach::Crypto.generate_install_key
       fingerprint ||= Reach::Fingerprint.build(
         install_public_key: key.public_key, harness: harness, enrolled_via: enrolled_via, salt: (Reach::Fingerprint.stored || {})["salt"]
@@ -80,7 +83,7 @@ module Reach
         response = post_enroll(flow_client(teach_url), body_fields)
       rescue Reach::RemoteRefused => e
         case e.code
-        when "device_move_pending" then save_pending(key, fingerprint)
+        when "device_move_pending" then save_pending(key, fingerprint, identity)
         when "device_move_denied" then clear_pending
         end
         raise
@@ -121,19 +124,25 @@ module Reach
       current
     end
 
-    def save_pending(key, fingerprint)
+    def save_pending(key, fingerprint, identity)
       path = Reach::Paths.enroll_pending_key_file
       FileUtils.mkdir_p(File.dirname(path))
       File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(key.to_pem) }
       File.chmod(0o600, path)
       Reach::Login.write_json(Reach::Paths.enroll_pending_fingerprint_file, fingerprint)
+      Reach::Login.write_json(pending_identity_file, identity)
       nil
     end
 
-    def load_pending
+    def pending_identity_file
+      File.join(Reach::Paths.enroll_state_dir, "pending_identity.json")
+    end
+
+    def load_pending(identity = nil)
       key_path = Reach::Paths.enroll_pending_key_file
       fingerprint = Reach::Login.read_json(Reach::Paths.enroll_pending_fingerprint_file)
       return nil unless File.file?(key_path) && fingerprint.is_a?(Hash)
+      return nil if identity && Reach::Login.read_json(pending_identity_file) != identity
 
       { key: Reach::Crypto.load_private_key(File.read(key_path)), fingerprint: fingerprint }
     rescue StandardError
@@ -143,6 +152,7 @@ module Reach
     def clear_pending
       FileUtils.rm_f(Reach::Paths.enroll_pending_key_file)
       FileUtils.rm_f(Reach::Paths.enroll_pending_fingerprint_file)
+      FileUtils.rm_f(pending_identity_file)
       nil
     end
 
