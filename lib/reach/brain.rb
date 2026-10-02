@@ -498,6 +498,7 @@ module Reach
         end
       end
       scrub = scrub.uniq
+      Reach::Corpus.new(Reach.ports).erase(scrub)
       removed = Reach::BrainSpool.scrub!(scrub)
       update_state do |state|
         table = state["reinforcements"].is_a?(Hash) ? state["reinforcements"] : {}
@@ -632,10 +633,10 @@ module Reach
 
     def recall_via_context(query, limit, config)
       ports = Reach.ports
-      return nil unless ports && defined?(Rcorpus::Context)
+      return nil unless ports
 
       corpus = ports.corpus.open("reach")
-      return nil unless corpus
+      return nil unless corpus && defined?(Rcorpus::Context)
 
       out = Rcorpus::Context.new(corpus).render(query: query, k: limit, budget_bytes: config["prompt_budget_bytes"], kinds: ["finding"])
       body = out.is_a?(Hash) ? out["text"] : out
