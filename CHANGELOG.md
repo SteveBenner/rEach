@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.22] - 2026-10-02
+
+### Fixed
+
+- `reach memory forget` really forgets wherever rplugin and rcorpus 0.10.0 are installed: after tombstoning and
+  admitting, `Reach::Corpus#erase` (`lib/reach/corpus.rb`) calls `Rcorpus::Erase`, which removes the finding, its
+  lineage and its note from every corpus segment, snapshot, backup, vector and content file. Before this a
+  forgotten finding stayed in the planes, and the tombstone itself kept its full text. Verified in a scratch HOME:
+  the forgotten claim's text was in no file afterwards, and the finding that was kept was still recalled.
+- Memory recall opens the corpus before checking for `Rcorpus::Context` (`lib/reach/brain.rb`). rcorpus loads only
+  when a corpus is opened, so in a fresh process (an MCP `reach_memory_recall`) the check always failed and recall
+  fell back to Reach's own index.
+- `Gemfile.ruby26.lock` is a real Ruby 2.6 lock. The hand-written one recorded wrong dependency ranges for the
+  cucumber 8.0.0 graph and pinned ferrum 0.14, which cuprite 0.14.3 cannot use, so `bundle install` failed on Ruby
+  2.6. It is regenerated in a Ruby 2.6.10 container from the same top-level pins (ferrum 0.13), with native
+  platforms for Linux, macOS and Windows; cucumber 8.0.0 installs and runs there. `bundle lock` on Ruby 4.0.7 resolves
+  `Gemfile.lock` unchanged. Course runs use the course repository's locks, which were already correct.
+
+### Changed
+
+- `tools/smoke` enrolls through the v2 flow: a roster import, a class-wide course code and
+  `reach enroll --course-code --username --student-id --password-stdin`. The code-reuse step is replaced by
+  `enroll-wrong-student-id-refused`. The assignment-one smoke passed every step against a Teach 0.17.0 tree.
+- `FEATURES.md` inventories every surface through 0.16.21, stating what is unverified.
+- `docs/student-guide.md`: a "Choosing a model in Hermes" section (Claude Sonnet or Opus and OpenAI GPT-5.x are fit;
+  local models are not advised until the instructor verifies one; Qwen3-Coder-30B did not keep the course rules), and
+  the course-folders paragraph now says the files in `extracurricular/` stay on the computer, as Privacy does.
+
 ## [0.16.21] - 2026-10-01
 
 ### Added
