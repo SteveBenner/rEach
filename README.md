@@ -35,13 +35,14 @@ student's course record on Teach, which their instructors can read: the
 student's prompts, the AI's replies, its reasoning where the harness stores it
 readably, its actions, and every version of every file in a slice. Files in the
 extracurricular folder stay on the student's computer
-(docs/DESIGN-DECISIONS.md). The course folder
-is `~/reach-work`: assignment code lives only in
+(docs/DESIGN-DECISIONS.md). Since 0.17.0 everything
+rEach keeps is in one rEach folder, `~/rEach`: the course folder is its top, and rEach's own files are in
+`~/rEach/.reach-home`. Assignment code lives only in
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
 student wants to build goes in `extracurricular/` (`reach work
 --extracurricular`), which is never graded. The agent puts code in files, never
 in chat; a code block it pastes anyway is filed as a snippet. The hooks write
-everything to `~/.reach/transcripts/` with no network call; the Stop and
+everything to `~/rEach/.reach-home/transcripts/` with no network call; the Stop and
 SessionEnd hooks and `reach sync` send the queue, and `reach transcript status`
 shows what is sent and what is waiting. The student is told at enrollment and
 in every greeting inside a course folder. Conversations outside course folders
@@ -64,7 +65,7 @@ Local qualification runs the course's Cucumber suite, which needs Ruby 4 gems an
 installs Reach's runtime kit in the background when it is missing or is not the one Reach pins (`config.yml` `runtime.auto_install`), and `reach
 runtime install` does the same by hand. It fetches Reach's runtime kit for this computer: Ruby 4.0.7 with the gems prebuilt and Chrome for Testing
 154.0.8037.92, the same versions Teach grades with, verified against a manifest pinned in Reach and kept in
-`~/.reach/runtime/`. Reach itself keeps running on the student's own Ruby; the runtime only runs the checks. [rplugin](https://bitbucket.org/paterasai/rplugin) is
+`~/rEach/.reach-home/runtime/`. Reach itself keeps running on the student's own Ruby; the runtime only runs the checks. [rplugin](https://bitbucket.org/paterasai/rplugin) is
 optional: Reach uses its ports when it is installed and runs standalone otherwise.
 
 ## Install
@@ -78,20 +79,26 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
 | Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's start-up hook |
 | Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
-| Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/.reach/bin/reach work --harness hermes` (setup prints the exact command) |
-| Any of the above | install the public GitHub archive to `~/.reach/plugin`, then `ruby ~/.reach/plugin/exe/reach setup` |
+| Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/rEach/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
+| Any of the above | install the public GitHub archive to `~/rEach/.reach-home/plugin`, then `ruby ~/rEach/.reach-home/plugin/exe/reach setup` |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
 
 ### Updates
 
-An install at `~/.reach/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
+An install at `~/rEach/.reach-home/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
 when a session starts and once an hour while you work, downloads it in the background, and installs it
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
-`~/.reach/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
+`~/rEach/.reach-home/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
 things stand; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
 is never updated.
+
+An install from before 0.17.0 keeps its files in `~/.reach` and `~/reach-work` until it moves them into `~/rEach`
+by itself (at setup, in the background at session start, or with `reach relocate`). The move copies everything,
+checks every file's SHA-256, then switches; it never deletes, renames or overwrites anything in the old folders or
+anything already in `~/rEach`, and a move that cannot finish leaves the old install working. `reach doctor` shows
+where it stands (`R-DOC-RELOCATION`).
 
 Hermes keeps hooks and MCP servers in a profile's `config.yaml`, never per
 folder, so setup creates a Hermes profile named `reach` (`hermes profile create

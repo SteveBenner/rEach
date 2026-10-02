@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-10-01
+
+### Changed
+
+- Everything rEach keeps on disk now lives in one rEach folder, `~/rEach` (`REACH_ROOT` chooses another). The course
+  workspace is its top, and rEach's own files (program, keys, packages, vault, transcripts, state and runtime kit)
+  are in `~/rEach/.reach-home`. Codex on Windows lets a sandboxed command write only inside the chat's folder and the
+  temp folder, so a student whose Codex project is the rEach folder no longer needs Full access after the install
+  (`Reach::Paths`, `lib/reach/paths.rb`). `$REACH_HOME` and `$REACH_WORKSPACE_ROOT` still override.
+- `INSTALL.md`, `rules/reach.md`, `docs/student-guide.md` and the setup guide (`docs/INSTALLATION-AND-SETUP-GUIDE.docx`)
+  use the new folder. The install command reads the installed path from `last-install.txt` beside the installer.
+  Setup's Codex host step tells the student to open the rEach folder as the Codex project, after which they may set
+  permissions back to the default.
+- With the session at the top of the rEach folder, the gate judges every tool target by the space it lands in: a
+  slice's owned files and qualify folders as in that slice, extracurricular as extracurricular, the top level
+  refused (`M-WRITE-ROOT`), `.reach-home` refused (`M-WRITE-OUTSIDE`, and reads refused). A patch spanning two
+  slices is refused. Recursive searches and globs that reach into `.reach-home` are refused. Inside a slice or
+  extracurricular nothing changes. Slice commands run from the top ask which slice (`M-PICK-SLICE`) when there is
+  more than one.
+
+### Added
+
+- Relocation (`Reach::Relocation`, `lib/reach/relocation.rb`, `reach relocate`). An install still in `~/.reach` and
+  `~/reach-work` moves into the rEach folder at setup, in the background at session start (hourly, jittered, five
+  attempts), or by hand. It copies into `~/rEach/.reach-home.relocating` with a journal, checks every file's SHA-256
+  against a manifest, compares the enrollment before and after, then rewrites the harness files and switches with
+  one rename. It never deletes, truncates, renames or overwrites anything in the old folders (it writes only its
+  lock, `RELOCATED.json` and `rEach-has-moved.txt` there), never touches the enrollment lock or stamp, and refuses
+  when anything is already in the way in `~/rEach` (`destination_occupied`, including a single file). A killed run
+  resumes. While it runs, writes, shell commands and submit wait (`M-RELOCATING`). `reach doctor` reports it
+  (`R-DOC-RELOCATION`).
+- `Reach::HarnessSource` (`lib/reach/harness_source.rb`). Setup registers the Claude Code and Codex marketplaces
+  with the local plugin folder, so after the move they are pointed at the new one: at the switch, before every
+  update's harness refresh (`update/apply.rb`, results in `harness_sources`), and in setup when Codex reports the
+  marketplace already added from a different source (remove, add, and the old source restored if the add fails).
+  Without this the harness copies would have stayed at the version that moved.
+
+### Fixed
+
+- `update/apply.rb` no longer stops Codex's refresh when `codex plugin marketplace upgrade reach` fails, which it
+  always does for a local marketplace; `codex plugin add reach@reach` now runs regardless, so Codex's copy updates.
+
 ## [0.16.14] - 2026-10-01
 
 ### Changed
