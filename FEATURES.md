@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.17.0 |
+| **Registry version** | 0.17.1 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 74 catalogued |
+| **Feature count** | 75 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,14 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 67 | 91% |
+| ✅ Shipped | 68 | 91% |
 | ⚪ Planned | 6 | 8% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 62 | 84% |
+| 🔵 Built, not enabled | 63 | 84% |
 | ⚫ No runtime path | 9 | 12% |
 
 ## 1 · Install
@@ -544,6 +544,20 @@ vault held two blobs and their keys, `reach reference list` listed both and `sea
 removed both reported locked; with no reference directory at all, list reported no reference material.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
+
+### 3.3 · Course corpus in the microbrain
+
+Since 0.17.1 (`STD-COURSE-CORPUS`) `Reach::CourseCorpus` ingests the course reference Teach delivers at enrollment
+(Teach 0.18.1: only the student's own course, every unit) into the microbrain as private sources under
+`course/<course>/`. It runs after `reach sync`, at session start when the blobs or keys changed, and from
+`reach reference ingest [--force]`. Replaced files are tombstoned, and course sources are never pruned, never count
+toward the spool cap and survive `forget --all`. Matching passages join each prompt under `M-BRAIN-COURSE`. Verified
+2026-10-02 in a scratch run of the A1 smoke against Teach on a scratch PostgreSQL: 17 PASS. Only the enrolled
+course's blob reached the vault, the course text sat only in the 0600 brain spool, and a second ingest reported
+unchanged. Admission into a scratch rcorpus took all 6 operations, including the tombstone, in the private tier.
+The same functions also ran on Ruby 2.6.10.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (tag and release; Teach 0.18.1 deployed with each course's reference link).
 
 ## 4 · Behaviour
 

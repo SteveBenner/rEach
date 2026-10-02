@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-10-02
+
+### Added
+
+- The course corpus in the microbrain (`STD-COURSE-CORPUS`). `Reach::CourseCorpus` (`lib/reach/course_corpus.rb`)
+  fingerprints the delivered `.rref` blobs and key ids. When that fingerprint changes it decrypts them and spools
+  every file as a private-tier source under `course/<course>/<path>` (category `course`, at most 1,000,000 bytes per
+  part, `.md` appended to non-text extensions), and tombstones replaced or removed files. It records
+  `~/.reach/brain/course-ingest.json`. It runs after `reach sync` (`lib/reach/sync.rb`), at session start without a
+  forced admission (`lib/reach/hello.rb`) and from the new `reach reference ingest [--force]` (`M-COURSE-INGESTED`).
+  Events `brain.course_ingested` and `brain.course_ingest_failed` carry counts only.
+- Course passages in prompt recall. `Reach::BrainIndex` splits course sources into passages of at most 600 bytes
+  (`search_course`, index cache version 4). `Reach::Brain.course_recall` adds up to `brain.course_k` (3) matching
+  passages within `brain.course_budget_bytes` (600) above `brain.course_min_score` (0.2) under `M-BRAIN-COURSE` on
+  each prompt while `brain.course_recall` is true (default). The `brain.course_recalled` event carries hits and bytes.
+
+### Changed
+
+- Course sources are never spool-cap prune victims, their bytes no longer count toward `brain.max_spool_bytes`, and
+  `reach memory forget --all` keeps them. `Reach::BrainIndex` now honours source tombstones.
+- The specs allow exactly one plaintext copy of course material: the microbrain's private tier (`STD-VAULT-PRIVATE`,
+  `course_reference.handling`).
+
 ## [0.17.0] - 2026-10-02
 
 ### Added

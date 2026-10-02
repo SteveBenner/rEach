@@ -260,13 +260,16 @@ packages:
         course, key_b64}]}: the AES-256-GCM content keys of the encrypted course reference blobs (format RREF version
         1) that Teach delivers to this install. A Teach of that revision always writes it, with an empty keys list when
         it holds none; an older Teach omits it and Reach reports every blob as locked. Reach keeps it only in the vault
-        and decrypts blobs in memory, never writing plaintext.
+        and decrypts blobs in memory. Since Teach 0.18.1 it holds only the keys of the install's own course (the
+        course's reference_course), every release unit, and no keys when the course has none.
       "reference/<name>.rref": >-
         Optional, since protocol 1 revision 2026-10-01a. The encrypted course reference blobs themselves, one entry
         per course whose content key Teach delivers in reference-keys.json, byte for byte as `teach reference pack`
         wrote them. Before that revision the blobs were committed to the Reach repository under
         corpus/course-reference/; since it, the Reach repository carries no course material at all and Reach reads
-        blobs only from its vault copy of this package. Reach never writes a blob's plaintext.
+        blobs only from its vault copy of this package. Since Teach 0.18.1 only the install's own course's blobs are
+        included, every release unit from enrollment on. Since Reach 0.17.1 the one plaintext copy Reach writes is the
+        microbrain's private tier (STD-COURSE-CORPUS); never the Reach folder, a workspace or a log.
     reach_use: >-
       The guardrails version is header.version (an integer). Reach renders AGENTS.md, CLAUDE.md and GEMINI.md for a slice
       as W-RENDER-1, writes a digest manifest of the unpacked entries and re-checks it on every load (W-SEAL-3), and
