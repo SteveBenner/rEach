@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.16
+version: 0.16.17
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.16
+    version: 0.16.17
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -308,6 +308,9 @@ library:
     role: Decides whether Reach is locked and why (W-ENR-6); since 0.16.0
   - name: Reach::EnrollFlow
     role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0
+  - name: Reach::Instructor
+    role: >-
+      Instructor unlock since 0.16.17 (STD-INSTRUCTOR-UNLOCK). Keygen, RINS1 code minting and verification against the keys pinned in config.yml, the stored code in instructor.json, relock and the once-per-session instructor context.
   - name: Reach::Guide
     role: >-
       Reads the text of docs/INSTALLATION-AND-SETUP-GUIDE.docx with the standard library (Reach::Unzip and Zlib),
@@ -1053,6 +1056,14 @@ cli:
   - name: lock
     synopsis: reach lock
     purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
+  - name: instructor
+    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock
+    purpose: >-
+      Since 0.16.17, instructor unlock (STD-INSTRUCTOR-UNLOCK), and it runs while Reach is locked. keygen writes a new
+      RSA 3072 private key (0600, parent directory 0700, never overwriting) and prints its key id and the YAML entry for
+      enrollment.instructor_keys, never the key. code prints one RINS1 code signed with the key, and refuses with
+      M-INSTRUCTOR-KEY-UNPINNED when config.yml does not pin the key. status says whether the unlock is on, with the code
+      id, label, key id and time, never the code. lock moves instructor.json to a .backup sibling.
   - name: mcp
     synopsis: reach mcp
     purpose: The stdio MCP bridge

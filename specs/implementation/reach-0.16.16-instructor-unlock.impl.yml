@@ -1,0 +1,81 @@
+schema: rstack.blueprint/v1
+task: reach-instructor-unlock
+intent: >
+  Since 0.16.0 Reach is inert until a student enrolls: the plugin-level prompt hook blocks every prompt and runs the
+  enrollment flow. Instructors who install Reach to smoke-test it in Claude Code are blocked the same way. Add a
+  never-expiring, revocable, offline-verifiable instructor unlock code. An instructor generates a signing key once,
+  its public key is pinned in config.yml and shipped in a release, and the instructor mints codes from it at any time.
+  Pasted into the locked prompt, a valid code lifts the enrollment lock for that install until it is relocked or the
+  code or key is revoked. Release rEach 0.16.16.
+harness: claude-code
+worker: { agent: coding-worker, model: sonnet, effort: medium }
+decisions:
+  - "2026-10-01 (user): signed codes. A private key held by the instructor outside the repo, its public key pinned in config.yml, codes minted locally with no release, each with an id that config.yml can revoke."
+  - "2026-10-01 (primary): the code is entered by pasting it into the locked prompt, which the hook intercepts so the agent never sees it. No CLI unlock verb."
+constraints:
+  - AGENTS.md Part S, write no tests. Part Q, no comments. Part F, no attribution. Part E, never delete; retire to .backup.
+  - AGENTS.md Part J, query codebase-memory-mcp first. Project key `home-sven-github-foss-rEach`.
+  - STD-RUBY-FLOOR. Every lib/ and exe/ file runs on Ruby 2.6.10, standard library only (openssl, json, base64). Verify in `docker run --rm -v ~/github/foss/rEach:/r -w /r ruby:2.6.10-slim`.
+  - STD-STUDENT-MESSAGES. All text through locales/en-US.yml by id. American English.
+  - Every run uses a scratch HOME, REACH_HOME, XDG_CONFIG_HOME and XDG_STATE_HOME under /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/5ac672e4-c8b4-4f6c-a5e4-e39650e2c035/scratchpad/ins. Never touch ~/.reach, ~/.config, ~/.rplugins, ~/.corpora or ~/.local/state. Never run `rplugin install`. Generate any key only into scratch. Never print a private key or a minted code into a file under the repository.
+  - Do not commit, tag or push. Take locks with `reaper lock acquire --agent-id worker-instructor-unlock ...` before editing shared files and release them at the end.
+contract:
+  key: "RSA 3072 (Reach::Crypto's RSA, PSS with SHA-256 via Reach::Crypto.sign_pss/verify_pss). key_id = first 16 hex of sha256 of the public key's DER."
+  code_format: "`RINS1.` + base64url-nopad(canonical JSON payload) + `.` + base64url-nopad(signature). The signature is PSS over the ASCII bytes of `RINS1.<payload segment>`. Payload: {\"v\": 1, \"kind\": \"reach.instructor-unlock\", \"id\": 16 random hex, \"key_id\": ..., \"label\": the --label value or \"\" (at most 40 chars of [A-Za-z0-9 ._-]), \"issued_at\": RFC 3339 UTC}. No expiry field."
+  recognition: "A prompt whose stripped text matches /\\ARINS1\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\z/ (at most 4096 chars) is an instructor code attempt, whatever the enrollment flow's state."
+  verification: "Valid when: the payload decodes as the shape above with kind reach.instructor-unlock and v 1; key_id names a key in config.yml enrollment.instructor_keys ([{id, label, public_key_pem}]) whose own id equals the sha256-derived key_id of its PEM; the signature verifies under that key; and the code id is not listed in enrollment.instructor_revoked. A key removed from config.yml or a revoked id invalidates codes already stored."
+  storage: "A valid code is stored with its payload in Reach::Paths.home/instructor.json (file 0600, dir as Reach's home) with unlocked_at. It is re-verified (signature, key present, not revoked) every time the lock state is computed, so revocation and key removal take effect after the next update without any network."
+  lock_effect: "Reach::EnrollmentLock.state returns {locked: false, reason: \"instructor\"} when a stored instructor code verifies, before any other lock reason. When the install is not enrolled, Reach::Gate.prompt then allows every prompt without the guardrails, workspace and login checks and captures nothing (there is no enrollment to file it under), and the prompt context is M-INSTRUCTOR-CONTEXT once per session. When the install is enrolled, gating continues exactly as today; the instructor unlock only removes the enrollment lock."
+  cli: |
+    `instructor` joins UNLOCKED_COMMANDS. Subcommands:
+      reach instructor keygen [--out PATH]   writes a new private key PEM (0600, parent dir 0700) to PATH, default
+                                             ${XDG_CONFIG_HOME:-~/.config}/reach-instructor/key.pem; refuses to overwrite an existing file;
+                                             prints the key id and the YAML entry to add under enrollment.instructor_keys (with the
+                                             public key PEM). Never prints the private key.
+      reach instructor code [--label TEXT] [--key PATH]   prints one code minted with the private key (default path above),
+                                             and refuses when that key's id is not pinned in config.yml, naming the id (a code
+                                             that no install accepts is useless).
+      reach instructor status [--format text|json]   unlocked or not, code id, label, key id, unlocked_at; never prints the code.
+      reach instructor lock                  moves instructor.json aside to a .backup sibling and prints the relock message.
+  messages: "M-INSTRUCTOR-UNLOCKED (shown to the person in place of the blocked prompt: the unlock is accepted, Reach stops blocking prompts on this computer, `reach instructor lock` undoes it), M-INSTRUCTOR-REFUSED (not a valid instructor code; counts toward the enrollment lockout like a refused course code), M-INSTRUCTOR-CONTEXT (one line for the agent: rEach is in instructor mode on this computer, it is not enrolled, course commands will say so), M-INSTRUCTOR-STATUS, M-INSTRUCTOR-LOCKED, M-INSTRUCTOR-NO-KEY, M-INSTRUCTOR-KEY-UNPINNED, M-INSTRUCTOR-KEY-EXISTS."
+  hermes: "The Hermes locked prompt path (cli.rb gate enroll / gate_hermes_prompt) recognizes a code the same way and gets the same unlocked behavior."
+  observability: "Log instructor.unlocked, instructor.refused, instructor.relocked and instructor.invalidated (a stored code that no longer verifies) through Reach's existing event log with code id, key id and reason only, never the code."
+slices:
+  - id: instructor
+    owns_paths:
+      - lib/reach/instructor.rb
+      - lib/reach.rb (require line only)
+      - lib/reach/enrollment_lock.rb
+      - lib/reach/enroll_flow.rb
+      - lib/reach/gate.rb
+      - lib/reach/cli.rb
+      - lib/reach/hello.rb (only if the instructor-mode session context needs it)
+      - locales/en-US.yml
+      - "config.yml (enrollment.instructor_keys: [] and enrollment.instructor_revoked: [])"
+      - specs/app.yml (STD-ENROLL-LOCKDOWN gains the instructor exception and `instructor` in its unlocked list; new STD-INSTRUCTOR-UNLOCK)
+      - reach.spec.yml, FEATURES.md, README.md, CHANGELOG.md, docs/DESIGN-DECISIONS.md
+      - VERSION, plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json and any other file carrying 0.16.15 as Reach's own version
+    depends_on: []
+    deliverable: rEach 0.16.16 with instructor keygen, code, status and lock, and the locked prompt accepting a valid code
+    detail: |
+      Implement the contract in a new Reach::Instructor module (keygen, mint, parse, verify, store, current, lock!),
+      wired into EnrollmentLock.state, EnrollFlow.evaluate (recognize before any flow step, including the lockout
+      check order: a valid code unlocks even during a lockout; an invalid one counts as a refusal), Gate.prompt and the
+      Hermes path. README gets a short "Instructors" paragraph: run keygen once, add the printed entry to config.yml and
+      release, mint codes in your own terminal, paste one into the locked prompt, keep codes and the key out of chats and
+      repositories, revoke with enrollment.instructor_revoked. DESIGN-DECISIONS: "Instructor unlock (10-01, Reach
+      0.16.16)". FEATURES: a new row with honest status (no key pinned yet, so Deploy is not live). CHANGELOG 0.16.16.
+    acceptance:
+      - "`ruby -c` on every touched Ruby file prints Syntax OK; YAML files parse."
+      - "In a scratch HOME on Ruby 3.3 and in ruby:2.6.10-slim: keygen writes the key at 0600 and prints the key id and entry; a second keygen to the same path refuses. With the entry added to a scratch copy of config.yml, `code --label smoke` prints a RINS1 code; with the entry absent it refuses with M-INSTRUCTOR-KEY-UNPINNED."
+      - "Locked, not enrolled: a `reach gate prompt` hook payload with an ordinary prompt is blocked with the enrollment message; a payload whose prompt is the code is blocked with M-INSTRUCTOR-UNLOCKED; the next ordinary prompt passes (exit 0), carries M-INSTRUCTOR-CONTEXT once, and writes nothing under the transcripts dir. `reach instructor status` shows unlocked, and course commands such as `reach status` behave as not enrolled."
+      - "A tampered code (one payload character changed), a code signed by a second unpinned key, and a garbage RINS1 string are each refused with M-INSTRUCTOR-REFUSED and count toward lockout. Listing the stored code's id in enrollment.instructor_revoked relocks the next prompt and logs instructor.invalidated; removing the key entry does the same."
+      - "`reach instructor lock` relocks; instructor.json is moved to a .backup sibling, not deleted."
+      - "An enrolled scratch install (install.yml written as in earlier scratch runs) plus an instructor code still gates course-folder prompts as before."
+      - "The code never appears in any log, event or transcript file under the scratch HOME (grep for its signature segment)."
+      - "git status shows changes only in the listed paths."
+shared_surfaces: []
+out_of_scope:
+  - pinning a real instructor key (the instructor runs keygen on their own machine; the primary pins the printed public entry)
+  - Teach-side changes
+report: "Files changed; each acceptance item with the command and its literal key output (never print a full code; show its first 16 characters); anything not implemented as written, with the reason."

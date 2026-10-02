@@ -9,7 +9,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
 
     class << self
@@ -37,6 +37,8 @@ module Reach
           0
         when "enroll", "enrol"
           cmd_enroll(args)
+        when "instructor"
+          cmd_instructor(args)
         when "sync"
           cmd_sync(args)
         when "status"
@@ -144,6 +146,7 @@ module Reach
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor [--install-chromium]          check the local install, one line per problem
             lock                                 wipe the decrypted vault
+            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
@@ -452,6 +455,55 @@ module Reach
         end
       end
 
+      def cmd_instructor(args)
+        sub = args.shift
+        case sub
+        when "keygen"
+          options, _remaining = parse_flags(args, [:out])
+          result = Reach::Instructor.keygen(options[:out] || Reach::Instructor.default_key_path)
+          puts Reach::Messages.text(
+            "M-INSTRUCTOR-KEYGEN",
+            path: result["path"], key_id: result["key_id"],
+            entry: instructor_entry(result["key_id"], result["public_key_pem"])
+          )
+          0
+        when "code"
+          options, _remaining = parse_flags(args, [:label, :key])
+          key = Reach::Instructor.load_private(options[:key] || Reach::Instructor.default_key_path)
+          puts Reach::Instructor.mint(key, label: options[:label].to_s)
+          0
+        when "status"
+          options, _remaining = parse_flags(args, [:format])
+          status = Reach::Instructor.status
+          if (options[:format] || "text") == "json"
+            puts JSON.generate(status)
+          elsif status["unlocked"]
+            puts Reach::Messages.text(
+              "M-INSTRUCTOR-STATUS",
+              code_id: status["code_id"], label: status["label"], key_id: status["key_id"], unlocked_at: status["unlocked_at"]
+            )
+          else
+            puts Reach::Messages.text("M-INSTRUCTOR-STATUS-OFF")
+          end
+          0
+        when "lock"
+          Reach::Instructor.lock!
+          puts Reach::Messages.text("M-INSTRUCTOR-LOCKED")
+          0
+        else
+          warn Reach::Messages.text("M-INSTRUCTOR-USAGE")
+          1
+        end
+      rescue Reach::Error => e
+        warn e.message
+        1
+      end
+
+      def instructor_entry(key_id, pem)
+        indented = pem.lines.map { |line| "        #{line.chomp}" }.join("\n")
+        "enrollment:\n  instructor_keys:\n    - id: #{key_id}\n      label: instructor\n      public_key_pem: |\n#{indented}"
+      end
+
       def gate_enroll(harness, event)
         hermes = hermes_hook?(harness, event)
         harness_id = hermes ? "hermes" : (harness || "claude-code")
@@ -465,6 +517,11 @@ module Reach
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
         if decision.nil?
           notice = Reach::EnrollFlow.consume_notice
+          if Reach::Instructor.mode?
+            session = Reach::Transcript.resolve_session_id(event)
+            notice = [notice, Reach::Instructor.context_once(session)].compact.join("\n\n")
+            notice = nil if notice.empty?
+          end
           if hermes
             puts JSON.generate(notice ? { "context" => notice } : {})
           elsif notice
