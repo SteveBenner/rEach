@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.17.0
+version: 0.17.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -372,7 +372,14 @@ library:
     role: >-
       The read model over every brain-spool line (pending and admitted, latest line per id, tombstones hide):
       BM25 search and term-frequency cosine similarity over active findings, decay and reinforcement salience, and a
-      cache in ~/.reach/brain/index.json keyed by each spool file's inode, size and mtime
+      cache in ~/.reach/brain/index.json keyed by each spool file's inode, size and mtime; since 0.17.1 also course
+      sources split into passages of at most 600 bytes, with search_course over them
+  - name: Reach::CourseCorpus
+    role: >-
+      Since 0.17.1, the course reference corpus into the microbrain (STD-COURSE-CORPUS): fingerprints the delivered
+      blobs and keys, decrypts them on a change, spools each file as a private source under course/<course>/<path>,
+      tombstones replaced ones and records ~/.reach/brain/course-ingest.json. Runs after reach sync, at session start
+      (no forced admission) and from reach reference ingest; never raises to a hook.
   - name: Reach::Directives
     role: The public directive files, the private rows from the vault, the AGENTS.md table and reach directive (a private body fetched from Teach per call)
   - name: Reach::Check
@@ -1125,11 +1132,13 @@ cli:
     synopsis: reach mcp
     purpose: The stdio MCP bridge
   - name: reference
-    synopsis: reach reference list | show <path> | search <words> | links
+    synopsis: reach reference list | show <path> | search <words> | links | ingest [--force]
     purpose: >-
       Read the encrypted course reference: list its files, show one, search for files holding every word, or list its
-      links. Blobs are decrypted in memory only; before enrollment, or when Teach sent no key, it exits nonzero with
-      the connect-to-course hint, and a blob that fails authentication is refused.
+      links. Blobs are decrypted in memory for these verbs; before enrollment, or when Teach sent no key, it exits
+      nonzero with the connect-to-course hint, and a blob that fails authentication is refused. Since 0.17.1 ingest
+      spools the delivered course corpus into the microbrain when it changed, or always with --force, and prints
+      M-COURSE-INGESTED; it exits 0 for ingested, unchanged and none, and 1 for disabled and failed.
 client_safety:
   applies_to: Every call from Reach to Teach.
   timeouts:
@@ -1165,7 +1174,8 @@ course_reference:
     protocol 1 revision 2026-10-01a); REACH_REFERENCE_DIR overrides it.
   repository: >-
     Since 0.14.5 the Reach repository carries no course material, encrypted or not. Teach keeps the blobs and their
-    keys and ships them to each enrolled install.
+    keys and ships them to each enrolled install. Since Teach 0.18.1 an install receives only its own course's blobs
+    and keys, every release unit, from enrollment on.
   blob_format: >-
     RREF version 1: the magic RREF, a format version byte, a length-prefixed key id, a length-prefixed course id, a
     12-byte nonce, a 16-byte AES-256-GCM tag and the ciphertext, with the header authenticated as additional data.
@@ -1175,9 +1185,15 @@ course_reference:
     reference-keys.json (schema reach.reference-keys/v1) in the guardrails package, delivered by Teach at enrollment
     and kept in the vault. Wire protocol 1 revision 2026-09-28f made it an optional W-PKG-1 entry.
   handling: >-
-    Decrypted in memory only, never written in plaintext. Without a key the blob is reported as locked; a blob that
-    fails authentication is refused.
-  interfaces: reach reference list|show|search|links and the reach_reference MCP tool.
+    Decrypted in memory for list, show, search and links. Since 0.17.1 the one plaintext copy is the microbrain's
+    private tier (STD-COURSE-CORPUS): Reach::CourseCorpus spools each file as a source under course/<course>/<path>
+    into the brain spool (0600) and the detached sync admits it into ~/.corpora/reach. No plaintext is written to the
+    rEach folder, a workspace, a log or Teach. Without a key the blob is reported as locked; a blob that fails
+    authentication is refused.
+  ingest_state: >-
+    ~/.reach/brain/course-ingest.json: the fingerprint (sha256 over blob names and digests and held key ids), the path
+    to source id map of the last ingest, and course and file counts.
+  interfaces: reach reference list|show|search|links|ingest and the reach_reference MCP tool.
 remote_acceptance: >-
   Every slice is graded at Teach. Since 0.11.0 no graded suite reaches the student and reach tips is gone; the
   qualification's remote step is the only place the hidden scenarios run before grading, and reach doctor checks gems
@@ -1268,16 +1284,19 @@ corpus:
     config: >-
       config.yml brain: enabled, capture_min_chars, sources_per_hour, duplicate, related, per_hour, per_day,
       max_record_bytes, nudge_every_turns, nudge_max_turns, session_budget_bytes, prompt_budget_bytes, prompt_k,
-      prompt_min_score, admit_interval_s, admit_max_backoff_s, max_spool_bytes (20 MiB); a missing or invalid value falls back to its default.
+      prompt_min_score, admit_interval_s, admit_max_backoff_s, max_spool_bytes (20 MiB), and since 0.17.1 course_recall
+      (true), course_k (3), course_budget_bytes (600), course_min_score (0.2); a missing or invalid value falls back to its default.
     spool_cap: >-
       After a capture appends a source, at most once per 10 minutes (state.json), the total spool size (pending and
       admitted day files) is compared with brain.max_spool_bytes. Over it, the oldest source lines no active finding
       references are scrubbed (Reach::BrainSpool.scrub!) until the total is at or below 80% of the cap; finding,
-      tombstone and every other kind of line are never removed. If it is still over the cap, new source captures are
+      tombstone and every other kind of line are never removed. Since 0.17.1 course sources (path course/) are never
+      victims and their bytes are left out of the comparison, so a large course never sets spool_full. If it is still over the cap, new source captures are
       skipped (brain.source_held, reason spool_full) while findings are still accepted.
     events: >-
       ~/.reach/logs/brain.jsonl: brain.captured, brain.source_held, brain.pruned, brain.remembered, brain.recalled, brain.nudged,
-      brain.forgotten, brain.admit_failed; ids, counts, bytes and outcomes only, never claim, evidence or turn text.
+      brain.forgotten, brain.admit_failed, and since 0.17.1 brain.course_ingested, brain.course_ingest_failed and
+      brain.course_recalled; ids, counts, bytes and outcomes only, never claim, evidence, turn or course text.
     state: "~/.reach/brain/ (mode 0700) holds state.json (budgets, reinforcements, admit backoff, notice flag), sessions/<session>.json and index.json (a cache)."
   privacy: >-
     The corpus lives on the student's disk only; nothing in it is sent to Teach except what a hand-raise bundle

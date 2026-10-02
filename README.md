@@ -119,7 +119,7 @@ reach check [--changed <path>] [--format text|agent|json]   the one checker the 
 reach plan save|note|show                                    the slice plan, read back each session
 reach checkpoint save|list|show|restore <n>                  snapshots of the slice, no git needed
 reach directive <OPCODE> | --list                            the directive bodies
-reach reference list | show <path> | search <words> | links  the course reference material
+reach reference list | show <path> | search <words> | links | ingest [--force]  the course reference material
 ```
 
 Every owned file carries an invisible seal and every session leaves a witness
@@ -195,11 +195,15 @@ them with `teach debug show --kind fault`. The state lives in `link.json` under 
 
 ## Course reference
 
-Reference material never ships in this repository. Teach sends each enrolled
-install its course's encrypted `.rref` blobs and their keys in the signed
-guardrails package at `reach sync`; `reach reference` decrypts in memory on every call and never writes plaintext
-to disk. Before enrollment, or before the key arrives, it reports the material
-as locked.
+Reference material never ships in this repository. From enrollment on, Teach sends each
+install its own course's encrypted `.rref` blobs, every unit, and their keys in the signed
+guardrails package at `reach sync`. `reach reference list|show|search|links` decrypts in memory.
+Since 0.17.1 rEach also ingests the whole course corpus into the student's microbrain: after each
+sync, and at session start when the blobs changed, it spools every file as a private source under
+`course/<course>/`, and matching passages join each prompt's recall (`brain.course_recall`,
+`course_k`, `course_budget_bytes`, `course_min_score`). That private tier is the only plaintext
+copy. `reach reference ingest [--force]` runs the ingest on demand. Before enrollment, or before
+the key arrives, the material is reported as locked.
 
 ## Doctor
 
