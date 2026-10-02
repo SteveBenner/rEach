@@ -84,7 +84,8 @@ module Reach
 
     def due?(now = Time.now)
       return false unless enabled?
-      return false if Reach::RuntimeKit.active || installing?
+      return false if Reach::RuntimeKit.current_id == Reach::RuntimeKit::RUNTIME_ID && Reach::RuntimeKit.active
+      return false if installing?
 
       state = load_state
       return false if state["attempts"].to_i >= config["max_attempts"]

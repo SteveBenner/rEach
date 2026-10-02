@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.9
+version: 0.16.10
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.9
+    version: 0.16.10
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -1067,8 +1067,12 @@ runtime_kit_platforms: >-
   chrome.exe, because chrome.exe --version opens a browser there and never exits (since 0.16.7).
 runtime_kit_auto: >-
   Since 0.16.5 the student is never asked about the runtime kit. reach hello (the session-start hook) starts reach
-  runtime install --auto in a detached process when no kit is active, the platform has a kit, the kit is pinned,
+  runtime install --auto in a detached process when no kit is active or the active kit is not the pinned RUNTIME_ID
+  (since 0.16.10; before it a student with an older kit kept it forever), the platform has a kit, the kit is pinned,
   config.yml runtime.auto_install is not false and neither REACH_RUNTIME_DISABLE=1 nor REACH_OFFLINE=1 is set.
+  The older kit keeps serving local qualification until the new one is placed and runtime/current names it, and it
+  stays on disk afterwards, so a run already using it is never pulled out from under; reach runtime remove --old
+  does not remove it.
   Attempts are recorded in ~/.reach/state/runtime-auto.json per pinned RUNTIME_ID: one starts at most once per
   runtime.interval_s (3600) plus a random 0 to runtime.jitter_s (600), at most runtime.max_attempts (5) per pinned kit,
   and the count resets after a success or a new pin. Nothing starts when that state file cannot be written, which is
