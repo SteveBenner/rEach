@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.25
+version: 0.17.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -63,6 +63,10 @@ standards:
     text: "Every owned file carries an invisible per-install mark, every session leaves an HMAC-chained witness ledger, and a sidecar ties installs together. A foreign, corrupt or missing mark, a ledger break, a vault mismatch or a sweep of the private directives (directive_dump) is reported to Teach silently, healed where healing is safe, and never shown to or discussed with the student; a foreign mark is never overwritten. An instructor persona keeps its own sidecar inside its persona home, so a test student's install is never tied to the instructor's or a real student's install."
   - id: STD-QUALIFY-BEFORE-SUBMIT
     text: "reach submit refuses unless the latest reach qualify passed on exactly the current owned files and the agent's scenarios (M-SUBMIT-UNQUALIFIED). The agent writes those scenarios under qualify/, covering every graded name; they run here on Grokit's answer-free kit when the slice allows it and always on Teach, which also runs the hidden graded scenarios and answers with names, results, the agent's own step text and a whitelisted error class only. No reference code or graded step leaves Teach."
+  - id: STD-SUBMIT-APPROVAL
+    text: "Since 0.17.0 (wire revision 2026-10-02c, W-SUB-2) the agent tells the student, once a slice's work passes reach qualify, that they can ask rEach to submit it. reach submit and reach_submit run every precondition first, then ask through Reach (M-SUBMIT-ASK, relayed word for word) and submit only on the student's yes: captured by the prompt hook (STD-CONSENT-FROM-REACH), valid for 30 minutes and for exactly the owned files it was asked about, and used once when the agent runs reach submit again; or typed at reach submit's own prompt when it runs in a terminal. Antigravity, which has no prompt hook, submits on the agent's relayed yes. After the due time a slice that already holds an ingest receipt is refused before anything is asked (M-SUBMIT-CLOSED); before it, every submission tells the student they can submit again until the due time and that the last one counts (W-SUB-1)."
+  - id: STD-SUBMIT-ARCHIVE
+    text: "Since 0.17.0, once an ingest receipt verifies (from reach submit or a later outbox retry), Reach saves a ZIP of the student's whole assignment folder, every slice workspace under deliverables/<course>/<assignment>/ without top-level dot entries, AGENTS.md, CLAUDE.md, GEMINI.md and symbolic links, plus the student's receipts for that assignment and their own part, to the Downloads folder (XDG_DOWNLOAD_DIR on Linux when set, otherwise Downloads in the home folder, created when missing) as <course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip in course time (STD-COURSE-TIME). It never overwrites a file, adding -2, -3 and so on instead, writes through a temporary file and rename, skips the copy above config.yml submit.archive_max_mb (default 256), and a failed copy never fails or undoes the submission. The ZIP is written by Reach's own standard-library writer and never leaves the computer."
   - id: STD-ATTEMPT-LADDER
     text: "Reach counts failed qualifications per slice: a notice from the second, an agent hand (reach.hand/v2, originator agent) at the third with further work held until the student says yes, and a hard stop at the tenth until an instructor replies. A pass or a reply resets it."
   - id: STD-FLOWS

@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-10-02
+
+### Added
+
+- Submission with the student's approval (wire revision 2026-10-02c, `STD-SUBMIT-APPROVAL`, `W-SUB-2`). The persona
+  (`agents/reach.md`, `skills/reach-assistant/SKILL.md`) and the rewritten `reach-submit` skill tell the agent that once
+  a slice's work passes its checks the student can ask rEach to submit it. `reach submit` and `reach_submit` run every
+  precondition, then ask through rEach (`M-SUBMIT-ASK`, kind `submission` in `Reach::Consent`); the prompt hook captures
+  the answer, and a yes, valid for 30 minutes and for exactly the owned files it was asked about, is used once by the
+  agent's next `reach submit` (`M-SUBMIT-YES-AGENT`). A change after the yes asks again; a no answers
+  `M-CONSENT-DECLINED`. In a terminal `reach submit` asks at its own prompt; on Antigravity the agent asks first
+  (`rules/reach.md`).
+- A copy in the Downloads folder (`STD-SUBMIT-ARCHIVE`). Once an ingest receipt verifies, from `reach submit` or a later
+  outbox retry, `Reach::Archive` (`lib/reach/archive.rb`) writes a ZIP of the whole assignment folder (every slice
+  workspace without its top-level dot entries, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and links, plus the student's
+  receipts and own part under `rEach/`) as `<course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip` in course time
+  (`Reach::CourseTime.stamp`), mode 0600, never overwriting a file (`-2`, `-3`). `Reach::Zip` (`lib/reach/zip.rb`) is a
+  standard-library ZIP writer that runs on Ruby 2.6.10. The folder is `REACH_DOWNLOADS_DIR`, else `XDG_DOWNLOAD_DIR` on
+  Linux, else `~/Downloads`; `config.yml` `submit.archive_max_mb` (default 256) caps it, and a failed copy never fails
+  the submission (`M-SUBMIT-ARCHIVED`, `M-SUBMIT-ARCHIVE-SKIPPED`, `M-SUBMIT-ARCHIVE-FAILED`).
+- Resubmission until the due time (`W-SUB-1`). After a receipt rEach says which submission it was and until when the
+  student can submit again (`M-SUBMIT-AGAIN-OPEN`, `M-SUBMIT-AGAIN-OPEN-NODUE`, `M-SUBMIT-AGAIN-CLOSED`), from Teach's
+  new `attempt`, `due` and `resubmit`. After the due time a slice that already holds an ingest receipt is refused before
+  anything is asked (`M-SUBMIT-CLOSED`); Teach 0.18.0 refuses it too.
+- `tools/fake_teach` serves `POST /api/v1/submissions` per W-SUB-1 (`FAKE_TEACH_DUE` sets the due time).
+
+### Changed
+
+- `reach submit` flushes the transcript only after the student's yes; the submit debug event records the archive state,
+  attempt and resubmit (no path or file name). `tools/smoke/assignment_one.rb` asks, answers yes through the prompt hook,
+  submits, and checks the Downloads ZIP (`REACH_DOWNLOADS_DIR`), its name, `unzip -t` and that it holds no `.reach`.
+
+### Verified
+
+- `tools/smoke/assignment_one.rb` against Teach 0.18.0's working tree on a scratch PostgreSQL database: 36 pass, 2
+  manual skips; the first submit asked and sent nothing, the hook-captured yes sent it, and the ZIP passed `unzip -t`.
+  Against `tools/fake_teach`: attempts 1 to 3, `-2` and `-3` names in one minute, a changed file asked again, a no
+  declined, and a past-due slice with a receipt was refused before asking. Every changed lib file parses and loads on
+  Ruby 2.6.10, where the ZIP writer's output passes `unzip -t`.
+
 ## [0.16.25] - 2026-10-02
 
 ### Added

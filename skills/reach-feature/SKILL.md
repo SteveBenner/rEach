@@ -14,4 +14,4 @@ The feature flow for one slice. Work the steps in order; do not skip or reorder 
 8. `reach qualify`, and follow what it prints (the TOZERO directive): pass on any notice to the student, and stop when it says to.
 9. `reach checkpoint save --note "<what works now>"`.
 10. **Report to the student** in at most six plain lines: what the business can now rely on, one case in their words, and what is not yet covered. No code, no scenario names, no command output. Then `reach plan note --progress "..." --next "..."`.
-11. **Offer to submit** with the reach-submit skill once `reach qualify` passed. Never submit without the student's yes.
+11. **Offer to submit** with the reach-submit skill once `reach qualify` passed. Reach asks the student and submits only on their yes.

@@ -87,3 +87,5 @@ rstack:
       require_mount: "/run/media/${USER}/BACKUP-DRIVE"
       encrypt: true
       path: "/run/media/${USER}/BACKUP-DRIVE/corpora/rstack-plugins/reach-mirror"
+submit:
+  archive_max_mb: 256

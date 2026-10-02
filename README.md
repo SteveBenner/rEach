@@ -167,6 +167,20 @@ or file text, codes, passwords or keys, sends it to Teach, and shows it at the e
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
 `reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
 
+### Submitting
+
+Since 0.17.0, once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.
+`reach submit` (or the `reach_submit` tool) runs every check first, then asks the student through rEach; the agent
+relays the question word for word, the prompt hook captures the answer, and only a yes, given within 30 minutes for
+exactly the files it was asked about, lets the agent's next `reach submit` send the work. Run in a terminal,
+`reach submit` asks at its own prompt; on Antigravity, which has no hooks, the agent asks first. Once Teach's ingest
+receipt verifies, rEach saves a ZIP of the whole assignment folder (every slice, without rEach's and the harness's own
+files, plus the receipts and the student's own part) in the Downloads folder as
+`<course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip` in course time, never overwriting a file
+(`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
+may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
+by rEach before it asks and by Teach.
+
 ### When Teach can't be reached
 
 Since 0.16.25 rEach never shows a raw error, backtrace or hook failure. When a request to Teach fails for lack of a

@@ -49,7 +49,7 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word",
         "inputSchema" => {
           "type" => "object",
           "properties" => { "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" } }
@@ -384,7 +384,11 @@ module Reach
           arguments["action"] == "continue" ? { "message" => Reach::Attempts.continue(workspace) } : Reach::Attempts.show(workspace)
         when "reach_submit"
           result = Reach::Submit.submit(slice: slice_argument(arguments))
-          result = result.merge("announcement" => Reach::Receipts.announce(result["receipt"])) if result["state"] == "ingested"
+          if result["state"] == "ingested"
+            result = result.merge("announcement" => Reach::Receipts.announce(result["receipt"]), "followup" => Reach::Submit.followup_text(result))
+          elsif %w[asked declined].include?(result["state"])
+            result = result.merge("message" => result["text"])
+          end
           result
         when "reach_raise_hand"
           record = Reach::Hands.raise_record(

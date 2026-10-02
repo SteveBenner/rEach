@@ -1,6 +1,6 @@
 # fake_teach
 
-A local development fixture of the Teach half of enrollment v2 (specs/wire.yml, revision 2026-10-01b). It is not Teach: it serves only health, enrollment preview, enroll shape v2 and an install-signed status, and answers every other route 404 not_found. It carries no assertions and is not a test suite.
+A local development fixture of the Teach half of enrollment v2 (specs/wire.yml, revision 2026-10-01b). It is not Teach: it serves only health, enrollment preview, enroll shape v2, an install-signed status and, since rEach 0.17.0, submissions, and answers every other route 404 not_found. It carries no assertions and is not a test suite.
 
 It serves wire revision 2026-10-01b only and is superseded by Teach 0.16.0 for anything newer (device moves, per-course codes, the roster).
 
@@ -17,6 +17,7 @@ It binds 127.0.0.1 only. State lives under `--home` (default a fresh temporary d
 - `POST /api/v1/enroll` shape v2 only (shape v1 answers 400 invalid_request). Checks reach_version against minimum 0.12.0, resolves the code (W-ENR-1: secret lookup, course id within Damerau-Levenshtein distance 2, did_you_mean), finds the roster entry matching both username and student_id, and answers with a signed W-ENR-5 stamp. Enroll and preview share a limit of 30 per minute per IP (429 with Retry-After).
 - `GET /api/v1/status` verifies the W-AUTH request signature against the stored install key, compares X-Reach-Fingerprint with the stored digest (403 fingerprint_mismatch) and answers a minimal body with no slices and no packages.
 - `wire_contract_sha256` is the SHA-256 of specs/wire.yml in this checkout.
+- `POST /api/v1/submissions` (since rEach 0.17.0, W-SUB-1) verifies the install signature, honours Idempotency-Key, numbers attempts per student, cutout, slice and assignment, and answers a signed ingest receipt carrying `attempt` with `due` and `resubmit`. `FAKE_TEACH_DUE` (a W-CONV-3 time) sets the due time, also shown as `current_assignment` in status; after it, a slice already on record answers 403 deadline_passed. The package is not opened or checked.
 
 ## Fixtures
 

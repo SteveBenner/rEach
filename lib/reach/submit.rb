@@ -17,10 +17,18 @@ module Reach
 
         meta = Reach::Workspace.metadata(workspace)
         require_part!(meta["assignment"])
-        manifest = build_manifest(workspace, meta)
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
+        check_closed!(meta)
+        pending = approve!(workspace, meta)
+        if pending
+          Reach::Debug.submit("state" => pending["state"])
+          return pending
+        end
+
+        flush_transcript(meta["assignment"])
+        manifest = build_manifest(workspace, meta)
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
         tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification, meta["assignment"]))
@@ -33,11 +41,12 @@ module Reach
           "package" => envelope,
           "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
-        outbox_path = write_outbox(idempotency_key, "submission", ROUTE, body)
+        outbox_path = write_outbox(idempotency_key, "submission", ROUTE, body, workspace: workspace)
 
         begin
           response = client(install).post_json(ROUTE, body, idempotency_key: idempotency_key)
           result = handle_response(response.json || {})
+          result = result.merge("archive" => Reach::Archive.write!(workspace, meta)) if result["state"] == "ingested"
           FileUtils.rm_f(outbox_path)
           Reach::Debug.submit(result)
           result
@@ -62,7 +71,9 @@ module Reach
             response = client(install).post_json(entry.fetch("route"), entry.fetch("body"), idempotency_key: entry.fetch("idempotency_key"))
             body = response.json || {}
             if entry["kind"] == "submission"
-              results << handle_response(body)
+              handled = handle_response(body)
+              handled = handled.merge("archive" => archive_for_outbox(entry["workspace"])) if handled["state"] == "ingested" && entry["workspace"]
+              results << handled
             elsif entry["kind"] == "integrity"
               results << { "state" => "sent", "event_id" => body["event_id"] }
             else
@@ -80,7 +91,35 @@ module Reach
         results
       end
 
+      def followup_text(result)
+        lines = []
+        archive = result["archive"].is_a?(Hash) ? result["archive"] : nil
+        if archive
+          case archive["state"]
+          when "saved"
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"])
+          when "skipped"
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED")
+          else
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED")
+          end
+        end
+        due = result["due"].to_s.empty? ? nil : Reach::Messages.course_time(result["due"])
+        case result["resubmit"]
+        when "open"
+          lines << (due && !due.empty? ? Reach::Messages.text("M-SUBMIT-AGAIN-OPEN", attempt: result["attempt"], due: due) : Reach::Messages.text("M-SUBMIT-AGAIN-OPEN-NODUE", attempt: result["attempt"]))
+        when "closed"
+          lines << Reach::Messages.text("M-SUBMIT-AGAIN-CLOSED")
+        end
+        lines.join("\n")
+      end
+
       private
+
+      def archive_assignment(result)
+        receipt = result["receipt"].is_a?(Hash) ? result["receipt"] : {}
+        receipt["assignment"].to_s
+      end
 
       def handle_response(body)
         state = body["state"]
@@ -90,7 +129,10 @@ module Reach
           Reach::Receipts.store(receipt) if receipt
           record_in_corpus(receipt) if receipt
           Reach::Receipts.acknowledge(receipt) if receipt
-          { "submission_id" => body["submission_id"], "state" => "ingested", "receipt" => receipt, "rejection" => nil }
+          {
+            "submission_id" => body["submission_id"], "state" => "ingested", "receipt" => receipt, "rejection" => nil,
+            "attempt" => body["attempt"], "due" => body["due"], "resubmit" => body["resubmit"]
+          }
         else
           { "submission_id" => body["submission_id"], "state" => "rejected", "receipt" => nil, "rejection" => body["rejection"] }
         end
@@ -163,13 +205,18 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-SUBMIT-BLOCKED-CHECK", hand: hand_id ? Reach::Messages.text("M-HAND-RAISED") : Reach::Messages.text("M-OFFLINE"))
       end
 
-      def build_manifest(workspace, meta)
-        owned = Array(meta["owned_files"])
+      def owned_digests(workspace, meta)
         digests = {}
-        owned.each do |relative_path|
+        Array(meta["owned_files"]).each do |relative_path|
           full_path = File.join(workspace, relative_path)
           digests[relative_path] = File.file?(full_path) ? Reach::Crypto.digest_hex(File.binread(full_path)) : nil
         end
+        digests
+      end
+
+      def build_manifest(workspace, meta)
+        owned = Array(meta["owned_files"])
+        digests = owned_digests(workspace, meta)
         {
           "schema" => "reach.submission/v1",
           "course" => meta["course"],
@@ -212,9 +259,13 @@ module Reach
         return unless Reach::Part.required?(assignment)
 
         open_questions = Reach::Part.missing(assignment)
-        unless open_questions.empty?
-          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-NO-PART", missing: open_questions.map { |question| question["question"] }.join("; "))
-        end
+        return if open_questions.empty?
+
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-NO-PART", missing: open_questions.map { |question| question["question"] }.join("; "))
+      end
+
+      def flush_transcript(assignment)
+        return unless Reach::Part.required?(assignment)
 
         begin
           Reach::Transcript.flush(quick: false)
@@ -260,11 +311,83 @@ module Reach
         )
       end
 
-      def write_outbox(idempotency_key, kind, route, body)
+      def write_outbox(idempotency_key, kind, route, body, workspace: nil)
         FileUtils.mkdir_p(Reach::Paths.outbox_dir)
         path = File.join(Reach::Paths.outbox_dir, "#{idempotency_key}.json")
-        File.write(path, JSON.generate("kind" => kind, "route" => route, "idempotency_key" => idempotency_key, "body" => body))
+        entry = { "kind" => kind, "route" => route, "idempotency_key" => idempotency_key, "body" => body }
+        entry["workspace"] = workspace if workspace
+        File.write(path, JSON.generate(entry))
         path
+      end
+
+      def archive_for_outbox(workspace)
+        return nil unless File.directory?(workspace.to_s)
+
+        Reach::Archive.write!(workspace, Reach::Workspace.metadata(workspace))
+      end
+
+      def due_for(meta)
+        current = Reach::Pace.current_assignment
+        return nil unless current && current["id"].to_s == meta["assignment"].to_s
+        return nil if current["due"].to_s.empty?
+
+        Time.parse(current["due"].to_s).utc
+      rescue StandardError
+        nil
+      end
+
+      def check_closed!(meta)
+        due = due_for(meta)
+        return unless due && Reach::Pace.server_now >= due
+
+        on_record = Reach::Receipts.list.any? do |receipt|
+          receipt["kind"] == "ingest" && receipt["cutout_id"] == meta["cutout_id"] && receipt["slice"] == meta["slice"] && receipt["assignment"] == meta["assignment"]
+        end
+        return unless on_record
+
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-CLOSED", assignment: meta["assignment"], due: Reach::Messages.course_time(due), slice: meta["slice"])
+      end
+
+      def approval_mode
+        return "terminal" if $stdin.tty? && $stdout.tty?
+        return "agent" if ENV["REACH_HARNESS"] == "antigravity"
+
+        "hook"
+      end
+
+      def ask_fields(meta)
+        due = due_for(meta)
+        again = if due.nil?
+                  ""
+                elsif Reach::Pace.server_now < due
+                  Reach::Messages.text("M-SUBMIT-ASK-OPEN", due: Reach::Messages.course_time(due))
+                else
+                  Reach::Messages.text("M-SUBMIT-ASK-LATE", due: Reach::Messages.course_time(due))
+                end
+        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again }
+      end
+
+      def approve!(workspace, meta)
+        case approval_mode
+        when "agent"
+          nil
+        when "terminal"
+          puts Reach::Messages.text("M-SUBMIT-ASK", **ask_fields(meta)).strip
+          print Reach::Messages.text("M-SUBMIT-TERMINAL-PROMPT")
+          $stdout.flush
+          answer = $stdin.gets
+          Reach::Consent.yes?(answer.to_s) ? nil : { "state" => "declined", "text" => Reach::Messages.text("M-CONSENT-DECLINED") }
+        else
+          subject = { "workspace" => File.basename(workspace), "digests" => owned_digests(workspace, meta) }
+          if Reach::Consent.declined?(kind: "submission", subject: subject)
+            Reach::Consent.clear_declined!(kind: "submission", subject: subject)
+            return { "state" => "declined", "text" => Reach::Messages.text("M-CONSENT-DECLINED") }
+          end
+          return nil if Reach::Consent.take!(kind: "submission", subject: subject)
+
+          question = Reach::Consent.ask!(kind: "submission", subject: subject, message_id: "M-SUBMIT-ASK", fields: ask_fields(meta), replay: { "slice_id" => File.basename(workspace) })
+          { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
+        end
       end
 
       def client(install)

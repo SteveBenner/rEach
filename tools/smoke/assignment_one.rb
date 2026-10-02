@@ -261,9 +261,14 @@ module AssignmentOne
         "REACH_HOME" => home,
         "REACH_WORKSPACE_ROOT" => @workspace_root,
         "REACH_TEACH_URL" => @teach_url,
+        "REACH_DOWNLOADS_DIR" => downloads_dir,
         "HOME" => @student_home,
         "CODEX_HOME" => @codex_home
       }
+    end
+
+    def downloads_dir
+      File.join(@run_dir, "downloads")
     end
 
     def reach_exe
@@ -802,6 +807,12 @@ module AssignmentOne
       raise Fail, "teach already holds submissions" unless before.empty?
 
       out, status = reach("submit", "--slice", slice_id, chdir: @workspace, timeout: 300)
+      raise Fail, "submit exited #{status.exitstatus}: #{out.lines.last(8).join}" unless status.success?
+      raise Fail, "submit did not ask the student first: #{out.lines.last(4).join}" unless out.include?("Ready to submit")
+      raise Fail, "submit sent work before the student said yes" unless teach_json("submissions", "list", "--assignment", ASSIGNMENT).empty?
+
+      hook_prompt("Yes")
+      out, status = reach("submit", "--slice", slice_id, chdir: @workspace, timeout: 300)
       @last[:actual] = "exit #{status.exitstatus}"
       raise Fail, "submit exited #{status.exitstatus}: #{out.lines.last(8).join}" unless status.success?
 
@@ -809,7 +820,25 @@ module AssignmentOne
       raise Fail, "teach lists #{rows.length} submissions, want 1" unless rows.length == 1
 
       @submission = rows.first
+      check_downloads_copy(out)
       out.strip
+    end
+
+    def check_downloads_copy(out)
+      archives = Dir.glob(File.join(downloads_dir, "*.zip"))
+      raise Fail, "the Downloads folder holds #{archives.length} ZIP copies, want 1" unless archives.length == 1
+
+      name = File.basename(archives.first)
+      course_folder = File.basename(File.dirname(File.dirname(@workspace)))
+      raise Fail, "the ZIP copy is named #{name}" unless name.match?(/\A#{Regexp.escape(course_folder)}-#{Regexp.escape(ASSIGNMENT)}-\d{4}-\d{2}-\d{2}-\d{4}-(PDT|PST)\.zip\z/i)
+      raise Fail, "submit did not tell the student where the copy is saved" unless out.include?(name)
+
+      listing, status = Open3.capture2e("unzip", "-t", archives.first)
+      raise Fail, "unzip -t failed on the ZIP copy: #{listing.lines.last(4).join}" unless status.success?
+
+      names, = Open3.capture2e("unzip", "-Z1", archives.first)
+      raise Fail, "the ZIP copy holds a .reach entry" if names.lines.any? { |line| line.split("/").any? { |part| part == ".reach" } }
+      raise Fail, "the ZIP copy holds no workspace files" unless names.lines.any? { |line| line.include?(OWNED_RELATIVE) }
     end
 
     def reach_receipts(kind)

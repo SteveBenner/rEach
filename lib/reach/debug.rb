@@ -567,6 +567,7 @@ module Reach
       emit(
         "submit",
         "outcome" => result["state"], "receipt_id" => receipt["receipt_id"] || receipt["id"], "late" => receipt["late"] ? true : false,
+        "archive" => result["archive"].is_a?(Hash) ? result["archive"]["state"] : nil, "attempt" => result["attempt"], "resubmit" => result["resubmit"],
         "rejected_as" => rejection["code"].to_s.empty? ? nil : "rejected"
       )
     rescue StandardError

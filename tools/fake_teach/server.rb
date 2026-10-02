@@ -94,6 +94,70 @@ module FakeTeach
       @encryption_key = load_key("encryption")
       @installs = load_installs
       @wire_sha = Reach::Crypto.digest_hex(File.binread(File.join(ROOT, "specs", "wire.yml")))
+      @submissions = []
+      @replays = {}
+    end
+
+    def due_time
+      value = ENV["FAKE_TEACH_DUE"].to_s
+      value.empty? ? nil : Time.iso8601(value).utc
+    end
+
+    def due_text
+      due = due_time
+      due && due.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end
+
+    def resubmit_state
+      due = due_time
+      due && Time.now.utc >= due ? "closed" : "open"
+    end
+
+    def submit(req, body)
+      install = authenticate!(req, body)
+      key = req["Idempotency-Key"].to_s
+      raise Failure.new(400, "invalid_request", "Idempotency-Key is required") if key.empty?
+
+      request = JSON.parse(body)
+      raise Failure.new(400, "invalid_request", "body must be a JSON object") unless request.is_a?(Hash)
+
+      @mutex.synchronize do
+        replay = @replays[[install["student_id"], key]]
+        next replay.merge("resubmit" => resubmit_state, "due" => due_text) if replay
+
+        group = @submissions.select do |row|
+          row["student_id"] == install["student_id"] && row["cutout_id"] == request["cutout_id"] && row["slice"] == request["slice"] && row["assignment"] == request["assignment"]
+        end
+        late = resubmit_state == "closed"
+        raise Failure.new(403, "deadline_passed", "the due time has passed") if late && !group.empty?
+
+        id = "sub_#{SecureRandom.hex(10)}"
+        attempt = group.length + 1
+        row = { "id" => id, "student_id" => install["student_id"], "cutout_id" => request["cutout_id"], "slice" => request["slice"], "assignment" => request["assignment"] }
+        @submissions << row
+        receipt = {
+          "receipt_id" => "rcpt_#{SecureRandom.hex(10)}",
+          "kind" => "ingest",
+          "submission_id" => id,
+          "student_id" => install["student_id"],
+          "cutout_id" => request["cutout_id"],
+          "slice" => request["slice"],
+          "assignment" => request["assignment"],
+          "issued_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+          "signing_key_id" => SIGN_KEY_ID,
+          "received_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+          "content_digest" => Reach::Crypto.digest_hex(JSON.generate(request["package"])),
+          "file_list" => [],
+          "late" => late,
+          "attempt" => attempt
+        }
+        receipt["signature"] = Base64.strict_encode64(Reach::Crypto.sign_pss(@signing_key, Reach::Crypto.canonical_json(receipt.reject { |k, _| k == "signature" })))
+        answer = { "submission_id" => id, "state" => "ingested", "receipt" => receipt, "rejection" => nil, "attempt" => attempt }
+        @replays[[install["student_id"], key]] = answer
+        answer.merge("resubmit" => resubmit_state, "due" => due_text)
+      end
+    rescue JSON::ParserError
+      raise Failure.new(400, "invalid_request", "body is not valid JSON")
     end
 
     attr_reader :wire_sha
@@ -345,7 +409,7 @@ module FakeTeach
         "install_id" => req["X-Teach-Install"],
         "student" => { "id" => install["student_id"], "display_name" => install["display_name"], "group" => nil },
         "course" => { "id" => install["course_id"] },
-        "current_assignment" => nil,
+        "current_assignment" => due_text ? { "id" => "A1", "due" => due_text } : nil,
         "slices" => [],
         "packages" => [],
         "outstanding_receipts" => [],
@@ -411,6 +475,8 @@ module FakeTeach
         @store.enroll(parse_json(body))
       elsif method == "GET" && path == "/api/v1/status"
         @store.status(req, body)
+      elsif method == "POST" && path == "/api/v1/submissions"
+        @store.submit(req, body)
       else
         raise Failure.new(404, "not_found", "no such route")
       end

@@ -717,16 +717,21 @@ routes:
       state: "ingested | rejected"
       receipt: The signed ingest receipt (W-RCPT) when state is ingested.
       rejection: "{code, reason} when state is rejected"
+      attempt: "Since revision 2026-10-02c, when state is ingested. This submission's number among the student's ingested submissions of the slice, counting from 1."
+      due: "Since revision 2026-10-02c. The assignment's due time as a W-CONV-3 timestamp, or null when it has none."
+      resubmit: "Since revision 2026-10-02c. open when Teach would accept another submission of this slice now, closed when the due time has passed."
     notes: >-
       Ingest is synchronous: the ingest receipt arrives in this response, so Reach announces "received" at once. A repeat
-      with the same Idempotency-Key returns the original submission_id, state and receipt.
-    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
+      with the same Idempotency-Key returns the original submission_id, state and receipt. Since revision 2026-10-02c
+      (W-SUB-1) a slice may be submitted any number of times before its due time; a Reach older than that revision
+      ignores attempt, due and resubmit.
+    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "after the due time, when a submission of the slice that was not rejected is already on record (W-SUB-1)", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
   - id: W-API-SUBMISSION
     method: GET
     path: /api/v1/submissions/:id
     auth: install
     response_200:
-      submission: the submission record
+      submission: "the submission record; since revision 2026-10-02c it carries attempt, supersedes and superseded_by (W-SUB-1)"
       receipts: "[receipt bodies], oldest first"
       acknowledgments: >-
         Since protocol 1 revision 2026-09-30. [W-RCPT-4 acknowledgment bodies, each with linked_at added], oldest
@@ -1067,6 +1072,26 @@ routes:
     path: /api/v1/health
     auth: none
     response_200: {status: "ok | degraded", database: boolean, blob_store: boolean}
+submissions:
+  W-SUB-1:
+    name: resubmission
+    since: 2026-10-02c
+    rule: >-
+      A student may submit a slice any number of times until the assignment's due time. Teach numbers every ingested
+      submission of a (student, cutout_id, slice, assignment) from 1 in the order it was ingested (attempt), records the
+      ingested submission it replaces (supersedes) and marks that one superseded (superseded_by). A rejected submission
+      has no attempt, supersedes nothing and is never on record. Every submission keeps its receipts. After the due time
+      Teach accepts a submission of a slice only when no submission of that slice is on record, and marks it late; any
+      other answers 403 deadline_passed and stores nothing. The submission that counts is the one on record that no
+      later one supersedes.
+  W-SUB-2:
+    name: what Reach does around a submission
+    since: 2026-10-02c
+    rule: >-
+      Reach submits only after the student's yes to Reach's own question, and refuses locally, before asking, when the
+      due time has passed and it already holds an ingest receipt for the slice. After an ingest receipt verifies it
+      saves a copy of the student's assignment folder on the student's computer. Neither the question, the answer nor
+      the copy is sent to Teach.
 receipts:
   W-RCPT-1:
     name: body
@@ -1084,6 +1109,7 @@ receipts:
       content_digest: ingest only
       file_list: ingest only
       late: ingest only, boolean
+      attempt: "ingest only, integer, since revision 2026-10-02c: the submission's attempt (W-SUB-1); absent from an older Teach"
       scenarios: "grade only, [{name, result: passed|failed|skipped, reason?}]"
       score: grade only, number 0-1
       suite_version: grade only

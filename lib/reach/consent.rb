@@ -6,7 +6,7 @@ require "rbconfig"
 module Reach
   module Consent
     SCHEMA = "reach.consent/v1".freeze
-    KINDS = %w[module_lock transfer_request].freeze
+    KINDS = %w[module_lock transfer_request submission].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
 
@@ -37,7 +37,7 @@ module Reach
     end
 
     def ask!(kind:, subject:, message_id:, fields: {}, replay: {})
-      question = Reach::Messages.text(message_id, **fields.each_with_object({}) { |(key, value), memo| memo[key.to_sym] = value })
+      question = Reach::Messages.text(message_id, **fields.each_with_object({}) { |(key, value), memo| memo[key.to_sym] = value }).strip
       Reach::Login.write_json(
         pending_path,
         "schema" => SCHEMA, "kind" => kind.to_s, "subject" => subject, "subject_digest" => digest(subject),
@@ -82,6 +82,10 @@ module Reach
     def follow_up!(observed)
       subject = observed["subject"] || {}
       replay = observed["replay"] || {}
+      if observed["kind"] == "submission"
+        return observed["answer"] == "yes" ? Reach::Messages.text("M-SUBMIT-YES-AGENT", slice_id: replay["slice_id"]) : Reach::Messages.text("M-CONSENT-DECLINED")
+      end
+
       result = case observed["kind"]
                when "transfer_request"
                  Reach::Transfer.request!(modules: subject["modules"], note: replay["note"], quick: true)
@@ -94,6 +98,12 @@ module Reach
       e.message
     rescue StandardError
       nil
+    end
+
+    def agent_context(observed, done)
+      return done if observed["kind"] == "submission" && observed["answer"] == "yes"
+
+      Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: done)
     end
 
     def take!(kind:, subject:)
