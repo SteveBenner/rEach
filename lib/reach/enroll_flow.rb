@@ -257,7 +257,7 @@ module Reach
       url = teach_url
       unless url
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        return Reach::Messages.text("M-ENR-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.")
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.")
       end
 
       begin
@@ -271,7 +271,7 @@ module Reach
 
         if e.code == "password_required"
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-          return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
+          return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: e.message)
         end
         if e.code == "device_move_pending"
           write_flow(flow.merge("state" => "awaiting_move", "updated_at" => iso(now)))
@@ -283,13 +283,13 @@ module Reach
         end
 
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: e.message)
       rescue Reach::NetworkError
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        return Reach::Messages.text("M-ENR-OFFLINE")
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-OFFLINE")
       rescue Reach::Error => e
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: e.message)
       end
 
       FileUtils.rm_f(Reach::Paths.enroll_flow_file)

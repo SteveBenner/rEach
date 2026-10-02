@@ -545,6 +545,7 @@ routes:
       username: {type: string, required: false, note: "shape v2 only: the student's institutional username, normalized by W-ENR-3"}
       student_id: {type: string, required: false, note: "shape v2 only: the student's institutional id, normalized by W-ENR-3"}
       fingerprint: {type: object, required: false, note: "shape v2 only: the W-ENR-4 fingerprint document"}
+      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it"}
       public_key_pem: {type: string, maxLength: 4096}
       reach_version: {type: string}
       platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
@@ -567,6 +568,7 @@ routes:
       403 enrollment_refused: "shape v2: the username and student id do not name one roster entry of the code's course; never says which field failed"
       409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the policy wants an instructor's approval (W-ENR-8)"
       403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
+      400 password_required: "shape v2, since 2026-10-01e: password is missing, not a string, shorter than 8 or longer than 256 characters; checked before the course code is looked up, and the message tells an older Reach to update and enroll again"
       429 rate_limited: "too many attempts"
     notes: >-
       Spelled /api/v1/enroll since protocol 1 revision 2026-09-29c. Since the same revision Teach compares reach_version
@@ -1562,21 +1564,30 @@ enrollment:
       A prompt hook installed by the plugin itself (not by a workspace) runs in every harness session while Reach is
       locked, and passes every prompt untouched while it is not. It runs a machine-wide state machine stored at
       ~/.reach/state/enroll/flow.json: awaiting_code -> awaiting_username -> awaiting_student_id -> awaiting_confirm
-      -> enrolled. Every prompt it sees while locked is blocked, so the agent never sees a code, username, student id
-      or answer, and none is written to a transcript. Before any step it checks the prompt for the W-SUP-3 crisis
+      -> enrolled; since revision 2026-10-01e a yes in awaiting_confirm moves to awaiting_password -> awaiting_password_again
+      before it posts. Every prompt it sees while locked is blocked, so the agent never sees a code, username, student id,
+      password or answer, and none is written to a transcript. The password must be 8 to 256 characters after trimming
+      surrounding whitespace (M-ENR-PASSWORD-SHORT otherwise) and the second entry must equal the first
+      (M-ENR-PASSWORD-MISMATCH returns to awaiting_password); between the two prompts the flow file holds only a random
+      salt and the SHA-256 of salt and password, never the password, and both are removed when the flow ends. The
+      password ask (M-ENR-ASK-PASSWORD) and M-ENR-DONE tell the student to write it down. Before any step it checks the prompt for the W-SUP-3 crisis
       phrases and on a match blocks with M-SUPPORT and changes nothing. The words start over, restart and cancel
       return to awaiting_code from any step. In awaiting_code a prompt that normalizes to a code (W-ENR-1) is sent to
       W-API-ENROLL-PREVIEW; a prompt that normalizes to a course id alone gets M-ENR-CODE-COURSE-ONLY, and since
       revision 2026-10-01d so does a preview answered with details.course_only. In
-      awaiting_confirm a yes (W-ID-4) generates the install key, builds the fingerprint and posts shape v2; a no
-      returns to awaiting_code. enrollment_refused returns to awaiting_username; lockout_refusals refusals within
+      awaiting_confirm a yes (W-ID-4) asks for the password, and the matching second entry generates the install key,
+      builds the fingerprint and posts shape v2 with the password; a no returns to awaiting_code. enrollment_refused returns to awaiting_username; lockout_refusals refusals within
       lockout_minutes (config, default 5 and 15) lock the flow for lockout_minutes, during which no call is made.
       Since revision 2026-10-01c device_move_pending moves the flow to awaiting_move (M-ENR-MOVE-PENDING), keeping the
       pending install key and fingerprint in ~/.reach/state/enroll/ (0600) so a yes re-posts the identical request;
+      since revision 2026-10-01e that yes first asks for the password again (awaiting_password), because it is never kept;
       device_move_denied returns to awaiting_code with M-ENR-MOVE-DENIED.
       On success the hook starts a detached reach sync and blocks with M-ENR-DONE. Harnesses that cannot block a
-      prompt (Hermes) get the flow's message injected as context and the gates still refuse; Antigravity has no
-      hooks and enrolls with reach enroll.
+      prompt (Hermes) get the flow's message injected as context and the gates still refuse; since revision 2026-10-01e
+      Hermes is never asked for the password in chat: a yes in awaiting_confirm answers M-ENR-PASSWORD-TERMINAL, which
+      tells the student to finish with reach enroll in a terminal. reach enroll asks for the password twice with typing
+      hidden, or reads one line from standard input with --password-stdin. Antigravity has no hooks and enrolls with
+      reach enroll.
   W-ENR-8:
     name: device moves
     rule: >-

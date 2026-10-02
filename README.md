@@ -11,11 +11,12 @@ agent into **rEach**, a bounded course partner for a
 Until the student enrolls, rEach refuses everything else: it blocks every
 prompt and asks the student itself, one at a time, for the class-wide course
 code their instructor shared (like `MGMT327-K7QX-94TD`), their institutional
-username (`FLLLNNN@lasierra.edu`) and their student ID, so the agent
-never sees them. Teach checks them against its roster and returns a signed
+username (`FLLLNNN@lasierra.edu`) and their student ID, and last asks them to
+choose a password (at least 8 characters, typed twice, to write down), so the
+agent never sees any of it. Teach checks them against its roster and returns a signed
 enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
-Teach 0.16.0 implements its half; `tools/fake_teach` remains a local stand-in for wire revision 2026-10-01b only.
+Teach 0.17.0 implements its half and keeps only the password's scrypt hash; `tools/fake_teach` is a local stand-in for wire revision 2026-10-01e.
 
 rEach then introduces itself and runs a short intake
 interview, saved on the student's computer only. It enrolls with Teach, receives
