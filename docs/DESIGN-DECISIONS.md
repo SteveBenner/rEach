@@ -94,14 +94,17 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   writes outside the chat's folder, so it runs outside the sandbox once. If the agent cannot ask for that (Codex on
   Windows), it tells the student to switch the chat's permissions to Full access and ask again. It never improvises
   another folder or workaround, and never asks the student to paste commands.
-- **One rEach folder** (10-01, planned for 0.17.0). Codex on Windows lets a sandboxed command write only inside the
+- **One rEach folder** (10-01, Reach 0.17.0). Codex on Windows lets a sandboxed command write only inside the
   chat's folder and the temp folder, so everything rEach keeps (its program, state, keys, runtime kit and the course
-  folders) moves into one rEach folder the student works in. The aim is that after the install the student can switch
-  Codex back to its default permissions; 0.17.0 has to prove that on Windows, including network access for
-  enrollment and submission.
-- **Migration loses nothing** (10-01). Moving an existing install into the rEach folder must have zero chance of losing
-  student data: copy and verify before anything is removed, keep the old location until the new one is proven, and
-  resume or roll back cleanly if interrupted.
+  folders) lives in one rEach folder, `~/rEach`, with rEach's own files in `~/rEach/.reach-home`, and the student
+  opens that folder as their Codex project. Writes there are allowed inside the Windows sandbox. The aim is that after
+  the install the student can switch Codex back to its default permissions; that is not proven yet (the sandbox has
+  no network, and Codex ignores a project's network setting), so students keep Full access until it is.
+- **Migration loses nothing** (10-01, Reach 0.17.0). Moving an existing install into the rEach folder must have zero
+  chance of losing student data: copy and verify every file before switching, never delete, rename or overwrite
+  anything in the old folders or anything already in the rEach folder, and resume or stop cleanly if interrupted.
+  A move that would collide with a file already in `~/rEach` does not happen; the old install keeps working and
+  `reach doctor` says what is in the way.
 
 ## Updates and releases
 

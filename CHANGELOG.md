@@ -12,12 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Everything rEach keeps on disk now lives in one rEach folder, `~/rEach` (`REACH_ROOT` chooses another). The course
   workspace is its top, and rEach's own files (program, keys, packages, vault, transcripts, state and runtime kit)
   are in `~/rEach/.reach-home`. Codex on Windows lets a sandboxed command write only inside the chat's folder and the
-  temp folder, so a student whose Codex project is the rEach folder no longer needs Full access after the install
+  temp folder; with the rEach folder as the Codex project, every file rEach writes is inside it (measured on Windows
+  x64 and arm64 in `codex sandbox`). Whether Codex's default permissions are then enough is not proven yet: the
+  sandbox has no network, and Codex ignores a project's `network_access`. Students keep Full access for now
   (`Reach::Paths`, `lib/reach/paths.rb`). `$REACH_HOME` and `$REACH_WORKSPACE_ROOT` still override.
 - `INSTALL.md`, `rules/reach.md`, `docs/student-guide.md` and the setup guide (`docs/INSTALLATION-AND-SETUP-GUIDE.docx`)
   use the new folder. The install command reads the installed path from `last-install.txt` beside the installer.
-  Setup's Codex host step tells the student to open the rEach folder as the Codex project, after which they may set
-  permissions back to the default.
+  Setup's Codex host step tells the student to open the rEach folder as the Codex project.
 - With the session at the top of the rEach folder, the gate judges every tool target by the space it lands in: a
   slice's owned files and qualify folders as in that slice, extracurricular as extracurricular, the top level
   refused (`M-WRITE-ROOT`), `.reach-home` refused (`M-WRITE-OUTSIDE`, and reads refused). A patch spanning two

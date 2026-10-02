@@ -313,7 +313,7 @@ module Reach
     def host_step_lines(results)
       steps = []
       if results.any? { |entry| entry[:id] == "codex" && entry[:ok] }
-        steps << "In Codex, open the rEach folder in your home folder as your project (#{Reach::Paths.root}). After that you can set permissions back to the default."
+        steps << "In Codex, open the rEach folder in your home folder as your project (#{Reach::Paths.root})."
       end
       steps
     end

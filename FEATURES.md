@@ -23,12 +23,13 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 46 | 100% |
+| ✅ Shipped | 48 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 2% |
-| 🔵 Built, not enabled | 44 | 96% |
+| 🔵 Built, not enabled | 45 | 94% |
+| 🟡 Partial deploy | 1 | 2% |
 | ⚫ No runtime path | 1 | 2% |
 
 ## 1 · Install
@@ -88,6 +89,24 @@ home: `reach guide`, `--path`, `--format json`, the shim, locked `reach hello` (
 locked prompt hook.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student has been walked through it by an agent yet; its prose is not checked against the code, so a later change to enrollment or the install can leave it stale).
+
+### 1.6 · One rEach folder and relocation
+
+Since 0.17.0 everything rEach keeps is in `~/rEach` (`REACH_ROOT` chooses another): the course workspace at its top
+and rEach's own files in `~/rEach/.reach-home`. With the session at the top, the gate judges each target by the space
+it lands in. An install still in `~/.reach` and `~/reach-work` moves itself (setup, background at session start, or
+`reach relocate`) by copy, SHA-256 verify and one rename, never touching the old folders beyond its lock and two
+notes, and refusing when anything in `~/rEach` is in the way (`R-DOC-RELOCATION`). After the move the Claude Code
+and Codex marketplaces are pointed at the moved plugin (`Reach::HarnessSource`), and `update/apply.rb` does the same
+before every refresh. Verified 2026-10-01: a real enrolled 0.16.14 install with slices, checkpoints, transcripts,
+outbox, receipts and symlinks (817 files), updated to 0.17.0 through the installer and moved, on GitHub Windows
+x64 and arm64 (Ruby 4.0.7), macOS arm64 and Intel (the system Ruby 2.6.10) and Linux (Ruby 2.6.10): old folders byte-identical, every file present, only rEach's regenerated harness files
+differ, still enrolled, a second run a no-op. A move under Ruby 2.6.10, a kill mid-copy and mid-verify, a blocked
+move and the gate at the top were exercised on Linux. Inside `codex sandbox` on Windows (x64, arm64, elevated and
+unelevated) from `~/rEach`, writes to `.reach-home`, slices and extracurricular work and `reach status` and `reach
+doctor` run; the network does not. Claude Code 2.1.287 and Codex 0.160.0 repointing ran against scratch configs.
+
+Build ✅ · Deploy 🔵 · Blocker: Engineering (whether Codex's default permissions are enough after the install is unproven; students keep Full access).
 
 ## 2 · Course flow
 
@@ -225,7 +244,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.15 · Course folders and extracurricular
 
-`~/reach-work` holds `deliverables/<course>/<assignment>/<cutout>-<slice>/` (every slice; a sync moves older slice
+The rEach folder (`~/rEach`; `~/reach-work` before 0.17.0) holds `deliverables/<course>/<assignment>/<cutout>-<slice>/` (every slice; a sync moves older slice
 workspaces there and never deletes one) and `extracurricular/`, the student's own code folder, never graded or
 submitted, opened with `reach work --extracurricular`. Each folder, the root included, gets its own rules and
 hooks: extracurricular allows writes only inside itself, the root refuses every write, and the public directive

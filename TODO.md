@@ -6,6 +6,19 @@
       and analytics rEach sends to Teach, and send them keyed to the enrollment (docs/DESIGN-DECISIONS.md, data
       capture).
 
+## One rEach folder (0.17.0)
+
+- [ ] Prove whether Codex's default permissions are enough after the install, on Windows: whether Codex runs hooks and
+      MCP servers (transcript sending, submit, sync) outside the sandbox. The sandbox itself has no network, and a
+      project's `.codex/config.toml` cannot turn it on (Codex ignores project `sandbox_*` keys). Until then students
+      keep Full access. Measuring it needs a real Codex session with rEach's hooks trusted.
+- [ ] Inside the Windows sandbox `~/rEach/.codex` is read-only (Codex protects `.codex` at the project top), so
+      anything that rewrites the root space's Codex config from a sandboxed command fails there; check the code
+      paths that rewrite it fail quietly.
+- [ ] Not exercised: the `no_space` failure, the Windows symlink-privilege fallback, and runtime-kit relocatability
+      after the move (`~/rEach/.reach-home/runtime`).
+- [ ] Remove the `windows-sandbox-probe` branch from GitHub once 0.17.0 is out.
+
 ## Enrollment v2 (0.16.0, branch `enrollment-v2`)
 
 - [x] Teach's half (roster, course codes, preview and shape v2 routes, stamp signing, fingerprint check,
