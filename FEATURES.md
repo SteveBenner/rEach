@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.17 |
+| **Registry version** | 0.16.18 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -371,7 +371,7 @@ Build ✅ · Deploy 🔵 · Blocker: Engineering. Verified on Ruby 2.6.10 and 3.
 
 Since 0.16.17 an instructor can lift the enrollment lock on one install. `reach instructor keygen` writes an RSA 3072 private key (0600, never overwriting) and prints the key id and the `enrollment.instructor_keys` entry; `reach instructor code [--label TEXT]` mints a never-expiring `RINS1` code and refuses when the key is not pinned in `config.yml`; pasted into the locked prompt, the enrollment hook intercepts a valid code (the agent never sees it) and stores it in `~/.reach/instructor.json`, after which an unenrolled install allows prompts without guardrails, captures nothing and tells the agent once per session it is in instructor mode. The stored code is re-verified each time, so listing its id in `enrollment.instructor_revoked` or removing its key relocks the next prompt. `reach instructor status` and `reach instructor lock` show and undo it. Verified 2026-10-01 in scratch homes on Ruby 3.3.8 and in `ruby:2.6.10-slim`: keygen, refusal to overwrite, the unpinned refusal, mint, a locked prompt blocked, the code accepted and the next prompt allowed with the instructor context once, nothing written under the transcripts directory, tampered, unpinned-key and garbage codes refused and counted toward lockout, a valid code accepted during a lockout, revocation and key removal relocking with `instructor.invalidated` logged, `reach instructor lock` moving the file aside, and an enrolled install still gating course-folder prompts. Not verified: a real harness session on Claude Code, Codex or Hermes.
 
-Build ✅ · Deploy 🔵 · Blocker: Human. No instructor key is pinned in `config.yml` yet (`instructor_keys` is empty), so no code works until the instructor runs `reach instructor keygen` and the printed entry ships in a release.
+Build ✅ · Deploy 🔵 · Blocker: Human. Since 0.16.18 the instructor key `343572ebf748c69d` is pinned in `config.yml`, so codes minted from it unlock installs on 0.16.18 or later; no instructor has yet unlocked a real harness session with one.
 
 ## 3 · Course reference
 
