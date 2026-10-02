@@ -277,6 +277,8 @@ module Reach
           cmd_remember(args)
         when "memory"
           cmd_memory(args)
+        when "storage"
+          cmd_storage(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -328,8 +330,14 @@ module Reach
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
             login status                         whether this session is signed in
-            remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--format text|json]   keep one durable thing you learned about the student or their work
+            remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
+            storage [status | measure | compact] [--format text|json]   how much space rEach's memory uses on this computer, and compacting the saved course memory (asks the student first)
+            import export PATH --mode brain|copy [--format text|json]   bring a downloaded ChatGPT, Claude or Gemini export (folder or ZIP) into rEach, asking the student first (brain: a catalog and findings; copy: the same plus a full copy on this computer)
+            import pick [--folder]               open the operating system's own picker for the export's ZIP (or its folder) and print the chosen path
+            import status | cancel | list [--job ID] [--format text|json]   progress of the background import, stop it, or list imports
+            import next [--job ID] | done CONVERSATION [--part N] [--job ID]   the next queued conversation to learn from, and mark it worked
+            import search QUERY [--job ID] | show CONVERSATION [--part N] [--job ID]   search the imported conversations, or print one from the saved copy
         USAGE
       end
 
@@ -1219,6 +1227,7 @@ module Reach
         problems.concat(check_directives)
         problems.concat(check_taste)
         problems.concat(check_sidecar)
+        problems.concat(check_storage)
         limit_lines = limits_report
         problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
         problems.each { |line| puts line }
@@ -1257,9 +1266,11 @@ module Reach
       end
 
       def cmd_import(args)
+        return cmd_export_import(args) if Reach::ExportImport::ACTIONS.include?(args.first)
+
         path = args.shift
         unless path
-          warn "usage: reach import <path>"
+          warn "usage: reach import <path> | reach import export|pick|status|cancel|list|next|done|search|show ..."
           return 1
         end
         space = Reach::Gate.current_space
@@ -1273,6 +1284,38 @@ module Reach
           warn Reach::Messages.text("M-IMPORT-REFUSED", source_name: result["source_name"], reason: result["reason"])
           1
         end
+      end
+
+      def cmd_export_import(args)
+        action = args.shift
+        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
+        folder, args = parse_bare_flag(args, "folder")
+        options, rest = parse_flags(args, [:mode, :job, :part, :format])
+        params = { "folder" => folder, "mode" => options[:mode], "job" => options[:job], "part" => options[:part] }
+        case action
+        when "export"
+          params["path"] = rest.first
+          if params["path"].to_s.empty? || options[:mode].to_s.empty?
+            warn "usage: reach import export <folder-or-zip> --mode brain|copy [--format text|json]"
+            return 1
+          end
+        when "done", "show"
+          params["conversation_id"] = rest.first
+        when "search"
+          params["query"] = rest.join(" ")
+        when "run"
+          if options[:job].to_s.empty?
+            warn "usage: reach import run --job ID"
+            return 1
+          end
+        end
+        result = Reach::ExportImport.perform(action, params)
+        if action == "run"
+          puts JSON.generate(result) if json
+          return result["state"] == "failed" ? 1 : 0
+        end
+        puts json ? JSON.generate(result) : result["text"]
+        result["state"] == "cancelled" && action == "pick" ? 1 : 0
       end
 
       def check_sidecar
@@ -1415,6 +1458,15 @@ module Reach
 
         outdated = Gem::Version.new(Reach::VERSION) < Gem::Version.new(install["minimum_reach_version"])
         outdated ? ["R-DOC-OUTDATED: this reach (#{Reach::VERSION}) is older than the course needs (#{install["minimum_reach_version"]}) - update reach"] : []
+      rescue StandardError
+        []
+      end
+
+      def check_storage
+        return [] unless Reach::Storage.demanded?
+
+        latest = Reach::Storage.last_measure
+        ["R-DOC-STORAGE: rEach's memory is #{Reach::Storage.mb_text(latest['total'])} MB, at the #{Reach::Storage.config['demand_mb']} MB limit - run reach storage compact"]
       rescue StandardError
         []
       end
@@ -1656,14 +1708,14 @@ module Reach
       end
 
       def cmd_remember(args)
-        options, _remaining = parse_flags(args, [:category, :claim, :evidence, :supersedes, :format])
+        options, _remaining = parse_flags(args, [:category, :claim, :evidence, :supersedes, :origin, :format])
         if options[:category].to_s.empty? || options[:claim].to_s.empty? || options[:evidence].to_s.empty?
-          warn "usage: reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--format text|json]"
+          warn "usage: reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]"
           return 1
         end
 
         result = Reach::Brain.remember(
-          category: options[:category], claim: options[:claim], evidence: options[:evidence], supersedes: options[:supersedes]
+          category: options[:category], claim: options[:claim], evidence: options[:evidence], supersedes: options[:supersedes], origin: options[:origin]
         )
         message = Reach::Brain.outcome_message(result)
         if options[:format].to_s == "json"
@@ -1728,6 +1780,39 @@ module Reach
           0
         else
           warn "usage: reach memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]"
+          1
+        end
+      end
+
+      def cmd_storage(args)
+        sub = args.first && !args.first.start_with?("--") ? args.shift : "status"
+        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
+        worker, args = parse_bare_flag(args, "run")
+        case sub
+        when "status"
+          info = Reach::Storage.status
+          puts json ? JSON.generate(info) : Reach::Storage.status_text(info)
+          0
+        when "measure"
+          result = Reach::Storage.measure!
+          if result == :busy
+            puts json ? JSON.generate("state" => "busy") : "storage: a measure is already running"
+          else
+            puts json ? JSON.generate(result) : "storage: #{Reach::Storage.mb_text(result['total'])} MB measured"
+          end
+          0
+        when "compact"
+          if worker
+            result = Reach::Storage.run_compact
+            puts JSON.generate(result) if json
+            return result["state"] == "failed" ? 1 : 0
+          end
+
+          result = Reach::Storage.compact
+          puts json ? JSON.generate(result) : result["text"]
+          0
+        else
+          warn "usage: reach storage [status | measure | compact] [--format text|json]"
           1
         end
       end

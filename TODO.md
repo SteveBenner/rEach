@@ -6,6 +6,14 @@
       and analytics rEach sends to Teach, and send them keyed to the enrollment (docs/DESIGN-DECISIONS.md, data
       capture).
 
+## Storage gates and AI-export import (0.18.0)
+
+- [ ] Run `reach import pick` on a real macOS (osascript) and Windows (PowerShell -STA) desktop; only zenity and
+  kdialog ran on Linux, against fake binaries.
+- [ ] `reach import search|next|show` run in a course folder land in the course record's command line (first 200
+  characters) like `reach remember`; the skill says to work from the extracurricular folder, but nothing enforces it.
+- [ ] Build microbrain compression and compaction once a student's microbrain passes 512 MB (ROADMAP.md).
+
 ## Microbrain (0.16.15)
 
 - [ ] Ship rplugin and rcorpus in the runtime kit so students get corpus-side recall (`Rcorpus::Context`) and

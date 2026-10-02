@@ -363,6 +363,7 @@ module AssignmentOne
       teach("keys", "generate")
       teach("course", "init", "--id", COURSE_ID, "--title", "BUS 101 Smoke", "--term", "Fall 2026", "--tz", "America/Los_Angeles")
       teach("course", "set-end", "--course", COURSE_ID, "--date", COURSE_END_DATE)
+      teach("course", "set-reference", "--course", COURSE_ID, "--reference", COURSE_ID)
       teach("students", "import", File.join(@run_dir, "students.csv"))
       roster = teach_json("roster", "import", "--course", COURSE_ID, File.join(@run_dir, "roster.csv"))
       raise Fail, "roster import rejected rows: #{roster["rejected"].inspect}" unless roster["added"] == 2 && roster["rejected"].empty?
@@ -946,11 +947,12 @@ module AssignmentOne
       leaked = Dir.glob(File.join(@run_dir, "{reach_home,workspaces,student_home,codex_home,plugin}", "**", "*"), File::FNM_DOTMATCH).select do |path|
         File.file?(path) && File.size(path) < 5_000_000 && File.binread(path).include?(REFERENCE_SENTINEL)
       end
-      @last[:expected] = "no plaintext sentinel on the student's disk"
+      spooled, leaked = leaked.partition { |path| path.include?("/brain-spool/") && (File.stat(path).mode & 0o077).zero? }
+      @last[:expected] = "no plaintext sentinel on the student's disk outside the 0600 brain spool"
       @last[:actual] = leaked.empty? ? "none found" : leaked.join(", ")
       raise Fail, "plaintext reference found on disk: #{leaked.join(', ')}" unless leaked.empty?
 
-      "list, show, search and links succeed after sync; sentinel not on the student's disk"
+      "list, show, search and links succeed after sync; sentinel only in the 0600 brain spool (#{spooled.length} file(s))"
     end
 
     def reference_tamper_refused

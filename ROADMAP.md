@@ -25,6 +25,10 @@ Until then, checkpoints are the history.
 
 ## Before 2.0
 
+- A compression and compaction system for the microbrain itself (brain folder, brain spool, findings and import
+  catalogs), to be built when a student's microbrain grows past 512 MB. Until then the microbrain is never compacted;
+  only the corpus is (0.18.0, `STD-STORAGE-GATES`).
+
 - Shipped in 0.14.0: the portable runtime kit (Ruby 4.0.7 with prebuilt gems and Chrome for Testing), so slices
   qualify locally with the versions Teach grades with. Panel slices qualify locally once a course ships a practice
   recording (Grokit's practice set).

@@ -77,6 +77,13 @@ module Reach
       false
     end
 
+    def safe_storage_context
+      Reach::ExportImport.session_start
+      Reach::Storage.session_start
+    rescue StandardError
+      nil
+    end
+
     def safe_session_context
       Reach::Brain.session_context
     rescue StandardError
@@ -325,6 +332,8 @@ module Reach
       lines << memory if memory
       question = safe_course_question
       lines << course_question_line(question) if question
+      storage = safe_storage_context
+      lines << "- #{storage}" if storage
 
       text = lines.join("\n")
       if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"

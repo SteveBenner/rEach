@@ -260,6 +260,22 @@ module Reach
       File.join(home, "corpus-fallback")
     end
 
+    def storage_state_file
+      File.join(state_dir, "storage.json")
+    end
+
+    def storage_lock_file(name)
+      File.join(state_dir, "storage-#{name}.lock")
+    end
+
+    def import_spool_dir
+      File.join(Reach::BrainSpool.state_home, "reach", "import-spool")
+    end
+
+    def imports_dir
+      File.join(Reach::Brain.dir, "imports")
+    end
+
     def managed_install_dir
       File.join(root, "plugin")
     end

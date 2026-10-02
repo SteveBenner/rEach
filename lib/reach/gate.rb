@@ -94,12 +94,18 @@ module Reach
       session = Reach::Transcript.resolve_session_id(event)
       space = current_space
       context = []
+      greeted = false
 
       if decision
-        context << safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup") } if safely { Reach::Login.consume_just_confirmed(session) }
+        if safely { Reach::Login.consume_just_confirmed(session) }
+          context << safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup") }
+          greeted = true
+        end
         context << decision["context"] if decision["context"]
       end
       context.concat(Array(safely { Reach::Update.prompt_notices(session) }))
+      context.concat(Array(safely { Reach::Storage.prompt_notices(session, greeted: greeted) }))
+      context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
       context << safely { Reach::Debug.remote_notice(session) }
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed

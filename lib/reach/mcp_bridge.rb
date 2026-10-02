@@ -220,7 +220,8 @@ module Reach
             "category" => { "type" => "string", "enum" => Reach::Brain::CATEGORIES },
             "claim" => { "type" => "string" },
             "evidence" => { "type" => "string" },
-            "supersedes" => { "type" => "string" }
+            "supersedes" => { "type" => "string" },
+            "origin" => { "type" => "string", "description" => "import:JOB/CONVERSATION when the finding comes from a conversation reach_import next gave you" }
           },
           "required" => %w[category claim evidence]
         }
@@ -245,6 +246,32 @@ module Reach
         "name" => "reach_next",
         "description" => "The deterministic next step for the student, in business terms",
         "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
+        "name" => "reach_import",
+        "description" => "Bring a downloaded ChatGPT, Claude or Gemini export into rEach. action pick opens the operating system's file picker (folder true for a folder) and returns the chosen path; export (path, mode brain or copy) asks the student through Reach first and starts the background import only on their yes, so relay Reach's question word for word; status, cancel and list show or stop the import; next returns the next queued conversation to learn from and done (conversation_id, optional part) marks it worked; search (query) and show (conversation_id, optional part) read the imported conversations",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[pick export status cancel list next done search show] },
+            "path" => { "type" => "string" },
+            "mode" => { "type" => "string", "enum" => %w[brain copy] },
+            "folder" => { "type" => "boolean" },
+            "job" => { "type" => "string" },
+            "conversation_id" => { "type" => "string" },
+            "part" => { "type" => "integer" },
+            "query" => { "type" => "string" }
+          },
+          "required" => ["action"]
+        }
+      },
+      {
+        "name" => "reach_storage",
+        "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "action" => { "type" => "string", "enum" => %w[status compact] } }
+        }
       }
     ].freeze
 
@@ -443,7 +470,7 @@ module Reach
         when "reach_remember"
           result = Reach::Brain.remember(
             category: arguments.fetch("category"), claim: arguments.fetch("claim"), evidence: arguments.fetch("evidence"),
-            supersedes: arguments["supersedes"]
+            supersedes: arguments["supersedes"], origin: arguments["origin"]
           )
           result.merge("message" => Reach::Brain.outcome_message(result))
         when "reach_recall"
@@ -453,8 +480,38 @@ module Reach
         when "reach_next"
           step = Reach::Next.compute
           step.merge("relay_verbatim" => true)
+        when "reach_storage"
+          storage_tool(arguments)
+        when "reach_import"
+          import_tool(arguments)
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
+        end
+      end
+
+      def import_tool(arguments)
+        action = arguments["action"].to_s
+        raise Reach::Error, "reach: unknown import action" if action.empty? || action == "run" || !Reach::ExportImport::ACTIONS.include?(action)
+
+        params = {
+          "path" => arguments["path"], "mode" => arguments["mode"], "folder" => arguments["folder"] == true, "job" => arguments["job"],
+          "conversation_id" => arguments["conversation_id"], "part" => arguments["part"], "query" => arguments["query"]
+        }
+        result = Reach::ExportImport.perform(action, params)
+        result = result.merge("message" => result["text"])
+        %w[export].include?(action) ? result.merge("relay_verbatim" => true) : result
+      end
+
+      def storage_tool(arguments)
+        case arguments["action"].to_s
+        when "compact"
+          result = Reach::Storage.compact
+          result.merge("message" => result["text"], "relay_verbatim" => true)
+        when "", "status"
+          info = Reach::Storage.status
+          info.merge("text" => Reach::Storage.status_text(info))
+        else
+          raise Reach::Error, "reach: unknown storage action"
         end
       end
 

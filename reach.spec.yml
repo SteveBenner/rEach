@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.17.1
+version: 0.18.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -182,6 +182,10 @@ plugin_manifest:
         path: skills/reach-bug/SKILL.md
       - id: reach-checkpoint
         path: skills/reach-checkpoint/SKILL.md
+      - id: reach-storage
+        path: skills/reach-storage/SKILL.md
+      - id: reach-import
+        path: skills/reach-import/SKILL.md
       - id: design-taste-frontend
         path: skills/design-taste-frontend/SKILL.md
       agents:
@@ -961,11 +965,22 @@ mcp_bridge:
   - name: reach_next
     description: The deterministic next step for the student, in business terms
   - name: reach_remember
-    description: Keep one durable finding about the student or their work (category, claim, evidence, optional supersedes); returns saved, reinforced or held
+    description: Keep one durable finding about the student or their work (category, claim, evidence, optional supersedes and, since 0.18.0, origin import:JOB/CONVERSATION); returns saved, reinforced or held
   - name: reach_recall
     description: What rEach remembers; the profile when query is absent, the matching findings when it is given
   - name: reach_memory_forget
     description: Forget findings by id, or everything with all true
+  - name: reach_storage
+    description: >-
+      Since 0.18.0, how much space rEach's memory uses (action status, the default), or compact the saved course memory
+      (action compact); compact returns Reach's own question until the student's captured yes, then starts the background
+      job
+  - name: reach_import
+    description: >-
+      Since 0.18.0, bring a downloaded ChatGPT, Claude or Gemini export into rEach. Action pick opens the operating
+      system's picker, export (path, mode brain or copy) returns Reach's own question until the student's captured yes
+      and then starts the background job, status, cancel and list show or stop it, next and done work the findings
+      queue, search and show read the imported conversations (show needs the copy mode)
   excluded: Nothing that reveals package contents, the vault, keys, graded steps or fixture values.
   authentication: The bridge signs its Teach requests with the install key; the harness never sees the key.
 cli:
@@ -1018,6 +1033,26 @@ cli:
       Since 0.16.15, show what rEach remembers, and forget it. Forgetting writes a tombstone line and scrubs the
       finding (and the superseded findings it replaced, and note sources only it used) from Reach's spool; forget
       --all also scrubs every captured source. Refused while Reach is locked.
+  - name: import
+    synopsis: >-
+      reach import <path> | reach import export PATH --mode brain|copy | pick [--folder] | status | cancel | list |
+      next | done CONVERSATION [--part N] | search QUERY | show CONVERSATION [--part N] [--job ID] [--format text|json]
+    purpose: >-
+      reach import <path> (unchanged) copies one dropped file into the workspace materials folder. Since 0.18.0
+      (STD-EXPORT-IMPORT) its subcommands bring in an export of another AI system: export validates and detects the
+      vendor, asks the student through Reach (M-IMPORT-ASK-BRAIN or M-IMPORT-ASK-COPY) and on the yes starts the
+      detached job; pick prints the path chosen in the operating system's own picker or answers
+      M-IMPORT-PICKER-UNAVAILABLE; status, cancel and list report on or stop jobs; next prints the next queued
+      conversation (at most import.next_max_bytes) and done advances the queue; search and show read the catalog and,
+      in copy mode, the saved conversations. run --job ID is the worker the job and the next prompt start. Refused
+      while Reach is locked.
+  - name: storage
+    synopsis: reach storage [status | measure | compact] [--format text|json]
+    purpose: >-
+      Since 0.18.0 (STD-STORAGE-GATES), status prints the last measure of the corpus and the microbrain together, the
+      thresholds and the compaction job; measure is the detached worker hello starts; compact asks the student through
+      Reach (M-STORAGE-COMPACT-ASK) and, on the yes, starts the detached compaction worker. The worker refuses to run
+      unless that yes has just started it. Refused while Reach is locked.
   - name: profile
     synopsis: reach profile show|save|forget
     purpose: Show, save (field by field, status partial or complete) or delete the student's interview profile
@@ -2094,6 +2129,9 @@ doctor_checks:
 - id: R-DOC-SEAL
   checks: The sidecar at the platform's state directory (or REACH_SIDECAR) exists and parses after enrollment
   fix: Run any reach command once; if it persists, reach enroll again
+- id: R-DOC-STORAGE
+  checks: Since 0.18.0, the last measure of rEach's memory (corpus and microbrain) is below storage.demand_mb; it is a finding only at or above it
+  fix: reach storage compact
 directives:
   table: >-
     The last section of every workspace AGENTS.md (W-RENDER-1). One row per directive, fleet form: [<alias> ·
@@ -2292,6 +2330,94 @@ course_time:
     uses the system's zoneinfo when present, else the computer's own zone with its abbreviation.
   date_only: A due value with no time ("2026-10-03") is shown as a date with no zone ("Sat 3 Oct").
   deadlines: Deadline warnings compare instants, so the display zone never changes when a warning fires.
+storage:
+  since: 0.18.0
+  standard: STD-STORAGE-GATES
+  wire: W-DBG-KINDS, W-DBG-KINDS-2
+  measure: >-
+    Reach::Storage.measure sums the bytes of Reach's own rcorpus corpus root (0 without rplugin) and of the microbrain
+    (Reach::Brain.dir, Reach::BrainSpool.dir, Reach::Paths.import_spool_dir and Reach::Paths.imports_dir; a root inside
+    another is counted once), with lstat sizes, skipping symlinks. A persona's home is measured as its own. The result
+    ({corpus, brain, total, measured_at}) is kept in <home>/state/storage.json (0600, atomic) beside warned_mb, the
+    sessions that heard the demand notice and the compaction job.
+  schedule: >-
+    Measuring never runs inside a hook. reach hello reads storage.json and, when the last measure is older than
+    storage.check_interval_s (3600) and no measure runs, spawns a detached reach storage measure under an exclusive
+    lock; the prompt hook only reads. A measure also follows every compaction (and every import job).
+  config: >-
+    config.yml storage: warn_mb [512, 1024, 2048], demand_mb 4096, check_interval_s 3600. One MB is 1048576 bytes.
+  notices: >-
+    When the total crosses a warn threshold above warned_mb the next prompt carries M-STORAGE-WARN once and warned_mb
+    rises; dropping below a threshold lowers it so a later crossing warns again. At or above demand_mb reach hello's
+    context and the first prompt of each session carry M-STORAGE-DEMAND and Reach::Storage.demanded? is true (new
+    imports are refused). reach doctor reports R-DOC-STORAGE then.
+  compaction: >-
+    reach storage compact asks through Reach like reach submit (STD-SUBMIT-APPROVAL; consent kind compaction, subject
+    the corpus root's digest and the total in whole MB). Terminal mode asks at its own prompt; REACH_HARNESS=antigravity
+    proceeds (the reach-storage skill asks first). On the yes it starts a detached reach storage compact --run under an
+    exclusive lock and answers M-STORAGE-COMPACT-STARTED. The worker runs Rcorpus::Compact#run(compress: true) when
+    the loaded rcorpus accepts a compress keyword and plain run otherwise (reclaim "unsupported"), then gzips every
+    admitted file in the import spool that is not already .gz (verified by decompressing to the same sha256 before the
+    plain file is removed), then measures again. It never opens, prunes, scrubs or rewrites the brain folder or the
+    brain spool, and never calls Rcorpus::Consolidate or Rcorpus::Erase. The next prompt after it ends carries
+    M-STORAGE-COMPACTED, M-STORAGE-COMPACT-OLD-LIBRARY or M-STORAGE-COMPACT-FAILED. Without rplugin reach storage
+    compact answers M-STORAGE-NO-CORPUS.
+  debug: >-
+    Reach::Debug records storage events (measured, warned, demanded, compact_started, compacted, compact_failed) with
+    MB figures, the tier and the outcome only: under kind storage when the cached status's wire_contract_sha256 equals
+    this Reach's own specs/wire.yml digest, otherwise under kind brain with fields.event storage.<outcome>
+    (W-DBG-KINDS-2).
+  agent_text: skills/reach-storage/SKILL.md; one bullet in agents/reach.md and skills/reach-assistant/SKILL.md.
+import:
+  since: 0.18.0
+  standard: STD-EXPORT-IMPORT
+  wire: W-DBG-KINDS, W-DBG-KINDS-2
+  sources: >-
+    reach import export accepts a folder or a .zip (Reach::Unzip reads the central directory and streams one entry at
+    a time; nothing is extracted). The vendor is detected from the first element of conversations.json (chatgpt: items
+    carry mapping; claude: items carry chat_messages, also memories.json and projects.json beside it), of
+    conversations-NNN.json shards, or of a Takeout MyActivity.json whose first item is a Gemini Apps item (gemini: each
+    activity item is one conversation of a prompt and its reply). An export holding only chat.html, conversations.html
+    or MyActivity.html answers M-IMPORT-NEEDS-JSON; anything else M-IMPORT-UNKNOWN. Only user and assistant turns with
+    text are kept (system and tool turns and binary payloads are dropped). reach import pick opens osascript,
+    PowerShell (-STA), zenity or kdialog with a 300 s timeout.
+  streaming: >-
+    Reach::JsonStream yields the text of each top-level array element and its byte offset, tracking strings, escapes
+    and nesting across 1 MiB chunks, so memory stays bounded by the largest single conversation.
+  consent: >-
+    reach import export asks through Reach like reach submit (consent kind export_import, subject the path digest, the
+    mode and the size in bytes). The agent offers the two modes first (the reach-import skill). It is refused when
+    Reach::Storage.demanded? (M-IMPORT-STORAGE-FULL), and in copy mode when the last measured total plus the estimate
+    reaches storage.demand_mb (M-IMPORT-COPY-TOO-LARGE); the question says so when the import would cross a warn
+    threshold.
+  job: >-
+    A detached reach import run --job ID, one at a time under an exclusive lock, keeps its state in
+    <brain>/imports/<ID>/job.json (written atomically after every conversation) beside catalog.jsonl and queue.jsonl.
+    A killed job resumes from the last finished conversation: the catalog and the verbatim copy are cut back to the
+    sizes recorded with that state, so no line is duplicated. The next prompt resumes an interrupted job and carries
+    M-IMPORT-FINISHED (or M-IMPORT-FAILED) once. Each conversation becomes one catalog line (title, dates, turns,
+    bytes, the 12 most frequent non-stopword tokens, an excerpt of at most 400 bytes of the first user turn, and where
+    its full text lives) after the secret and student-ID refusal has dropped any title, excerpt or token that matches.
+    In copy mode it is also rendered as Markdown and appended as private-tier source ops (category import, path
+    import/<vendor>/<conversation_id>.md, parts of at most 1,000,000 bytes) to the import spool, which is admitted
+    into Reach's corpus at the end. The queue ranks the catalog newest first, weighted by length and by overlap with
+    the course's reference words. A storage measure follows the job.
+  findings: >-
+    reach import next prints the next queued conversation (title, dates, an origin line, at most import.next_max_bytes
+    with a part marker) and reach import done advances the queue; reach remember --origin import:<job>/<conversation>
+    stores the origin on the finding, and remember's budget, novelty gate and secret refusal apply unchanged. reach
+    import search streams the catalog (BM25) and, in copy mode, the verbatim parts (plain or .gz), at most 10 hits with a
+    300-byte snippet; reach import show prints one conversation from the copy.
+  isolation: >-
+    Imported text never enters Reach::BrainIndex (it reads only the brain spool), never counts toward
+    brain.max_spool_bytes (the import spool is a separate folder), is never sent to Teach and is never part of a
+    transcript.
+  config: >-
+    config.yml import: next_max_bytes 12000, progress_every 500.
+  debug: >-
+    Reach::Debug.import records started, progress (at most every progress_every conversations), finished, failed and
+    cancelled with the vendor, mode, counts and bytes only, under W-DBG-KINDS-2.
+  agent_text: skills/reach-import/SKILL.md; one bullet in agents/reach.md and skills/reach-assistant/SKILL.md.
 smoke_test:
   command: ruby tools/smoke/run.rb
   purpose: >-

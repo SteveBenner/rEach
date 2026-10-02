@@ -45,6 +45,7 @@ module Reach
     INJECT_KEEP = 10
     MIN_PROMPT_CHARS = 12
     SECRET_PATTERN = /(password|passcode|passphrase|api[ _-]?key|secret|token)\s*[:=]/i.freeze
+    ORIGIN_PATTERN = %r{\Aimport:[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\z}.freeze
 
     module_function
 
@@ -358,18 +359,20 @@ module Reach
       nil
     end
 
-    def secret?(*texts)
-      joined = texts.join("\n")
-      return true if joined.match?(SECRET_PATTERN)
-
+    def secret_matcher
       regex = student_id_regex
-      return true if regex && joined.match?(regex)
-
       own = student_id.to_s
-      !own.empty? && joined.include?(own)
+      lambda do |*texts|
+        joined = texts.join("\n")
+        joined.match?(SECRET_PATTERN) || (!regex.nil? && joined.match?(regex)) || (!own.empty? && joined.include?(own))
+      end
     end
 
-    def remember(category:, claim:, evidence:, supersedes: nil, session_id: nil)
+    def secret?(*texts)
+      secret_matcher.call(*texts)
+    end
+
+    def remember(category:, claim:, evidence:, supersedes: nil, session_id: nil, origin: nil)
       config = settings
       raise Reach::Refused, Reach::Messages.text("M-BRAIN-DISABLED") unless config["enabled"]
 
@@ -381,6 +384,9 @@ module Reach
 
       evidence = evidence.to_s.strip
       raise Reach::Refused, Reach::Messages.text("M-BRAIN-BAD-EVIDENCE") if evidence.empty?
+
+      origin = origin.to_s.strip
+      raise Reach::Refused, Reach::Messages.text("M-BRAIN-BAD-ORIGIN") unless origin.empty? || origin.match?(ORIGIN_PATTERN)
 
       claim = claim[0, CLAIM_MAX]
       evidence = evidence[0, EVIDENCE_MAX]
@@ -432,6 +438,7 @@ module Reach
         "at" => now.iso8601, "student_id" => student_id, "session_id" => session_id
       }
       record["supersedes"] = old["id"] if old
+      record["origin"] = origin unless origin.empty?
       raise Reach::Refused, Reach::Messages.text("M-BRAIN-BAD-SIZE", limit: config["max_record_bytes"]) if JSON.generate(record).bytesize > config["max_record_bytes"]
 
       Reach::BrainSpool.append_op(op: "finding", kind: "finding", id: id, record: record)
@@ -506,6 +513,7 @@ module Reach
       end
       scrub = scrub.uniq
       Reach::Corpus.new(Reach.ports).erase(scrub)
+      Reach::ExportImport.forget_all! if all
       removed = Reach::BrainSpool.scrub!(scrub)
       update_state do |state|
         table = state["reinforcements"].is_a?(Hash) ? state["reinforcements"] : {}

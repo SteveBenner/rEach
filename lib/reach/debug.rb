@@ -5,7 +5,7 @@ require "securerandom"
 
 module Reach
   module Debug
-    KINDS = %w[session hook gate command request lock sync check qualify submit transcript brain update error fault link].freeze
+    KINDS = %w[session hook gate command request lock sync check qualify submit transcript brain update error fault link storage import].freeze
     ROUTE = "/api/v1/debug".freeze
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
@@ -24,7 +24,7 @@ module Reach
     DEFAULTS = { "render" => "auto", "spool_max_bytes" => 5_242_880, "batch_max_events" => 500, "show_max_rows" => 40 }.freeze
     PLUGIN_ROOT = File.expand_path("../..", __dir__)
     SCRUBBED = "[scrubbed]".freeze
-    SUBCOMMAND_COMMANDS = %w[gate transcript instructor shape modules transfer login memory directive reference part update runtime setup debug brain].freeze
+    SUBCOMMAND_COMMANDS = %w[gate transcript instructor shape modules transfer login memory directive reference part update runtime setup debug brain storage import].freeze
 
     module_function
 
@@ -599,6 +599,33 @@ module Reach
       )
     rescue StandardError
       nil
+    end
+
+    def teach_kinds?
+      status = Reach::Sync.cached_status
+      status.is_a?(Hash) && status["wire_contract_sha256"] == Reach::Wire.digest
+    rescue StandardError
+      false
+    end
+
+    def typed(kind, outcome, fields)
+      return nil unless on?
+
+      if teach_kinds?
+        emit(kind, fields.merge("outcome" => outcome.to_s))
+      else
+        emit("brain", fields.merge("event" => "#{kind}.#{outcome}"))
+      end
+    rescue StandardError
+      nil
+    end
+
+    def storage(outcome, fields = {})
+      typed("storage", outcome, fields)
+    end
+
+    def import(outcome, fields = {})
+      typed("import", outcome, fields)
     end
 
     def remote_notice(_session = nil)
