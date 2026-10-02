@@ -27,6 +27,8 @@ module Reach
     module_function
 
     def session(harness:)
+      return nil if Reach::Instructor.mode?
+
       check_enrolled!
       check_guardrails!
       check_has_workspace!
@@ -36,6 +38,8 @@ module Reach
 
     def prompt(event: {}, harness: nil)
       event = {} unless event.is_a?(Hash)
+      return Reach::Instructor.context_once(Reach::Transcript.resolve_session_id(event)) if Reach::Instructor.mode?
+
       blocked = nil
       begin
         check_enrolled!

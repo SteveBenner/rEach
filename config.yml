@@ -14,6 +14,8 @@ enrollment:
   lockout_refusals: 5
   lockout_minutes: 15
   fingerprint_match: binding
+  instructor_keys: []
+  instructor_revoked: []
 updates:
   repository: https://github.com/SteveBenner/rEach
   interval_s: 3600

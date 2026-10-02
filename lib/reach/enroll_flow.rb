@@ -18,11 +18,12 @@ module Reach
     module_function
 
     def evaluate(event:, harness:)
-      lock = Reach::EnrollmentLock.state
-      return nil unless lock["locked"]
-
       event = {} unless event.is_a?(Hash)
       text = event["prompt"].is_a?(String) ? event["prompt"] : nil
+      lock = Reach::EnrollmentLock.state
+      return block(instructor_attempt(text, lock)) if Reach::Instructor.attempt?(text)
+      return nil unless lock["locked"]
+
       return block(Reach::Messages.text("M-ENR-COURSE-ENDED")) if lock["reason"] == "course_ended"
 
       begin
@@ -32,6 +33,35 @@ module Reach
       end
     rescue StandardError
       block(Reach::Messages.text("M-ENR-ASK-CODE"))
+    end
+
+    def instructor_attempt(text, lock)
+      return Reach::Messages.text("M-INSTRUCTOR-UNLOCKED") if Reach::Instructor.accept(text)
+
+      now = Time.now.utc
+      flow = read_flow || fresh_flow
+      remaining = locked_minutes(flow, now)
+      counted = lock["locked"] || Reach::Enroll.current.nil?
+      return Reach::Messages.text("M-ENR-LOCKED", minutes: remaining) if remaining && counted
+      return Reach::Messages.text("M-INSTRUCTOR-REFUSED") unless counted
+
+      minutes = lockout_minutes
+      cutoff = now - (minutes * 60)
+      recent = Array(flow["refusals"]).select do |stamp|
+        Time.iso8601(stamp) > cutoff
+      rescue ArgumentError
+        false
+      end
+      recent << iso(now)
+      if recent.length >= lockout_refusals
+        write_flow(flow.merge("refusals" => [], "locked_until" => iso(now + (minutes * 60)), "updated_at" => iso(now)))
+        return Reach::Messages.text("M-ENR-LOCKED", minutes: minutes)
+      end
+
+      write_flow(flow.merge("refusals" => recent, "updated_at" => iso(now)))
+      Reach::Messages.text("M-INSTRUCTOR-REFUSED")
+    rescue StandardError
+      Reach::Messages.text("M-INSTRUCTOR-REFUSED")
     end
 
     def step(text, lock, harness)

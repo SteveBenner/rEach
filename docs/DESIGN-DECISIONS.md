@@ -52,6 +52,11 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   7-digit school ID. Teach owns the roster they are checked against.
 - **A course code links to exactly one course** (10-01), is class-wide, expires when the course ends, and is
   normalized loosely ("bus-101" and "bus 101" both resolve).
+- **Instructor unlock** (10-01, Reach 0.16.17). An instructor can lift the enrollment lock on one install with a
+  signed code: a private key the instructor keeps outside the repository, its public key pinned in `config.yml`, and
+  codes minted locally at any time with no release, each with an id that `config.yml` can revoke. The code never
+  expires, is pasted into the locked prompt (which the hook intercepts, so the agent never sees it) and has no
+  command-line unlock verb. An unlocked, unenrolled install allows prompts without guardrails and captures nothing.
 - **Machine fingerprint** (10-01). After enrollment rEach keeps a stamp of machine, harness and account that must
   match Teach's.
 - **Sign-in each session** (09-30): the student ID, then "Am I speaking with <name>?", enforced by hooks.

@@ -18,6 +18,8 @@ module Reach
     module_function
 
     def state
+      return { "locked" => false, "reason" => "instructor", "message_id" => nil } if Reach::Instructor.active?
+
       reason = reason_for_state
       return { "locked" => false, "reason" => nil, "message_id" => nil } unless reason
 

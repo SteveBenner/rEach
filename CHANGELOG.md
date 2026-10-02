@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.17] - 2026-10-01
+
+### Added
+
+- Instructor unlock. Since 0.16.0 an installed rEach is inert until a student enrolls, which blocked instructors who
+  install it to try it. An instructor now runs `reach instructor keygen` once, pins the printed public key under
+  `enrollment.instructor_keys` in `config.yml`, ships it in a release, and mints never-expiring codes with
+  `reach instructor code [--label TEXT]`. Pasting a code into the locked prompt lifts the enrollment lock on that
+  install: the enrollment hook intercepts the code so the agent never sees it, rEach stops blocking prompts without
+  checking guardrails, a workspace or a login, captures nothing, and tells the agent once per session it is in
+  instructor mode. An enrolled install gates exactly as before. A bad code counts toward the enrollment lockout; a
+  good one works even during a lockout. The stored code is re-verified every time, so removing its key or listing its id
+  under `enrollment.instructor_revoked` relocks the next prompt. `reach instructor status` and `reach instructor lock`
+  show and undo the unlock (`instructor` joins the commands that run while locked). Events go to
+  `logs/instructor.jsonl` and never carry the code. New module `Reach::Instructor`; `STD-INSTRUCTOR-UNLOCK`.
+
 ## [0.16.16] - 2026-10-01
 
 ### Fixed
