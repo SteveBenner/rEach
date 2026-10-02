@@ -109,6 +109,7 @@ module Reach
         context.concat(Array(imports))
         context << safely { Reach::Next.anchor_text(space) }
       end
+      context << safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) }
 
       text = context.compact.map(&:to_s).reject(&:empty?).join("\n\n")
       text.empty? ? nil : text

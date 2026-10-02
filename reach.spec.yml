@@ -262,6 +262,11 @@ layout:
       written, the last seq Teach acknowledged and how far the harness transcript has been read,
       <session_id>.rejected.jsonl any entries Teach refused as malformed, and spaces/<sha256 of a space path>.json the
       file digests the turn-end scan compares against; directory 0700, files 0600
+  - path: "~/.reach/brain/"
+    content: >-
+      The microbrain's own state (since 0.16.15): state.json (write budgets, local reinforcements, admit backoff,
+      memory-notice flag), sessions/<session>.json (capture cursor, nudge counters, last source, recent injections)
+      and index.json (a rebuildable cache of the spool's findings); directory 0700, files 0600
   - path: "~/.reach/receipts/"
     content: Receipts as received, verified
   - path: "~/.reach/logs/"
@@ -405,6 +410,17 @@ library:
     role: The status summary
   - name: Reach::Corpus
     role: Notes, tips, attempts, qualifications and receipts as brain-spool lines, admitted into Reach's own corpus when rcorpus loads (Reach::BrainSpool)
+  - name: Reach::Brain
+    role: >-
+      The microbrain, since 0.16.15: captures each conversation turn Reach already records in a course folder as a
+      private source, takes the findings the agent distils (reach remember), gates them for novelty and budget,
+      injects a profile at session start and matching memories on each prompt, and forgets on request. Hooks never
+      raise; every record stays on this computer.
+  - name: Reach::BrainIndex
+    role: >-
+      The read model over every brain-spool line (pending and admitted, latest line per id, tombstones hide):
+      BM25 search and term-frequency cosine similarity over active findings, decay and reinforcement salience, and a
+      cache in ~/.reach/brain/index.json keyed by each spool file's inode, size and mtime
   - name: Reach::Directives
     role: The public directive files, the private rows from the vault, the AGENTS.md table and reach directive (a private body fetched from Teach per call)
   - name: Reach::Check
@@ -442,7 +458,12 @@ harness_integration:
     files:
       .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
       .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add <link>, codex plugin add reach@reach).
-      plugin.json: The Agent Plugins 1.0 manifest, read by Antigravity.
+      plugin.json: >-
+        The Agent Plugins 1.0 manifest, read by Antigravity. Codex 0.156 and newer takes a root plugin.json over
+        .codex-plugin/plugin.json and then loads no plugin hooks (openai/codex#47925), so since 0.16.16 Reach sets it
+        aside as plugin.json.agent-plugins in Codex's own cached copy of rEach ($CODEX_HOME/plugins/cache/*/reach/*/,
+        only where .codex-plugin/plugin.json is present) after reach setup and every update, and when Codex starts
+        reach mcp. The repository and the install folder keep it, so Antigravity is unaffected.
       skills/: Every harness.
       agents/reach.md and settings.json: The rEach persona as Claude's main session agent.
       rules/reach.md: Antigravity's always-on pointer to reach hello and the persona.
@@ -559,7 +580,8 @@ harness_integration:
     limits_stated_honestly: >-
       Codex now has PreToolUse hooks; file writes arrive as apply_patch with the patch text, and reach gate write reads
       the patch's file headers. Codex runs a project's .codex/hooks.json and the plugin's hooks only after the student
-      trusts them; until then enforcement is the read-only file permissions plus the submit-time check, and reach watch
+      trusts them (the plugin's two hooks reach the trust review only once Reach has set the cached root plugin.json
+      aside, see packaging.files); until then enforcement is the read-only file permissions plus the submit-time check, and reach watch
       stays the shape-check backstop.
   antigravity:
     configuration: >-
@@ -954,6 +976,12 @@ mcp_bridge:
     description: Show the student's modules or options, or choose them; returns Reach's lock-in question until the student's captured yes
   - name: reach_next
     description: The deterministic next step for the student, in business terms
+  - name: reach_remember
+    description: Keep one durable finding about the student or their work (category, claim, evidence, optional supersedes); returns saved, reinforced or held
+  - name: reach_recall
+    description: What rEach remembers; the profile when query is absent, the matching findings when it is given
+  - name: reach_memory_forget
+    description: Forget findings by id, or everything with all true
   excluded: Nothing that reveals package contents, the vault, keys, graded steps or fixture values.
   authentication: The bridge signs its Teach requests with the install key; the harness never sees the key.
 cli:
@@ -990,6 +1018,22 @@ cli:
   - name: start
     synopsis: reach start [--harness ID]
     purpose: Open the chosen harness in the current folder with rEach speaking first (no course gate)
+  - name: remember
+    synopsis: reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--format text|json]
+    purpose: >-
+      Since 0.16.15, keep one durable finding the agent learned (category preference, goal, decision, struggle, skill,
+      project, fact or thought). A near-duplicate (cosine at least brain.duplicate within the category) only
+      reinforces the existing finding; a spent per-hour or per-day budget holds it; a claim or evidence that looks
+      like a password, key, token or a student ID is refused. A held or reinforced remember exits 0 so the agent's
+      loop is not broken. Refused while Reach is locked.
+  - name: memory
+    synopsis: >-
+      reach memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export]
+      [--format text|json]
+    purpose: >-
+      Since 0.16.15, show what rEach remembers, and forget it. Forgetting writes a tombstone line and scrubs the
+      finding (and the superseded findings it replaced, and note sources only it used) from Reach's spool; forget
+      --all also scrubs every captured source. Refused while Reach is locked.
   - name: profile
     synopsis: reach profile show|save|forget
     purpose: Show, save (field by field, status partial or complete) or delete the student's interview profile
@@ -1188,11 +1232,61 @@ corpus:
     ~/.reach/corpus-fallback/*.jsonl from earlier versions is migrated into the spool once.
   kinds_file: specs/kinds.yml
   kinds:
+    source: "One captured conversation turn (conversations/<date>/<session>-<seq>.private.md) or note (notes/<date>/<uuid>.private.md), at most 16384 bytes; since 0.16.15."
+    finding: One durable thing the partner learned about the student or their work, grounded on a source; since 0.16.15.
     note: The agent's working notes about the slice (what was tried, what the student prefers).
     tip: Tips delivered by the suite or the instructors, so the agent does not repeat mistakes across sessions.
     attempt: Fix attempts per finding (kept for older records; the ladder counts qualifications).
     qualification: Each qualification record.
     receipt: A copy of each receipt.
+  brain:
+    since: 0.16.15
+    capture: >-
+      Reach::Transcript.turn calls Reach::Brain.capture_turn after the harness transcript is ingested and before the
+      flush. It reads this session's prompt and reply entries written in a course space after the cursor in
+      ~/.reach/brain/sessions/<session>.json (blocked prompts are skipped), composes Student and Partner lines, and
+      appends one op source line (tier private; id source-<24 hex of sha256(path, newline, source_digest)>). A turn
+      shorter than brain.capture_min_chars, a repeated digest (last 500) or a spent brain.sources_per_hour is skipped
+      and logged without text.
+    findings: >-
+      The host agent distils; Reach::Brain.remember grounds the finding on the session's last source captured within
+      30 minutes, else on a note source holding the evidence. The source line is always spooled first. Finding id is
+      finding-<24 hex of sha256(category, newline, normalized claim)>; salience 0.7 for preference, goal and decision,
+      else 0.5; supersedes appends a tombstone for the old id. Novelty and budget keys are in config.yml brain and
+      mirrored in specs/kinds.yml.
+    nudge: >-
+      Every brain.nudge_every_turns captured turns the next prompt context adds M-BRAIN-DISTILL; a nudge followed by no
+      saved finding doubles the interval up to brain.nudge_max_turns, and a saved finding resets it.
+    recall: >-
+      The session start adds M-BRAIN-CONTEXT and, when findings exist, the profile within brain.session_budget_bytes;
+      each prompt adds the BM25 hits whose score is at least brain.prompt_min_score (default 0.2) of the ideal score, the sum of the idf of the prompt terms that occur anywhere in memory, within brain.prompt_budget_bytes, not
+      repeating ids from the session's last 10 injections. Hooks (session start and every prompt) are always
+      lexical, through Reach::BrainIndex, to stay inside the 150 ms budget. An explicit recall with a query (the
+      reach_recall tool) is fused through Rcorpus::Context#render when rplugin and the encoder are present, and falls
+      back to the index on any error. Sources are spooled with op source and findings with op finding (not put), so
+      admission builds the content file, graph nodes, supports edge and embedding.
+    admission: >-
+      Spool admission runs at most once per brain.admit_interval_s; a failure doubles the wait up to
+      brain.admit_max_backoff_s. After a successful admit, once a day, Rcorpus::Consolidate runs when defined.
+    erasure: >-
+      The one exception to the append-only spool: Reach::BrainSpool.scrub! rewrites each day file (pending and
+      admitted/) without the put and source lines of the forgotten ids, through a mode 0600 temporary file, fsync
+      and rename under the same file lock writers take. Tombstone lines (an id and a reason) stay so a later
+      admission carries the forget to the corpus. Text already admitted into a corpus plane is not erased by Reach.
+    config: >-
+      config.yml brain: enabled, capture_min_chars, sources_per_hour, duplicate, related, per_hour, per_day,
+      max_record_bytes, nudge_every_turns, nudge_max_turns, session_budget_bytes, prompt_budget_bytes, prompt_k,
+      prompt_min_score, admit_interval_s, admit_max_backoff_s, max_spool_bytes (20 MiB); a missing or invalid value falls back to its default.
+    spool_cap: >-
+      After a capture appends a source, at most once per 10 minutes (state.json), the total spool size (pending and
+      admitted day files) is compared with brain.max_spool_bytes. Over it, the oldest source lines no active finding
+      references are scrubbed (Reach::BrainSpool.scrub!) until the total is at or below 80% of the cap; finding,
+      tombstone and every other kind of line are never removed. If it is still over the cap, new source captures are
+      skipped (brain.source_held, reason spool_full) while findings are still accepted.
+    events: >-
+      ~/.reach/logs/brain.jsonl: brain.captured, brain.source_held, brain.pruned, brain.remembered, brain.recalled, brain.nudged,
+      brain.forgotten, brain.admit_failed; ids, counts, bytes and outcomes only, never claim, evidence or turn text.
+    state: "~/.reach/brain/ (mode 0700) holds state.json (budgets, reinforcements, admit backoff, notice flag), sessions/<session>.json and index.json (a cache)."
   privacy: >-
     The corpus lives on the student's disk only; nothing in it is sent to Teach except what a hand-raise bundle
     explicitly includes.

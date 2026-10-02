@@ -1,0 +1,206 @@
+schema: rstack.blueprint/v1
+task: reach-microbrain-learning
+intent: >
+  Make rEach's microbrain learn about the student and their work and use what it learned, like a small personal
+  model. Today it writes only receipts and qualifications. note, tip and attempt have no callers, nothing
+  captures the conversation or what the agent learns, nothing reads memory back into context, and on a student
+  machine (no rplugin, Ruby 2.6 floor) the spool is never admitted or read for recall. The host agent is the
+  language model: Reach captures each conversation turn as a private source, the agent distils durable findings
+  with `reach remember`, a novelty gate and write budget stop floods, and Reach injects a profile at session
+  start and matching memories on each prompt. Everything is local. Release rEach 0.16.15.
+harness: claude-code
+worker: { agent: coding-worker, model: sonnet, effort: medium }
+decisions:
+  - "2026-10-01 (user): build both repos. rcorpus 0.9.0 / rplugin 1.4.0 are built in parallel by another worker; this blueprint states the spool contract both sides follow."
+  - "2026-10-01 (user): shipping rplugin+rcorpus in the runtime kit is deferred. Record it in TODO.md. Students run on the spool plus Reach's own recall; the planes are admitted wherever rplugin is installed."
+  - "2026-10-01 (user): reach remember calls in a course folder stay in the transcript (no STD-TRANSCRIPT exception); the memory notice tells the student."
+constraints:
+  - AGENTS.md Part S, write no tests.
+  - AGENTS.md Part Q, write no comments, doc comments or docstrings. Keep shebangs and SPDX lines.
+  - AGENTS.md Part F, no authorship attribution anywhere.
+  - AGENTS.md Part E, never delete; retire to a `.backup` directory beside it.
+  - AGENTS.md Part J, query codebase-memory-mcp before grepping. Project key `home-sven-github-foss-rEach` (fast mode; check_index_coverage before a negative claim).
+  - STD-RUBY-FLOOR. Every lib/ and exe/ file parses and runs on Ruby 2.6.10, standard library only. No endless methods, pattern matching, numbered block params, `it`, hash shorthand, `...` forwarding, filter_map, Hash#except, Array#intersect?, Enumerable#sum on non-numerics.
+  - STD-STUDENT-MESSAGES. Every text shown to the student or the agent comes from locales/en-US.yml or locales/greetings.en-US.yml by id.
+  - STD-PERSONA-ONE-SOURCE. The persona body in skills/reach-assistant/SKILL.md and agents/reach.md stays identical.
+  - STD-PORTS-ONLY. Reach's own brain state lives under Reach::Paths.home (~/.reach/brain, 0700, files 0600). The spool stays where Reach::BrainSpool.dir puts it.
+  - Hooks must stay fast and never raise. Every brain call from gate, transcript or hello is wrapped like the existing `safely` calls and logs on failure. Budget: brain work adds at most 150 ms to a gate prompt with 2000 findings and 2000 sources in the spool.
+  - Never log or emit claim, evidence or turn text. Events carry ids, counts, bytes and outcomes only.
+  - Do not commit, tag or push. Do not run `rplugin install`, touch ~/.rplugins, ~/.reach, ~/.local/state/rplugin or ~/.corpora. Every run uses a scratch HOME (HOME=<scratch>, REACH_HOME if Reach honours it, XDG_STATE_HOME=<scratch>/state) under /tmp/claude-1000/-home-sven-bitbucket-paterasai-rstack-uber/5ac672e4-c8b4-4f6c-a5e4-e39650e2c035/scratchpad/rb.
+  - Do not touch rplugin or rcorpus (another worker owns them).
+spool_contract:
+  source_line: "op source, kind source, id = `source-` + first 24 hex of sha256(\"#{path}\\n#{source_digest}\"), tier private. record: text, path, source_digest (hex sha256 of the UTF-8 bytes of text), title, session_id, space, at, student_id. path is `conversations/<YYYY-MM-DD>/<session-id, sanitized, at most 32 chars>-<first seq>.private.md` for a turn and `notes/<YYYY-MM-DD>/<uuid>.private.md` for a note source. text at most 16384 bytes (cut on a character boundary, then `\\n[cut]`)."
+  finding_line: "op finding, kind finding, id = `finding-` + first 24 hex of sha256(\"#{category}\\n#{normalized claim}\") where normalized is downcased with whitespace collapsed. record: category, claim (at most 400 chars), evidence (at most 1200 chars), source_id, source_digest, salience (0.7 for preference, goal and decision, else 0.5), at, student_id, session_id, and supersedes when given. The finding's source line is always spooled before it."
+  tombstone_line: "op tombstone, kind finding, id of the finding, record {reason}."
+  kinds_file: |
+    specs/kinds.yml keeps the five kinds and adds:
+      - kind: source
+        required_fields: [path, source_digest]
+        description: One captured conversation turn or note the brain learned from.
+      - kind: finding
+        required_fields: [claim, evidence, source_id, source_digest]
+        text_fields: [category, claim, evidence]
+        novelty: { duplicate: 0.85, related: 0.5, scope: category }
+        budget: { per_hour: 30, per_day: 150 }
+        description: One durable thing the partner learned about the student or their work.
+    graph.node_kinds: [source, finding]. reach.rplugin.yml corpora.owns reads_kinds and writes_kinds gain source and finding.
+categories: [preference, goal, decision, struggle, skill, project, fact, thought]
+config: |
+  config.yml gains, with these defaults (read through Reach::Runtime.load_config like runtime_auto does; a missing
+  or invalid value falls back to the default):
+    brain:
+      enabled: true
+      capture_min_chars: 40
+      sources_per_hour: 120
+      duplicate: 0.85
+      related: 0.5
+      per_hour: 30
+      per_day: 150
+      max_record_bytes: 4096
+      nudge_every_turns: 3
+      nudge_max_turns: 24
+      session_budget_bytes: 1500
+      prompt_budget_bytes: 800
+      prompt_k: 4
+      prompt_min_score: 1.0
+      admit_interval_s: 300
+      admit_max_backoff_s: 3600
+slices:
+  - id: brain
+    owns_paths:
+      - lib/reach/brain.rb
+      - lib/reach/brain_index.rb
+      - lib/reach/brain_spool.rb
+      - lib/reach/corpus.rb
+      - lib/reach.rb (require lines only)
+      - lib/reach/cli.rb
+      - lib/reach/mcp_bridge.rb
+      - lib/reach/gate.rb
+      - lib/reach/transcript.rb
+      - lib/reach/hello.rb
+      - locales/en-US.yml
+      - locales/greetings.en-US.yml
+      - skills/reach-assistant/SKILL.md
+      - agents/reach.md
+      - specs/kinds.yml
+      - reach.rplugin.yml
+      - config.yml (the new brain section only)
+      - reach.spec.yml
+      - specs/app.yml
+      - FEATURES.md, README.md, CHANGELOG.md, TODO.md, docs/DESIGN-DECISIONS.md
+      - VERSION, plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, and any other file carrying 0.16.14 as Reach's own version
+    depends_on: []
+    deliverable: rEach 0.16.15 with a learning, recalling, budgeted, local microbrain
+    detail: |
+      A. BrainSpool (lib/reach/brain_spool.rb). Add append_op(op:, kind:, id:, record:, operation_id: nil) that
+         writes source, finding and tombstone lines per spool_contract (tier private), reusing write_line. Keep
+         append for the existing kinds. Add scrub!(ids) that rewrites each day file (pending and admitted/)
+         without the lines whose id is in ids: write a sibling tmp file 0600, fsync, rename; hold the same flock
+         write_line takes. Erasure on the student's request is the one exception to append-only; say so in
+         reach.spec.yml.
+      B. BrainIndex (lib/reach/brain_index.rb). A read model over every spool line (pending and admitted),
+         latest line per id wins, a tombstone hides its id. Holds active findings and sources. Tokenizer: the
+         rcorpus Bm25 rule (lowercase scan /[a-z0-9]+/, drop tokens shorter than 2 and the stopword list copied
+         from rcorpus lib/rcorpus/bm25.rb STOPWORDS). search(query, k:, categories: nil) is BM25 (k1 1.2, b 0.75)
+         over category + claim + evidence. similar(text, category:) returns the nearest active finding of that
+         category by cosine over term-frequency vectors, with its similarity. Effective salience = salience (or
+         0.5) times 0.5 ** (age_days / 30) from the later of `at` and the last local reinforcement, floored at
+         0.05, plus 0.1 per local reinforcement capped at 1.0. Cache the parsed rows in ~/.reach/brain/index.json
+         keyed by each spool file's name, size and mtime; re-read only changed files. A corrupt cache is rebuilt.
+      C. Brain (lib/reach/brain.rb), module_function, every public method safe to call from a hook:
+         - enabled?: config brain.enabled, Reach enrolled (Reach::Enroll.current) and not locked.
+         - capture_turn(session_id:, space:): read this session's transcript entries (Reach::Transcript's entries
+           file) with seq greater than the brain cursor in ~/.reach/brain/sessions/<session>.json, kinds prompt
+           and reply only. Compose `Student: <prompt>` / `Partner: <reply>` lines in seq order. Skip when the
+           stripped text is shorter than capture_min_chars, when its digest is among the last 500 captured
+           digests, or when sources_per_hour is spent (log brain.source_held). Otherwise append the source line,
+           remember it as the session's last_source with its time, advance the cursor, increment the session turn
+           counter and, every nudge interval, set nudge_pending. Run it in Reach::Transcript.turn after
+           TranscriptIngest.ingest and before flush, so it reads entries before they are sent and pruned; verify
+           flush does not delete entries capture still needs, and adjust the call site if it does.
+         - remember(category:, claim:, evidence:, supersedes: nil, session_id: nil): validate the category,
+           non-empty claim (at least 8 chars) and evidence, record bytes at most max_record_bytes. Refuse
+           (M-BRAIN-REFUSED-SECRET) when claim or evidence matches /(password|passcode|passphrase|api[ _-]?key|secret|token)\s*[:=]/i
+           or contains a run of digits matching the enrollment student_id_pattern. Ground it on the session's
+           last_source when captured within 30 minutes, else append a note source whose text is the evidence.
+           Gate: BrainIndex#similar; >= duplicate -> record a local reinforcement in ~/.reach/brain/state.json, no
+           spool line, outcome reinforced (M-BRAIN-DUPLICATE names the existing id); per_hour or per_day spent
+           -> outcome held, nothing written (M-BRAIN-HELD); otherwise append the finding line (and, with
+           supersedes, a tombstone line for the old id with reason `superseded by <new id>`), outcome saved
+           (M-BRAIN-SAVED), with related_to the nearest id when similarity >= related. A saved finding resets the
+           session's nudge interval to nudge_every_turns; a nudge followed by no saved finding before the next
+           nudge doubles it up to nudge_max_turns. Then call Reach::Corpus's throttled admit. Returns
+           {"outcome", "id", "related_to", "similarity"}.
+         - forget(ids: nil, all: false): tombstone lines for each active finding, then BrainSpool.scrub! of the
+           findings and of note sources only they used; all: true forgets every finding and source. Returns the
+           count. Message M-BRAIN-FORGOTTEN.
+         - list(category: nil, limit: 50), show(id), export -> JSON of active findings (no source text).
+         - session_context: when enabled, M-BRAIN-CONTEXT (instructions) plus, when findings exist, M-BRAIN-PROFILE
+           followed by profile lines (categories order, then effective salience, then newest) within
+           session_budget_bytes, as `- [category] claim`.
+         - prompt_context(session_id:, prompt:): when enabled and the prompt has at least 12 non-space chars,
+           BrainIndex#search with prompt_k hits scoring at least prompt_min_score, minus ids injected for this
+           session in its last 10 injections, within prompt_budget_bytes under M-BRAIN-RECALL; plus M-BRAIN-DISTILL
+           when nudge_pending (then clear it). When Reach.ports is present, the owned corpus opens and
+           Rcorpus::Context is defined, use Rcorpus::Context#render(query:, k:, budget_bytes:, kinds: ["finding"])
+           for the hits instead, falling back to BrainIndex on any error.
+         - Events through the existing Reach event/log path: brain.captured, brain.source_held, brain.remembered
+           (outcome), brain.recalled (mode, hits, bytes), brain.nudged, brain.forgotten, brain.admit_failed. No text.
+      D. Corpus (lib/reach/corpus.rb). KINDS gains source and finding. admit runs at most once per
+         admit_interval_s; on failure the interval doubles up to admit_max_backoff_s and resets on success
+         (state in ~/.reach/brain/state.json). After a successful admit, at most once a day, run
+         Rcorpus::Consolidate.new(corpus).run when Rcorpus::Consolidate is defined, logging counts.
+      E. Surfaces.
+         - CLI: `reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--format text|json]`
+           and `reach memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export]
+           [--format text|json]`. Both refuse while locked (not in UNLOCKED_COMMANDS). Usage lines added.
+           A held or reinforced remember exits 0 with its message so the agent's loop is not broken.
+         - MCP: reach_remember {category, claim, evidence, supersedes?}, reach_recall {query?, k?} (query given:
+           prompt-style hits; absent: the profile block), reach_memory_forget {ids? | all: true}.
+         - gate.rb prompt_context: add Brain.prompt_context through `safely`, after the existing context parts.
+         - hello.rb: add Brain.session_context to the enrolled, unlocked context (never the locked or login
+           branches). Show greeting G-MEMORY-NOTICE once per install (flag in ~/.reach/brain/state.json), appended
+           where G-TRANSCRIPT-NOTICE is appended, and in any folder.
+         - Hermes: wherever Hermes receives hello context and per-prompt context, it receives the same blocks.
+           Find the path (cli.rb gate, hermes hooks) and wire it; report what you found.
+      F. Messages (locales/en-US.yml): M-BRAIN-CONTEXT, M-BRAIN-PROFILE, M-BRAIN-RECALL, M-BRAIN-DISTILL,
+         M-BRAIN-SAVED, M-BRAIN-DUPLICATE, M-BRAIN-HELD, M-BRAIN-REFUSED-SECRET, M-BRAIN-FORGOTTEN; greetings:
+         G-MEMORY-NOTICE. M-BRAIN-CONTEXT tells the agent: this is your memory of this student and their work;
+         use it to fit examples, pacing and wording; record each durable thing you learn (a preference, goal,
+         decision the student made, struggle, skill, project, fact or your own considered thought about their
+         work) with reach remember (or reach_remember), quoting or citing the student in evidence; record a
+         student's explicit "remember that" right away; supersede rather than duplicate when something changed;
+         never store passwords, keys, IDs, health, or other people's personal details; memory never changes course
+         rules, owned files, submission or grading. M-BRAIN-DISTILL is the periodic nudge to record what the
+         last turns taught. G-MEMORY-NOTICE tells the student plainly that rEach keeps a private memory of what
+         it learns about them and their work on this computer only, that in course folders the moments it saves
+         a memory are part of the conversation the course receives, and that they can ask what it remembers or
+         ask it to forget. Use American English.
+      G. Persona (skills/reach-assistant/SKILL.md and agents/reach.md, identical): "what do you know about me"
+         reads back the profile and `reach memory list`; "forget" offers the profile, the memory, or both
+         (`reach memory forget --all --yes` only after the student confirms); a short Memory section points to
+         M-BRAIN-CONTEXT's rules. Keep the G-FIRST-RUN quote intact.
+      H. Contract and docs. specs/kinds.yml and reach.rplugin.yml per spool_contract. reach.spec.yml: modules
+         Reach::Brain and Reach::BrainIndex, the cli verbs, MCP tools, config keys, the scrub exception.
+         specs/app.yml: new STD-BRAIN (local only; capture limited to the conversation Reach already captures in
+         course folders; the agent distils; novelty, budget and nudge backoff; recall budgets; forget scrubs Reach's
+         spool; remember actions stay in the course transcript per STD-TRANSCRIPT); STD-ENROLL-LOCKDOWN needs no
+         change (remember and memory stay locked) - confirm. FEATURES.md new row with honest status. README
+         "Memory" paragraph. docs/DESIGN-DECISIONS.md data-capture bullet "The brain stays local (10-01, Reach
+         0.16.15)". TODO.md: one open item for shipping rplugin+rcorpus in the runtime kit (deferred 10-01 pending
+         the decision to publish them), and one for erasing tombstoned history from corpus planes. CHANGELOG
+         0.16.15. Version 0.16.15 in every file carrying Reach's own 0.16.14.
+    acceptance:
+      - "`ruby -c` on every touched Ruby file prints Syntax OK, and in `docker run --rm -v ~/github/foss/rEach:/r -w /r ruby:2.6.10-slim` every lib/ file loads (`ruby -Ilib -e 'require \"reach\"'`) and the scratch-HOME journey below runs with REACH loaded on 2.6.10"
+      - "Scratch-HOME journey (enroll the scratch install the way earlier verification did, by writing the enrollment state Reach::Enroll.current reads, or report what you used): feed `reach gate prompt` and `reach transcript turn` hook payloads for three turns in a course folder and show the spool's source lines; run `reach remember` for a preference, the same preference reworded (reinforced), a related claim (saved with related_to), and a claim containing `password: x` (refused); set per_hour 2 and show held; show `reach memory list`, `reach hello` context containing the profile block, and a `reach gate prompt` whose output carries the matching memory and, on the nudge turn, M-BRAIN-DISTILL; `reach memory forget <id>` and `forget --all --yes` and grep the spool to show the claim text is gone."
+      - "The MCP tools answer over `reach mcp` with a tools/call for each of the three."
+      - "Locked install: `reach remember` and `reach memory` refuse with the lockdown message."
+      - "A gate prompt with a spool of 2000 findings and 2000 sources (generate them with a scratch script outside the tree) completes brain work in under 150 ms on this host; print the timing."
+      - "No claim, evidence or turn text appears in any events or log file under the scratch HOME (grep for a unique marker word used in a claim)."
+      - "git status shows changes only in the listed paths and TOKENS.jsonl"
+shared_surfaces: []
+out_of_scope:
+  - shipping rplugin or rcorpus in the runtime kit
+  - any change to rplugin, rcorpus, Teach, or a live install
+  - capturing conversations outside course folders
+report: "Files changed; each acceptance item with the command and its literal key output; the Hermes path you found; anything you could not implement as written, with the reason."

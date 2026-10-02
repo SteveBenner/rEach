@@ -10,7 +10,7 @@ ports:
 extensions:
   enabled: [claude-code, codex, os]
 corpora:
-  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification], writes_kinds: [note, tip, attempt, receipt, qualification], kinds_file: specs/kinds.yml, tiers_split: true }
+  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification, source, finding], writes_kinds: [note, tip, attempt, receipt, qualification, source, finding], kinds_file: specs/kinds.yml, tiers_split: true }
   consumes: []
 contents:
   skills:

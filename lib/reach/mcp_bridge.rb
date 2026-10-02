@@ -213,6 +213,36 @@ module Reach
         }
       },
       {
+        "name" => "reach_remember",
+        "description" => "Keep one durable thing you learned about the student or their work: a preference, goal, decision, struggle, skill, project, fact or your own considered thought. Quote or cite the student in evidence. Pass supersedes (a finding id) when something changed",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "category" => { "type" => "string", "enum" => Reach::Brain::CATEGORIES },
+            "claim" => { "type" => "string" },
+            "evidence" => { "type" => "string" },
+            "supersedes" => { "type" => "string" }
+          },
+          "required" => %w[category claim evidence]
+        }
+      },
+      {
+        "name" => "reach_recall",
+        "description" => "What rEach remembers about the student: the profile when query is absent, or the memories matching query",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "query" => { "type" => "string" }, "k" => { "type" => "integer" } }
+        }
+      },
+      {
+        "name" => "reach_memory_forget",
+        "description" => "Forget remembered findings by id, or everything with all true (only after the student confirms)",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "ids" => { "type" => "array", "items" => { "type" => "string" } }, "all" => { "type" => "boolean" } }
+        }
+      },
+      {
         "name" => "reach_next",
         "description" => "The deterministic next step for the student, in business terms",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -384,12 +414,42 @@ module Reach
         when "reach_modules"
           chosen = Array(arguments["choose"]).map { |item| item.to_s.strip }.reject(&:empty?)
           chosen.empty? ? { "text" => Reach::Modules.summary_text, "relay_verbatim" => true } : choice_payload(Reach::Modules.choose!(chosen))
+        when "reach_remember"
+          result = Reach::Brain.remember(
+            category: arguments.fetch("category"), claim: arguments.fetch("claim"), evidence: arguments.fetch("evidence"),
+            supersedes: arguments["supersedes"]
+          )
+          result.merge("message" => Reach::Brain.outcome_message(result))
+        when "reach_recall"
+          recall_tool(arguments)
+        when "reach_memory_forget"
+          forget_tool(arguments)
         when "reach_next"
           step = Reach::Next.compute
           step.merge("relay_verbatim" => true)
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
         end
+      end
+
+      def recall_tool(arguments)
+        query = arguments["query"].to_s
+        if query.strip.empty?
+          block = Reach::Brain.profile_block
+          return { "text" => block || Reach::Messages.text("M-BRAIN-EMPTY"), "hits" => 0 }
+        end
+
+        found = Reach::Brain.recall(query: query, k: arguments["k"])
+        found ? { "text" => found["text"], "hits" => found["hits"] } : { "text" => Reach::Messages.text("M-BRAIN-NO-MATCH"), "hits" => 0 }
+      end
+
+      def forget_tool(arguments)
+        everything = arguments["all"] == true
+        ids = Array(arguments["ids"]).map(&:to_s).reject(&:empty?)
+        raise Reach::Refused, Reach::Messages.text("M-BRAIN-FORGET-WHAT") if !everything && ids.empty?
+
+        count = Reach::Brain.forget(ids: ids, all: everything)
+        { "forgotten" => count, "message" => Reach::Messages.text("M-BRAIN-FORGOTTEN", count: count) }
       end
 
       def capture_stdout

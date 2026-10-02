@@ -189,6 +189,7 @@ module Reach
           if space
             record_hermes_reply(session_id, event, space) if resolved_harness == "hermes" && !final
             Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: resolved_harness, space: space)
+            capture_brain(session_id, space)
             scan_space(session_id, resolved_harness, space)
           end
         end
@@ -196,6 +197,13 @@ module Reach
         log_transcript_event("turn_failed", "error" => e.class.name)
       end
       flush(quick: quick, final: final)
+      nil
+    end
+
+    def capture_brain(session_id, space)
+      Reach::Brain.capture_turn(session_id: session_id, space: space)
+    rescue StandardError => e
+      log_transcript_event("brain_capture_failed", "error" => e.class.name)
       nil
     end
 
