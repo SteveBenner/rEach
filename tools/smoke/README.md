@@ -131,7 +131,16 @@ model. It starts a real Teach in an isolated home, installs rEach from a local
 GitHub-shaped ZIP, enrolls, syncs the G1 context A1 backend workspace, writes an
 implementation, checks that submit is refused before any qualification, writes the
 agent's scenarios from `tools/smoke/qualify/`, qualifies locally and on Teach (with
-Teach's grader running), submits, and follows the ingest and grade receipts. It writes `summary.json`
+Teach's grader running), submits, and follows the ingest and grade receipts.
+
+Enrollment follows the Teach 0.17 flow in both drivers: `teach roster import --course ID
+FILE.csv` (columns `student_id,username,display_name,group`), `teach course code mint
+--course ID` for the class-wide course code, then `reach enroll --course-code C --username U
+--student-id I --password-stdin` with an 8 to 256 character password on stdin. The synthetic
+student is `smok001` with ID `1000001` (the course policy wants a 6 or 7 digit ID and a
+four-letter, three-digit username). The step `enroll-wrong-student-id-refused` enrolls the
+same username with a different ID from a second Reach home and expects the refusal and no
+second install. The course code and password are kept in the drivers' redaction list. It writes `summary.json`
 and `summary.md` under `~/.cache/reach-smoke/a1/<timestamp>/`. Its reference steps are
 `reference-pack`, `reference-locked-before-enroll`, `reference-after-sync` and
 `reference-tamper-refused`; the smoke packs the reference blob before releasing, so the key
