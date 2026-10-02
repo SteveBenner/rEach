@@ -25,9 +25,14 @@ module Reach
       "prompt_min_score" => 0.2,
       "admit_interval_s" => 300,
       "admit_max_backoff_s" => 3600,
-      "max_spool_bytes" => 20_971_520
+      "max_spool_bytes" => 20_971_520,
+      "course_recall" => true,
+      "course_k" => 3,
+      "course_budget_bytes" => 600,
+      "course_min_score" => 0.2
     }.freeze
-    FLOAT_KEYS = %w[duplicate related prompt_min_score].freeze
+    FLOAT_KEYS = %w[duplicate related prompt_min_score course_min_score].freeze
+    COURSE_LINE_CHARS = 240
     SOURCE_MAX_BYTES = 16_384
     CUT_MARK = "\n[cut]".freeze
     CLAIM_MAX = 400
@@ -299,15 +304,16 @@ module Reach
       before = spool_bytes
       after = before
       full = false
-      if before > cap
-        index = load_index
+      index = load_index
+      course = index.course_sources.inject(0) { |sum, row| sum + row["b"].to_i }
+      if before - course > cap
         referenced = index.findings.map { |row| row["s"] }
-        victims = index.sources.reject { |row| referenced.include?(row["id"]) }.sort_by { |row| [row["w"].to_s, row["id"]] }
+        victims = index.sources.reject { |row| referenced.include?(row["id"]) || row["p"].to_s.start_with?(Reach::CourseCorpus::PATH_PREFIX) }.sort_by { |row| [row["w"].to_s, row["id"]] }
         target = (cap * PRUNE_TARGET).to_i
         doomed = []
         freed = 0
         victims.each do |row|
-          break if before - freed <= target
+          break if before - course - freed <= target
 
           doomed << row["id"]
           freed += row["b"].to_i
@@ -318,7 +324,7 @@ module Reach
           after = spool_bytes
           log("brain.pruned", "sources" => doomed.length, "bytes_before" => before, "bytes_after" => after)
         end
-        full = after > cap
+        full = after - course > cap
       end
       update_state { |fresh| fresh.merge("spool_checked_at" => now.to_i, "spool_full" => full) }
       nil
@@ -485,7 +491,7 @@ module Reach
       Reach::Corpus.new(Reach.ports).admit_if_due(force: true)
       scrub = doomed.dup
       if all
-        scrub.concat(index.sources.map { |row| row["id"] })
+        scrub.concat(index.sources.reject { |row| row["p"].to_s.start_with?(Reach::CourseCorpus::PATH_PREFIX) }.map { |row| row["id"] })
         index.findings.each { |row| scrub.concat(index.lineage(row)) }
       else
         remaining = index.findings.reject { |row| doomed.include?(row["id"]) }.map { |row| row["s"] }
@@ -650,6 +656,32 @@ module Reach
       nil
     end
 
+    def course_recall(query:)
+      config = settings
+      return nil unless config["course_recall"]
+
+      hits = load_index.search_course(query, k: config["course_k"]).select { |row| row["share"] >= config["course_min_score"] }
+      used = 0
+      lines = []
+      chosen = []
+      hits.each do |row|
+        flat = row["text"].to_s.gsub(/\s+/, " ").strip
+        flat = "#{flat[0, COURSE_LINE_CHARS - 1]}…" if flat.length > COURSE_LINE_CHARS
+        line = "- [#{row['title']}] #{flat}"
+        break if used + line.bytesize > config["course_budget_bytes"]
+
+        used += line.bytesize + 1
+        lines << line
+        chosen << row["id"]
+      end
+      return nil if lines.empty?
+
+      { "text" => "#{Reach::Messages.text('M-BRAIN-COURSE')}\n#{lines.join("\n")}", "ids" => chosen, "hits" => chosen.length, "bytes" => used }
+    rescue StandardError => e
+      log("brain.failed", "op" => "course_recall", "error" => e.class.name)
+      nil
+    end
+
     def prompt_context(session_id:, prompt:)
       return nil unless enabled?
 
@@ -657,9 +689,12 @@ module Reach
       session = read_session(session_id)
       recent = Array(session["injected"]).flatten
       found = nil
+      course = nil
       if prompt.to_s.gsub(/\s+/, "").length >= MIN_PROMPT_CHARS
         found = recall(query: prompt.to_s, exclude: recent, lexical_only: true)
         parts << found["text"] if found
+        course = settings["course_recall"] ? course_recall(query: prompt.to_s) : nil
+        parts << course["text"] if course
       end
       nudge = session["nudge_pending"] == true
       parts << Reach::Messages.text("M-BRAIN-DISTILL") if nudge
@@ -673,6 +708,7 @@ module Reach
           fresh
         end
       end
+      log("brain.course_recalled", "hits" => course["hits"], "bytes" => course["bytes"]) if course
       log("brain.recalled", "mode" => found["mode"], "hits" => found["hits"], "bytes" => found["bytes"]) if found
       log("brain.nudged", "session_id" => session_id.to_s) if nudge
       parts.empty? ? nil : parts.join("\n\n")

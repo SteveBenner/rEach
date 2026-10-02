@@ -29,6 +29,7 @@ require_relative "reach/brain_spool"
 require_relative "reach/brain_index"
 require_relative "reach/brain"
 require_relative "reach/corpus"
+require_relative "reach/course_corpus"
 
 require_relative "reach/runtime"
 require_relative "reach/profile"

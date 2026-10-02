@@ -58,6 +58,10 @@ brain:
   admit_interval_s: 300
   admit_max_backoff_s: 3600
   max_spool_bytes: 20971520
+  course_recall: true
+  course_k: 3
+  course_budget_bytes: 600
+  course_min_score: 0.2
 debug:
   render: auto
   spool_max_bytes: 5242880

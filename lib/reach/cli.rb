@@ -323,7 +323,7 @@ module Reach
             next                                 the next step
             support                              help if you are having a hard time
             directive <OPCODE> | --list          a directive's full text
-            reference list|show <path>|search <words>|links   the course reference material
+            reference list|show <path>|search <words>|links|ingest [--force]   the course reference material
             transcript turn [--quick [--final]] --harness H | code --harness H | flush [--quick [--final]] | status [--format text|json]
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
@@ -2091,8 +2091,13 @@ module Reach
           puts Reach::Reference.format_search(Reach::Reference.search(args))
         when "links"
           puts Reach::Reference.links
+        when "ingest"
+          force, _rest = parse_bare_flag(args, "force")
+          report = Reach::CourseCorpus.ingest(force: force)
+          puts Reach::Messages.text("M-COURSE-INGESTED", state: report["state"], courses: report["courses"], files: report["files"], sources: report["sources"], tombstoned: report["tombstoned"])
+          return %w[disabled failed].include?(report["state"]) ? 1 : 0
         else
-          warn "usage: reach reference list | show <path> | search <words> | links"
+          warn "usage: reach reference list | show <path> | search <words> | links | ingest [--force]"
           return 1
         end
         0
