@@ -104,6 +104,7 @@ module Reach
         next unless File.file?(expanded) && !File.symlink?(expanded)
         next if inside?(expanded, Reach::Paths.workspace_root)
         next if inside?(expanded, Reach::Paths.home)
+        next if inside?(expanded, Reach::Paths.root)
 
         list << expanded
       end

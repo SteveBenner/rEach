@@ -193,7 +193,8 @@ module Reach
     end
 
     def log(event, fields = {})
-      FileUtils.mkdir_p(Reach::Paths.logs_dir)
+      Reach::Debug.emit("update", fields.merge("event" => event))
+      FileUtils.mkdir_p(Reach::Paths.root_logs_dir)
       record = { "at" => now_s, "event" => event }.merge(fields)
       File.open(Reach::Paths.update_log_file, "a", 0o600) { |handle| handle.puts(JSON.generate(record)) }
       nil
@@ -521,7 +522,7 @@ module Reach
     end
 
     def with_lock
-      FileUtils.mkdir_p(Reach::Paths.state_dir)
+      FileUtils.mkdir_p(Reach::Paths.root_state_dir)
       File.open(Reach::Paths.update_lock_file, File::RDWR | File::CREAT, 0o600) do |handle|
         return :locked unless handle.flock(File::LOCK_EX | File::LOCK_NB)
 

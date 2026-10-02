@@ -207,7 +207,7 @@ module Reach
         lines << "web_search = \"disabled\"" if %w[slice root].include?(space_kind.to_s)
         lines << ""
         lines << "[sandbox_workspace_write]"
-        lines << "writable_roots = [#{toml_string(Reach::Paths.home)}]"
+        lines << "writable_roots = [#{toml_string(Reach::Paths.root)}]"
         lines << "network_access = true"
         lines << ""
         lines << "[mcp_servers.reach]"

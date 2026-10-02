@@ -13,6 +13,7 @@ module Reach
     def path
       override = ENV["REACH_SIDECAR"].to_s
       return File.expand_path(override) unless override.empty?
+      return File.join(Reach::Paths.home, "seal.json") if Reach::Paths.persona_id
 
       host_os = RbConfig::CONFIG["host_os"].to_s
       base = if host_os =~ /darwin/

@@ -903,6 +903,7 @@ module Reach
     end
 
     def log_transcript_event(event, fields = {})
+      Reach::Debug.emit("transcript", fields.merge("event" => event))
       FileUtils.mkdir_p(Reach::Paths.logs_dir)
       record = { "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "event" => event }
       fields.each { |k, v| record[k.to_s] = v }

@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.22 |
+| **Registry version** | 0.16.23 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 70 catalogued |
+| **Feature count** | 72 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,14 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 64 | 91% |
-| ⚪ Planned | 6 | 9% |
+| ✅ Shipped | 66 | 92% |
+| ⚪ Planned | 6 | 8% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 59 | 84% |
+| 🔵 Built, not enabled | 61 | 85% |
 | ⚫ No runtime path | 9 | 13% |
 
 ## 1 · Install
@@ -405,6 +405,18 @@ Build ✅ · Deploy 🔵 · Blocker: Engineering. Verified on Ruby 2.6.10 and 3.
 Since 0.16.17 an instructor can lift the enrollment lock on one install. `reach instructor keygen` writes an RSA 3072 private key (0600, never overwriting) and prints the key id and the `enrollment.instructor_keys` entry; `reach instructor code [--label TEXT]` mints a never-expiring `RINS1` code and refuses when the key is not pinned in `config.yml`; pasted into the locked prompt, the enrollment hook intercepts a valid code (the agent never sees it) and stores it in `~/.reach/instructor.json`, after which an unenrolled install allows prompts without guardrails, captures nothing and tells the agent once per session it is in instructor mode. The stored code is re-verified each time, so listing its id in `enrollment.instructor_revoked` or removing its key relocks the next prompt. `reach instructor status` and `reach instructor lock` show and undo it. Verified 2026-10-01 in scratch homes on Ruby 3.3.8 and in `ruby:2.6.10-slim`: keygen, refusal to overwrite, the unpinned refusal, mint, a locked prompt blocked, the code accepted and the next prompt allowed with the instructor context once, nothing written under the transcripts directory, tampered, unpinned-key and garbage codes refused and counted toward lockout, a valid code accepted during a lockout, revocation and key removal relocking with `instructor.invalidated` logged, `reach instructor lock` moving the file aside, and an enrolled install still gating course-folder prompts. Not verified: a real harness session on Claude Code, Codex or Hermes.
 
 Build ✅ · Deploy 🔵 · Blocker: Human. Since 0.16.18 the instructor key `343572ebf748c69d` is pinned in `config.yml`, so codes minted from it unlock installs on 0.16.18 or later; no instructor has yet unlocked a real harness session with one.
+
+### 2.30b · Instructor personas
+
+Since 0.16.23 (wire revision 2026-10-02a) an install holding a valid instructor unlock runs as a test student: `reach instructor dummy [--course ID]` starts a blank one and `reach instructor as USERNAME [--course ID]` a test copy of a roster student, both made by Teach 0.17.2's `W-API-ENROLL-INSTRUCTOR`, which never writes the real student's record and files everything the persona sends as instructor data. The persona has its own rEach home (`~/.reach/personas/<id>/`) and folders (`~/reach-work/personas/<id>/`), signs in with the test student ID that the start message and `reach instructor status` name, gates and captures exactly as a student's install, and ends with `reach instructor exit` (moved to `.backup`). A revoked code or removed key locks it. Verified 2026-10-02 against a real scratch Teach 0.17.2 through the assignment-one smoke extended with persona journeys (52 steps passed, 2 manual skips): unlock, a test copy of the smoke student with its workspace and 4 copied receipts, sign-in by test ID, the owned write allowed and an outside write refused, `reach check` clean, the real student's 19 table snapshots identical before and after, exit, a dummy, revocation at Teach, and the real student's install still active; the full student loop passed alongside it. The persona flow also ran in `ruby:2.6.10-slim` against a stub. Not verified: a live Claude Code, Codex or Hermes session.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed and the instructor key pinned in the live course policy).
+
+### 2.30c · Debug mode
+
+Since 0.16.23 rEach records scrubbed metadata events (W-DBG-KINDS; never prompt or file text, codes, passwords or keys) under `debug/` in the rEach home, always for a persona and otherwise after `reach debug on [--for MINUTES]` or an instructor's `teach debug on`, which the student is told about. It sends them to Teach (`W-API-DEBUG`), keeps them queued on any failure, and shows each turn's events as a hook `systemMessage`: an ASCII table on terminal surfaces, a Markdown table on desktop and IDE surfaces, with `debug.render` as the override; Hermes has no user-visible hook channel, so `reach debug show` is the way there. Verified 2026-10-02: with debug off every hook output and file listing is identical to 0.16.22's (117-line diff); against the real scratch Teach a persona's 29 events of 8 kinds were stored as classification instructor and both table formats rendered; against a stub, the scrub, local and remote switches, the once-per-session notice and the offline queue. Not verified: a live harness rendering the block.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 
 ### 2.31 · Opening a course folder
 

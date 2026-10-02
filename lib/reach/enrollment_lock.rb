@@ -11,14 +11,25 @@ module Reach
       "stamp_invalid" => "M-ENR-STAMP-INVALID",
       "moved" => "M-ENR-MOVED",
       "restamp" => "M-ENR-RESTAMP",
-      "course_ended" => "M-ENR-COURSE-ENDED"
+      "course_ended" => "M-ENR-COURSE-ENDED",
+      "instructor_revoked" => "M-PERSONA-LOCKED"
     }.freeze
     MOVED_KIND = "fingerprint_mismatch".freeze
 
     module_function
 
     def state
-      return { "locked" => false, "reason" => "instructor", "message_id" => nil } if Reach::Instructor.active?
+      current = compute_state
+      Reach::Debug.lock(current)
+      current
+    end
+
+    def compute_state
+      if Reach::Persona.active?
+        return { "locked" => true, "reason" => "instructor_revoked", "message_id" => MESSAGES.fetch("instructor_revoked") } unless Reach::Instructor.active?
+      elsif Reach::Instructor.active?
+        return { "locked" => false, "reason" => "instructor", "message_id" => nil }
+      end
 
       reason = reason_for_state
       return { "locked" => false, "reason" => nil, "message_id" => nil } unless reason

@@ -20,11 +20,11 @@ module Reach
     end
 
     def shim_path
-      File.join(Reach::Paths.home, "bin", "reach")
+      File.join(Reach::Paths.root, "bin", "reach")
     end
 
     def shim_root_path
-      File.join(Reach::Paths.home, "bin", "root")
+      File.join(Reach::Paths.root, "bin", "root")
     end
 
     def shim_content

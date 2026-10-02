@@ -81,6 +81,7 @@ module Reach
     end
 
     def log(event, fields = {})
+      Reach::Debug.emit("brain", fields.merge("event" => event))
       Reach::BrainSpool.log(event, fields)
     end
 

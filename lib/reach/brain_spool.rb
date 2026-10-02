@@ -15,7 +15,9 @@ module Reach
     module_function
 
     def state_home
-      if defined?(Rplugin::Paths) && Rplugin::Paths.respond_to?(:state_home)
+      if Reach::Paths.persona_id
+        File.join(Reach::Paths.home, "brain-store")
+      elsif defined?(Rplugin::Paths) && Rplugin::Paths.respond_to?(:state_home)
         Rplugin::Paths.state_home
       else
         value = ENV["XDG_STATE_HOME"].to_s
