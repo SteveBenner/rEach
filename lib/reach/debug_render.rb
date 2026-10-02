@@ -177,7 +177,15 @@ module Reach
       when "transcript"
         [join("transcript", f["event"]), pairs(f, %w[event]), nil]
       when "brain"
+        event = f["event"].to_s
+        return summary(event.split(".").first, f.merge("outcome" => event.split(".", 2).last)) if event.match?(/\A(storage|import)\./)
+
         [join("brain", f["event"]), pairs(f, %w[event]), nil]
+      when "storage"
+        [join("storage", f["tier"] ? "tier #{f['tier']}" : nil), join(f["outcome"], f["total_mb"] ? "#{f['total_mb']} MB" : nil, f["before_mb"] ? "from #{f['before_mb']} MB" : nil), nil]
+      when "import"
+        progress = f["conversations"] ? "#{f['done'] || 0}/#{f['conversations']}" : nil
+        [join("import", f["vendor"], f["mode"]), join(f["outcome"], progress, f["findings_queued"] ? "queued #{f['findings_queued']}" : nil), nil]
       when "update"
         [join("update", f["event"] || f["phase"]), pairs(f, %w[event phase]), nil]
       when "error"

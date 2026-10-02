@@ -5,6 +5,51 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-10-02
+
+### Added
+
+- Storage gates (`STD-STORAGE-GATES`, `lib/reach/storage.rb`). Reach measures the corpus together with the microbrain
+  (brain folder, brain spool, import spool and imports folder) in a detached `reach storage measure`, started from
+  session start at most once per `storage.check_interval_s` (3600) and never inside a hook, and keeps the result in
+  `storage.json`. At 512, 1024 and 2048 MB (`storage.warn_mb`) the next prompt carries `M-STORAGE-WARN` once per
+  threshold crossed, offering to compact the corpus only. At 4096 MB (`storage.demand_mb`) session start and the first
+  prompt of each session carry `M-STORAGE-DEMAND`, which demands compaction, suggests a true backup to another drive,
+  and refuses imports. `reach doctor` reports `R-DOC-STORAGE` at the limit.
+- `reach storage status|measure|compact` and the `reach_storage` MCP tool, with the `reach-storage` skill.
+  `reach storage compact` asks the student through Reach (consent kind `compaction`, `M-STORAGE-COMPACT-ASK`) and
+  then compacts in a detached worker: `Rcorpus::Compact#run(compress: true)` when the installed rcorpus offers it
+  (0.11.0), a plain compaction reported by `M-STORAGE-COMPACT-OLD-LIBRARY` otherwise, plus gzip of the admitted
+  import-spool files, each verified before its plain copy goes. The microbrain is never compacted; the next prompt
+  reports the before and after sizes.
+- Importing an export of another AI system (`STD-EXPORT-IMPORT`, `lib/reach/export_import.rb` and
+  `lib/reach/export_import/`). `reach import pick [--folder]` opens the system's file picker (osascript, PowerShell,
+  zenity or kdialog, 300 s), and `reach import export <path> --mode brain|copy` takes a folder or a `.zip` from
+  ChatGPT, Claude or Gemini (Takeout JSON); an HTML-only export answers `M-IMPORT-NEEDS-JSON`. Reach asks first
+  (consent kind `export_import`): both asks warn that it takes a long time, and the brain-mode ask says that
+  deleting the export loses its full text. A detached, resumable job streams the JSON (`Reach::JsonStream`, memory
+  bounded by the largest conversation; a 198 MB export peaked at 90 MB RSS) into a catalog and a ranked queue under
+  `~/.reach/brain/imports/<job>/`; copy mode also saves every conversation verbatim as private-tier corpus sources
+  under `import/<vendor>/`. The agent distills findings from the queue with `reach import next|done|search|show`
+  and `reach remember --origin import:<job>/<conversation>` within the normal write budget. Imported text never
+  enters the prompt-time brain index or the spool cap and never reaches Teach. `reach import status|cancel|list`,
+  the `reach_import` MCP tool and the `reach-import` skill come with it; a killed job resumes at the next session.
+- Debug kinds `storage` and `import` (wire 2026-10-02d, `W-DBG-KINDS-2`), sent only when Teach advertises the same
+  wire digest (Teach 0.18.3); otherwise the same fields go as kind `brain` with `event` `storage.<outcome>` or
+  `import.<outcome>`. No path, name, title or text in either.
+
+### Changed
+
+- `reach memory forget --all` also cancels any import, erases every imported verbatim copy from the corpus and
+  deletes the imports folder and import spool (`STD-BRAIN`).
+- `ROADMAP.md` records a microbrain compression and compaction system for when a microbrain passes 512 MB.
+
+### Fixed
+
+- `tools/smoke/assignment_one.rb` links the smoke course to its reference (`teach course set-reference`), which Teach
+  0.18.2 requires before it delivers any reference, and accepts the one 0600 brain-spool copy of course text that
+  0.17.1 keeps (`STD-COURSE-CORPUS`); against Teach 0.18.4 it passes 36 checks again.
+
 ## [0.17.1] - 2026-10-02
 
 ### Added

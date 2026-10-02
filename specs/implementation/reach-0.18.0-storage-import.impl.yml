@@ -1,0 +1,190 @@
+schema: rstack.impl/v1
+name: reach-0.18.0-storage-import
+target_version: 0.18.0
+teach_version: 0.18.3
+rcorpus_version: 0.11.0
+rplugin_version: 1.5.0
+wire_revision: 2026-10-02d
+standards: [STD-STORAGE-GATES, STD-EXPORT-IMPORT, STD-BRAIN, STD-DEBUG-MODE, STD-CONSENT-FROM-REACH, STD-SUBMIT-APPROVAL, STD-STUDENT-MESSAGES, STD-RUBY-FLOOR, STD-FLOWS, STD-PERSONA-ONE-SOURCE, STD-PORTS-ONLY, STD-TRANSCRIPT]
+wire_rules: [W-DBG-KINDS, W-DBG-KINDS-2, W-DBG-SCRUB]
+intent: >-
+  Keep a student's local rEach data from growing without bound. Reach measures its corpus and microbrain together,
+  warns at 512, 1024 and 2048 MB with an offer to compact the corpus, and at 4096 MB requires compaction and suggests a
+  true backup; compaction shrinks the corpus for real through rcorpus 0.11.0's gzip snapshots and backups and never
+  touches the microbrain. A student can import a downloaded export of another AI system into the microbrain, with or
+  without a verbatim copy in the corpus, through a deterministic, streaming, resumable background job; the agent then
+  distils findings from a ranked queue within the brain's write budget. Teach accepts the new storage and import debug
+  kinds.
+already_done_by_primary:
+  - rEach specs/wire.yml revision 2026-10-02d (storage and import in W-DBG-KINDS, W-DBG-KINDS-2) and its byte-identical copy in Teach
+  - rEach specs/app.yml STD-STORAGE-GATES, STD-EXPORT-IMPORT and the STD-BRAIN and STD-DEBUG-MODE amendments; ROADMAP.md brain-compression item
+  - Teach specs/app.yml STD-DEBUG-EVENTS amendment
+  - rcorpus specs/microdatabase.yml compaction.compression
+rules_for_workers:
+  - Part Q. No comments anywhere. Only shebangs, magic comments and SPDX lines survive.
+  - Part S. Write no tests. Existing suites, smokes and torture runs may be run, and test machinery may be adapted where a slice says so.
+  - Reach lib/ and exe/ run on Ruby 2.6.10 with the stdlib only. No endless methods, no hash shorthand, no numbered block params, no `it`, no pattern matching. Verify with `docker run --rm -v "$PWD":/r -w /r ruby:2.6.10 ruby -wc <file>` and by loading lib/reach.rb under that image.
+  - Every person-facing Reach text comes from locales/en-US.yml by id through Reach::Messages.text. American English. Student-facing text never names code, files of the slice or commands (STD-FLOWS); agent-facing text may.
+  - Never touch the real ~/.reach, ~/.corpora, ~/.local/state/rplugin, ~/reach-work, ~/Downloads, ~/.teach or ~/.config/teach. Use a scratch HOME (memory - rplugin resolves its registry off HOME, so XDG-only isolation is not enough) under the session scratchpad.
+  - Never run rplugin install or rplugin package. Run `unset TEACH_DATABASE_URL` before any Teach command; the shell's value is the LIVE database.
+  - Do not commit. Do not edit the files already_done_by_primary, VERSION, CHANGELOG.md, FEATURES.md, TODO.md or README.md of any repo; the primary owns them.
+  - Never delete a file. Move anything you replace to a .backup path.
+  - Match the surrounding code's idiom and density.
+slices:
+  - id: rcorpus
+    repo: ~/bitbucket/paterasai/rstack-uber/foss/rplugin/rcorpus
+    owns_paths:
+      - lib/rcorpus/compact.rb
+      - lib/rcorpus/snapshots.rb
+      - lib/rcorpus/plane.rb (snapshot reading only)
+      - lib/rcorpus/corpus.rb (check_protocol! only)
+      - lib/rcorpus.rb (protocol constants only)
+      - lib/rcorpus/erase.rb, lib/rcorpus/check.rb, lib/rcorpus/repair.rb, lib/rcorpus/index.rb, lib/rcorpus/torture.rb (only where they read or rewrite snapshots or backups)
+      - lib/rcorpus/verbs/compact.rb (a --compress flag)
+      - any other lib file that opens a snapshot or backup file directly, found by grepping for Snapshots, backup_path, snapshot_files and .backup
+    work:
+      - Compact#run(compress: false). With compress true, write each snapshot file as <name>.jsonl.gz (Zlib::GzipWriter, fsync the underlying file) and move each covered segment into .backup/ as a gzip file <segment>-<stamp>.gz (compress to a temporary file, fsync, rename, then remove the original segment only after the .gz verifies by decompressing to the same sha256). The manifest keeps the uncompressed sha256 and backup_path names the .gz.
+      - When any compressed snapshot or backup is written, set the corpus manifest's protocol_version to rcorpus.microdatabase/v1.1 (a new constant). check_protocol! accepts v1 and v1.1; anything else newer still raises ProtocolNewer, so rcorpus 0.10.x refuses a v1.1 corpus.
+      - Snapshots.files returns .jsonl and .jsonl.gz files of each snapshot dir in stamp order; Plane#scan and every other reader of snapshot files read a .gz transparently (Zlib::GzipReader line by line; offsets are uncompressed offsets and are only ever used for live segments; make sure nothing seeks into a snapshot by offset, or make it work on .gz).
+      - Snapshots.backup_for and every reader of backups accept the .gz backup. erase rewrites a compressed snapshot or backup by decompress, scrub, recompress into a temporary file and atomic rename, updating the manifest sha256 to the digest of the rewritten uncompressed content, as it does for plain files today.
+      - check and repair verify a .gz backup against the manifest's uncompressed sha256.
+      - verbs/compact gains --compress; the default stays plain.
+      - Update rcorpus README.md only if it documents compact's options (it is primary-owned otherwise - report what should change instead).
+    acceptance:
+      - The existing rcorpus verification (find it: bin/rcorpus torture, any test/ or spec runner, rplugin's own test tasks) passes before and after, on plain and on compressed compaction.
+      - A scratch corpus with at least 50 MB of mostly unique text records shrinks on disk by at least 3x after compact --compress (report before and after du of the corpus root), and get, list, fold, search, recall and the index return exactly the same records as before compaction (compare a full fold dump).
+      - Two successive compress compactions, then an erase of an id held in the first snapshot and in a backup, then check, all succeed and the erased id is gone from both.
+      - rcorpus 0.10.2 (git stash or a worktree of HEAD) refuses the compressed corpus with ProtocolNewer; 0.11.0 opens a v1 corpus untouched.
+      - Ruby floor per rcorpus specs/app.yml runtime (report it).
+  - id: teach
+    repo: ~/bitbucket/paterasai/teach
+    owns_paths:
+      - lib/teach/debug_events.rb
+      - lib/teach/cli.rb (the debug show --kind help text only, if it lists kinds)
+    work:
+      - KINDS gains storage and import. Field validation stays the W-DBG-EVENT shape.
+    acceptance:
+      - With `unset TEACH_DATABASE_URL` and a scratch PostgreSQL database, a W-API-DEBUG batch holding storage and import events is stored and `teach debug show --student ID --kind storage` lists it; an unknown kind is still refused.
+  - id: reach_storage
+    repo: ~/github/foss/rEach
+    owns_paths:
+      - lib/reach/storage.rb (new)
+      - lib/reach.rb
+      - lib/reach/paths.rb (new path helpers only)
+      - lib/reach/consent.rb (the compaction kind)
+      - lib/reach/gate.rb (prompt_context notices only)
+      - lib/reach/hello.rb (session-start notice and the detached measure only)
+      - lib/reach/cli.rb (reach storage and its help line)
+      - lib/reach/mcp_bridge.rb (a reach_storage tool)
+      - lib/reach/debug.rb (KINDS and the W-DBG-KINDS-2 rule)
+      - lib/reach/doctor checks inside cli.rb, if any doctor line reports storage (optional R-DOC-STORAGE when at or above demand)
+      - locales/en-US.yml (append new ids only)
+      - config.yml (append the storage block only)
+      - agents/reach.md and skills/reach-assistant/SKILL.md (one identical bullet)
+      - skills/reach-storage/SKILL.md (new)
+      - reach.spec.yml (a storage section)
+    work:
+      measure:
+        - Reach::Storage.measure returns {"corpus" => bytes, "brain" => bytes, "total" => bytes, "measured_at" => W-CONV-3} where corpus is the root of Reach's own rcorpus corpus (Reach::Corpus's owned corpus root, when rplugin is present; 0 otherwise) and brain is Reach::Brain.dir plus Reach::BrainSpool.dir plus the import spool and import folders the reach_import slice adds (define Reach::Paths.import_spool_dir as File.join(Reach::BrainSpool.state_home, "reach", "import-spool") and Reach::Paths.imports_dir as File.join(Reach::Brain.dir, "imports") now, so both slices agree). Walk with Find, lstat sizes, skip symlinks, never follow into another corpus. Persona homes are measured as their own (Paths already follows a persona).
+        - State in File.join(Reach::Paths.state_dir, "storage.json") (0600, atomic write): last measure, warned_mb (the highest warn threshold announced), demand_announced_sessions, compaction job state.
+        - Measuring never runs inside a hook. hello (session start) and the prompt hook only read storage.json; when it is older than storage.check_interval_s (3600) hello spawns a detached `reach storage measure` (Process.spawn ... pgroup: true, detach, like Consent.spawn_flush) under an exclusive lock so two never run.
+      thresholds:
+        - config.yml storage block - warn_mb [512, 1024, 2048], demand_mb 4096, check_interval_s 3600. Read like Reach::Debug.config with these defaults.
+        - When total crosses a warn threshold above warned_mb, the next prompt's context carries M-STORAGE-WARN (size in MB, corpus and brain parts) for the agent to relay, once, and warned_mb is raised. Dropping below a threshold lowers warned_mb so a later crossing warns again.
+        - At or above demand_mb, hello's context and the first prompt of each session carry M-STORAGE-DEMAND (size, a true backup suggestion naming the two folders in plain words - the course memory folder and the rEach folder - copied to another drive), and Reach::Storage.demanded? is true for the import slice to refuse new imports.
+      compaction:
+        - reach storage compact asks through Reach exactly like reach submit hook mode (Consent kind "compaction", subject {"corpus_root" digest, "total" rounded to MB}); M-STORAGE-COMPACT-ASK names the current size and says the microbrain is never touched; M-STORAGE-COMPACT-YES-AGENT tells the agent to run reach storage compact again once. Terminal mode asks at its own prompt; REACH_HARNESS=antigravity proceeds (the skill asks first).
+        - With the yes, it starts a detached `reach storage compact --run` worker under an exclusive lock and returns M-STORAGE-COMPACT-STARTED at once. The worker opens Reach's corpus, calls Rcorpus::Compact.new(corpus).run(compress: true) when Rcorpus::Compact#run accepts a compress keyword (inspect its parameters), otherwise run with no arguments and records reclaim "unsupported"; then gzips every admitted import-spool day file that is not already .gz (verify by decompress and compare sha256, then remove the plain one); then measures again. It never opens, prunes, scrubs or rewrites anything under Reach::Brain.dir or Reach::BrainSpool.dir, and never calls Rcorpus::Consolidate or Erase.
+        - The next prompt after the job ends carries M-STORAGE-COMPACTED (before and after MB) or M-STORAGE-COMPACT-OLD-LIBRARY (rcorpus without compress, so little space came back) or M-STORAGE-COMPACT-FAILED. Without rplugin, reach storage compact answers M-STORAGE-NO-CORPUS.
+        - reach storage status prints the last measure, the thresholds, the job state; --format json prints the state.
+      debug:
+        - Reach::Debug::KINDS gains storage and import. Reach::Debug records an event of either kind under that kind only when the status cache's wire_contract_sha256 equals Reach's own specs/wire.yml digest (the same comparison reach doctor uses for R-DOC-WIRE); otherwise under kind brain with fields event "storage.<outcome>" or "import.<outcome>" (W-DBG-KINDS-2). Fields are counts, MB, tier and outcome only.
+      locales:
+        add (wording may be tightened, ids fixed):
+          M-STORAGE-WARN: "Tell the student, in plain words: rEach's memory on this computer has grown to {total_mb} MB ({corpus_mb} MB of saved course memory and {brain_mb} MB of what rEach has learned about them). Offer to compact the saved course memory to free space; what rEach has learned is never compacted. If they want it, use the reach-storage skill."
+          M-STORAGE-DEMAND: "Tell the student, in plain words: rEach's memory on this computer is {total_mb} MB, at the {limit_mb} MB limit, so it needs compacting now, and nothing new can be imported until it is. Suggest they also make a true backup by copying their course memory folder and their rEach folder to another drive. Use the reach-storage skill."
+          M-STORAGE-COMPACT-ASK: "rEach's memory on this computer is {total_mb} MB. Compact the saved course memory now to free space? It runs in the background and never changes what rEach has learned about you. Say yes to compact, or no to leave it."
+          M-STORAGE-COMPACT-YES-AGENT: "The student said yes to compacting. Run reach storage compact now (or the reach_storage tool with action compact); it uses this yes once. Then tell the student it is running in the background."
+          M-STORAGE-COMPACT-STARTED: "Compacting rEach's saved course memory in the background. You can keep working."
+          M-STORAGE-COMPACTED: "rEach finished compacting: its memory went from {before_mb} MB to {after_mb} MB."
+          M-STORAGE-COMPACT-OLD-LIBRARY: "rEach compacted its saved course memory, but this computer's course memory library is too old to shrink it much ({before_mb} MB to {after_mb} MB). Updating rEach's tools will help."
+          M-STORAGE-COMPACT-FAILED: "rEach couldn't finish compacting just now. Nothing was lost. Try again later."
+          M-STORAGE-NO-CORPUS: "rEach has no saved course memory to compact on this computer."
+          M-STORAGE-COMPACT-RUNNING: "rEach is already compacting in the background."
+      agent_text:
+        persona_bullet: "- If rEach says its memory on this computer is getting large, tell the student in plain words and offer to compact it with the reach-storage skill; what rEach has learned about them is never compacted."
+        skill: skills/reach-storage/SKILL.md (name reach-storage) - run reach storage status, offer compaction, run reach storage compact, relay Reach's question word for word, run it again once after Reach says yes, report the result from Reach's notice; at the limit, also suggest the true backup; never answer the question for the student.
+    acceptance:
+      - Scratch HOME with rplugin loaded (the superproject's foss/rplugin with rcorpus from the rcorpus slice's working tree if it has landed, otherwise current HEAD) - fill the scratch corpus past a lowered threshold (set storage.warn_mb [1, 2, 4] and demand_mb 8 in a scratch config override) and show - measure runs detached from hello; the warning appears once in the prompt context; the demand notice appears at session start and first prompt; compaction asks, captures a yes through `reach gate prompt`, runs detached, shrinks the corpus with compress when available and reports before and after; the brain folder and brain spool are byte-identical before and after (compare a sha256 manifest).
+      - Without rplugin, measure counts the brain only and compact answers M-STORAGE-NO-CORPUS.
+      - A debug event of kind storage is recorded under kind brain when the cached Teach digest differs.
+      - Ruby 2.6.10 parse and load.
+  - id: reach_import
+    repo: ~/github/foss/rEach
+    starts_after: reach_storage
+    owns_paths:
+      - lib/reach/export_import.rb (new; split into lib/reach/export_import/*.rb if it grows past about 400 lines)
+      - lib/reach/json_stream.rb (new)
+      - lib/reach/picker.rb (new)
+      - lib/reach.rb
+      - lib/reach/brain.rb (remember gains origin:, and the spool cap ignores import bytes)
+      - lib/reach/consent.rb (the export_import kind)
+      - lib/reach/gate.rb (import progress and completion notices only)
+      - lib/reach/cli.rb (reach import and its help lines; reach remember --origin)
+      - lib/reach/mcp_bridge.rb (a reach_import tool; reach_remember gains origin)
+      - lib/reach/storage.rb (only to read demanded? and trigger a measure after a job)
+      - locales/en-US.yml (append new ids only)
+      - config.yml (append the import block only)
+      - agents/reach.md and skills/reach-assistant/SKILL.md (one identical bullet)
+      - skills/reach-import/SKILL.md (new)
+      - reach.spec.yml (an import section)
+    work:
+      sources:
+        - reach import export <path> accepts a folder or a .zip (Reach::Unzip reads entries without extracting the whole archive; stream an entry to a temporary file under the import folder when the parser needs a file). Detect the vendor - chatgpt (conversations.json whose items carry mapping), claude (conversations.json whose items carry chat_messages; also memories.json and projects.json when present), gemini (Takeout My Activity JSON for Gemini Apps). An HTML-only export answers M-IMPORT-NEEDS-JSON; anything else M-IMPORT-UNKNOWN.
+        - reach import pick opens the operating system's own picker for a folder or a .zip - macOS osascript (choose file or folder), Windows PowerShell (System.Windows.Forms dialogs, -STA), Linux zenity --file-selection, else kdialog --getopenfilename/--getexistingdirectory - with a 300 s timeout, and prints the chosen path, or M-IMPORT-PICKER-UNAVAILABLE so the agent asks the student to drop the export into the chat or type its path. Paths dropped into a prompt are already recognised by Reach::Imports.candidate_paths; reuse it in the skill guidance, do not change Reach::Imports.
+      streaming:
+        - Reach::JsonStream.each_element(io) yields the text of each top-level array element of a JSON document without loading the document, tracking strings, escapes and nesting depth byte by byte in chunks; each element is then JSON.parse'd on its own. Memory stays bounded by the largest single conversation.
+      consent_and_modes:
+        - reach import export <path> --mode brain|copy validates the path and vendor and estimates the bytes, then asks through Reach (Consent kind export_import, subject {path digest, mode, size}) with M-IMPORT-ASK-BRAIN or M-IMPORT-ASK-COPY; both warn it can take a long time (the background part is minutes, the findings part runs across many sessions); ASK-BRAIN says in a few words that deleting the export afterwards loses its full text. The agent offers the two modes in plain words first (skill) and runs the command with the student's choice. Yes handling is like reach submit hook mode (M-IMPORT-YES-AGENT, the agent runs it again once). Terminal and Antigravity as for submit.
+        - Refuse when Reach::Storage.demanded? (M-IMPORT-STORAGE-FULL), and refuse copy mode when the last measured total plus the estimate reaches storage.demand_mb (M-IMPORT-COPY-TOO-LARGE, suggesting brain mode or compaction). When the estimate would cross a warn threshold, the ask text says so.
+      job:
+        - With the yes, start a detached `reach import run --job ID` worker (one at a time, exclusive lock) and answer M-IMPORT-STARTED. Job state in File.join(Reach::Paths.imports_dir, ID, "job.json") - vendor, mode, source path, source digest, conversations seen, done, bytes, phase, started and updated times, last error - written atomically after every conversation, so a killed job resumes from the last finished conversation when reach import run --job ID (or the next session's hello) starts it again. reach import status prints phase, counts, percent and an elapsed time; reach import cancel stops it (the state says cancelled; nothing written is removed).
+        - For every conversation - normalise to {conversation_id, vendor, title, created_at, updated_at, turns [{role, text, at}]}, dropping tool and system turns' binary payloads; write one catalog line to File.join(imports_dir, ID, "catalog.jsonl") holding conversation_id, title, dates, turn count, bytes, the 12 most frequent non-stopword tokens (Reach::BrainIndex.tokens) and an excerpt of at most 400 bytes from the first user turn. In copy mode also render the conversation as Markdown and append it as private-tier source ops (category import, path import/<vendor>/<conversation_id>.md, parts of at most 1,000,000 bytes like Reach::CourseCorpus) to a spool rooted at Reach::Paths.import_spool_dir (a second Reach::BrainSpool-format writer, never the brain spool), and admit that spool into Reach's corpus with Rcorpus::Spool.new(corpus, import_spool_dir).admit when rplugin is present.
+        - Run Reach's existing secret refusal (the check Brain.remember uses) over each title and excerpt and drop a matching excerpt; never write a student ID, password, key or token into a catalog.
+        - Imported text never enters Reach::BrainIndex (it reads only the brain spool) and Brain.check_spool's cap never counts the import spool. Nothing from an import is sent to Teach; transcripts never include it.
+        - At the end, rank the catalog into File.join(imports_dir, ID, "queue.jsonl") - newest first, weighted by length and by overlap with the course's words (Reach::BrainIndex tokens of the current course reference titles when available) - and trigger a storage measure. Next prompt carries M-IMPORT-FINISHED (conversations, MB, and that findings are next) once.
+      findings:
+        - reach import next [--job ID] prints the next queued conversation for the agent - title, dates and its text, at most import.next_max_bytes (12000), with a part marker when longer - and reach import done <conversation_id> [--part N] advances the queue. reach remember gains --origin import:<job>/<conversation_id>, stored on the finding as origin; remember's budget, novelty gate and secret refusal apply unchanged. When remember answers held because of the budget, the skill stops for this session.
+        - reach import search <query> searches the catalog (BM25 over title, tokens and excerpt, streaming) and, in copy mode, the verbatim parts (streaming over the import spool, plain or .gz), at most 10 hits with a 300-byte snippet each; reach import show <conversation_id> [--part N] prints one conversation from the copy (refuses in brain mode with M-IMPORT-NO-COPY).
+        - reach import list prints jobs with vendor, mode, counts and state.
+      debug: import events (started, progress at most every 500 conversations, finished, failed, cancelled) with counts and MB only, under W-DBG-KINDS-2 through the storage slice's rule.
+      locales:
+        add (wording may be tightened, ids fixed):
+          M-IMPORT-ASK-BRAIN: "Bring this {vendor} export ({size_mb} MB, about {conversations} conversations) into what rEach learns about you? rEach keeps a short index of each conversation and learns from them over time; it can take a long time. Without a full copy, deleting the export later loses its full text. Say yes to import, or no to skip."
+          M-IMPORT-ASK-COPY: "Bring this {vendor} export ({size_mb} MB, about {conversations} conversations) into rEach, with a full copy saved on this computer, and let rEach learn from it over time? It can take a long time and uses about {size_mb} MB of space. Say yes to import, or no to skip."
+          M-IMPORT-YES-AGENT: "The student said yes to importing. Run reach import export {path_hint} --mode {mode} again now (or the reach_import tool with the same arguments); it uses this yes once."
+          M-IMPORT-STARTED: "Importing in the background. You can keep working; rEach will say when it's done."
+          M-IMPORT-FINISHED: "Tell the student in plain words: rEach finished reading their {vendor} export ({conversations} conversations, {size_mb} MB). Learning from it comes next and takes a while; offer to start with the reach-import skill."
+          M-IMPORT-PICKER-UNAVAILABLE: "No file picker is available here. Ask the student to drop the export folder or ZIP into the chat, or to type its full path."
+          M-IMPORT-NEEDS-JSON: "This export only holds web pages. Ask the student to download it again choosing JSON, then try again."
+          M-IMPORT-UNKNOWN: "This doesn't look like a ChatGPT, Claude or Gemini export rEach knows how to read."
+          M-IMPORT-STORAGE-FULL: "rEach's memory on this computer is at its limit, so nothing new can be imported until it is compacted."
+          M-IMPORT-COPY-TOO-LARGE: "A full copy of this export would take rEach's memory past its limit. Import it without the full copy, or compact first."
+          M-IMPORT-RUNNING: "An import is already running in the background."
+          M-IMPORT-NO-COPY: "This import kept no full copy, so only its index can be searched."
+      config:
+        - Append an import block - next_max_bytes 12000, progress_every 500.
+      agent_text:
+        persona_bullet: "- If the student wants to bring in their history from another AI system, use the reach-import skill: offer learning from it only, or learning plus a full copy saved on this computer."
+        skill: >-
+          skills/reach-import/SKILL.md (name reach-import) - find the export (offer reach import pick, or ask them to drop
+          it into the chat or type its path); explain the two modes in plain words and that it takes a long time; run
+          reach import export with their choice; relay Reach's question word for word; run it again once after Reach
+          says yes; report progress from reach import status when asked; after M-IMPORT-FINISHED, when the student agrees,
+          work the queue - reach import next, read it, record each durable thing with reach remember --origin, reach
+          import done - and stop when remember is held by the budget, when the student wants to stop, or after a few
+          conversations per turn; never paste imported text back at length; never send it anywhere.
+    acceptance:
+      - Synthetic exports for all three vendors generated in the scratchpad (a ChatGPT one of at least 150 MB with 20000 conversations), as a folder and as a ZIP; brain and copy modes; the job resumes after a SIGKILL mid-run without duplicating catalog lines; peak RSS of the job stays under 300 MB (report /usr/bin/time -v); catalog, queue, search and show work; reach import next and done advance; remember --origin stores the origin; the brain index (reach memory search) never returns imported text; a storage measure follows the job; copy mode is refused when the estimate passes a lowered demand_mb.
+      - The prompt hook stays under its quick budget while a job runs (time reach gate prompt).
+      - Ruby 2.6.10 parse and load; the job also runs under the ruby:2.6.10 image on the 150 MB export.

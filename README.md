@@ -142,6 +142,29 @@ reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID]   kee
 reach memory [list | show ID | forget ID... | forget --all --yes | export]   see, export or erase what it remembers
 ```
 
+### Storage
+
+rEach watches how much space its saved course memory and what it has learned take together. At 512, 1024 and
+2048 MB it says so once and offers to compact the saved course memory; at 4096 MB it asks for compaction, suggests a
+real backup to another drive and stops imports until it is done. What rEach has learned is never compacted.
+
+```
+reach storage [status | measure | compact] [--format json]   how much space rEach uses, and compacting it
+```
+
+### Importing another AI's history
+
+Ask rEach to import an export from ChatGPT, Claude or Gemini (a folder or the ZIP you downloaded). It can only learn
+from it, or also keep a full copy in its course memory; without the copy, deleting the export loses its full text.
+Reading a large export takes a while in the background, and learning from it runs across many sessions.
+
+```
+reach import pick [--folder]                         choose the export with the system's file picker
+reach import export PATH --mode brain|copy           start an import after the student agrees
+reach import status|cancel|list [JOB]                follow or stop an import
+reach import next|done|search|show ...               what the agent reads to learn from it
+```
+
 ## Instructors
 
 An instructor can try rEach without enrolling. Run `reach instructor keygen` once; it writes your private key outside

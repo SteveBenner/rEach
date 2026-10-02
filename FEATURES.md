@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.17.1 |
+| **Registry version** | 0.18.0 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 75 catalogued |
+| **Feature count** | 77 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,14 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 68 | 91% |
+| ✅ Shipped | 70 | 91% |
 | ⚪ Planned | 6 | 8% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 63 | 84% |
+| 🔵 Built, not enabled | 65 | 84% |
 | ⚫ No runtime path | 9 | 12% |
 
 ## 1 · Install
@@ -559,6 +559,33 @@ The same functions also ran on Ruby 2.6.10.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (tagged v0.17.1 and Teach 0.18.2 live with both course links on 2026-10-02;
 students receive it on their next auto-update and sync).
+
+### 3.4 · Storage gates and corpus compaction
+
+Since 0.18.0 (`STD-STORAGE-GATES`) Reach measures the corpus and the microbrain together in a detached process,
+warns once at 512, 1024 and 2048 MB with an offer to compact the corpus only, and at 4096 MB demands compaction,
+suggests a true backup and refuses imports. `reach storage compact` (and `reach_storage`) asks the student, then
+compacts in the background with rcorpus 0.11.0's compressed compaction; the microbrain is never compacted.
+Verified 2026-10-02 in a scratch HOME with lowered thresholds: each warning fired once and again after a drop and a
+new crossing, the demand line came at session start and on each session's first prompt, a yes compacted and a no did
+not, the brain folder and spool were byte-identical before and after, and an old rcorpus was reported honestly. The
+shrink is modest (a corpus-only run went from 18.2 MB to 16 MB) because rcorpus keeps the history it compacts.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update; rplugin 1.5.0 carries
+rcorpus 0.11.0).
+
+### 3.5 · Importing another AI system's export
+
+Since 0.18.0 (`STD-EXPORT-IMPORT`) `reach import pick` or `reach import export <path> --mode brain|copy` reads a
+ChatGPT, Claude or Gemini export, folder or ZIP, in a detached resumable job after the student agrees, and the
+agent distills findings from a ranked queue across sessions. Copy mode also keeps each conversation verbatim in the
+corpus's private tier. Verified 2026-10-02 in a scratch HOME: a 198 MB, 20,000-conversation ChatGPT export peaked at
+90 MB RSS in brain mode (30 s) and 187 MB in copy mode with admission; a job killed at 5,869 conversations resumed to
+an identical catalog; imported text never reached the brain index; the job ran under Ruby 2.6.10; and
+`forget --all` erased a 23,000-source copy in 13 s with `rcorpus check` clean. The osascript and PowerShell pickers
+were built but not run on macOS or Windows.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
 
 ## 4 · Behaviour
 

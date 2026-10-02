@@ -1176,6 +1176,15 @@ debug:
     - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
     - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT)
     - link (the Teach connection changed: state lost|back, the failure that caused it, outage_s on back; since 2026-10-02b, W-DBG-FAULT)
+    - storage (since 2026-10-02d, W-DBG-KINDS-2: corpus_mb, brain_mb, total_mb, tier, outcome measured|warned|demanded|compact_started|compacted|compact_failed, before_mb and after_mb on compacted)
+    - import (since 2026-10-02d, W-DBG-KINDS-2: vendor, mode brain|copy, outcome started|progress|finished|failed|cancelled, conversations, done, bytes, findings_queued)
+  W-DBG-KINDS-2:
+    rule: >-
+      Since revision 2026-10-02d. Reach records storage and import events under those kinds only when the
+      wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml; otherwise it records them
+      under kind brain with fields.event set to storage.<outcome> or import.<outcome>, so a Teach older than this
+      revision, which answers 400 to an unknown kind, never sees one. Neither kind carries a path, a file or
+      conversation name, a title or any text.
   W-DBG-SCRUB:
     rule: >-
       An event never carries prompt, reply, reasoning or file text, an instructor code, a course or enrollment code, a

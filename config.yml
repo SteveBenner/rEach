@@ -93,3 +93,13 @@ rstack:
       path: "/run/media/${USER}/SVEN-B1/corpora/rstack-plugins/reach-mirror"
 submit:
   archive_max_mb: 256
+storage:
+  warn_mb:
+  - 512
+  - 1024
+  - 2048
+  demand_mb: 4096
+  check_interval_s: 3600
+import:
+  next_max_bytes: 12000
+  progress_every: 500
