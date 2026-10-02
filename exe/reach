@@ -10,6 +10,45 @@ if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.3") && File.file?(File.
     nil
   end
 end
-require_relative "../lib/reach"
+begin
+  require_relative "../lib/reach"
+  status = Plugin.run(ARGV)
+rescue ScriptError, StandardError
+  argv = ARGV.dup
+  harness_at = argv.index("--harness")
+  format_at = argv.index("--format")
+  harness = harness_at ? argv[harness_at + 1].to_s : ""
+  format = format_at ? argv[format_at + 1].to_s : ""
+  hermes = harness == "hermes" || format == "hermes"
+  closed = argv[0] == "gate" && %w[write shell read].include?(argv[1]) && harness == "hermes"
+  hook = case argv[0]
+         when "gate", "hello" then true
+         when "transcript" then %w[turn code].include?(argv[1])
+         when "check" then %w[agent hermes].include?(format)
+         else false
+         end
+  id = closed ? "M-REACH-HICCUP-BLOCKED" : (hook ? "M-REACH-HICCUP" : "M-REACH-HICCUP-CLI")
+  text = begin
+    require "yaml"
+    YAML.safe_load(File.read(File.join(__dir__, "..", "locales", "en-US.yml")))["messages"][id]
+  rescue ScriptError, StandardError
+    nil
+  end
+  status = closed ? 2 : (hook ? 0 : 1)
+  if text
+    begin
+      if closed
+        $stderr.puts text
+      elsif hook
+        require "json"
+        puts(hermes ? "{}" : JSON.generate("systemMessage" => text))
+      else
+        $stderr.puts text
+      end
+    rescue StandardError
+      nil
+    end
+  end
+end
 
-exit Plugin.run(ARGV)
+exit status

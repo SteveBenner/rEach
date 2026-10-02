@@ -5,6 +5,7 @@ require "yaml"
 require "time"
 require "shellwords"
 require "io/console"
+require "stringio"
 
 module Reach
   module CLI
@@ -12,27 +13,179 @@ module Reach
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
     UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
+    HOOK_BUDGETS_S = {
+      "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
+      "transcript-turn" => 26, "transcript-code" => 12, "hello" => 8, "check" => 55
+    }.freeze
+    HERMES_PROMPT_BUDGET_S = 13
+    HOOK_DEFAULT_BUDGET_S = 8
+    HERMES_FAIL_CLOSED_SUBS = %w[write shell read].freeze
 
     class << self
       def run(argv)
         started = Reach::Debug.clock
         code = nil
+        failure = nil
         begin
-          code = dispatch(argv)
+          code = hook_invocation?(argv) ? run_hook(argv) : run_terminal(argv)
+        rescue StandardError, ScriptError => e
+          failure = e
+          code = 1
         ensure
-          Reach::Debug.command(argv, code, started, $!)
+          Reach::Debug.command(argv, code, started, failure || $!)
+        end
+        code
+      end
+
+      def run_terminal(argv)
+        code = dispatch(argv)
+        notice = argv.first == "mcp" ? nil : Reach::Link.notice!
+        warn notice if notice
+        code
+      rescue StandardError, ScriptError => e
+        Reach::Debug.fault(e, "command:#{command_label(argv)}", "M-REACH-HICCUP-CLI")
+        warn Reach::Messages.text("M-REACH-HICCUP-CLI")
+        1
+      end
+
+      def command_label(argv)
+        label = argv.first.to_s
+        label.match?(/\A[a-z-]{1,24}\z/) ? label : "?"
+      end
+
+      def hook_invocation?(argv)
+        case argv.first
+        when "gate", "hello"
+          true
+        when "transcript"
+          %w[turn code].include?(argv[1])
+        when "check"
+          flag = argv.index("--format")
+          flag ? %w[agent hermes].include?(argv[flag + 1].to_s) : false
+        else
+          false
         end
       end
 
+      def hook_label(argv)
+        case argv.first
+        when "gate", "transcript"
+          "#{argv[0]}-#{argv[1]}"
+        else
+          argv.first.to_s
+        end
+      end
+
+      def hook_harness_flag(argv)
+        flag = argv.index("--harness")
+        flag ? argv[flag + 1].to_s : nil
+      end
+
+      def hook_hermes?(argv)
+        return true if hook_harness_flag(argv) == "hermes" || @hook_hermes == true
+
+        flag = argv.index("--format")
+        argv.first == "check" && flag ? argv[flag + 1].to_s == "hermes" : false
+      end
+
+      def hook_budget(argv)
+        return HERMES_PROMPT_BUDGET_S if argv.first == "gate" && argv[1] == "prompt" && hook_harness_flag(argv) == "hermes"
+
+        HOOK_BUDGETS_S.fetch(hook_label(argv), HOOK_DEFAULT_BUDGET_S)
+      end
+
+      def run_hook(argv)
+        @hook_hermes = false
+        original = $stdout
+        buffer = StringIO.new
+        $stdout = buffer
+        code = nil
+        failure = nil
+        begin
+          code = Reach::Client.with_deadline(hook_budget(argv)) { dispatch_hook(argv) }
+        rescue Reach::GateBlocked => e
+          Reach::Debug.note(e)
+          warn e.message
+          code = 2
+        rescue StandardError, ScriptError => e
+          failure = e
+        ensure
+          $stdout = original
+        end
+        printed = buffer.string
+        original.write(printed) unless printed.empty?
+        return code unless failure
+
+        hook_failure(failure, argv, !printed.empty?)
+      end
+
+      def hook_failure(error, argv, printed)
+        label = hook_label(argv)
+        hermes = hook_hermes?(argv)
+        closed = hermes && argv.first == "gate" && HERMES_FAIL_CLOSED_SUBS.include?(argv[1])
+        network = error.is_a?(Reach::NetworkError)
+        text = closed ? nil : (network ? Reach::Link.notice! : Reach::Link.hiccup!)
+        shown = if closed
+          "M-REACH-HICCUP-BLOCKED"
+        elsif text
+          network ? "M-TEACH-LINK-LOST" : "M-REACH-HICCUP"
+        end
+        Reach::Debug.fault(error, "hook:#{label}", shown)
+        if closed
+          warn Reach::Messages.text("M-REACH-HICCUP-BLOCKED")
+          warn HERMES_BLOCK_NOTE
+          return 2
+        end
+        return 0 if printed
+
+        if hermes
+          if argv.first == "gate" && argv[1] == "prompt" && text
+            puts JSON.generate("context" => Reach::Messages.text("M-TEACH-LINK-RELAY", text: text))
+          else
+            puts "{}"
+          end
+        elsif text
+          puts JSON.generate("systemMessage" => text)
+        end
+        0
+      rescue StandardError
+        closed ? 2 : 0
+      end
+
+      def dispatch_hook(argv)
+        route(argv.dup)
+      end
+
+      def failure_text(error, name = nil)
+        if Reach::Link.masked?(error)
+          Reach::Debug.fault(error, "command:#{name || @command_name || "?"}", "M-REACH-HICCUP-CLI")
+        end
+        text = Reach::Link.student_text(error, :cli)
+        Reach::Link.notice! if error.is_a?(Reach::NetworkError) && text == Reach::Messages.text("M-TEACH-LINK-LOST")
+        text
+      end
+
       def dispatch(argv)
+        route(argv.dup)
+      rescue Reach::GateBlocked => e
+        Reach::Debug.note(e)
+        warn e.message
+        2
+      rescue Reach::Error => e
+        Reach::Debug.note(e)
+        warn failure_text(e, @command_name)
+        1
+      end
+
+      def route(args)
         begin
           Reach::Runtime.ensure_shim!
         rescue StandardError
           nil
         end
 
-        args = argv.dup
         command = args.shift
+        @command_name = command.to_s.match?(/\A[a-z-]{1,24}\z/) ? command.to_s : "?"
 
         unless UNLOCKED_COMMANDS.include?(command)
           lock = Reach::EnrollmentLock.state
@@ -129,14 +282,6 @@ module Reach
           print_usage
           1
         end
-      rescue Reach::GateBlocked => e
-        Reach::Debug.note(e)
-        warn e.message
-        2
-      rescue Reach::Error => e
-        Reach::Debug.note(e)
-        warn e.message
-        1
       end
 
       private
@@ -306,7 +451,7 @@ module Reach
           )
         rescue Reach::RemoteRefused => e
           if e.code == "password_required"
-            warn e.message
+            warn failure_text(e, "enroll")
             return 1
           end
           if e.code == "device_move_pending"
@@ -504,7 +649,11 @@ module Reach
         when "session"
           harness_id = options[:harness] || event["harness"] || "claude-code"
           Reach::Gate.session(harness: harness_id)
-          announce_guardrails unless hermes
+          announced = hermes ? false : announce_guardrails
+          unless hermes || announced
+            notice = Reach::Link.notice!
+            puts JSON.generate("systemMessage" => notice) if notice
+          end
           0
         when "prompt"
           return gate_hermes_prompt(event) if hermes
@@ -513,8 +662,8 @@ module Reach
           @gate_decision = "context" if context
           payload = {}
           payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => context } if context
-          message = Reach::Debug.prompt_message(event, options[:harness])
-          payload["systemMessage"] = message if message
+          message = [Reach::Link.notice!, Reach::Debug.prompt_message(event, options[:harness])].compact.join("\n\n")
+          payload["systemMessage"] = message unless message.empty?
           puts JSON.generate(payload) unless payload.empty?
           0
         when "write"
@@ -610,7 +759,7 @@ module Reach
           1
         end
       rescue Reach::Error => e
-        warn e.message
+        warn failure_text(e, "instructor")
         1
       end
 
@@ -752,9 +901,9 @@ module Reach
       end
 
       def hermes_hook?(harness, event)
-        return true if harness.to_s == "hermes"
-
-        event.is_a?(Hash) && HERMES_EVENTS.include?(event["hook_event_name"])
+        found = harness.to_s == "hermes" || (event.is_a?(Hash) && HERMES_EVENTS.include?(event["hook_event_name"]))
+        @hook_hermes = true if found
+        found
       end
 
       def normalize_hermes_event(event)
@@ -796,6 +945,8 @@ module Reach
         parts = []
         parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup") if event["is_first_turn"] == true && blocked.nil?
         parts << context if context
+        notice = Reach::Link.notice!
+        parts << Reach::Messages.text("M-TEACH-LINK-RELAY", text: notice) if notice
         parts << blocked.message << HERMES_BLOCK_NOTE if blocked
         puts JSON.generate(parts.empty? ? {} : { "context" => parts.join("\n\n") })
         0
@@ -839,8 +990,9 @@ module Reach
 
       def announce_guardrails
         puts "Course rules #{Reach::Guardrails.version} verified."
+        true
       rescue StandardError
-        nil
+        false
       end
 
       def cmd_shape(args)
@@ -1010,7 +1162,7 @@ module Reach
               findings = Reach::Shape.check(workspace_path: workspace_path, changed: changed_path, format: :agent)
               puts JSON.generate(findings)
             rescue Reach::Error => e
-              warn e.message
+              warn failure_text(e, "watch")
             end
           end
           sleep(2)
@@ -1791,7 +1943,9 @@ module Reach
           Reach::Debug.hook(final ? "SessionEnd" : "Stop", "allow", nil, started)
           shown = quick && !final ? Reach::Debug.turn_message(event, options[:harness]) : nil
           Reach::Debug.flush(quick: quick)
-          puts JSON.generate("systemMessage" => shown) if shown
+          notice = hermes_hook?(options[:harness], event) ? nil : Reach::Link.notice!
+          message = [notice, shown].compact.join("\n\n")
+          puts JSON.generate("systemMessage" => message) unless message.empty?
           0
         when "code"
           options, _remaining = parse_flags(args, [:harness])

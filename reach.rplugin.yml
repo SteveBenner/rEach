@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.16.24
+version: 0.16.25
 rplugin: ">= 1.2.0"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:

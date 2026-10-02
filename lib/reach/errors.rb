@@ -18,6 +18,7 @@ module Reach
   end
 
   class NetworkError < Error
+    attr_accessor :detail, :cause_name
   end
 
   class Offline < NetworkError

@@ -63,6 +63,9 @@ debug:
   spool_max_bytes: 5242880
   batch_max_events: 500
   show_max_rows: 40
+link:
+  hiccup_quiet_minutes: 15
+  fault_max_per_hour: 60
 rstack:
   backup:
     schema: rplugin.plugin-backup/v1

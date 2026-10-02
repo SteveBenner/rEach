@@ -120,7 +120,7 @@ module Reach
         write_flow(flow.merge("pending_code" => parsed["code"], "updated_at" => iso(Time.now.utc)))
         return Reach::Messages.text("M-ENR-OFFLINE")
       rescue Reach::Error => e
-        return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
+        return Reach::Messages.text("M-ENR-FAILED", reason: reason_text(e))
       end
 
       course = body["course"]
@@ -139,6 +139,11 @@ module Reach
       ask_username(next_flow)
     end
 
+    def reason_text(error)
+      Reach::Debug.fault(error, "enroll", "M-REACH-HICCUP-CLI") if Reach::Link.masked?(error)
+      Reach::Link.student_text(error, :cli)
+    end
+
     def refusal_text(error)
       case error.code
       when "course_code_unknown"
@@ -151,7 +156,7 @@ module Reach
         details = error.details.is_a?(Hash) ? error.details : {}
         details["reason"].to_s == "code_expired" ? Reach::Messages.text("M-ENR-CODE-OLD") : Reach::Messages.text("M-ENR-CODE-EXPIRED")
       else
-        Reach::Messages.text("M-ENR-FAILED", reason: error.message)
+        Reach::Messages.text("M-ENR-FAILED", reason: reason_text(error))
       end
     end
 
@@ -271,7 +276,7 @@ module Reach
 
         if e.code == "password_required"
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-          return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: e.message)
+          return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
         end
         if e.code == "device_move_pending"
           write_flow(flow.merge("state" => "awaiting_move", "updated_at" => iso(now)))
@@ -283,13 +288,13 @@ module Reach
         end
 
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: e.message)
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
       rescue Reach::NetworkError
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
         return Reach::Messages.text("M-ENR-PASSWORD-RETRY-OFFLINE")
       rescue Reach::Error => e
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: e.message)
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
       end
 
       FileUtils.rm_f(Reach::Paths.enroll_flow_file)

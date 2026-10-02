@@ -58,7 +58,7 @@ module Reach
               packages.fetch(kind)
               summary["packages"][kind] = packages.latest_version(kind)
             rescue StandardError => e
-              summary["warnings"] << "reach: could not fetch #{kind} package (#{e.message})"
+              summary["warnings"] << "reach: could not fetch #{kind} package (#{Reach::Link.reason(e, "sync")})"
             end
           end
         end
@@ -67,20 +67,20 @@ module Reach
           Reach::Guardrails.heal
           summary["guardrails_version"] = Reach::Guardrails.version
         rescue StandardError => e
-          summary["warnings"] << "reach: could not update course rules (#{e.message})"
+          summary["warnings"] << "reach: could not update course rules (#{Reach::Link.reason(e, "sync")})"
         end
 
         begin
           ensure_shape_unpacked
         rescue StandardError => e
-          summary["warnings"] << "reach: could not update shapes (#{e.message})"
+          summary["warnings"] << "reach: could not update shapes (#{Reach::Link.reason(e, "sync")})"
         end
 
         begin
           migration = Reach::Workspace.migrate_layout!
           summary["warnings"].concat(Array(migration["warnings"]))
         rescue StandardError => e
-          summary["warnings"] << "reach: could not migrate your workspace layout (#{e.message})"
+          summary["warnings"] << "reach: could not migrate your workspace layout (#{Reach::Link.reason(e, "sync")})"
         end
 
         begin
@@ -88,32 +88,32 @@ module Reach
             summary["workspaces"] = Reach::Workspace.provision_from_package
           end
         rescue StandardError => e
-          summary["warnings"] << "reach: could not provision your workspace (#{e.message})"
+          summary["warnings"] << "reach: could not provision your workspace (#{Reach::Link.reason(e, "sync")})"
         end
 
         begin
           Reach::Workspace.provision_extracurricular!
         rescue StandardError => e
-          summary["warnings"] << "reach: could not provision your extracurricular folder (#{e.message})"
+          summary["warnings"] << "reach: could not provision your extracurricular folder (#{Reach::Link.reason(e, "sync")})"
         end
 
         unless offline
           begin
             summary["hand_replies"] = Reach::Hands.poll_replies
           rescue StandardError => e
-            summary["warnings"] << "reach: could not check for hand replies (#{e.message})"
+            summary["warnings"] << "reach: could not check for hand replies (#{Reach::Link.reason(e, "sync")})"
           end
 
           begin
             summary["grades"] = Reach::Receipts.refresh_grades
           rescue StandardError => e
-            summary["warnings"] << "reach: could not check for grades (#{e.message})"
+            summary["warnings"] << "reach: could not check for grades (#{Reach::Link.reason(e, "sync")})"
           end
 
           begin
             summary["receipts_backfilled"] = Reach::ReceiptAcks.backfill["stored"]
           rescue StandardError => e
-            summary["warnings"] << "reach: could not fetch receipts from the course server (#{e.message})"
+            summary["warnings"] << "reach: could not fetch receipts from the course server (#{Reach::Link.reason(e, "sync")})"
           end
 
           begin
@@ -123,7 +123,7 @@ module Reach
               summary["warnings"] << "reach: the course server's copy of receipt #{id} does not match the one on this computer; tell your instructors"
             end
           rescue StandardError => e
-            summary["warnings"] << "reach: could not confirm receipts with the course server (#{e.message})"
+            summary["warnings"] << "reach: could not confirm receipts with the course server (#{Reach::Link.reason(e, "sync")})"
           end
 
           begin
@@ -135,13 +135,13 @@ module Reach
           rescue Reach::Offline, Reach::NetworkError
             nil
           rescue StandardError => e
-            summary["warnings"] << "reach: could not check your modules (#{e.message})"
+            summary["warnings"] << "reach: could not check your modules (#{Reach::Link.reason(e, "sync")})"
           end
 
           begin
             Reach::Limits.enforce!
           rescue StandardError => e
-            summary["warnings"] << "reach: could not apply the local size limits (#{e.message})"
+            summary["warnings"] << "reach: could not apply the local size limits (#{Reach::Link.reason(e, "sync")})"
           end
         end
 
@@ -227,7 +227,7 @@ module Reach
       def safe_call(summary)
         yield
       rescue StandardError => e
-        summary["warnings"] << "reach: could not retry queued submissions (#{e.message})"
+        summary["warnings"] << "reach: could not retry queued submissions (#{Reach::Link.reason(e, "sync")})"
         []
       end
     end

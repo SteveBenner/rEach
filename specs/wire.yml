@@ -887,7 +887,7 @@ routes:
       session_id: {type: string, maxLength: 128, note: "the harness session id, or \"cli\" for a terminal command"}
       harness: {type: string, enum: [claude-code, codex, hermes, unknown]}
       surface: {type: string, enum: [tui, gui], note: "how the harness renders text for the person (W-DBG-RENDER)"}
-      reason: {type: string, enum: [persona, local, remote], note: "why debug mode is on: an instructor persona, reach debug on, or status.debug.requested"}
+      reason: {type: string, enum: [persona, local, remote, fault], note: "why the events were recorded: an instructor persona, reach debug on, status.debug.requested, or fault (debug mode off; only fault and link events, W-DBG-FAULT, since 2026-10-02b)"}
       events: {type: array, maxItems: 500, note: "W-DBG-EVENT objects, oldest first"}
     response_200:
       accepted: integer
@@ -900,7 +900,10 @@ routes:
       Since revision 2026-10-02a. Reach sends its debug spool here from the Stop and SessionEnd hooks and reach sync,
       never blocking a hook on the network; a failure keeps every event queued. Teach stores each event with the
       install, the student and the classification it derives (instructor for a test student, else student), drops an
-      event whose id it already holds, and keeps them for instructors to read with teach debug.
+      event whose id it already holds, and keeps them for instructors to read with teach debug. Since revision
+      2026-10-02b a batch may carry reason fault: Reach sends its fault and link events (W-DBG-FAULT) even while
+      debug mode is off, and Teach stores them like any other event. A Teach older than 2026-10-02b answers 400
+      to reason fault and Reach keeps those events in its rejected file.
   - id: W-API-TRANSCRIPT
     method: POST
     path: /api/v1/transcripts
@@ -1142,6 +1145,8 @@ debug:
     - brain (captures, recalls, refusals)
     - update (phase, outcome, versions)
     - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
+    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT)
+    - link (the Teach connection changed: state lost|back, the failure that caused it, outage_s on back; since 2026-10-02b, W-DBG-FAULT)
   W-DBG-SCRUB:
     rule: >-
       An event never carries prompt, reply, reasoning or file text, an instructor code, a course or enrollment code, a
@@ -1149,6 +1154,16 @@ debug:
       name contains code, password, secret, token, key, signature, pem or passphrase (a substring match, so field
       names are chosen to avoid them: exit, not exit_code; error, not error_code), and replaces any RINS1 code, PEM
       block or course-code-shaped value inside a string with [scrubbed], before the event is spooled or shown.
+  W-DBG-FAULT:
+    rule: >-
+      Since revision 2026-10-02b. Reach never shows a person a raw error, a backtrace or a hook failure from talking to
+      Teach or from its own code; it shows a plain message instead (STD-TEACH-LINK). Every error it hides that way is
+      recorded as a fault event, and every change in the Teach connection as a link event, whether or not debug mode
+      is on. While debug mode is on they travel with the debug spool under its reason; while it is off Reach spools
+      only fault and link events and sends them with reason fault. A fault event carries no error message text unless
+      debug mode is on (then a separate error event carries the scrubbed message as before), so a fault from a real
+      student never holds file or prompt text. Reach records at most 60 fault events an hour and counts the rest in
+      the next fault's dropped_faults.
   W-DBG-RENDER:
     rule: >-
       While debug mode is on, Reach shows the person a debug block at the end of each turn, and reach debug show prints

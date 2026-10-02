@@ -167,6 +167,18 @@ or file text, codes, passwords or keys, sends it to Teach, and shows it at the e
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
 `reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
 
+### When Teach can't be reached
+
+Since 0.16.25 rEach never shows a raw error, backtrace or hook failure. When a request to Teach fails for lack of a
+connection, the student is told once per outage that the connection was lost and that their work is saved and will be
+sent when it is back, and once when it returns (a `systemMessage` on Claude Code and Codex, a relay line in the prompt
+context on Hermes, a line on stderr from a command). `REACH_OFFLINE=1` is deliberate and is not an outage. Any other
+error rEach hides behind a plain message (shown at most once every 15 minutes in a hook) is recorded as a `fault` event,
+and each change of connection as a `link` event. Both are sent to Teach even while debug mode is off, with the failing
+location, exception class and a few plugin-relative frames but no error message, file or prompt text; instructors read
+them with `teach debug show --kind fault`. The state lives in `link.json` under the rEach home, and `config.yml`
+`link.hiccup_quiet_minutes` and `link.fault_max_per_hour` set the quiet period and the hourly cap.
+
 ## Course reference
 
 Reference material never ships in this repository. Teach sends each enrolled

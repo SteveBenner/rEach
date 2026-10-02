@@ -5,6 +5,56 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.25] - 2026-10-02
+
+### Added
+
+- Teach connection safety (wire revision 2026-10-02b, `STD-TEACH-LINK`, `W-DBG-FAULT`). A student never sees a raw
+  error, a Ruby backtrace, an exception class, a hook error or a hook timeout from rEach. `Reach::Link`
+  (`lib/reach/link.rb`) tracks the connection to Teach in `link.json` under the rEach home. When a request fails for
+  lack of a connection it is lost, and any answer from Teach restores it. The student is told once per outage
+  (`M-TEACH-LINK-LOST`) that the connection was lost and that their work is saved and will be sent when it is back,
+  and once when it returns (`M-TEACH-LINK-BACK`). On Claude Code and Codex this comes as a hook `systemMessage`; on
+  Hermes it is a relay line in the prompt context; at the terminal it is a line on stderr.
+- Every hook runs inside a guard that keeps its outcome and hides what went wrong. A rEach block stays a block. On
+  Claude Code and Codex a failing hook still allows, as before, now with at most one plain `M-REACH-HICCUP` every 15
+  minutes. Hermes' fail-closed write, shell and read gates block with `M-REACH-HICCUP-BLOCKED`. Each hook gives the
+  network a deadline inside the harness's hook timeout. MCP tools answer `M-TEACH-LINK-LOST` or
+  `M-REACH-HICCUP-TOOL` and run under a 25-second deadline. Terminal commands answer `M-REACH-HICCUP-CLI`, and
+  `reach sync` warnings name the reason in plain words. `exe/reach` answers the same way when rEach cannot even
+  load. A Teach refusal that the student can act on still shows Teach's text. One that means rEach sent something
+  malformed is hidden.
+- Fault reports. Every hidden error is recorded as a `fault` event and every connection change as a `link` event,
+  and both are sent to Teach even while debug mode is off, with reason `fault`. A fault carries where it happened,
+  the exception class, the errno, the frames and what the student was shown. It carries no message text unless
+  debug mode is on. At most 60 an hour are kept; the rest are counted in `dropped_faults`. `config.yml` `link:` sets
+  `hiccup_quiet_minutes` (15) and `fault_max_per_hour` (60). The student guide's Privacy section says so.
+
+### Fixed
+
+- A request to Teach could wait twice its read timeout. Net::HTTP silently retried an idempotent request once on a
+  read timeout, on top of rEach's own retries. `Reach::Client` now sets `max_retries = 0` and a write timeout.
+- A transport failure outside the client's retry list (for example a bad HTTP response) escaped as a raw exception.
+  It is now a final `Reach::NetworkError`.
+
+### Verified
+
+- Against a real scratch Teach 0.17.3, the assignment-one smoke extended with link and crash journeys passed 51
+  steps, with 1 test-expectation miss and 2 manual skips. The full student loop passed.
+  - Teach stopped. The Stop hook exited 0 in 0.2 s with the lost notice. Later prompt and Stop hooks stayed quiet.
+    `reach sync` and the `reach_sync` tool answered offline in plain words.
+  - Raise injection in a copy of the plugin. A Claude Code write gate answered exit 0 with one hiccup, and stayed
+    quiet inside the quiet window. A Hermes write gate answered exit 2 with the blocked text. A terminal command
+    answered exit 1 with the CLI text. An MCP tool answered with the tool text. A load failure in `exe/reach` gave
+    hook 0, Hermes gate 2 and terminal 1. No backtrace, class or raw message appeared anywhere.
+  - Four faults were spooled with reason `fault` and no message while debug was off.
+  - Teach restarted. The Stop hook showed the back notice, and Teach stored 4 fault and 2 link events (lost and
+    back) classified `student`.
+- Against a server that accepts connections and never answers, the `reach_sync` tool returned in 25 s (50 s before
+  the Net::HTTP fix).
+- Every changed file passes `ruby -c` on Ruby 2.6.10 and 3.3.
+- Not verified: a live Claude Code, Codex or Hermes session showing the notices.
+
 ## [0.16.24] - 2026-10-02
 
 ### Fixed
