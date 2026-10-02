@@ -60,8 +60,24 @@ module Reach
       if greeting_text && in_course_folder?(cwd)
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-TRANSCRIPT-NOTICE")}"
       end
+      if greeting_text && safe_memory_notice_due?
+        greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-MEMORY-NOTICE")}"
+        Reach::Brain.memory_notice_shown!
+      end
       context = build_context(harness_id, format, greeting_id, greeting_text, updating)
       [greeting_id, greeting_text, banner, context]
+    end
+
+    def safe_memory_notice_due?
+      Reach::Brain.memory_notice_due?
+    rescue StandardError
+      false
+    end
+
+    def safe_session_context
+      Reach::Brain.session_context
+    rescue StandardError
+      nil
     end
 
     def locked_context
@@ -299,6 +315,8 @@ module Reach
       lines << profile_line
       lines << course_line
       lines.concat(alignment_lines)
+      memory = safe_session_context
+      lines << memory if memory
       question = safe_course_question
       lines << course_question_line(question) if question
 

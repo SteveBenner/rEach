@@ -75,15 +75,86 @@ module Reach
       line
     end
 
+    def append_op(op:, kind:, id:, record:, operation_id: nil)
+      line = {
+        "spool" => SCHEMA,
+        "operation_id" => operation_id || SecureRandom.uuid,
+        "corpus" => CORPUS_ID,
+        "op" => op.to_s,
+        "kind" => kind.to_s,
+        "id" => id.to_s,
+        "tier" => "private",
+        "record" => record,
+        "written_at" => Time.now.utc.iso8601(3),
+        "writer" => writer
+      }
+      write_line(line)
+      line
+    end
+
     def write_line(line)
       FileUtils.mkdir_p(dir)
       path = File.join(dir, "#{Time.now.utc.strftime('%Y-%m-%d')}.jsonl")
-      File.open(path, File::WRONLY | File::APPEND | File::CREAT, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        file.write("#{JSON.generate(line)}\n")
-        file.flush
+      3.times do
+        done = false
+        File.open(path, File::WRONLY | File::APPEND | File::CREAT, 0o600) do |file|
+          file.flock(File::LOCK_EX)
+          current = File.stat(path) rescue nil
+          next unless current && current.ino == file.stat.ino
+
+          file.write("#{JSON.generate(line)}\n")
+          file.flush
+          done = true
+        end
+        break if done
       end
       path
+    end
+
+    def scrub!(ids, keep_tombstones: true)
+      wanted = Array(ids).map(&:to_s).reject(&:empty?)
+      return 0 if wanted.empty?
+
+      removed = 0
+      spool_files(include_admitted: true).each do |path|
+        removed += scrub_file(path, wanted, keep_tombstones)
+      end
+      removed
+    end
+
+    def scrub_file(path, wanted, keep_tombstones)
+      return 0 unless File.file?(path)
+
+      count = 0
+      File.open(path, File::RDWR) do |file|
+        file.flock(File::LOCK_EX)
+        raw = file.read
+        return 0 unless wanted.any? { |id| raw.include?(id) }
+
+        kept = []
+        raw.each_line do |text|
+          parsed = begin
+            JSON.parse(text)
+          rescue JSON::ParserError
+            nil
+          end
+          if parsed.is_a?(Hash) && wanted.include?(parsed["id"].to_s) && !(keep_tombstones && parsed["op"] == "tombstone")
+            count += 1
+          else
+            kept << text
+          end
+        end
+        return 0 if count.zero?
+
+        tmp = "#{path}.tmp-#{Process.pid}-#{SecureRandom.hex(4)}"
+        File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |out|
+          kept.each { |text| out.write(text) }
+          out.flush
+          out.fsync
+        end
+        File.rename(tmp, path)
+      end
+      count
     end
 
     def spool_files(include_admitted: true)

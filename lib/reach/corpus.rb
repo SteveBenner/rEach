@@ -4,7 +4,7 @@ require "fileutils"
 
 module Reach
   class Corpus
-    KINDS = %w[note tip attempt receipt qualification].freeze
+    KINDS = %w[note tip attempt receipt qualification source finding].freeze
 
     def initialize(ports)
       @ports = ports
@@ -32,6 +32,31 @@ module Reach
 
     def qualification(record)
       write("qualification", record)
+    end
+
+    def admit_if_due(force: false)
+      corpus = owned_corpus
+      return :unavailable unless corpus && defined?(Rcorpus::Spool)
+
+      settings = Reach::Brain.settings
+      now = Time.now.to_i
+      state = Reach::Brain.read_state
+      return :throttled unless force || now >= state["admit_next_at"].to_i
+
+      report = Reach::BrainSpool.admit(corpus)
+      if report.nil?
+        wait = [(state["admit_wait_s"].to_i.positive? ? state["admit_wait_s"].to_i * 2 : settings["admit_interval_s"]), settings["admit_max_backoff_s"]].min
+        Reach::Brain.update_state { |fresh| fresh.merge("admit_wait_s" => wait, "admit_next_at" => now + wait) }
+        Reach::Brain.log("brain.admit_failed", "wait_s" => wait)
+        return :failed
+      end
+
+      Reach::Brain.update_state { |fresh| fresh.merge("admit_wait_s" => 0, "admit_next_at" => now + settings["admit_interval_s"]) }
+      consolidate(corpus)
+      :admitted
+    rescue StandardError => e
+      Reach::Brain.log("brain.admit_failed", "error" => e.class.name)
+      :failed
     end
 
     def recent(kind, limit: 20)
@@ -73,11 +98,24 @@ module Reach
     end
 
     def admit
-      corpus = owned_corpus
-      Reach::BrainSpool.admit(corpus) if corpus
+      admit_if_due
+      nil
+    end
+
+    def consolidate(corpus)
+      return nil unless defined?(Rcorpus::Consolidate)
+
+      today = Time.now.utc.strftime("%Y-%m-%d")
+      return nil if Reach::Brain.read_state["consolidated_on"] == today
+
+      report = Rcorpus::Consolidate.new(corpus).run
+      Reach::Brain.update_state { |fresh| fresh.merge("consolidated_on" => today) }
+      counts = {}
+      report.each { |key, value| counts[key.to_s] = value if value.is_a?(Integer) } if report.is_a?(Hash)
+      Reach::Brain.log("brain.consolidated", counts)
       nil
     rescue StandardError => e
-      Reach::BrainSpool.log("admit_failed", "error" => e.class.name, "message" => e.message)
+      Reach::Brain.log("brain.consolidate_failed", "error" => e.class.name)
       nil
     end
 

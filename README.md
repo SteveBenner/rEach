@@ -126,6 +126,21 @@ ledger; Teach reads both when it assesses a submission's provenance. A
 submission with `reach check` findings is sent back once with the findings and
 refused the second time, raising a hand to the instructors.
 
+## Memory
+
+rEach keeps a private memory of what it learns about the student and their work, on this computer only. Each
+conversation turn it already records in a course folder is kept as a private source; the agent records durable
+findings (a preference, a goal, a decision, a struggle, a skill, a project, a fact) with `reach remember`, and rEach
+adds the profile at session start and the matching memories on each prompt. A novelty check and a write budget stop
+floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced sources are pruned first), and nothing here is sent to Teach. Ask rEach what it remembers, or run `reach memory list`; `reach memory
+forget <id>` or `reach memory forget --all --yes` erases it from rEach's files. The settings are in `config.yml`
+under `brain`.
+
+```
+reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID]   keep one finding (the agent runs this)
+reach memory [list | show ID | forget ID... | forget --all --yes | export]   see, export or erase what it remembers
+```
+
 ## Course reference
 
 Reference material never ships in this repository. Teach sends each enrolled

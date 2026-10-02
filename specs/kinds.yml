@@ -15,7 +15,16 @@ kinds:
   - kind: qualification
     required_fields: [slice, attempt, passed, at]
     description: One qualification run of a slice, pending or settled.
+  - kind: source
+    required_fields: [path, source_digest]
+    description: One captured conversation turn or note the brain learned from.
+  - kind: finding
+    required_fields: [claim, evidence, source_id, source_digest]
+    text_fields: [category, claim, evidence]
+    novelty: { duplicate: 0.85, related: 0.5, scope: category }
+    budget: { per_hour: 30, per_day: 150 }
+    description: One durable thing the partner learned about the student or their work.
 graph:
-  node_kinds: []
+  node_kinds: [source, finding]
   relations: []
 open: false
