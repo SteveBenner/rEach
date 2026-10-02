@@ -75,6 +75,7 @@ module Reach
                              Reach::Ladder.record(workspace, record)
                            end
         write_record(workspace, record) unless local_only
+        Reach::Debug.qualify(record, local_only)
         record
       end
 

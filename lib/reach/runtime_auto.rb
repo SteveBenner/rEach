@@ -33,11 +33,11 @@ module Reach
     end
 
     def state_path
-      File.join(Reach::Paths.state_dir, STATE_FILE)
+      File.join(Reach::Paths.root_state_dir, STATE_FILE)
     end
 
     def lock_path
-      File.join(Reach::Paths.state_dir, LOCK_FILE)
+      File.join(Reach::Paths.root_state_dir, LOCK_FILE)
     end
 
     def load_state

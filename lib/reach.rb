@@ -4,6 +4,7 @@ module Reach
   VERSION = File.read(File.join(__dir__, "..", "VERSION")).strip
 
   def self.ports
+    return nil if Reach::Paths.persona_id
     return nil unless defined?(Rplugin::Ports)
 
     Rplugin::Ports.for("reach", root: File.expand_path("..", __dir__))
@@ -19,6 +20,8 @@ require_relative "reach/course_time"
 require_relative "reach/wire"
 require_relative "reach/tarball"
 require_relative "reach/crypto"
+require_relative "reach/debug"
+require_relative "reach/debug_render"
 require_relative "reach/client"
 require_relative "reach/packages"
 require_relative "reach/brain_spool"
@@ -35,6 +38,7 @@ require_relative "reach/fingerprint"
 require_relative "reach/stamp"
 require_relative "reach/enroll"
 require_relative "reach/instructor"
+require_relative "reach/persona"
 require_relative "reach/enrollment_lock"
 require_relative "reach/guardrails"
 require_relative "reach/workspace"

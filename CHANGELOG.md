@@ -5,6 +5,51 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.23] - 2026-10-02
+
+### Added
+
+- Instructor personas (wire revision 2026-10-02a, `STD-INSTRUCTOR-PERSONA`). An install holding a valid instructor
+  unlock can run as a test student: `reach instructor dummy [--course ID]` (blank) and
+  `reach instructor as USERNAME [--course ID]` (a test copy of that roster student) enroll through the new
+  `W-API-ENROLL-INSTRUCTOR`, and `reach instructor exit` ends it. `lib/reach/persona.rb` builds the persona in its own
+  home (`~/.reach/personas/<id>/`) and workspace (`~/reach-work/personas/<id>/`), writes `~/.reach/persona.json` last
+  so a half-made persona never becomes active, moves a failed or ended one to `.backup` and never deletes. While a
+  persona is active rEach gates, captures and messages exactly as for a student and tells the agent nothing about it.
+  Refusals map to M-PERSONA-CODE-REFUSED, M-PERSONA-COURSE-NEEDED, M-PERSONA-NO-STUDENT and M-PERSONA-TEACH-OLD; a
+  revoked code or removed key locks the persona's next prompt (M-PERSONA-LOCKED). `reach instructor status` names the
+  persona and `reach instructor lock` exits it first. Events `instructor.persona_started`, `persona_refused` and
+  `persona_exited` carry ids, never the code. The start message and `reach instructor status` name the test student
+  ID, which is what the instructor types when rEach asks a student to sign in.
+- Debug mode (`STD-DEBUG-MODE`, wire W-API-DEBUG and W-DBG-*). `lib/reach/debug.rb` records scrubbed metadata events
+  (session, hook, gate, command, request, lock, sync, check, qualify, submit, transcript, brain, update, error) into
+  `debug/spool.jsonl` under the rEach home and sends them to Teach from the Stop and SessionEnd hooks and `reach sync`,
+  keeping them queued on any failure. It is always on for a persona; otherwise `reach debug on [--for MINUTES]`, or an
+  instructor's request delivered in `status.debug`, which the student is told about once per session (M-DEBUG-NOTICE).
+  `lib/reach/debug_render.rb` shows the turn's events at the end of each turn as a hook `systemMessage`, never as agent
+  context: an ASCII table on terminal surfaces and a Markdown table on desktop and IDE surfaces, detected from the
+  harness environment, with `config.yml` `debug.render` (auto, ascii, markdown) as the override. Hermes has no
+  user-visible hook channel, so there `reach debug show` is the way. New verbs: `reach debug on|off|status|show|flush`.
+
+### Changed
+
+- `Reach::Paths.root` and `workspace_base` are the computer-wide locations; `Paths.home` and `workspace_root` follow
+  the active persona. The instructor unlock, the managed plugin, updates, the runtime kit and the Codex writable root
+  stay at the root. While a persona is active its sidecar, brain spool and brain state live in the persona home,
+  `Reach.ports` is nil (nothing reaches `~/.corpora/reach`), and import detection skips all of `~/.reach`.
+- `specs/wire.yml` is wire revision 2026-10-02a (Teach 0.17.2 carries the identical copy):
+  `W-API-ENROLL-INSTRUCTOR`, `W-API-DEBUG`, `status.classification`, `status.debug` and the `debug` section.
+- `specs/app.yml` gains STD-INSTRUCTOR-PERSONA and STD-DEBUG-MODE and amends STD-WORKSPACE-LAYOUT,
+  STD-INSTRUCTOR-UNLOCK, STD-SEAL-INVISIBLE and STD-BRAIN for personas.
+
+### Verified
+
+- Against a real scratch Teach 0.17.2: the assignment-one smoke extended with persona journeys passed 52 steps (2
+  manual skips), the whole student loop plus unlock, a test copy with its workspace and receipts, sign-in by test ID,
+  the gate, `reach check`, debug events stored as instructor data, the copied student's rows unchanged, exit, a dummy,
+  revocation at Teach and the real install unaffected. With debug off, hook outputs and file listings are identical to
+  0.16.22's. Every changed file parses on Ruby 2.6.10, and the persona flow ran there against a stub.
+
 ## [0.16.22] - 2026-10-02
 
 ### Fixed

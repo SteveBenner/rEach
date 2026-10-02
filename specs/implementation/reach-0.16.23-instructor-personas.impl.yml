@@ -1,0 +1,243 @@
+schema: rstack.blueprint/v1
+task: reach-instructor-personas-and-debug
+intent: >
+  Instructor mode (STD-INSTRUCTOR-UNLOCK) gains the authority to run any Reach install as a test student, either a
+  blank dummy or a test copy of a real roster student, so instructors can test the platform and experience every
+  student feature exactly as a student does, from any Reach install. Everything a persona sends is classified
+  instructor on Teach. Alongside it, a debug mode captures a comprehensive, scrubbed metadata event set, sends it to
+  Teach for storage and shows it on screen at the end of each turn as an ASCII table on terminal harnesses and a
+  Markdown table on GUI harnesses. Debug mode is always on for a persona and otherwise on only by request (locally
+  or by an instructor through Teach). Release Reach 0.16.23 and Teach 0.17.2, wire revision 2026-10-02a.
+harness: claude-code
+worker: { agent: coding-worker, model: sonnet, effort: medium }
+decisions:
+  - "2026-10-02 (user): impersonating a real student makes a TEST COPY on Teach. Nothing the instructor does lands in the real student's record. No live impersonation mode exists."
+  - "2026-10-02 (user): persona data is sent back classified instructor and carries debug info; debug mode stores everything on Teach and shows it on screen, ASCII tables for TUI and Markdown for GUI."
+  - "2026-10-02 (primary): classification is derived by Teach from the student (test student = instructor). An install never sets it."
+  - "2026-10-02 (primary): debug mode is on for every persona; otherwise by `reach debug on` locally or `teach debug on --student` remotely (status.debug). A real student switched on remotely is told once per session (M-DEBUG-NOTICE)."
+  - "2026-10-02 (primary): one persona at a time per computer; the pointer file makes it span every harness session; exit moves it to .backup, never deletes."
+contracts_already_written_by_primary:
+  - "rEach specs/wire.yml (and the byte-identical teach/specs/wire.yml): W-API-ENROLL-INSTRUCTOR, W-API-DEBUG, status.classification, status.debug, debug.W-DBG-EVENT/KINDS/SCRUB/RENDER, error codes instructor_code_refused, course_required, student_not_found. Read them first; they are normative. Do NOT edit wire.yml; if it is wrong, stop and report."
+  - "rEach specs/app.yml STD-INSTRUCTOR-PERSONA and STD-DEBUG-MODE (plus amended STD-WORKSPACE-LAYOUT, STD-INSTRUCTOR-UNLOCK, STD-SEAL-INVISIBLE, STD-BRAIN)."
+  - "teach specs/app.yml STD-INSTRUCTOR-PERSONAS and STD-DEBUG-EVENTS."
+constraints:
+  - AGENTS.md Part S, write no tests and commit no test files. Part Q, no comments in code. Part F, no attribution. Part E, never delete; retire to .backup. Part B, every new HTTP call path goes through the existing Reach::Client (its limiter, retries, timeouts) with no new bypass.
+  - AGENTS.md Part J, query codebase-memory-mcp first. Project keys `home-sven-github-foss-rEach` and `home-sven-bitbucket-paterasai-teach`.
+  - Reach STD-RUBY-FLOOR. Every Reach lib/ and exe/ file runs on Ruby 2.6.10, standard library only. Verify in `docker run --rm -v ~/github/foss/rEach:/r -w /r ruby:2.6.10-slim ruby -c <file>` and run the scratch flows under it at least once.
+  - Reach STD-STUDENT-MESSAGES. Every person-facing text, including debug table labels, through locales/en-US.yml by id. American English.
+  - Teach runs on Ruby 4.0.6 with its vendor/bundle (`BUNDLE_GEMFILE=~/bitbucket/paterasai/teach/Gemfile bundle exec ruby bin/teach`).
+  - "NEVER touch the live Teach: unset TEACH_DATABASE_URL in every shell first (the login shell exports the LIVE db), never use database `teach`, never touch ~/.teach, ~/.config/teach or the teach systemd units, never restart anything. Use a scratch PostgreSQL database you create (`createdb teach_personas_<slice>`), a scratch TEACH_HOME and a free port above 9400, all under the scratchpad dir given in your prompt."
+  - "Reach runs only with scratch HOME, REACH_HOME, REACH_WORKSPACE_ROOT, XDG_CONFIG_HOME, XDG_STATE_HOME, REACH_SIDECAR unset or scratch, under the scratchpad. Never touch ~/.reach, ~/reach-work, ~/.config, ~/.rplugins, ~/.corpora, ~/.local/state. Never run `rplugin install`. Generate any instructor key only into scratch, pin it only in a scratch copy of config.yml (REACH_CONFIG or the mechanism Reach::Runtime.load_config honors; if none exists, copy the checkout to scratch and edit the copy). Never print a private key or a full instructor code into any file under a repository."
+  - Do not commit, tag, push or bump versions; do not edit README, CHANGELOG, FEATURES, VERSION or plugin manifests (the primary does). Take locks with `reaper lock acquire --agent-id <your slice id> --purpose ... --path ...` before editing any file listed under shared_surfaces and release them at the end.
+shared_surfaces:
+  - rEach lib/reach/cli.rb, lib/reach/gate.rb, locales/en-US.yml, config.yml (reach-persona first, then reach-debug; never both at once)
+slices:
+  - id: teach
+    repo: ~/bitbucket/paterasai/teach
+    depends_on: []
+    owns_paths:
+      - lib/teach/instructor_codes.rb (new)
+      - lib/teach/personas.rb (new)
+      - lib/teach/debug_events.rb (new)
+      - lib/teach/db.rb (schema/COLUMNS additions only)
+      - lib/teach/models/student.rb, lib/teach/models/install.rb
+      - lib/teach/policy.rb (enrollment.instructor_keys / instructor_revoked)
+      - lib/teach/auth.rb (persona revocation in verify_install!)
+      - lib/teach/web/app.rb, lib/teach/web/helpers.rb (two routes, validators, link_sidecar exclusion)
+      - lib/teach/status.rb (classification, debug)
+      - lib/teach/roster.rb, lib/teach/grades.rb, lib/teach/modules.rb, lib/teach/web/console/queries/*.rb (test-student exclusions only)
+      - lib/teach/transcripts.rb / lib/teach/subcorpus.rb (the _instructor subcorpus root only)
+      - lib/teach/cli.rb (teach debug on|off|show)
+      - lib/teach/errors.rb (new error classes mapped to the wire codes)
+      - lib/teach/rate_limiter.rb (profiles only if needed)
+      - teach.spec.yml (sections describing the two routes, the tables and the CLI)
+    detail: |
+      1. Schema (PostgreSQL; follow db.rb's SCHEMA + COLUMNS migration pattern exactly): students.test_of TEXT,
+         students.test_code_id TEXT, students.test_key_id TEXT, students.test_created_at TEXT; new table debug_events
+         (id TEXT PRIMARY KEY (the event id), install_id, student_id, classification TEXT NOT NULL, session_id,
+         harness, surface, reason, kind, seq INTEGER, at TEXT, fields_json TEXT NOT NULL, received_at TEXT NOT NULL)
+         with an index on (student_id, at); new table debug_requests (student_id TEXT PRIMARY KEY, requested_by TEXT,
+         requested_at TEXT, until TEXT, ended_at TEXT). Make sure db_import.rb and backup.rb still work (they
+         enumerate TABLES; add nothing that breaks import-sqlite of an older db).
+      2. Teach::InstructorCodes.verify(code) -> [payload, nil] | [nil, reason]: a byte-for-byte port of
+         rEach lib/reach/instructor.rb parse/payload_shape?/verify (prefix RINS1, kind reach.instructor-unlock, v 1,
+         key_id = first 16 hex of sha256 of the public key DER, PSS with SHA-256, salt length and MGF1 exactly as
+         rEach lib/reach/crypto.rb PSS_SALT_LENGTH/PSS_DIGEST), against Teach::Policy.enrollment["instructor_keys"]
+         ([{id, label, public_key_pem}]) and ["instructor_revoked"] ([id] or [{id}]). Default both to [] so a Teach
+         with no keys refuses every code with key_unpinned. Policy validation (enrollment_problems) reports a key
+         entry whose id does not match its PEM.
+      3. POST /api/v1/enroll/instructor per W-API-ENROLL-INSTRUCTOR, rate limited with the :enroll profile per IP
+         and refusals counted with :enroll_refused per IP. Order: body shape -> reach_version minimum -> code
+         (instructor_code_refused with details.reason) -> course (course_required with details.courses when omitted
+         and not exactly one course is open; not_found; course_code_expired when ended) -> persona. Reuse
+         Teach::Enrollment's fingerprint validation, signing key lookup and build_stamp (extract a shared helper if
+         needed; do not change enroll_v2 behavior). Test student id test_<12 hex>, username test-<8 hex>,
+         display_name "Test student <first 4 hex>" (dummy) or "Test copy of <display_name>" (copy), status
+         enrolled, a course_roster row (status active, group_id copied for a copy, null for a dummy). A copy also
+         copies slice_assignments; re-issues the copied student's latest module record for the test student through
+         the same code path that issues module records (source as that path allows; record the source student in
+         details); copies submissions rows with new ids pointing at the same blob paths and re-issues each one's
+         receipts through Teach's receipt-signing code with the test student's ids. Transcripts, hands, transfers,
+         qualifications, integrity events, device moves and passwords are never copied. Never write any row of the
+         copied student. All inside one transaction. Audit persona.created (actor "instructor_code:<code id>",
+         subject the test student, details {kind, course_id, test_of, install_id, key_id, ip}) and persona.refused
+         {reason, ip}; never the code. Response = enroll_v2's response for the test student + persona {...}.
+      4. Revocation: Auth.verify_install! raises Teach::Revoked when the install's student is a test student whose
+         test_code_id is now in instructor_revoked or whose test_key_id is no longer pinned (one indexed lookup).
+      5. Classification: Teach::Students.classification(student_row) = "instructor" if test_of present else
+         "student". Status adds classification and debug {requested, until, by}: requested is true for a test
+         student; for a real student true while a debug_requests row has ended_at null and until in the future.
+         Test students' subcorpus root is subcorpora/<course>/_instructor/<student id>_<name>/.
+      6. Exclusions (test_of IS NOT NULL): roster import never retires or touches test roster rows and roster
+         listings/counts skip them; grade exports skip them; module capacity counts skip them; link_sidecar ignores
+         siblings or self that are test students; console overview counts skip them. Console lists keep showing them
+         by their Test display name (no template or CSS change).
+      7. POST /api/v1/debug per W-API-DEBUG: install auth, body limit 1 MiB (413 too_large), :per_install limit,
+         validate every event against W-DBG-EVENT (id 32 hex, kind in W-DBG-KINDS, <= 64 field keys, scalar values
+         <= 1024 bytes, arrays <= 32 scalars) and reject the batch with invalid_request on the first bad one; also
+         reject any field whose key matches /code|password|secret|token|key|signature|pem|passphrase/i (defense in
+         depth). Insert with ON CONFLICT (id) DO NOTHING; answer {accepted, classification}. Never log fields.
+      8. CLI: `teach debug on --student ID [--minutes N]` (default 120, max 1440), `teach debug off --student ID`,
+         `teach debug show --student ID [--classification instructor|student] [--session S] [--kind K] [--limit N]
+         [--format text|json]` (text = an aligned table). Audit debug.requested / debug.ended.
+    acceptance:
+      - "`ruby -c` on every touched Ruby file; teach doctor (or bin/teach's own health) passes on a scratch db after migration from an empty db AND from a scratch db migrated by the pre-change code (stash, migrate, unstash, migrate again)."
+      - "Scratch course + roster of two real students (one with slice assignments, a module record and one submission with receipt) + a scratch instructor key pinned in the scratch course policy. curl/Ruby against a scratch `teach serve`: dummy creation returns a test_ student and a stamp; copy of student A returns Test copy of A with A's group, slice assignments, a re-issued module record and the submission's receipt under the test ids; a SELECT before/after shows zero changed rows for student A in every table."
+      - "Refusals: garbage code (malformed), a code from an unpinned key (key_unpinned), a tampered payload (signature), a revoked id (revoked), omitted course with two open courses (course_required + both ids), unknown username (student_not_found); none audits or logs the code (grep the scratch TEACH_HOME logs and the audit table for the code's signature segment: no hits)."
+      - "After listing the code id in instructor_revoked, a signed status request from the persona install answers 403 revoked."
+      - "status for the persona install has classification instructor and debug.requested true; for a real install classification student, and debug.requested flips with teach debug on/off."
+      - "POST /api/v1/debug stores events once (re-post = accepted 0 for duplicates), rejects a field named password, and teach debug show prints them in both formats."
+      - "Roster re-import of the original CSV leaves the test roster rows untouched; grades export and module capacity ignore test students."
+  - id: reach-persona
+    repo: ~/github/foss/rEach
+    depends_on: []
+    owns_paths:
+      - lib/reach/persona.rb (new)
+      - lib/reach/paths.rb
+      - lib/reach/instructor.rb, lib/reach/enrollment_lock.rb, lib/reach/enroll.rb
+      - lib/reach/sidecar.rb, lib/reach/brain_spool.rb, lib/reach/brain.rb (persona scoping only)
+      - lib/reach/runtime.rb, lib/reach/harness.rb, lib/reach/update.rb, lib/reach/runtime_kit.rb, lib/reach/runtime_auto.rb (switch shared paths to Paths.root only)
+      - lib/reach/cli.rb, lib/reach/gate.rb, locales/en-US.yml (shared surfaces, locked)
+      - lib/reach.rb (require line)
+      - reach.spec.yml (instructor section: personas)
+    detail: |
+      1. Paths: add Reach::Paths.root (today's home: REACH_HOME or ~/.reach) and Reach::Paths.workspace_base (today's
+         workspace_root: REACH_WORKSPACE_ROOT or ~/reach-work). Reach::Paths.home returns
+         root/personas/<id> and workspace_root returns workspace_base/personas/<id> while root/persona.json names an
+         active persona whose home directory exists; otherwise exactly today's values. Read persona.json at most once
+         per process (memoize; Persona.activate!/exit! reset the memo). Audit every Paths method and every
+         Reach::Paths.home caller: the instructor unlock (instructor.json, its log), the managed plugin install,
+         updates (manifest, lock, log, updates dir), the runtime kit (runtime dir, logs, gems, chromium, bin/reach,
+         bin/root), install_backup_dir when used by updates, and harness writable_roots use root; everything else
+         (install, keys, vault, packages, outbox, receipts, logs, state, ledger, checkpoints, transcripts,
+         enroll/login/consent/modules/part/sandbox state, profile, brain, hands, imports, fingerprint, stamp) follows
+         home. List every decision in your report.
+      2. Sidecar: while a persona is active Reach::Sidecar.path is <persona home>/seal.json (REACH_SIDECAR still
+         wins when set). Brain: while a persona is active the brain spool and Reach's brain state live under the
+         persona home (use Reach's own non-rplugin fallback store under the persona home) and nothing is admitted into
+         ~/.corpora/reach or written to the rplugin state dir.
+      3. Reach::Persona: start!(kind:, username:, course_id:) requires Instructor.current (valid code) and no real
+         enrollment at root (Enroll.current with home = root is nil), and refuses when a persona is already active
+         (M-PERSONA-ACTIVE naming it). It makes id = 8 random hex, creates root/personas/<id>/ (0700) and
+         workspace_base/personas/<id>/, and, with Paths resolving to that persona home (activate a pending pointer
+         or an explicit override; never let a half-made persona become active), generates the install key and
+         fingerprint exactly as enrollment does, POSTs W-API-ENROLL-INSTRUCTOR through Reach::Client to the Teach
+         URL enrollment uses (STD-TEACH-URL), verifies the response as Enroll.verify_response! does (student_id from
+         persona.student_id; stamp verified with the returned signing keys), writes install.yml, the stamp and the
+         private key into the persona home with Enroll's own writers, then writes root/persona.json {id, kind,
+         course_id, student_id, username, display_name, test_of, install_id, code_id, started_at} atomically (temp
+         file + rename, 0600) as the LAST step, then runs the same post-enrollment work a student's enrollment runs
+         (sync and workspace preparation) and prints M-PERSONA-STARTED {display_name, course_id, workspace}. On any
+         failure it moves the half-made persona dirs to root/.backup/personas/<id>-failed-<ts> and
+         workspace_base/.backup/personas/<id>-failed-<ts> and prints the mapped message: instructor_code_refused ->
+         M-PERSONA-CODE-REFUSED {reason}; course_required -> M-PERSONA-COURSE-NEEDED {courses}; student_not_found ->
+         M-PERSONA-NO-STUDENT {username}; not_found on the route -> M-PERSONA-TEACH-OLD; anything else -> the
+         client's existing error message.
+         exit! moves persona.json to root/.backup/persona-<id>-<ts>.json, the persona home to
+         root/.backup/personas/<id>-<ts>/ and its workspace to workspace_base/.backup/personas/<id>-<ts>/ (never
+         delete), prints M-PERSONA-EXITED. status -> {active, id, kind, display_name, username, course_id, test_of,
+         started_at, workspace}.
+      4. CLI (instructor is already in UNLOCKED_COMMANDS): `reach instructor dummy [--course ID]`,
+         `reach instructor as USERNAME [--course ID]`, `reach instructor exit`; `reach instructor status` adds the
+         persona (text and json); `reach instructor lock` exits an active persona first. M-INSTRUCTOR-USAGE lists the
+         new verbs. All need the instructor unlock, else M-PERSONA-NEEDS-UNLOCK.
+      5. Lock and gate: with a persona active, Reach::EnrollmentLock.state evaluates the persona's enrollment exactly
+         as a student's (stamp, fingerprint, course end), EXCEPT that when Instructor.current is nil (code revoked or
+         key removed) it returns locked with reason instructor_revoked and message M-PERSONA-LOCKED, and the prompt
+         hook blocks with that message. The instructor-mode short-circuits (Instructor.mode?, M-INSTRUCTOR-CONTEXT)
+         stay false/silent while a persona is active, so every gate, capture and message is a student's. Nothing
+         tells the agent about the persona.
+      6. Events in Reach's existing instructor log: instructor.persona_started / persona_refused / persona_exited
+         with persona id, kind, course id, code id, test student id, reason; never the code.
+      7. Messages (new ids, American English): M-PERSONA-STARTED, M-PERSONA-EXITED, M-PERSONA-ACTIVE,
+         M-PERSONA-NONE, M-PERSONA-NEEDS-UNLOCK, M-PERSONA-CODE-REFUSED, M-PERSONA-COURSE-NEEDED,
+         M-PERSONA-NO-STUDENT, M-PERSONA-TEACH-OLD, M-PERSONA-LOCKED, M-PERSONA-STATUS.
+    acceptance:
+      - "`ruby -c` on every touched file on Ruby 3.3 and in ruby:2.6.10-slim; locales parse."
+      - "Without a persona, a scratch enroll + status + gate run behaves byte-for-byte as before (same files written under REACH_HOME, same hook outputs) — show a tree listing diff."
+      - "Against tools/fake_teach extended in scratch ONLY if it lives outside the repo, or against the teach slice's scratch server once it exists: instructor unlock in scratch, `reach instructor dummy` creates personas/<id>/ with install.yml, writes persona.json last, and `reach status` / a `reach gate prompt` payload from a cwd inside workspace_base/personas/<id>/deliverables behave as an enrolled student's; `reach instructor exit` moves all three to .backup and the next prompt is back in instructor mode."
+      - "Error mapping: each of the four mapped errors prints its message and leaves nothing active (persona.json absent) with the half-made dirs under .backup."
+      - "Revoking the code id in the scratch config locks the persona's next prompt with M-PERSONA-LOCKED."
+      - "Paths audit list in the report; grep proves no instructor code appears in any file under the scratch REACH_HOME except instructor.json."
+  - id: reach-debug
+    repo: ~/github/foss/rEach
+    depends_on: [reach-persona]
+    owns_paths:
+      - lib/reach/debug.rb (new), lib/reach/debug_render.rb (new)
+      - lib/reach/cli.rb, lib/reach/gate.rb, locales/en-US.yml, config.yml (debug section) (shared surfaces, locked)
+      - lib/reach/client.rb, lib/reach/enrollment_lock.rb, lib/reach/sync.rb, lib/reach/check.rb, lib/reach/qualify.rb, lib/reach/submit.rb, lib/reach/transcript.rb, lib/reach/brain.rb, lib/reach/update.rb, lib/reach/hello.rb, lib/reach/status.rb (one-line emit calls only)
+      - lib/reach/harness.rb (Stop/SessionEnd hook command lines only)
+      - hooks/reach.hooks.yml (only if a plugin-level stop hook is needed; then regenerate with `~/.rplugin/bin/rplugin package ~/.rplugins/reach` and `rplugin check ~/.rplugins/reach` must say 0 — or, if regenerating would touch the live ~/.rplugins link target in a way you cannot keep inside the repo, do not; use the prompt_submit fallback below and report)
+      - reach.spec.yml (debug section)
+    detail: |
+      1. Reach::Debug.on? / reason: persona active -> "persona"; else a local switch file <home>/debug/switch.json
+         {until or null} set by `reach debug on [--for MINUTES]` / cleared by `reach debug off` -> "local"; else the
+         cached status.debug.requested true with until in the future -> "remote". Off otherwise. Cheap: no network.
+      2. Reach::Debug.emit(kind, fields): returns immediately when off. Scrubs per W-DBG-SCRUB (drop keys matching
+         /code|password|secret|token|key|signature|pem|passphrase/i; replace RINS1 codes, PEM blocks and course-code
+         shaped values (config enrollment patterns + /[A-Z0-9]{3,}-[A-Z0-9]{4}-[A-Z0-9]{4}/) inside strings with
+         [scrubbed]; truncate strings to 1024 bytes; cap 64 keys), adds id/at/seq/persona_id, appends one JSON line to
+         <home>/debug/spool.jsonl (dir 0700, file 0600) under a flock. Never raises; never writes outside home.
+         Cap the spool at 5 MiB (drop the oldest unsent lines, record a dropped counter in the next session event).
+      3. Emit points, one line each, covering every W-DBG-KINDS kind: session (hello), hook + gate (gate.rb prompt,
+         pre/post tool, stop decisions with message ids and latency), command (cli dispatch: command and flag NAMES
+         only, exit code, duration, error class), request (Reach::Client: route id or path template, method, status,
+         error code, request_id, attempt, latency, bytes), lock (EnrollmentLock.state transitions), sync, check,
+         qualify, submit, transcript (flush counts), brain (counts), update (phase/outcome), error (rescue sites that
+         already log: class, message id or scrubbed message, 12 backtrace frames relative to the plugin root).
+      4. Sender: Reach::Debug.flush posts the spool in batches of <= 500 events / < 1 MiB through Reach::Client to
+         W-API-DEBUG with session_id, harness, surface, reason; on 200 it moves sent lines to
+         <home>/debug/sent-<date>.jsonl (kept, not deleted); on failure everything stays queued. Called from the
+         same places transcripts flush (Stop and SessionEnd hooks, reach sync), detached or within their existing
+         time budget so no hook ever waits on the network longer than today. Only when enrolled (persona or student).
+      5. Render (W-DBG-RENDER): Reach::DebugRender.surface(harness, payload) -> tui|gui from the harness environment
+         and hook payload (Claude Code: CLAUDE_CODE_ENTRYPOINT cli/sdk -> tui, desktop/vscode/jetbrains/ide -> gui;
+         Codex: its terminal CLI -> tui, app/IDE -> gui, from whatever its env or payload exposes; Hermes -> tui;
+         unknown -> tui), overridden by config.yml debug.render (auto|ascii|markdown, default auto). table(events):
+         columns time (course timezone, HH:MM:SS), kind, what (a short summary built per kind), result, ms; ASCII
+         with +---+ borders <= 100 columns (truncate with ...), Markdown as a GFM pipe table with escaped pipes; a
+         heading line and labels from locales (M-DEBUG-TITLE, M-DEBUG-COL-*), at most 40 rows then "+N more" (M-DEBUG-MORE).
+      6. On-screen: at the end of each turn, when debug is on, the Stop hook shows the turn's events (since the last
+         shown seq) as the harness's user-visible hook message (Claude Code: top-level systemMessage; Codex and
+         Hermes: their equivalent if the hook protocol has one — check harness.rb and docs; if none, nothing extra
+         is printed there and reach debug show is the way). Outside course folders, where only the plugin-level
+         session_start and prompt_submit hooks run, show the pending events as systemMessage from the next
+         prompt_submit, unless you added a plugin-level stop hook per owns_paths. The block never goes into the
+         agent's context (systemMessage only, never additionalContext).
+      7. CLI: `reach debug on [--for MINUTES]`, `reach debug off`, `reach debug status [--format text|json]`
+         (on/off, reason, until, spool counts), `reach debug show [--last N] [--format ascii|markdown|json]`
+         (default: the detected surface), `reach debug flush`. `debug` joins UNLOCKED_COMMANDS. A remote request
+         while not a persona prints M-DEBUG-NOTICE once per session as context and systemMessage.
+      8. config.yml: debug: {render: auto, spool_max_bytes: 5242880, batch_max_events: 500, show_max_rows: 40}.
+    acceptance:
+      - "`ruby -c` on every touched file on Ruby 3.3 and ruby:2.6.10-slim; YAML parses."
+      - "Debug off (no persona, no switch, no remote request): no debug/ dir is created by any flow, and hook outputs are byte-identical to before."
+      - "Persona active (scratch, against the teach slice's scratch server): a scripted prompt -> pre/post tool -> Stop sequence in a slice workspace spools hook, gate, command, request, lock, sync events; the Stop hook output carries a systemMessage with the ASCII table when CLAUDE_CODE_ENTRYPOINT=cli and a Markdown table when =claude-desktop; flush posts them, teach debug show lists them with classification instructor."
+      - "Scrub: an emitted field named password, a string containing a RINS1 code, a PEM block and a course code all arrive as dropped/[scrubbed] in the spool AND on Teach."
+      - "`reach debug on --for 5` on a real scratch student enrolls debug locally (reason local, classification student on Teach); `teach debug on --student` flips a different scratch student to reason remote with M-DEBUG-NOTICE once."
+      - "Network failure (stop the scratch server) keeps the spool; restarting it and running reach sync sends it."
+report: "Per slice: files changed; every acceptance item with the command and its literal key output (never print a full instructor code; at most its first 16 characters); every decision the detail left to you; anything not implemented as written and why."
+out_of_scope:
+  - Live impersonation that writes to a real student's record
+  - Teach console template or CSS changes
+  - Deploying Teach, pinning a real key in the live course policy, restarting any service (the primary does these with the user)

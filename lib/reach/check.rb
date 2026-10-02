@@ -71,6 +71,7 @@ module Reach
       findings.concat(shape_findings(workspace, changed))
       findings = drop_deferred_panel_findings(findings) if Reach::Shape.ran?
       record(workspace, changed, findings)
+      Reach::Debug.check(findings, owned.length)
       format == :text ? render_text(findings) : findings
     end
 

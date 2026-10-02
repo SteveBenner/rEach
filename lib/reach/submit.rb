@@ -39,11 +39,14 @@ module Reach
           response = client(install).post_json(ROUTE, body, idempotency_key: idempotency_key)
           result = handle_response(response.json || {})
           FileUtils.rm_f(outbox_path)
+          Reach::Debug.submit(result)
           result
         rescue Reach::RemoteRefused => e
           FileUtils.rm_f(outbox_path)
+          Reach::Debug.submit("state" => "rejected", "rejection" => { "code" => e.code })
           { "submission_id" => nil, "state" => "rejected", "receipt" => nil, "rejection" => { "code" => e.code, "reason" => e.message } }
         rescue Reach::Offline, Reach::NetworkError
+          Reach::Debug.submit("state" => "queued")
           { "submission_id" => nil, "state" => "queued", "receipt" => nil, "rejection" => nil }
         end
       end

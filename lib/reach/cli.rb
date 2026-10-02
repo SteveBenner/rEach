@@ -10,11 +10,21 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
 
     class << self
       def run(argv)
+        started = Reach::Debug.clock
+        code = nil
+        begin
+          code = dispatch(argv)
+        ensure
+          Reach::Debug.command(argv, code, started, $!)
+        end
+      end
+
+      def dispatch(argv)
         begin
           Reach::Runtime.ensure_shim!
         rescue StandardError
@@ -40,6 +50,8 @@ module Reach
           cmd_enroll(args)
         when "instructor"
           cmd_instructor(args)
+        when "debug"
+          cmd_debug(args)
         when "sync"
           cmd_sync(args)
         when "status"
@@ -118,9 +130,11 @@ module Reach
           1
         end
       rescue Reach::GateBlocked => e
+        Reach::Debug.note(e)
         warn e.message
         2
       rescue Reach::Error => e
+        Reach::Debug.note(e)
         warn e.message
         1
       end
@@ -147,7 +161,8 @@ module Reach
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor [--install-chromium]          check the local install, one line per problem
             lock                                 wipe the decrypted vault
-            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock   instructor unlock codes
+            debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush   debug mode: what rEach did, with no prompts, replies, code or secrets
+            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | exit   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
@@ -459,6 +474,24 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
+        Reach::Debug.begin_hook(event, options[:harness])
+        started = Reach::Debug.clock
+        @gate_decision = "allow"
+        rule = nil
+        begin
+          gate_dispatch(sub, options, event)
+        rescue Reach::GateBlocked => e
+          @gate_decision = "block"
+          rule = e.message_id
+          raise
+        ensure
+          name = event.is_a?(Hash) && event["hook_event_name"] ? event["hook_event_name"].to_s : "gate-#{sub}"
+          Reach::Debug.hook(name, @gate_decision, rule, started)
+          Reach::Debug.emit("gate", "check" => sub.to_s, "outcome" => @gate_decision, "message_id" => rule)
+        end
+      end
+
+      def gate_dispatch(sub, options, event)
         return gate_enroll(options[:harness], event) if sub == "enroll"
 
         hermes = hermes_hook?(options[:harness], event)
@@ -477,7 +510,12 @@ module Reach
           return gate_hermes_prompt(event) if hermes
 
           context = Reach::Gate.prompt(event: event, harness: options[:harness])
-          puts JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => context }) if context
+          @gate_decision = "context" if context
+          payload = {}
+          payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => context } if context
+          message = Reach::Debug.prompt_message(event, options[:harness])
+          payload["systemMessage"] = message if message
+          puts JSON.generate(payload) unless payload.empty?
           0
         when "write"
           path = options[:path] || tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
@@ -525,21 +563,48 @@ module Reach
         when "status"
           options, _remaining = parse_flags(args, [:format])
           status = Reach::Instructor.status
+          persona = Reach::Persona.status
           if (options[:format] || "text") == "json"
-            puts JSON.generate(status)
-          elsif status["unlocked"]
-            puts Reach::Messages.text(
-              "M-INSTRUCTOR-STATUS",
-              code_id: status["code_id"], label: status["label"], key_id: status["key_id"], unlocked_at: status["unlocked_at"]
-            )
+            puts JSON.generate(status.merge("persona" => persona))
           else
-            puts Reach::Messages.text("M-INSTRUCTOR-STATUS-OFF")
+            if status["unlocked"]
+              puts Reach::Messages.text(
+                "M-INSTRUCTOR-STATUS",
+                code_id: status["code_id"], label: status["label"], key_id: status["key_id"], unlocked_at: status["unlocked_at"]
+              )
+            else
+              puts Reach::Messages.text("M-INSTRUCTOR-STATUS-OFF")
+            end
+            if persona["active"]
+              puts Reach::Messages.text(
+                "M-PERSONA-STATUS",
+                display_name: persona["display_name"], id: persona["id"], kind: persona["kind"], username: persona["username"],
+                student_id: persona["student_id"], course_id: persona["course_id"], started_at: persona["started_at"], workspace: persona["workspace"]
+              )
+            end
           end
           0
         when "lock"
+          if Reach::Persona.active?
+            exited = Reach::Persona.exit!
+            puts Reach::Messages.text("M-PERSONA-EXITED", display_name: exited["display_name"]) if exited
+          end
           Reach::Instructor.lock!
           puts Reach::Messages.text("M-INSTRUCTOR-LOCKED")
           0
+        when "dummy", "as"
+          instructor_persona(sub, args)
+        when "exit"
+          raise Reach::Refused, Reach::Messages.text("M-PERSONA-NEEDS-UNLOCK") unless Reach::Instructor.active? || Reach::Persona.active?
+
+          exited = Reach::Persona.exit!
+          if exited
+            puts Reach::Messages.text("M-PERSONA-EXITED", display_name: exited["display_name"])
+            0
+          else
+            puts Reach::Messages.text("M-PERSONA-NONE")
+            1
+          end
         else
           warn Reach::Messages.text("M-INSTRUCTOR-USAGE")
           1
@@ -547,6 +612,90 @@ module Reach
       rescue Reach::Error => e
         warn e.message
         1
+      end
+
+      def cmd_debug(args)
+        sub = args.shift
+        case sub
+        when "on"
+          options, _remaining = parse_flags(args, [:for])
+          minutes = options[:for]
+          if !minutes.nil? && !minutes.to_s.match?(/\A[1-9][0-9]{0,5}\z/)
+            warn Reach::Messages.text("M-DEBUG-USAGE")
+            return 1
+          end
+          if Reach::Persona.active?
+            puts Reach::Messages.text("M-DEBUG-PERSONA")
+            return 0
+          end
+          until_at = Reach::Debug.turn_on!(minutes)
+          puts until_at ? Reach::Messages.text("M-DEBUG-ON-UNTIL", until: until_at) : Reach::Messages.text("M-DEBUG-ON")
+          0
+        when "off"
+          if Reach::Persona.active?
+            puts Reach::Messages.text("M-DEBUG-PERSONA")
+            return 1
+          end
+          Reach::Debug.turn_off!
+          puts Reach::Messages.text("M-DEBUG-OFF")
+          puts Reach::Messages.text("M-DEBUG-REMOTE-STILL") if Reach::Debug.on?
+          0
+        when "status"
+          options, _remaining = parse_flags(args, [:format])
+          report = Reach::Debug.status
+          if (options[:format] || "text") == "json"
+            puts JSON.generate(report)
+          elsif report["on"]
+            puts Reach::Messages.text(
+              "M-DEBUG-STATUS-ON", reason: report["reason"], until: report["until"] || "no end time",
+              queued: report["spool"]["queued"], sent: report["spool"]["sent"], dropped: report["spool"]["dropped"]
+            )
+          else
+            puts Reach::Messages.text("M-DEBUG-STATUS-OFF", queued: report["spool"]["queued"], sent: report["spool"]["sent"])
+          end
+          0
+        when "show"
+          options, _remaining = parse_flags(args, [:last, :format])
+          format = options[:format] || Reach::DebugRender.format_for(Reach::Debug.resolve_harness(nil), {})
+          unless %w[ascii markdown json].include?(format)
+            warn Reach::Messages.text("M-DEBUG-USAGE")
+            return 1
+          end
+          last = options[:last].to_s.match?(/\A[1-9][0-9]{0,4}\z/) ? options[:last].to_i : Reach::Debug.config["show_max_rows"].to_i
+          entries = Reach::Debug.read_events.last(last)
+          if format == "json"
+            puts JSON.generate(entries.map { |entry| entry["event"] })
+          else
+            puts Reach::DebugRender.table(entries, format: format, limit: last)
+          end
+          0
+        when "flush"
+          result = Reach::Debug.flush(quick: false)
+          puts Reach::Messages.text("M-DEBUG-FLUSHED", sent: result["sent"], stopped: result["stopped"] || "none")
+          0
+        else
+          warn Reach::Messages.text("M-DEBUG-USAGE")
+          1
+        end
+      end
+
+      def instructor_persona(sub, args)
+        raise Reach::Refused, Reach::Messages.text("M-PERSONA-NEEDS-UNLOCK") unless Reach::Instructor.active?
+
+        options, remaining = parse_flags(args, [:course])
+        username = nil
+        if sub == "as"
+          username = remaining.shift.to_s.strip
+          if username.empty?
+            warn Reach::Messages.text("M-INSTRUCTOR-USAGE")
+            return 1
+          end
+        end
+        result = Reach::Persona.start!(kind: sub == "as" ? "copy" : "dummy", username: username, course_id: options[:course])
+        record = result["persona"]
+        puts Reach::Messages.text("M-PERSONA-STARTED", display_name: record["display_name"], student_id: record["student_id"], course_id: record["course_id"], workspace: result["workspace"])
+        print_sync_summary(result["summary"]) if result["summary"]
+        0
       end
 
       def instructor_entry(key_id, pem)
@@ -564,6 +713,14 @@ module Reach
           message = message.map { |part| part.is_a?(Hash) && part["type"] == "text" ? part["text"].to_s : nil }.compact.join("\n") if message.is_a?(Array)
           event = event.merge("prompt" => message) if message.is_a?(String)
         end
+        if Reach::Persona.active? && !Reach::Instructor.attempt?(event["prompt"]) && Reach::EnrollmentLock.state["reason"] == "instructor_revoked"
+          text = Reach::Messages.text("M-PERSONA-LOCKED")
+          if hermes
+            puts JSON.generate("context" => Reach::Messages.text("M-ENR-HERMES", message: text))
+            return 0
+          end
+          raise Reach::GateBlocked.new("M-PERSONA-LOCKED", text)
+        end
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
         if decision.nil?
           notice = Reach::EnrollFlow.consume_notice
@@ -572,10 +729,16 @@ module Reach
             notice = [notice, Reach::Instructor.context_once(session)].compact.join("\n\n")
             notice = nil if notice.empty?
           end
+          remote = Reach::Debug.remote_notice(nil)
+          notice = [notice, remote].compact.join("\n\n") if remote
           if hermes
             puts JSON.generate(notice ? { "context" => notice } : {})
-          elsif notice
-            puts JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => notice })
+          else
+            payload = {}
+            payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => notice } if notice
+            message = Reach::Debug.prompt_message(event, harness)
+            payload["systemMessage"] = message if message
+            puts JSON.generate(payload) unless payload.empty?
           end
           return 0
         end
@@ -1622,7 +1785,13 @@ module Reach
 
             options = options.merge(harness: "hermes")
           end
+          Reach::Debug.begin_hook(event, options[:harness])
+          started = Reach::Debug.clock
           Reach::Transcript.turn(event: event, harness: options[:harness], quick: quick, final: final)
+          Reach::Debug.hook(final ? "SessionEnd" : "Stop", "allow", nil, started)
+          shown = quick && !final ? Reach::Debug.turn_message(event, options[:harness]) : nil
+          Reach::Debug.flush(quick: quick)
+          puts JSON.generate("systemMessage" => shown) if shown
           0
         when "code"
           options, _remaining = parse_flags(args, [:harness])
@@ -1633,6 +1802,7 @@ module Reach
 
             options = options.merge(harness: "hermes")
           end
+          Reach::Debug.begin_hook(event, options[:harness])
           Reach::Transcript.code(event: event, harness: options[:harness])
           0
         when "flush"
@@ -1644,6 +1814,7 @@ module Reach
             return 0
           end
           result = Reach::Transcript.flush(quick: false)
+          Reach::Debug.flush
           if result["stopped"]
             puts "Transcript: sent #{Reach::Transcript.entries_label(result["sent"])}; stopped (#{result["stopped"]})."
           else

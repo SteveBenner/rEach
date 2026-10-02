@@ -20,15 +20,15 @@ module Reach
     module_function
 
     def stored_file
-      File.join(Reach::Paths.home, "instructor.json")
+      File.join(Reach::Paths.root, "instructor.json")
     end
 
     def context_file
-      File.join(Reach::Paths.enroll_state_dir, "instructor_context.json")
+      File.join(Reach::Paths.root_state_dir, "enroll", "instructor_context.json")
     end
 
     def log_file
-      File.join(Reach::Paths.logs_dir, "instructor.jsonl")
+      File.join(Reach::Paths.root_logs_dir, "instructor.jsonl")
     end
 
     def default_key_path
@@ -38,7 +38,7 @@ module Reach
     end
 
     def log(event, fields = {})
-      FileUtils.mkdir_p(Reach::Paths.logs_dir)
+      FileUtils.mkdir_p(Reach::Paths.root_logs_dir)
       record = { "at" => Time.now.utc.iso8601, "event" => event }.merge(fields)
       File.open(log_file, "a", 0o600) { |handle| handle.puts(JSON.generate(record)) }
       nil

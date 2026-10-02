@@ -1,12 +1,75 @@
 require "fileutils"
+require "json"
 
 module Reach
   module Paths
     module_function
 
-    def home
+    PERSONA_ID = /\A[0-9a-f]{8}\z/.freeze
+
+    def root
       value = ENV["REACH_HOME"].to_s
       File.expand_path(value.empty? ? "~/.reach" : value)
+    end
+
+    def workspace_base
+      value = ENV["REACH_WORKSPACE_ROOT"].to_s
+      File.expand_path(value.empty? ? "~/reach-work" : value)
+    end
+
+    def persona_pointer_file
+      File.join(root, "persona.json")
+    end
+
+    def persona_home_for(id)
+      File.join(root, "personas", id.to_s)
+    end
+
+    def persona_workspace_for(id)
+      File.join(workspace_base, "personas", id.to_s)
+    end
+
+    def persona_override=(id)
+      @persona_override = id
+      @persona_memo = nil
+    end
+
+    def reset_persona_memo!
+      @persona_memo = nil
+    end
+
+    def persona_record
+      return nil if @persona_override
+      return @persona_memo[:record] if @persona_memo && @persona_memo[:root] == root
+
+      record = begin
+        data = JSON.parse(File.read(persona_pointer_file))
+        data.is_a?(Hash) && data["id"].to_s.match?(PERSONA_ID) && File.directory?(persona_home_for(data["id"])) ? data : nil
+      rescue StandardError
+        nil
+      end
+      @persona_memo = { root: root, record: record }
+      record
+    end
+
+    def persona_id
+      return @persona_override if @persona_override
+
+      record = persona_record
+      record ? record["id"] : nil
+    end
+
+    def home
+      id = persona_id
+      id ? persona_home_for(id) : root
+    end
+
+    def root_state_dir
+      File.join(root, "state")
+    end
+
+    def root_logs_dir
+      File.join(root, "logs")
     end
 
     def install_file
@@ -58,19 +121,19 @@ module Reach
     end
 
     def gems_dir
-      File.join(home, "gems")
+      File.join(root, "gems")
     end
 
     def runtime_dir
-      File.join(home, "runtime")
+      File.join(root, "runtime")
     end
 
     def runtime_logs_file
-      File.join(logs_dir, "runtime.jsonl")
+      File.join(root_logs_dir, "runtime.jsonl")
     end
 
     def chromium_dir
-      File.join(home, "chromium")
+      File.join(root, "chromium")
     end
 
     def state_dir
@@ -198,27 +261,27 @@ module Reach
     end
 
     def managed_install_dir
-      File.join(home, "plugin")
+      File.join(root, "plugin")
     end
 
     def update_manifest_file
-      File.join(state_dir, "update.json")
+      File.join(root_state_dir, "update.json")
     end
 
     def update_lock_file
-      File.join(state_dir, "update.lock")
+      File.join(root_state_dir, "update.lock")
     end
 
     def update_log_file
-      File.join(logs_dir, "update.log")
+      File.join(root_logs_dir, "update.log")
     end
 
     def updates_dir
-      File.join(home, "updates")
+      File.join(root, "updates")
     end
 
     def install_backup_dir
-      File.join(home, ".backup")
+      File.join(root, ".backup")
     end
 
     def ensure_home!
@@ -235,8 +298,8 @@ module Reach
     end
 
     def workspace_root
-      value = ENV["REACH_WORKSPACE_ROOT"].to_s
-      File.expand_path(value.empty? ? "~/reach-work" : value)
+      id = persona_id
+      id ? persona_workspace_for(id) : workspace_base
     end
 
     def deliverables_root

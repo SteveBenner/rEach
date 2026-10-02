@@ -19,6 +19,8 @@ module Reach
 
       Reach::RuntimeAuto.start
       harness_id = resolve_harness(harness)
+      Reach::Debug.begin_hook(event, harness_id)
+      Reach::Debug.session(harness_id, source)
       greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event)
 
       emit(format, context, banner, greeting_id, greeting_text)

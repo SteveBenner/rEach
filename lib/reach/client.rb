@@ -192,6 +192,7 @@ module Reach
           response = perform(method, path, query_string, body, headers, target)
           duration_ms = ((Time.now - began_at) * 1000).round
           log_request(method, target, response.status, duration_ms, attempt - 1)
+          Reach::Debug.response(method, path, response, attempt - 1, duration_ms, body)
 
           if response.status < 400
             self.class.breaker.record_success
@@ -224,6 +225,7 @@ module Reach
           self.class.breaker.record_failure
           duration_ms = ((Time.now - began_at) * 1000).round
           log_request(method, target, 0, duration_ms, attempt - 1)
+          Reach::Debug.request(method, path, 0, e.class.name, nil, attempt - 1, duration_ms, body.to_s.bytesize, 0)
           if attempt >= max_attempts
             raise Reach::NetworkError, "reach: request to #{path} failed (#{e.class}: #{e.message})"
           end

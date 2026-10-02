@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-01'
+recorded: '2026-10-02'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -596,6 +596,53 @@ routes:
       Since revision 2026-10-01b. Reveals only what the class-wide code already reveals to anyone who holds it: the
       course and the identity format. Reach calls it once per code typed in the enrollment flow (W-ENR-7) and uses the
       identity rules it returns over its own config defaults.
+  - id: W-API-ENROLL-INSTRUCTOR
+    method: POST
+    path: /api/v1/enroll/instructor
+    auth: "none; the instructor code is the credential (rate limited per IP, shared with W-API-ENROLL)"
+    request:
+      shape: {type: string, enum: [v2], note: "always v2"}
+      instructor_code: {type: string, maxLength: 4096, note: "the RINS1 instructor unlock code the install holds (STD-INSTRUCTOR-UNLOCK); Teach verifies it against the keys and revocations in its course policy and never logs, audits or returns it"}
+      course_id: {type: string, required: false, note: "the course to join; may be omitted when Teach has exactly one course that has not ended"}
+      persona: {type: object, note: "{kind: dummy} for a blank test student, or {kind: copy, username: <roster username>} for a test copy of that student"}
+      fingerprint: {type: object, note: "the W-ENR-4 fingerprint document of the persona's own install"}
+      public_key_pem: {type: string, maxLength: 4096, note: "the persona install's own public key"}
+      reach_version: {type: string}
+      harness: {type: string, enum: [claude-code, codex, hermes, unknown]}
+      platform: {type: string, enum: [macos, windows, linux]}
+      ruby_version: {type: string}
+    response_200:
+      install_id: string
+      student_id: "the test student's id (test_<12 hex>), never a real student's"
+      course: {id: string, title: string, term: string, timezone: string}
+      signing_public_keys: "[{key_id, pem}]"
+      encryption_key: "{key_id, pem}"
+      minimum_reach_version: string
+      wire_contract_sha256: string
+      display_name: "the test student's display name: 'Test student <4 hex>' or 'Test copy of <the student's display name>'"
+      enrollment_stamp: "a signed W-ENR-5 stamp for the test student, exactly as W-API-ENROLL issues it"
+      persona: "{kind: dummy|copy, student_id, username, display_name, test_of: the copied student's id or null}"
+    errors:
+      400 invalid_request: "a malformed body or persona"
+      400 reach_outdated: "as W-API-ENROLL"
+      403 instructor_code_refused: "the code is malformed, its key is not pinned in Teach's course policy, its signature fails, or its id is revoked; details {reason: malformed|key_unpinned|signature|revoked}; counts toward the per-IP refusal limit"
+      409 course_required: "course_id was omitted and more or fewer than one course is open; details {courses: [course ids that have not ended]}"
+      404 not_found: "course_id names no course"
+      400 course_code_expired: "the course has ended"
+      404 student_not_found: "persona kind copy: no active roster entry of the course has that username"
+      429 rate_limited: "too many attempts"
+    notes: >-
+      Since revision 2026-10-02a. Lets an instructor who holds a valid instructor unlock code run any Reach install as a
+      test student, to experience the course exactly as a student does. Teach never issues an install for a real
+      student here: it creates a new test student (students.test_of 'dummy' or the copied student's id, and the code's
+      id and key id) with a roster entry in the course and answers as W-API-ENROLL does for that test student. A copy
+      starts from the copied student's group, slice assignments, latest module record, submissions and their receipts,
+      re-issued under the test student's ids; nothing is written to the copied student's own record. A dummy starts
+      blank. Every later request from the persona's install is an ordinary install request; Teach answers revoked to it
+      once the code's id is listed in the course policy's enrollment.instructor_revoked or its key is removed. Test
+      students are left out of roster imports, grade exports, module capacity, sidecar conflicts and course-wide
+      counts, and every instructor view names them by their 'Test' display name. A Teach older than this revision
+      answers 404 not_found, and Reach says the course server must be updated first.
   - id: W-API-STATUS
     method: GET
     path: /api/v1/status
@@ -628,6 +675,14 @@ routes:
       policy_digest: >-
         Since 2026-09-30b. The W-CONV-4 digest of canonical_json of the course policy (W-POL-1) in the current
         guardrails package, so Reach can tell a stale package from a changed policy without fetching it.
+      classification: >-
+        Since 2026-10-02a. "instructor" when the install's student is a test student (W-API-ENROLL-INSTRUCTOR),
+        otherwise "student". Teach derives it from the student and files every record from the install under it; an
+        install never sets it.
+      debug: >-
+        Since 2026-10-02a. {requested: boolean, until: "W-CONV-3 timestamp or null", by: "instructor id or null"}: an
+        instructor's remote request that this install run debug mode (W-API-DEBUG). Always requested true for a test
+        student. Absent from an older Teach, which Reach reads as requested false.
   - id: W-API-PACKAGE
     method: GET
     path: /api/v1/packages/:kind
@@ -824,6 +879,28 @@ routes:
       400 invalid_request: the opcode is not 3 to 10 capitals or digits
       404 not_found: no directive by that opcode
       429 rate_limited: over 60 bodies per hour per install
+  - id: W-API-DEBUG
+    method: POST
+    path: /api/v1/debug
+    auth: install
+    request:
+      session_id: {type: string, maxLength: 128, note: "the harness session id, or \"cli\" for a terminal command"}
+      harness: {type: string, enum: [claude-code, codex, hermes, unknown]}
+      surface: {type: string, enum: [tui, gui], note: "how the harness renders text for the person (W-DBG-RENDER)"}
+      reason: {type: string, enum: [persona, local, remote], note: "why debug mode is on: an instructor persona, reach debug on, or status.debug.requested"}
+      events: {type: array, maxItems: 500, note: "W-DBG-EVENT objects, oldest first"}
+    response_200:
+      accepted: integer
+      classification: "instructor | student, as status.classification"
+    errors:
+      400 invalid_request: "a malformed body or an event outside W-DBG-EVENT"
+      413 too_large: "the body is over 1 MiB"
+      429 rate_limited: "too many batches"
+    notes: >-
+      Since revision 2026-10-02a. Reach sends its debug spool here from the Stop and SessionEnd hooks and reach sync,
+      never blocking a hook on the network; a failure keeps every event queued. Teach stores each event with the
+      install, the student and the classification it derives (instructor for a test student, else student), drops an
+      event whose id it already holds, and keeps them for instructors to read with teach debug.
   - id: W-API-TRANSCRIPT
     method: POST
     path: /api/v1/transcripts
@@ -1044,6 +1121,41 @@ receipts:
       through W-API-RECEIPT-ACK. A new install acknowledges again with its own install_id. The pair, Teach's signed
       receipt and Reach's signed acknowledgment, proves on both machines that the receipt was issued and that the
       student's install received the same bytes.
+debug:
+  W-DBG-EVENT:
+    shape: >-
+      {id: 32 hex, at: W-CONV-3 timestamp, seq: integer per session, kind: one of W-DBG-KINDS, persona_id: "8 hex or
+      null", fields: object of at most 64 keys whose values are strings (at most 1024 bytes), numbers, booleans, null
+      or arrays of at most 32 such scalars}
+  W-DBG-KINDS:
+    - session (reach and ruby version, platform, harness and its version, surface, runtime kit, install id, course id, persona id and kind, wire digest match)
+    - hook (event, decision allow|block|context, message or rule id, space slice|root|extracurricular|outside, latency_ms)
+    - gate (check name, outcome, message id)
+    - command (reach command and flag names, exit, duration_ms, error class)
+    - request (route id, method, status, error, request_id, attempt, latency_ms, bytes_out, bytes_in)
+    - lock (enrollment lock state, reason, stamp verify result, fingerprint match)
+    - sync (package kinds and versions, digests verified, files kept, duration_ms)
+    - check (finding counts by rule id, files checked)
+    - qualify (scenario counts passed, failed, pending; attempt; ladder step; local or teach)
+    - submit (outcome, receipt id, late)
+    - transcript (entries queued, sent, failed)
+    - brain (captures, recalls, refusals)
+    - update (phase, outcome, versions)
+    - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
+  W-DBG-SCRUB:
+    rule: >-
+      An event never carries prompt, reply, reasoning or file text, an instructor code, a course or enrollment code, a
+      password, a private or public key, a token, a signature or a student's typed identity; Reach drops any field whose
+      name contains code, password, secret, token, key, signature, pem or passphrase (a substring match, so field
+      names are chosen to avoid them: exit, not exit_code; error, not error_code), and replaces any RINS1 code, PEM
+      block or course-code-shaped value inside a string with [scrubbed], before the event is spooled or shown.
+  W-DBG-RENDER:
+    rule: >-
+      While debug mode is on, Reach shows the person a debug block at the end of each turn, and reach debug show prints
+      the latest events on demand. On a text-terminal surface (tui: the Claude Code and Codex terminal apps, Hermes) the
+      block is a plain ASCII table at most 100 columns wide; on a surface that renders Markdown (gui: the Claude desktop
+      app, Claude Code in an IDE, the Codex app) it is a Markdown table. Reach decides from the harness's own
+      environment and hook payload and falls back to tui; config.yml debug.render (auto, ascii, markdown) overrides it.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
@@ -1067,6 +1179,9 @@ errors:
       course_code_expired: {status: 400, reach: "never retried; M-ENR-CODE-EXPIRED (since 2026-10-01b)"}
       enrollment_refused: {status: 403, reach: "never retried; M-ENR-REFUSED; counts toward the local enrollment lockout (since 2026-10-01b)"}
       fingerprint_mismatch: {status: 403, reach: "never retried; Reach drops its stamp and locks into the enrollment flow with M-ENR-MOVED (since 2026-10-01b)"}
+      instructor_code_refused: {status: 403, reach: "never retried; M-PERSONA-CODE-REFUSED; details {reason} (since 2026-10-02a)"}
+      course_required: {status: 409, reach: "never retried; M-PERSONA-COURSE-NEEDED naming details.courses (since 2026-10-02a)"}
+      student_not_found: {status: 404, reach: "never retried; M-PERSONA-NO-STUDENT (since 2026-10-02a)"}
       device_move_pending: {status: 409, reach: "never retried automatically; M-ENR-MOVE-PENDING, the student's yes re-posts the same request; details {move_id} (since 2026-10-01c)"}
       device_move_denied: {status: 403, reach: "never retried; M-ENR-MOVE-DENIED with details.reason (since 2026-10-01c)"}
     rule: Reach branches on error.code, never on the HTTP status alone, because five codes share 403.

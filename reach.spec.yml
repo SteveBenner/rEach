@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.21
+version: 0.16.23
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.21
+    version: 0.16.23
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -311,6 +311,15 @@ library:
   - name: Reach::Instructor
     role: >-
       Instructor unlock since 0.16.17 (STD-INSTRUCTOR-UNLOCK). Keygen, RINS1 code minting and verification against the keys pinned in config.yml, the stored code in instructor.json, relock and the once-per-session instructor context.
+  - name: Reach::Persona
+    role: >-
+      Instructor personas since 0.16.23 (STD-INSTRUCTOR-PERSONA). start! enrolls the install as a test student through W-API-ENROLL-INSTRUCTOR into root/personas/<id>/ (workspace under workspace_base/personas/<id>/), writes root/persona.json last and moves a half-made persona to .backup on any failure; exit! moves the pointer, home and workspace to .backup; status names the active persona. Reach::Paths.root and workspace_base are the shared locations, Paths.home and workspace_root follow the active persona.
+  - name: Reach::Debug
+    role: >-
+      Debug mode since 0.16.23 (STD-DEBUG-MODE). on? and reason are cheap and never touch the network: persona, then the local switch debug/switch.json, then the cached status.debug.requested. emit(kind, fields) returns at once when off, scrubs by W-DBG-SCRUB, stamps id, at, seq and persona_id, and appends one line to debug/spool.jsonl (0700 directory, 0600 files) under a flock, capped by config.yml debug.spool_max_bytes with a dropped counter carried by the next session event. flush posts the spool to W-API-DEBUG through Reach::Client in batches, moves sent lines to debug/sent-<date>.jsonl and keeps everything queued on a failure (a quick flush backs off 60 seconds after one); events Teach refuses (invalid_request, too_large) move to debug/rejected-<date>.jsonl.
+  - name: Reach::DebugRender
+    role: >-
+      W-DBG-RENDER. detect picks tui or gui from the harness environment (Claude Code CLAUDE_CODE_ENTRYPOINT and CLAUDE_CODE_DESKTOP_APP_VERSION, Codex CODEX_DESKTOP_APP and CODEX_IDE_*, Hermes always tui, unknown tui); config.yml debug.render (auto, ascii, markdown) overrides it for display. table renders time, kind, what, result and ms as an ASCII table of at most 100 columns or a Markdown pipe table, at most debug.show_max_rows rows then the M-DEBUG-MORE line, with every label from locales/en-US.yml.
   - name: Reach::Guide
     role: >-
       Reads the text of docs/INSTALLATION-AND-SETUP-GUIDE.docx with the standard library (Reach::Unzip and Zlib),
@@ -1061,13 +1070,23 @@ cli:
     synopsis: reach lock
     purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
   - name: instructor
-    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock
+    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | exit
     purpose: >-
       Since 0.16.17, instructor unlock (STD-INSTRUCTOR-UNLOCK), and it runs while Reach is locked. keygen writes a new
       RSA 3072 private key (0600, parent directory 0700, never overwriting) and prints its key id and the YAML entry for
       enrollment.instructor_keys, never the key. code prints one RINS1 code signed with the key, and refuses with
       M-INSTRUCTOR-KEY-UNPINNED when config.yml does not pin the key. status says whether the unlock is on, with the code
-      id, label, key id and time, never the code. lock moves instructor.json to a .backup sibling.
+      id, label, key id and time, never the code, and names the active persona. lock exits an active persona and moves
+      instructor.json to a .backup sibling. Since 0.16.23 (STD-INSTRUCTOR-PERSONA), dummy starts a blank test student and
+      as USERNAME a test copy of that roster student (W-API-ENROLL-INSTRUCTOR; --course is needed when Teach has not
+      exactly one open course), and exit moves the persona's pointer, home and workspace to .backup. All need the
+      instructor unlock (M-PERSONA-NEEDS-UNLOCK), except exit, which also runs when a persona is active and its code was
+      revoked. Errors map to M-PERSONA-CODE-REFUSED, M-PERSONA-COURSE-NEEDED, M-PERSONA-NO-STUDENT and
+      M-PERSONA-TEACH-OLD; a revoked or unpinned code locks the persona at the next prompt (M-PERSONA-LOCKED).
+  - name: debug
+    synopsis: reach debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush
+    purpose: >-
+      Since 0.16.23 (STD-DEBUG-MODE), and it runs while Reach is locked. on turns local debug mode on, for MINUTES minutes or until off; off turns the local switch off (an instructor's remote request or an active persona still keeps it on, and the command says so). status prints whether it is on, the reason (persona, local or remote), the end time and the spool counts. show prints the latest events as an ASCII table, a Markdown table or JSON, by default the form the detected surface renders. flush sends the spool through W-API-DEBUG now. At the end of every turn, while debug is on, the Stop hook shows the turn's events as a hook systemMessage (never agent context) on Claude Code and Codex; Hermes has no user-visible hook output, so reach debug show is its way. Outside course folders, where only the plugin-level hooks run, the next prompt shows the pending events. A remote request on a real student prints M-DEBUG-NOTICE once per session.
   - name: mcp
     synopsis: reach mcp
     purpose: The stdio MCP bridge
@@ -1494,6 +1513,40 @@ transcripts:
     privacy notice, and the persona's answer when a student asks what is shared.
   retention_on_the_computer: >-
     Spool files stay until the student removes ~/.reach after the course; acknowledged entries are never sent again.
+debug_mode:
+  since: 0.16.23
+  standard: STD-DEBUG-MODE
+  wire: W-API-DEBUG, W-API-STATUS classification and debug, W-DBG-EVENT, W-DBG-KINDS, W-DBG-SCRUB, W-DBG-RENDER
+  switch: >-
+    On while a persona is active (reason persona), else while debug/switch.json says on and its until has not passed
+    (reason local, set by reach debug on), else while the cached status.debug.requested is true and its until has not
+    passed (reason remote).
+  files: >-
+    <home>/debug/ (0700): spool.jsonl, state.json, switch.json, sent-<date>.jsonl, rejected-<date>.jsonl and two lock
+    files, all 0600. <home> is the persona's home while a persona is active. Nothing is created while debug is off.
+  emit_points: >-
+    session (hello), hook and gate (every reach gate command and the Stop and SessionEnd hooks, with message ids and
+    latency), command (every reach command except reach debug: command and flag names, exit, duration_ms, error class),
+    request (Reach::Client: path template, method, status, error, request_id, attempt, latency_ms, bytes), lock (a
+    change of EnrollmentLock.state), sync, check, qualify, submit, transcript (every transcript log event), brain,
+    update and error (rescue sites that already log, 12 backtrace frames relative to the plugin root).
+  field_names: >-
+    No emitted field name contains code, password, secret, token, key, signature, pem or passphrase, because Reach drops
+    such a field and Teach refuses a batch that carries one; the command event says exit and error, the request event
+    says status and error.
+  scrub: >-
+    Field names are dropped by /code|password|secret|token|key|signature|pem|passphrase/i; strings lose RINS1 codes, PEM
+    blocks, course-code-shaped values and values matching the config enrollment username and student ID patterns
+    ([scrubbed]), are cut to 1024 bytes, and an event keeps at most 64 fields and 32 array items.
+  sending: >-
+    Reach::Debug.flush runs from the Stop hook (quick client, at most 2 batches, 60 seconds of backoff after a failure),
+    the SessionEnd hook, reach sync and reach debug flush; batches hold at most debug.batch_max_events events and 900000
+    bytes, grouped by session, harness, surface and reason.
+  surface_detection: >-
+    Claude Code: CLAUDE_CODE_ENTRYPOINT cli, sdk-cli, sdk-ts, sdk-py, mcp and bench are tui; claude-desktop,
+    claude-desktop-3p, claude-vscode, claude-in-teams, local-agent and remote values are gui, as is any value naming a
+    desktop, IDE or JetBrains host and any run with CLAUDE_CODE_DESKTOP_APP_VERSION set. Codex: gui when CODEX_DESKTOP_APP
+    or a CODEX_IDE_* variable is set, else tui. Hermes and anything unknown: tui.
 student_messages:
   principle: >-
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses

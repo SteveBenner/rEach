@@ -100,6 +100,7 @@ module Reach
         context << decision["context"] if decision["context"]
       end
       context.concat(Array(safely { Reach::Update.prompt_notices(session) }))
+      context << safely { Reach::Debug.remote_notice(session) }
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed
         done = safely { Reach::Consent.follow_up!(observed) }
@@ -341,7 +342,7 @@ module Reach
 
       root = Reach::Paths.workspace_root
       root_real = File.exist?(root) ? File.realpath(root) : File.expand_path(root)
-      return true if within?(resolved, Reach::Paths.home)
+      return true if within?(resolved, Reach::Paths.root)
 
       !within?(resolved, root_real)
     end
@@ -576,6 +577,7 @@ module Reach
     def raise_blocked!(message_id, **fields)
       text = Reach::Messages.text(message_id, **fields)
       log_refusal(message_id, text)
+      Reach::Debug.emit("gate", "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s)
       raise Reach::GateBlocked.new(message_id, text)
     end
 

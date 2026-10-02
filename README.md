@@ -152,6 +152,21 @@ prompt in any harness: rEach intercepts it, so the agent never sees it, and stop
 and repositories. To revoke a code, add its id (shown by `reach instructor status`) to `enrollment.instructor_revoked`
 in `config.yml`; removing the key entry revokes every code it signed.
 
+Since 0.16.23 an unlocked install can also run as a test student, to go through the course exactly as a student does:
+`reach instructor dummy [--course ID]` starts a blank test student and `reach instructor as <username> [--course ID]`
+a test copy of that roster student, with their group, slices, modules, submissions and receipts as of now. Teach makes
+the test student; nothing you do reaches the real student's record, and everything you send is filed on Teach as
+instructor data. The persona keeps its own rEach home under `~/.reach/personas/` and its own folders under
+`~/reach-work/personas/`, applies to every harness session on the computer, and ends with `reach instructor exit`,
+which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
+
+Debug mode is always on for a test student, and otherwise only on request: `reach debug on [--for MINUTES]` and
+`reach debug off` on the computer, or `teach debug on --student ID` from Teach, in which case the student is told. It
+records what rEach did (hooks, gate decisions, requests to Teach, sync, check, qualify, submit, errors), never prompt
+or file text, codes, passwords or keys, sends it to Teach, and shows it at the end of each turn: an ASCII table in a
+terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
+`reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
+
 ## Course reference
 
 Reference material never ships in this repository. Teach sends each enrolled

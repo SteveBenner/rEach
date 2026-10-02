@@ -6,6 +6,7 @@ module Reach
   module Sync
     class << self
       def run
+        began = Reach::Debug.clock
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
@@ -41,6 +42,7 @@ module Reach
           if %w[revoked not_enrolled].include?(e.code)
             Reach::Enroll.mark_revoked!
             summary["state"] = "revoked"
+            Reach::Debug.sync(summary, began)
             return summary
           end
           raise
@@ -143,6 +145,8 @@ module Reach
           end
         end
 
+        Reach::Debug.sync(summary, began)
+        Reach::Debug.flush
         summary
       end
 
