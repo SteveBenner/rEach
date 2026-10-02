@@ -60,7 +60,7 @@ module Reach
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
-        workspace = Reach::Gate.current_workspace_path
+        workspace = Reach::Gate.focus_workspace
         meta = workspace ? Reach::Workspace.metadata(workspace) : {}
         slice_kind = %w[backend panel verification].include?(meta["slice"]) ? meta["slice"] : nil
         cutout_id = slice_kind ? meta["cutout_id"] : nil

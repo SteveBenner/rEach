@@ -323,7 +323,7 @@ module Reach
         when "reach_receipts"
           Reach::Receipts.list
         when "reach_shape_check"
-          Reach::Shape.check(workspace_path: Dir.pwd, changed: arguments["changed"], format: :agent)
+          Reach::Shape.check(workspace_path: shape_workspace, changed: arguments["changed"], format: :agent)
         when "reach_qualify"
           workspace = workspace_for(slice_argument(arguments))
           Reach::Qualify.run(workspace, local_only: arguments["local_only"] == true, task: arguments["task"], agent_summary: arguments["summary"])
@@ -369,7 +369,7 @@ module Reach
         when "reach_plan"
           plan_tool(current_workspace!, arguments)
         when "reach_directive"
-          Reach::Directives.show(arguments.fetch("opcode"), workspace: Reach::Gate.current_workspace_path)
+          Reach::Directives.show(arguments.fetch("opcode"), workspace: Reach::Gate.focus_workspace)
         when "reach_reference"
           reference_tool(arguments)
         when "reach_support"
@@ -415,7 +415,7 @@ module Reach
           return { "text" => Reach::Messages.text("M-PART-RECORDED", question: question ? question["question"] : answer["question_id"]), "relay_verbatim" => true }
         end
 
-        workspace = Reach::Gate.current_workspace_path
+        workspace = Reach::Gate.focus_workspace
         assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
         status = Reach::Sync.cached_status || {}
         assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil
@@ -438,10 +438,26 @@ module Reach
       end
 
       def current_workspace!
-        workspace = Reach::Gate.current_workspace_path
+        workspace = Reach::Gate.focus_workspace
+        ensure_slice_choice!(workspace)
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") unless workspace
 
         workspace
+      end
+
+      def ensure_slice_choice!(workspace)
+        return if workspace
+        return unless Reach::Gate.root_kind? && Reach::Workspace.current_slices.length > 1
+
+        raise Reach::Refused, Reach::Gate.pick_slice_text
+      end
+
+      def shape_workspace
+        return Dir.pwd unless Reach::Gate.root_kind?
+
+        workspace = Reach::Gate.focus_workspace
+        ensure_slice_choice!(workspace)
+        workspace || Dir.pwd
       end
 
       def reference_tool(arguments)
@@ -486,6 +502,7 @@ module Reach
           cwd == real_workspace || cwd.start_with?(real_workspace + File::SEPARATOR)
         end
         here ||= slices.first if slices.size == 1
+        ensure_slice_choice!(here)
         raise Reach::Refused, "reach: more than one slice is open; pass slice (for example #{File.basename(slices.first)})" if here.nil? && slices.size > 1
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") if here.nil?
 

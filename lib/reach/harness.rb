@@ -148,7 +148,7 @@ module Reach
 
       def claude_settings_content(space_kind = "slice")
         post_tool_use = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if space_kind == "slice"
+        post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
         post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("transcript", "code", "--harness", "claude-code"), 15)
 
         stop_hooks = []
@@ -218,7 +218,7 @@ module Reach
 
       def codex_hooks_content(space_kind = "slice")
         post_tool_use = []
-        post_tool_use << hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60) if space_kind == "slice"
+        post_tool_use << hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
         post_tool_use << hook_entry("apply_patch|Write|Edit", h("transcript", "code", "--harness", "codex"), 15)
 
         stop_hooks = []
@@ -302,12 +302,13 @@ module Reach
         return nil unless hooks.is_a?(Hash)
 
         shim = Reach::Runtime.shim_path
+        legacy_shim = File.join(Reach::Paths.legacy_home, "bin", "reach")
         hermes_hooks_content.each do |event, entries|
           existing = hooks[event]
           existing = [] if existing.nil?
           return nil unless existing.is_a?(Array)
 
-          kept = existing.reject { |entry| entry.is_a?(Hash) && entry["command"].to_s.include?(shim) }
+          kept = existing.reject { |entry| entry.is_a?(Hash) && (entry["command"].to_s.include?(shim) || entry["command"].to_s.include?(legacy_shim)) }
           hooks[event] = kept + entries
         end
         document["hooks"] = hooks

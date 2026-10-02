@@ -45,7 +45,7 @@ module Reach
         Reach::Transcript.log_transcript_event("transcript_restarted", "session_id" => session_id)
       end
 
-      workspace = space.to_s == "slice" ? safe_current_workspace : nil
+      workspace = Reach::Transcript.session_workspace(space)
       meta = workspace ? safe_metadata(workspace) : {}
       cutout_id = meta["cutout_id"]
       slice = meta["slice"]
@@ -214,7 +214,7 @@ module Reach
     end
 
     def category_info(space, assignment, cutout_id, slice, workspace)
-      if space.to_s == "slice" && workspace
+      if %w[slice root].include?(space.to_s) && workspace
         root = "deliverables/#{assignment}/#{cutout_id}-#{slice}"
         scope = { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice }
         ["assignment", scope, root]

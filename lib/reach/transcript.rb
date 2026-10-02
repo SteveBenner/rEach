@@ -48,7 +48,7 @@ module Reach
       if space && event.is_a?(Hash) && event["transcript_path"]
         Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: harness, space: space)
       end
-      workspace = safe_current_workspace
+      workspace = session_workspace(space)
       meta = workspace ? safe_metadata(workspace) : {}
       cutout_id = meta && meta["cutout_id"]
       slice = meta && meta["slice"]
@@ -100,6 +100,7 @@ module Reach
       return nil unless space
 
       Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: resolved_harness, space: space)
+      return code_from_root(event, session_id, resolved_harness) if space == "root"
 
       workspace = space == "slice" ? safe_current_workspace : nil
       base = space_base(space, workspace)
@@ -122,22 +123,56 @@ module Reach
       return nil unless space == "slice"
 
       written_paths(event).each do |absolute|
-        next if File.symlink?(absolute)
-        next unless path_allowed?(absolute, space, workspace, base_real)
+        record_written_code(session_id, resolved_harness, space, workspace, base_real, absolute)
+      end
+      nil
+    rescue StandardError => e
+      log_transcript_event("code_failed", "error" => e.class.name)
+      nil
+    end
 
-        relative = relative_under(absolute, base_real)
-        next if relative.nil? || relative.empty?
+    def record_written_code(session_id, harness, space, workspace, base_real, absolute)
+      return nil if File.symlink?(absolute)
+      return nil unless path_allowed?(absolute, space, workspace, base_real)
 
-        fields = file_fields(absolute)
-        entry_fields = fields.merge(
-          "category" => space == "slice" ? "assignment" : "extracurricular",
-          "scope" => space == "slice" ? { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice } : nil,
-          "path" => relative,
-          "origin" => "ai_write",
-          "reply_seq" => nil
+      relative = relative_under(absolute, base_real)
+      return nil if relative.nil? || relative.empty?
+
+      meta = workspace ? safe_metadata(workspace) : {}
+      cutout_id = meta["cutout_id"]
+      slice = meta["slice"]
+      assignment = meta["assignment"]
+      fields = file_fields(absolute)
+      entry_fields = fields.merge(
+        "category" => space == "slice" ? "assignment" : "extracurricular",
+        "scope" => space == "slice" ? { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice } : nil,
+        "path" => relative,
+        "origin" => "ai_write",
+        "reply_seq" => nil
+      )
+      record(session_id, kind: "code", harness: harness, cutout_id: cutout_id, slice: slice, space: space, fields: entry_fields)
+      update_space_digest(base_real, relative, fields["digest"], size: safe_size(absolute), mtime: safe_mtime(absolute))
+      nil
+    end
+
+    def code_from_root(event, session_id, resolved_harness)
+      focus = safe_focus_workspace
+      focus_meta = focus ? safe_metadata(focus) : {}
+      if resolved_harness == "hermes"
+        Reach::TranscriptIngest.record_action(
+          session_id, event["tool_name"], event["tool_input"], false,
+          harness: resolved_harness, cutout_id: focus_meta["cutout_id"], slice: focus_meta["slice"], space: "root",
+          at: Reach::TranscriptIngest.normalized_at(nil), base: File.expand_path(Reach::Paths.workspace_root)
         )
-        record(session_id, kind: "code", harness: resolved_harness, cutout_id: cutout_id, slice: slice, space: space, fields: entry_fields)
-        update_space_digest(base_real, relative, fields["digest"], size: safe_size(absolute), mtime: safe_mtime(absolute))
+        return nil unless HERMES_WRITE_TOOLS.include?(event["tool_name"])
+      end
+
+      written_paths(event).each do |absolute|
+        found = Reach::Workspace.space_for_target(absolute)
+        next unless found && found["kind"] == "slice"
+
+        workspace = found["path"]
+        record_written_code(session_id, resolved_harness, "slice", workspace, File.expand_path(workspace), absolute)
       end
       nil
     rescue StandardError => e
@@ -168,7 +203,7 @@ module Reach
       reply = event["assistant_response"]
       return nil unless reply.is_a?(String) && !reply.strip.empty?
 
-      workspace = space == "slice" ? safe_current_workspace : nil
+      workspace = session_workspace(space)
       meta = workspace ? safe_metadata(workspace) : {}
       cutout_id = meta["cutout_id"]
       slice = meta["slice"]
@@ -184,9 +219,19 @@ module Reach
     end
 
     def scan_space(session_id, harness, space)
+      if space == "root"
+        Reach::Workspace.current_slices.each { |workspace| scan_slice(session_id, harness, workspace) }
+        return
+      end
       return unless space == "slice"
 
-      workspace = space == "slice" ? safe_current_workspace : nil
+      scan_slice(session_id, harness, safe_current_workspace)
+    rescue StandardError
+      nil
+    end
+
+    def scan_slice(session_id, harness, workspace)
+      space = "slice"
       base = space_base(space, workspace)
       return unless base && Dir.exist?(base)
 
@@ -255,6 +300,8 @@ module Reach
         workspace
       when "extracurricular"
         Reach::Paths.extracurricular_root
+      when "root"
+        Reach::Paths.workspace_root
       end
     end
 
@@ -614,6 +661,16 @@ module Reach
 
     def safe_current_workspace
       Reach::Gate.current_workspace_path
+    rescue StandardError
+      nil
+    end
+
+    def session_workspace(space)
+      space.to_s == "root" ? safe_focus_workspace : safe_current_workspace
+    end
+
+    def safe_focus_workspace
+      Reach::Gate.focus_workspace
     rescue StandardError
       nil
     end

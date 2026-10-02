@@ -46,6 +46,8 @@ messages:
   M-TRANSCRIPT-NOTICE: "Everything you and your AI partner say in your course folders, and your assignment code, is saved in your course record, which your instructors can read. Files in your extracurricular folder stay on your computer, and what you type outside your course folders is not saved."
   M-WRITE-OUTSIDE: "That file belongs to the course and can't be changed. Your work goes in {owned_files}."
   M-WRITE-ROOT: "Nothing is written at the top of your course folder. Coursework goes in your slice under deliverables/, and anything else you want to build goes in extracurricular/."
+  M-PICK-SLICE: "Which slice? Run this from inside one: {choices}"
+  M-RELOCATING: "rEach is moving your files into your rEach folder. This takes a moment; nothing is lost."
   M-WRITE-OUTSIDE-EXTRA: "From your extracurricular folder, only files inside it can change. Coursework goes in your slice's files under deliverables/."
   M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."
   M-SHAPE-VISIBLE: "The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways to get close to it that fit."

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.12
+version: 0.17.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -100,6 +100,12 @@ decisions:
     When writing code the agent must follow the reach-feature or reach-bug flow (directive FLOW). Git is not supported
     yet: the gate refuses it in slice and root spaces, files are overwritten in place and checkpoints are the history.
     Git support is planned for Reach 2.0 (ROADMAP.md).
+- date: '2026-10-01'
+  decision: >-
+    Everything Reach keeps on disk lives in one rEach folder (~/rEach): the course workspace at its top and Reach's own
+    data in ~/rEach/.reach-home, so a sandboxed harness given that folder can do everything. Existing installs move
+    there by a copy-verify-switch relocation that never deletes, truncates, renames or overwrites anything in
+    ~/.reach or ~/reach-work.
 wire_contract: specs/wire.yml (normative for every byte between Reach and Teach; where this file and it differ, it wins)
 runtime:
   ruby: 2.6.10 to 4.0.x; standard library only; no native gems.
@@ -126,7 +132,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.12
+    version: 0.17.0
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -225,7 +231,13 @@ plugin_manifest:
       remote: git@github.com:SteveBenner/rEach.git
       store_path: reach
 layout:
-  install_root: "~/.rplugins/reach (the plugin) and ~/.reach (the student's data)"
+  install_root: "~/.rplugins/reach (the plugin) and ~/rEach/.reach-home (the student's data)"
+  home: >-
+    Every ~/.reach path below means Reach's home. Since 0.17.0 the root is $REACH_ROOT or ~/rEach and the home is
+    <root>/.reach-home. Resolution order, memoized for 2 seconds: $REACH_HOME; the completed pointer
+    <root>/.reach-home/state/relocation.json; the legacy ~/.reach while it holds install.yml or plugin/ (legacy mode,
+    with ~/reach-work as the workspace root); otherwise the new home. The installer's default destination follows the
+    same choice (~/.reach/plugin in legacy mode, <root>/.reach-home/plugin otherwise).
   data:
   - path: "~/.reach/install.yml"
     content: install id, student id, course id, Teach URL, public keys; mode 0600
@@ -264,14 +276,14 @@ layout:
       A stable shim that runs the most recently used Reach install, so workspace hooks keep working when a harness
       moves its plugin copy on update
   workspace_root:
-    path: "~/reach-work (REACH_WORKSPACE_ROOT chooses another)"
+    path: "~/rEach, the root itself when the home is inside it; ~/reach-work in legacy mode (REACH_WORKSPACE_ROOT chooses another)"
     content:
     - deliverables/<course>/<assignment>/<cutout>-<slice>/ - one slice workspace per assigned slice (below); all assignment code lives here
     - extracurricular/ - the student's own code folder (extracurricular)
     - AGENTS.md, CLAUDE.md, GEMINI.md and the harness configuration for the root space, where writes are refused (M-WRITE-ROOT)
     layout_detail: workspace_layout (below)
   workspace:
-    path: "~/reach-work/deliverables/<course>/<assignment>/<cutout>-<slice>/"
+    path: "<workspace root>/deliverables/<course>/<assignment>/<cutout>-<slice>/"
     content:
     - The slice's owned files (the only writable course files)
     - api/ - instructor API signatures (read-only)
@@ -285,6 +297,40 @@ layout:
     - qualify/features/ and qualify/step_definitions/ - the agent's own scenarios and steps (writable; since 0.11.0)
     permissions: Everything except the owned files and the two qualify folders is made read-only on disk; Reach restores permissions if they
       change.
+relocation:
+  since: 0.17.0
+  triggers: >-
+    reach setup (foreground), reach hello (detached, recorded in state/relocation-auto.json: at most every 3600 s
+    plus up to 600 s jitter, 5 attempts) and reach relocate.
+  lock: >-
+    The legacy state/relocation.lock (flock). While it is held, gated writes, shell commands and submit refuse with
+    M-RELOCATING; status, doctor and relocate are exempt, and a second relocate says it is already running.
+  preflight: >-
+    In order, each failing with a named reason and writing nothing: destination_occupied (anything but an absent or
+    bootstrap-only .reach-home, or a file already at a destination path), overlap, no_space, update_in_progress,
+    runtime_install_running, enrollment_unreadable, unreadable_source.
+  copy: >-
+    Copy-only into <root>/.reach-home.relocating (0700), journalled in state/relocation.jsonl with
+    state/relocation-manifest.json and state/relocation.json (phases copying, verifying, switching, completed,
+    failed). Mode, mtime, symlinks, dangling symlinks and empty files are preserved. state/relocation.lock,
+    RELOCATED.json, state/relocation*.json*, state/relocation-auto.json and rEach-has-moved.txt are not copied. A
+    resume after a kill is idempotent.
+  verify: >-
+    SHA-256 of every file against the manifest, at most 3 rounds, then source_busy. A side-effect-free enrollment
+    snapshot is compared before and after; any difference fails with enrollment_changed.
+  switch: >-
+    Rewrite the harness files, bin/root, update.json (only once completed) and the transcript space digests inside
+    the staged folder; File.rename it to .reach-home; write the completed pointer; write the legacy RELOCATED.json;
+    leave ~/reach-work/rEach-has-moved.txt unless the student has written there since; refresh the Antigravity and
+    Hermes links. Claude and Codex marketplace registrations are the harness's own and are not touched.
+  never: >-
+    Delete, truncate, rename or overwrite anything under ~/.reach or ~/reach-work (the lock, RELOCATED.json and
+    rEach-has-moved.txt are the only files written there), or call EnrollmentLock.reason_for_state, mark_moved! or
+    Stamp.drop!. An inconsistent staged folder is renamed to .reach-home.failed-<timestamp>, never removed.
+  failures: >-
+    destination_occupied, no_space, source_busy, update_in_progress, runtime_install_running, enrollment_unreadable,
+    enrollment_changed, overlap, unreadable_source, copy_error, verify_failed. A failure leaves the install working in
+    legacy mode and doctor reports it (R-DOC-RELOCATION).
 library:
   namespace: Reach
   modules:
@@ -602,6 +648,16 @@ gate:
     and slice write commands are refused (M-LADDER-ASK, M-LADDER-STOPPED). A Codex apply_patch
     names its targets in "*** Add File:", "*** Update File:", "*** Delete File:" and "*** Move to:" lines; every one
     must be an owned file.
+  target_spaces: >-
+    Since 0.17.0, with the cwd at the workspace root (root kind) each tool target is resolved to its space and judged
+    there. A slice target is allowed when owned or in a writable qualify folder, then the ladder, time and module
+    checks apply; a patch spanning more than one slice gets M-WRITE-ROOT and a non-owned file M-WRITE-OUTSIDE. An
+    extracurricular target is allowed. A root-level target gets M-WRITE-ROOT. A home or unknown target gets
+    M-WRITE-OUTSIDE, and reads of the home are refused. Shell segments are judged by the tracked cwd's space, and
+    output redirects at the root are refused except to /dev/null. Recursive searches whose base contains the home are
+    refused in every kind; tokens and globs reaching inside it get M-GATE-OUTSIDE. With the cwd inside a slice or
+    extracurricular, the gate behaves as in 0.16.12. When the cwd is not inside a slice and more than one slice is
+    current, slice commands ask with M-PICK-SLICE.
   offline: >-
     The gate passes offline for up to 24 hours on a verified cached guardrails package, so a lost connection does
     not stop class work; submissions queue.
@@ -988,7 +1044,13 @@ cli:
       advertised contract digest matches Reach's), R-DOC-VERSION (every manifest carries VERSION), R-DOC-PERSONA (the
       skill and agent bodies match and quote the first-run greeting), R-DOC-DIRECTIVES (every public directive file
       parses and fits the table), R-DOC-TASTE (the vendored design-taste-frontend skill is the official one),
-      R-DOC-SEAL (the sidecar is readable). R-DOC-SDK and R-DOC-LINKS are gone, since rplugin is optional.
+      R-DOC-SEAL (the sidecar is readable), R-DOC-RELOCATION (whether the move into the rEach folder is
+      none-needed, pending, in-progress, completed or failed). R-DOC-SDK and R-DOC-LINKS are gone, since rplugin is optional.
+  - name: relocate
+    synopsis: reach relocate
+    purpose: >-
+      Moves a legacy install (~/.reach and ~/reach-work) into the rEach folder by copy, verify and switch (relocation);
+      safe to run again, and it never removes the old folders
   - name: lock
     synopsis: reach lock
     purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
@@ -1393,6 +1455,10 @@ student_messages:
     text: >-
       Nothing is written at the top of your course folder. Coursework goes in your slice under deliverables/, and
       anything else you want to build goes in extracurricular/.
+  - id: M-PICK-SLICE
+    text: "Which slice? Run this from inside one: {choices}"
+  - id: M-RELOCATING
+    text: rEach is moving your files into your rEach folder. This takes a moment; nothing is lost.
   - id: M-WRITE-OUTSIDE-EXTRA
     text: >-
       From your extracurricular folder, only files inside it can change. Coursework goes in your slice's files under
@@ -1852,6 +1918,11 @@ doctor_checks:
 - id: R-DOC-SEAL
   checks: The sidecar at the platform's state directory (or REACH_SIDECAR) exists and parses after enrollment
   fix: Run any reach command once; if it persists, reach enroll again
+- id: R-DOC-RELOCATION
+  checks: >-
+    The move into the rEach folder: none-needed, pending, in-progress or completed <date> are informational; failed
+    <reason> is a problem only once enrolled
+  fix: Clear what the reason names (for destination_occupied, move the named files out of ~/rEach), then reach relocate
 directives:
   table: >-
     The last section of every workspace AGENTS.md (W-RENDER-1). One row per directive, fleet form: [<alias> ·
