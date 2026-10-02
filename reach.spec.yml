@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.13
+version: 0.16.14
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.13
+    version: 0.16.14
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -908,7 +908,7 @@ cli:
   - name: update
     synopsis: reach update status|check|run [--apply] [--background] [--format text|json]
     purpose: >-
-      status shows the update manifest; check looks for newer releases (tags as fallback) and records them; run
+      status shows the update manifest; check looks for newer releases and tags (the newest of both, since 0.16.14) and records them; run
       checks, downloads and stages the newest release and, with --apply, installs it through the release's own
       update/apply.rb, resuming an interrupted update first. Hooks call it with --background.
   - name: setup
@@ -1164,12 +1164,16 @@ auto_update:
     REACH_UPDATE_DISABLE=1 leaves Reach notify-only or silent: it never writes over a developer's tree. The local
     version is that install's VERSION, not the version of whichever harness copy is running.
   sources:
-    order: GitHub releases first, tags as the fallback
+    order: >-
+      Since 0.16.14 every check lists both GitHub releases and tags and takes the newest version from either; a version
+      present in both is recorded with source releases. A failed tag listing is tolerated when releases answered;
+      when neither answers, the check fails and backs off. Before 0.16.14 tags were read only when releases were
+      unavailable or listed no version, so a newer tag after any version release was never offered.
     releases: >-
       GET https://api.github.com/repos/<owner>/<repo>/releases?per_page=30 with Accept application/vnd.github+json and
       If-None-Match from the stored ETag (a 304 does not count against GitHub's 60 per hour unauthenticated limit).
-      Drafts and prereleases are skipped; tag_name must parse as v?X.Y.Z. A 403/429, a network failure or an empty
-      list falls through to tags.
+      Drafts and prereleases are skipped; tag_name must parse as v?X.Y.Z. A 403/429 or a network failure counts as no
+      releases, and the tags still decide.
     tags: >-
       GET https://github.com/<owner>/<repo>.git/info/refs?service=git-upload-pack (git's own smart-HTTP ref
       advertisement, no git binary and no API limit). refs/tags/v?X.Y.Z entries are versions; peeled ^{} lines are

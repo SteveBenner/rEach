@@ -332,8 +332,16 @@ module Reach
     def check(manifest)
       settings = config
       local = local_version
-      releases = list_releases(manifest)
-      candidates = releases && !releases.empty? ? releases : list_tags
+      releases = list_releases(manifest) || []
+      tags = begin
+        list_tags
+      rescue StandardError => e
+        raise if releases.empty?
+
+        log("error", "phase" => "tags", "message" => e.message)
+        []
+      end
+      candidates = releases + tags
       seen = {}
       unique = candidates.select do |entry|
         next false if seen[entry["version"]]

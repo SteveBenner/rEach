@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.13 |
+| **Registry version** | 0.16.14 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -63,14 +63,14 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Antigravity remains untested; the li
 
 ### 1.4 · Automatic updates
 
-Since 0.13.0 Reach keeps a managed `~/.reach/plugin` install current by itself: GitHub releases first, tags as the
-fallback, checked at session start and hourly from detached processes, staged in the background and installed at the
+Since 0.13.0 Reach keeps a managed `~/.reach/plugin` install current by itself, from GitHub releases and tags together
+(since 0.16.14 the newest version from either, so a tag newer than the last release is offered), checked at session start and hourly from detached processes, staged in the background and installed at the
 next session start by the release's own `update/apply.rb`, with every phase in `~/.reach/state/update.json` so an
 interrupted update resumes (`reach update status|check|run`). Verified 2026-09-30 against a GitHub-shaped local HTTPS
 mirror (real releases API and real Dovetail archive): the login install, the mid-session stage and notices, a kill
 mid-download, a crash after the swap and both crashes between the renames all completed, and a real Claude Code
 plugin cache moved from 0.12.9 to 0.13.0 through the refresh. Students on 0.12.0 or earlier have no updater and need
-one manual reinstall; only tagged releases are offered.
+one manual reinstall; only tagged versions are offered.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student install has received a real release through it yet; Codex refresh and Windows unverified).
 

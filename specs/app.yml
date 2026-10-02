@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.13
+version: 0.16.14
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -70,7 +70,7 @@ standards:
   - id: STD-PLATFORM-SMOKE
     text: "tools/platform_smoke/run.rb installs Reach from the checkout into a scratch path with a space, enrolls it against tools/fake_teach and runs the hook command lines, status, the machine-id fingerprint, the runtime kit (waiting for the background self-install) and doctor. .github/workflows/platforms.yml runs it on every push to main and on dispatch, never on pull requests, on GitHub-hosted Linux (Ruby 2.6.10), macOS arm64 and Intel (the system Ruby 2.6.10), Windows x64 and Windows 11 arm64 (Ruby 4.0), and on self-hosted Windows 10 and Windows 11 VMs (labels win10, win11) when the repository variable REACH_VM_RUNNERS is on or a dispatch sets vms. Windows checkouts keep LF line endings. A doctor finding outside R-DOC-GUARD, R-DOC-HARNESS and, when no kit was installed, R-DOC-CHROME fails the run."
   - id: STD-AUTO-UPDATE
-    text: "Reach keeps a managed ~/.reach/plugin install (VERSION present, no .git) current by itself: GitHub releases first and tags as the fallback, checked at session start and hourly from detached processes, staged in the background, installed at the next session start by the release's own update/apply.rb, with every phase recorded in ~/.reach/state/update.json so an interrupted update resumes. Course work waits only while an install is running; REACH_UPDATE_DISABLE=1 turns it off. See reach.spec.yml auto_update."
+    text: "Reach keeps a managed ~/.reach/plugin install (VERSION present, no .git) current by itself: GitHub releases and tags together, the newest version from either since 0.16.14, checked at session start and hourly from detached processes, staged in the background, installed at the next session start by the release's own update/apply.rb, with every phase recorded in ~/.reach/state/update.json so an interrupted update resumes. Course work waits only while an install is running; REACH_UPDATE_DISABLE=1 turns it off. See reach.spec.yml auto_update."
   - id: STD-CONSENT-FROM-REACH
     text: "A module move or module choice is asked by Reach, never by the agent: the agent runs reach transfer request or reach modules choose (or the matching reach_* tool) and relays the question it prints word for word, and never offers, promises or claims a notification in its own words. Reach acts on the student's captured yes or no itself, from the prompt hook, and hands the agent the outcome to relay (since 0.14.3), so the agent never makes the second call. A crisis message from the student is answered with reach support's message before anything else, the session greeting included."
   - id: STD-ENROLL-LOCKDOWN

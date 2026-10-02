@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.14] - 2026-10-01
+
+### Changed
+
+- Auto-update now lists GitHub releases and tags on every check and takes the newest version from either
+  (`Reach::Update.check`, `lib/reach/update.rb`). Before, tags were read only when releases were unavailable or
+  listed no version, so once a version release existed, every newer tag after it was never offered. A version in
+  both is recorded with source `releases`. A failed tag listing no longer fails the check when releases answered;
+  when neither answers, the check backs off as before. `STD-AUTO-UPDATE`, `reach.spec.yml` (`update.sources`, the
+  `reach update` synopsis) and FEATURES 1.4 say so.
+
 ## [0.16.13] - 2026-10-01
 
 ### Added
