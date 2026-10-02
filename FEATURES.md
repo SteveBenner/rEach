@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.14 |
+| **Registry version** | 0.16.16 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 46 catalogued |
+| **Feature count** | 47 catalogued |
 
 ## How to read this registry
 
@@ -23,12 +23,12 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 48 | 100% |
+| ✅ Shipped | 49 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 2% |
-| 🔵 Built, not enabled | 45 | 94% |
+| 🔵 Built, not enabled | 46 | 94% |
 | 🟡 Partial deploy | 1 | 2% |
 | ⚫ No runtime path | 1 | 2% |
 
@@ -379,6 +379,12 @@ x64 legs run on self-hosted VMs on SVEN-F1L1 (`tools/platform_smoke/windows-runn
 
 Build ✅ · Deploy 🟡 · Hosted legs green in CI; the Windows 10 and 11 VM runners are not registered yet (waiting on the Windows ISOs, which Microsoft would not serve to a script).
 
+### 2.29 · Microbrain learning and recall
+
+Since 0.16.15 Reach learns about the student and their work and uses it, all on this computer. `Reach::Transcript.turn` calls `Reach::Brain.capture_turn`, which turns each conversation turn Reach already records in a course folder into a private `source` spool line; the host agent distils durable findings with `reach remember` (or `reach_remember`); a novelty gate (cosine at least 0.85 within the category only reinforces), a per-hour and per-day write budget, a secret and student-ID refusal and a backing-off nudge stop floods. Session start injects the profile (at most 1500 bytes) and each prompt the matching memories (at most 800 bytes) from `Reach::BrainIndex`, a BM25 and cosine read model over the spool, with decay and reinforcement salience. `reach memory list|show|forget|export` and the `reach_recall` and `reach_memory_forget` tools show and erase it; forgetting scrubs Reach's spool. Verified 2026-10-01 in scratch homes on Ruby 3.3.8 and in `ruby:2.6.10-slim`: three turns captured as source lines, a save, a reinforcement, a related save, a refused password, a held write at `per_hour: 2`, the profile in `reach hello`, matching memory and the nudge in `reach gate prompt`, forget by id and `--all --yes` leaving no claim text in the spool, the three MCP tools, a locked install refusing both commands, and brain work in 43 to 54 ms (cold 118 to 130 ms) with 2000 findings and 2000 sources in the spool. Not verified: the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths, which need rcorpus 0.9.0, and a real harness session on Codex or Hermes.
+
+Build ✅ · Deploy 🔵 · Blocker: Engineering. Verified on Ruby 2.6.10 and 3.3 (capture, remember, novelty, budget, recall, forget, spool cap) and end to end with rplugin 1.4.0 and rcorpus 0.9.0 (admission, audit 0, check 0). A student computer has no rplugin, so it runs on the spool and Reach's own recall; shipping rplugin and rcorpus in the runtime kit is deferred (TODO.md).
+
 ## 3 · Course reference
 
 ### 3.1 · Encrypted reference
@@ -435,11 +441,12 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 6.1 · MCP tools beyond reference
 
-The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 23 tools beyond `reach_reference` (3.1): `reach_hello`,
+The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 26 tools beyond `reach_reference` (3.1): `reach_hello`,
 `reach_enroll`, `reach_sync`, `reach_status`, `reach_check`, `reach_shape_check`, `reach_checkpoint`, `reach_plan`,
 `reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, and since 0.14.3 `reach_support`, `reach_part`,
-`reach_transfer_request`, `reach_modules` and `reach_next` — each a thin wrapper the agent calls instead of shelling out to
+`reach_transfer_request`, `reach_modules` and `reach_next`, and since 0.16.15 `reach_remember`, `reach_recall` and
+`reach_memory_forget` (2.29) — each a thin wrapper the agent calls instead of shelling out to
 the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
 returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
 tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.
@@ -526,7 +533,14 @@ with the plugin installed on 2026-09-29 — hook-trust prompt, `SessionStart` co
 separately ran the manual Codex dialogue pass and the same-WiFi second-device test from `docs/smoke-assignment-1.md`
 the same day.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session has not yet trusted and run the 0.15.0 start-up hook in `hooks/codex.json`).
+Codex 0.156 and newer takes the Agent Plugins root `plugin.json` over `.codex-plugin/plugin.json` and then loads no
+plugin hooks (openai/codex#47925), which hid both hooks from the trust review in every rEach release. Since 0.16.16
+`Reach::CodexCache.repair` renames that file to `plugin.json.agent-plugins` in Codex's cached copy of rEach only, from
+`reach setup`, `update/apply.rb` and `reach mcp`. Verified 2026-10-01 against Codex 0.160.0 in scratch Codex homes
+through `codex app-server` `hooks/list`: 0 plugin hooks before, and the SessionStart and UserPromptSubmit hooks listed
+as untrusted after setup, after `reach mcp` on a plain `codex plugin add` install, and after the update step.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session on macOS has not yet trusted and run both hooks on 0.16.16).
 
 ### 10.4 · Antigravity
 

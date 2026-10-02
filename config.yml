@@ -24,6 +24,24 @@ runtime:
   interval_s: 3600
   jitter_s: 600
   max_attempts: 5
+brain:
+  enabled: true
+  capture_min_chars: 40
+  sources_per_hour: 120
+  duplicate: 0.85
+  related: 0.5
+  per_hour: 30
+  per_day: 150
+  max_record_bytes: 4096
+  nudge_every_turns: 3
+  nudge_max_turns: 24
+  session_budget_bytes: 1500
+  prompt_budget_bytes: 800
+  prompt_k: 4
+  prompt_min_score: 0.2
+  admit_interval_s: 300
+  admit_max_backoff_s: 3600
+  max_spool_bytes: 20971520
 rstack:
   backup:
     schema: rplugin.plugin-backup/v1

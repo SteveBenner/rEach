@@ -176,7 +176,8 @@ module Reach
         return { id: "codex", ok: false, message: "Codex: plugin add failed: #{install_err}" }
       end
 
-      { id: "codex", ok: true, message: "Codex: rEach installed. When Codex asks you to review rEach's start-up hook, choose to trust it; then start a new Codex session." }
+      Reach::CodexCache.repair
+      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's two hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks)." }
     end
 
     def run_antigravity(_source)

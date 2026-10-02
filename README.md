@@ -77,7 +77,7 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | --- | --- |
 | Claude Code | `claude plugin marketplace add <link>` then `claude plugin install reach@reach --scope user` |
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
-| Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's start-up hook |
+| Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
 | Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
 | Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/rEach/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
 | Any of the above | install the public GitHub archive to `~/rEach/.reach-home/plugin`, then `ruby ~/rEach/.reach-home/plugin/exe/reach setup` |
@@ -132,6 +132,21 @@ Every owned file carries an invisible seal and every session leaves a witness
 ledger; Teach reads both when it assesses a submission's provenance. A
 submission with `reach check` findings is sent back once with the findings and
 refused the second time, raising a hand to the instructors.
+
+## Memory
+
+rEach keeps a private memory of what it learns about the student and their work, on this computer only. Each
+conversation turn it already records in a course folder is kept as a private source; the agent records durable
+findings (a preference, a goal, a decision, a struggle, a skill, a project, a fact) with `reach remember`, and rEach
+adds the profile at session start and the matching memories on each prompt. A novelty check and a write budget stop
+floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced sources are pruned first), and nothing here is sent to Teach. Ask rEach what it remembers, or run `reach memory list`; `reach memory
+forget <id>` or `reach memory forget --all --yes` erases it from rEach's files. The settings are in `config.yml`
+under `brain`.
+
+```
+reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID]   keep one finding (the agent runs this)
+reach memory [list | show ID | forget ID... | forget --all --yes | export]   see, export or erase what it remembers
+```
 
 ## Course reference
 
