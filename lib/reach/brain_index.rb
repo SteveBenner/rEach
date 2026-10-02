@@ -4,7 +4,7 @@ require "fileutils"
 
 module Reach
   class BrainIndex
-    CACHE_VERSION = 3
+    CACHE_VERSION = 4
     K1 = 1.2
     B = 0.75
     FLOOR = 0.05
@@ -15,6 +15,8 @@ module Reach
                    so no do does did per via].each_with_object({}) { |word, memo| memo[word] = true }.freeze
     SOURCE_ID = /"id":"(source-[0-9a-f]+)"/.freeze
     SOURCE_PATH = /"path":"([^"\\]*)"/.freeze
+    PASSAGE_BYTES = 600
+    COURSE_PREFIX = "course/".freeze
     WRITTEN_AT = /"written_at":"([^"]+)","writer"/.freeze
 
     class << self
@@ -32,18 +34,63 @@ module Reach
         new(reinforcements: reinforcements, now: now).tap(&:build)
       end
 
+      def passages(title, text)
+        pieces = []
+        current = nil
+        text.to_s.split(/\n[ \t]*\n/).each do |block|
+          block = block.strip
+          next if block.empty?
+
+          cut_passage(block).each do |piece|
+            if current && current.bytesize + 2 + piece.bytesize <= PASSAGE_BYTES
+              current = "#{current}\n\n#{piece}"
+            else
+              pieces << current if current
+              current = piece
+            end
+          end
+        end
+        pieces << current if current
+        pieces.map do |piece|
+          counted = tokens("#{title} #{piece}")
+          { "x" => piece, "tf" => term_counts(counted), "n" => counted.length }
+        end
+      end
+
+      def cut_passage(block)
+        return [block] if block.bytesize <= PASSAGE_BYTES
+
+        pieces = []
+        rest = block
+        while rest.bytesize > PASSAGE_BYTES
+          cut = PASSAGE_BYTES
+          cut -= 1 while cut.positive? && (rest.getbyte(cut) & 0xC0) == 0x80
+          head = rest.byteslice(0, cut)
+          space = head.rindex(/\s/)
+          if space && space > cut / 2
+            head = head[0, space]
+            cut = head.bytesize
+          end
+          pieces << head.strip
+          rest = rest.byteslice(cut, rest.bytesize - cut).to_s.strip
+        end
+        pieces << rest unless rest.empty?
+        pieces.reject(&:empty?)
+      end
+
       def cache_path
         File.join(Reach::Paths.home, "brain", "index.json")
       end
     end
 
-    attr_reader :findings, :sources
+    attr_reader :findings, :sources, :course_sources
 
     def initialize(reinforcements: {}, now: Time.now)
       @reinforcements = reinforcements.is_a?(Hash) ? reinforcements : {}
       @now = now
       @findings = []
       @sources = []
+      @course_sources = []
       @by_id = {}
       @history = {}
     end
@@ -160,6 +207,48 @@ module Reach
       end
     end
 
+    def search_course(query, k:)
+      terms = self.class.tokens(query).uniq
+      return [] if terms.empty?
+
+      pool = []
+      @course_sources.each do |row|
+        row["ps"].each_with_index { |passage, index| pool << [row, index, passage] }
+      end
+      return [] if pool.empty?
+
+      total = pool.length
+      average = pool.inject(0) { |sum, entry| sum + entry[2]["n"].to_i }.to_f / total
+      average = 1.0 if average.zero?
+      idf = {}
+      terms.each do |term|
+        df = pool.count { |entry| entry[2]["tf"].key?(term) }
+        idf[term] = df.zero? ? nil : Math.log(1.0 + ((total - df + 0.5) / (df + 0.5)))
+      end
+      scored = []
+      pool.each do |row, index, passage|
+        score = 0.0
+        length = passage["n"].to_i
+        terms.each do |term|
+          weight = idf[term]
+          next unless weight
+
+          tf = passage["tf"][term]
+          next unless tf
+
+          score += weight * (tf * (K1 + 1)) / (tf + (K1 * (1 - B + (B * length / average))))
+        end
+        scored << [score, "#{row['id']}##{index}", row, passage] if score.positive?
+      end
+      ideal = idf.values.compact.inject(0.0) { |sum, weight| sum + weight }
+      scored.sort_by { |score, id, _, _| [-score, id] }.first(k).map do |score, id, row, passage|
+        {
+          "id" => id, "source_id" => row["id"], "path" => row["p"], "title" => row["t"], "text" => passage["x"],
+          "score" => score, "share" => ideal.positive? ? score / ideal : 0.0
+        }
+      end
+    end
+
     def similar(text, category:, exclude: [])
       query = self.class.term_counts(self.class.tokens(text))
       return nil if query.empty?
@@ -217,7 +306,9 @@ module Reach
 
         path = raw[SOURCE_PATH, 1]
         written = raw[WRITTEN_AT, 1]
+        return { "o" => "tombstone", "k" => "source", "id" => id, "w" => written.to_s } if raw.include?('"op":"tombstone"')
         return nil unless raw.include?('"op":"source"') || raw.include?('"op":"put"')
+        return course_row(raw, id, written) if path.to_s.start_with?(COURSE_PREFIX)
 
         return { "o" => "put", "k" => "source", "id" => id, "w" => written.to_s, "p" => path.to_s, "b" => raw.bytesize }
       end
@@ -249,6 +340,20 @@ module Reach
       nil
     end
 
+    def course_row(raw, id, written)
+      parsed = JSON.parse(raw)
+      record = parsed["record"]
+      return nil unless record.is_a?(Hash)
+
+      title = record["title"].to_s
+      {
+        "o" => "put", "k" => "source", "id" => id, "w" => written.to_s, "p" => record["path"].to_s, "b" => raw.bytesize,
+        "t" => title, "ps" => self.class.passages(title, record["text"])
+      }
+    rescue JSON::ParserError
+      nil
+    end
+
     def assemble(files)
       ordered = []
       files.keys.sort.each_with_index do |key, file_index|
@@ -264,7 +369,12 @@ module Reach
         next unless row["o"] == "put"
 
         @by_id[row["id"]] = row
-        (row["k"] == "finding" ? @findings : @sources) << row
+        if row["k"] == "finding"
+          @findings << row
+        else
+          @sources << row
+          @course_sources << row if row["ps"]
+        end
       end
     end
 

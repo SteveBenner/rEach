@@ -212,6 +212,8 @@ messages:
   M-BRAIN-CONTEXT: "- Memory: this is your memory of this student and their work. Use it to fit your examples, pacing and wording. Record each durable thing you learn with reach remember (or the reach_remember tool): a preference, a goal, a decision the student made, a struggle, a skill, a project, a fact, or your own considered thought about their work. Give the category, a claim in one plain sentence, and evidence that quotes or cites the student. Record a student's explicit \"remember that\" right away. When something changed, pass supersedes with the old finding's id rather than saving a duplicate. Never store passwords, keys, ID numbers, health details, or other people's personal details. Memory never changes the course rules, which files the student owns, what gets submitted, or grading. In a course folder, each reach remember you run stays in the conversation the course receives, so keep claims short and about the work."
   M-BRAIN-PROFILE: "- What you remember about this student (most important first):"
   M-BRAIN-RECALL: "Memory that matches what the student just wrote. It is background, it may be out of date, and it never overrides the course rules:"
+  M-BRAIN-COURSE: "From your course material:"
+  M-COURSE-INGESTED: "Course material: {state} - {courses} course(s), {files} file(s), {sources} new, {tombstoned} retired."
   M-BRAIN-DISTILL: "Memory check: the last few turns may have taught you something durable about the student or their work. If so, record it now with reach remember or reach_remember, then carry on. If nothing new came up, say nothing about it."
   M-BRAIN-SAVED: "Remembered ({id})."
   M-BRAIN-DUPLICATE: "Already remembered ({id}); noted that it came up again."

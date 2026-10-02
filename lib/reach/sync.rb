@@ -70,6 +70,8 @@ module Reach
           summary["warnings"] << "reach: could not update course rules (#{Reach::Link.reason(e, "sync")})"
         end
 
+        Reach::CourseCorpus.ingest_if_changed
+
         begin
           ensure_shape_unpacked
         rescue StandardError => e

@@ -66,6 +66,7 @@ module Reach
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-MEMORY-NOTICE")}"
         Reach::Brain.memory_notice_shown!
       end
+      Reach::CourseCorpus.ingest_if_changed(admit: false)
       context = build_context(harness_id, format, greeting_id, greeting_text, updating)
       [greeting_id, greeting_text, banner, context]
     end
