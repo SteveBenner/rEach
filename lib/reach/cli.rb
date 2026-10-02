@@ -9,7 +9,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
 
     class << self
@@ -67,6 +67,8 @@ module Reach
           cmd_mcp(args)
         when "hello"
           cmd_hello(args)
+        when "guide"
+          cmd_guide(args)
         when "setup"
           cmd_setup(args)
         when "runtime"
@@ -140,6 +142,7 @@ module Reach
             lock                                 wipe the decrypted vault
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
+            guide [--path] [--format text|json]  the installation and setup guide, as text
             setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...] [--runtime]
             runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
@@ -465,7 +468,8 @@ module Reach
         end
 
         if hermes
-          puts JSON.generate("context" => Reach::Messages.text("M-ENR-HERMES", message: decision["message"]))
+          guide = Reach::Messages.text("M-ENR-HERMES-GUIDE", command: Reach::Runtime.hook_command("guide"))
+          puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: decision["message"])}\n\n#{guide}")
           return 0
         end
         raise Reach::GateBlocked.new("M-ENR", decision["message"])
@@ -1063,6 +1067,13 @@ module Reach
           format: options[:format] || "hook",
           cwd: Dir.pwd
         )
+        0
+      end
+
+      def cmd_guide(args)
+        path_only, args = parse_bare_flag(args, "path")
+        options, _remaining = parse_flags(args, [:format])
+        puts Reach::Guide.run(format: options[:format] || "text", path_only: path_only)
         0
       end
 

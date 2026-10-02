@@ -51,7 +51,9 @@ it records no reasoning.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
-Students: see [`docs/student-guide.md`](docs/student-guide.md).
+Students: see [`docs/student-guide.md`](docs/student-guide.md), and for installing and enrolling,
+[`docs/INSTALLATION-AND-SETUP-GUIDE.docx`](docs/INSTALLATION-AND-SETUP-GUIDE.docx) (`reach guide` prints its text;
+until a student is enrolled, every session tells the agent to read it and finish the extra steps for the student's app).
 
 ## Runtime
 
