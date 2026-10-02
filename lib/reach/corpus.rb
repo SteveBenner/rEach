@@ -59,6 +59,18 @@ module Reach
       :failed
     end
 
+    def erase(ids)
+      corpus = owned_corpus
+      return :unavailable unless corpus && defined?(Rcorpus::Erase)
+
+      report = Rcorpus::Erase.new(corpus).run(ids: Array(ids), reason: "forgotten")
+      Reach::Brain.log("brain.erased", "erased" => Array(report["erased"]).length, "missing" => Array(report["missing"]).length, "lines" => report["lines_removed"].to_i)
+      :erased
+    rescue StandardError => e
+      Reach::Brain.log("brain.erase_failed", "error" => e.class.name)
+      :failed
+    end
+
     def recent(kind, limit: 20)
       raise ArgumentError, "reach: unknown corpus kind #{kind.inspect}" unless KINDS.include?(kind.to_s)
 
