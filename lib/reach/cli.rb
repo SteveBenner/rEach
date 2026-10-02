@@ -785,6 +785,8 @@ module Reach
         limit_lines = limits_report
         problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
         problems.each { |line| puts line }
+        enroll_line = doctor_enroll_line
+        puts enroll_line if enroll_line
         puts doctor_runtime_line
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
         problems.empty? ? 0 : 1
@@ -869,11 +871,19 @@ module Reach
 
       def check_enroll
         lock = Reach::EnrollmentLock.state
-        return [] unless lock["locked"]
+        return [] unless lock["locked"] && lock["reason"] != "not_enrolled"
 
         ["R-DOC-ENROLL: rEach is locked (#{lock["reason"]}): #{Reach::Messages.text(lock["message_id"])}"]
       rescue StandardError
         ["R-DOC-ENROLL: enrollment could not be checked - run reach enroll <code>"]
+      end
+
+      def doctor_enroll_line
+        return nil if Reach::Enroll.current
+
+        "enrollment: #{Reach::Messages.text("M-GATE-NOENROLL")}"
+      rescue StandardError
+        nil
       end
 
       def check_keys

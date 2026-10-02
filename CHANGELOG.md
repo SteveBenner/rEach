@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.9] - 2026-10-01
+
+### Fixed
+
+- `reach doctor` no longer fails a healthy install that has not enrolled yet. Right after an install or reinstall
+  it printed `R-DOC-ENROLL: rEach is locked (not_enrolled)` and exited 1, so the student's AI partner reported
+  that doctor "still exits with an error". Not being enrolled yet is the next step, not a fault: doctor now prints
+  an `enrollment:` line with the same M-GATE-NOENROLL words and that line does not change the exit code. A revoked,
+  damaged, moved or course-ended enrollment is still an R-DOC-ENROLL finding (`lib/reach/cli.rb`).
+- `reach doctor` and `reach work` no longer pass a harness's own stderr through when they ask it for its version.
+  Inside the Codex app's sandbox `codex --version` warns "proceeding, even though we could not create PATH
+  aliases", and the student's AI partner reported that as a rEach problem. `Reach::Harness.detect` now reads the
+  version from stdout and discards stderr (`lib/reach/harness.rb`).
+
 ## [0.16.8] - 2026-10-01
 
 ### Added
