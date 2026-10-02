@@ -73,6 +73,12 @@ module Reach
         folder = Reach::Paths.workspace_root
         return "Your rEach folder: #{folder}" if folder == Reach::Paths.root || !Reach::Paths.legacy_active?
 
+        state = Reach::Relocation.status
+        if state[:state] == "failed"
+          reason = Reach::Relocation::REASONS[state[:reason]] || state[:reason]
+          return "Your rEach folder: #{folder} (rEach could not move your files into #{Reach::Paths.root} yet: #{reason}; nothing was changed)"
+        end
+
         "Your rEach folder: #{folder} (rEach will move your files into #{Reach::Paths.root} soon)"
       rescue StandardError
         "Your rEach folder: unknown"

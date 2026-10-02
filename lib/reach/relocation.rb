@@ -1182,14 +1182,37 @@ module Reach
       journal = load_journal(journal_path(ctx))
       %w[deliverables extracurricular].each do |top|
         base = File.join(ctx[:root], top)
-        next unless File.lstat(base).directory?
+        next unless File.exist?(base) && File.lstat(base).directory?
 
         return true if stray_files(base, "work/#{top}").any? { |key, _path| !journal.key?(key) }
       end
-      false
+      legacy_collision?(ctx[:legacy_ws], ctx[:root], "", journal)
     rescue Errno::ENOENT
       false
     rescue StandardError
+      false
+    end
+
+    def legacy_collision?(src_dir, dest_dir, rel, journal)
+      Dir.children(src_dir).sort.any? do |name|
+        child = rel.empty? ? name : "#{rel}/#{name}"
+        src = File.join(src_dir, name)
+        dest = File.join(dest_dir, name)
+        dest_present = File.exist?(dest) || File.symlink?(dest)
+        if File.lstat(src).directory?
+          if !dest_present
+            false
+          elsif File.symlink?(dest) || !File.directory?(dest)
+            true
+          else
+            legacy_collision?(src, dest, child, journal)
+          end
+        else
+          record = journal["work/#{child}"]
+          dest_present && (!record.is_a?(Hash) || record["preexisting"])
+        end
+      end
+    rescue SystemCallError
       false
     end
 
