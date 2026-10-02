@@ -300,7 +300,7 @@ module Reach
             gate session|prompt|enroll|write|shell|read  called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
-            submit [--slice ...]                 submit and wait for the receipt
+            submit [--slice ...]                 ask the student, then submit and wait for the receipt
             receipts [wait|show|acks]            receipts
             hand raise|status|list               hand-raises
             watch [--slice ...]                  polling shape-check backstop for Codex
@@ -1046,8 +1046,13 @@ module Reach
         end
         result = Reach::Submit.submit(slice: slice)
         case result["state"]
+        when "asked", "declined"
+          puts result["text"]
+          0
         when "ingested"
           puts Reach::Receipts.announce(result["receipt"])
+          followup = Reach::Submit.followup_text(result)
+          puts followup unless followup.empty?
           0
         when "rejected"
           rejection = result["rejection"] || {}

@@ -1,0 +1,233 @@
+schema: rstack.impl/v1
+name: reach-0.17.0-submit-archive
+target_version: 0.17.0
+teach_version: 0.18.0
+wire_revision: 2026-10-02c
+standards: [STD-SUBMIT-APPROVAL, STD-SUBMIT-ARCHIVE, STD-CONSENT-FROM-REACH, STD-STUDENT-MESSAGES, STD-RUBY-FLOOR, STD-FLOWS, STD-COURSE-TIME, STD-PERSONA-ONE-SOURCE, STD-VAULT-PRIVATE, STD-WIRE-CONTRACT]
+teach_standards: [STD-RESUBMISSION, STD-STORAGE-PG, STD-INSTRUCTOR-PERSONAS, STD-CONSOLE-THEMES]
+wire_rules: [W-API-SUBMIT, W-API-SUBMISSION, W-RCPT-1, W-SUB-1, W-SUB-2]
+intent: >-
+  The agent tells the student, once a slice's work passes reach qualify, that they can ask rEach to submit it.
+  Submitting asks the student through Reach and goes ahead only on their yes; it sends the work to Teach and, once the
+  ingest receipt verifies, saves a ZIP of the whole assignment folder in the student's Downloads folder, named with the
+  course, the assignment and the course-time stamp. The student may submit again until the due time and the last one
+  counts. After the due time a slice already on record cannot be submitted again, refused by Reach before it asks and
+  by Teach. Teach numbers every ingested submission of a slice and links each to the one it replaces.
+already_done_by_primary:
+  - specs/wire.yml revision 2026-10-02c (W-SUB-1, W-SUB-2, W-API-SUBMIT attempt/due/resubmit, W-RCPT-1 attempt) and its byte-identical copy at ~/bitbucket/paterasai/teach/specs/wire.yml
+  - rEach specs/app.yml STD-SUBMIT-APPROVAL and STD-SUBMIT-ARCHIVE; Teach specs/app.yml STD-RESUBMISSION; teach.spec.yml resubmission
+rules_for_workers:
+  - Part Q. No comments anywhere. Only shebangs, magic comments and SPDX lines survive.
+  - Part S. Write no tests. Existing smoke tools are test machinery and may be adapted where listed.
+  - Reach lib/ and exe/ run on Ruby 2.6.10 with the stdlib only. No endless methods, no hash shorthand, no numbered block params, no `it`, no pattern matching.
+  - Every person-facing text comes from locales/en-US.yml by id through Reach::Messages.text. American English. Student-facing text never names code, tests, scenarios, files of the slice or commands (STD-FLOWS); agent-facing text may.
+  - Never run rplugin install or rplugin package. Never touch the live Teach database. Run `unset TEACH_DATABASE_URL` before any Teach command, and use a scratch TEACH_HOME.
+  - Do not commit. Do not edit specs/wire.yml, specs/app.yml, teach.spec.yml, VERSION, CHANGELOG.md, FEATURES.md, TODO.md or README.md of either repo; the primary owns them.
+  - Never delete a file. Move anything you replace to a .backup path.
+  - Match the surrounding code's idiom and density.
+slices:
+  - id: reach
+    repo: ~/github/foss/rEach
+    owns_paths:
+      - lib/reach/zip.rb (new)
+      - lib/reach/archive.rb (new)
+      - lib/reach.rb
+      - lib/reach/submit.rb
+      - lib/reach/consent.rb
+      - lib/reach/gate.rb (only the consent hand-off in prompt_context)
+      - lib/reach/course_time.rb
+      - lib/reach/cli.rb (cmd_submit and its help line only)
+      - lib/reach/mcp_bridge.rb (reach_submit only)
+      - lib/reach/debug.rb (the submit event fields only)
+      - lib/reach/debug_render.rb (the submit row only)
+      - locales/en-US.yml (append new ids only)
+      - config.yml (append the submit block only)
+      - agents/reach.md and skills/reach-assistant/SKILL.md (the same new bullet in both; STD-PERSONA-ONE-SOURCE)
+      - skills/reach-submit/SKILL.md
+      - skills/reach-feature/SKILL.md (step 11 only)
+      - rules/reach.md
+      - reach.spec.yml (the submit, receipts and deadline parts only)
+      - docs/student-guide.md
+      - tools/fake_teach/server.rb
+      - tools/smoke/assignment_one.rb
+    work:
+      zip_writer:
+        file: lib/reach/zip.rb, required from lib/reach.rb next to reach/unzip.
+        api: Reach::Zip.write(io, entries) where entries yields [name, bytes, mtime]. Names are UTF-8 with forward slashes.
+        format: >-
+          Local file header, deflated data (Zlib::Deflate.new(Zlib::DEFAULT_COMPRESSION, -Zlib::MAX_WBITS)), central
+          directory, end of central directory. Method 8; store (method 0) only when deflate is not smaller. CRC with
+          Zlib.crc32. General purpose flag bit 11 (UTF-8). Version needed 20; version made by (3 << 8) | 20 with external
+          attributes 0o100644 << 16. DOS time and date from mtime in local time, clamped to 1980-01-01.
+        limits: Raise Reach::Error when entries exceed 65535 or any size or offset reaches 0xFFFFFFFF (no ZIP64).
+      course_time:
+        - Add Reach::CourseTime.stamp(instant) returning "YYYY-MM-DD-HHMM-ZONE" in the course zone (for example 2026-10-02-1543-PDT), built on the same zone logic format uses, so America/Los_Angeles is right on every platform.
+      archive:
+        file: lib/reach/archive.rb, required from lib/reach.rb.
+        api: Reach::Archive.write!(workspace, meta) returns {"state" => "saved", "path" => full path, "name" => basename, "bytes" => n, "entries" => n}, {"state" => "skipped", "reason" => "too_large"} or {"state" => "failed"}; it never raises.
+        source: >-
+          The assignment folder is File.dirname(workspace). Refuse (failed) unless it resolves under
+          Reach::Paths.deliverables_root (which already follows an active persona). Walk every slice workspace directory
+          in it. Leave out every top-level dot entry of a workspace (.reach, .claude, .codex, .mcp.json and the like),
+          the top-level AGENTS.md, CLAUDE.md and GEMINI.md, symbolic links and anything that is not a regular file or
+          directory. Never read ~/.reach/vault or anything outside the assignment folder except the two extras below.
+        layout: >-
+          Every entry sits under one root folder named like the ZIP without .zip. Workspace files at
+          <root>/<workspace folder name>/<relative path>. Extras: <root>/rEach/receipts/<receipt_id>.json for every
+          stored receipt (Reach::Receipts.list) whose assignment matches meta["assignment"], and
+          <root>/rEach/own-part.json holding Reach::Part.document(assignment) when the assignment has part questions.
+        size_cap: Sum the bytes first; above config.yml submit.archive_max_mb (default 256, read like Reach::Debug.config reads debug:) return skipped without writing.
+        destination: >-
+          REACH_DOWNLOADS_DIR when set (operator and smoke override). Otherwise on Linux the XDG_DOWNLOAD_DIR line of
+          ${XDG_CONFIG_HOME:-~/.config}/user-dirs.dirs with $HOME expanded, when present; otherwise File.join(Dir.home,
+          "Downloads"). Create it (mkdir_p) when missing.
+        name: >-
+          "<course>-<assignment>-<CourseTime.stamp(now)>.zip", course and assignment reduced to [A-Za-z0-9._-]
+          (anything else becomes -). Never overwrite: when the name is taken use -2, -3 and so on before .zip.
+        write: >-
+          Write to a hidden temporary file in the destination (".<name>.partial-<pid>", mode 0600), then claim the final
+          name with File.link(tmp, final) so an existing file is never replaced (on EEXIST try the next suffix; when
+          hard links are unsupported, File.rename after checking the name is free), then remove the temporary file.
+          Resulting file mode 0600.
+        failures: Rescue StandardError, record it with Reach::BrainSpool.log("archive_failed", "error" => class name) and return failed. A failed or skipped archive never fails, undoes or delays the submission.
+      submit_flow:
+        file: lib/reach/submit.rb
+        order: >-
+          Login, resolve_workspace, run_preconditions, qualification (M-SUBMIT-UNQUALIFIED), the part's missing-question
+          check (M-SUBMIT-NO-PART) without the transcript flush, install (M-GATE-NOENROLL), then the closed check, then
+          approval, then the transcript flush, manifest, ledger, seal and POST as today. Split require_part! so the
+          flush runs only after approval.
+        closed_check: >-
+          Read the current assignment's due time the way Reach::Pace reads it (the status cache) when the cached
+          assignment id equals meta["assignment"]. When due has passed and Reach::Receipts.list holds an ingest receipt
+          with the same cutout_id, slice and assignment, raise Reach::Refused with M-SUBMIT-CLOSED. Teach stays the
+          authority: with no cached due time, or no local receipt, go on.
+        approval_modes: >-
+          terminal when $stdin.tty? and $stdout.tty?; agent when ENV["REACH_HARNESS"] is antigravity; hook otherwise.
+        hook_mode: >-
+          subject = {"workspace" => File.basename(workspace), "digests" => the owned-file digests build_manifest uses}.
+          If Consent.declined?(kind: "submission", subject:) clear it and return {"state" => "declined", "text" =>
+          M-CONSENT-DECLINED}. consent = Consent.take!(kind: "submission", subject:). Without one, Consent.ask! with
+          message M-SUBMIT-ASK and replay {"slice_id" => File.basename(workspace)}, and return {"state" => "asked",
+          "text" => M-CONSENT-NEEDED with that question}. A consent for different digests does not match, so a change
+          after the yes asks again.
+        terminal_mode: Print M-SUBMIT-ASK and M-SUBMIT-TERMINAL-PROMPT, read one line from $stdin; Consent.yes? goes on, anything else returns declined.
+        agent_mode: Go on; the reach-submit skill and rules/reach.md make the agent ask first.
+        ask_fields: >-
+          M-SUBMIT-ASK gets slice (meta["slice"]), cutout (meta["cutout_id"]), assignment (meta["assignment"]) and again:
+          M-SUBMIT-ASK-OPEN with due in course time when the due time is known and ahead, M-SUBMIT-ASK-LATE with due when
+          it has passed, and empty when unknown.
+        after_ingest: >-
+          After handle_response returns ingested, call Reach::Archive.write!(workspace, meta) and add "archive" (its
+          result), "attempt", "due" and "resubmit" (copied from Teach's response body; absent from an older Teach) to
+          the result. handle_response must pass those three fields through.
+        outbox: >-
+          write_outbox stores "workspace" => workspace in the local outbox entry; it is never part of the request body.
+          retry_outbox, for a submission answered ingested whose entry names a workspace that still exists, calls
+          Reach::Archive.write! with that workspace's metadata and adds its result.
+        messages_helper: >-
+          Add Reach::Submit.followup_text(result) returning the student-facing lines after a receipt: M-SUBMIT-ARCHIVED
+          (assignment, name), M-SUBMIT-ARCHIVE-SKIPPED or M-SUBMIT-ARCHIVE-FAILED; then M-SUBMIT-AGAIN-OPEN (attempt,
+          due in course time) when resubmit is open and due is known, M-SUBMIT-AGAIN-OPEN-NODUE (attempt) when open
+          with no due, M-SUBMIT-AGAIN-CLOSED when closed, nothing when Teach sent no resubmit.
+      consent:
+        - Consent::KINDS gains "submission".
+        - follow_up! for kind submission does no work. On yes it returns M-SUBMIT-YES-AGENT with slice_id from replay; on no it returns M-CONSENT-DECLINED.
+        - Add Consent.agent_context(observed, done) returning the text the gate appends. For kind submission with answer yes it returns done as is; otherwise M-CONSENT-DONE with answer and text as today. gate.rb prompt_context uses it in place of its inline M-CONSENT-DONE.
+      cli:
+        - cmd_submit handles asked and declined (print text, exit 0), refused stays as today. On ingested print the announcement, then followup_text. Queued and rejected stay as today.
+      mcp:
+        - reach_submit returns the result with "announcement" and "followup" (followup_text) on ingested, and "message" (the text) on asked or declined. Update its description to say it asks the student through Reach first.
+      debug:
+        - The submit debug event gains archive (saved|skipped|failed), attempt and resubmit, and the outcome asked or declined. No path or file name.
+      locales:
+        add:
+          M-SUBMIT-ASK: "Ready to submit your {slice} work for {cutout}? rEach will send it to your instructors and save a copy of all your work for {assignment} in your Downloads folder. {again}"
+          M-SUBMIT-ASK-OPEN: "You can submit again until {due}; the last one you send counts."
+          M-SUBMIT-ASK-LATE: "The due time ({due}) has passed, so this will be marked late and can't be submitted again."
+          M-SUBMIT-TERMINAL-PROMPT: "Type yes to submit, or no to keep working: "
+          M-SUBMIT-YES-AGENT: "The student said yes to submitting. Run reach submit --slice {slice_id} now (or the reach_submit tool with slice {slice_id}); it uses this yes once. Then tell the student what it reports, in plain words."
+          M-SUBMIT-CLOSED: "The due time for {assignment} ({due}) has passed and your {slice} work is already submitted, so it can't be submitted again. Your instructor can help if something is wrong."
+          M-SUBMIT-ARCHIVED: "A copy of all your work for {assignment} is saved in your Downloads folder as {name}."
+          M-SUBMIT-ARCHIVE-SKIPPED: "Your work was submitted, but it's too large for rEach to save a copy in your Downloads folder."
+          M-SUBMIT-ARCHIVE-FAILED: "Your work was submitted, but rEach couldn't save a copy in your Downloads folder."
+          M-SUBMIT-AGAIN-OPEN: "This is submission {attempt}. You can submit again until {due}; the last one you send counts."
+          M-SUBMIT-AGAIN-OPEN-NODUE: "This is submission {attempt}. You can submit again; the last one you send counts."
+          M-SUBMIT-AGAIN-CLOSED: "The due time has passed, so this is your final submission for this part."
+      config:
+        - Append a top-level submit block to config.yml with archive_max_mb 256.
+      agent_text:
+        persona_bullet: >-
+          Add this bullet, identical in agents/reach.md and skills/reach-assistant/SKILL.md, after "The student's own
+          part is theirs" bullet: "- When a slice's work passes its checks, tell the student they can ask you to submit
+          it whenever they're ready. Submitting sends it to their instructors and saves a copy of all their work for the
+          assignment in their Downloads folder. They can submit again until the due time and the last one counts; after
+          the due time it can't be submitted again. Use the reach-submit skill."
+        reach_submit_skill: >-
+          Rewrite skills/reach-submit/SKILL.md (same frontmatter name; description also covers resubmitting): offer to
+          submit once reach qualify passed; check reach part first; run reach submit (or reach_submit). When it answers
+          with Reach's question, relay it word for word and wait; Reach captures the answer itself. When Reach then says
+          the student said yes, run reach submit again once, as it says. Tell the student what was received, the receipt
+          and time, where the copy was saved and whether and until when they can submit again, in plain words. Never
+          answer the question for the student, never submit after a no, and never try to submit a slice Reach says is
+          closed. Keep the existing queued, rejected and grade-receipt guidance. On Antigravity, ask the same question in
+          plain words and run the command only after the student's yes.
+        reach_feature_step_11: '11. **Offer to submit** with the reach-submit skill once `reach qualify` passed. Reach asks the student and submits only on their yes.'
+        antigravity_rule: >-
+          rules/reach.md: keep the REACH_HARNESS=antigravity line and add that on Antigravity Reach cannot ask the student
+          itself, so the agent asks whether they're ready to submit, saying it sends the work to their instructors and
+          saves a copy in their Downloads folder, and runs the command only after the student's yes.
+      reach_spec: Update reach.spec.yml's submit steps, the deadline paragraph and receipts to describe approval, the closed check, the archive and resubmission, citing STD-SUBMIT-APPROVAL, STD-SUBMIT-ARCHIVE and W-SUB-1.
+      student_guide: docs/student-guide.md gains a short plain-language paragraph on submitting, the Downloads copy and submitting again before the due time.
+      fake_teach: tools/fake_teach/server.rb answers submissions with attempt, due and resubmit per W-SUB-1 (numbering per student, cutout, slice and assignment) and puts attempt in the ingest receipt.
+      smoke: >-
+        tools/smoke/assignment_one.rb: set REACH_DOWNLOADS_DIR to a scratch folder; each reach submit now first answers
+        asked; answer yes the way the prompt hook would (the gate prompt command with a yes prompt in a signed-in
+        session), then run reach submit again; assert a ZIP appears in the scratch Downloads folder with the expected
+        name pattern, unzip -t passes, and it holds no .reach entry. Keep every existing assertion.
+    acceptance:
+      - ruby -c on every changed lib file under a Ruby 2.6.10 parser (the platform smoke docker image or `ruby _2.6.10_` if present; otherwise state that only the system Ruby parsed it).
+      - A scratch run against tools/fake_teach with REACH_HOME and REACH_DOWNLOADS_DIR in the scratchpad - first reach submit prints the M-CONSENT-NEEDED text and sends nothing; after a yes through the gate prompt, reach submit sends, prints the receipt, the archive line and M-SUBMIT-AGAIN-OPEN; the ZIP passes unzip -t and Reach::Unzip extracts it; a second ZIP the same minute gets -2.
+      - Changing an owned file after the yes makes reach submit ask again.
+      - With the status cache's due in the past and an ingest receipt for the slice, reach submit prints M-SUBMIT-CLOSED before asking.
+      - tools/platform_smoke/run.rb still passes locally if it ran before your change.
+      - The persona body is still identical in both files (reach doctor shows no R-DOC-PERSONA).
+  - id: teach
+    repo: ~/bitbucket/paterasai/teach
+    owns_paths:
+      - lib/teach/db.rb (COLUMNS and the migration only)
+      - lib/teach/models/submission.rb
+      - lib/teach/web/app.rb (process_submission, the idempotent replay of a submission, and the W-API-SUBMIT answer only)
+      - lib/teach/receipts.rb (ingest only)
+      - lib/teach/personas.rb (the submission copy only)
+      - lib/teach/grades.rb
+      - lib/teach/web/console/views/submissions/index.erb
+      - lib/teach/web/console/views/submissions/show.erb
+      - lib/teach/web/console.rb and lib/teach/web/console/ helpers, only if a helper is needed for the new cells
+      - lib/teach/db_import.rb and lib/teach/backup.rb, only if they list submission columns explicitly
+    work:
+      schema:
+        - COLUMNS gains ["submissions", "attempt", "INTEGER"], ["submissions", "supersedes", "TEXT"], ["submissions", "superseded_by", "TEXT"]. It must work on SQLite and on PostgreSQL (live Teach runs PostgreSQL, STD-STORAGE-PG).
+        - After the columns exist, migrate! numbers every submission whose state is not rejected and whose attempt is NULL, per (student_id, cutout_id, slice, assignment) in received_at, id order, continuing after the group's highest existing attempt, and sets supersedes and superseded_by along the chain. Idempotent and cheap when nothing is NULL.
+      model:
+        - Submission.on_record?(student_id:, cutout_id:, slice:, assignment:) is true when any submission of the slice has a state other than rejected.
+        - Submission.number!(id, conn:) inside one transaction (use the DB layer's transaction support; find it in lib/teach/db.rb) finds the slice's current submission (state not rejected, superseded_by NULL, id not this one), sets this row's attempt to the group's highest attempt plus 1 and supersedes to that submission's id, and sets that submission's superseded_by to this id. Returns the updated row.
+      ingest:
+        - process_submission raises DeadlinePassed when due has passed and Submission.on_record? is true, replacing the latest_for_slice check (which let a rejected latest row reopen the window). Keep latest_for_slice if anything else uses it.
+        - After set_state ingested and before the receipt, call Submission.number!. Receipts.ingest adds "attempt" => the row's attempt (W-RCPT-1).
+        - The W-API-SUBMIT answer adds attempt (ingested only), due (the assignment's due as a W-CONV-3 UTC timestamp, or null) and resubmit ("closed" when due has passed, otherwise "open"), also on a rejected answer and on the idempotent replay of an earlier request.
+      personas:
+        - SUBMISSION_COPY_COLUMNS gains attempt. After every submission is copied, remap supersedes and superseded_by from source ids to the copies' ids.
+      grades:
+        - HEADER becomes the existing columns followed by attempt and counts. attempt is the submission's attempt; counts is true when the submission's superseded_by is NULL.
+      console:
+        - Load the design-taste-frontend skill before touching the views (AGENTS.md Part M) and follow the console's existing components and tokens; the change must look right in all three canonical themes (apple-noir, apple-austere, tronwave) through the existing switcher, with no native browser inputs.
+        - submissions/index.erb gains an Attempt column (numeric, after State) and marks the submission that counts with the existing tone_status helper (for example tone_status('ok', 'Counts')) when the slice has more than one attempt, or a muted Replaced status for a superseded one.
+        - submissions/show.erb's definition list gains Attempt, Replaces (a link to the superseded submission) and Replaced by (a link), shown only when present, and the header meta marks Counts or Replaced.
+    acceptance:
+      - With `unset TEACH_DATABASE_URL` and a scratch TEACH_HOME, the server boots, migrates an existing scratch database with old rows (numbering them) and a fresh one.
+      - Three submissions of one slice before the due time come back attempt 1, 2, 3 with resubmit open; rows 1 and 2 have superseded_by set; the ingest receipts carry attempt and verify.
+      - After the due time a further submission answers 403 deadline_passed; a slice with only a rejected submission still accepts one late submission, marked late.
+      - teach grades export (or the existing export command) prints attempt and counts columns.
+      - Ruby 2.6-compatible syntax wherever Teach requires it (check specs/app.yml STD-RUBY-FLOOR for Teach's floor).
+      - Report the console routes you changed so the primary can drive them in a browser.

@@ -104,7 +104,7 @@ module Reach
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed
         done = safely { Reach::Consent.follow_up!(observed) }
-        context << Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: done) unless done.to_s.empty?
+        context << Reach::Consent.agent_context(observed, done) unless done.to_s.empty?
       end
       if space
         imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"], session_id: session, harness: harness) }

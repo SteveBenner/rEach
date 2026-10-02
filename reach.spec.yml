@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.25
+version: 0.17.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -604,7 +604,9 @@ harness_integration:
     reach-submit:
       purpose: Submitting and receipts.
       contents:
-      - Run reach submit
+      - Offer to submit once reach qualify passed
+      - Run reach submit and relay Reach's question word for word
+      - When Reach reports the student's yes, run reach submit again once
       - Wait for the receipt with reach receipts wait
       - Tell the student at once that the submission was received with the receipt id and time
       - If no receipt within five minutes
@@ -744,6 +746,18 @@ submission:
     paths).
   - The shape check has no errors for panel slices (only findings in the slice's own files count, since 0.11.0).
   - The latest qualification passed on exactly the current owned files and scenarios (M-SUBMIT-UNQUALIFIED).
+  - Every question of the student's own part is answered (M-SUBMIT-NO-PART).
+  - >-
+    The slice is not closed: when the due time has passed and an ingest receipt for the slice is already stored,
+    reach submit refuses with M-SUBMIT-CLOSED before asking; with no cached due time or no local receipt it goes on and
+    Teach stays the authority (STD-SUBMIT-APPROVAL, W-SUB-2).
+  approval: >-
+    After the preconditions Reach asks the student (M-SUBMIT-ASK) and submits only on their yes (STD-SUBMIT-APPROVAL,
+    STD-CONSENT-FROM-REACH). With the prompt hook, reach submit records the question and answers asked; the hook captures
+    the yes for exactly the owned files asked about (valid 30 minutes) and reach submit, run again, uses it once; a no
+    answers declined; a change to an owned file after the yes asks again. In a terminal reach submit prompts and reads
+    the answer itself. On Antigravity, which has no prompt hook, the agent asks and runs the command after the yes. The
+    transcript is flushed only after the yes.
   steps:
   - >-
     Pack the owned files into a gzip tar archive with manifest.json (slice, cutout, assignment, file digests, Reach
@@ -759,12 +773,28 @@ submission:
     student usually hears at once; reach receipts wait (up to five minutes) covers a queued upload.
   - Verify the receipt's signature against the key its signing_key_id names; store it.
   - Announce - the agent tells the student the submission was received, with the receipt id and time.
+  - >-
+    Archive - once the ingest receipt verifies, save a ZIP copy of the whole assignment folder in the student's
+    Downloads folder (STD-SUBMIT-ARCHIVE) and tell the student where it is; then tell the student whether and until
+    when they can submit again (attempt, due and resubmit from Teach's answer, W-SUB-1).
+  archive: >-
+    Reach::Archive writes <course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip in course time (STD-COURSE-TIME) with
+    Reach's own standard-library ZIP writer (Reach::Zip) through a hidden temporary file, never overwriting (-2, -3 and
+    so on), with every slice workspace of the assignment minus top-level dot entries, AGENTS.md, CLAUDE.md, GEMINI.md and
+    symbolic links, plus rEach/receipts/<receipt_id>.json for the assignment and rEach/own-part.json. The destination is
+    REACH_DOWNLOADS_DIR when set, otherwise XDG_DOWNLOAD_DIR on Linux, otherwise Downloads in the home folder. It is
+    skipped above config.yml submit.archive_max_mb (default 256) and a skipped or failed copy never fails, undoes or
+    delays the submission. A queued submission that Reach later sends from the outbox is archived the same way when its
+    workspace still exists. Nothing about the copy is sent to Teach.
   retries:
     policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
     never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason.
   deadline: >-
     The due time is judged by Teach's received_at; Reach warns the student 24 hours and 1 hour before a due time
-    when a slice has no ingest receipt.
+    when a slice has no ingest receipt. Since 0.17.0 a slice may be submitted again until the due time and the last
+    submission counts (W-SUB-1); after the due time a slice already on record is refused by Reach before it asks
+    (M-SUBMIT-CLOSED) and by Teach (403 deadline_passed), while a slice with nothing on record may still be submitted
+    once, marked late.
   grade_receipt: >-
     reach sync asks Teach for the grade receipt of each submission that has an ingest receipt and no grade receipt,
     at most once per submission every 30 seconds (W-API-SUBMISSION); a verified one is stored, announced (M-GRADED)
@@ -773,6 +803,10 @@ receipts:
   verification: Every receipt's signature is checked against the instructors' public keys before it is stored or
     announced.
   storage: "~/.reach/receipts/<receipt_id>.json and a record in Reach's corpus when available."
+  attempt: >-
+    Since 0.17.0 an ingest receipt carries attempt, the submission's number among the slice's submissions (W-RCPT-1,
+    W-SUB-1); one from an older Teach has none. Every stored receipt for an assignment is copied into the Downloads
+    ZIP (STD-SUBMIT-ARCHIVE).
   preservation: >-
     reach sync reads the install's receipts from Teach (W-API-RECEIPTS, at most 5 pages of 200) and verifies and
     stores every one Reach does not hold, so a receipt missed while offline or lost from disk comes back.
@@ -878,7 +912,7 @@ mcp_bridge:
   - name: reach_attempts
     description: Show the attempt ladder or record the student's yes to continue
   - name: reach_submit
-    description: Submit the current slice and wait for the ingest receipt
+    description: Submit the current slice and wait for the ingest receipt; it asks the student through Reach first and submits only on their yes
   - name: reach_raise_hand
     description: Raise a hand with a summary
   - name: reach_hand_status
@@ -1029,7 +1063,7 @@ cli:
     purpose: The attempt ladder; continue records the student's yes after the third failed qualification
   - name: submit
     synopsis: reach submit [--slice ...]
-    purpose: Submit and wait for the receipt
+    purpose: Ask the student, then submit and wait for the receipt
   - name: receipts
     synopsis: reach receipts [wait|show]
     purpose: Receipts
@@ -1966,10 +2000,14 @@ templates:
   skill_reach_submit: |
     ---
     name: reach-submit
-    description: Use when the student wants to submit their slice or asks whether a submission was received.
+    description: Use when the student wants to submit their slice, submit it again before the due time, or asks whether a submission was received.
     ---
+    Offer to submit once `reach qualify` has passed: tell the student they can ask you to submit this part whenever they are ready, that it sends the work to their instructors and saves a copy of all their work for the assignment in their Downloads folder, and that they can submit again until the due time (the last one counts).
     Before submitting, run `reach part`: every question must be answered in the student's own words. If one is missing, ask it first.
-    `reach submit` works only after `reach qualify` passed on exactly the files you have now; if it refuses, run `reach qualify` first. Run `reach submit`. Most of the time the receipt comes back straight away; tell the student immediately what was received, the receipt number and the time.
+    `reach submit` works only after `reach qualify` passed on exactly the files you have now; if it refuses, run `reach qualify` first. Run `reach submit` (or the reach_submit tool). Reach asks the student itself: when it answers with Reach's question, relay it word for word and wait. Reach captures the student's answer itself. Never answer the question for the student, and never submit after a no.
+    When Reach then says the student said yes, run `reach submit` again once, as it says. Most of the time the receipt comes back straight away; tell the student in plain words what was received, the receipt number and the time, where the copy of their work was saved, and whether and until when they can submit again.
+    If submit says the due time has passed and the part is already submitted, tell the student it can't be submitted again and that their instructor can help; never try to submit a slice Reach says is closed.
+    On Antigravity, Reach cannot ask for you: ask the same question in plain words, and run the command only after the student's yes.
     If submit says the work is queued, run `reach receipts wait --submission <id>` when you have an id, or `reach sync` when you are back online, and tell the student it has not been received yet.
     If submit says the work wasn't accepted, read the reason and the fix to the student in plain words.
     When a grade receipt arrives, show the signed scenario results in plain words. A queued or received submission is not passed. If a result fails, use the reach-bug skill, pass `reach qualify` again, and submit the correction with the student's yes.

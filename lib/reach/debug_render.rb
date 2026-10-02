@@ -173,7 +173,7 @@ module Reach
         outcome = f["passed"] ? "passed" : (f["pending"] ? "pending" : "failed=#{f['failed']}")
         [join("attempt", f["attempt"], f["mode"]), outcome, nil]
       when "submit"
-        [join("submit", f["receipt_id"]), join(f["outcome"], f["late"] ? "late" : nil), nil]
+        [join("submit", f["receipt_id"]), join(f["outcome"], f["late"] ? "late" : nil, f["attempt"] ? "attempt #{f['attempt']}" : nil, f["resubmit"], f["archive"] ? "copy #{f['archive']}" : nil), nil]
       when "transcript"
         [join("transcript", f["event"]), pairs(f, %w[event]), nil]
       when "brain"

@@ -87,3 +87,5 @@ rstack:
       require_mount: "/run/media/${USER}/SVEN-B1"
       encrypt: true
       path: "/run/media/${USER}/SVEN-B1/corpora/rstack-plugins/reach-mirror"
+submit:
+  archive_max_mb: 256
