@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.16.12
+version: 0.16.13
 rplugin: ">= 1.2.0"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
@@ -33,6 +33,7 @@ contents:
     - { id: reach, command: ruby, args: ["${PLUGIN_ROOT}/exe/reach", "mcp"] }
   docs:
     - { path: docs/student-guide.md }
+    - { path: docs/INSTALLATION-AND-SETUP-GUIDE.docx }
     - { path: INSTALL.md }
 native:
   claude_agent: "reach:reach"

@@ -37,7 +37,7 @@ module Reach
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         message = Reach::EnrollFlow.next_message(lock)
-        return [nil, message, message, Reach::Messages.text("M-ENR-AGENT-CONTEXT")]
+        return [nil, message, message, locked_context]
       end
 
       maybe_refresh_status
@@ -62,6 +62,11 @@ module Reach
       end
       context = build_context(harness_id, format, greeting_id, greeting_text, updating)
       [greeting_id, greeting_text, banner, context]
+    end
+
+    def locked_context
+      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"))
+      "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}"
     end
 
     def login_pending?(event)

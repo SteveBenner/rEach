@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.12
+version: 0.16.13
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.12
+    version: 0.16.13
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -198,6 +198,7 @@ plugin_manifest:
         - mcp
       docs:
       - path: docs/student-guide.md
+      - path: docs/INSTALLATION-AND-SETUP-GUIDE.docx
       - path: INSTALL.md
     native:
       claude_agent: reach:reach
@@ -302,6 +303,11 @@ library:
     role: Decides whether Reach is locked and why (W-ENR-6); since 0.16.0
   - name: Reach::EnrollFlow
     role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0
+  - name: Reach::Guide
+    role: >-
+      Reads the text of docs/INSTALLATION-AND-SETUP-GUIDE.docx with the standard library (Reach::Unzip and Zlib),
+      one line per paragraph, a table row per line with its cells joined by " | ", and [Screenshot] where a picture
+      stands; since 0.16.13
   - name: Reach::Client
     role: Signed HTTPS requests to Teach with timeouts, retries and a circuit breaker
   - name: Reach::Crypto
@@ -888,6 +894,17 @@ cli:
     purpose: >-
       rEach's greeting and session context - the first-run introduction when there is no profile, a welcome back
       otherwise; never blocks and always exits 0
+  - name: guide
+    synopsis: reach guide [--path] [--format text|json]
+    purpose: >-
+      Since 0.16.13, print the text of rEach's Installation and Setup Guide (docs/INSTALLATION-AND-SETUP-GUIDE.docx,
+      the de-identified student handout), or with --path only where the file is; works while Reach is locked. Until
+      the student is enrolled, reach hello's locked context (M-ENR-AGENT-GUIDE) and Hermes's locked prompt context
+      (M-ENR-HERMES-GUIDE) tell the agent to run it every session and to walk the student through the guide's
+      "Approvals and other extra steps" for their app when the student's messages reach it while Reach is locked,
+      which means the enrollment hook is not running (in Codex, rEach's hooks are untrusted). INSTALL.md has the
+      installing agent use it for setup's host steps. It exits 1 with M-GUIDE-MISSING or M-GUIDE-DAMAGED when the
+      file is absent or unreadable.
   - name: update
     synopsis: reach update status|check|run [--apply] [--background] [--format text|json]
     purpose: >-

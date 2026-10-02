@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.13] - 2026-10-01
+
+### Added
+
+- `docs/INSTALLATION-AND-SETUP-GUIDE.docx`: the student setup guide, with no institution, instructor, course or term
+  in it. Its new "Approvals and other extra steps" section walks each app through its approvals with official vendor
+  screenshots. For Codex that means running the install outside the sandbox, Full access on Windows, trusting rEach's
+  hooks, trusting each course folder and re-trusting after an update. Claude Code, Cowork, Antigravity and Hermes
+  get the same treatment, and so do the Mac, Windows and Linux prompts (Documents access, Ruby from RubyInstaller,
+  SmartScreen). Step 3 now describes enrollment v2 (course code, username, student ID, sign-in each session, a
+  second computer). Listed under `contents.docs` in `reach.rplugin.yml`.
+- `reach guide [--path] [--format text|json]` (`lib/reach/guide.rb`). It prints the guide's text from the .docx with
+  the standard library (`Reach::Unzip`), one line per paragraph, table rows joined by " | " and `[Screenshot]` for
+  pictures. It works while Reach is locked (`UNLOCKED_COMMANDS`) and exits 1 with `M-GUIDE-MISSING` or
+  `M-GUIDE-DAMAGED`.
+- Until the student is enrolled, every session's locked `reach hello` context adds `M-ENR-AGENT-GUIDE`. It tells the
+  agent to run `reach guide` and read the guide. If the student's messages reach the agent while locked (the
+  enrollment hook is not running, for example untrusted Codex hooks), the agent walks the student through the
+  guide's extra steps for their app first, never asking for the code, username or student ID. Hermes's locked
+  prompt context adds `M-ENR-HERMES-GUIDE`, which allows one line pointing to an unfinished step after the relayed
+  message.
+- `STD-SETUP-GUIDE` in `specs/app.yml`. `reach guide` and `Reach::Guide` are added to `reach.spec.yml`.
+
+### Changed
+
+- `INSTALL.md` step 3: the installing agent takes setup's host steps from `reach guide` and walks the student through
+  the unfinished ones.
+- `M-ENR-AGENT-CONTEXT` and `M-ENR-HERMES` make room for the guide's extra steps. `STD-ENROLL-LOCKDOWN` and
+  FEATURES 2.27 list `guide` among the commands that work while locked.
+
 ## [0.16.12] - 2026-10-01
 
 ### Added
