@@ -51,7 +51,9 @@ it records no reasoning.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
-Students: see [`docs/student-guide.md`](docs/student-guide.md).
+Students: see [`docs/student-guide.md`](docs/student-guide.md), and for installing and enrolling,
+[`docs/INSTALLATION-AND-SETUP-GUIDE.docx`](docs/INSTALLATION-AND-SETUP-GUIDE.docx) (`reach guide` prints its text;
+until a student is enrolled, every session tells the agent to read it and finish the extra steps for the student's app).
 
 ## Runtime
 
@@ -84,8 +86,8 @@ Installing from a link needs the repository and its pinned Dovetail archive to b
 
 ### Updates
 
-An install at `~/.reach/plugin` updates itself. rEach looks for a newer GitHub release (or, when there are none, a
-newer tag) when a session starts and once an hour while you work, downloads it in the background, and installs it
+An install at `~/.reach/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
+when a session starts and once an hour while you work, downloads it in the background, and installs it
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
 `~/.reach/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
 things stand; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout

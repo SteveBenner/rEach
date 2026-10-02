@@ -204,6 +204,7 @@ plugin_manifest:
         - mcp
       docs:
       - path: docs/student-guide.md
+      - path: docs/INSTALLATION-AND-SETUP-GUIDE.docx
       - path: INSTALL.md
     native:
       claude_agent: reach:reach
@@ -348,6 +349,11 @@ library:
     role: Decides whether Reach is locked and why (W-ENR-6); since 0.16.0
   - name: Reach::EnrollFlow
     role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0
+  - name: Reach::Guide
+    role: >-
+      Reads the text of docs/INSTALLATION-AND-SETUP-GUIDE.docx with the standard library (Reach::Unzip and Zlib),
+      one line per paragraph, a table row per line with its cells joined by " | ", and [Screenshot] where a picture
+      stands; since 0.16.13
   - name: Reach::Client
     role: Signed HTTPS requests to Teach with timeouts, retries and a circuit breaker
   - name: Reach::Crypto
@@ -944,10 +950,21 @@ cli:
     purpose: >-
       rEach's greeting and session context - the first-run introduction when there is no profile, a welcome back
       otherwise; never blocks and always exits 0
+  - name: guide
+    synopsis: reach guide [--path] [--format text|json]
+    purpose: >-
+      Since 0.16.13, print the text of rEach's Installation and Setup Guide (docs/INSTALLATION-AND-SETUP-GUIDE.docx,
+      the de-identified student handout), or with --path only where the file is; works while Reach is locked. Until
+      the student is enrolled, reach hello's locked context (M-ENR-AGENT-GUIDE) and Hermes's locked prompt context
+      (M-ENR-HERMES-GUIDE) tell the agent to run it every session and to walk the student through the guide's
+      "Approvals and other extra steps" for their app when the student's messages reach it while Reach is locked,
+      which means the enrollment hook is not running (in Codex, rEach's hooks are untrusted). INSTALL.md has the
+      installing agent use it for setup's host steps. It exits 1 with M-GUIDE-MISSING or M-GUIDE-DAMAGED when the
+      file is absent or unreadable.
   - name: update
     synopsis: reach update status|check|run [--apply] [--background] [--format text|json]
     purpose: >-
-      status shows the update manifest; check looks for newer releases (tags as fallback) and records them; run
+      status shows the update manifest; check looks for newer releases and tags (the newest of both, since 0.16.14) and records them; run
       checks, downloads and stages the newest release and, with --apply, installs it through the release's own
       update/apply.rb, resuming an interrupted update first. Hooks call it with --background.
   - name: setup
@@ -1209,12 +1226,16 @@ auto_update:
     REACH_UPDATE_DISABLE=1 leaves Reach notify-only or silent: it never writes over a developer's tree. The local
     version is that install's VERSION, not the version of whichever harness copy is running.
   sources:
-    order: GitHub releases first, tags as the fallback
+    order: >-
+      Since 0.16.14 every check lists both GitHub releases and tags and takes the newest version from either; a version
+      present in both is recorded with source releases. A failed tag listing is tolerated when releases answered;
+      when neither answers, the check fails and backs off. Before 0.16.14 tags were read only when releases were
+      unavailable or listed no version, so a newer tag after any version release was never offered.
     releases: >-
       GET https://api.github.com/repos/<owner>/<repo>/releases?per_page=30 with Accept application/vnd.github+json and
       If-None-Match from the stored ETag (a 304 does not count against GitHub's 60 per hour unauthenticated limit).
-      Drafts and prereleases are skipped; tag_name must parse as v?X.Y.Z. A 403/429, a network failure or an empty
-      list falls through to tags.
+      Drafts and prereleases are skipped; tag_name must parse as v?X.Y.Z. A 403/429 or a network failure counts as no
+      releases, and the tags still decide.
     tags: >-
       GET https://github.com/<owner>/<repo>.git/info/refs?service=git-upload-pack (git's own smart-HTTP ref
       advertisement, no git binary and no API limit). refs/tags/v?X.Y.Z entries are versions; peeled ^{} lines are
