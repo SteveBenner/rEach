@@ -106,7 +106,7 @@ module Reach
       end
 
       url = teach_url
-      return Reach::Messages.text("M-ENR-FAILED", reason: "No course server address is configured.") unless url
+      return Reach::Messages.text("M-ENR-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.") unless url
 
       begin
         body = Reach::Enroll.preview(parsed["code"], url)
@@ -198,7 +198,7 @@ module Reach
 
     def register(flow, now, harness)
       url = teach_url
-      return Reach::Messages.text("M-ENR-FAILED", reason: "No course server address is configured.") unless url
+      return Reach::Messages.text("M-ENR-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.") unless url
 
       begin
         install = Reach::Enroll.register_v2(

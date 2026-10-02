@@ -17,7 +17,7 @@ and sends it in when you are ready.
    the chat and rEach asks you, one at a time, for the enrollment code your
    instructor shared in class (it looks like `BUS101-K7QX-94TD`; dashes,
    spaces and capitals don't matter), your school username (your university
-   email, like `jsmi123@school.example`) and your seven-digit student ID. Your AI
+   email, like `jsmi123@school.example`) and your student ID. Your AI
    partner never sees what you type here. You can also run
    `reach enroll --course-code CODE --username USER --student-id ID` in a
    terminal. Type `start over` at any point to begin again.

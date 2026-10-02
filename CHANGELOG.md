@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.20] - 2026-10-01
+
+### Changed
+
+- rEach never asks the student or the agent for the course server. Every enrollment path uses `config.yml`
+  `teach.url` (`https://sven-f1l1.tail062fd2.ts.net`): the `reach_enroll` tool no longer takes a `teach_url`
+  argument (`lib/reach/mcp_bridge.rb`), `reach help` and the enroll usage line no longer list `--teach-url` (it stays
+  an unlisted operator override, like `REACH_TEACH_URL`), and with no URL configured the enrollment flow and
+  `reach enroll` say to run `reach update` instead of naming a missing address.
+- `config.yml` enrollment identity rules match live Teach: student IDs of six or seven digits (`^[0-9]{5,10}$`) and
+  usernames with an optional trailing letter (`^[a-z][a-z0-9._-]{1,31}$`, for example `jsmith`). The enrollment
+  prompts (`M-ENR-ASK-ID`, `M-ENR-ID-FORMAT`) and `docs/student-guide.md` no longer say the ID has seven digits.
+  Verified in scratch homes against live Teach over the public URL: the prompt-hook flow previewed the BUS 201
+  code and reached the confirm step for `jsmith` / 20410001 and for `jdoe` / 20410002 without asking for a URL.
+
 ## [0.16.19] - 2026-10-01
 
 ### Fixed
