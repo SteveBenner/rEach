@@ -11,9 +11,12 @@
 - [ ] Ship rplugin and rcorpus in the runtime kit so students get corpus-side recall (`Rcorpus::Context`) and
       consolidation; deferred 10-01 pending the decision to publish them. Students run on the spool plus Reach's own
       recall, and the planes are admitted wherever rplugin is installed.
-- [ ] Erase tombstoned history from corpus planes: `reach memory forget` scrubs Reach's spool only, so a finding or
-      source already admitted into a plane stays there until rcorpus can erase a tombstoned id.
-- [ ] Verify the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths once rcorpus 0.9.0 lands.
+- [x] Erase tombstoned history from corpus planes: `reach memory forget` scrubs Reach's spool only, so a finding or
+      source already admitted into a plane stays there until rcorpus can erase a tombstoned id. (Done in 0.16.22 with
+      rcorpus 0.10.0 `Rcorpus::Erase`: verified in a scratch HOME that a forgotten finding's text is in no file.)
+- [x] Verify the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths once rcorpus 0.9.0 lands.
+      (Done 2026-10-02: recall never reached Context in a fresh process, and Consolidate tombstoned every finding and
+      copied private bodies into committed segments; fixed in 0.16.22 and rcorpus 0.10.0.)
 
 ## Enrollment v2 (0.16.0, branch `enrollment-v2`)
 
@@ -21,14 +24,24 @@
       `minimum_reach_version`, byte-identical wire). Done in Teach 0.16.0 (wire 2026-10-01c), with device moves and
       handout expiry.
 - [x] Merge `enrollment-v2` into main and tag. Shipped as 0.16.0 on top of the peer's 0.15.0.
-- [ ] A student can enroll with a course code only once the live Teach runs 0.16.0 with a roster and a minted code.
+- [x] A student can enroll with a course code only once the live Teach runs 0.16.0 with a roster and a minted code.
+      (Live Teach runs 0.17.0 with the BUS201FA26 roster imported and a class-wide code minted.)
 - [ ] Verify a real Codex session: the shared `hooks/hooks.json` passes `--harness claude-code` and
       `${CLAUDE_PLUGIN_ROOT}`; whether Codex's plugin hooks honor that and block a prompt is unproven.
-- [ ] Verify a real Hermes session (enroll hook as context) and Antigravity (CLI only).
+- [ ] Field report 2026-10-02: on 0.16.x some students' Codex enrolls without trouble and some is stuck. The stuck
+      ones keep being told to approve rEach's hooks (M-ENR-AGENT-GUIDE), but the plugin and its hooks already show as
+      enabled in Codex's settings and neither the student nor the maintainer found anything left to approve in the app. Likely
+      openai/codex#47925 (Codex >= 0.156 loads no plugin hooks while the root `plugin.json` exists), whose cache repair
+      shipped in 0.16.16 and was first tagged in v0.16.20; unconfirmed. Find each stuck student's Reach and Codex
+      versions, and stop the agent guide from sending a student to approve hooks that are already enabled.
+- [ ] Verify a real Hermes session (enroll hook as context) and Antigravity (CLI only). Field report 2026-10-02:
+      Hermes works for students; its enrollment is still untested.
 - [x] Verify machine ids on macOS (ioreg) and Windows (reg query); only Linux and a Docker container were exercised. (Done in 0.16.8: the platform smoke reads IOPlatformUUID on GitHub macOS arm64 and Intel and MachineGuid on Windows x64 and arm64, and the fake Teach accepts the fingerprint on status.)
-- [ ] tools/smoke still enrolls with shape v1 codes; move the smoke to the v2 flow once Teach mints course codes.
-- [ ] The plugin-level hook runs in every Claude Code session on a machine with rEach installed; a developer
-      machine with the plugin enabled is locked too until it enrolls.
+- [x] tools/smoke still enrolls with shape v1 codes; move the smoke to the v2 flow once Teach mints course codes.
+      (Done in 0.16.22: roster import, course code mint and `--password-stdin`; assignment-one passes every step.)
+- [x] The plugin-level hook runs in every Claude Code session on a machine with rEach installed; a developer
+      machine with the plugin enabled is locked too until it enrolls. (Answered by the instructor unlock in 0.16.17:
+      pasting an instructor code lifts the lock on that install.)
 
 ## Verified in 0.2.0
 
@@ -67,10 +80,10 @@
 - [x] Hermes Agent 2026.9.24 against a local Teach 0.11.1 (2026-09-29): setup, `reach work`, the gate, `pre_verify` check, `reach qualify`, the ladder, submit refusal and the course record filed as a `hermes` chat.
 - [x] Claude Sonnet as Hermes' model (local shim over `claude -p`, 41 calls, $2.75): the course rules held and Teach's qualification passed; the agent declined to submit with a blank README.
 - [x] The smokes found and fixed an indented-fence miss in the reply splitter (0.11.2) and three shell-gate problems (0.11.3).
-- [ ] Qwen3-Coder-30B as Hermes' model does not keep the course rules (talks code, calls failing work ready); students need guidance on which models are fit.
+- [x] Qwen3-Coder-30B as Hermes' model does not keep the course rules (talks code, calls failing work ready); students need guidance on which models are fit. (Done in 0.16.22: `docs/student-guide.md` names Claude Sonnet or Opus and OpenAI GPT-5.x, and advises against local models until the instructor verifies one.)
 - [x] Install from the link with Hermes: an agent reading `INSTALL.md` in a clean home (2026-09-30, Claude via the shim, public `main` 0.11.4): installer, `reach setup --harness hermes` and a working launch command. The agent still skipped the NEXT lines on purpose ("you didn't ask for that"), as Sonnet does in Claude Code.
 - [ ] An interactive Hermes session (first-use hook prompts, a student typing), and a Hermes provider connection instead of the shim.
-- [ ] Teach names Hermes chat files by the session id's first 8 characters, which for Hermes is the date; two sessions starting in the same minute share a file.
+- [x] Teach names Hermes chat files by the session id's first 8 characters, which for Hermes is the date; two sessions starting in the same minute share a file. (They got a `_2` suffix rather than one file; Teach 0.17.1 names them by the session's random suffix.)
 
 ## Release 0.7.0 open items
 
@@ -81,7 +94,7 @@
 - [ ] The plaintext BUS 101 files remain in the public GitHub history (the Initial commit) unless history is rewritten.
 - [x] The bus-201 reference now ships as an encrypted `.rref` (packed 2026-09-29 from the existing hand-vetted copy, key id `09d72206a5d3b1ae`; parity with bus-101). The plaintext source copy still sits under `corpus/course-reference/.backup/` pending a human's go-ahead to delete it (AGENTS.md Part E; the delete itself was refused by the auto-mode classifier as irreversible). Resolved in 0.14.5: `corpus/` is gone and the source copy lives with Teach.
 - [x] A tampered blob's key id now reports refused, not locked, when we hold a key for the same course under a different key id (fixed 2026-09-29 in `Reach::Reference.open_blob`).
-- [ ] Complete the `FEATURES.md` inventory: it covers the 0.7.0 surfaces and the core flows only.
+- [x] Complete the `FEATURES.md` inventory: it covers the 0.7.0 surfaces and the core flows only. (Done in 0.16.22: every surface through 0.16.21, with unverified rows stated.)
 
 ## Slice API
 
@@ -96,7 +109,7 @@
 - [x] A real signed Dovetail shape and a real `dovetail` binary to verify `Reach::Shape`'s output parsing: done in 0.4.2 against dovetail 0.1.0 on Ruby 3.3 and 2.6.10, and in 0.6.0 against a shape package Teach compiled and signed from Grokit's contracts.
 - [x] A real suite package and reference build to verify `Reach::Suite` end-to-end: done in 0.6.0 with Grokit 0.2.0's suite.
 - [x] `reach status` now shows each slice's own last tips result instead of the corpus's global latest tip record (fixed 2026-09-29; since 0.11.0 it shows each slice's qualification instead).
-- [ ] Run `bundle lock` for real against `Gemfile` for both the Ruby 2.6 and modern lines, and diff against the hand-authored locks.
+- [x] Run `bundle lock` for real against `Gemfile` for both the Ruby 2.6 and modern lines, and diff against the hand-authored locks. (Done in 0.16.22: the modern lock resolves unchanged; the Ruby 2.6 lock could not install, so it is regenerated in a Ruby 2.6.10 container and cucumber 8.0.0 installs and runs there.)
 - [x] A live Codex session with the plugin installed: confirm the hook-trust prompt, the SessionStart context and the greeting (passed 2026-09-29, live).
 - [ ] A live Codex session on 0.15.0: the start-up hook moved to `hooks/codex.json` (generated by rplugin), so confirm Codex asks to trust it again and that it runs. A scratch install loaded the MCP bridge but cannot run untrusted hooks.
 - [ ] A live Codex session on macOS with 0.16.16: confirm both rEach hooks appear under `/hooks` (or Settings > Hooks), trust them, and see the greeting. The scratch `hooks/list` check passed; drop the cache repair once openai/codex#47925 is fixed.
@@ -116,7 +129,7 @@
 
 - [x] rplugin linked only `bin/<id>` onto the PATH and ignored `contents.scripts`, so since the move to `exe/reach` it linked no executable. Fixed 2026-09-29 in `Rplugin::Installer#plugin_plan` (`~/superproject/foss/rplugin`): it now falls back to the `contents.scripts` entry whose basename equals the plugin id when no `bin/<id>` exists. `rplugin doctor`'s existing `link_findings` needed no change — it already validates whatever the plan produces, it just had nothing to validate before. Verified with `rplugin install --dry-run` against reach (now plans `~/.local/bin/reach` → `exe/reach`) and against aivorytower/rubric/integration-bitbucket/likeaboss (no regressions; likeaboss was silently affected by the same bug and now also gets a link). Not yet applied for real on this machine — `rplugin install` for reach is separately blocked by an unrelated pre-existing conflict (`~/.claude/skills/design-taste-frontend` exists and is not a symlink) and by the manifest id ("reach") not matching the GitHub directory name ("rEach"); the dev-machine `~/.local/bin/reach` shim still stands until those are resolved.
 - [x] Since 0.15.0 the manifest declares no `scripts` entry, so `rplugin install reach` no longer links `exe/reach` over Reach's own `~/.local/bin/reach` shim. The native packages are generated by `rplugin package` (rplugin 1.2.0) and `rplugin check` reports 0 through `~/.rplugins/reach`; checked against the clone directory `rEach` it reports the id/directory-name mismatch.
-- [ ] `rplugin install reach` links the reach-assistant skill and the reach agent into the user's own `~/.claude`, where the skill's "use at the start of every session" applies to every session; on a developer's machine, leave them unlinked.
+- [x] `rplugin install reach` links the reach-assistant skill and the reach agent into the user's own `~/.claude`, where the skill's "use at the start of every session" applies to every session; on a developer's machine, leave them unlinked. (Since rplugin 1.2 reach installs natively as a Claude Code and Codex plugin, so nothing is linked into `~/.claude`; the three stale 09-28 links on the maintainer's machine were moved to `~/.backup/reach-skill-links-20261002/`.)
 
 ## Course reference corpus
 
