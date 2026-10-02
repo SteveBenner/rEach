@@ -548,7 +548,7 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 ### 3.3 · Course corpus in the microbrain
 
 Since 0.17.1 (`STD-COURSE-CORPUS`) `Reach::CourseCorpus` ingests the course reference Teach delivers at enrollment
-(Teach 0.18.1: only the student's own course, every unit) into the microbrain as private sources under
+(Teach 0.18.2: only the student's own course, every unit) into the microbrain as private sources under
 `course/<course>/`. It runs after `reach sync`, at session start when the blobs or keys changed, and from
 `reach reference ingest [--force]`. Replaced files are tombstoned, and course sources are never pruned, never count
 toward the spool cap and survive `forget --all`. Matching passages join each prompt under `M-BRAIN-COURSE`. Verified
@@ -557,7 +557,7 @@ course's blob reached the vault, the course text sat only in the 0600 brain spoo
 unchanged. Admission into a scratch rcorpus took all 6 operations, including the tombstone, in the private tier.
 The same functions also ran on Ruby 2.6.10.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (tag and release; Teach 0.18.1 deployed with each course's reference link).
+Build ✅ · Deploy 🔵 · Blocker: Human (tag and release; Teach 0.18.2 deployed with each course's reference link).
 
 ## 4 · Behaviour
 
