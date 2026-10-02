@@ -9,10 +9,10 @@ agent harness.
 | | |
 |---|---|
 | **Registry version** | 0.16.21 |
-| **Last audited** | 2026-10-01 |
-| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
+| **Last audited** | 2026-10-02 |
+| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 48 catalogued |
+| **Feature count** | 70 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,15 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 49 | 100% |
+| ✅ Shipped | 64 | 91% |
+| ⚪ Planned | 6 | 9% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 1 | 2% |
-| 🟡 Partly live | 1 | 2% |
-| 🔵 Built, not enabled | 46 | 94% |
-| ⚫ No runtime path | 1 | 2% |
+| 🟢 Live | 1 | 1% |
+| 🟡 Partly live | 1 | 1% |
+| 🔵 Built, not enabled | 59 | 84% |
+| ⚫ No runtime path | 9 | 13% |
 
 ## 1 · Install
 
@@ -90,6 +91,30 @@ locked prompt hook.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student has been walked through it by an agent yet; its prose is not checked against the code, so a later change to enrollment or the install can leave it stale).
 
+### 1.6 · Runtime kit build pipeline
+
+`.github/workflows/runtime.yml` builds the per-platform runtime bundles when a tag `runtime-<ruby>-r<n>` is pushed:
+`runtime/package.rb` stages the Ruby and the prebuilt gems from `runtime/locks/<profile>/`, `runtime/build_ruby_linux.sh`
+builds the Linux Ruby from source in a manylinux_2_28 container, `runtime/relocate_check.rb` moves each bundle and
+proves Ruby, the native gems, the glibc ceiling and a headless Chrome page, and `runtime/manifest.rb` writes
+`runtime-manifest.json`, which is published as a GitHub release that is never marked latest
+(`runtime/RELEASE_NOTES.md` is its body). Run 36838426832 (`runtime-4.0.7-r2`) failed the Windows relocation check on a
+Chrome that still held `chrome.dll`; 0.16.3 fixed the cleanup and `runtime-4.0.7-r3` passed on all five platforms and was
+published. Unverified: linux-arm64, macOS and Windows kits are built and relocation-checked in CI only, and Google
+publishes no Chrome for Testing for Linux arm64, which uses the distribution's chromium.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (no student computer on those platforms has installed a kit).
+
+### 1.7 · Student and agent documents
+
+`README.md`, `INSTALL.md` (the installing agent's script), `docs/student-guide.md` (what a student reads, including
+the model guidance for Hermes), `docs/smoke-assignment-1.md` (the manual passes), `docs/DESIGN-DECISIONS.md` (the
+standing product decisions, latest form only), `docs/course-alignment-design.md` and `ROADMAP.md`
+(Reach 2.0 version control). `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is catalogued at 1.5. The student guide's
+Privacy and Course folders wording was written before 0.16.12 and has not been re-audited against it.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (prose is not checked against the code).
+
 ## 2 · Course flow
 
 ### 2.1 · Enroll
@@ -124,7 +149,9 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.4 · Check
 
 `reach check` runs the one checker over the owned files: Ruby syntax, the Ruby 2.6 floor, shape, comments, test code,
-purity, granted ports and Dovetail panel rules, each finding with a rule id, file, line and fix.
+purity, granted ports and Dovetail panel rules, each finding with a rule id, file, line and fix. The rules are
+CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-FUSE, CK-PANEL (with Dovetail's
+S-* ids) and CK-SHAPE; `--format text|agent|json|hermes` and `--changed <path>` serve the post-write hooks.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -304,7 +331,8 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.25 · Portable runtime kit
 
-Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only. The published r1 Linux kit needs glibc 2.38 and fails on Debian 11/12 and Ubuntu 22.04. Since Reach 0.14.6 the workflow builds the Linux kits from source in a manylinux_2_28 container for glibc 2.28; a locally built linux-x86_64 kit installed in clean debian:bullseye and ubuntu:22.04 containers and ran Ruby 4.0.7 and Cucumber 11.1.1, and both Linux kits passed in CI under runtime-4.0.7-r2, but its Windows build failed the relocation check because Chrome still held chrome.dll during cleanup. Reach 0.16.3 fixed the cleanup, runtime-4.0.7-r3 passed on all five platforms and was published, and since 0.16.4 Reach pins r3. When Chrome's system libraries are missing, `reach runtime install` names them. Since 0.16.5 the session-start hook installs the kit in the background when it is missing (`config.yml` `runtime.auto_install`, default on; a lock, an hourly jittered limit and five attempts per pinned kit), so nobody asks the student; verified on Linux x86_64 in a scratch home and inside `codex sandbox`, where nothing starts. Before 0.16.10 it skipped any computer that already had a kit, so a student who installed r1 kept it after the pin moved to r3; since 0.16.10 it also starts when the active kit is not the pinned one, and the older kit stays on disk. Verified on Linux x86_64 in a scratch home holding an r1 kit: the background run installed the published r3 kit in 36 s, `runtime/current` moved to r3 and the r1 directory was kept.
+Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebuilt and Chrome for Testing 154.0.8037.92 under `~/.reach/runtime`, verified against a pinned manifest, and local qualification runs on them. Exercised on Linux x86_64 from the published release into a scratch home, with a backend scenario passing under the runtime Ruby and Chrome; the other four platforms are built and relocation-checked in CI only. The published r1 Linux kit needs glibc 2.38 and fails on Debian 11/12 and Ubuntu 22.04. Since Reach 0.14.6 the workflow builds the Linux kits from source in a manylinux_2_28 container for glibc 2.28; a locally built linux-x86_64 kit installed in clean debian:bullseye and ubuntu:22.04 containers and ran Ruby 4.0.7 and Cucumber 11.1.1, and both Linux kits passed in CI under runtime-4.0.7-r2, but its Windows build failed the relocation check because Chrome still held chrome.dll during cleanup. Reach 0.16.3 fixed the cleanup, runtime-4.0.7-r3 passed on all five platforms and was published, and since 0.16.4 Reach pins r3. `reach runtime status [--json]` shows the active kit, `reach runtime remove --yes [--old]` removes it, and `reach runtime
+install --from DIR` installs from a folder of release files so a classroom can share one download. When Chrome's system libraries are missing, `reach runtime install` names them. Since 0.16.5 the session-start hook installs the kit in the background when it is missing (`config.yml` `runtime.auto_install`, default on; a lock, an hourly jittered limit and five attempts per pinned kit), so nobody asks the student; verified on Linux x86_64 in a scratch home and inside `codex sandbox`, where nothing starts. Before 0.16.10 it skipped any computer that already had a kit, so a student who installed r1 kept it after the pin moved to r3; since 0.16.10 it also starts when the active kit is not the pinned one, and the older kit stays on disk. Verified on Linux x86_64 in a scratch home holding an r1 kit: the background run installed the published r3 kit in 36 s, `runtime/current` moved to r3 and the r1 directory was kept.
 
 Build ✅ · Deploy 🔵 · runtime-4.0.7-r3 published and pinned; installed from the release by the platform smoke on Linux x86_64, macOS arm64, macOS x86_64 and Windows x86_64 GitHub runners; no student machine yet, and Linux arm64 is relocation-checked only
 
@@ -378,6 +406,93 @@ Since 0.16.17 an instructor can lift the enrollment lock on one install. `reach 
 
 Build ✅ · Deploy 🔵 · Blocker: Human. Since 0.16.18 the instructor key `343572ebf748c69d` is pinned in `config.yml`, so codes minted from it unlock installs on 0.16.18 or later; no instructor has yet unlocked a real harness session with one.
 
+### 2.31 · Opening a course folder
+
+`reach work [--harness H] [--slice S | --extracurricular]` opens a slice, or the student's own folder, in the chosen
+harness through the gate with rEach speaking first; `reach start [--harness H]` opens a harness in the current folder
+with no course gate. With one harness found it uses it, with several it asks. Hermes is launched as
+`hermes -p reach --accept-hooks chat -q "Hi rEach"` (10.5), and since 0.11.4 setup prints the absolute
+`~/.reach/bin/reach work --harness hermes` command because `reach` may not be on the PATH. Verified: Hermes (2026-09-29
+and 2026-09-30) and the real-Claude smoke's workspace sessions. Unverified: `reach work` for Codex and Antigravity, and
+`reach start` (built in 0.2.0, no separate run recorded).
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Codex and Antigravity launches not run).
+
+### 2.32 · Client safety and offline queue
+
+Every call to Teach goes through `Reach::Client`: connect 5 s and read 30 s timeouts, a token bucket of 20 requests per
+minute shared by every Reach process under a file lock (`~/.reach/state/bucket.json`), at most 4 retries for idempotent
+requests with full-jitter backoff and `Retry-After` honored, a circuit breaker that opens for 60 seconds after five
+failures, 2-second quick mode for calls a harness waits on, and a kill switch, `REACH_OFFLINE=1`. Submissions, hands,
+integrity reports and transfers that cannot be sent wait in `~/.reach/outbox/` and go out on the next `reach sync`;
+`reach doctor` reports a non-empty outbox (R-DOC-OUTBOX). Verified: a queued hand saved and reported as queued, a
+receipt acknowledgment held pending under Teach's kill switch and linked later (2.16), offline sign-in (2.17). Unverified:
+the breaker and the retry schedule have no recorded run of their own.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.33 · Seal, witness ledger and integrity reports
+
+Every owned file carries an invisible per-install, per-file mark on its second line (Ruby) or first line (Svelte), which
+Teach derives and Reach cannot forge. Each workspace has a witness ledger at
+`~/.reach/state/ledger/<course>/<assignment>/<workspace>.jsonl`, an HMAC-chained record of every session, write, check,
+checkpoint and qualification, plus a per-computer sidecar (`seal.json`) that records every install enrolled from this
+computer. A missing or corrupt mark is re-stamped and a foreign one never; `vault_tampered`, `corrupt_mark`,
+`foreign_mark`, `ledger_break`, `sidecar_conflict`, `enrolled` and `directive_dump` go to `POST /api/v1/integrity`
+silently, deduplicated, queued offline, never shown to the student. The submission carries the seal block and a ledger
+tail for Teach's provenance assessment. Verified in 0.4.0 against a scratch Teach: a corrupt mark healed and reported,
+a foreign mark assessed `foreign:<install>:<student>`, a vault edit reported silently and healed at sync, the file
+witnessed on submit. Unverified: the sidecar paths on macOS (`~/Library/Application Support/reach/seal.json`) and
+Windows (`%LOCALAPPDATA%\reach\seal.json`) outside the sidecar's presence check in doctor.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (macOS and Windows sidecars not exercised).
+
+### 2.34 · Submit gate on check findings
+
+`reach submit` runs `reach check` first. Findings come back once with M-SUBMIT-FIX-FIRST; a second submit on the same
+findings is refused with M-SUBMIT-BLOCKED-CHECK and raises a `check_gate` hand to the instructors. Only findings in the
+slice's own files count (0.11.0). Verified in 0.4.0: fix-first, then blocked with a `check_gate` hand, and a clean submit
+assessed `clean`.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.35 · Tool gates: write, shell and read
+
+`reach gate session|prompt|enroll|write|shell|read` are the commands the harness hooks call. `write` allows only owned
+files (and `qualify/features` and `qualify/step_definitions`), reads a Codex `apply_patch` and Hermes' `write_file` and
+V4A patches, and refuses git in slice and root spaces (M-GATE-NOGIT). `shell` splits a command, refuses subshells and
+command substitution and, since 0.11.3, reads quotes as the shell does and refuses inline interpreter code
+(`ruby -e`, `python -c`, `node -e`, `bash -c`) outside extracurricular (M-GATE-NOCODETOOL); the shim form
+`ruby <shim> qualify` is allowed. `read` and the sandbox rules are catalogued at 2.20. The gate passes offline for up to
+24 hours on a verified cached package. Verified: Claude Code, Codex argv and patch forms (0.2.0), Hermes (0.11.1 and
+0.11.3). Unverified: Windows hook-command quoting (TODO.md), and Codex's and Hermes' read and web gates, which are
+configured but not run live.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Windows quoting unproven).
+
+### 2.36 · Course time
+
+Every time rEach shows (due dates, receipt times) is in the course's timezone with its label, for example
+"Sat 3 Oct 11:59 pm PDT", whatever zone the computer is in (`Reach::CourseTime`, STD-COURSE-TIME). The time gate (2.21)
+uses Teach's clock. No run of this formatting is recorded on its own.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.37 · Shape-check watcher
+
+`reach watch [--slice S]` polls a slice workspace for changed files and runs the shape check on each, the backstop for
+a harness without a post-write hook; it prints a reason and keeps watching when the checker cannot run (0.4.2).
+Unverified: no run of `reach watch` is recorded in CHANGELOG or TODO.md since the Codex hook path replaced the need.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (never run against a harness).
+
+### 2.38 · Vault lock and sign-in status
+
+`reach lock` empties the decrypted vault (it is rebuilt from the packages on demand) and `reach login status` says
+whether this session is signed in (2.17). Unverified: neither has a separate run recorded.
+
+Build ✅ · Deploy 🔵 · Blocker: -
+
 ## 3 · Course reference
 
 ### 3.1 · Encrypted reference
@@ -418,6 +533,39 @@ lan-second-device) and 0 fail; both skipped scenarios (the manual Codex dialogue
 were separately exercised live by the operator on 2026-09-29, outside this deterministic harness.
 
 Build ✅ · Deploy ⚫ (never runs on a student's computer) · Blocker: -
+
+### 4.3 · Persona, skills and agent
+
+One persona body serves two files, `skills/reach-assistant/SKILL.md` and `agents/reach.md` (STD-PERSONA-ONE-SOURCE;
+`reach doctor` checks them, R-DOC-PERSONA), plus `rules/reach.md` for Antigravity and `settings.json` naming
+`reach:reach` as the session agent. The course skills are `reach-course` (how to work a slice under the instructors'
+rules, reading the directive table, never spawning subagents), `reach-feature` and `reach-bug` (the two code flows, 2.11),
+`reach-build` and `reach-fix` (routes to those flows), `reach-checkpoint`, `reach-submit` (runs `reach part` first) and
+`reach-help` (`reach hand raise`). `skills/design-taste-frontend` is the vendored taste skill for panel slices, its
+provenance checked by R-DOC-TASTE. Verified live on Claude Code with Haiku and Sonnet (course-gate, coaching, off-topic,
+crisis and own-part scenarios, 2.22, 2.23, 2.18) and on Hermes with Sonnet (10.5). Unverified: the persona on Codex and
+Antigravity sessions, and whether Claude applies `settings.json` `"agent": "reach:reach"` for an installed plugin (TODO.md).
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Codex, Antigravity and the plugin `agent` setting).
+
+### 4.4 · Real-Claude smoke
+
+`tools/smoke/run.rb` with `tools/smoke/scenarios.yml` drives real Claude sessions with rEach loaded, each in a Docker
+sandbox, against a scratch Teach on its own `reach_smoke_<run>` database, with a judge rubric per scenario and checks on
+the transcript, tool use, workspace files and Teach's hands and transfers. Verified: run 20260929-040851 (7/7 and 5/5),
+20260929-060009 (8 of 8 scenarios on Haiku), and the course-alignment scenarios judged live on 2026-10-01. It spends a
+Claude token per scenario. Its enrollment step still uses the v1 per-student code (TODO.md).
+
+Build ✅ · Deploy ⚫ (never runs on a student's computer) · Blocker: Engineering (the enrollment step predates enrollment v2).
+
+### 4.5 · Fake Teach
+
+`tools/fake_teach/server.rb` is a local stand-in for Teach's half of enrollment v2 (health, enrollment preview, enroll
+shape v2, an install-signed status; every other route answers 404), with fixture courses and a roster. It is a fixture,
+not Teach, and `tools/platform_smoke` (2.28) and the enrollment-v2 verification (2.27) run against it. Since 0.16.21 it
+answers `400 password_required` like Teach 0.17.0.
+
+Build ✅ · Deploy ⚫ · Blocker: -
 
 ## 5 · Interview and profile
 
@@ -488,12 +636,23 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 9.1 · Public directive table
 
-`directives/` holds the public engineering directives (one Markdown file per opcode, frontmatter plus body,
-88-character rule cap) rendered into `AGENTS.md`'s directive table; course-specific directives instead reach a
+`directives/` holds the 13 public engineering directives (one Markdown file per opcode, frontmatter plus body,
+88-character rule cap): CHECKPOINT, CODEFILE, DOVETAIL, FLOW, LEAN, NOCOM, PLAN1ST, PURE, QUALIFY, RESUME, RUBY, TOZERO and
+VERIFY, rendered into `AGENTS.md`'s directive table (and `CLAUDE.md` and `GEMINI.md`); course-specific directives instead reach a
 student only inside the encrypted guardrails package. `reach doctor`'s R-DOC-DIRECTIVES check keeps the two in
 sync.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
+
+### 9.2 · Course directives from Teach
+
+Course-specific directive bodies are served by Teach one at a time over a signed request and never stored on the
+student's computer: `reach directive <OPCODE>` asks `GET /api/v1/directives/<OPCODE>` in quick mode, and `reach
+directive --list` lists the table. Teach holds the only read log and derives `directive_dump` events itself
+(STD-DIRECTIVES-CARRY-NO-SECRETS). Verified in 0.4.1 and 0.5.0 against a scratch Teach. Unverified: the course-private
+rows have not run against the live Teach with a real class.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (no class has used it).
 
 ## 10 · Harness integrations
 
@@ -572,8 +731,67 @@ macOS or Windows, and a hosted Teach.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (install-from-link, an interactive session and a hosted Teach not yet run).
 
+### 10.6 · Plugin packaging and hooks
+
+`reach.rplugin.yml` is the manifest, and `rplugin package` (rplugin 1.2.0 and later) generates `.claude-plugin/`,
+`.codex-plugin/`, `.agents/plugins/marketplace.json`, `plugin.json`, `mcp.json` (`reach mcp`, `${PLUGIN_ROOT}`),
+`hooks/hooks.json` for Claude Code and `hooks/codex.json` for Codex from `hooks/reach.hooks.yml`: a non-blocking
+`SessionStart` hook running `reach hello` and a blocking `UserPromptSubmit` hook running `reach gate enroll`, 10 and 60
+second timeouts. The manifest claims `hermes: unsupported` so `rplugin install` leaves the default Hermes profile alone
+(0.16.11). Every course folder gets its own hooks and rules files besides these (2.15). Verified: `rplugin check` 0,
+`rplugin doctor reach` 0, a scratch Claude Code install ran the `SessionStart` hook, a scratch Codex install loaded the
+bridge, `rplugin install --dry-run`. Unverified: `rplugin install reach` has not been applied for real on this machine
+(a conflicting `~/.claude/skills/design-taste-frontend` and the id/directory-name mismatch block it), and on a developer
+machine it links the persona into every session (TODO.md).
+
+Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine).
+
+## 11 · Planned
+
+### 11.1 · Analytics keyed to the enrolled student
+
+Decide and document which usage data, metadata and analytics rEach sends to Teach, and send them keyed to the
+enrollment (TODO.md, docs/DESIGN-DECISIONS.md). Nothing is built.
+
+Build ⚪ · Deploy ⚫ · Blocker: Human (the decision).
+
+### 11.2 · Corpus-side recall in the student's kit
+
+Ship rplugin and rcorpus in the runtime kit so a student's computer runs `Rcorpus::Context` recall and
+`Rcorpus::Consolidate`; deferred 2026-10-01 pending the decision to publish them. Students run on the spool and Reach's
+own recall (2.29).
+
+Build ⚪ · Deploy ⚫ · Blocker: Human (publication decision).
+
+### 11.3 · Erasing admitted corpus history
+
+`reach memory forget` scrubs Reach's spool only, so a finding or source already admitted into a plane stays there until
+rcorpus can erase a tombstoned id (TODO.md). Not built.
+
+Build ⚪ · Deploy ⚫ · Blocker: Engineering (rcorpus).
+
+### 11.4 · One rEach folder
+
+Everything rEach keeps moves into one folder the student works in, so that Codex on Windows can return to its default
+permissions after install; planned for 0.17.0, which has to prove it on Windows (docs/DESIGN-DECISIONS.md).
+
+Build ⚪ · Deploy ⚫ · Blocker: Engineering.
+
+### 11.5 · Git in the flows
+
+Reach 2.0 brings version control into the feature and bug flows (ROADMAP.md); until then git is refused in slices (2.11).
+
+Build ⚪ · Deploy ⚫ · Blocker: Engineering.
+
+### 11.6 · Licence
+
+The licence is `undecided` in `reach.spec.yml`; it must be decided before a public release (TODO.md). `exe/reach` and
+`lib/reach.rb` carry an MIT SPDX line.
+
+Build ⚪ · Deploy ⚫ · Blocker: Human.
+
 ## Appendix · Blocked by
 
 - **Access**: 1.2.
-- **Human**: 1.3, 1.5, 2.30, 3.2, 10.2, 10.4, 10.5.
-- **Engineering**: 1.1 (the Windows installer path is unverified).
+- **Human**: 1.3, 1.5, 1.6, 1.7, 2.30, 2.31, 2.33, 2.35, 2.37, 3.2, 4.3, 9.2, 10.2, 10.4, 10.5, 10.6, 11.1, 11.2, 11.6.
+- **Engineering**: 1.1 (the Windows installer path is unverified), 4.4, 11.3, 11.4, 11.5.
