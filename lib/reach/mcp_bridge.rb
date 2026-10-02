@@ -249,6 +249,7 @@ module Reach
     ].freeze
 
     UNLOCKED_TOOLS = %w[reach_hello reach_support].freeze
+    TOOL_BUDGET_S = 25
 
     class << self
       PROTOCOL_VERSIONS = %w[2025-06-18 2025-03-26 2024-11-05].freeze
@@ -284,8 +285,17 @@ module Reach
             next
           end
 
-          response = handle(message)
-          write_message(output, response, framed) if response
+          response = begin
+            handle(message)
+          rescue StandardError, ScriptError => e
+            Reach::Debug.fault(e, "mcp:loop", "M-REACH-HICCUP-TOOL")
+            message["id"].nil? ? nil : error(message["id"], -32000, Reach::Messages.text("M-REACH-HICCUP-TOOL"))
+          end
+          begin
+            write_message(output, response, framed) if response
+          rescue Errno::EPIPE, IOError
+            break
+          end
         end
       end
 
@@ -332,12 +342,25 @@ module Reach
       def call_tool(id, params)
         name = params["name"]
         arguments = params["arguments"] || {}
-        payload = dispatch(name, arguments)
+        payload = Reach::Client.with_deadline(TOOL_BUDGET_S) { dispatch(name, arguments) }
         result(id, { "content" => [{ "type" => "text", "text" => JSON.generate(payload) }] })
+      rescue Reach::NetworkError => e
+        Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-TEACH-LINK-LOST")
+        error(id, -32000, e.cause_name ? e.message : Reach::Messages.text("M-TEACH-LINK-LOST"))
       rescue Reach::Error => e
-        error(id, -32000, e.message)
-      rescue StandardError => e
-        error(id, -32000, "reach: #{e.class}: #{e.message}")
+        if Reach::Link.masked?(e)
+          Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
+          error(id, -32000, Reach::Link.student_text(e, :tool))
+        else
+          error(id, -32000, e.message)
+        end
+      rescue StandardError, ScriptError => e
+        Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
+        error(id, -32000, Reach::Messages.text("M-REACH-HICCUP-TOOL"))
+      end
+
+      def tool_label(name)
+        name.to_s.match?(/\A[a-z_]{1,40}\z/) ? name.to_s : "?"
       end
 
       def dispatch(name, arguments)

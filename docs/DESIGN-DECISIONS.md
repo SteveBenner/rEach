@@ -81,6 +81,10 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   each prompt. Nothing in it is sent to Teach; events carry ids and counts only; the student can ask what is
   remembered and have it forgotten, which scrubs rEach's own spool. The agent's `reach remember` calls in a course
   folder stay in the course transcript like any other command, and the memory notice tells the student so.
+- **Fault reports carry no content** (10-02, Reach 0.16.25). When rEach hides an error or the Teach connection
+  changes, it records a fault or link event and sends it to Teach even while debug mode is off: where it happened, the
+  exception class, the errno name, a few plugin-relative frames and the id of what the person was shown, never the
+  error message, a prompt, a reply or a file. At most 60 an hour are kept and the rest are counted.
 - **The interview profile stays local** in the profile file and reaches instructors only if the student agrees when
   asking for help.
 - **No test data or answers in a workspace** (09-30). rEach refuses test data; Teach does not provision fixtures.

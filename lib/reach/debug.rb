@@ -5,7 +5,7 @@ require "securerandom"
 
 module Reach
   module Debug
-    KINDS = %w[session hook gate command request lock sync check qualify submit transcript brain update error].freeze
+    KINDS = %w[session hook gate command request lock sync check qualify submit transcript brain update error fault link].freeze
     ROUTE = "/api/v1/debug".freeze
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
@@ -238,15 +238,32 @@ module Reach
       nil
     end
 
-    def append(kind, fields)
+    def append(kind, fields, reason_override = nil, throttle: false)
       return unless KINDS.include?(kind)
 
       scoped = envelope_context
       clean = scrub_fields(fields)
-      current_reason = reason
+      current_reason = reason_override || reason
       persona = Reach::Paths.persona_id
       locked do
         state = load_state
+        if throttle
+          limit = Reach::Link.config["fault_max_per_hour"].to_i
+          hour = Time.now.to_i / 3600
+          window = state["faults"].is_a?(Hash) && state["faults"]["hour"] == hour ? state["faults"] : { "hour" => hour, "count" => 0, "dropped" => state.dig("faults", "dropped").to_i }
+          if window["count"].to_i >= limit
+            window["dropped"] = window["dropped"].to_i + 1
+            state["faults"] = window
+            save_state(state)
+            next
+          end
+          window["count"] = window["count"].to_i + 1
+          if kind == "fault" && window["dropped"].to_i.positive?
+            clean["dropped_faults"] = window["dropped"].to_i
+            window["dropped"] = 0
+          end
+          state["faults"] = window
+        end
         seqs = state["seq"].is_a?(Hash) ? state["seq"] : {}
         number = seqs[scoped["session_id"]].to_i + 1
         seqs.delete(scoped["session_id"])
@@ -360,6 +377,45 @@ module Reach
         fields["message"] = error.message.to_s
       end
       emit("error", fields)
+    rescue StandardError
+      nil
+    end
+
+    def errno_name(error)
+      name = error.class.name.to_s
+      name.start_with?("Errno::") ? name.sub("Errno::", "") : nil
+    end
+
+    def emit_always(kind, fields)
+      return nil if Thread.current[:reach_debug_busy]
+
+      Thread.current[:reach_debug_busy] = true
+      begin
+        append(kind.to_s, fields, on? ? nil : "fault", throttle: true)
+      ensure
+        Thread.current[:reach_debug_busy] = false
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def fault(error, where, shown_id = nil)
+      fields = {
+        "where" => where, "exception" => error.class.name, "errno" => errno_name(error),
+        "message_id" => error.respond_to?(:message_id) ? error.message_id : nil,
+        "cause" => error.respond_to?(:cause_name) ? error.cause_name : nil,
+        "frames" => relative_frames(error), "shown" => shown_id
+      }
+      emit_always("fault", fields)
+      error(error, where) if on?
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def link(state, cause, outage_s)
+      emit_always("link", "state" => state, "cause" => cause, "outage_s" => outage_s)
     rescue StandardError
       nil
     end

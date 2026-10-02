@@ -1,0 +1,154 @@
+schema: rstack.impl/v1
+name: reach-0.16.25-teach-link
+target_version: 0.16.25
+teach_version: 0.17.3
+wire_revision: 2026-10-02b
+standards: [STD-TEACH-LINK, STD-DEBUG-MODE, STD-STUDENT-MESSAGES, STD-RUBY-FLOOR, STD-WIRE-CONTRACT]
+wire_rules: [W-API-DEBUG, W-DBG-KINDS, W-DBG-FAULT, W-DBG-SCRUB]
+intent: >-
+  Wrap every Reach-Teach exchange, and every hook, MCP tool and command around it, in one safety layer. A person never
+  sees a raw error, backtrace, exception class, hook error or hook timeout. A lost connection to Teach is announced
+  once per outage in plain words, and its return once. Every hidden error is recorded as a fault event and every
+  connection change as a link event, both sent to Teach even while debug mode is off.
+already_done_by_primary:
+  - specs/wire.yml (revision 2026-10-02b) and its byte-identical copy at ~/bitbucket/paterasai/teach/specs/wire.yml
+  - specs/app.yml STD-TEACH-LINK and the STD-DEBUG-MODE amendment
+rules_for_workers:
+  - Part Q. No comments anywhere. Only shebangs, magic comments and SPDX lines survive.
+  - Part S. Write no tests.
+  - Reach lib/ and exe/ run on Ruby 2.6.10 with the stdlib only. No endless methods, no hash shorthand, no numbered block params, no `it`.
+  - Every person-facing text comes from locales/en-US.yml by id through Reach::Messages.text. American English.
+  - Never run rplugin install or rplugin package. Never touch the live Teach database. Run `unset TEACH_DATABASE_URL` before any Teach command.
+  - Do not commit. Do not edit specs/wire.yml or specs/app.yml.
+  - Never delete a file. Move anything you replace to a .backup path.
+slices:
+  - id: reach
+    repo: ~/github/foss/rEach
+    owns_paths:
+      - lib/reach/link.rb (new)
+      - lib/reach/errors.rb
+      - lib/reach/client.rb
+      - lib/reach/debug.rb
+      - lib/reach/cli.rb
+      - lib/reach/mcp_bridge.rb
+      - lib/reach/enroll_flow.rb
+      - lib/reach.rb
+      - exe/reach
+      - locales/en-US.yml (append new ids only; a peer is adding M-ENR-AGENT-CODEX-REPAIRED and rewording M-ENR-AGENT-GUIDE in parallel, leave those alone)
+      - config.yml
+      - reach.spec.yml
+      - README.md
+      - docs/student-guide.md
+      - docs/DESIGN-DECISIONS.md
+    must_not_touch:
+      - lib/reach/hello.rb
+      - lib/reach/codex_cache.rb
+      - tools/smoke/
+      - VERSION, CHANGELOG.md, FEATURES.md, TODO.md, reach.rplugin.yml and the generated plugin json files (the primary versions after a peer's 0.16.24 lands)
+    work:
+      errors:
+        - Reach::NetworkError gains attr_accessor :detail and :cause_name. detail holds the raw failure text for debug only; cause_name is a short label (offline_flag, breaker_open, rate_wait, deadline, http_<status>, or the exception class name).
+      locales:
+        add:
+          M-TEACH-LINK-LOST: "rEach lost its connection to your course server (Teach). Your work is saved on this computer and will be sent when the connection is back. You can keep working."
+          M-TEACH-LINK-BACK: "rEach is connected to your course server again. Anything that was waiting is being sent now."
+          M-TEACH-OFFLINE-FLAG: "rEach is in offline mode (REACH_OFFLINE=1), so it isn't talking to your course server. Your work is saved on this computer."
+          M-TEACH-PACING: "rEach is pacing its messages to your course server. Try again in a minute."
+          M-REACH-HICCUP: "rEach hit a snag behind the scenes and let your instructor know. Your work is safe. Keep going."
+          M-REACH-HICCUP-BLOCKED: "rEach couldn't check this step, so it held it back to keep your course work safe. Try again in a moment. If it keeps happening, run reach doctor."
+          M-REACH-HICCUP-TOOL: "rEach couldn't finish that just now and has let your instructor know. Your work is saved. Try again in a moment."
+          M-REACH-HICCUP-CLI: "rEach couldn't finish that command and has let your instructor know. Your work is saved. Try again, or run reach doctor if it keeps happening."
+          M-TEACH-LINK-RELAY: "Tell the student this rEach notice, then carry on: {text}"
+      config:
+        - Add a top-level `link:` block to config.yml with hiccup_quiet_minutes 15 and fault_max_per_hour 60. Read it the way Reach::Debug.config reads debug:, with those defaults when absent.
+      link_module:
+        file: lib/reach/link.rb, required from lib/reach.rb before reach/client.
+        state_file: File.join(Reach::Paths.home, "link.json"), mode 0600, written atomically (temp file plus rename) under an exclusive flock on a sibling link.lock. Paths.home already follows an active persona.
+        state: '{"state": "up"|"lost", "since": W-CONV-3 time, "cause": cause_name, "lost_shown": bool, "back_pending": bool, "hiccup_shown_at": epoch float}'
+        methods:
+          lost!(cause): if state is not lost, set lost, since now, cause, lost_shown false, back_pending false, and call Reach::Debug.link("lost", cause, nil). Otherwise nothing.
+          restored!: fast path returns without writing when the file is absent or state is up. When lost, set up; set back_pending to lost_shown; call Reach::Debug.link("back", cause, outage_s).
+          notice!: returns the text to show and marks it shown, or nil. When lost and not lost_shown, return M-TEACH-LINK-LOST and set lost_shown. When up and back_pending, return M-TEACH-LINK-BACK and clear back_pending.
+          hiccup!(id = "M-REACH-HICCUP"): returns Messages.text(id) unless hiccup_shown_at is within hiccup_quiet_minutes; records the time when it returns text.
+          student_text(error, surface): the one mapper from an exception to what a person sees. surface is :cli, :tool or :hook. NetworkError returns error.message. RemoteRefused whose code is invalid_request, too_large or empty returns the hiccup text for the surface (M-REACH-HICCUP-CLI, M-REACH-HICCUP-TOOL, M-REACH-HICCUP). Any other Reach::Error returns error.message. Anything else returns the hiccup text for the surface.
+          masked?(error): true when student_text would not return error.message.
+          Every public method rescues StandardError and returns nil (student_text falls back to the hiccup text).
+      client:
+        - REACH_OFFLINE=1 raises Reach::Offline with M-TEACH-OFFLINE-FLAG, cause_name offline_flag. No Link change.
+        - Breaker open raises Reach::Offline with M-TEACH-LINK-LOST, cause_name breaker_open, and calls Link.lost!("breaker_open").
+        - TokenBucket waits that exceed their limits raise Reach::Offline with M-TEACH-PACING, cause_name rate_wait. No Link change.
+        - Add a process-wide deadline. Reach::Client.deadline holds an absolute Time or nil, with deadline= and a with_deadline(seconds) { } helper that restores the previous value. Before each attempt, if under 0.5 s remain, raise NetworkError (M-TEACH-LINK-LOST, cause_name deadline) and call Link.lost!("deadline"). Cap open_timeout and read_timeout to the remaining time. Cap each backoff or Retry-After sleep so that 0.5 s still remain afterwards; if it cannot, stop retrying and raise as the final failure.
+        - A final retryable failure, by status or by exception, raises NetworkError with M-TEACH-LINK-LOST. detail is "<METHOD> <path> <status or exception class>: <exception message>". cause_name is http_<status> or the exception class name. Call Link.lost!(cause_name).
+        - Any other StandardError raised by perform, unless it is a Reach::Error, is a non-retryable transport failure. Call breaker.record_failure, call Reach::Debug.request with the exception class name, then raise it as a final failure as above.
+        - Any response from Teach (status below 400, or the RemoteRefused path) calls Link.restored! after breaker.record_success.
+        - Keep the limiter, retries, timeouts and breaker (Part B) exactly as they are otherwise.
+      debug:
+        - KINDS gains fault and link. append takes an optional reason override.
+        - fault(error, where, shown_id) always records. Its fields are where, exception (class name), errno (the Errno constant name for a SystemCallError, else nil), message_id (when the error responds to it), cause (cause_name for a NetworkError), frames (relative_frames), shown (the message id shown, or nil) and dropped_faults (added when positive). It never carries the exception message. While on? it records under the current reason and also calls error(error, where) as today. While off it appends with reason "fault", bypassing the on? check but honoring Thread.current[:reach_debug_busy].
+        - link(state, cause, outage_s) works the same way with fields state, cause and outage_s.
+        - Share a limit of fault_max_per_hour across fault and link events: keep a per-hour counter in state.json, count what is dropped, and report it on the next fault as dropped_faults.
+        - The debug blocks shown to the person (prompt_message, turn_message, the hook render) keep showing nothing while on? is false, even when fault events are spooled. reach debug show and status may list them.
+        - flush stays as it is. It already groups batches by reason. Confirm that a batch with reason fault is sent while debug is off, from the Stop hook (transcript turn --quick) and from reach sync. Confirm that Teach's 400 for fault (an older Teach) moves the batch to the rejected file.
+        - Keep note()/command() behavior, but make the CLI path call fault() for every error it hides (see cli below).
+      cli:
+        hook_guard:
+          - Hook invocations are gate (every sub), transcript turn and transcript code, hello, and check when --format is agent or hermes.
+          - Add a HOOK_BUDGETS_S table, the harness timeout minus 2 s, from lib/reach/harness.rb and hooks/*.json. gate session|prompt|write|shell|read is 8 (Hermes prompt is 13), gate enroll 55, transcript turn 26, transcript code 12, hello 8, check 55.
+          - Run a hook's dispatch inside Reach::Client.with_deadline(budget).
+          - Reach::GateBlocked keeps today's path exactly: stderr text and exit 2.
+          - Any other exception (Reach::Error, StandardError, ScriptError, Timeout::Error) goes to one handler. The handler calls Debug.fault(e, "hook:<command>-<sub>", shown_id) and then answers by harness. A Hermes gate write|shell|read (fail_closed) writes M-REACH-HICCUP-BLOCKED and HERMES_BLOCK_NOTE to stderr and exits 2. Any other Hermes hook prints "{}" and exits 0, except the Hermes prompt, which may add a context relay line. Claude Code and Codex print JSON {"systemMessage": text} when there is text and exit 0. The text is Link.notice! for a NetworkError and Link.hiccup! otherwise. No backtrace, exception class or raw message is ever written.
+          - A hook must print at most one JSON object on stdout. If the handler runs after the command already printed, it prints nothing more.
+        notices_on_success:
+          - gate prompt (Claude Code and Codex). When Link.notice! returns text, merge it into the payload's systemMessage, before any debug message and joined with a blank line.
+          - gate prompt on Hermes (gate_hermes_prompt). Append Messages.text("M-TEACH-LINK-RELAY", text: notice) to parts.
+          - transcript turn (Claude Code and Codex). After the transcript send and Debug.flush, merge Link.notice! into the systemMessage the same way. On Hermes, add nothing.
+          - gate session (Claude Code and Codex). Print {"systemMessage": notice} when there is one and nothing else is printed. If announce_guardrails prints JSON, merge into that JSON instead.
+        terminal:
+          - Every `warn e.message` in cli.rb rescues becomes `warn Reach::Link.student_text(e, :cli)`. When Reach::Link.masked?(e), also call Reach::Debug.fault(e, "command:<name>", "M-REACH-HICCUP-CLI").
+          - CLI.run gains a final rescue for StandardError and ScriptError that are not Reach::Error. It calls Debug.fault(e, "command:<name>", "M-REACH-HICCUP-CLI"), warns M-REACH-HICCUP-CLI and returns 1. Keep the existing ensure that calls Debug.command.
+          - After a terminal command (not a hook, not mcp) finishes, write Link.notice! to stderr if it returns text.
+          - doctor (around cli.rb:1078) may keep printing a check's detail, since doctor exists to diagnose. Its network failure detail uses student_text.
+      mcp_bridge:
+        - In call_tool, a NetworkError answers error(id, -32000, Messages.text("M-TEACH-LINK-LOST")) and records Debug.fault(e, "mcp:<tool>", "M-TEACH-LINK-LOST"). A masked RemoteRefused, or any StandardError or ScriptError that is not a Reach::Error, answers M-REACH-HICCUP-TOOL and records a fault. Any other Reach::Error keeps e.message.
+        - Run each tool call inside Reach::Client.with_deadline(25).
+        - The loop around handle (around lines 270-292) must never write a raw exception to the agent or exit on one. On an unexpected error it answers the request id with M-REACH-HICCUP-TOOL.
+      enroll_flow:
+        - The reason passed into M-ENR-FAILED and M-ENR-PASSWORD-RETRY-FAILED becomes Reach::Link.student_text(e, :cli), and a masked error records a fault "enroll".
+      exe_reach:
+        - Wrap the require and Plugin.run in begin/rescue ScriptError, StandardError. Never rescue SystemExit or SignalException.
+        - On failure, read locales/en-US.yml directly with YAML (stdlib) and take M-REACH-HICCUP-BLOCKED or M-REACH-HICCUP-CLI.
+        - When ARGV is gate write|shell|read with --harness hermes, write the text to stderr and exit 2.
+        - When ARGV is any other hook invocation (gate, transcript, hello, check --format agent|hermes), print {"systemMessage": hiccup text} unless the harness is hermes, where it prints {}. Exit 0.
+        - Otherwise write the CLI text to stderr and exit 1.
+        - If even the locale read fails, print nothing and keep those exit codes.
+      docs:
+        - README.md. Add a short "When Teach can't be reached" paragraph near the debug/instructor material, describing the notices and fault events.
+        - docs/student-guide.md Privacy. Add one sentence: when rEach hits an error it sends your course server a short report of where it happened. The report holds no files, typed text or replies.
+        - docs/DESIGN-DECISIONS.md "Data capture and privacy". Add a bullet dated 10-02 (Reach 0.16.25) on fault reports.
+        - reach.spec.yml. Mention link.json and the fault and link kinds where it lists debug/ state and W-API-DEBUG.
+    acceptance:
+      - ruby -c passes on every changed .rb file and on exe/reach, run one file at a time, under both `docker run --rm -v ~/github/foss/rEach:/r -w /r ruby:2.6.10-slim ruby -c FILE` and ruby 3.3.
+      - Load check under 2.6.10. `docker run --rm -v ~/github/foss/rEach:/r -w /r -e HOME=/tmp ruby:2.6.10-slim ruby -Ilib -e 'require "reach"; puts Reach::Link.respond_to?(:notice!)'` prints true.
+      - "Scratch HOME only (HOME=$(mktemp -d)), never the real ~/.reach. With Teach unreachable (a fake enrolled install whose teach_url is http://127.0.0.1:9 is enough), echo '{\"session_id\":\"s1\",\"prompt\":\"hi\",\"hook_event_name\":\"UserPromptSubmit\"}' | ruby exe/reach transcript turn --quick --harness claude-code produces no stderr containing 'Error', '.rb:' or 'Errno', and exits 0."
+      - "Inject a raise into a scratch copy of the plugin (cp -r to the scratchpad, never the repo). gate write --harness claude-code then prints only {\"systemMessage\":...} and exits 0. gate write --harness hermes exits 2 with M-REACH-HICCUP-BLOCKED on stderr. A terminal command prints M-REACH-HICCUP-CLI and exits 1. None of them prints a backtrace."
+      - With debug off, a hidden error appends one line to <home>/debug/spool.jsonl whose reason is fault and kind is fault, and which has no message field.
+      - Report every file changed, with a one-line summary each, and anything you could not do.
+  - id: teach
+    repo: ~/bitbucket/paterasai/teach
+    owns_paths:
+      - lib/teach/debug_events.rb
+      - lib/teach/cli.rb (the debug show help and usage text only)
+      - specs/app.yml (the debug paragraph only)
+      - teach.spec.yml (the /debug route note only)
+      - README.md (the "Instructor personas and debug events" section only)
+    must_not_touch:
+      - specs/wire.yml (the primary already pinned it)
+      - VERSION, CHANGELOG.md, FEATURES.md (the primary versions it)
+    work:
+      - Teach::DebugEvents KINDS gains fault and link. REASONS gains fault.
+      - teach debug show gains --reason persona|local|remote|fault as a filter, validated like --classification. The text table already prints reason; keep it.
+      - Note in specs/app.yml, teach.spec.yml and README that since 0.17.3 Teach accepts fault and link events with reason fault (W-DBG-FAULT, wire 2026-10-02b). These are Reach's hidden errors and connection changes, sent even while debug mode is off. Instructors read them with teach debug show --student ID --kind fault.
+    acceptance:
+      - ruby -c passes on changed files under ~/.rubies/ruby-4.0.6/bin/ruby.
+      - With TEACH_DATABASE_URL unset and the scratch database teach_personas_teach (TEACH_DATABASE_URL=postgres:///teach_personas_teach, or whatever form lib/teach/db.rb expects), Teach::DebugEvents.validate_batch! accepts a batch with reason fault and a fault event, and still rejects reason bogus. Check this with a ruby -e one-liner, not a test file.
+      - Report the files changed and anything you could not do.

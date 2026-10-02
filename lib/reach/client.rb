@@ -56,11 +56,20 @@ module Reach
       loop do
         wait = try_take
         return if wait.nil?
-        raise Reach::Offline, "reach: rate limit wait exceeded in quick mode" if quick && wait > 0.5
-        raise Reach::Offline, "reach: rate limit wait exceeded" if Time.now + wait > deadline
+
+        pacing_error!("quick") if quick && wait > 0.5
+        pacing_error!("limit") if Time.now + wait > deadline
+        pacing_error!("deadline") if Reach::Client.deadline && Time.now + wait > Reach::Client.deadline - 0.5
 
         sleep(wait)
       end
+    end
+
+    def pacing_error!(why)
+      error = Reach::Offline.new(Reach::Messages.text("M-TEACH-PACING"))
+      error.cause_name = "rate_wait"
+      error.detail = "rate limit wait exceeded (#{why})"
+      raise error
     end
 
     def try_take
@@ -136,7 +145,22 @@ module Reach
       end
     end
 
+    DEADLINE_FLOOR_S = 0.5
+
     @@breaker = CircuitBreaker.new(failure_threshold: 5, cooldown_s: 60)
+    @deadline = nil
+
+    class << self
+      attr_accessor :deadline
+
+      def with_deadline(seconds)
+        previous = @deadline
+        @deadline = Time.now + seconds
+        yield
+      ensure
+        @deadline = previous
+      end
+    end
 
     def self.breaker
       @@breaker
@@ -176,8 +200,19 @@ module Reach
     private
 
     def request(method, path, query: nil, body: nil, headers: {})
-      raise Reach::Offline, "reach: REACH_OFFLINE=1, no network calls are made" if ENV["REACH_OFFLINE"] == "1"
-      raise Reach::Offline, "reach: too many recent failures talking to Teach; try later" if self.class.breaker.open?
+      if ENV["REACH_OFFLINE"] == "1"
+        error = Reach::Offline.new(Reach::Messages.text("M-TEACH-OFFLINE-FLAG"))
+        error.cause_name = "offline_flag"
+        error.detail = "#{method.to_s.upcase} #{path} offline_flag: REACH_OFFLINE=1"
+        raise error
+      end
+      if self.class.breaker.open?
+        error = Reach::Offline.new(Reach::Messages.text("M-TEACH-LINK-LOST"))
+        error.cause_name = "breaker_open"
+        error.detail = "#{method.to_s.upcase} #{path} breaker_open: circuit breaker open"
+        Reach::Link.lost!("breaker_open")
+        raise error
+      end
 
       query_string = (query && !query.empty?) ? URI.encode_www_form(query) : nil
       target = query_string ? "#{path}?#{query_string}" : path
@@ -188,6 +223,10 @@ module Reach
         attempt += 1
         began_at = Time.now
         begin
+          if remaining_s && remaining_s < DEADLINE_FLOOR_S
+            raise final_failure(method, path, "deadline", "deadline reached")
+          end
+
           TokenBucket.acquire!(quick: @quick)
           response = perform(method, path, query_string, body, headers, target)
           duration_ms = ((Time.now - began_at) * 1000).round
@@ -196,6 +235,7 @@ module Reach
 
           if response.status < 400
             self.class.breaker.record_success
+            Reach::Link.restored!
             return response
           end
 
@@ -206,33 +246,66 @@ module Reach
 
           if RETRYABLE_STATUSES.include?(response.status)
             self.class.breaker.record_failure if response.status >= 500
-            if attempt >= max_attempts
-              raise Reach::NetworkError, "reach: request to #{path} failed with #{response.status} #{code}"
-            end
+            cause = "http_#{response.status}"
+            detail = "#{response.status} #{code}".strip
+            raise final_failure(method, path, cause, detail) if attempt >= max_attempts
 
-            wait = retry_after_seconds(response) || backoff_seconds(attempt)
+            wait = capped_wait(retry_after_seconds(response) || backoff_seconds(attempt))
+            raise final_failure(method, path, cause, detail) if wait.nil?
+
             sleep(wait)
             next
           end
 
           self.class.breaker.record_success
+          Reach::Link.restored!
           refusal = Reach::RemoteRefused.new(code, response.status, message)
           refusal.details = error["details"] || (parsed || {})["details"]
           raise refusal
-        rescue Reach::Offline, Reach::RemoteRefused
+        rescue Reach::Error
           raise
         rescue *RETRYABLE_EXCEPTIONS => e
           self.class.breaker.record_failure
           duration_ms = ((Time.now - began_at) * 1000).round
           log_request(method, target, 0, duration_ms, attempt - 1)
           Reach::Debug.request(method, path, 0, e.class.name, nil, attempt - 1, duration_ms, body.to_s.bytesize, 0)
-          if attempt >= max_attempts
-            raise Reach::NetworkError, "reach: request to #{path} failed (#{e.class}: #{e.message})"
-          end
+          raise final_failure(method, path, e.class.name, e.message) if attempt >= max_attempts
 
-          sleep(backoff_seconds(attempt))
+          wait = capped_wait(backoff_seconds(attempt))
+          raise final_failure(method, path, e.class.name, e.message) if wait.nil?
+
+          sleep(wait)
+        rescue StandardError => e
+          self.class.breaker.record_failure
+          duration_ms = ((Time.now - began_at) * 1000).round
+          log_request(method, target, 0, duration_ms, attempt - 1)
+          Reach::Debug.request(method, path, 0, e.class.name, nil, attempt - 1, duration_ms, body.to_s.bytesize, 0)
+          raise final_failure(method, path, e.class.name, e.message)
         end
       end
+    end
+
+    def remaining_s
+      deadline = self.class.deadline
+      deadline ? deadline - Time.now : nil
+    end
+
+    def capped_wait(wait)
+      remaining = remaining_s
+      return wait unless remaining
+
+      allowed = remaining - DEADLINE_FLOOR_S
+      return nil if allowed <= 0
+
+      [wait, allowed].min
+    end
+
+    def final_failure(method, path, cause_name, message)
+      error = Reach::NetworkError.new(Reach::Messages.text("M-TEACH-LINK-LOST"))
+      error.cause_name = cause_name
+      error.detail = "#{method.to_s.upcase} #{path} #{cause_name.to_s.sub(/\Ahttp_/, "")}: #{message}"
+      Reach::Link.lost!(cause_name)
+      error
     end
 
     def perform(method, path, query_string, body, headers, target)
@@ -240,8 +313,17 @@ module Reach
       uri.query = query_string if query_string
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = (uri.scheme == "https")
-      http.open_timeout = @connect_timeout || (@quick ? QUICK_CONNECT_TIMEOUT_S : CONNECT_TIMEOUT_S)
-      http.read_timeout = @read_timeout || (@quick ? QUICK_READ_TIMEOUT_S : READ_TIMEOUT_S)
+      open_timeout = @connect_timeout || (@quick ? QUICK_CONNECT_TIMEOUT_S : CONNECT_TIMEOUT_S)
+      read_timeout = @read_timeout || (@quick ? QUICK_READ_TIMEOUT_S : READ_TIMEOUT_S)
+      remaining = remaining_s
+      if remaining
+        open_timeout = [open_timeout, [remaining, 0.1].max].min
+        read_timeout = [read_timeout, [remaining, 0.1].max].min
+      end
+      http.open_timeout = open_timeout
+      http.read_timeout = read_timeout
+      http.write_timeout = read_timeout if http.respond_to?(:write_timeout=)
+      http.max_retries = 0 if http.respond_to?(:max_retries=)
 
       request_class = (method == :get) ? Net::HTTP::Get : Net::HTTP::Post
       req = request_class.new(uri.request_uri)
