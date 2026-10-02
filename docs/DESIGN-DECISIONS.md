@@ -70,6 +70,12 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   and rEach's own notices say so.
 - **Analytics are tied to the enrollment** (10-01). Usage analytics are identified by the enrolled student ID (see
   TODO.md).
+- **The brain stays local** (10-01, Reach 0.16.15). rEach keeps a private microbrain on the student's computer: the
+  conversation turns it already captures in course folders become private sources, the agent distils durable
+  findings about the student and their work, and rEach injects a profile at session start and matching memories on
+  each prompt. Nothing in it is sent to Teach; events carry ids and counts only; the student can ask what is
+  remembered and have it forgotten, which scrubs rEach's own spool. The agent's `reach remember` calls in a course
+  folder stay in the course transcript like any other command, and the memory notice tells the student so.
 - **The interview profile stays local** in the profile file and reaches instructors only if the student agrees when
   asking for help.
 - **No test data or answers in a workspace** (09-30). rEach refuses test data; Teach does not provision fixtures.

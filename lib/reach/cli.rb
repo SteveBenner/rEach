@@ -105,6 +105,10 @@ module Reach
           cmd_transfer(args)
         when "login"
           cmd_login(args)
+        when "remember"
+          cmd_remember(args)
+        when "memory"
+          cmd_memory(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -160,6 +164,8 @@ module Reach
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
             login status                         whether this session is signed in
+            remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--format text|json]   keep one durable thing you learned about the student or their work
+            memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
         USAGE
       end
 
@@ -1217,6 +1223,83 @@ module Reach
           0
         else
           warn "usage: reach profile show|save|forget"
+          1
+        end
+      end
+
+      def cmd_remember(args)
+        options, _remaining = parse_flags(args, [:category, :claim, :evidence, :supersedes, :format])
+        if options[:category].to_s.empty? || options[:claim].to_s.empty? || options[:evidence].to_s.empty?
+          warn "usage: reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--format text|json]"
+          return 1
+        end
+
+        result = Reach::Brain.remember(
+          category: options[:category], claim: options[:claim], evidence: options[:evidence], supersedes: options[:supersedes]
+        )
+        message = Reach::Brain.outcome_message(result)
+        if options[:format].to_s == "json"
+          puts JSON.generate(result.merge("message" => message))
+        else
+          puts message
+        end
+        0
+      end
+
+      def cmd_memory(args)
+        sub = args.first && !args.first.start_with?("--") ? args.shift : "list"
+        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
+        case sub
+        when "list"
+          options, _remaining = parse_flags(args, [:category, :limit, :format])
+          rows = Reach::Brain.list(category: options[:category], limit: options[:limit] || 50)
+          if json
+            puts JSON.generate(rows)
+          elsif rows.empty?
+            puts Reach::Messages.text("M-BRAIN-EMPTY")
+          else
+            rows.each { |row| puts "#{row['id']}  [#{row['category']}] #{row['claim']}" }
+          end
+          0
+        when "show"
+          id = args.shift
+          unless id
+            warn "usage: reach memory show ID [--format text|json]"
+            return 1
+          end
+          row = Reach::Brain.show(id)
+          if json
+            puts JSON.generate(row)
+          else
+            puts "#{row['id']}  [#{row['category']}] #{row['claim']}"
+            puts "evidence: #{row['evidence']}"
+            puts "noted: #{row['at']}"
+          end
+          0
+        when "forget"
+          everything, args = parse_bare_flag(args, "all")
+          confirmed, args = parse_bare_flag(args, "yes")
+          _options, ids = parse_flags(args, [:format])
+          if everything
+            unless confirmed
+              warn "usage: reach memory forget --all --yes"
+              return 1
+            end
+            count = Reach::Brain.forget(all: true)
+          elsif ids.empty?
+            warn "usage: reach memory forget ID... | forget --all --yes"
+            return 1
+          else
+            count = Reach::Brain.forget(ids: ids)
+          end
+          message = Reach::Messages.text("M-BRAIN-FORGOTTEN", count: count)
+          json ? puts(JSON.generate("forgotten" => count, "message" => message)) : puts(message)
+          0
+        when "export"
+          puts Reach::Brain.export
+          0
+        else
+          warn "usage: reach memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]"
           1
         end
       end

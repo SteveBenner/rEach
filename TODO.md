@@ -6,6 +6,15 @@
       and analytics rEach sends to Teach, and send them keyed to the enrollment (docs/DESIGN-DECISIONS.md, data
       capture).
 
+## Microbrain (0.16.15)
+
+- [ ] Ship rplugin and rcorpus in the runtime kit so students get corpus-side recall (`Rcorpus::Context`) and
+      consolidation; deferred 10-01 pending the decision to publish them. Students run on the spool plus Reach's own
+      recall, and the planes are admitted wherever rplugin is installed.
+- [ ] Erase tombstoned history from corpus planes: `reach memory forget` scrubs Reach's spool only, so a finding or
+      source already admitted into a plane stays there until rcorpus can erase a tombstoned id.
+- [ ] Verify the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths once rcorpus 0.9.0 lands.
+
 ## Enrollment v2 (0.16.0, branch `enrollment-v2`)
 
 - [x] Teach's half (roster, course codes, preview and shape v2 routes, stamp signing, fingerprint check,

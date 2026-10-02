@@ -5,6 +5,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.15] - 2026-10-01
+
+### Added
+
+- The microbrain learns and recalls, locally. `Reach::Brain` (`lib/reach/brain.rb`) captures each conversation turn
+  Reach already records in a course folder as a private `source` spool line, takes the findings the host agent
+  distils through the new `reach remember` command and `reach_remember` tool, and gates them: a cosine of at least
+  0.85 within the category only reinforces the existing finding, `per_hour` and `per_day` budgets hold the rest, and
+  a claim or evidence that looks like a password, key, token or student ID is refused. A nudge asks the agent to
+  record what the last turns taught, every 3 turns and backing off to 24 when nothing is saved.
+- Recall. `reach hello` adds the memory instructions and the profile (at most 1500 bytes) to the session context, and
+  every prompt hook adds the matching memories (at most 800 bytes, not repeating the last 10 injections).
+  `Reach::BrainIndex` is the read model over the spool: BM25 search, term-frequency cosine, decay and reinforcement
+  salience, cached in `~/.reach/brain/index.json`. The Hermes hooks receive the same blocks through the existing
+  hello and prompt context. Hooks always recall lexically through the index, to stay inside the 150 ms hook budget,
+  and a memory qualifies when its BM25 score is at least `brain.prompt_min_score` (0.2) of the ideal score for the
+  prompt's known terms, so a small memory recalls as well as a large one. An explicit `reach_recall` query is fused
+  through `Rcorpus::Context#render` when rplugin, rcorpus 0.9.0 and the encoder are present, and falls back to the
+  index on any error.
+- `reach memory list|show|forget|export` and the `reach_recall` and `reach_memory_forget` tools. Forgetting writes a
+  tombstone and scrubs the finding, the findings it superseded and note sources only it used from Reach's spool
+  (`Reach::BrainSpool.scrub!`, the one exception to the append-only spool); `forget --all --yes` scrubs every source
+  too. Both commands refuse while locked. The first session greeting adds `G-MEMORY-NOTICE`, once per install.
+- `source` and `finding` kinds in `specs/kinds.yml` and `reach.rplugin.yml`, with the novelty and budget settings;
+  `config.yml` `brain` holds every limit. Spool admission now runs at most once per `admit_interval_s`, backs off
+  after a failure and, once a day after an admit, runs `Rcorpus::Consolidate` when it is defined.
+- A spool cap. After a capture, at most every 10 minutes, `brain.max_spool_bytes` (20 MiB) is checked; over it, the
+  oldest `source` lines no active finding references are scrubbed until the spool is at or below 80% of the cap
+  (`brain.pruned` logs counts and bytes). Findings, tombstones and other kinds are never removed. When only
+  referenced sources remain and it is still over the cap, new captures are held (`brain.source_held`, reason
+  `spool_full`) while findings are still accepted.
+- `STD-BRAIN` in `specs/app.yml`, `Reach::Brain` and `Reach::BrainIndex` in `reach.spec.yml`, FEATURES 2.29, the README
+  "Memory" section and the persona's Memory section (`skills/reach-assistant/SKILL.md`, `agents/reach.md`).
+- Sources and findings are spooled with op `source` and op `finding`, so admission builds their content files,
+  graph nodes, supports edges and embeddings (rcorpus 0.9.0, pinned by rplugin 1.4.0, whose `rplugin install`
+  syncs the new kinds into the owned corpus).
+
 ## [0.16.14] - 2026-10-01
 
 ### Changed

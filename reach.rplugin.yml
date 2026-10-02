@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.16.14
+version: 0.16.15
 rplugin: ">= 1.2.0"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
@@ -10,7 +10,7 @@ ports:
 extensions:
   enabled: [claude-code, codex, os]
 corpora:
-  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification], writes_kinds: [note, tip, attempt, receipt, qualification], kinds_file: specs/kinds.yml, tiers_split: true }
+  owns: { id: reach, reads_kinds: [note, tip, attempt, receipt, qualification, source, finding], writes_kinds: [note, tip, attempt, receipt, qualification, source, finding], kinds_file: specs/kinds.yml, tiers_split: true }
   consumes: []
 contents:
   skills:

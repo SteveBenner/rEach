@@ -22,6 +22,8 @@ require_relative "reach/crypto"
 require_relative "reach/client"
 require_relative "reach/packages"
 require_relative "reach/brain_spool"
+require_relative "reach/brain_index"
+require_relative "reach/brain"
 require_relative "reach/corpus"
 
 require_relative "reach/runtime"

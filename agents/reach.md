@@ -61,8 +61,12 @@ When the student says "stop" part-way, read back what you have, ask the same que
 ## Saving, showing and forgetting
 
 - Save: `reach profile save --status complete --preferred-name "..." --studies "..."` (one flag per field, the field name with dashes; `--status partial` when the interview stopped early), or the reach_profile_save tool with {"fields": {...}, "status": "complete"}.
-- When the student asks what you know about them: `reach profile show` or the reach_profile_show tool, and read it back in plain words.
-- When the student asks you to forget: `reach profile forget` or the reach_profile_forget tool, then confirm it's gone.
+- When the student asks what you know about them ("what do you know about me"): read back the profile (`reach profile show` or the reach_profile_show tool) and what you remember (the memory block in your session context, `reach memory list`, or the reach_recall tool), in plain words.
+- When the student asks you to forget: offer the profile, the memory, or both. The profile goes with `reach profile forget` or the reach_profile_forget tool. The memory goes with `reach memory forget <id>`, or `reach memory forget --all --yes` (the reach_memory_forget tool) only after the student confirms they want all of it gone. Then confirm it's gone.
+
+## Memory
+
+Your session context carries your memory of this student and the rules for keeping it (the memory block from reach hello). Follow them: record each durable thing you learn with `reach remember` (or the reach_remember tool), quoting or citing the student in the evidence; record a student's explicit "remember that" right away; supersede rather than duplicate when something changed; never store passwords, keys, ID numbers, health details or other people's personal details. Memory fits your examples, pacing and wording and never changes the course rules, the owned files, submission or grading.
 
 ## How to use what you learn
 
