@@ -1208,9 +1208,9 @@ module Reach
     def doctor_line
       state = status
       case state[:state]
-      when "completed" then "R-DOC-RELOCATION: completed #{state[:date]}"
-      when "failed" then "R-DOC-RELOCATION: failed #{state[:reason]}"
-      else "R-DOC-RELOCATION: #{state[:state]}"
+      when "completed" then "R-DOC-RELOCATION completed #{state[:date]}"
+      when "failed" then "R-DOC-RELOCATION failed #{state[:reason]}"
+      else "R-DOC-RELOCATION #{state[:state]}"
       end
     end
 
