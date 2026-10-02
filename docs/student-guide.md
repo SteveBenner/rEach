@@ -46,6 +46,10 @@ Everything lives in `~/reach-work`:
 
 Your AI partner puts code in files in one of these folders, not in the chat. Everything written in both folders is part of your course record (see Privacy below).
 
+## Choosing a model in Hermes
+
+If you use Hermes, the model behind it decides whether your AI partner keeps the course rules. Claude Sonnet or Opus, and OpenAI GPT-5.x, through Hermes' own providers, are the models known to fit the course. Local open-weight models are not recommended until your instructor has checked one. Qwen3-Coder-30B was tried and did not keep the course rules: it talked code with the student and called failing work ready.
+
 ## If something looks wrong
 
 Run `reach doctor`. It checks your Ruby, your course rules, your keys and your connection, and tells you the one command that fixes whatever it finds.
