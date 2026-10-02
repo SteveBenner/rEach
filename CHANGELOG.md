@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.11] - 2026-10-01
+
+### Fixed
+
+- `rplugin install reach` on a computer with Hermes merged Reach's fail-closed enrollment gate and MCP server into the
+  default Hermes profile's `config.yaml` and linked Reach's skills there, although Reach reaches Hermes only through
+  the dedicated `reach` profile that `reach setup` creates. The manifest now claims `hermes: unsupported`
+  (`reach.rplugin.yml`, and its copy in `reach.spec.yml`), which rplugin 1.3.0 and later honor in `install` and
+  `doctor`; `rplugin doctor reach` drops from 10 findings to 0.
+
 ## [0.16.10] - 2026-10-01
 
 ### Fixed
