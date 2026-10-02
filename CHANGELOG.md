@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.21] - 2026-10-01
+
+### Added
+
+- Enrollment password (wire revision 2026-10-01e, `STD-ENROLL-PASSWORD`). After the student types yes to confirm,
+  the enrollment flow (`lib/reach/enroll_flow.rb`) asks them to choose a password of at least 8 characters, to type
+  it again, and to write it down (`M-ENR-ASK-PASSWORD`, `M-ENR-ASK-PASSWORD-AGAIN`; `M-ENR-DONE` repeats the
+  reminder). The prompt hook blocks both entries, so the agent never sees them; between them the flow file holds
+  only a random salt and a SHA-256, removed when the flow moves on. `Reach::Enroll.register_v2` sends the password
+  once in the shape v2 enroll body and nothing stores it. A failed or offline attempt asks for the password again
+  (`M-ENR-PASSWORD-RETRY-FAILED`, `M-ENR-PASSWORD-RETRY-OFFLINE`), and a device move's later yes asks for it again.
+- Hermes, which cannot hide a prompt from the agent, is sent to a terminal instead (`M-ENR-PASSWORD-TERMINAL`).
+  `reach enroll` asks for the password twice with typing hidden, or reads one line with `--password-stdin`, and
+  refuses to run without either when standard input is not a terminal.
+- `tools/fake_teach` answers `400 password_required` like Teach 0.17.0, and the platform smoke enrolls with
+  `--password-stdin`.
+
+### Changed
+
+- `specs/wire.yml` is revision 2026-10-01e, byte-identical to Teach 0.17.0's copy. This rEach enrolls only with
+  Teach 0.17.0 or later, and rEach 0.16.20 or older cannot enroll with Teach 0.17.0 until it updates.
+
 ## [0.16.20] - 2026-10-01
 
 ### Changed
