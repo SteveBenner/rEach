@@ -9,15 +9,17 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "relocate"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
 
     class << self
       def run(argv)
-        begin
-          Reach::Runtime.ensure_shim!
-        rescue StandardError
-          nil
+        unless argv.first == "relocate" && Reach::Paths.legacy_active?
+          begin
+            Reach::Runtime.ensure_shim!
+          rescue StandardError
+            nil
+          end
         end
 
         args = argv.dup
@@ -103,6 +105,8 @@ module Reach
           cmd_transfer(args)
         when "login"
           cmd_login(args)
+        when "relocate"
+          cmd_relocate(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -157,6 +161,7 @@ module Reach
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
             login status                         whether this session is signed in
+            relocate [--format text|json]        move everything rEach keeps into your rEach folder, or show where that stands
         USAGE
       end
 
@@ -192,6 +197,13 @@ module Reach
 
         slices.find { |workspace_path| File.basename(workspace_path).include?(slice_hint) }
       rescue StandardError
+        nil
+      end
+
+      def pick_slice_if_ambiguous(workspace)
+        return workspace if workspace
+
+        Reach::Gate.raise_pick_slice! if Reach::Gate.root_kind? && Reach::Workspace.current_slices.length > 1
         nil
       end
 
@@ -525,7 +537,7 @@ module Reach
       end
 
       def check_hermes(event)
-        workspace = Reach::Gate.current_workspace_path
+        workspace = Reach::Gate.focus_workspace
         attempt = event["attempt"].to_i
         if workspace.nil? || attempt > 0
           puts "{}"
@@ -570,7 +582,7 @@ module Reach
           return 1
         end
         options, _remaining = parse_flags(args, [:changed, :format, :slice])
-        workspace_path = resolve_workspace(options[:slice]) || Dir.pwd
+        workspace_path = resolve_workspace(options[:slice]) || (Reach::Gate.root_kind? ? pick_slice_if_ambiguous(Reach::Gate.focus_workspace) : nil) || Dir.pwd
         format = (options[:format] || "text").to_sym
         findings = Reach::Shape.check(workspace_path: workspace_path, changed: options[:changed], format: format)
         case format
@@ -587,7 +599,8 @@ module Reach
         local_only, args = parse_bare_flag(args, "local-only")
         listing, args = parse_bare_flag(args, "list")
         options, _remaining = parse_flags(args, [:slice, :format, :task, :summary])
-        workspace = resolve_workspace(options[:slice]) || Reach::Gate.current_workspace_path
+        workspace = resolve_workspace(options[:slice]) || Reach::Gate.focus_workspace
+        pick_slice_if_ambiguous(workspace)
         unless workspace
           warn "reach: no matching slice workspace found; run reach sync"
           return 1
@@ -607,7 +620,9 @@ module Reach
       def cmd_submit(args)
         Reach::Update.hold!
         options, _remaining = parse_flags(args, [:slice])
+        Reach::Relocation.hold!
         slice = default_slice_id(options[:slice])
+        pick_slice_if_ambiguous(slice)
         unless slice
           warn "usage: reach submit --slice <id>"
           return 1
@@ -784,7 +799,10 @@ module Reach
         problems.concat(check_sidecar)
         limit_lines = limits_report
         problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
+        relocation_line = Reach::Relocation.doctor_line
+        problems << relocation_line if relocation_line.start_with?("R-DOC-RELOCATION: failed") && Reach::Enroll.current
         problems.each { |line| puts line }
+        puts relocation_line unless problems.include?(relocation_line)
         enroll_line = doctor_enroll_line
         puts enroll_line if enroll_line
         puts doctor_runtime_line
@@ -828,7 +846,12 @@ module Reach
         space = Reach::Gate.current_space
         raise Reach::Refused, Reach::Messages.text("M-GATE-OUTSIDE") unless space
 
-        result = Reach::Imports.import!(path, space_path: space["path"])
+        space_path = space["path"]
+        if space["kind"] == "root"
+          space_path = pick_slice_if_ambiguous(Reach::Gate.focus_workspace)
+          raise Reach::Refused, Reach::Messages.text("M-GATE-OUTSIDE") unless space_path
+        end
+        result = Reach::Imports.import!(path, space_path: space_path)
         if result["ok"]
           puts Reach::Messages.text("M-IMPORT-OK", name: result["name"])
           0
@@ -1079,6 +1102,17 @@ module Reach
         exit_code
       end
 
+      def cmd_relocate(args)
+        options, _remaining = parse_flags(args, [:format])
+        result = Reach::Relocation.run(trigger: "cli")
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(result.each_with_object({}) { |(key, value), table| table[key.to_s] = value })
+        else
+          puts result[:line]
+        end
+        result[:phase] == "failed" ? 1 : 0
+      end
+
       def cmd_runtime(args)
         sub = args.shift
         case sub
@@ -1233,9 +1267,10 @@ module Reach
         end
       end
 
-      def workspace_or_fail(slice_hint)
+      def workspace_or_fail(slice_hint, target: nil)
         workspace_path = resolve_workspace(slice_hint)
-        workspace_path ||= Reach::Gate.current_workspace_path
+        workspace_path ||= Reach::Gate.focus_workspace(target: target)
+        pick_slice_if_ambiguous(workspace_path)
         warn Reach::Messages.text("M-GATE-NOGUARD") unless workspace_path
         workspace_path
       end
@@ -1250,8 +1285,13 @@ module Reach
           return check_hermes(event)
         end
         tool_input = event["tool_input"] || {}
-        changed = options[:changed] || tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
-        workspace_path = workspace_or_fail(options[:slice])
+        hook_target = tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
+        changed = options[:changed] || hook_target
+        if hook_target && options[:slice].nil? && Reach::Gate.root_kind?
+          found = Reach::Workspace.space_for_target(File.expand_path(hook_target.to_s))
+          return 0 unless found && found["kind"] == "slice"
+        end
+        workspace_path = workspace_or_fail(options[:slice], target: hook_target)
         return 1 unless workspace_path
 
         format = (options[:format] || "text").to_sym
@@ -1353,7 +1393,8 @@ module Reach
             warn "usage: reach part record <question id>"
             return 1
           end
-          workspace = Reach::Gate.current_workspace_path
+          workspace = Reach::Gate.focus_workspace
+          pick_slice_if_ambiguous(workspace)
           unless workspace
             warn "reach: no matching slice workspace found; run reach sync"
             return 1
@@ -1365,7 +1406,7 @@ module Reach
         end
 
         format, args = parse_flags(args, [:format, :slice])
-        workspace = resolve_workspace(format[:slice]) || Reach::Gate.current_workspace_path
+        workspace = resolve_workspace(format[:slice]) || Reach::Gate.focus_workspace
         assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
         status = Reach::Sync.cached_status || {}
         assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil
@@ -1578,7 +1619,7 @@ module Reach
           warn "usage: reach directive <OPCODE> [--format text|json] | --list"
           return 1
         end
-        result = Reach::Directives.show(opcode, workspace: Reach::Gate.current_workspace_path)
+        result = Reach::Directives.show(opcode, workspace: Reach::Gate.focus_workspace)
         if (options[:format] || "text") == "json"
           puts JSON.generate(result)
         else

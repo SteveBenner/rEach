@@ -17,7 +17,11 @@ module Reach
         cwd = event["cwd"] if event["cwd"]
       end
 
-      Reach::RuntimeAuto.start
+      if Reach::Relocation.due?
+        Reach::Relocation.start
+      else
+        Reach::RuntimeAuto.start
+      end
       harness_id = resolve_harness(harness)
       greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event)
 

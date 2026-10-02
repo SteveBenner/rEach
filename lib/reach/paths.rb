@@ -1,12 +1,141 @@
 require "fileutils"
+require "json"
+require "rbconfig"
 
 module Reach
   module Paths
     module_function
 
+    RESOLUTION_TTL_S = 2
+    NEW_HOME_NAME = ".reach-home".freeze
+
+    def root
+      override = path_override
+      return override[:root] if override && override[:root]
+
+      value = ENV["REACH_ROOT"].to_s
+      File.expand_path(value.empty? ? "~/rEach" : value)
+    end
+
+    def legacy_home
+      File.expand_path("~/.reach")
+    end
+
+    def legacy_workspace_root
+      File.expand_path("~/reach-work")
+    end
+
+    def new_home
+      File.join(root, NEW_HOME_NAME)
+    end
+
+    def relocation_pointer_file
+      File.join(new_home, "state", "relocation.json")
+    end
+
+    def with_override(home:, root:)
+      previous = Thread.current[:reach_paths_override]
+      Thread.current[:reach_paths_override] = { home: File.expand_path(home), root: File.expand_path(root) }
+      yield
+    ensure
+      Thread.current[:reach_paths_override] = previous
+    end
+
+    def path_override
+      Thread.current[:reach_paths_override]
+    end
+
     def home
+      override = path_override
+      return override[:home] if override && override[:home]
+
       value = ENV["REACH_HOME"].to_s
-      File.expand_path(value.empty? ? "~/.reach" : value)
+      return File.expand_path(value) unless value.empty?
+
+      resolution[:home]
+    end
+
+    def legacy_active?
+      return false unless ENV["REACH_HOME"].to_s.empty?
+      return false if path_override
+
+      resolution[:mode] == :legacy
+    end
+
+    def relocation_completed?
+      pointer = relocation_pointer_file
+      return false unless File.file?(pointer)
+
+      data = JSON.parse(File.read(pointer))
+      data.is_a?(Hash) && data["phase"] == "completed"
+    rescue StandardError
+      false
+    end
+
+    def legacy_present?
+      legacy = legacy_home
+      File.file?(File.join(legacy, "install.yml")) || File.directory?(File.join(legacy, "plugin"))
+    rescue StandardError
+      false
+    end
+
+    def resolution
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      key = [root, legacy_home]
+      cache = (@resolution_cache ||= {})
+      return cache[:value] if cache[:value] && cache[:key] == key && now - cache[:at] < RESOLUTION_TTL_S
+
+      value = if relocation_completed?
+                { mode: :new, home: new_home }
+              elsif legacy_present?
+                { mode: :legacy, home: legacy_home }
+              else
+                { mode: :new, home: new_home }
+              end
+      @resolution_cache = { value: value, key: key, at: now }
+      value
+    end
+
+    def forget_resolution!
+      @resolution_cache = nil
+      nil
+    end
+
+    def realish(path)
+      expanded = File.expand_path(path.to_s)
+      return File.realpath(expanded) if File.exist?(expanded)
+
+      rest = []
+      current = expanded
+      until File.exist?(current) || current == File.dirname(current)
+        rest.unshift(File.basename(current))
+        current = File.dirname(current)
+      end
+      real = File.exist?(current) ? File.realpath(current) : current
+      File.join(real, *rest)
+    rescue SystemCallError, ArgumentError
+      File.expand_path(path.to_s)
+    end
+
+    def case_insensitive_fs?
+      RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|darwin/i ? true : false
+    end
+
+    def path_within?(path, base)
+      return false if path.nil? || base.nil?
+
+      left = case_insensitive_fs? ? path.downcase : path
+      right = case_insensitive_fs? ? base.downcase : base
+      left == right || left.start_with?("#{right}#{File::SEPARATOR}")
+    end
+
+    def inside_home?(path)
+      path_within?(realish(path), realish(home))
+    end
+
+    def inside_legacy_trees?(path)
+      target = realish(path)
+      [legacy_home, legacy_workspace_root].any? { |tree| path_within?(target, realish(tree)) }
     end
 
     def install_file
@@ -235,8 +364,15 @@ module Reach
     end
 
     def workspace_root
+      override = path_override
+      return override[:root] if override && override[:root]
+
       value = ENV["REACH_WORKSPACE_ROOT"].to_s
-      File.expand_path(value.empty? ? "~/reach-work" : value)
+      return File.expand_path(value) unless value.empty?
+
+      return root if path_within?(File.expand_path(home), root)
+
+      legacy_workspace_root
     end
 
     def deliverables_root

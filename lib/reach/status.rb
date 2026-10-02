@@ -4,6 +4,7 @@ module Reach
       def summary
         lines = []
         lines << header_line
+        lines << folder_line
         lines << assignment_line
         lines << signed_in_line
         lines << modules_line
@@ -66,6 +67,15 @@ module Reach
         student_part = "#{student_part} (#{student['group']})" if student["group"]
 
         "rEach #{Reach::VERSION} · #{course_part} · enrolled as #{student_part}"
+      end
+
+      def folder_line
+        folder = Reach::Paths.workspace_root
+        return "Your rEach folder: #{folder}" if folder == Reach::Paths.root || !Reach::Paths.legacy_active?
+
+        "Your rEach folder: #{folder} (rEach will move your files into #{Reach::Paths.root} soon)"
+      rescue StandardError
+        "Your rEach folder: unknown"
       end
 
       def assignment_line

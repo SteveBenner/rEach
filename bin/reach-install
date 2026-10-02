@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "fileutils"
+require "json"
 require "net/http"
 require "zlib"
 require "optparse"
@@ -29,6 +30,7 @@ module ReachInstall
         reach_root = stage(url: options[:url], temp: temp, archive: options[:archive], revision: options[:revision])
         install(reach_root, destination)
       end
+      record_destination(destination)
       puts "rEach installed at #{destination}"
       0
     rescue StandardError => e
@@ -59,9 +61,42 @@ module ReachInstall
 
     private
 
+    def default_destination
+      root_value = ENV["REACH_ROOT"].to_s
+      root = File.expand_path(root_value.empty? ? "~/rEach" : root_value)
+      legacy = File.expand_path("~/.reach")
+      return File.join(legacy, "plugin") if legacy_active?(root, legacy)
+
+      File.join(root, ".reach-home", "plugin")
+    end
+
+    def legacy_active?(root, legacy)
+      return false unless ENV["REACH_HOME"].to_s.empty?
+
+      pointer = File.join(root, ".reach-home", "state", "relocation.json")
+      if File.file?(pointer)
+        data = begin
+          JSON.parse(File.read(pointer))
+        rescue StandardError
+          nil
+        end
+        return false if data.is_a?(Hash) && data["phase"] == "completed"
+      end
+      File.file?(File.join(legacy, "install.yml")) || File.directory?(File.join(legacy, "plugin"))
+    end
+
+    def record_destination(destination)
+      directory = File.dirname(File.expand_path(__FILE__))
+      return unless File.basename(directory) == "bootstrap"
+
+      File.write(File.join(directory, "last-install.txt"), "#{destination}\n")
+    rescue StandardError
+      nil
+    end
+
     def parse(argv)
       options = {
-        destination: File.expand_path("~/.reach/plugin"),
+        destination: default_destination,
         url: "https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip"
       }
       OptionParser.new do |parser|
