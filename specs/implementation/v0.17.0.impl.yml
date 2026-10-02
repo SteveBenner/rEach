@@ -221,3 +221,78 @@ report: >-
   output (abbreviated), anything not done or not verified and why, and the exact spec text the primary must add to
   reach.spec.yml and specs/app.yml (layout, relocation, gate target spaces, M-PICK-SLICE, M-RELOCATING,
   R-DOC-RELOCATION).
+
+addendum_harness_source:
+  found: >-
+    Primary review, 2026-10-01. Setup registers the Claude and Codex marketplaces with the local plugin folder
+    (Reach::Runtime.root), which is ~/.reach/plugin on every existing install. After relocation, updates install into
+    <root>/.reach-home/plugin, but update/apply.rb refreshes the harnesses from their registered source, the frozen
+    legacy folder, so the harness copy (whose hooks run ${CLAUDE_PLUGIN_ROOT}/exe/reach) would stay at the version that
+    relocated. A re-run of setup after relocation also fails on Codex ("marketplace 'reach' is already added from a
+    different source").
+  measured: >-
+    Claude Code 2.1.287 in a scratch CLAUDE_CONFIG_DIR: `claude plugin marketplace add <new dir>` with the name already
+    registered from another dir exits 0 and repoints it ("Plugins already installed from it now update from the new
+    source"); `marketplace update reach` then `plugin update reach@reach --scope user` moved the plugin to the new
+    dir's version. Codex 0.160.0 in a scratch CODEX_HOME: `codex plugin marketplace add <new dir>` exits 1 with
+    "marketplace 'reach' is already added from a different source; remove it before adding this source";
+    `codex plugin marketplace remove reach` exits 0 and keeps [plugins."reach@reach"] enabled = true and the cache;
+    `marketplace add <new dir>` then `codex plugin add reach@reach` installs the new dir's version. `codex plugin
+    marketplace upgrade reach` exits 1 for a local source ("not configured as a Git marketplace").
+  rule: >-
+    Wherever Reach registers or refreshes a harness, the registered source is the current plugin folder. Repointing is
+    best-effort and never fails relocation; a failure is recorded and retried by the next setup or update.
+  slice:
+    id: S6_harness_source
+    owns_paths:
+    - lib/reach/harness_source.rb (new)
+    - lib/reach/setup.rb (run_claude, run_codex only)
+    - lib/reach/relocation.rb (refresh_harnesses only)
+    - update/apply.rb (the harness refresh block only)
+    - lib/reach.rb (one require line)
+    build:
+    - >-
+      Reach::HarnessSource.repoint(source) returns {"claude-code" => result, "codex" => result} where result is
+      "absent", "ok" or "failed: <reason>". Claude, when `claude` is on PATH: `claude plugin marketplace add <source>`.
+      Codex, when `codex` is on PATH: `codex plugin marketplace add <source>`; if that fails with output containing
+      "already added from a different source", read the old source from `codex plugin marketplace list` output or
+      $CODEX_HOME/config.toml (default ~/.codex/config.toml) [marketplaces.reach] source, run `codex plugin
+      marketplace remove reach`, then `codex plugin marketplace add <source>`; if that add fails and the old source is
+      known and still a directory, run `codex plugin marketplace add <old source>` to restore it and report
+      "failed: ...". Every command runs with Open3 and a 120 s timeout, like Setup#capture. No other harness state is
+      touched.
+    - >-
+      Setup#run_codex: when `marketplace add` fails with "already added from a different source", use
+      HarnessSource's Codex path (remove, add, restore on failure) before giving up; then `codex plugin add
+      reach@reach` as now. Setup#run_claude stays as is (its add already repoints).
+    - >-
+      Relocation#refresh_harnesses: after the Antigravity and Hermes links, call
+      Reach::HarnessSource.repoint(<final_home>/plugin) only when <final_home>/plugin holds exe/reach, then for Claude
+      `claude plugin marketplace update reach` and `claude plugin update reach@reach --scope user`, for Codex `codex
+      plugin add reach@reach`; record the results under "harness_sources" in state/relocation.json. Exceptions are
+      swallowed as today.
+    - >-
+      update/apply.rb is standalone (no Reach lib). Before the existing refresh_harness calls, repoint inline with the
+      same commands, using `destination` as the source: Claude `plugin marketplace add <destination>`; Codex
+      `plugin marketplace add <destination>`, and on "already added from a different source" remove, add, restore the
+      old source on failure. Keep the existing refresh steps after it. Record the repoint result in
+      manifest["harness_sources"].
+    - No comments in code. Ruby 2.6 compatible.
+  verify:
+  - id: V9_claude_repoint
+    run: >-
+      Scratch CLAUDE_CONFIG_DIR. Register the marketplace from dir A (version x), install reach@reach. Run
+      Reach::HarnessSource.repoint(B) where B carries version y, then the Claude refresh steps; `claude plugin list`
+      shows y and `claude plugin marketplace list` shows B.
+  - id: V10_codex_repoint
+    run: >-
+      Scratch CODEX_HOME. Same as V9 with codex; show the remove/add path ran, [plugins."reach@reach"] stays enabled,
+      `codex plugin list` shows y from B. Then make B unreadable (or a missing path) and show the old source A is
+      restored and the result is failed.
+  - id: V11_relocation_records
+    run: >-
+      A V2 relocation run with fake `claude` and `codex` on PATH (scripts logging argv) shows the repoint and refresh
+      commands ran with <root>/.reach-home/plugin and harness_sources is in state/relocation.json; with them absent the
+      result is "absent" and relocation still completes.
+  - id: V12_apply
+    run: Run update/apply.rb against a scratch destination with the fake claude/codex on PATH and show the repoint commands precede the refresh commands and manifest["harness_sources"] is written.

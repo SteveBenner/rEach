@@ -1096,6 +1096,28 @@ module Reach
         end
         Reach::Harness.configure("hermes", nil)
       end
+
+      refresh_harness_sources(ctx, plugin)
+    rescue StandardError
+      nil
+    end
+
+    def refresh_harness_sources(ctx, plugin)
+      return unless File.file?(File.join(plugin, "exe", "reach"))
+
+      results = Reach::HarnessSource.repoint(plugin)
+      if results["claude-code"] == "ok"
+        _out, _err, updated = Reach::HarnessSource.capture(%w[claude plugin marketplace update reach])
+        _out, _err, updated = Reach::HarnessSource.capture(%w[claude plugin update reach@reach --scope user]) if updated
+        results["claude-code"] = "failed: refresh did not complete" unless updated
+      end
+      if results["codex"] == "ok"
+        _out, err, added = Reach::HarnessSource.capture(%w[codex plugin add reach@reach])
+        results["codex"] = "failed: #{Reach::HarnessSource.first_line(err)}" unless added
+      end
+      state_path = File.join(ctx[:final_home], "state", "relocation.json")
+      state = read_json(state_path) || {}
+      write_json_atomic(state_path, state.merge("harness_sources" => results))
     rescue StandardError
       nil
     end

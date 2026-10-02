@@ -298,6 +298,17 @@ layout:
     - qualify/features/ and qualify/step_definitions/ - the agent's own scenarios and steps (writable; since 0.11.0)
     permissions: Everything except the owned files and the two qualify folders is made read-only on disk; Reach restores permissions if they
       change.
+harness_source:
+  since: 0.17.0
+  rule: >-
+    Setup registers the Claude Code and Codex marketplaces with the local plugin folder, so wherever Reach registers
+    or refreshes them the registered source is the current plugin folder. Claude Code: claude plugin marketplace add
+    <folder> repoints an existing reach marketplace. Codex: codex plugin marketplace add <folder>; when it answers
+    "already added from a different source", Reach reads the old source from [marketplaces.reach] in
+    $CODEX_HOME/config.toml (or codex plugin marketplace list), runs codex plugin marketplace remove reach, adds the
+    folder, and adds the old source back if that add fails. Remove keeps [plugins."reach@reach"] enabled and the
+    cached copy. Used by reach setup (Codex), relocation's switch and update/apply.rb (inline, standard library only).
+    No other harness state is touched.
 relocation:
   since: 0.17.0
   triggers: >-
@@ -323,7 +334,10 @@ relocation:
     Rewrite the harness files, bin/root, update.json (only once completed) and the transcript space digests inside
     the staged folder; File.rename it to .reach-home; write the completed pointer; write the legacy RELOCATED.json;
     leave ~/reach-work/rEach-has-moved.txt unless the student has written there since; refresh the Antigravity and
-    Hermes links. Claude and Codex marketplace registrations are the harness's own and are not touched.
+    Hermes links; point the Claude Code and Codex marketplaces at <root>/.reach-home/plugin (harness_source) and
+    refresh them (Claude: marketplace update reach, plugin update reach@reach --scope user; Codex: plugin add
+    reach@reach), recording each result (absent, ok or failed: <reason>) under harness_sources in
+    state/relocation.json. A harness failure never fails the relocation; the next setup or update retries it.
   never: >-
     Delete, truncate, rename or overwrite anything under ~/.reach or ~/reach-work (the lock, RELOCATED.json and
     rEach-has-moved.txt are the only files written there), or call EnrollmentLock.reason_for_state, mark_moved! or
@@ -1273,9 +1287,11 @@ auto_update:
     ruby <staged>/update/apply.rb --staged DIR --destination ~/.reach/plugin --manifest FILE --from X --to Y
     [--resume]. apply.rb (Ruby 2.6-safe, standard library only) moves the current install to
     ~/.reach/.backup/plugin-<timestamp>, moves the staged tree in, runs every update/migrations/<version>.rb with
-    from < version <= to in version order, rewrites the shim root to the new install, refreshes the harness copies
-    (Claude Code: claude plugin marketplace update reach, then claude plugin update reach@reach --scope user; Codex:
-    codex plugin marketplace upgrade reach, then codex plugin add reach@reach; Hermes and Antigravity link to the
+    from < version <= to in version order, rewrites the shim root to the new install, since 0.17.0 points the Claude
+    Code and Codex marketplaces at the new install first (harness_source, results in harness_sources), refreshes the
+    harness copies (Claude Code: claude plugin marketplace update reach, then claude plugin update reach@reach --scope
+    user; Codex: codex plugin marketplace upgrade reach, whose failure on a local source is ignored, then codex plugin
+    add reach@reach; Hermes and Antigravity link to the
     install and need nothing), records each harness result, and writes phase completed. A harness CLI that is absent
     or refuses is recorded and does not fail the update.
   student_experience:

@@ -161,7 +161,12 @@ module Reach
         return { id: "codex", ok: false, message: "Codex app: add this repository as a plugin marketplace, then add rEach from the Plugins directory." }
       end
 
-      _add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
+      add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
+      if !add_status && "#{add_out}#{add_err}".include?(Reach::HarnessSource::CONFLICT)
+        replaced = Reach::HarnessSource.replace_codex_source(source)
+        add_status = replaced == "ok"
+        add_err = replaced.sub(/\Afailed: /, "")
+      end
       unless add_status
         return { id: "codex", ok: false, message: "Codex: marketplace add failed: #{add_err}" }
       end
