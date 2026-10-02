@@ -557,7 +557,8 @@ course's blob reached the vault, the course text sat only in the 0600 brain spoo
 unchanged. Admission into a scratch rcorpus took all 6 operations, including the tombstone, in the private tier.
 The same functions also ran on Ruby 2.6.10.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (tag and release; Teach 0.18.2 deployed with each course's reference link).
+Build ✅ · Deploy 🔵 · Blocker: Temporal (tagged v0.17.1 and Teach 0.18.2 live with both course links on 2026-10-02;
+students receive it on their next auto-update and sync).
 
 ## 4 · Behaviour
 
