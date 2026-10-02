@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.12] - 2026-10-01
+
+### Added
+
+- `docs/DESIGN-DECISIONS.md`: the standing product decisions for rEach, latest form only, including the data-capture
+  rule and the planned move of everything rEach keeps into one rEach folder (0.17.0).
+- TODO: decide and send the analytics rEach captures, keyed to the enrolled student ID.
+
+### Changed
+
+- Files in the extracurricular folder no longer leave the student's computer. `reach transcript code` records AI
+  writes and `reach transcript turn` scans for changed files only in slice workspaces (`lib/reach/transcript.rb`);
+  before, every file in `extracurricular/`, a student's own and imported files included, went to Teach as
+  extracurricular code. The conversation held there (prompts, replies, reasoning, actions and code blocks put in a
+  reply) is still captured. `M-TRANSCRIPT-NOTICE`, the extracurricular fallback rule, the persona's answer to "what
+  does rEach share", the student guide, `reach.spec.yml` and `specs/app.yml` say so. Teach changes its G-EXTRA-2 rule
+  to match.
+
+### Fixed
+
+- Installing from Codex on Windows stopped at "Windows denies creating `C:\Users\<name>\.reach`" when the agent could
+  not run the install outside Codex's sandbox. Codex's Windows sandbox lets a command write only in the chat's
+  folder and the temp folder and blocks the network, whether elevated or not (measured on GitHub windows-2025 and
+  windows-11-arm with Codex 0.160.0), so the install cannot succeed inside it. `INSTALL.md` now has the agent tell the
+  student, in one message, to switch the chat's permissions to Full access and ask again, instead of improvising.
+
 ## [0.16.11] - 2026-10-01
 
 ### Fixed

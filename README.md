@@ -30,10 +30,12 @@ and raises a hand to the instructors on its own after three failed tries. The
 student deals only with the business behaviour; the agent does all the coding,
 following Reach's feature and bug flows, without git (see ROADMAP.md).
 
-Everything the student and their AI partner write in a course folder is saved
-in the student's course record on Teach, which their instructors can read: the
+The conversation in a course folder and the assignment code are saved in the
+student's course record on Teach, which their instructors can read: the
 student's prompts, the AI's replies, its reasoning where the harness stores it
-readably, its actions, and every version of every code file. The course folder
+readably, its actions, and every version of every file in a slice. Files in the
+extracurricular folder stay on the student's computer
+(docs/DESIGN-DECISIONS.md). The course folder
 is `~/reach-work`: assignment code lives only in
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
 student wants to build goes in `extracurricular/` (`reach work

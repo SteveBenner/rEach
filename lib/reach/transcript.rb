@@ -119,6 +119,7 @@ module Reach
         )
         return nil unless HERMES_WRITE_TOOLS.include?(event["tool_name"])
       end
+      return nil unless space == "slice"
 
       written_paths(event).each do |absolute|
         next if File.symlink?(absolute)
@@ -183,6 +184,8 @@ module Reach
     end
 
     def scan_space(session_id, harness, space)
+      return unless space == "slice"
+
       workspace = space == "slice" ? safe_current_workspace : nil
       base = space_base(space, workspace)
       return unless base && Dir.exist?(base)

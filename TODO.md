@@ -1,5 +1,11 @@
 # TODO
 
+## Analytics
+
+- [ ] Analytics we capture, identified by the enrolled student ID: decide and document which usage data, metadata
+      and analytics rEach sends to Teach, and send them keyed to the enrollment (docs/DESIGN-DECISIONS.md, data
+      capture).
+
 ## Enrollment v2 (0.16.0, branch `enrollment-v2`)
 
 - [x] Teach's half (roster, course codes, preview and shape v2 routes, stamp signing, fingerprint check,

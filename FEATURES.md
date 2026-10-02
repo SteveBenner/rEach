@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.11 |
+| **Registry version** | 0.16.12 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -176,8 +176,10 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 In every course folder on Claude Code and Codex, Reach captures the student's prompts (`reach gate prompt`, before
 any gate check) and, since 0.10.0, the AI's replies, its reasoning where the harness stores it readably, its actions
-and every version of every code file: `reach transcript code` after each write and `reach transcript turn` at each
-turn end, which reads the harness's own session transcript and scans the folder for changes the hooks did not see.
+and every version of every owned file in a slice: `reach transcript code` after each write and `reach transcript turn`
+at each turn end, which reads the harness's own session transcript and scans the slice for changes the hooks did not
+see. Since 0.16.12 files in the extracurricular folder never leave the computer; only the conversation held there
+is captured (docs/DESIGN-DECISIONS.md, data capture).
 A code block pasted into a reply is filed as a snippet and replaced by a pointer. Everything is spooled in
 `~/.reach/transcripts/` and sent from the Stop and SessionEnd hooks and `reach sync` to `POST /api/v1/transcripts`,
 only in the kinds the course server lists; Teach files it in the student's subcorpus. `reach transcript status` and
