@@ -1174,7 +1174,7 @@ course_reference:
     protocol 1 revision 2026-10-01a); REACH_REFERENCE_DIR overrides it.
   repository: >-
     Since 0.14.5 the Reach repository carries no course material, encrypted or not. Teach keeps the blobs and their
-    keys and ships them to each enrolled install. Since Teach 0.18.1 an install receives only its own course's blobs
+    keys and ships them to each enrolled install. Since Teach 0.18.2 an install receives only its own course's blobs
     and keys, every release unit, from enrollment on.
   blob_format: >-
     RREF version 1: the magic RREF, a format version byte, a length-prefixed key id, a length-prefixed course id, a
