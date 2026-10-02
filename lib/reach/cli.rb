@@ -804,9 +804,10 @@ module Reach
         limit_lines = limits_report
         problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
         relocation_line = Reach::Relocation.doctor_line
-        problems << relocation_line if relocation_line.start_with?("R-DOC-RELOCATION: failed") && Reach::Enroll.current
+        relocation_failed = relocation_line.start_with?("R-DOC-RELOCATION failed") && Reach::Enroll.current
+        problems << "#{relocation_line.sub("R-DOC-RELOCATION ", "R-DOC-RELOCATION: ")} - clear what the reason names, then run reach relocate" if relocation_failed
         problems.each { |line| puts line }
-        puts relocation_line unless problems.include?(relocation_line)
+        puts relocation_line unless relocation_failed
         enroll_line = doctor_enroll_line
         puts enroll_line if enroll_line
         puts doctor_runtime_line
