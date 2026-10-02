@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.10] - 2026-10-01
+
+### Fixed
+
+- A student who already had a runtime kit never received a newer pinned one. `Reach::RuntimeAuto.due?` returned false
+  whenever any kit was active, so a computer that installed `4.0.7-r1` kept it after Reach pinned `4.0.7-r3`. The
+  session-start hook now also starts the background install when the active kit is not the pinned `RUNTIME_ID`; the
+  older kit keeps serving local qualification until the new one is placed, and stays on disk afterwards
+  (`lib/reach/runtime_auto.rb`).
+
 ## [0.16.9] - 2026-10-01
 
 ### Fixed
