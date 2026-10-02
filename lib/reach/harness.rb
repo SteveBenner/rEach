@@ -107,7 +107,7 @@ module Reach
         path = which(executable)
         return nil unless path
 
-        output, status = Open3.capture2(executable, "--version")
+        output, _err, status = Open3.capture3(executable, "--version")
         { id: id, version: status.success? ? output.strip : "unknown" }
       rescue StandardError
         { id: id, version: "unknown" }

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.8 |
+| **Registry version** | 0.16.9 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -421,7 +421,13 @@ the wire contract digest, version agreement across manifests, the persona files,
 finding and exiting 1 if any fired. Since 0.16.2 R-DOC-GUARD and R-DOC-SEAL wait for enrollment, so a
 student who has not enrolled yet (or whose AI app sandbox cannot write the seal) no longer sees them, and an
 R-DOC-DIRECTIVES finding names why the file did not parse. Verified 2026-10-01 inside `codex sandbox` (codex-cli
-0.159.3) before and after enrollment.
+0.159.3) before and after enrollment. Since 0.16.9 a fresh install that has not enrolled yet is not a finding
+either: doctor prints an `enrollment:` line with the same words the gate uses and exits 0 when nothing else is
+wrong, while a revoked, damaged, moved or course-ended enrollment is still R-DOC-ENROLL; and the harness version
+probe keeps the harness's own stderr out of doctor's output (Codex warns that it "could not create PATH aliases"
+whenever it runs inside its own sandbox). Verified 2026-10-01 inside `codex sandbox` (codex-cli 0.159.3) on a
+fresh home (0.16.8: exit 1, R-DOC-ENROLL and the Codex warning; 0.16.9: exit 0, the `enrollment:` line, empty
+stderr), under Ruby 2.6.10, and against a revoked and a damaged `install.yml` (both still R-DOC-ENROLL, exit 1).
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
