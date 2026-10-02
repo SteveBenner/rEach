@@ -33,7 +33,7 @@
       enabled in Codex's settings and neither the student nor Sven found anything left to approve in the app. Likely
       openai/codex#47925 (Codex >= 0.156 loads no plugin hooks while the root `plugin.json` exists), whose cache repair
       shipped in 0.16.16 and was first tagged in v0.16.20; unconfirmed. Find each stuck student's Reach and Codex
-      versions, and stop the agent guide from sending a student to approve hooks that are already enabled.
+      versions, and stop the agent guide from sending a student to approve hooks that are already enabled. (The guide half is fixed in 0.16.24; the version check still needs the students.)
 - [ ] Verify a real Hermes session (enroll hook as context) and Antigravity (CLI only). Field report 2026-10-02:
       Hermes works for students; its enrollment is still untested.
 - [x] Verify machine ids on macOS (ioreg) and Windows (reg query); only Linux and a Docker container were exercised. (Done in 0.16.8: the platform smoke reads IOPlatformUUID on GitHub macOS arm64 and Intel and MachineGuid on Windows x64 and arm64, and the fake Teach accepts the fingerprint on status.)

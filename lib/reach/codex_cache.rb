@@ -21,6 +21,13 @@ module Reach
       rescue StandardError
         0
       end
+
+      def repaired?
+        repair
+        !Dir.glob(File.join(codex_home, "plugins", "cache", "*", "reach", "*", SET_ASIDE)).empty?
+      rescue StandardError
+        false
+      end
     end
   end
 end

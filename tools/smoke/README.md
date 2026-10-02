@@ -133,6 +133,11 @@ implementation, checks that submit is refused before any qualification, writes t
 agent's scenarios from `tools/smoke/qualify/`, qualifies locally and on Teach (with
 Teach's grader running), submits, and follows the ingest and grade receipts.
 
+It runs Teach from a clean export of the committed `HEAD` of `SMOKE_TEACH_REPO` (default
+`~/bitbucket/paterasai/teach`), written to `<run dir>/teach`, so uncommitted changes in that
+checkout never reach the run. `--teach-dir DIR` or `SMOKE_TEACH_DIR` runs a given tree
+instead. Teach's gems come from `SMOKE_TEACH_BUNDLE` (default that checkout's `vendor/bundle`).
+
 Enrollment follows the Teach 0.17 flow in both drivers: `teach roster import --course ID
 FILE.csv` (columns `student_id,username,display_name,group`), `teach course code mint
 --course ID` for the class-wide course code, then `reach enroll --course-code C --username U

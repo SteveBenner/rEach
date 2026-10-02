@@ -39,7 +39,7 @@ module Reach
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         message = Reach::EnrollFlow.next_message(lock)
-        return [nil, message, message, locked_context]
+        return [nil, message, message, locked_context(format)]
       end
 
       maybe_refresh_status
@@ -82,9 +82,12 @@ module Reach
       nil
     end
 
-    def locked_context
+    def locked_context(format = "hook")
       guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"))
-      "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}"
+      text = "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}"
+      return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
+
+      "#{text}\n#{Reach::Messages.text("M-ENR-AGENT-CODEX-REPAIRED")}"
     end
 
     def login_pending?(event)
