@@ -45,7 +45,8 @@ module AssignmentOne
   class Runner
     def initialize(options)
       @options = options
-      @teach_dir = File.expand_path(options[:teach_dir])
+      @teach_dir = options[:teach_dir] && File.expand_path(options[:teach_dir])
+      @teach_repo = File.expand_path(options[:teach_repo])
       @grokit = File.expand_path(options[:grokit])
       @dovetail = File.expand_path(options[:dovetail])
       @ruby4_bin = File.expand_path(options[:ruby4_bin])
@@ -64,6 +65,7 @@ module AssignmentOne
     def run
       guard_real_homes!
       FileUtils.mkdir_p(@run_dir)
+      export_teach unless @teach_dir
       prepare_paths
       create_scratch_database
       begin
@@ -185,6 +187,13 @@ module AssignmentOne
       [File.join(HOME_DIR, ".reach"), File.join(HOME_DIR, ".teach")].each do |real|
         raise Fatal, "run dir must not be inside #{real}" if File.expand_path(@run_dir).start_with?(real)
       end
+    end
+
+    def export_teach
+      @teach_dir = File.join(@run_dir, "teach")
+      FileUtils.mkdir_p(@teach_dir)
+      statuses = Open3.pipeline(["git", "-C", @teach_repo, "archive", "--format=tar", "HEAD"], ["tar", "-x", "-C", @teach_dir])
+      raise Fatal, "could not export the HEAD of #{@teach_repo} into #{@teach_dir}" unless statuses.all?(&:success?)
     end
 
     def prepare_paths
@@ -972,7 +981,8 @@ module AssignmentOne
 
   def main(argv)
     options = {
-      teach_dir: ENV.fetch("SMOKE_TEACH_DIR", "/tmp/teach-a1"),
+      teach_dir: ENV["SMOKE_TEACH_DIR"],
+      teach_repo: ENV.fetch("SMOKE_TEACH_REPO", File.join(HOME_DIR, "bitbucket", "paterasai", "teach")),
       grokit: ENV.fetch("SMOKE_GROKIT_ROOT", File.join(HOME_DIR, "bitbucket", "paterasai", "grokit")),
       dovetail: ENV.fetch("SMOKE_DOVETAIL_ROOT", File.join(HOME_DIR, "github", "foss", "dovetail")),
       ruby4_bin: ENV.fetch("SMOKE_RUBY4_BIN", File.join(HOME_DIR, ".rubies", "ruby-4.0.6", "bin")),

@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.24] - 2026-10-02
+
+### Fixed
+
+- A Codex student whose rEach hooks already show as enabled is no longer sent round in circles to approve them. When
+  Codex loaded none of rEach's hooks (openai/codex#47925) the agent still got the locked guidance through the
+  `reach_hello` tool, and that guidance always said to trust rEach's hooks, which the student could not do because
+  nothing was left to approve. `M-ENR-AGENT-GUIDE` now asks for hook trust only when Codex lists the hooks for review
+  and tells the agent to believe a student who says they are enabled. When `reach hello` runs outside a hook and
+  rEach's Codex plugin copy has been repaired (`Reach::CodexCache.repaired?`, `lib/reach/codex_cache.rb`), the
+  locked context adds `M-ENR-AGENT-CODEX-REPAIRED`: nothing needs approving, quit and reopen Codex, start a new chat
+  (`lib/reach/hello.rb`). Verified in a scratch home with a Codex cache holding the root `plugin.json`: the tool
+  path repaired it and added the note, the hook path and a machine without Codex did not.
+- `tools/smoke/assignment_one.rb` no longer defaults to a `/tmp/teach-a1` that does not exist. Without
+  `--teach-dir`/`SMOKE_TEACH_DIR` it exports the committed `HEAD` of `SMOKE_TEACH_REPO` (default
+  `~/src/teach`) into the run directory, so a dirty Teach checkout never reaches the run.
+
 ## [0.16.23] - 2026-10-02
 
 ### Added
