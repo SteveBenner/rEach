@@ -63,7 +63,7 @@ Steps, in order, grouped by evidence class:
 | handshake | blocked-before-enroll | `reach gate session` exits 2 and `reach work` refuses before enrollment |
 | install | setup-codex | `reach setup --harness codex` succeeds with an isolated `CODEX_HOME`; skipped without `codex` |
 | install | doctor | recorded; a pre-enrollment doctor is expected to report problems |
-| handshake | enroll-handshake | enrollment succeeds and Teach lists exactly one install |
+| handshake | enroll-handshake | enrollment succeeds and Teach lists exactly one install (a shape v2 enrollment also takes a password, given with `--password-stdin`) |
 | handshake | enroll-code-reuse-rejected | the same code from a second `REACH_HOME` is refused and no second install exists |
 | handshake | sync-delivers-workspace | workspace has `README.md`, `acceptance_mode` remote and the scenario names |
 | local | guarded-write-owned, edit-outside-owned-blocked | the gate allows the owned file and exits 2 for any other |

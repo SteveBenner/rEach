@@ -38,7 +38,7 @@ slices:
         does: Read hooks/codex.json from the installed copy, substitute ${PLUGIN_ROOT}, and run its UserPromptSubmit command the same way.
         pass: Same block signal as hook_prompt_locked.
       - id: enroll
-        does: ruby <install>/exe/reach enroll --course-code MGMT327-K7QX-94TD --username mdel101 --student-id 1040217 --teach-url <fake teach url>, stdin closed.
+        does: ruby <install>/exe/reach enroll --course-code MGMT327-K7QX-94TD --username mdel101 --student-id 1040217 --password-stdin --teach-url <fake teach url>, with a fixed test password on stdin.
         pass: exit 0 and the output says the student is connected to the course.
       - id: machine_id
         does: In a child Ruby with -I <install>/lib, require Reach and print Reach::Fingerprint.machine_id.

@@ -13,6 +13,7 @@ require "fileutils"
 module PlatformSmoke
   ROOT = File.expand_path("../..", __dir__)
   COURSE_CODE = "MGMT327-K7QX-94TD".freeze
+  TEST_PASSWORD = "smoke-test-password-1".freeze
   USERNAME = "mdel101".freeze
   STUDENT_NAME = "Maria Delgado".freeze
   STUDENT_ID = "1040217".freeze
@@ -129,8 +130,8 @@ module PlatformSmoke
       nil
     end
 
-    def reach(*args, timeout: STEP_TIMEOUT_S)
-      spawn_capture([RbConfig.ruby, File.join(@install, "exe", "reach"), *args], timeout: timeout, chdir: @scratch)
+    def reach(*args, timeout: STEP_TIMEOUT_S, stdin: "")
+      spawn_capture([RbConfig.ruby, File.join(@install, "exe", "reach"), *args], stdin: stdin, timeout: timeout, chdir: @scratch)
     end
 
     def step(name)
@@ -391,7 +392,7 @@ module PlatformSmoke
     end
 
     def enroll_step
-      code, out, err = reach("enroll", "--course-code", COURSE_CODE, "--username", USERNAME, "--student-id", STUDENT_ID, "--teach-url", @teach_url)
+      code, out, err = reach("enroll", "--course-code", COURSE_CODE, "--username", USERNAME, "--student-id", STUDENT_ID, "--password-stdin", "--teach-url", @teach_url, stdin: "#{TEST_PASSWORD}\n")
       return [:fail, "exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
       return [:fail, "output does not say connected: #{tail(out, err)}"] unless out =~ /connected to/i
 

@@ -204,6 +204,11 @@ module FakeTeach
         raise Failure.new(400, "invalid_request", "shape v1 is not served by the fake")
       end
 
+      password = body["password"]
+      unless password.is_a?(String) && password.length >= 8 && password.length <= 256
+        raise Failure.new(400, "password_required", "choose a password of 8 to 256 characters")
+      end
+
       %w[course_code username student_id public_key_pem reach_version platform].each do |field|
         unless body[field].is_a?(String) && !body[field].empty?
           raise Failure.new(400, "invalid_request", "#{field} is required")
