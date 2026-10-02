@@ -113,8 +113,7 @@ module Reach
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "code" => { "type" => "string" },
-            "teach_url" => { "type" => "string" }
+            "code" => { "type" => "string" }
           },
           "required" => ["code"]
         }
@@ -388,7 +387,7 @@ module Reach
         when "reach_profile_forget"
           { "forgotten" => Reach::Profile.forget! }
         when "reach_enroll", "reach_enrol"
-          install = Reach::Enroll.generate_and_register(arguments.fetch("code"), arguments["teach_url"] || Reach::Runtime.default_teach_url)
+          install = Reach::Enroll.generate_and_register(arguments.fetch("code"), Reach::Runtime.default_teach_url)
           { "install" => install, "sync" => Reach::Sync.run }
         when "reach_sync"
           Reach::Sync.run

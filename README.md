@@ -11,7 +11,7 @@ agent into **rEach**, a bounded course partner for a
 Until the student enrolls, rEach refuses everything else: it blocks every
 prompt and asks the student itself, one at a time, for the class-wide course
 code their instructor shared (like `MGMT327-K7QX-94TD`), their institutional
-username (`FLLLNNN@lasierra.edu`) and their seven-digit student ID, so the agent
+username (`FLLLNNN@lasierra.edu`) and their student ID, so the agent
 never sees them. Teach checks them against its roster and returns a signed
 enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).

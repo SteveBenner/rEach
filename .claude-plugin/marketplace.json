@@ -9,7 +9,7 @@
       "name": "reach",
       "source": "./",
       "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
-      "version": "0.16.19",
+      "version": "0.16.20",
       "category": "education"
     }
   ]

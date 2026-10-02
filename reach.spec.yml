@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.19
+version: 0.16.20
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.19
+    version: 0.16.20
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -885,7 +885,8 @@ mcp_bridge:
   - name: reach_enroll
     description: >-
       Since 0.16.0 it never enrolls: it answers with M-GATE-NOENROLL, because the student's code, username and
-      student ID go to rEach's own enrollment flow and never through the agent. While Reach is locked every other tool
+      student ID go to rEach's own enrollment flow and never through the agent. Since 0.16.20 it takes no teach_url
+      argument, so no agent has a reason to ask for one. While Reach is locked every other tool
       refuses with the lock's message too (W-ENR-6).
   - name: reach_sync
     description: Fetch new packages, verify them and refresh workspaces
@@ -982,10 +983,11 @@ cli:
       (the PostToolUse write hook) records the files just written; flush sends the spool to Teach; status says how
       many entries are sent and how many wait
   - name: enroll
-    synopsis: reach enroll [--course-code CODE --username USER --student-id ID | <code>] [--teach-url URL]
+    synopsis: reach enroll [--course-code CODE --username USER --student-id ID | <code>]
     purpose: >-
-      Without --teach-url it uses REACH_TEACH_URL, else config.yml teach.url (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, the course's
-      Teach behind Tailscale Funnel).
+      The course server is config.yml teach.url (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, the course's Teach behind Tailscale
+      Funnel); the student is never asked for it. Since 0.16.20 --teach-url is an unlisted operator override (the
+      smokes use it), as is REACH_TEACH_URL; without a configured URL enroll says to run reach update.
       Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and
       fingerprint, prints M-ENROLL-DONE, M-TRANSCRIPT-NOTICE and M-FINGERPRINT-NOTICE, then syncs; a bare <code>

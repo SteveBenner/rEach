@@ -131,8 +131,8 @@ module Reach
           usage: reach <command> [options]
 
           commands:
-            enroll [--course-code C --username U --student-id I] [--teach-url URL]   enroll with your course code, username and student ID (asks for them when none are given)
-            enroll <code> [--teach-url URL]      enroll with a per-student code
+            enroll [--course-code C --username U --student-id I]   enroll with your course code, username and student ID (asks for them when none are given)
+            enroll <code>                        enroll with a per-student code
             sync                                 fetch new packages and refresh workspaces
             status                               enrollment, slices, receipts, open hands
             work [--harness ...] [--slice ... | --extracurricular]   open a slice, or your own folder
@@ -233,7 +233,7 @@ module Reach
         code = remaining.shift
         teach_url = options[:teach_url] || Reach::Runtime.default_teach_url
         unless teach_url
-          warn "reach: no --teach-url given and no default teach url is configured"
+          warn "reach: this copy of rEach has no course server configured; run reach update, then try again"
           return 1
         end
         if options[:course_code] || (code.nil? && STDIN.tty?)
@@ -241,7 +241,7 @@ module Reach
         end
 
         unless code
-          warn "usage: reach enroll [--course-code C --username U --student-id I] [--teach-url URL] | reach enroll <code> [--teach-url URL]"
+          warn "usage: reach enroll [--course-code C --username U --student-id I] | reach enroll <code>"
           return 1
         end
         install = Reach::Enroll.generate_and_register(code, teach_url)

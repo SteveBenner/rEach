@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.19
+version: 0.16.20
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -38,7 +38,7 @@ standards:
   - id: STD-WIRE-CONTRACT
     text: "Every byte Reach sends to or accepts from Teach follows specs/wire.yml. reach doctor reports R-DOC-WIRE when Teach advertises a different contract digest."
   - id: STD-TEACH-URL
-    text: "config.yml teach.url names the course's Teach over HTTPS (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, Tailscale Funnel to the course server), so reach enroll and the enrollment flow need no --teach-url; REACH_TEACH_URL and --teach-url override it, and an install keeps the URL it enrolled with (install.yml teach_url)."
+    text: "rEach carries the course's Teach URL and never asks the student or the agent for it. config.yml teach.url names Teach over HTTPS (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, Tailscale Funnel to the course server) and every enrollment path uses it: the prompt-hook enrollment flow, reach enroll and the reach_enroll tool (which takes no teach_url since 0.16.20). REACH_TEACH_URL and the unlisted --teach-url are operator overrides, an install keeps the URL it enrolled with (install.yml teach_url), and with no URL configured rEach says to run reach update. config.yml's enrollment identity rules match live Teach (student IDs ^[0-9]{6,7}$, usernames ^[a-z]{4}[0-9]{3}[a-z]?$ since 0.16.20); Teach's preview rules still win."
   - id: STD-PERSONA-ONE-SOURCE
     text: "The rEach persona body is identical in skills/reach-assistant/SKILL.md and agents/reach.md, and quotes the G-FIRST-RUN greeting from locales/greetings.en-US.yml; reach doctor reports R-DOC-PERSONA otherwise."
   - id: STD-CODEX-PLUGIN-HOOKS
