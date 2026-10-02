@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.12 |
+| **Registry version** | 0.16.14 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 45 catalogued |
+| **Feature count** | 46 catalogued |
 
 ## How to read this registry
 
@@ -23,12 +23,12 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 45 | 100% |
+| ✅ Shipped | 46 | 100% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 2% |
-| 🔵 Built, not enabled | 43 | 96% |
+| 🔵 Built, not enabled | 44 | 96% |
 | ⚫ No runtime path | 1 | 2% |
 
 ## 1 · Install
@@ -63,16 +63,31 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Antigravity remains untested; the li
 
 ### 1.4 · Automatic updates
 
-Since 0.13.0 Reach keeps a managed `~/.reach/plugin` install current by itself: GitHub releases first, tags as the
-fallback, checked at session start and hourly from detached processes, staged in the background and installed at the
+Since 0.13.0 Reach keeps a managed `~/.reach/plugin` install current by itself, from GitHub releases and tags together
+(since 0.16.14 the newest version from either, so a tag newer than the last release is offered), checked at session start and hourly from detached processes, staged in the background and installed at the
 next session start by the release's own `update/apply.rb`, with every phase in `~/.reach/state/update.json` so an
 interrupted update resumes (`reach update status|check|run`). Verified 2026-09-30 against a GitHub-shaped local HTTPS
 mirror (real releases API and real Dovetail archive): the login install, the mid-session stage and notices, a kill
 mid-download, a crash after the swap and both crashes between the renames all completed, and a real Claude Code
 plugin cache moved from 0.12.9 to 0.13.0 through the refresh. Students on 0.12.0 or earlier have no updater and need
-one manual reinstall; only tagged releases are offered.
+one manual reinstall; only tagged versions are offered.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student install has received a real release through it yet; Codex refresh and Windows unverified).
+
+### 1.5 · Installation and setup guide
+
+Since 0.16.13 `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is the student setup handout with no institution, instructor,
+course or term in it. It covers installing the AI app, the one install message, the approvals and extra steps each
+app and computer needs (in Codex: running the install outside the sandbox, Full access on Windows, trusting rEach's
+hooks and each course folder's hooks), enrollment and sign-in, with official vendor screenshots. `reach guide`
+prints its text from the .docx with the standard library and works while Reach is locked. Until the student is
+enrolled, every session's locked context tells the agent to read it, and to walk the student through the extra
+steps first when the student's messages reach it while locked (Hermes gets the same note after its relay).
+`INSTALL.md` has the installing agent use it for setup's host steps. Ran 2026-10-01 from the checkout in a scratch
+home: `reach guide`, `--path`, `--format json`, the shim, locked `reach hello` (text and hook) and the Hermes
+locked prompt hook.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (no student has been walked through it by an agent yet; its prose is not checked against the code, so a later change to enrollment or the install can leave it stale).
 
 ## 2 · Course flow
 
@@ -301,7 +316,7 @@ dashes, spaces, case and O/0, I/L/1 in the secret are forgiven; a course id with
 school username (`FLLLNNN@school.example`) and the seven-digit student ID. It confirms, then enrolls with wire
 shape v2. Teach answers with a signed enrollment stamp binding the install, the student, the course and a salted,
 hashed fingerprint of the computer, the account and the install key. Every CLI verb except help, enroll, setup,
-doctor, support, update and the hooks, and every MCP tool, refuses while locked. Reach locks again when the stamp
+doctor, support, update, guide and the hooks, and every MCP tool, refuses while locked. Reach locks again when the stamp
 fails, the course ends, or the fingerprint stops matching, locally or on Teach's status check. The crisis check runs
 before every step. `reach enroll --course-code ... --username ... --student-id ...` does the same from a terminal.
 
@@ -534,5 +549,5 @@ Build ✅ · Deploy 🔵 · Blocker: Human (install-from-link, an interactive se
 ## Appendix · Blocked by
 
 - **Access**: 1.2.
-- **Human**: 1.3, 3.2, 10.2, 10.4, 10.5.
+- **Human**: 1.3, 1.5, 3.2, 10.2, 10.4, 10.5.
 - **Engineering**: 1.1 (the Windows installer path is unverified).
