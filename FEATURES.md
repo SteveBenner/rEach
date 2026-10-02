@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.18 |
+| **Registry version** | 0.16.19 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -98,7 +98,8 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no student has been walked through i
 response fields, the wire digest equality and `minimum_reach_version`. The smoke showed a second use of the same code
 refused. Since 0.10.0 it posts to `/api/v1/enroll` and retries once at `/api/v1/enrol` on a 404; `reach enrol` and the
 `reach_enrol` tool still work, unlisted. A Teach 0.10.0 refuses a too-old Reach before spending the code
-(`reach_outdated`), and Reach shows why; verified through a proxy that 404s the new route.
+(`reach_outdated`), and Reach shows why; verified through a proxy that 404s the new route. Since 0.16.19
+`config.yml` `teach.url` is `https://sven-f1l1.tail062fd2.ts.net`, so `--teach-url` is optional.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

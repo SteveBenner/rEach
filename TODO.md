@@ -92,7 +92,7 @@
 ## Before a class uses it
 
 - [ ] Publish the repository (GitHub mirror planned); installing from a link needs a public repository.
-- [ ] Set `teach.url` in `config.yml` for the course, so `reach enroll <code>` needs no `--teach-url`.
+- [x] Set `teach.url` in `config.yml` for the course, so `reach enroll <code>` needs no `--teach-url` (0.16.19: `https://sven-f1l1.tail062fd2.ts.net`).
 - [x] A real signed Dovetail shape and a real `dovetail` binary to verify `Reach::Shape`'s output parsing: done in 0.4.2 against dovetail 0.1.0 on Ruby 3.3 and 2.6.10, and in 0.6.0 against a shape package Teach compiled and signed from Grokit's contracts.
 - [x] A real suite package and reference build to verify `Reach::Suite` end-to-end: done in 0.6.0 with Grokit 0.2.0's suite.
 - [x] `reach status` now shows each slice's own last tips result instead of the corpus's global latest tip record (fixed 2026-09-29; since 0.11.0 it shows each slice's qualification instead).

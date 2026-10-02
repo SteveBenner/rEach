@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.19] - 2026-10-01
+
+### Fixed
+
+- `config.yml` `teach.url` was blank, so `reach enroll` and the enrollment flow had no Teach to reach without
+  `--teach-url` or `REACH_TEACH_URL`. It is now `https://sven-f1l1.tail062fd2.ts.net`, the course's Teach over HTTPS through Tailscale
+  Funnel. Verified from public DNS and from Ruby 2.6.10: `GET /api/v1/enrollment/preview` answers, and a bare course
+  id returns `details.course_only` (`mgmt327-fa26`).
+
 ## [0.16.18] - 2026-10-01
 
 ### Changed

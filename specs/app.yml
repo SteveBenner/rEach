@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.18
+version: 0.16.19
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -37,6 +37,8 @@ standards:
     text: "When rplugin is present, code reaches its ports through Reach.ports (Rplugin::Ports.for('reach', root:)); without it, Reach keeps its own records under ~/.reach. Reach never reads or writes another plugin's data. reach setup touches a harness only through that harness's own install command or its documented plugin directory."
   - id: STD-WIRE-CONTRACT
     text: "Every byte Reach sends to or accepts from Teach follows specs/wire.yml. reach doctor reports R-DOC-WIRE when Teach advertises a different contract digest."
+  - id: STD-TEACH-URL
+    text: "config.yml teach.url names the course's Teach over HTTPS (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, Tailscale Funnel to the course server), so reach enroll and the enrollment flow need no --teach-url; REACH_TEACH_URL and --teach-url override it, and an install keeps the URL it enrolled with (install.yml teach_url)."
   - id: STD-PERSONA-ONE-SOURCE
     text: "The rEach persona body is identical in skills/reach-assistant/SKILL.md and agents/reach.md, and quotes the G-FIRST-RUN greeting from locales/greetings.en-US.yml; reach doctor reports R-DOC-PERSONA otherwise."
   - id: STD-CODEX-PLUGIN-HOOKS
