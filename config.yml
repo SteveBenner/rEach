@@ -14,7 +14,21 @@ enrollment:
   lockout_refusals: 5
   lockout_minutes: 15
   fingerprint_match: binding
-  instructor_keys: []
+  instructor_keys:
+    - id: "343572ebf748c69d"
+      label: instructor
+      public_key_pem: |
+        -----BEGIN PUBLIC KEY-----
+        MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAkV+phIcOIEguQACEDLk3
+        Krxbsxetw/SrsT2FkDJL8IPz222gHeBguZXg5wVxOARJsFdiC5jzf1iU7rUCoffi
+        Hh3NIdRfzsW9igB72c6h8vW9inH3pD/yu2oURAM1+Cyka73WLCAVPT0mJ6fuACX9
+        4dxYbyNeiY3JMReYd4caCTm+PWFFSAbAW2mUi4j33R0vxQsFGv8oX41nwggOCXbZ
+        lqT7kr+Z0immGtUZTafM+SoYvvcWPsP/F6UXCzgKqGRNaSl62Q5/RBW5KOaF01Bt
+        +ZCuegHg2h+NUKmwKwwsepbxOMfawgwg/e4oIB0iQXL6/O8+26PxZWmvs6tqCeqI
+        Om39kHdDCfNCyYCqj/rXAPn6xuFsu3jNMWWQip7INH9uxdV8gTYjmeFnKbGOfOuU
+        /yk93DM09q+VafVzsID5DOMI0YzSHB9or72teKkqB3WIeVGZ+35dcOx5Yw9mZJ7T
+        ibitu9HZP1nG49+VEfyRkiS7WEmfXMzXZslDAKg/vKvJAgMBAAE=
+        -----END PUBLIC KEY-----
   instructor_revoked: []
 updates:
   repository: https://github.com/SteveBenner/rEach
