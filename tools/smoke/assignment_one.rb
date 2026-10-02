@@ -19,9 +19,14 @@ module AssignmentOne
   CUTOUT = "context.a1"
   SLICE = "backend"
   COURSE_ID = "bus101-fa26"
+  COURSE_END_DATE = "2026-12-18"
   OWNED_RELATIVE = "modules/context/lib/grokit/context/behaviours/return_profile_value.rb"
-  STUDENT_ID = "s-a1-001"
-  SECOND_STUDENT_ID = "s-a1-002"
+  STUDENT_ID = "1000001"
+  STUDENT_USERNAME = "smok001"
+  SECOND_STUDENT_ID = "1000002"
+  SECOND_STUDENT_USERNAME = "smok002"
+  WRONG_STUDENT_ID = "1999999"
+  STUDENT_PASSWORD = "smoke-password-1"
   README_SOURCE = File.join(__dir__, "assignment_one_readme.md")
   COMMAND_TIMEOUT_S = 180
   GRADER_TIMEOUT_S = Integer(ENV.fetch("SMOKE_GRADER_TIMEOUT", "900"))
@@ -96,7 +101,7 @@ module AssignmentOne
       step("doctor", "install") { doctor }
       return skip_rest("enrollment did not complete") unless step("enroll-handshake", "handshake") { enroll }
 
-      step("enroll-code-reuse-rejected", "handshake") { reuse_code_rejected }
+      step("enroll-wrong-student-id-refused", "handshake") { wrong_student_id_refused }
       return skip_rest("no workspace delivered") unless step("sync-delivers-workspace", "handshake") { sync_workspace }
 
       step("reference-after-sync", "reference") { reference_after_sync }
@@ -338,11 +343,21 @@ module AssignmentOne
     end
 
     def provision_teach
-      File.write(File.join(@run_dir, "roster.csv"), "id,display_name,email,group\n#{STUDENT_ID},Synthetic Student One,,G1\n#{SECOND_STUDENT_ID},Synthetic Student Two,,G1\n")
+      File.write(File.join(@run_dir, "students.csv"), "id,display_name,email,group\n#{STUDENT_ID},Synthetic Student One,,G1\n#{SECOND_STUDENT_ID},Synthetic Student Two,,G1\n")
+      File.write(File.join(@run_dir, "roster.csv"), "student_id,username,display_name,group\n#{STUDENT_ID},#{STUDENT_USERNAME},Synthetic Student One,G1\n#{SECOND_STUDENT_ID},#{SECOND_STUDENT_USERNAME},Synthetic Student Two,G1\n")
       File.write(File.join(@run_dir, "slices.csv"), "student_id,cutout_id,slice\n#{STUDENT_ID},#{CUTOUT},#{SLICE}\n")
       teach("keys", "generate")
       teach("course", "init", "--id", COURSE_ID, "--title", "BUS 101 Smoke", "--term", "Fall 2026", "--tz", "America/Los_Angeles")
-      teach("students", "import", File.join(@run_dir, "roster.csv"))
+      teach("course", "set-end", "--course", COURSE_ID, "--date", COURSE_END_DATE)
+      teach("students", "import", File.join(@run_dir, "students.csv"))
+      roster = teach_json("roster", "import", "--course", COURSE_ID, File.join(@run_dir, "roster.csv"))
+      raise Fail, "roster import rejected rows: #{roster["rejected"].inspect}" unless roster["added"] == 2 && roster["rejected"].empty?
+
+      minted = teach_json("course", "code", "mint", "--course", COURSE_ID)
+      @code = minted.fetch("code")
+      @secrets << @code
+      @secrets << STUDENT_PASSWORD
+      File.write(File.join(@private_dir, "course_code.json"), JSON.generate(minted), perm: 0o600)
       out = teach("slices", "assign", "--assignment", ASSIGNMENT, "--from", File.join(@run_dir, "slices.csv"))
       @last[:output] = out
       "course #{COURSE_ID} provisioned with 2 synthetic students, slice #{CUTOUT}-#{SLICE} assigned to #{STUDENT_ID}"
@@ -483,12 +498,12 @@ module AssignmentOne
       "doctor exit #{status.exitstatus}: #{out.lines.map(&:strip).reject(&:empty?).first(4).join(" | ")}"
     end
 
+    def enroll_args(student_id)
+      ["enroll", "--course-code", @code, "--username", STUDENT_USERNAME, "--student-id", student_id, "--password-stdin", "--teach-url", @teach_url]
+    end
+
     def enroll
-      codes = teach_json("enroll", "codes", "--student", STUDENT_ID)
-      @code = codes.first.fetch("code")
-      @secrets << @code
-      File.write(File.join(@private_dir, "codes.json"), JSON.generate(codes), perm: 0o600)
-      out = reach!("enroll", @code, "--teach-url", @teach_url)
+      out = reach!(*enroll_args(STUDENT_ID), stdin: "#{STUDENT_PASSWORD}\n")
       raise Fail, "enroll printed no course-ready confirmation" if out.strip.empty?
 
       installs = teach_json("installs", "list")
@@ -500,16 +515,16 @@ module AssignmentOne
       "enrolled install #{@install_id}; #{out.lines.first.to_s.strip}"
     end
 
-    def reuse_code_rejected
-      out, status = reach("enroll", @code, "--teach-url", @teach_url, home: @reach_home_b)
+    def wrong_student_id_refused
+      out, status = reach(*enroll_args(WRONG_STUDENT_ID), stdin: "#{STUDENT_PASSWORD}\n", home: @reach_home_b)
       @last[:expected] = "nonzero exit, no second install"
       @last[:actual] = "exit #{status.exitstatus}"
-      raise Fail, "reused code enrolled a second install" if status.success?
+      raise Fail, "a wrong student id enrolled an install" if status.success?
 
       installs = teach_json("installs", "list")
-      raise Fail, "teach holds #{installs.length} installs after the reuse attempt, want 1" unless installs.length == 1
+      raise Fail, "teach holds #{installs.length} installs after the refused attempt, want 1" unless installs.length == 1
 
-      "second enroll refused: #{out.strip[0, 160]}"
+      "wrong student id refused: #{out.strip[0, 160]}"
     end
 
     def sync_workspace

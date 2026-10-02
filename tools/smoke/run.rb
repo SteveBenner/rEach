@@ -27,6 +27,11 @@ module Smoke
   GIT_PORT = Integer(ENV.fetch("SMOKE_GIT_PORT", "8479"))
   RUNS_DIR = File.expand_path(ENV["SMOKE_RUNS_DIR"] && !ENV["SMOKE_RUNS_DIR"].empty? ? ENV["SMOKE_RUNS_DIR"] : "~/.cache/reach-smoke/runs")
   CONTAINER_HOME = "/student"
+  COURSE_ID = "bus101-fa26"
+  COURSE_END_DATE = "2026-12-18"
+  STUDENT_ID = "1000001"
+  STUDENT_USERNAME = "ruiz001"
+  STUDENT_PASSWORD = "smoke-password-1"
   HARD_FORBIDDEN = /\b(health|disab\w*|religio\w*|politic\w*|immigra\w*|visa|relationships?|how old|your age|birthday|phone|your e-?mail|e-?mail address|home address|your address|gpa)\b/i
   SOFT_FORBIDDEN = /\b(money|income|salary|financ\w*|family|parents?)\b/i
   QUOTED_SPAN = /'[^'\n]*'|"[^"\n]*"|‘[^‘’\n]*’|“[^“”\n]*”/
@@ -300,13 +305,19 @@ module Smoke
       _out, err, status = Open3.capture3("createdb", @db_name)
       raise Abort, "createdb #{@db_name} failed: #{err.strip}" unless status.success?
 
-      File.write(File.join(@dir, "roster.csv"), "id,display_name,email,group\ns001,Dana Ruiz,,G1\n")
-      File.write(File.join(@dir, "slices.csv"), "student_id,cutout_id,slice\ns001,context.a1,backend\n")
+      File.write(File.join(@dir, "students.csv"), "id,display_name,email,group\n#{STUDENT_ID},Dana Ruiz,,G1\n")
+      File.write(File.join(@dir, "roster.csv"), "student_id,username,display_name,group\n#{STUDENT_ID},#{STUDENT_USERNAME},Dana Ruiz,G1\n")
+      File.write(File.join(@dir, "slices.csv"), "student_id,cutout_id,slice\n#{STUDENT_ID},context.a1,backend\n")
       teach("keys", "generate")
-      teach("course", "init", "--id", "bus101-fa26", "--title", "BUS 101 Demo Course", "--term", "Fall 2026", "--tz", "America/Los_Angeles")
-      teach("students", "import", File.join(@dir, "roster.csv"))
+      teach("course", "init", "--id", COURSE_ID, "--title", "BUS 101 Demo Course", "--term", "Fall 2026", "--tz", "America/Los_Angeles")
+      teach("course", "set-end", "--course", COURSE_ID, "--date", COURSE_END_DATE)
+      teach("students", "import", File.join(@dir, "students.csv"))
+      roster = teach("roster", "import", "--course", COURSE_ID, File.join(@dir, "roster.csv"))
+      raise Abort, "teach roster import rejected rows: #{roster}" unless JSON.parse(roster[roster.index(/[\[{]/)..])["rejected"] == []
+
       teach("slices", "assign", "--assignment", "A1", "--from", File.join(@dir, "slices.csv"))
-      code = JSON.parse(teach("enroll", "codes")).first["code"]
+      minted = teach("course", "code", "mint", "--course", COURSE_ID)
+      code = JSON.parse(minted[minted.index(/[\[{]/)..]).fetch("code")
       log = File.open(File.join(@dir, "teach-serve.log"), "w")
       @pid = Process.spawn(@env, "bundle", "exec", "ruby", "bin/teach", "serve", chdir: TEACH_DIR, out: log, err: log, pgroup: true)
       60.times do
@@ -504,7 +515,8 @@ module Smoke
 
     def enrol_and_sync(teach, home, dir)
       code = teach.start!
-      reach_cli(home, dir, "enroll", code, "--teach-url", teach.url)
+      reach_cli(home, dir, "enroll", "--course-code", code, "--username", STUDENT_USERNAME, "--student-id", STUDENT_ID,
+                "--password-stdin", "--teach-url", teach.url, stdin: "#{STUDENT_PASSWORD}\n")
       teach.build_and_release!
       reach_cli(home, dir, "sync")
       marker = Dir.glob(File.join(home, "reach-work", "**", ".reach", "slice.json")).first
@@ -514,12 +526,12 @@ module Smoke
       { host: host, container: host.sub(home, CONTAINER_HOME) }
     end
 
-    def reach_cli(home, dir, *args)
+    def reach_cli(home, dir, *args, stdin: nil)
       name = "reach-smoke-#{@run_id}-cli-#{SecureRandom.hex(3)}"
-      docker = Docker.args(name: name, home: home, workdir: CONTAINER_HOME, interactive: false)
-      out, err, status = Open3.capture3({}, "timeout", "120", *docker, "ruby", "/plugin/exe/reach", *args)
+      docker = Docker.args(name: name, home: home, workdir: CONTAINER_HOME, interactive: !stdin.nil?)
+      out, err, status = Open3.capture3({}, "timeout", "120", *docker, "ruby", "/plugin/exe/reach", *args, stdin_data: stdin.to_s)
       File.write(File.join(dir, "reach-#{args.first}.log"), out + err)
-      raise Abort, "reach #{args.first} failed: #{(out + err)[-400..] || (out + err)}" unless status.success?
+      raise Abort, "reach #{args.first} failed: #{((out + err)[-400..] || (out + err)).gsub(STUDENT_PASSWORD, "[redacted]")}" unless status.success?
 
       out
     end
