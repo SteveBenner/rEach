@@ -26,7 +26,7 @@ module SliceBuild
   DOVETAIL_ROOT = File.expand_path(ENV.fetch("SMOKE_SLICE_DOVETAIL_ROOT", "~/github/foss/dovetail"))
   TEACH_BUNDLE = File.expand_path(ENV.fetch("SMOKE_SLICE_TEACH_BUNDLE", "~/bitbucket/paterasai/teach/vendor/bundle"))
   RUBY4_BIN = File.expand_path(ENV.fetch("SMOKE_RUBY4_BIN", "~/.rubies/ruby-4.0.6/bin"))
-  GRADER_IMAGES = %w[teach-grader:ruby-4.0 teach-grader:ruby-2.6.10].freeze
+  GRADER_IMAGES = %w[teach-grader:ruby-4.0.7 teach-grader:ruby-2.6.10].freeze
   GUARD_MARKER = "belongs to the course"
   LIVE_TEACH_PORT = 7400
 
