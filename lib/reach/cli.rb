@@ -1061,6 +1061,7 @@ module Reach
       end
 
       def cmd_mcp(_args)
+        Reach::CodexCache.repair
         Reach::MCPBridge.serve
         0
       end
