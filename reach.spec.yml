@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.15
+version: 0.16.16
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.15
+    version: 0.16.16
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -398,7 +398,12 @@ harness_integration:
     files:
       .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
       .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add <link>, codex plugin add reach@reach).
-      plugin.json: The Agent Plugins 1.0 manifest, read by Antigravity.
+      plugin.json: >-
+        The Agent Plugins 1.0 manifest, read by Antigravity. Codex 0.156 and newer takes a root plugin.json over
+        .codex-plugin/plugin.json and then loads no plugin hooks (openai/codex#47925), so since 0.16.16 Reach sets it
+        aside as plugin.json.agent-plugins in Codex's own cached copy of rEach ($CODEX_HOME/plugins/cache/*/reach/*/,
+        only where .codex-plugin/plugin.json is present) after reach setup and every update, and when Codex starts
+        reach mcp. The repository and the install folder keep it, so Antigravity is unaffected.
       skills/: Every harness.
       agents/reach.md and settings.json: The rEach persona as Claude's main session agent.
       rules/reach.md: Antigravity's always-on pointer to reach hello and the persona.
@@ -515,7 +520,8 @@ harness_integration:
     limits_stated_honestly: >-
       Codex now has PreToolUse hooks; file writes arrive as apply_patch with the patch text, and reach gate write reads
       the patch's file headers. Codex runs a project's .codex/hooks.json and the plugin's hooks only after the student
-      trusts them; until then enforcement is the read-only file permissions plus the submit-time check, and reach watch
+      trusts them (the plugin's two hooks reach the trust review only once Reach has set the cached root plugin.json
+      aside, see packaging.files); until then enforcement is the read-only file permissions plus the submit-time check, and reach watch
       stays the shape-check backstop.
   antigravity:
     configuration: >-

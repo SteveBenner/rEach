@@ -141,7 +141,19 @@ File.write(File.join(bin, "root"), "#{destination}\n") if File.directory?(bin)
 results = manifest["harness_results"]
 results = {} unless results.is_a?(Hash)
 results["claude-code"] = refresh_harness("claude", [%w[plugin marketplace update reach], %w[plugin update reach@reach --scope user]])
-results["codex"] = refresh_harness("codex", [%w[plugin marketplace upgrade reach], %w[plugin add reach@reach]])
+codex_path = on_path("codex")
+run_step([codex_path, "plugin", "marketplace", "upgrade", "reach"]) if codex_path
+results["codex"] = refresh_harness("codex", [%w[plugin add reach@reach]])
+codex_home = ENV["CODEX_HOME"].to_s
+Dir.glob(File.join(File.expand_path(codex_home.empty? ? "~/.codex" : codex_home), "plugins", "cache", "*", "reach", "*", "plugin.json")).each do |cached|
+  next unless File.file?(File.join(File.dirname(cached), ".codex-plugin", "plugin.json"))
+
+  begin
+    File.rename(cached, File.join(File.dirname(cached), "plugin.json.agent-plugins"))
+  rescue SystemCallError
+    nil
+  end
+end
 manifest["harness_results"] = results
 manifest["phase"] = "refreshed"
 save_manifest(manifest_file, manifest)

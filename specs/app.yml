@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.16.15
+version: 0.16.16
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -39,6 +39,8 @@ standards:
     text: "Every byte Reach sends to or accepts from Teach follows specs/wire.yml. reach doctor reports R-DOC-WIRE when Teach advertises a different contract digest."
   - id: STD-PERSONA-ONE-SOURCE
     text: "The rEach persona body is identical in skills/reach-assistant/SKILL.md and agents/reach.md, and quotes the G-FIRST-RUN greeting from locales/greetings.en-US.yml; reach doctor reports R-DOC-PERSONA otherwise."
+  - id: STD-CODEX-PLUGIN-HOOKS
+    text: "Codex lists rEach's plugin hooks for the student to trust. Codex 0.156 and newer loads no plugin hooks when a root plugin.json sits beside .codex-plugin/plugin.json (openai/codex#47925), so since 0.16.16 reach setup, every update and reach mcp rename that file to plugin.json.agent-plugins in Codex's cached copy of rEach only ($CODEX_HOME/plugins/cache/*/reach/*/ holding .codex-plugin/plugin.json). The repository and the install folder keep it for Antigravity, and nothing is deleted."
   - id: STD-PROFILE-LOCAL
     text: "The student's interview profile lives only in ~/.reach/profile.yml (0600). It is sent to Teach only inside a hand-raise bundle the student agreed to include it in, and reach profile forget deletes it. Interview answers typed in a course workspace are prompts, and reach the course transcript like any other (STD-TRANSCRIPT)."
   - id: STD-TRANSCRIPT

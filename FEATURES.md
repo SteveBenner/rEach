@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.16.15 |
+| **Registry version** | 0.16.16 |
 | **Last audited** | 2026-10-01 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 23 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, and each supported harness catalogued on its own). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -514,7 +514,14 @@ with the plugin installed on 2026-09-29 — hook-trust prompt, `SessionStart` co
 separately ran the manual Codex dialogue pass and the same-WiFi second-device test from `docs/smoke-assignment-1.md`
 the same day.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session has not yet trusted and run the 0.15.0 start-up hook in `hooks/codex.json`).
+Codex 0.156 and newer takes the Agent Plugins root `plugin.json` over `.codex-plugin/plugin.json` and then loads no
+plugin hooks (openai/codex#47925), which hid both hooks from the trust review in every rEach release. Since 0.16.16
+`Reach::CodexCache.repair` renames that file to `plugin.json.agent-plugins` in Codex's cached copy of rEach only, from
+`reach setup`, `update/apply.rb` and `reach mcp`. Verified 2026-10-01 against Codex 0.160.0 in scratch Codex homes
+through `codex app-server` `hooks/list`: 0 plugin hooks before, and the SessionStart and UserPromptSubmit hooks listed
+as untrusted after setup, after `reach mcp` on a plain `codex plugin add` install, and after the update step.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session on macOS has not yet trusted and run both hooks on 0.16.16).
 
 ### 10.4 · Antigravity
 

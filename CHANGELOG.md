@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.16] - 2026-10-01
+
+### Fixed
+
+- Codex never offered rEach's hooks for approval. Codex 0.156 and newer takes the Agent Plugins root `plugin.json`
+  (kept for Antigravity) over `.codex-plugin/plugin.json` and then loads no plugin hooks (openai/codex#47925), so the
+  SessionStart and UserPromptSubmit hooks never reached the trust review, in every release under current Codex. The
+  new `Reach::CodexCache.repair` renames that file to `plugin.json.agent-plugins` in Codex's cached copy of rEach only
+  (`$CODEX_HOME/plugins/cache/*/reach/*/`), after `reach setup`, after every update and when Codex starts
+  `reach mcp`, so an install from the app's Plugins directory heals on its first session. The repository and the
+  install folder keep the file. Verified against Codex 0.160.0: both hooks list as untrusted, ready to trust.
+- The update step refreshes Codex with `codex plugin add reach@reach` even when `codex plugin marketplace upgrade`
+  fails, which it always does for a local marketplace.
+- The setup message names both hooks and where to trust them: `/hooks` in a terminal, Settings > Hooks in the app.
+
 ## [0.16.15] - 2026-10-01
 
 ### Added
