@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.16.11
+version: 0.16.12
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -126,7 +126,7 @@ plugin_manifest:
     schema: rplugin/v1
     id: reach
     name: Reach
-    version: 0.16.11
+    version: 0.16.12
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
@@ -1262,8 +1262,8 @@ workspace_layout:
 extracurricular:
   purpose: >-
     A student who wants to write code of their own, outside any assignment, can: it goes in extracurricular/, a
-    personal folder in their course workspace. It is never graded or submitted, and it is captured into the course
-    record like everything else written in a course folder.
+    personal folder in their course workspace. It is never graded or submitted, and since 0.16.12 its files never leave
+    the student's computer: only the conversation held there reaches the course record (transcripts.scope).
   folder: >-
     ~/reach-work/extracurricular/, created at enrollment and at every sync, marked by .reach-space.json {"schema":
     "reach.space/v1", "kind": "extracurricular", "course"}, with read-only AGENTS.md, CLAUDE.md and GEMINI.md and the
@@ -1287,15 +1287,17 @@ extracurricular:
     Coursework does not belong here: code for an assignment goes only in that slice's owned files under
     deliverables/, and never write or move coursework into this folder.
   - >-
-    Everything written here, the code included, is saved in the student's course record, which the instructors can
-    read. Say so if the student asks.
+    Files in this folder stay on the student's computer and are never sent to the instructors. The conversation here
+    is still saved in the student's course record, which the instructors can read. Say so if the student asks.
   - Do not reach the network from here; use rEach's own commands for anything the course server provides.
 transcripts:
   purpose: >-
     Everything the student and their AI partner write in a course folder reaches Teach, which keeps it in that
     student's subcorpus, so instructors can read how each student worked with their AI partner and see every version
-    of the code it wrote: the student's prompts (0.8.0), and since 0.10.0 the AI's replies, readable reasoning and
-    actions, and all code, filed as assignment code or extracurricular code.
+    of the assignment code it wrote: the student's prompts (0.8.0), and since 0.10.0 the AI's replies, readable
+    reasoning and actions, and the assignment code. Since 0.16.12 files in extracurricular/ never leave the student's
+    computer (docs/DESIGN-DECISIONS.md, data capture); a code block the AI puts in a reply there is still recorded as a
+    chat snippet, since it is part of the conversation.
   scope: >-
     Course folders (workspace_layout spaces: slices, extracurricular and root) on harnesses with hooks: Claude Code and
     Codex, through the settings Reach writes in each space. Prompts the gate blocks are captured too, marked gate
@@ -1314,16 +1316,17 @@ transcripts:
       One tool call: the tool name and a summary (the command, the path or pattern, "wrote <paths>" for a file write, or
       the input as JSON, at most 2000 bytes). The code a write produced is a code entry, not part of the action.
     code: >-
-      One version of one file, categorised assignment (with assignment, cutout and slice) or extracurricular, with its
-      path relative to its folder and its origin: ai_write (the PostToolUse hook, just after the AI wrote it), scan
+      One version of one file, categorised assignment (with assignment, cutout and slice) or, for a chat snippet only,
+      extracurricular, with its path relative to its folder and its origin: ai_write (the PostToolUse hook, just after the AI wrote it), scan
       (the turn-end scan, for changes the hooks did not see: a shell command, or the student's own editing) or
       chat_snippet (a code block the AI put in a reply anyway, filed as snippets/<reply seq>-<n>.<ext>). A vanished file
-      is recorded as deleted. A binary file or one over 1 MiB is recorded without its text.
+      is recorded as deleted. A binary file or one over 1 MiB is recorded without its text. Since 0.16.12 ai_write and
+      scan entries come only from slice workspaces; the extracurricular folder is never scanned.
   code_in_files: >-
     The AI partner is told to put code in files, never in chat (the public directive R-CODEFILE, Teach's G-CODE-1 and
     the persona): coursework only in the slice's owned files under deliverables/, anything else in extracurricular/.
     A code block that still appears in a reply is split out as a chat snippet, so the chat record stays prose and every
-    piece of code lands in the subcorpus mirror.
+    piece of assignment code and every chat snippet lands in the subcorpus mirror.
   capture: >-
     reach gate prompt reads the hook payload (prompt, session_id, cwd) and appends one entry to the spool (wire
     W-TRN-1) before it runs any gate check, so neither a failing check nor a slow network can lose or delay a prompt;
@@ -1333,8 +1336,8 @@ transcripts:
     precede the reply it followed, and nothing is lost (smoke run 20260929-040452). reach transcript code (PostToolUse on writes) and reach transcript turn (Stop, and SessionEnd on Claude Code) read
     the harness's own session transcript from where they last stopped (the byte offset and, for Claude Code, the entry
     uuids already seen, kept in the session's state file) and append replies, reasoning and actions in the harness's
-    order, then the code: the files the tool just wrote, or at turn end every file in the space that changed since the
-    last scan (a digest map per space in ~/.reach/transcripts/spaces/; Reach's own files, .git, node_modules, vendor,
+    order, then, in a slice workspace only, the code: the files the tool just wrote, or at turn end every owned file
+    that changed since the last scan (a digest map per space in ~/.reach/transcripts/spaces/; Reach's own files, .git, node_modules, vendor,
     .bundle and tmp skipped; at most 2000 files per scan). The harness comes from the hook's --harness flag; settings
     written before 0.8.0 lack it, so claude-code is assumed when CLAUDE_PROJECT_DIR is set and unknown otherwise. A
     missing session_id becomes unknown-<YYYYMMDD in UTC>. Nothing is captured without an enrollment. Capture never
