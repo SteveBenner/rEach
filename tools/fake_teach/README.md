@@ -43,6 +43,8 @@ BUS101 roster (`fixtures/roster.yml`, fictional people):
 
     export REACH_HOME="$(mktemp -d)"
     export REACH_TEACH_URL=http://127.0.0.1:9480
-    ruby exe/reach enroll --course-code BUS101-K7QX-94TD --username mdel101 --student-id 1040217 --teach-url "$REACH_TEACH_URL"
+    ruby exe/reach enroll --course-code BUS101-K7QX-94TD --username mdel101 --student-id 1040217 --password-stdin --teach-url "$REACH_TEACH_URL" <<< "choose-a-password"
+
+The fake refuses a shape v2 enrollment whose password is missing or not 8 to 256 characters, and never stores or logs it.
 
 Use a scratch `REACH_HOME` each time so no real install is touched.

@@ -4,6 +4,7 @@ require "fileutils"
 require "yaml"
 require "time"
 require "shellwords"
+require "io/console"
 
 module Reach
   module CLI
@@ -131,7 +132,7 @@ module Reach
           usage: reach <command> [options]
 
           commands:
-            enroll [--course-code C --username U --student-id I]   enroll with your course code, username and student ID (asks for them when none are given)
+            enroll [--course-code C --username U --student-id I --password-stdin]   enroll with your course code, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
             enroll <code>                        enroll with a per-student code
             sync                                 fetch new packages and refresh workspaces
             status                               enrollment, slices, receipts, open hands
@@ -229,7 +230,9 @@ module Reach
       end
 
       def cmd_enroll(args)
+        password_stdin, args = parse_bare_flag(args, "password-stdin")
         options, remaining = parse_flags(args, [:teach_url, :course_code, :username, :student_id])
+        options[:password_stdin] = password_stdin
         code = remaining.shift
         teach_url = options[:teach_url] || Reach::Runtime.default_teach_url
         unless teach_url
@@ -241,7 +244,7 @@ module Reach
         end
 
         unless code
-          warn "usage: reach enroll [--course-code C --username U --student-id I] | reach enroll <code>"
+          warn "usage: reach enroll [--course-code C --username U --student-id I --password-stdin] | reach enroll <code>"
           return 1
         end
         install = Reach::Enroll.generate_and_register(code, teach_url)
@@ -278,12 +281,19 @@ module Reach
           warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])
           return 1
         end
+        password = interactive ? ask_password : read_password_stdin(options)
+        return 1 unless password
+
         begin
           install = Reach::Enroll.register_v2(
             course_code: parsed["code"], username: username, student_id: student_id,
-            teach_url: teach_url, harness: "cli", enrolled_via: "cli"
+            teach_url: teach_url, harness: "cli", enrolled_via: "cli", password: password
           )
         rescue Reach::RemoteRefused => e
+          if e.code == "password_required"
+            warn e.message
+            return 1
+          end
           if e.code == "device_move_pending"
             warn Reach::Messages.text("M-ENR-MOVE-PENDING")
             return 3
@@ -296,6 +306,45 @@ module Reach
           return 1
         end
         finish_enroll(install)
+      end
+
+      def read_hidden
+        line = STDIN.noecho(&:gets)
+        puts
+        line && line.strip
+      end
+
+      def ask_password
+        loop do
+          puts Reach::Messages.text("M-ENR-ASK-PASSWORD")
+          password = read_hidden
+          return nil if password.nil?
+
+          unless password.length >= 8 && password.length <= 256
+            puts Reach::Messages.text("M-ENR-PASSWORD-SHORT")
+            next
+          end
+          puts Reach::Messages.text("M-ENR-ASK-PASSWORD-AGAIN")
+          again = read_hidden
+          return nil if again.nil?
+          return password if again == password
+
+          puts Reach::Messages.text("M-ENR-PASSWORD-MISMATCH")
+        end
+      end
+
+      def read_password_stdin(options)
+        if options[:password_stdin]
+          line = STDIN.gets
+          password = line.to_s.strip
+          unless password.length >= 8 && password.length <= 256
+            warn Reach::Messages.text("M-ENR-PASSWORD-SHORT")
+            return nil
+          end
+          return password
+        end
+        warn "reach: enroll needs --password-stdin when it is not run in a terminal"
+        nil
       end
 
       def ask_course_code
@@ -321,6 +370,7 @@ module Reach
         puts Reach::Messages.text("M-ENROLL-DONE", course: course_title)
         puts Reach::Messages.text("M-TRANSCRIPT-NOTICE")
         puts Reach::Messages.text("M-FINGERPRINT-NOTICE") if install["shape"] == "v2"
+        puts Reach::Messages.text("M-ENR-PASSWORD-REMINDER") if install["shape"] == "v2"
         summary = Reach::Sync.run
         print_sync_summary(summary)
         if Array(summary["workspaces"]).empty?

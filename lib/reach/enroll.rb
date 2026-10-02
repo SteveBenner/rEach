@@ -59,7 +59,7 @@ module Reach
       body
     end
 
-    def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, key: nil, fingerprint: nil)
+    def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, password:, key: nil, fingerprint: nil)
       identity = { "course_code" => course_code, "username" => username, "student_id" => student_id }
       pending = key ? nil : load_pending(identity)
       key, fingerprint = pending[:key], pending[:fingerprint] if pending
@@ -73,6 +73,7 @@ module Reach
         "username" => username,
         "student_id" => student_id,
         "fingerprint" => fingerprint,
+        "password" => password,
         "public_key_pem" => key.public_key.to_pem,
         "reach_version" => Reach::VERSION,
         "platform" => platform,

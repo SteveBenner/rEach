@@ -2,6 +2,8 @@ require "json"
 require "time"
 require "rbconfig"
 require "fileutils"
+require "securerandom"
+require "openssl"
 
 module Reach
   module EnrollFlow
@@ -88,6 +90,8 @@ module Reach
                 when "awaiting_student_id" then step_student_id(flow, text)
                 when "awaiting_confirm" then step_confirm(flow, text, now, harness)
                 when "awaiting_move" then step_move(flow, text, now, harness)
+                when "awaiting_password" then step_password(flow, text)
+                when "awaiting_password_again" then step_password_again(flow, text, now, harness)
                 else step_code(flow, text)
                 end
       block(message)
@@ -175,7 +179,12 @@ module Reach
 
     def step_confirm(flow, text, now, harness)
       if Reach::Login.yes?(text)
-        register(flow, now, harness)
+        if harness.to_s == "hermes"
+          Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("enroll"))
+        else
+          write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+          Reach::Messages.text("M-ENR-ASK-PASSWORD")
+        end
       elsif Reach::Login.no?(text)
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
         Reach::Messages.text("M-ENR-RESTART")
@@ -186,7 +195,8 @@ module Reach
 
     def step_move(flow, text, now, harness)
       if Reach::Login.yes?(text)
-        register(flow, now, harness)
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+        Reach::Messages.text("M-ENR-ASK-PASSWORD")
       elsif Reach::Login.no?(text)
         Reach::Enroll.clear_pending
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
@@ -196,18 +206,73 @@ module Reach
       end
     end
 
-    def register(flow, now, harness)
+    def password_range?(password)
+      password.length >= 8 && password.length <= 256
+    end
+
+    def password_digest(salt, password)
+      OpenSSL::Digest::SHA256.hexdigest(salt.to_s + password)
+    end
+
+    def digest_equal?(left, right)
+      return false unless left.bytesize == right.bytesize
+      return OpenSSL.fixed_length_secure_compare(left, right) if OpenSSL.respond_to?(:fixed_length_secure_compare)
+
+      result = 0
+      left.bytes.zip(right.bytes) { |a, b| result |= a ^ b }
+      result.zero?
+    end
+
+    def without_digest(flow)
+      flow.reject { |key, _| key == "password_salt" || key == "password_sha256" }
+    end
+
+    def step_password(flow, text)
+      password = text.to_s.strip
+      return Reach::Messages.text("M-ENR-PASSWORD-SHORT") unless password_range?(password)
+
+      salt = SecureRandom.hex(16)
+      write_flow(
+        flow.merge(
+          "state" => "awaiting_password_again", "password_salt" => salt,
+          "password_sha256" => password_digest(salt, password), "updated_at" => iso(Time.now.utc)
+        )
+      )
+      Reach::Messages.text("M-ENR-ASK-PASSWORD-AGAIN")
+    end
+
+    def step_password_again(flow, text, now, harness)
+      password = text.to_s.strip
+      stored = flow["password_sha256"].to_s
+      unless !stored.empty? && digest_equal?(password_digest(flow["password_salt"], password), stored)
+        write_flow(without_digest(flow).merge("state" => "awaiting_password", "updated_at" => iso(now)))
+        return Reach::Messages.text("M-ENR-PASSWORD-MISMATCH")
+      end
+
+      register(flow, now, harness, password)
+    end
+
+    def register(flow, now, harness, password)
+      flow = without_digest(flow)
       url = teach_url
-      return Reach::Messages.text("M-ENR-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.") unless url
+      unless url
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+        return Reach::Messages.text("M-ENR-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.")
+      end
 
       begin
         install = Reach::Enroll.register_v2(
           course_code: flow["code"], username: flow["username"], student_id: flow["student_id"],
-          teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat"
+          teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat",
+          password: password
         )
       rescue Reach::RemoteRefused => e
         return refused(flow, now) if e.code == "enrollment_refused"
 
+        if e.code == "password_required"
+          write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+          return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
+        end
         if e.code == "device_move_pending"
           write_flow(flow.merge("state" => "awaiting_move", "updated_at" => iso(now)))
           return Reach::Messages.text("M-ENR-MOVE-PENDING")
@@ -217,10 +282,13 @@ module Reach
           return Reach::Messages.text("M-ENR-MOVE-DENIED", reason: denial_reason(e))
         end
 
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
         return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
       rescue Reach::NetworkError
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
         return Reach::Messages.text("M-ENR-OFFLINE")
       rescue Reach::Error => e
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
         return Reach::Messages.text("M-ENR-FAILED", reason: e.message)
       end
 
@@ -301,6 +369,8 @@ module Reach
       when "awaiting_student_id" then Reach::Messages.text("M-ENR-ASK-ID", institution: (flow["identity"] || {})["institution_name"])
       when "awaiting_confirm" then confirm_text(flow)
       when "awaiting_move" then Reach::Messages.text("M-ENR-MOVE-PENDING")
+      when "awaiting_password" then Reach::Messages.text("M-ENR-ASK-PASSWORD")
+      when "awaiting_password_again" then Reach::Messages.text("M-ENR-ASK-PASSWORD-AGAIN")
       else Reach::Messages.text("M-ENR-ASK-CODE")
       end
     end
