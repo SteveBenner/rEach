@@ -49,20 +49,25 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves the ZIP of an already submitted assignment to Downloads again (assignment names it; the student must still upload the ZIP to the course's learning system)",
         "inputSchema" => {
           "type" => "object",
-          "properties" => { "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" } }
+          "properties" => {
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" },
+            "archive" => { "type" => "boolean", "description" => "Write the ZIP of a submitted assignment again instead of submitting" },
+            "assignment" => { "type" => "string", "description" => "With archive true, the assignment to save; defaults to the current one" }
+          }
         }
       },
       {
         "name" => "reach_raise_hand",
-        "description" => "Raise a hand with a summary",
+        "description" => "Raise a hand with a summary. Pick the closest type for the student's request (access_issue covers accounts and Blackboard, grade_question grades, extension_request more time) and student_request when none fits",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
             "summary" => { "type" => "string" },
-            "trigger" => { "type" => "string" },
+            "type" => { "type" => "string", "enum" => Reach::Hands::AGENT_TYPES },
+            "trigger" => { "type" => "string", "description" => "An older name for type" },
             "slice" => { "type" => "string" }
           },
           "required" => ["summary"]
@@ -266,6 +271,19 @@ module Reach
         }
       },
       {
+        "name" => "reach_transcripts",
+        "description" => "Save a ZIP of the student's saved conversations (prompts, replies, reasoning, actions and code, by assignment and part) to their Downloads folder (action export, the default). It works after the course has ended; the ZIP stays on this computer",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "action" => { "type" => "string", "enum" => %w[export] } }
+        }
+      },
+      {
+        "name" => "reach_grade",
+        "description" => "The points recorded for the student in Teach for each assignment, and the total; says plainly when grades are not available yet. The course grade of record is in the course's learning system, not here",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_storage",
         "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
         "inputSchema" => {
@@ -275,7 +293,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_transcripts].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -410,6 +428,8 @@ module Reach
           workspace = workspace_for(slice_argument(arguments))
           arguments["action"] == "continue" ? { "message" => Reach::Attempts.continue(workspace) } : Reach::Attempts.show(workspace)
         when "reach_submit"
+          return archive_tool(arguments) if arguments["archive"] == true
+
           result = Reach::Submit.submit(slice: slice_argument(arguments))
           if result["state"] == "ingested"
             result = result.merge("announcement" => Reach::Receipts.announce(result["receipt"]), "followup" => Reach::Submit.followup_text(result))
@@ -419,7 +439,7 @@ module Reach
           result
         when "reach_raise_hand"
           record = Reach::Hands.raise_record(
-            trigger: arguments.fetch("trigger", "student_request"),
+            trigger: arguments["type"] || arguments["trigger"] || Reach::Hands::STUDENT_REQUEST,
             summary: arguments.fetch("summary"),
             slice: slice_argument(arguments)
           )
@@ -482,11 +502,28 @@ module Reach
           step.merge("relay_verbatim" => true)
         when "reach_storage"
           storage_tool(arguments)
+        when "reach_transcripts"
+          transcripts_tool(arguments)
+        when "reach_grade"
+          Reach::Grades.fetch
         when "reach_import"
           import_tool(arguments)
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
         end
+      end
+
+      def archive_tool(arguments)
+        result = Reach::Submit.archive_again(assignment: arguments["assignment"])
+        result.merge("message" => result["text"])
+      end
+
+      def transcripts_tool(arguments)
+        action = arguments["action"].to_s
+        raise Reach::Error, "reach: unknown transcripts action" unless action.empty? || action == "export"
+
+        result = Reach::TranscriptExport.write!
+        result.merge("message" => Reach::TranscriptExport.result_text(result))
       end
 
       def import_tool(arguments)

@@ -93,6 +93,7 @@ rstack:
       path: "/run/media/${USER}/BACKUP-DRIVE/corpora/rstack-plugins/reach-mirror"
 submit:
   archive_max_mb: 256
+  lms_name: Blackboard
 storage:
   warn_mb:
   - 512
@@ -103,3 +104,8 @@ storage:
 import:
   next_max_bytes: 12000
   progress_every: 500
+late_work:
+  allow: true
+  notice_every: 10
+transcripts:
+  auto_export: true

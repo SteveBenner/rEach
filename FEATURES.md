@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.18.2 |
+| **Registry version** | 0.19.0 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 80 catalogued |
+| **Feature count** | 84 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,14 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 73 | 91% |
-| ⚪ Planned | 6 | 8% |
+| ✅ Shipped | 77 | 92% |
+| ⚪ Planned | 6 | 7% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 68 | 85% |
+| 🔵 Built, not enabled | 72 | 86% |
 | ⚫ No runtime path | 9 | 11% |
 
 ## 1 · Install
@@ -611,6 +611,41 @@ an identical catalog; imported text never reached the brain index; the job ran u
 were built but not run on macOS or Windows.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
+
+### 3.6 · Transcript export
+
+Since 0.19.0 (`STD-TRANSCRIPT-EXPORT`) `reach transcripts export` writes the student's own recorded conversations to
+Downloads as one ZIP organized by assignment and slice, and the first session after the course ends does it once on its
+own. Verified 2026-10-02 in a scratch HOME on Ruby 3.3 and 2.6.10: the layout, `unzip -t`, another student's entries
+left out, archived sessions included, -2 and -3 names, one auto export with one notice, and the export working while
+the course-ended lock was on.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
+
+### 3.7 · Late work
+
+Since 0.19.0 (`STD-LATE-WORK`, `W-PACE-2`) a past-due slice stays writable with repeated late notices, and rEach raises
+one late_work hand per assignment and one late_submission hand per late submission. Verified 2026-10-02 against
+tools/fake_teach: past-due writes allowed, a future assignment still refused, notices on prompts 1 and 11 only, exactly
+one hand of each kind, no network call from any hook (strace), and `late_work.allow: false` restoring the old refusal.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (needs Teach 0.19.0 live for the new hand types; older Teach gets student_request).
+
+### 3.8 · Grade view
+
+Since 0.19.0 (`STD-GRADE-VIEW`) `reach grade` shows the points Teach 0.19.0 records per assignment and in total, or says
+grades are not available yet. Verified against tools/fake_teach for empty, populated, 404, 403 and offline answers; Teach
+records no points yet.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Teach has no way to record points yet).
+
+### 3.9 · Hand types
+
+Since 0.19.0 (`STD-HAND-TYPES`) every hand carries one of nineteen types, chosen by the agent for a student's request;
+a Teach without the 2026-10-02e wire receives student_request with the type in the summary. Verified against
+tools/fake_teach with a matching and a mismatched wire digest; Teach 0.19.0 accepted every type on scratch PostgreSQL.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.19.0 not yet live).
 
 ## 4 · Behaviour
 

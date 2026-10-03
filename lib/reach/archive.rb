@@ -6,6 +6,7 @@ module Reach
     DEFAULT_MAX_MB = 256
     SKIPPED_TOP_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md].freeze
     MAX_NAME_TRIES = 200
+    DEFAULT_LMS = "Blackboard".freeze
 
     module_function
 
@@ -96,6 +97,14 @@ module Reach
       extras
     end
 
+    def lms_name
+      section = Reach::Runtime.load_config["submit"]
+      value = section.is_a?(Hash) ? section["lms_name"].to_s.strip : ""
+      value.empty? ? DEFAULT_LMS : value
+    rescue StandardError
+      DEFAULT_LMS
+    end
+
     def downloads_dir
       override = ENV["REACH_DOWNLOADS_DIR"].to_s
       return File.expand_path(override) unless override.empty?
@@ -132,6 +141,10 @@ module Reach
     end
 
     def claim(destination, base, files, extras)
+      claim_zip(destination, base) { |stem| entries(stem, files, extras) }
+    end
+
+    def claim_zip(destination, base)
       suffix = 1
       while suffix <= MAX_NAME_TRIES
         stem = suffix == 1 ? base : "#{base}-#{suffix}"
@@ -145,7 +158,7 @@ module Reach
         begin
           File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |io|
             io.binmode
-            Reach::Zip.write(io, entries(stem, files, extras))
+            Reach::Zip.write(io, yield(stem))
           end
           return final if publish(tmp, final)
         ensure

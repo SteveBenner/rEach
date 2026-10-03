@@ -37,12 +37,15 @@ module Reach
 
       meta = Reach::Workspace.metadata(workspace)
       current = current_assignment
-      return false unless current && meta["assignment"].to_s == current["id"].to_s
+      due = Reach::LateWork.due_for_meta(meta)
+      if current && meta["assignment"].to_s == current["id"].to_s
+        return true if due.nil?
+        return true if server_now < due
 
-      due = current["due"]
-      return true if due.nil? || due.to_s.empty?
+        return Reach::LateWork.allow?
+      end
 
-      server_now < Time.parse(due.to_s).utc
+      !due.nil? && server_now >= due && Reach::LateWork.allow?
     rescue StandardError
       true
     end

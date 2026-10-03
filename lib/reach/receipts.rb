@@ -56,6 +56,7 @@ module Reach
         rescue StandardError
           nil
         end
+        Reach::LateWork.note_receipt(receipt)
       end
 
       def accept(receipt)

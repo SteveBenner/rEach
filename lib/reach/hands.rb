@@ -10,6 +10,20 @@ module Reach
     BUNDLE_LIMIT = 196_608
     OUTPUT_LIMIT = 65_536
     FILE_CUT = 32_768
+    ATTEMPT_GATE = "attempt_gate".freeze
+    ATTEMPT_LADDER = "attempt_ladder".freeze
+    CHECK_GATE = "check_gate".freeze
+    WELLBEING = "wellbeing".freeze
+    STUDENT_REQUEST = "student_request".freeze
+    LATE_WORK = "late_work".freeze
+    LATE_SUBMISSION = "late_submission".freeze
+    AGENT_TYPES = %w[
+      student_request concept_question assignment_question deadline_question grade_question submission_question
+      technical_issue setup_issue access_issue extension_request feedback integrity_question other
+    ].freeze
+    NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
+    TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES).freeze
+    SUMMARY_LIMIT = 2000
 
     class << self
       def raise_hand(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
@@ -21,7 +35,22 @@ module Reach
         record["hand_id"]
       end
 
+      def validate_type!(type)
+        return type.to_s if TYPES.include?(type.to_s)
+
+        raise Reach::Refused, Reach::Messages.text("M-HAND-TYPE-UNKNOWN", type: type.to_s, types: AGENT_TYPES.join(", "))
+      end
+
+      def wire_type(type, summary)
+        type = validate_type!(type)
+        return [type, summary.to_s] unless NEWER_TYPES.include?(type)
+        return [type, summary.to_s] if Reach::Debug.teach_kinds?
+
+        [STUDENT_REQUEST, "[#{type}] #{summary}"]
+      end
+
       def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
+        trigger, summary = wire_type(trigger, summary)
         workspace = resolve_workspace(slice)
         meta = Reach::Workspace.metadata(workspace)
         install = Reach::Enroll.current
@@ -50,7 +79,7 @@ module Reach
           record.merge("hand_id" => result["hand_id"])
         rescue Reach::RemoteRefused => e
           FileUtils.rm_f(outbox_path)
-          record.merge("refused" => { "code" => e.code.to_s, "message" => e.message.to_s })
+          record.merge("refused" => { "code" => e.code.to_s, "status" => e.status.to_i, "message" => e.message.to_s })
         rescue Reach::Offline, Reach::NetworkError
           record.merge("queued" => true)
         end
@@ -84,7 +113,7 @@ module Reach
         body = {
           "cutout_id" => cutout_id,
           "slice" => slice_kind,
-          "trigger" => "wellbeing",
+          "trigger" => WELLBEING,
           "originator" => "agent",
           "summary" => "The student may need support.",
           "bundle" => envelope
@@ -288,11 +317,11 @@ module Reach
 
       def truncate_summary(text)
         bytes = text.dup.force_encoding(Encoding::UTF_8)
-        return bytes if bytes.bytesize <= 2000
+        return bytes if bytes.bytesize <= SUMMARY_LIMIT
 
         result = +""
         bytes.each_char do |char|
-          break if (result.bytesize + char.bytesize) > 2000
+          break if (result.bytesize + char.bytesize) > SUMMARY_LIMIT
 
           result << char
         end

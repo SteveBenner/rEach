@@ -89,7 +89,9 @@ module Reach
         state = Reach::Workspace.state_word(workspace_path)
         shape = shape_summary(workspace_path)
         checks = qualify_summary(workspace_path)
-        "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   checks: #{checks}"
+        line = "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   checks: #{checks}"
+        late = Reach::LateWork.status_text(workspace_path)
+        late ? "#{line}\n    #{late}" : line
       end
 
       def shape_summary(workspace_path)

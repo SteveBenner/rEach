@@ -202,7 +202,24 @@ files, plus the receipts and the student's own part) in the Downloads folder as
 `<course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip` in course time, never overwriting a file
 (`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
 may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
-by rEach before it asks and by Teach.
+by rEach before it asks and by Teach. Since 0.19.0 rEach says plainly, before and after every submission, that the ZIP in
+Downloads must also be uploaded to Blackboard to receive credit; `reach submit archive` makes the ZIP again.
+
+### Late work, grades and transcripts
+
+Since 0.19.0 a student may keep working on an assignment after its due time: rEach says clearly and repeatedly that
+the work is late, lets the instructor know once, and says when it can no longer be submitted. `reach grade` shows the
+points the instructor has recorded in Teach, when there are any. `reach transcripts export` saves the student's own
+recorded AI conversations to Downloads as a ZIP organized by assignment, and rEach does it once on its own after the
+course ends. A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
+on) so the instructor sees what it is about.
+
+```
+reach transcripts export [--format json]        save your recorded conversations to Downloads
+reach grade [--format json]                     the points recorded in Teach
+reach submit archive [--assignment A]           make the assignment's ZIP again
+reach hand raise --type T ...                   raise a hand of a given type
+```
 
 ### When Teach can't be reached
 

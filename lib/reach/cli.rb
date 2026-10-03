@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "transcripts"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -282,6 +282,10 @@ module Reach
           cmd_memory(args)
         when "storage"
           cmd_storage(args)
+        when "transcripts"
+          cmd_transcripts(args)
+        when "grade"
+          cmd_grade(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -307,8 +311,11 @@ module Reach
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             submit [--slice ...]                 ask the student, then submit and wait for the receipt
+            submit archive [--assignment A]      save the ZIP of a submitted assignment to Downloads again (the student must also upload it to the course's learning system)
             receipts [wait|show|acks]            receipts
-            hand raise|status|list               hand-raises
+            hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other)
+            grade [--format text|json]           the points recorded for the student in Teach
+            transcripts export [--format text|json]   save a ZIP of the student's saved conversations to Downloads (works after the course has ended)
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor [--install-chromium]          check the local install, one line per problem
             lock                                 wipe the decrypted vault
@@ -905,12 +912,17 @@ module Reach
           return 0
         end
 
+        message = decision["message"]
+        if Reach::EnrollmentLock.state["reason"] == "course_ended"
+          notice = Reach::TranscriptExport.pending_notice!
+          message = "#{message}\n\n#{notice}" if notice
+        end
         if hermes
           guide = Reach::Messages.text("M-ENR-HERMES-GUIDE", command: Reach::Runtime.hook_command("guide"))
-          puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: decision["message"])}\n\n#{guide}")
+          puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: message)}\n\n#{guide}")
           return 0
         end
-        raise Reach::GateBlocked.new("M-ENR", decision["message"])
+        raise Reach::GateBlocked.new("M-ENR", message)
       end
 
       def hermes_hook?(harness, event)
@@ -1049,8 +1061,47 @@ module Reach
         record["pending"] ? 3 : 1
       end
 
+      def cmd_submit_archive(args)
+        options, _remaining = parse_flags(args, [:assignment])
+        result = Reach::Submit.archive_again(assignment: options[:assignment])
+        puts result["text"]
+        result["archive"]["state"] == "saved" ? 0 : 1
+      end
+
+      def cmd_transcripts(args)
+        sub = args.shift
+        unless sub == "export"
+          warn "usage: reach transcripts export [--format text|json]"
+          return 1
+        end
+        auto, args = parse_bare_flag(args, "auto")
+        options, _remaining = parse_flags(args, [:format])
+        result = Reach::TranscriptExport.write!(auto: auto)
+        text = Reach::TranscriptExport.result_text(result)
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(result.merge("text" => text))
+        else
+          puts text
+          puts result["path"] if result["state"] == "saved"
+        end
+        result["state"] == "failed" ? 1 : 0
+      end
+
+      def cmd_grade(args)
+        options, _remaining = parse_flags(args, [:format])
+        result = Reach::Grades.fetch
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(result)
+        else
+          puts result["text"]
+        end
+        0
+      end
+
       def cmd_submit(args)
         Reach::Update.hold!
+        return cmd_submit_archive(args.drop(1)) if args.first == "archive"
+
         options, _remaining = parse_flags(args, [:slice])
         slice = default_slice_id(options[:slice])
         unless slice
@@ -1124,13 +1175,13 @@ module Reach
         case sub
         when "raise"
           include_profile, args = parse_bare_flag(args, "include-profile")
-          options, _remaining = parse_flags(args, [:trigger, :summary, :slice])
+          options, _remaining = parse_flags(args, [:type, :trigger, :summary, :slice])
           unless options[:summary]
-            warn "usage: reach hand raise --summary <text> [--trigger student_request] [--slice <id>] [--include-profile]"
+            warn "usage: reach hand raise --summary <text> [--type student_request] [--slice <id>] [--include-profile]"
             return 1
           end
           record = Reach::Hands.raise_record(
-            trigger: options[:trigger] || "student_request",
+            trigger: options[:type] || options[:trigger] || Reach::Hands::STUDENT_REQUEST,
             summary: options[:summary],
             slice: default_slice_id(options[:slice]),
             include_profile: include_profile
@@ -1144,6 +1195,17 @@ module Reach
           else
             puts "Hand raised: #{record['hand_id']}"
           end
+          0
+        when "late"
+          options, _remaining = parse_flags(args, [:assignment, :type])
+          assignment = options[:assignment].to_s
+          if assignment.empty?
+            warn "usage: reach hand late --assignment <id> [--type late_work|late_submission]"
+            return 1
+          end
+          type = options[:type] == Reach::Hands::LATE_SUBMISSION ? Reach::Hands::LATE_SUBMISSION : Reach::Hands::LATE_WORK
+          outcome = Reach::LateWork.send_hand(assignment: assignment, type: type)
+          puts outcome["state"]
           0
         when "status"
           id = args.shift

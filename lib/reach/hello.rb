@@ -39,12 +39,18 @@ module Reach
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         message = Reach::EnrollFlow.next_message(lock)
-        return [nil, message, message, locked_context(format)]
+        notice = safe_transcript_notice
+        return [nil, message, message, locked_context(format)] unless notice
+
+        context = "#{locked_context(format)}\n- #{Reach::TranscriptExport.agent_notice(notice)}"
+        return [nil, "#{message}\n\n#{notice}", "#{message}\n\n#{notice}", context]
       end
 
       maybe_refresh_status
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
+      safe_late_retry
+      transcript_notice = safe_transcript_notice
 
       session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Transcript.resolve_session_id(event) : nil
 
@@ -67,8 +73,26 @@ module Reach
         Reach::Brain.memory_notice_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false)
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, transcript_notice: transcript_notice)
       [greeting_id, greeting_text, banner, context]
+    end
+
+    def safe_transcript_notice
+      Reach::TranscriptExport.session_start
+    rescue StandardError
+      nil
+    end
+
+    def safe_late_retry
+      Reach::LateWork.session_start
+    rescue StandardError
+      nil
+    end
+
+    def safe_late_line(workspace)
+      workspace ? Reach::LateWork.hello_line(workspace) : nil
+    rescue StandardError
+      nil
     end
 
     def safe_memory_notice_due?
@@ -312,7 +336,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, transcript_notice: nil)
       lines = []
       lines << "rEach session context (from reach hello)"
       lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
@@ -330,6 +354,9 @@ module Reach
       lines << profile_line
       lines << course_line
       lines.concat(alignment_lines)
+      late = safe_late_line(workspace)
+      lines << late if late
+      lines << "- #{Reach::TranscriptExport.agent_notice(transcript_notice)}" if transcript_notice
       memory = safe_session_context
       lines << memory if memory
       question = safe_course_question
