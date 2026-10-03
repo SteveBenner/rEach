@@ -24,7 +24,7 @@ It binds 127.0.0.1 only. State lives under `--home` (default a fresh temporary d
 - `GET /api/v1/packages/guardrails` and `GET /api/v1/packages/workspace` (teach.package/v1) authenticate like status. Each is sealed with `Reach::Crypto.seal` for the enrolled install's public key and signed with `fake-sign-1`, built once per install and kind, version 1. The guardrails plaintext holds `course.yml`, `directives.yml` and `seal.yml`; the workspace plaintext holds `slices.json` and the `demo.a1-backend/lib/greeter.rb` slice file; their sources are under `fixtures/packages/`. An `If-None-Match` equal to the quoted `content_digest` answers 304 with an empty body and an `ETag`; any other kind answers 404 not_found. Status lists both packages with their `content_digest`. Each request, including the 304, is logged with its status in `requests.jsonl`.
 - `FAKE_TEACH_DELAY_S` (seconds, fractions allowed) delays every response by that long before it is routed, to act as a slow Teach.
 - `FAKE_TEACH_WIRE_SHA` overrides the advertised `wire_contract_sha256`, to act as a Teach on another wire revision.
-- Every request is appended to `requests.jsonl` under `--home` (method, path, status, time); no body, header or key is logged.
+- Every request is appended to `requests.jsonl` under `--home` (method, path, status, time and the X-Reach-Version header); no body, other header or key is logged.
 
 ## Fixtures
 

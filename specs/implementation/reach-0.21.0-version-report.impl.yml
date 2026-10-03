@@ -1,0 +1,59 @@
+schema: rstack.impl/v1
+name: reach-0.21.0-teach-0.22.0-version-report
+recorded: '2026-10-03'
+author: primary
+kind: feature
+versions:
+  reach: 0.21.0
+  teach: 0.22.0
+spec: >-
+  specs/wire.yml W-AUTH-7 (revision 2026-10-03a, already written, byte-identical in both worktrees); rEach specs/app.yml
+  STD-VERSION-REPORT and reach.spec.yml client_safety.version_header; Teach specs/app.yml STD-REACH-VERSION and
+  teach.spec.yml console.reach_versions, tables installs.reach_version_at and install_versions, env
+  TEACH_CURRENT_REACH_VERSION.
+decisions:
+  - "Sven 2026-10-03: the reference release is TEACH_CURRENT_REACH_VERSION when set, otherwise the newest version any active install reported in the last 30 days. Teach never calls GitHub."
+  - "Sven 2026-10-03: Reach and Teach are built in parallel worktrees."
+rules:
+  - No code comments (Part Q). No tests in the repo (Part S); scratch scripts live in your scratchpad.
+  - Do not commit, tag, bump versions, or edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md, specs/*.yml, reach.spec.yml or teach.spec.yml. The primary does release work.
+  - Never touch the live Teach database (unset TEACH_DATABASE_URL in every shell), ~/.teach, port 7400, the live systemd units, the real ~/.reach, or the main checkouts ~/bitbucket/paterasai/teach and ~/github/foss/rEach (peers and another worker are in them).
+  - No behavior change beyond this feature.
+slices:
+  - id: reach
+    worker: coding-worker
+    repo: /home/sven/github/foss/.reach-wt/reach-version (git worktree, branch reach-version-report)
+    owns_paths:
+      - lib/reach/client.rb (sign! sets req["X-Reach-Version"] = Reach::VERSION beside the X-Teach-* headers, only on signed requests)
+      - tools/fake_teach/server.rb (record the header it receives so the check below can read it; no other behavior change)
+    work:
+      - Every request Reach signs carries X-Reach-Version with Reach::VERSION. Unsigned requests (enroll preview, enroll) are unchanged.
+    acceptance:
+      - Ruby 2.6.10 floor - ruby -wc on changed files in docker ruby:2.6.10 and require lib/reach.rb.
+      - Against tools/fake_teach in a scratch REACH_HOME, an enrolled install's reach status, sync and one hand raise each send X-Reach-Version equal to VERSION (show the recorded headers); enroll preview and enroll send none.
+      - tools/smoke/assignment_one.rb passes (unset TEACH_DATABASE_URL; --run-dir in scratch); it exports Teach HEAD from the main Teach checkout, whose wire.yml differs until Teach ships, so if it fails only on the wire digest say so and rerun with the Teach worktree if the tool allows a Teach path.
+  - id: teach
+    worker: coding-worker-high
+    repo: /home/sven/bitbucket/paterasai/teach-wt-reachver (git worktree, branch reach-version-report)
+    owns_paths:
+      - lib/teach/db.rb (installs.reach_version_at column added idempotently; install_versions table id 'iv_'+20 hex, install_id, reach_version, first_seen_at, index on (install_id, first_seen_at))
+      - lib/teach/auth.rb (after verify_request! succeeds in verify_install!, record the header)
+      - lib/teach/models/install.rb (record_version(id, version) - validates per W-AUTH-7, updates reach_version and reach_version_at, inserts an install_versions row only when the value differs from the stored one; one transaction; never raises to the request)
+      - lib/teach/reach_versions.rb (new - reference(conn) per the decision, tone(version, reference, minimum) -> :danger/:warn/:ok/:unknown using Gem::Version, distribution(conn) for the Overview)
+      - lib/teach/config.rb (current_reach_version from TEACH_CURRENT_REACH_VERSION, validated like the header; invalid is treated as unset and reported by doctor)
+      - lib/teach/doctor.rb (one check line for TEACH_CURRENT_REACH_VERSION when set - OK or a finding when malformed)
+      - lib/teach/web/console/queries/students.rb, pages/students.rb, views/students/index.erb and show.erb (Reach column with tone tag and a title giving the reference; student page per install - version, reported time, history newest first)
+      - lib/teach/web/console/queries/devices.rb, pages/devices.rb, views/devices/*.erb (version with tone where installs are listed)
+      - lib/teach/web/console/queries/overview.rb, pages/overview.rb, views/overview/*.erb (Reach versions card - active installs seen in 30 days, test students left out, count per version newest first, each with its tone, and a one-line summary such as "12 current, 3 behind 0.21.0, 1 below the minimum 0.12.0")
+      - lib/teach/web/console/assets/pages/*.css only if needed (tokens only)
+    work:
+      - Record on every verified install request, including GET /api/v1/status. Enrollment keeps writing reach_version from its body and should also set reach_version_at and the first install_versions row.
+      - Use the console's existing status_tag/tone_status helpers and c-* components; no color literals; no new JS unless required; CSP-safe.
+      - Never write the header value to a log line unless it validated; audit nothing new.
+    acceptance:
+      - Scratch PostgreSQL database and scratch TEACH_HOME, teach-web from this worktree on 127.0.0.1:7462. Seed students and installs (including a test student) and drive real signed requests with differing X-Reach-Version values (a scratch Reach install pointed at it, or Teach::Auth-compatible signed curl from a scratch script) - versions move 0.19.0 -> 0.20.3 -> 0.21.0 for one install, others stay older, one sends a malformed header, one sends none.
+      - DB shows reach_version/reach_version_at updated, history rows only on change, malformed/missing changed nothing and the requests still succeeded.
+      - "Playwright (the copy at ~/bitbucket/paterasai/rstack-uber/rocketlaunch/node_modules, bundled Chromium; install nothing) at 1280x900 and 390x844 in apple-noir, apple-austere and tronwave - Students list column and tones, student page history, Devices, Overview card and summary; with TEACH_CURRENT_REACH_VERSION unset and set (restart between) the reference and tones change accordingly; test student excluded from the Overview counts. No console errors, CSP violations, failed requests or horizontal scroll. Screenshots to your scratchpad."
+      - bin/teach doctor on the scratch env shows the new check (OK when set validly, a finding when malformed).
+      - ruby -wc clean on changed files; a -w server run adds no warnings from changed files.
+      - Stop the scratch server and drop the scratch database at the end.

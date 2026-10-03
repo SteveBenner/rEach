@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.20.7
+version: 0.21.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -109,6 +109,8 @@ standards:
     text: "Reach keeps a managed ~/.reach/plugin install (VERSION present, no .git) current by itself: GitHub releases and tags together, the newest version from either since 0.16.14, checked at session start and hourly from detached processes, staged in the background, installed at the next session start by the release's own update/apply.rb, with every phase recorded in ~/.reach/state/update.json so an interrupted update resumes. Course work waits only while an install is running; REACH_UPDATE_DISABLE=1 turns it off. See reach.spec.yml auto_update."
   - id: STD-CONSENT-FROM-REACH
     text: "A module move or module choice is asked by Reach, never by the agent: the agent runs reach transfer request or reach modules choose (or the matching reach_* tool) and relays the question it prints word for word, and never offers, promises or claims a notification in its own words. Reach acts on the student's captured yes or no itself, from the prompt hook, and hands the agent the outcome to relay (since 0.14.3), so the agent never makes the second call. A crisis message from the student is answered with reach support's message before anything else, the session greeting included."
+  - id: STD-VERSION-REPORT
+    text: "Since 0.21.0 (wire revision 2026-10-03a, W-AUTH-7) every request Reach signs carries X-Reach-Version with Reach::VERSION, so Teach always knows which rEach each install runs, including after a self-update; the header carries nothing but the version."
   - id: STD-ENROLL-LOCKDOWN
     text: "Since 0.16.0 Reach is inert until it is enrolled: a plugin-level prompt hook blocks every prompt in every harness session and runs the enrollment flow (W-ENR-7) itself (the one exception, since 0.20.7, is a prompt that arrives while the launcher is still installing Ruby on a computer that had none, which passes with M-BOOTSTRAP-WAIT context instead, STD-RUBY-BOOTSTRAP), asking for the class-wide course passkey (the course code of W-ENR-1), the institutional username and the student ID (W-ENR-3) so the agent never sees them; every reach command except help, version, enroll, setup, doctor, support, update, runtime, hello, gate, mcp, guide (since 0.16.13), instructor (since 0.16.17) and transcripts (since 0.19.0, local export only, STD-TRANSCRIPT-EXPORT), and every MCP tool, refuses while locked. Teach answers a shape v2 enrollment with a signed enrollment stamp (W-ENR-5) binding the install, the student, the course and a salted, hashed fingerprint of the computer, the computer account and the install key (W-ENR-4); Reach locks again when the stamp fails to verify, the course ends, or the live fingerprint stops matching (W-ENR-6). The flow's crisis check runs before any step. Institution rules come from Teach's preview and fall back to config.yml enrollment; nothing in lib/ names an institution. The one exception is a valid instructor unlock code (STD-INSTRUCTOR-UNLOCK)."
   - id: STD-INSTRUCTOR-UNLOCK

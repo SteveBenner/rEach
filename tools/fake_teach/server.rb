@@ -185,7 +185,7 @@ module FakeTeach
     end
 
     def log_request(req, status)
-      line = JSON.generate("at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%LZ"), "method" => req.request_method, "path" => req.path.to_s, "status" => status)
+      line = JSON.generate("at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%LZ"), "method" => req.request_method, "path" => req.path.to_s, "status" => status, "reach_version" => req["X-Reach-Version"])
       File.open(File.join(@home, "requests.jsonl"), "a") { |file| file.puts(line) }
     end
 

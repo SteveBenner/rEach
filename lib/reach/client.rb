@@ -351,6 +351,7 @@ module Reach
       req["X-Teach-Timestamp"] = timestamp
       req["X-Teach-Nonce"] = nonce
       req["X-Teach-Signature"] = signature
+      req["X-Reach-Version"] = Reach::VERSION
     end
 
     def retry_after_seconds(response)

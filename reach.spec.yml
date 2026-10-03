@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.20.7
+version: 0.21.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1274,6 +1274,7 @@ cli:
       M-COURSE-INGESTED; it exits 0 for ingested, unchanged and none, and 1 for disabled and failed.
 client_safety:
   applies_to: Every call from Reach to Teach.
+  version_header: Since 0.21.0 every signed request carries X-Reach-Version (W-AUTH-7, STD-VERSION-REPORT), set in Reach::Client#sign! beside the X-Teach-* headers.
   timeouts:
     connect_s: 5
     read_s: 30

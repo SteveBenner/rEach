@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-02'
+recorded: '2026-10-03'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -128,6 +128,17 @@ request_authentication:
     rule: >-
       An unknown install id is 403 not_enrolled; a revoked install is 403 revoked. Both are checked before the signature
       so a revoked install learns it is revoked.
+  W-AUTH-7:
+    name: reach version header
+    since: 2026-10-03a
+    rule: >-
+      Since protocol 1 revision 2026-10-03a Reach sends X-Reach-Version, its own version (VERSION, for example
+      "0.21.0"), on every request it signs. The header is not part of the W-AUTH-1 payload, so a Teach of an earlier
+      revision ignores it. Teach reads it only after the signature verifies, accepts it only when it matches
+      ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]{1,32})?$ and is at most 48 characters, records it as the install's
+      current reach_version with the time it was reported, and keeps a history row whenever it changes. A missing or
+      malformed header never refuses a request and never changes the recorded version. The version enrollment sent in
+      its body stays the install's first record.
   instructor_requests: >-
     Instructor API requests use the same scheme with X-Teach-Instructor in place of X-Teach-Install. Reach never sends
     them; the rule is recorded so both flows share one verifier.
