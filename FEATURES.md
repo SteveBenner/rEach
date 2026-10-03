@@ -810,7 +810,8 @@ of 0.20.6; `REACH_KIT_FALLBACK=0` turns it off. Debug session and sync events ca
 sync warning texts. Verified in GitHub Actions platform run 37100202414 before the rebase onto 0.21.2: 17 of 17
 steps on macOS arm64 and Intel (system Ruby 2.6.10, LibreSSL 3.3.6), where `reach doctor --report` inside
 `codex sandbox` (Codex CLI 0.160.0) moved to the kit Ruby 4.0.7 (OpenSSL 3.6.2) and opened the stored guardrails
-package, and green on Linux and both Windows legs.
+package, and green on Linux and both Windows legs. Run 37100526911 on the rebased 0.21.3 passed again: 16 of 16 on
+both macOS legs, with both package kinds opening from storage and from fake_teach under the kit Ruby.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
