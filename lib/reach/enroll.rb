@@ -43,6 +43,7 @@ module Reach
       Reach::EnrollmentLock.clear_moved!
       write_notice(body)
       announce_sidecar(current)
+      Reach::Subscribe.spawn_ensure
 
       current
     end
@@ -121,6 +122,7 @@ module Reach
       clear_pending
       write_notice(body)
       announce_sidecar(current)
+      Reach::Subscribe.spawn_ensure
 
       current
     end

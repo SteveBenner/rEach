@@ -1,6 +1,6 @@
 # TODO
 
-## Live sessions (branch `mcp-wire`, wire revision 2026-10-03e, not released)
+## Live sessions (branch `mcp-wire`, wire revision 2026-10-03f, not released)
 
 - [ ] Run a live session on a real macOS and a real Windows install, and on Ruby 2.6; only Linux with Ruby 3.3 ran
       (on 2.6.10 the code was syntax-checked and loaded, nothing more).

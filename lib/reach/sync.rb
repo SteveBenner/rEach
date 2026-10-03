@@ -4,8 +4,24 @@ require "time"
 
 module Reach
   module Sync
+    class Busy < Reach::Error; end
+
+    LOCK_WAIT_S = 120
+
     class << self
-      def run
+      def lock_file
+        File.join(Reach::Paths.state_dir, "sync.lock")
+      end
+
+      def run(wait_s: LOCK_WAIT_S)
+        FileUtils.mkdir_p(Reach::Paths.state_dir)
+        outcome = Reach::Locks.exclusive(lock_file, wait_s: wait_s) { run_locked }
+        raise Busy, "reach: another sync is running" if outcome == :busy
+
+        outcome
+      end
+
+      def run_locked
         began = Reach::Debug.clock
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install

@@ -198,7 +198,7 @@ computer's operating system and AI app: each session's context names the ones th
 happening now, and the agent gets the student's steps from the `reach_known_issues` tool (or `reach known-issues`).
 This works before enrollment, and from the last saved copy when the course server can't be reached.
 
-Since 0.22.0 rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
+Since 0.23.0 rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
 qualify or submit is reported the first time it happens, any other the third time in a day, as a hand of type
 `issue` holding where it happened and what rEach was running, never an error message, a prompt or code. The student
 is told once that it was reported and that nothing is needed from them, and once more when the fix reaches their

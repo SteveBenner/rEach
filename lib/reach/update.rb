@@ -508,6 +508,7 @@ module Reach
         manifest["staging_dir"] = nil
         save_manifest(manifest)
         log("apply", "from" => from_version, "to" => manifest["target_version"], "result" => "completed")
+        Reach::Subscribe.spawn_ensure
         manifest
       else
         message = errors.to_s.lines.map(&:strip).reject(&:empty?).last

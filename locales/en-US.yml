@@ -9,6 +9,7 @@ messages:
   M-UPDATE-INSTALLING: "rEach is installing an update (version {version}) that you need to keep using it. Give it a minute, then try again; your work is safe."
   M-UPDATE-READY: "A rEach update (version {version}) is ready. It installs the next time you start a session, so nothing changes in the middle of your work."
   M-UPDATE-DONE: "rEach is up to date (version {version}). Start a new session when it suits you to load everything."
+  M-SUBSCRIBE-UPDATES: "rEach picked up new course updates since your last message: {updates}. Tell the student in plain words if it helps their work."
   M-UPDATE-RETRY: "rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own."
   M-REACH-OUTDATED: "This version of rEach ({version}) is too old for your course, which needs {minimum} or newer. Update rEach, then try again."
   M-AUTH-FAILED: "Your course server didn't accept rEach's signature. Check that your computer's clock is right, then run reach sync. If it keeps happening, tell your instructor."
