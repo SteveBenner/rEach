@@ -91,14 +91,8 @@ module Reach
     end
 
     def decrypt(header, key)
-      cipher = OpenSSL::Cipher.new("aes-256-gcm")
-      cipher.decrypt
-      cipher.key = key
-      cipher.iv = header["nonce"]
-      cipher.auth_tag = header["tag"]
-      cipher.auth_data = header["aad"]
-      cipher.update(header["ciphertext"]) + cipher.final
-    rescue OpenSSL::Cipher::CipherError
+      Reach::Crypto.decrypt_gcm(key: key, nonce: header["nonce"], ciphertext: header["ciphertext"], tag: header["tag"], aad: header["aad"])
+    rescue Reach::VerificationFailed
       raise Reach::VerificationFailed, refused_text("failed its integrity check")
     end
 
