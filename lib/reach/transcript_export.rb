@@ -402,8 +402,7 @@ module Reach
 
     def with_state
       FileUtils.mkdir_p(Reach::Paths.state_dir)
-      File.open("#{state_path}.lock", File::RDWR | File::CREAT, 0o600) do |lock|
-        lock.flock(File::LOCK_EX)
+      Reach::Locks.exclusive("#{state_path}.lock") do |_lock|
         state = state_read
         before = JSON.generate(state)
         result = yield(state)

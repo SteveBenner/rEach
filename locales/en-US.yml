@@ -157,6 +157,7 @@ messages:
   M-LOGIN-LOCKED: "Too many tries. Please wait {minutes} minutes and try again, or ask your instructor for help."
   M-LOGIN-DENIED: "This computer's rEach is enrolled for a different student, so it can't do course work in this session. If you're a different student, use your own computer account and your own course passkey. If that was a mistake, close this session and start a new one."
   M-LOGIN-NEEDED: "The student hasn't signed in yet. rEach asks for their student ID when they next type; wait for them."
+  M-LOGIN-DONE-AGENT: "The student has signed in as {name}. Course work can begin; greet them and continue."
   M-GATE-OUTSIDE: "rEach only works inside your course workspace. If you need a file from elsewhere, drag it into the chat or paste its text."
   M-GATE-NOWEB: "Web lookups are switched off for course work. Your AI partner can use the course's own materials instead, or you can ask your instructor."
   M-GATE-NOT-CURRENT: "This part of the course isn't open for changes right now: it isn't the current assignment yet, or its due time has passed and late work is switched off. Ask your instructor if you need an exception."

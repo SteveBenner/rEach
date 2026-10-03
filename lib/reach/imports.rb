@@ -200,8 +200,7 @@ module Reach
 
     def append_record(record)
       FileUtils.mkdir_p(File.dirname(Reach::Paths.imports_file))
-      File.open(Reach::Paths.imports_file, File::WRONLY | File::CREAT | File::APPEND, 0o600) do |file|
-        file.flock(File::LOCK_EX)
+      Reach::Locks.exclusive(Reach::Paths.imports_file, mode: File::WRONLY | File::CREAT | File::APPEND) do |file|
         file.puts(JSON.generate(record))
       end
     end

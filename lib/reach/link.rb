@@ -48,10 +48,7 @@ module Reach
 
     def locked
       FileUtils.mkdir_p(Reach::Paths.home)
-      File.open(lock_file, File::RDWR | File::CREAT, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        yield
-      end
+      Reach::Locks.exclusive(lock_file) { yield }
     end
 
     def lost!(cause)

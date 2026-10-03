@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.19.0
+version: 0.19.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -475,7 +475,10 @@ harness_integration:
       command: reach hello --format hook
       effect: >-
         Adds the "rEach session context" (the right greeting and the persona pointer) to every session, so rEach
-        introduces itself first; it never blocks, so the student's other sessions are untouched.
+        introduces itself first; it never blocks, so the student's other sessions are untouched. Since 0.19.1 it
+        answers at once from local files and starts one detached reach hello --background (status refresh, course
+        reference ingest, storage and import session start, late retry), which stores a refreshed context that the
+        session's next prompt carries once.
     session_agent: >-
       settings.json {"agent": "reach:reach"} makes rEach the main session agent in Claude Code. A plugin agent's
       initialPrompt is ignored, so rEach speaks first through the hello context, not an automatic turn.
@@ -536,8 +539,11 @@ harness_integration:
       A workspace .codex/config.toml written by Reach and made read-only, with sandbox_mode workspace-write,
       [sandbox_workspace_write] writable_roots [~/.reach] and network_access true, the bridge under [mcp_servers.reach],
       and a read-only .codex/hooks.json with the same hooks as Claude's (PreToolUse matching apply_patch, Write,
-      Edit and the shell tools; UserPromptSubmit as reach gate prompt --harness codex; PostToolUse reach transcript
-      code --harness codex; Stop reach transcript turn --quick --harness codex); AGENTS.md carries the guardrails.
+      Edit and the shell tools; UserPromptSubmit as reach gate prompt --harness codex with a 60 second timeout;
+      SessionStart as reach gate session --harness codex with 10 seconds, the plugin's own limits; PostToolUse reach
+      transcript code --harness codex; Stop reach transcript turn --quick --harness codex); AGENTS.md carries the
+      guardrails. Reach rewrites these files, and so picks up a changed timeout, whenever it configures a workspace
+      (sync, update, the session start).
       Written in every space (slice, extracurricular, root) as for Claude Code.
     launcher_gate: >-
       reach work runs the gate before starting Codex and refuses to start it when the gate fails; Codex is always
@@ -668,6 +674,17 @@ gate:
     Every refusal says what is missing and the command that fixes it (reach sync, reach enroll, reach work --slice
     ...).
   logging: Every refusal is logged locally and counted in the next status call to Teach.
+  responsiveness: >-
+    Since 0.19.1 (STD-HOOK-RESPONSIVE) no hook waits on the network or on another process. Reach::Locks.exclusive
+    polls a non-blocking flock until a deadline and answers :busy; every file lock on a hook path (brain, brain spool,
+    transcript, rate bucket, ledger, link, debug, late work, transcript export and ingest, imports, the outside-access
+    counter) waits at most hooks.lock_wait_s (config.yml, default 2 seconds, spent across the whole hook process) and
+    then degrades without losing data. A prompt, reply or code entry whose transcript lock is busy is appended to a
+    per-process pending spool (<session>.pending-<pid>.q, 0600) that the next lock holder merges in order before its
+    own entries; the rate bucket treats busy as no token; every other step is skipped for that event and retried by the
+    next background run. The prompt after a sign-in gets the short signed-in context (M-LOGIN-DONE-AGENT with the
+    session start's local parts) and starts one detached reach hello --background, whose result is stored under
+    ~/.reach/state/hello and carried once by the session's next prompt. Non-hook commands keep blocking waits.
 shape_loop:
   checker: >-
     Dovetail's pure-Ruby shape checker (dovetail check --require-signed) run against the signed shape in the vault.
@@ -873,6 +890,7 @@ course_alignment:
     - Three wrong IDs in 15 minutes lock the session for 15 minutes and report login_failed; a no reports identity_denied and ends course work for the session.
     - Until the session is signed in, the write, shell and read gates refuse everything with M-LOGIN-NEEDED, except reach support. Submit, qualify, part record, modules choose and transfer request need a sign-in within max_hours (12).
     - State lives in ~/.reach/state/login/. Commands - reach login status.
+    - Since 0.19.1 the first prompt the agent sees after the yes carries M-LOGIN-DONE-AGENT (the student's name and that course work can begin) with the session start's local parts, replacing the session start's "wait for them" (M-LOGIN-NEEDED); the just-signed-in marker is removed only after the hook has written and flushed that answer, so a hook the harness kills delivers it on the next prompt.
     - Hermes cannot block a prompt, so its agent sees the typed ID; Antigravity has no hooks and no sign-in.
   identity_tags: Every local record (ledger, transcript spool, corpus, consent, part answers, module records, imports) carries student_id (W-ID-2).
   consent: >-

@@ -39,13 +39,17 @@ module Reach
 
       def run_terminal(argv)
         code = dispatch(argv)
-        notice = argv.first == "mcp" ? nil : Reach::Link.notice!
+        notice = argv.first == "mcp" || background_hello?(argv) ? nil : Reach::Link.notice!
         warn notice if notice
         code
       rescue StandardError, ScriptError => e
         Reach::Debug.fault(e, "command:#{command_label(argv)}", "M-REACH-HICCUP-CLI")
         warn Reach::Messages.text("M-REACH-HICCUP-CLI")
         1
+      end
+
+      def background_hello?(argv)
+        argv.first == "hello" && argv.include?("--background")
       end
 
       def command_label(argv)
@@ -55,8 +59,10 @@ module Reach
 
       def hook_invocation?(argv)
         case argv.first
-        when "gate", "hello"
+        when "gate"
           true
+        when "hello"
+          !background_hello?(argv)
         when "transcript"
           %w[turn code].include?(argv[1])
         when "check"
@@ -101,6 +107,7 @@ module Reach
         $stdout = buffer
         code = nil
         failure = nil
+        Reach::Locks.bound!
         begin
           code = Reach::Client.with_deadline(hook_budget(argv)) { dispatch_hook(argv) }
         rescue Reach::GateBlocked => e
@@ -113,8 +120,14 @@ module Reach
           $stdout = original
         end
         printed = buffer.string
-        original.write(printed) unless printed.empty?
-        return code unless failure
+        unless printed.empty?
+          original.write(printed)
+          original.flush
+        end
+        unless failure
+          Reach::Gate.run_after_answer
+          return code
+        end
 
         hook_failure(failure, argv, !printed.empty?)
       end
@@ -968,7 +981,7 @@ module Reach
           nil
         end
         parts = []
-        parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup") if event["is_first_turn"] == true && blocked.nil?
+        parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup", session: Reach::Transcript.resolve_session_id(event)) if event["is_first_turn"] == true && blocked.nil?
         parts << context if context
         notice = Reach::Link.notice!
         parts << Reach::Messages.text("M-TEACH-LINK-RELAY", text: notice) if notice
@@ -1613,7 +1626,12 @@ module Reach
       end
 
       def cmd_hello(args)
-        options, _remaining = parse_flags(args, [:harness, :format, :source])
+        background, args = parse_bare_flag(args, "background")
+        options, _remaining = parse_flags(args, [:harness, :format, :source, :session])
+        if background
+          Reach::Hello.background(session: options[:session], cwd: Dir.pwd)
+          return 0
+        end
         puts Reach::Hello.run(
           harness: options[:harness],
           source: options[:source],

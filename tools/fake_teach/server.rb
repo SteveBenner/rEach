@@ -506,6 +506,8 @@ module FakeTeach
     end
 
     def service(req, res)
+      delay = ENV["FAKE_TEACH_DELAY_S"].to_f
+      sleep(delay) if delay.positive?
       body = read_body(req)
       payload = route(req, body)
       respond(res, 200, payload)

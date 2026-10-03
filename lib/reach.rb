@@ -15,6 +15,7 @@ end
 
 require_relative "reach/errors"
 require_relative "reach/paths"
+require_relative "reach/locks"
 require_relative "reach/messages"
 require_relative "reach/course_time"
 require_relative "reach/wire"

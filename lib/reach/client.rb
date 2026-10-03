@@ -57,6 +57,7 @@ module Reach
         wait = try_take
         return if wait.nil?
 
+        pacing_error!("busy") if wait == :busy
         pacing_error!("quick") if quick && wait > 0.5
         pacing_error!("limit") if Time.now + wait > deadline
         pacing_error!("deadline") if Reach::Client.deadline && Time.now + wait > Reach::Client.deadline - 0.5
@@ -76,8 +77,7 @@ module Reach
       FileUtils.mkdir_p(Reach::Paths.state_dir)
       path = Reach::Paths.bucket_file
       wait = nil
-      File.open(path, File::RDWR | File::CREAT, 0o600) do |file|
-        file.flock(File::LOCK_EX)
+      held = Reach::Locks.exclusive(path) do |file|
         now = Time.now.to_f
         state = read_state(file)
         elapsed = [now - state["updated_at"].to_f, 0].max
@@ -90,7 +90,7 @@ module Reach
           wait = (1.0 - tokens) / RATE_PER_SECOND
         end
       end
-      wait
+      held == :busy ? :busy : wait
     end
 
     def read_state(file)

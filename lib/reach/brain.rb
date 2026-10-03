@@ -43,6 +43,7 @@ module Reach
     PRUNE_TARGET = 0.8
     DIGEST_KEEP = 500
     INJECT_KEEP = 10
+    MEMORY_NOTICE_WAIT_S = 0.25
     MIN_PROMPT_CHARS = 12
     SECRET_PATTERN = /(password|passcode|passphrase|api[ _-]?key|secret|token)\s*[:=]/i.freeze
     ORIGIN_PATTERN = %r{\Aimport:[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\z}.freeze
@@ -99,12 +100,13 @@ module Reach
       nil
     end
 
-    def with_lock
+    def lock_path
+      File.join(dir, "brain.lock")
+    end
+
+    def with_lock(wait_s: nil)
       ensure_dir!
-      File.open(File.join(dir, "brain.lock"), File::RDWR | File::CREAT, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        yield
-      end
+      Reach::Locks.exclusive(lock_path, wait_s: wait_s) { yield }
     end
 
     def read_json(path)
@@ -126,8 +128,8 @@ module Reach
       read_json(state_path)
     end
 
-    def update_state
-      with_lock do
+    def update_state(wait_s: nil)
+      with_lock(wait_s: wait_s) do
         fresh = read_json(state_path)
         updated = yield(fresh)
         write_json(state_path, updated)
@@ -215,6 +217,7 @@ module Reach
 
     def capture_turn(session_id:, space:)
       return nil unless enabled?
+      return nil if Reach::Locks.bounded? && !Reach::Locks.free?(lock_path)
 
       config = settings
       now = Time.now.utc
@@ -734,7 +737,7 @@ module Reach
     end
 
     def memory_notice_shown!
-      update_state { |state| state.merge("memory_notice" => true) }
+      update_state(wait_s: Reach::Locks.bounded? ? MEMORY_NOTICE_WAIT_S : nil) { |state| state.merge("memory_notice" => true) }
       nil
     rescue StandardError
       nil
