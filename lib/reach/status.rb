@@ -14,27 +14,11 @@ module Reach
         lines << receipts_line
         lines << hands_line
         lines << rules_line
-        line = transcript_line
-        lines << line if line
         line = part_line
         lines << line if line
         line = next_line
         lines << line if line
         lines.join("\n")
-      end
-
-      def transcript_line
-        counts = Reach::Transcript.counts
-        sent = counts["sent"].to_i
-        waiting = counts["waiting"].to_i
-        held = counts["held"].to_i
-        return nil if sent.zero? && waiting.zero? && !Dir.exist?(Reach::Paths.transcripts_dir)
-
-        line = waiting.zero? ? "Transcript: #{sent} entries sent" : "Transcript: #{sent} entries sent, #{waiting} waiting to send"
-        line += " (#{held} held until the course server is updated)" if held.positive?
-        line
-      rescue StandardError
-        nil
       end
 
       private

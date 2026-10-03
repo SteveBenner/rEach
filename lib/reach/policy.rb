@@ -6,7 +6,6 @@ module Reach
       "login" => { "required" => true, "max_hours" => 12, "lockout_failures" => 3, "lockout_minutes" => 15 },
       "limits" => {
         "corpus_max_bytes" => 52_428_800,
-        "transcript_spool_max_bytes" => 209_715_200,
         "materials_max_bytes" => 209_715_200,
         "import_max_bytes" => 20_971_520,
         "import_max_per_prompt" => 5

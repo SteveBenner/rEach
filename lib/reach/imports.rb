@@ -18,7 +18,7 @@ module Reach
 
     module_function
 
-    def observe(text:, space_path:, session_id:, harness:)
+    def observe(text:, space_path:)
       return [] unless text.is_a?(String) && space_path
 
       paths = candidate_paths(text)
@@ -36,7 +36,6 @@ module Reach
         result = import!(path, space_path: space_path)
         if result["ok"]
           lines << Reach::Messages.text("M-IMPORT-OK", name: result["name"])
-          record_action(result, space_path: space_path, session_id: session_id, harness: harness)
         else
           lines << Reach::Messages.text("M-IMPORT-REFUSED", source_name: result["source_name"], reason: result["reason"])
         end
@@ -207,22 +206,6 @@ module Reach
 
     def witness(space_path, record)
       Reach::Ledger.append(space_path, "import", "name" => record["name"], "bytes" => record["bytes"], "digest" => record["digest"])
-    rescue StandardError
-      nil
-    end
-
-    def record_action(result, space_path:, session_id:, harness:)
-      space = Reach::Workspace.space_for(space_path)
-      kind = space && space["kind"]
-      meta = kind == "slice" ? Reach::Workspace.metadata(space_path) : {}
-      slice = meta["slice"]
-      slice = nil unless Reach::Transcript::SLICES.include?(slice)
-      summary = "imported #{result['name']}, #{result['bytes']} bytes, sha256 #{result['digest'].to_s[0, 12]}"
-      Reach::Transcript.record(
-        session_id, kind: "action", harness: Reach::Transcript.resolve_harness(harness),
-        cutout_id: meta["cutout_id"], slice: slice, space: kind,
-        fields: { "tool" => "reach import", "summary" => summary, "note" => nil }
-      )
     rescue StandardError
       nil
     end

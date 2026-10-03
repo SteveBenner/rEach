@@ -58,24 +58,21 @@ module Reach
       Reach::Locks.refill!
       safe_late_retry
       Reach::Locks.refill!
-      notice = safe_transcript_notice
-      Reach::Locks.refill!
       Reach::CourseCorpus.ingest_if_changed(admit: false)
       Reach::Locks.refill!
       storage = Reach::Locks.free?(Reach::Paths.storage_lock_file("state")) ? safe_storage_context : nil
       Reach::Locks.refill!
-      store_context(session, refreshed_context(workspace, notice, storage))
+      store_context(session, refreshed_context(workspace, storage))
       nil
     rescue StandardError
       nil
     end
 
-    def refreshed_context(workspace, notice, storage)
+    def refreshed_context(workspace, storage)
       lines = ["rEach session context, refreshed in the background (the student needs no new greeting)"]
       lines << course_line
       late = safe_late_line(workspace)
       lines << late if late
-      lines << "- #{Reach::TranscriptExport.agent_notice(notice)}" if notice
       lines << "- #{storage}" if storage
       lines.join("\n")
     end
@@ -177,21 +174,16 @@ module Reach
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         message = Reach::EnrollFlow.next_message(lock)
-        notice = safe_transcript_notice
-        return [nil, message, message, locked_context(format)] unless notice
-
-        context = "#{locked_context(format)}\n- #{Reach::TranscriptExport.agent_notice(notice)}"
-        return [nil, "#{message}\n\n#{notice}", "#{message}\n\n#{notice}", context]
+        return [nil, message, message, locked_context(format)]
       end
 
       maybe_refresh_status unless local
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
       safe_late_retry unless local
-      transcript_notice = local ? nil : safe_transcript_notice
-      spawn_background(session || Reach::Transcript.resolve_session_id(event)) if local
+      spawn_background(session || Reach::Session.resolve_session_id(event)) if local
 
-      session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Transcript.resolve_session_id(event) : nil
+      session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil
 
       if login_pending?(event)
         updating = safe_update_start(session_id, source)
@@ -204,22 +196,13 @@ module Reach
       if updating && greeting_text
         greeting_text = "#{Reach::Greetings.text("G-UPDATING", version: updating)}\n\n#{greeting_text}"
       end
-      if greeting_text && in_course_folder?(cwd)
-        greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-TRANSCRIPT-NOTICE")}"
-      end
       if greeting_text && safe_memory_notice_due?
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-MEMORY-NOTICE")}"
         Reach::Brain.memory_notice_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, transcript_notice: transcript_notice, local: local)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local)
       [greeting_id, greeting_text, banner, context]
-    end
-
-    def safe_transcript_notice
-      Reach::TranscriptExport.session_start
-    rescue StandardError
-      nil
     end
 
     def safe_late_retry
@@ -475,7 +458,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, transcript_notice: nil, local: false)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false)
       lines = []
       lines << "rEach session context (from reach hello)"
       lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
@@ -495,7 +478,6 @@ module Reach
       lines.concat(alignment_lines)
       late = safe_late_line(workspace)
       lines << late if late
-      lines << "- #{Reach::TranscriptExport.agent_notice(transcript_notice)}" if transcript_notice
       memory = safe_session_context
       lines << memory if memory
       question = safe_course_question

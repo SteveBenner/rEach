@@ -174,8 +174,6 @@ module Reach
         [join("attempt", f["attempt"], f["mode"]), outcome, nil]
       when "submit"
         [join("submit", f["receipt_id"]), join(f["outcome"], f["late"] ? "late" : nil, f["attempt"] ? "attempt #{f['attempt']}" : nil, f["resubmit"], f["archive"] ? "copy #{f['archive']}" : nil), nil]
-      when "transcript"
-        [join("transcript", f["event"]), pairs(f, %w[event]), nil]
       when "brain"
         event = f["event"].to_s
         return summary(event.split(".").first, f.merge("outcome" => event.split(".", 2).last)) if event.match?(/\A(storage|import)\./)

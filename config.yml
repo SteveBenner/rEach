@@ -42,7 +42,7 @@ runtime:
   max_attempts: 5
 brain:
   enabled: true
-  capture_min_chars: 40
+  capture_min_chars: 1
   sources_per_hour: 120
   duplicate: 0.85
   related: 0.5
@@ -107,7 +107,5 @@ import:
 late_work:
   allow: true
   notice_every: 10
-transcripts:
-  auto_export: true
 hooks:
   lock_wait_s: 2

@@ -10,7 +10,7 @@ module Reach
     HIGH_SALIENCE = %w[preference goal decision].freeze
     DEFAULTS = {
       "enabled" => true,
-      "capture_min_chars" => 40,
+      "capture_min_chars" => 1,
       "sources_per_hour" => 120,
       "duplicate" => 0.85,
       "related" => 0.5,
@@ -215,21 +215,16 @@ module Reach
       state
     end
 
-    def capture_turn(session_id:, space:)
+    def capture_prompt(session_id:, space:, text:)
       return nil unless enabled?
       return nil if Reach::Locks.bounded? && !Reach::Locks.free?(lock_path)
 
       config = settings
       now = Time.now.utc
-      session = read_session(session_id)
-      cursor = session["cursor"].to_i
-      entries = Reach::Transcript.read_entries_after(session_id, cursor)
-      return nil if entries.empty?
+      typed = text.to_s.strip
+      return nil if typed.empty?
 
-      top = entries.map { |entry| entry["seq"].to_i }.max
-      usable = entries.select { |entry| capturable?(entry) }
-      lines = usable.map { |entry| "#{entry['kind'] == 'prompt' ? 'Student' : 'Partner'}: #{entry['text'].to_s.strip}" }
-      text = cut_text(lines.join("\n").strip)
+      text = cut_text("Student: #{typed}")
       captured = nil
       held = false
       too_short = text.length < config["capture_min_chars"]
@@ -239,15 +234,17 @@ module Reach
         captured_digests = Array(read_state["digests"])
         if captured_digests.include?(digest[0, 20])
           too_short = true
+        elsif typed.match?(SECRET_PATTERN) || (!student_id.to_s.empty? && typed.include?(student_id.to_s))
+          held = "secret"
         elsif read_state["spool_full"] == true && (check_spool(config, now) || read_state["spool_full"] == true)
           held = "spool_full"
         elsif bucket_count(read_state, "sources", now) >= config["sources_per_hour"]
           held = "rate"
         else
-          path = "conversations/#{now.strftime('%Y-%m-%d')}/#{safe_session(session_id)[0, 32]}-#{usable.first['seq']}.private.md"
+          path = "prompts/#{now.strftime('%Y-%m-%d')}/#{safe_session(session_id)[0, 32]}-#{digest[0, 12]}.private.md"
           id = source_id(path, digest)
           record = {
-            "text" => text, "path" => path, "source_digest" => digest, "title" => "turn #{usable.first['seq']}",
+            "text" => text, "path" => path, "source_digest" => digest, "title" => "prompt #{now.strftime('%H:%M:%S')}",
             "session_id" => session_id.to_s, "space" => space.to_s, "at" => now.iso8601, "student_id" => student_id
           }
           Reach::BrainSpool.append_op(op: "source", kind: "source", id: id, record: record)
@@ -264,7 +261,6 @@ module Reach
         state
       end
       update_session(session_id) do |fresh|
-        fresh = fresh.merge("cursor" => [top, fresh["cursor"].to_i].max)
         if captured
           fresh["last_source"] = { "id" => captured["id"], "digest" => captured["digest"], "at" => captured["at"] }
           fresh["turns"] = fresh["turns"].to_i + 1
@@ -284,7 +280,7 @@ module Reach
       end
 
       if captured
-        log("brain.captured", "source_id" => captured["id"], "bytes" => captured["bytes"], "entries" => usable.length, "nudge" => nudge)
+        log("brain.captured", "source_id" => captured["id"], "bytes" => captured["bytes"], "nudge" => nudge)
         check_spool(config, now)
         Reach::Corpus.new(Reach.ports).admit_if_due
       elsif held
@@ -335,14 +331,6 @@ module Reach
     rescue StandardError => e
       log("brain.failed", "op" => "spool_check", "error" => e.class.name)
       nil
-    end
-
-    def capturable?(entry)
-      return false unless %w[prompt reply].include?(entry["kind"])
-      return false if entry["space"].to_s.empty?
-      return false if entry["kind"] == "prompt" && entry["gate"] == "blocked"
-
-      !entry["text"].to_s.strip.empty?
     end
 
     def source_id(path, digest)

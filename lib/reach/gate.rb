@@ -1,3 +1,4 @@
+require "digest"
 require "shellwords"
 require "rbconfig"
 require "json"
@@ -42,7 +43,7 @@ module Reach
       if Reach::Instructor.mode?
         return Reach::Messages.text("M-DEBUG-RELAY", text: toggled) if toggled
 
-        return Reach::Instructor.context_once(Reach::Transcript.resolve_session_id(event))
+        return Reach::Instructor.context_once(Reach::Session.resolve_session_id(event))
       end
 
       blocked = nil
@@ -66,14 +67,7 @@ module Reach
       login_block = decision && decision["action"] == "block"
 
       locked = !blocked.nil? && Reach::EnrollmentLock::MESSAGES.value?(blocked.message_id)
-      entry = locked ? nil : begin
-        resolved_harness = Reach::Transcript.resolve_harness(harness)
-        options = { harness: resolved_harness, gate: blocked || login_block ? "blocked" : "allowed" }
-        options[:note] = decision["note"] if login_block && decision["note"]
-        Reach::Transcript.capture(event, **options)
-      rescue StandardError
-        nil
-      end
+      entry = locked || blocked || login_block ? nil : live_prompt(event)
 
       if decision && !decision["failed"]
         begin
@@ -87,17 +81,34 @@ module Reach
       raise blocked if blocked
       raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, toggled].compact.join("\n\n")) if login_block
 
-      if entry
-        witness("prompt", "session" => entry["session_id"], "seq" => entry["seq"], "digest" => entry["digest"])
-      else
-        witness("prompt")
-      end
+      witness("prompt")
+      context = prompt_context(event, harness, decision, entry, toggled: toggled)
+      learn_prompt(entry) if entry
+      context
+    end
 
-      prompt_context(event, harness, decision, entry, toggled: toggled)
+    def live_prompt(event)
+      text = event["prompt"].is_a?(String) ? event["prompt"] : nil
+      {
+        "session_id" => Reach::Session.resolve_session_id(event), "gate" => "allowed", "text" => text, "seq" => nil,
+        "digest" => text ? Digest::SHA256.hexdigest(text) : nil
+      }
+    rescue StandardError
+      nil
+    end
+
+    def learn_prompt(entry)
+      space = current_space
+      kind = space ? space["kind"] : "outside"
+      safely { Reach::Brain.capture_prompt(session_id: entry["session_id"], space: kind, text: entry["text"]) }
+      safely { Reach::Part.observe_prompt(space, entry["text"]) }
+      return unless kind == "slice" && !entry["text"].to_s.strip.empty?
+
+      safely { Reach::Ladder.note_prompt(space["path"]) }
     end
 
     def prompt_context(event, harness, decision, entry, toggled: nil)
-      session = Reach::Transcript.resolve_session_id(event)
+      session = Reach::Session.resolve_session_id(event)
       space = current_space
       context = []
       greeted = false
@@ -120,15 +131,13 @@ module Reach
       context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
       context << safely { Reach::Debug.remote_notice(session) }
       context << safely { Reach::LateWork.prompt_notice(session) }
-      transcripts = safely { Reach::TranscriptExport.pending_notice! }
-      context << Reach::TranscriptExport.agent_notice(transcripts) if transcripts
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed
         done = safely { Reach::Consent.follow_up!(observed) }
         context << Reach::Consent.agent_context(observed, done) unless done.to_s.empty?
       end
       if space
-        imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"], session_id: session, harness: harness) }
+        imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"]) }
         context.concat(Array(imports))
         context << safely { Reach::Next.anchor_text(space) }
       end
@@ -402,7 +411,7 @@ module Reach
     end
 
     def count_outside(event, tool)
-      session = Reach::Transcript.resolve_session_id(event)
+      session = Reach::Session.resolve_session_id(event)
       FileUtils.mkdir_p(Reach::Paths.sandbox_state_dir)
       begin
         File.chmod(0o700, Reach::Paths.sandbox_state_dir)

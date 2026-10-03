@@ -5,7 +5,7 @@ require "securerandom"
 
 module Reach
   module Debug
-    KINDS = %w[session hook gate command request lock sync check qualify submit transcript brain update error fault link storage import].freeze
+    KINDS = %w[session hook gate command request lock sync check qualify submit brain update error fault link storage import].freeze
     ROUTE = "/api/v1/debug".freeze
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
@@ -30,7 +30,7 @@ module Reach
     PHRASE_OFF = ["disable debug", "disable debug mode", "disable debugging", "turn debug off", "turn debug mode off", "turn off debug",
                   "turn off debug mode", "turn off debugging", "debug off", "debug mode off", "stop debug mode", "switch debug off",
                   "switch off debug mode"].freeze
-    SUBCOMMAND_COMMANDS = %w[gate transcript instructor shape modules transfer login memory directive reference part update runtime setup debug brain storage import].freeze
+    SUBCOMMAND_COMMANDS = %w[gate hook instructor shape modules transfer login memory directive reference part update runtime setup debug brain storage import].freeze
 
     module_function
 
@@ -202,7 +202,7 @@ module Reach
     def begin_hook(event, harness_flag)
       event = {} unless event.is_a?(Hash)
       harness = resolve_harness(harness_flag)
-      session = event["session_id"].to_s.empty? ? "cli" : Reach::Transcript.resolve_session_id(event)
+      session = event["session_id"].to_s.empty? ? "cli" : Reach::Session.resolve_session_id(event)
       @context = { "session_id" => session, "harness" => harness, "surface" => Reach::DebugRender.detect(harness, event) }
       @context
     rescue StandardError
@@ -532,7 +532,7 @@ module Reach
       emit(
         "sync",
         "state" => summary["state"], "packages" => packages, "workspaces" => Array(summary["workspaces"]).length,
-        "outbox_sent" => summary["outbox_sent"], "transcript_sent" => summary["transcript_sent"],
+        "outbox_sent" => summary["outbox_sent"],
         "warnings" => Array(summary["warnings"]).length, "duration_ms" => elapsed_ms(started)
       )
     rescue StandardError

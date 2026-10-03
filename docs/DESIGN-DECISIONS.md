@@ -63,24 +63,28 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
 
 ## Data capture and privacy
 
-- **What reaches Teach** (10-01). rEach does not capture the student's local workspace material, all the more because
-  students are encouraged to import their personal contexts. Only these go to the instructors:
+- **No transcripts are captured from the user, ever** (10-02). rEach keeps no transcript of any conversation: no
+  record of the student's prompts, the AI's replies, reasoning or actions, or the code it writes, in any folder or
+  harness, on the student's computer or on Teach. The prompt hook reads each prompt only as it arrives, for the gate, the login,
+  the crisis check, a consent yes or no, the student's own-part answer and the local microbrain, and keeps nothing
+  else. The microbrain is not a transcript: it stays on the student's computer and is never sent. The transcript
+  feature was torn down in Reach 0.20.4 and Teach 0.21.3: the transcripts already collected were backed up and then
+  deleted from Teach, and each student's local transcript folder is deleted when rEach updates.
+- **What reaches Teach** (10-01, revised 10-02). rEach does not capture the student's local workspace material, all
+  the more because students are encouraged to import their personal contexts. Only these go to the instructors:
   - completed work and assignment material (the slice's owned files and submissions);
-  - material the student explicitly approves or names to be sent;
-  - the captured conversation in course folders (prompts, replies, readable reasoning, actions, and code blocks the AI
-    puts in a reply), which is the exception to the rule above;
+  - material the student explicitly approves or names to be sent, including their own-part answers;
   - metadata, analytics and usage data.
-- **Extracurricular files stay on the student's computer** (10-01, Reach 0.16.12). The turn-end scan and the AI-write
-  capture cover only slice workspaces; the extracurricular folder is never scanned or mirrored. Teach's rule G-EXTRA-2
-  and rEach's own notices say so.
+- **Extracurricular files stay on the student's computer** (10-01, Reach 0.16.12). They are never scanned, mirrored
+  or sent. Teach's rule G-EXTRA-2 and rEach's own notices say so.
 - **Analytics are tied to the enrollment** (10-01). Usage analytics are identified by the enrolled student ID (see
   TODO.md).
-- **The brain stays local** (10-01, Reach 0.16.15). rEach keeps a private microbrain on the student's computer: the
-  conversation turns it already captures in course folders become private sources, the agent distils durable
-  findings about the student and their work, and rEach injects a profile at session start and matching memories on
-  each prompt. Nothing in it is sent to Teach; events carry ids and counts only; the student can ask what is
-  remembered and have it forgotten, which scrubs rEach's own spool. The agent's `reach remember` calls in a course
-  folder stay in the course transcript like any other command, and the memory notice tells the student so.
+- **The brain stays local and learns from everything the student types** (10-01, Reach 0.16.15, revised 10-02).
+  rEach keeps a private microbrain on the student's computer: every prompt the student types that the gate allows,
+  in any folder, becomes a private source as it arrives; the agent distils durable findings about the student and
+  their work with `reach remember`; and rEach injects a profile at session start and matching memories on each prompt.
+  Prompts the gate blocks (login, enrollment, passwords) never enter it. Nothing in it is sent to Teach; events carry
+  ids and counts only; the student can ask what is remembered and have it forgotten, which scrubs rEach's own spool.
 - **Fault reports carry no content** (10-02, Reach 0.16.25). When rEach hides an error or the Teach connection
   changes, it records a fault or link event and sends it to Teach even while debug mode is off: where it happened, the
   exception class, the errno name, a few plugin-relative frames and the id of what the person was shown, never the

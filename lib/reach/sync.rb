@@ -25,9 +25,6 @@ module Reach
         results = safe_call(summary) { Reach::Submit.retry_outbox }
         summary["outbox_sent"] = Array(results).count { |r| r["state"] == "ingested" }
 
-        transcript_result = safe_call(summary) { Reach::Transcript.flush(quick: false) }
-        summary["transcript_sent"] = transcript_result.is_a?(Hash) ? transcript_result["sent"].to_i : 0
-
         offline = false
         begin
           status = refresh_status(quick: false)

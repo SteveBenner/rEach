@@ -95,7 +95,7 @@ module Reach
     def enroll!(id, kind, username, course_id, harness, unlock, teach_url)
       Reach::Paths.ensure_home!
       key = Reach::Crypto.generate_install_key
-      harness_id = HARNESSES.include?(harness.to_s) ? harness.to_s : Reach::Transcript.resolve_harness(harness)
+      harness_id = HARNESSES.include?(harness.to_s) ? harness.to_s : Reach::Session.resolve_harness(harness)
       harness_id = "unknown" unless HARNESSES.include?(harness_id)
       fingerprint = Reach::Fingerprint.build(install_public_key: key.public_key, harness: harness_id, enrolled_via: "cli")
       persona = { "kind" => kind }

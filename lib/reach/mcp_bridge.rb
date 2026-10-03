@@ -271,14 +271,6 @@ module Reach
         }
       },
       {
-        "name" => "reach_transcripts",
-        "description" => "Save a ZIP of the student's saved conversations (prompts, replies, reasoning, actions and code, by assignment and part) to their Downloads folder (action export, the default). It works after the course has ended; the ZIP stays on this computer",
-        "inputSchema" => {
-          "type" => "object",
-          "properties" => { "action" => { "type" => "string", "enum" => %w[export] } }
-        }
-      },
-      {
         "name" => "reach_grade",
         "description" => "The points recorded for the student in Teach for each assignment, and the total; says plainly when grades are not available yet. The course grade of record is in the course's learning system, not here",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -307,7 +299,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_transcripts].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -516,8 +508,6 @@ module Reach
           step.merge("relay_verbatim" => true)
         when "reach_storage"
           storage_tool(arguments)
-        when "reach_transcripts"
-          transcripts_tool(arguments)
         when "reach_grade"
           Reach::Grades.fetch
         when "reach_extra_credit"
@@ -536,14 +526,6 @@ module Reach
       def archive_tool(arguments)
         result = Reach::Submit.archive_again(assignment: arguments["assignment"])
         result.merge("message" => result["text"])
-      end
-
-      def transcripts_tool(arguments)
-        action = arguments["action"].to_s
-        raise Reach::Error, "reach: unknown transcripts action" unless action.empty? || action == "export"
-
-        result = Reach::TranscriptExport.write!
-        result.merge("message" => Reach::TranscriptExport.result_text(result))
       end
 
       def import_tool(arguments)

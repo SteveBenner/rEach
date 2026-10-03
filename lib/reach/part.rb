@@ -1,6 +1,7 @@
 require "json"
 require "time"
 require "fileutils"
+require "digest"
 
 module Reach
   module Part
@@ -69,8 +70,6 @@ module Reach
           "question_id" => question["id"],
           "text" => text,
           "words" => words,
-          "session_id" => entry["session_id"],
-          "seq" => entry["seq"],
           "digest" => entry["digest"] || Reach::Crypto.digest_hex(text),
           "recorded_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
           "student_id" => student_id
@@ -78,11 +77,37 @@ module Reach
         state = load_state(assignment, meta["course"])
         state["answers"][question["id"]] = answer
         write_state(assignment, meta["course"], state)
-        Reach::Ledger.append(
-          workspace, "part",
-          "question_id" => question["id"], "digest" => answer["digest"], "seq" => answer["seq"], "session_id" => answer["session_id"]
-        )
+        FileUtils.rm_f(pending_path)
+        Reach::Ledger.append(workspace, "part", "question_id" => question["id"], "digest" => answer["digest"])
         answer
+      end
+
+      def observe_prompt(space, text)
+        return nil unless space.is_a?(Hash) && %w[slice root].include?(space["kind"])
+        return nil unless text.is_a?(String) && !text.strip.empty?
+        return nil if Reach::Consent.yes?(text) || Reach::Consent.no?(text)
+
+        words = word_count(text)
+        return nil if words < smallest_min_words
+
+        meta = space["kind"] == "slice" ? Reach::Workspace.metadata(space["path"]) : {}
+        record = {
+          "text" => text, "words" => words, "digest" => Digest::SHA256.hexdigest(text),
+          "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "space" => space["kind"],
+          "cutout_id" => meta["cutout_id"], "slice" => meta["slice"], "student_id" => student_id
+        }
+        path = pending_path
+        FileUtils.mkdir_p(File.dirname(path))
+        tmp = "#{path}.tmp.#{Process.pid}.#{rand(1_000_000)}"
+        File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(record)) }
+        File.rename(tmp, path)
+        record
+      rescue StandardError
+        nil
+      end
+
+      def pending_path
+        File.join(Reach::Paths.state_dir, "part", "pending.json")
       end
 
       def word_count(text)
@@ -143,49 +168,28 @@ module Reach
         state
       end
 
+      def smallest_min_words
+        all = (Reach::Policy.student_part || {})["questions"]
+        mins = all.is_a?(Hash) ? all.values.flat_map { |list| Array(list) }.select { |item| item.is_a?(Hash) }.map { |item| item["min_words"].to_i } : []
+        [mins.min.to_i, 1].max
+      rescue StandardError
+        1
+      end
+
       def latest_prompt(assignment_id)
-        now = Time.now.utc
-        allowed = current_cutouts(assignment_id)
-        best = nil
-        best_key = nil
-        spool_files(now).each do |path|
-          File.foreach(path) do |line|
-            entry = parse_entry(line)
-            next unless entry && candidate?(entry, allowed, now)
-
-            key = [Time.parse(entry["at"]).utc.to_f, entry["seq"].to_i]
-            next if best_key && (key <=> best_key) <= 0
-
-            best = entry
-            best_key = key
-          end
+        entry = begin
+          JSON.parse(File.read(pending_path))
+        rescue StandardError
+          nil
         end
-        best
-      end
+        return nil unless entry.is_a?(Hash) && entry["text"].is_a?(String) && entry["at"].is_a?(String)
+        return nil unless entry["student_id"].nil? || entry["student_id"] == student_id
+        return nil if Time.now.utc - Time.parse(entry["at"]).utc > WINDOW_S
+        return entry if entry["space"] == "root"
 
-      def spool_files(now)
-        files = Dir.glob(File.join(Reach::Paths.transcripts_dir, "*.jsonl")).reject { |path| path.end_with?(".rejected.jsonl") }
-        ordered = files.sort_by { |path| -File.mtime(path).to_f }
-        ordered.take_while { |path| now - File.mtime(path).utc <= WINDOW_S }
-      end
-
-      def parse_entry(line)
-        entry = JSON.parse(line)
-        entry.is_a?(Hash) ? entry : nil
-      rescue JSON::ParserError
-        nil
-      end
-
-      def candidate?(entry, allowed, now)
-        return false unless entry["kind"] == "prompt" && entry["gate"] == "allowed" && entry["note"].nil?
-        return false unless entry["text"].is_a?(String) && !entry["text"].strip.empty?
-        return false unless entry["at"].is_a?(String) && entry["seq"].is_a?(Integer)
-        return false if now - Time.parse(entry["at"]).utc > WINDOW_S
-        return false if Reach::Consent.yes?(entry["text"]) || Reach::Consent.no?(entry["text"])
-
-        entry["space"] == "root" || (entry["space"] == "slice" && allowed.include?(entry["cutout_id"]))
+        entry["space"] == "slice" && current_cutouts(assignment_id).include?(entry["cutout_id"]) ? entry : nil
       rescue ArgumentError
-        false
+        nil
       end
 
       def current_cutouts(assignment_id)

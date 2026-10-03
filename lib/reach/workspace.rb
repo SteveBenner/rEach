@@ -254,7 +254,7 @@ module Reach
     def log_workspace_moved(from, to)
       FileUtils.mkdir_p(Reach::Paths.logs_dir)
       record = { "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "event" => "workspace_moved", "from" => from, "to" => to }
-      File.open(Reach::Paths.transcript_log, File::WRONLY | File::CREAT | File::APPEND, 0o644) { |file| file.puts(JSON.generate(record)) }
+      File.open(Reach::Paths.workspace_log, File::WRONLY | File::CREAT | File::APPEND, 0o644) { |file| file.puts(JSON.generate(record)) }
     rescue StandardError
       nil
     end
