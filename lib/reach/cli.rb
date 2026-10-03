@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -314,6 +314,8 @@ module Reach
           cmd_live(args)
         when "known-issues"
           cmd_known_issues(args)
+        when "subscribe"
+          cmd_subscribe(args)
         when "grade"
           cmd_grade(args)
         when "extra-credit"
@@ -360,6 +362,7 @@ module Reach
             setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...] [--runtime]
             runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
+            subscribe status [--format text|json] | install | uninstall   the course server update check and its background job
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
@@ -1384,6 +1387,7 @@ module Reach
         enroll_line = doctor_enroll_line
         puts enroll_line if enroll_line
         puts doctor_runtime_line
+        puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
         problems.empty? ? 0 : 1
       end
@@ -1746,6 +1750,39 @@ module Reach
           end
         end
         0
+      end
+
+      def cmd_subscribe(args)
+        sub = args.shift || "status"
+        options, _remaining = parse_flags(args, [:format, :source])
+        case sub
+        when "status"
+          data = Reach::Subscribe.status
+          if options[:format] == "json"
+            puts JSON.pretty_generate(data)
+          else
+            puts Reach::Subscribe.status_lines(data)
+          end
+          0
+        when "tick"
+          source = Reach::Subscribe::SOURCES.include?(options[:source]) ? options[:source] : "background"
+          Reach::Subscribe.tick(source: source)
+          0
+        when "install"
+          Reach::Subscribe.install!
+          puts Reach::Subscribe.status_lines
+          0
+        when "uninstall"
+          Reach::Subscribe.uninstall!
+          puts Reach::Subscribe.status_lines
+          0
+        when "ensure"
+          Reach::Subscribe.ensure!
+          0
+        else
+          warn "reach: unknown subscribe command #{sub.inspect}"
+          1
+        end
       end
 
       def cmd_guide(args)

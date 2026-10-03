@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.21.6 |
-| **Last audited** | 2026-10-02 |
+| **Registry version** | 0.23.0 |
+| **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 88 catalogued |
+| **Feature count** | 89 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 79 | 91% |
+| ✅ Shipped | 81 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,8 +31,8 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 74 | 85% |
-| ⚫ No runtime path | 11 | 13% |
+| 🔵 Built, not enabled | 76 | 85% |
+| ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
 
@@ -592,9 +592,15 @@ whether this session is signed in (2.17). Unverified: neither has a separate run
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.39 · Issue reports
+### 2.39 · Teach subscription
 
-Since 0.22.0 rEach reports its own technical problems to the instructors by itself (`STD-ISSUES`, wire `W-ISSUE-1` to
+Since 0.22.0 (wire revision 2026-10-03e, Teach 0.30.0; STD-TEACH-SUBSCRIBE) Reach checks Teach's signed W-API-REVISION probe, about every 60 seconds from its MCP server while a harness session runs and about every 15 minutes from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task), and runs one `reach sync` only when a part changed, so rebuilt packages, assignments, policy, grades, hand replies, extra credit, receipts and known issues arrive without the student asking. `reach subscribe status|tick|install|uninstall` manage it, `reach doctor` prints R-DOC-SUBSCRIBE, and the prompt hook adds one plain line (M-SUBSCRIBE-UPDATES) naming what changed. `REACH_OFFLINE=1`, `REACH_SUBSCRIBE=0` and `subscribe.background: false` switch it off. Unverified: the macOS LaunchAgent and the Windows Task Scheduler job were generated as text only and never run on those systems; the Linux unit files were written to a scratch folder with no `systemctl` call.
+
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.22.0, GitHub Latest; Teach 0.30.0 serves the route). The macOS and Windows operating system jobs are generated and reviewed but have not yet run on those systems.
+
+### 2.40 · Issue reports
+
+Since 0.23.0 rEach reports its own technical problems to the instructors by itself (`STD-ISSUES`, wire `W-ISSUE-1` to
 `W-ISSUE-8`). Every fault it hides from the student gets a signature; a fault that stops enrollment, sign-in, sync,
 qualify or submit is reported the first time, any other the third time in 24 hours, once per signature per rEach
 version, at most 3 a day. The report is a hand with trigger `issue` and the sealed bundle `reach.issue/v1`: where it
@@ -618,9 +624,9 @@ harness sessions.
 
 Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03c, and until one does rEach raises no issue hand and only its fault events flow.
 
-### 2.40 · Live sessions
+### 2.41 · Live sessions
 
-Since 0.22.0 a student can open a live session with their instructors to find out together why something in rEach
+Since 0.23.0 a student can open a live session with their instructors to find out together why something in rEach
 does not work (`STD-LIVE`, wire `W-LIVE-1` to `W-LIVE-9`). The student's assistant asks through the `reach_live` tool
 and rEach puts its own question to the student; or an instructor offers a session and rEach asks at the next prompt.
 It opens only after the student's typed yes. While it is open rEach sends what it records in debug mode (what rEach
@@ -656,7 +662,7 @@ by the student and the end by the instructor; a locked-out sign-in got the quest
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
 
-Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03e.
+Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03f.
 
 ## 3 · Course reference
 

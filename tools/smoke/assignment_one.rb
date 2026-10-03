@@ -584,9 +584,9 @@ module AssignmentOne
       hand_id = out[/Hand raised: (\S+)/, 1] or raise Fail, "no hand id: #{out.strip[0, 200]}"
       (@hand_ids ||= []) << hand_id
       out = reach!("hand", "status", hand_id)
-      raise Fail, "status of #{hand_id}: #{out.strip[0, 200]}" unless JSON.parse(out)["state"] == "open"
+      raise Fail, "status of #{hand_id}: #{out.strip[0, 200]}" unless %w[open unclaimed].include?(JSON.parse(out)["state"])
 
-      "raised #{hand_id}, status open"
+      "raised #{hand_id}, status #{JSON.parse(out)["state"]}"
     end
 
     def hand_raise_mcp

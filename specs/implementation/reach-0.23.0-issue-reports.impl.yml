@@ -1,6 +1,6 @@
 schema: rstack.impl/v1
 component: reach
-version: 0.22.0
+version: 0.23.0
 feature: issue reports
 contract:
   wire: specs/wire.yml W-ISSUE-1 to W-ISSUE-8, W-ISSUE-BLOCKING, W-API-HAND, W-API-HAND-STATUS, W-DBG-FAULT, W-DBG-SCRUB
