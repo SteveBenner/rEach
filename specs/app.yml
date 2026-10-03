@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.19.1
+version: 0.19.2
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -85,6 +85,8 @@ standards:
     text: "Since 0.19.0 (wire 2026-10-02e, W-API-GRADES) the student may ask for their current grade at any time: reach grade (and the reach_grade tool) asks Teach and shows the points recorded for each assignment and the total, or says plainly that grades are not available yet when Teach answers available false, 404 (an older Teach) or grades_disabled. Reach never derives points from autograder results and keeps no copy of grades beyond the last answer."
   - id: STD-HAND-TYPES
     text: "Since 0.19.0 (wire 2026-10-02e, W-HAND-TYPES) every hand carries a type (trigger): Reach's own attempt_ladder, check_gate, wellbeing, late_work and late_submission, or, for a hand the student asks for, the type the agent chooses among student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question and other. A Teach that predates the revision receives student_request with the type in the summary."
+  - id: STD-WELLBEING-DELIVERED
+    text: "Since 0.19.2 a wellbeing hand (W-SUP-2) always carries a string space: the current space's kind (slice, extracurricular or root), or outside when reach support runs from a directory outside every rEach folder; before, outside sent null and Teach refused it with 400 while the student was told it was queued. A wellbeing hand Teach refuses is never reported as told or queued: its outbox entry is removed, a fault event (support:wellbeing or support:flush) goes to Teach (W-DBG-FAULT), the student still gets the full crisis message, and the hour-long repeat guard is not armed. tools/smoke/assignment_one.rb runs Teach with hand-raises on and raises a CLI hand, an MCP reach_raise_hand hand and a wellbeing hand from outside every folder, and checks all three on Teach."
   - id: STD-ATTEMPT-LADDER
     text: "Reach counts failed qualifications per slice: a notice from the second, an agent hand (reach.hand/v2, originator agent) at the third with further work held until the student says yes, and a hard stop at the tenth until an instructor replies. A pass or a reply resets it."
   - id: STD-FLOWS

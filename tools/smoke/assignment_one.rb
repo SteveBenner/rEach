@@ -110,6 +110,10 @@ module AssignmentOne
       step("reference-tamper-refused", "reference") { reference_tamper_refused }
       step("status-after-sync", "handshake") { status_after_sync }
       step("login-gate-and-sign-in", "local") { login_sign_in }
+      step("hand-raise-cli", "hands") { hand_raise_cli }
+      step("hand-raise-mcp", "hands") { hand_raise_mcp }
+      step("hand-wellbeing-outside-folder", "hands") { hand_wellbeing_outside }
+      step("hands-on-teach", "hands") { hands_on_teach }
       step("guarded-write-owned", "local") { guarded_write_owned }
       step("edit-outside-owned-blocked", "local") { edit_outside_blocked }
       step("plan-save", "local") { plan_save }
@@ -247,7 +251,7 @@ module AssignmentOne
         "TEACH_DOVETAIL" => File.join(@dovetail, "exe", "dovetail"),
         "TEACH_BUILD_CACHE" => File.join(@run_dir, "build_cache"),
         "TEACH_SANDBOX_RUNNER" => File.join(@teach_dir, "bin", "teach-sandbox-runner"),
-        "TEACH_HANDS_DISABLE" => "1",
+        "TEACH_HANDS_DISABLE" => "0",
         "TEACH_MCP_DISABLE" => "1",
         "TEACH_COURSE_TIMEZONE" => "America/Los_Angeles",
         "BUNDLE_GEMFILE" => File.join(@teach_dir, "Gemfile"),
@@ -573,6 +577,52 @@ module AssignmentOne
     def status_after_sync
       out = reach!("status")
       "status: #{out.lines.first.to_s.strip}"
+    end
+
+    def hand_raise_cli
+      out = reach!("hand", "raise", "--summary", "smoke: student request", chdir: @workspace)
+      hand_id = out[/Hand raised: (\S+)/, 1] or raise Fail, "no hand id: #{out.strip[0, 200]}"
+      (@hand_ids ||= []) << hand_id
+      out = reach!("hand", "status", hand_id)
+      raise Fail, "status of #{hand_id}: #{out.strip[0, 200]}" unless JSON.parse(out)["state"] == "open"
+
+      "raised #{hand_id}, status open"
+    end
+
+    def hand_raise_mcp
+      messages = [
+        { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "smoke", version: "0" } } },
+        { jsonrpc: "2.0", method: "notifications/initialized" },
+        { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "reach_raise_hand", arguments: { summary: "smoke: concept question", type: "concept_question" } } }
+      ]
+      out, = reach("mcp", chdir: @workspace, stdin: messages.map { |message| JSON.generate(message) }.join("\n") + "\n")
+      reply = out.lines.map { |line| JSON.parse(line) rescue nil }.compact.find { |message| message["id"] == 2 }
+      text = reply && reply.dig("result", "content", 0, "text")
+      raise Fail, "no tool result: #{out.strip[0, 300]}" if text.nil? || reply.dig("result", "isError")
+
+      hand_id = JSON.parse(text)["hand_id"] or raise Fail, "tool result has no hand_id: #{text[0, 200]}"
+      @hand_ids << hand_id
+      "reach_raise_hand raised #{hand_id}"
+    end
+
+    def hand_wellbeing_outside
+      out = reach!("support", chdir: @student_home)
+      raise Fail, "support did not say instructors were told: #{out.strip[-200..]}" unless out.include?("Your instructor has been told")
+
+      "reach support from outside every rEach folder told the instructors"
+    end
+
+    def hands_on_teach
+      rows = teach_json("hands", "list")
+      rows = rows["hands"] if rows.is_a?(Hash)
+      triggers = Array(rows).map { |row| row["trigger"] }
+      missing = @hand_ids - Array(rows).map { |row| row["id"] || row["hand_id"] }
+      @last[:expected] = "#{@hand_ids.length} raised hands and one wellbeing hand"
+      @last[:actual] = "triggers #{triggers.inspect}"
+      raise Fail, "missing on Teach: #{missing.inspect}" unless missing.empty?
+      raise Fail, "no wellbeing hand on Teach" unless triggers.include?("wellbeing")
+
+      "teach lists #{rows.length} hands: #{triggers.sort.join(", ")}"
     end
 
     def slice_id
