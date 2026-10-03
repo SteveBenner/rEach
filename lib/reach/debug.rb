@@ -24,6 +24,12 @@ module Reach
     DEFAULTS = { "render" => "auto", "spool_max_bytes" => 5_242_880, "batch_max_events" => 500, "show_max_rows" => 40 }.freeze
     PLUGIN_ROOT = File.expand_path("../..", __dir__)
     SCRUBBED = "[scrubbed]".freeze
+    PHRASE_ON = ["enable debug", "enable debug mode", "enable debugging", "turn debug on", "turn debug mode on", "turn on debug",
+                 "turn on debug mode", "turn on debugging", "debug on", "debug mode on", "start debug mode", "switch debug on",
+                 "switch on debug mode"].freeze
+    PHRASE_OFF = ["disable debug", "disable debug mode", "disable debugging", "turn debug off", "turn debug mode off", "turn off debug",
+                  "turn off debug mode", "turn off debugging", "debug off", "debug mode off", "stop debug mode", "switch debug off",
+                  "switch off debug mode"].freeze
     SUBCOMMAND_COMMANDS = %w[gate transcript instructor shape modules transfer login memory directive reference part update runtime setup debug brain storage import].freeze
 
     module_function
@@ -572,6 +578,35 @@ module Reach
       nil
     end
 
+    def phrase(text)
+      value = text.to_s.strip.downcase.gsub(/\s+/, " ")
+      value = value.sub(/\Aplease /, "").sub(/\Areach, /, "").sub(/[[:punct:][:space:]]+\z/, "").sub(/ please\z/, "")
+      return "on" if PHRASE_ON.include?(value)
+      return "off" if PHRASE_OFF.include?(value)
+
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def toggle_from_prompt!(text)
+      choice = phrase(text)
+      return nil unless choice
+      return Reach::Messages.text("M-DEBUG-PERSONA") if Reach::Persona.active?
+
+      if choice == "on"
+        turn_on!
+        session(resolve_harness(nil), "phrase")
+        Reach::Messages.text("M-DEBUG-SAID-ON")
+      else
+        turn_off!
+        said = Reach::Messages.text("M-DEBUG-SAID-OFF")
+        on? ? "#{said} #{Reach::Messages.text("M-DEBUG-REMOTE-STILL")}" : said
+      end
+    rescue StandardError
+      nil
+    end
+
     def session(harness, source)
       return nil unless on?
 
@@ -587,14 +622,14 @@ module Reach
       end
       persona = Reach::Persona.current
       version = ENV["CLAUDE_CODE_EXECPATH"].to_s[/(\d+\.\d+\.\d+)/, 1]
-      emit(
-        "session",
+      fields = {
         "reach" => Reach::VERSION, "ruby" => RUBY_VERSION, "platform" => RUBY_PLATFORM, "harness" => harness, "harness_version" => version,
         "surface" => envelope_context["surface"], "source" => source, "runtime_kit" => (Reach::RuntimeKit.platform rescue nil),
         "install_id" => install && install["install_id"], "course_id" => install && install["course"].is_a?(Hash) ? install["course"]["id"] : nil,
         "persona_id" => Reach::Paths.persona_id, "persona_kind" => persona && persona["kind"],
         "wire_match" => status && status["wire_contract_sha256"] ? status["wire_contract_sha256"] == Reach::Wire.digest : nil
-      )
+      }
+      emit("session", fields.merge(Reach::OsInfo.snapshot) { |_name, existing, _fresh| existing })
     rescue StandardError
       nil
     end
