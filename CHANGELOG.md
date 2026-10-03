@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-10-02
+
+### Added
+
+- `reach setup` and `update/apply.rb` write the Teach URL from `config.yml` `teach.url`
+  (`https://sven-f1l1.tail062fd2.ts.net`) to `~/.reach/state/teach.json` (`Reach::Runtime.bake_teach_url!`,
+  `Reach::Paths.teach_url_file`), so an installed rEach knows Teach from the moment it is set up, even when
+  `config.yml` is missing, unreadable or blank. `Reach::Runtime.default_teach_url` reads `REACH_TEACH_URL`, then
+  `config.yml`, then that file (`STD-TEACH-URL`).
+
 ## [0.18.1] - 2026-10-02
 
 ### Added

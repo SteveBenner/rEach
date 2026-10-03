@@ -1,6 +1,7 @@
 require "rbconfig"
 require "shellwords"
 require "yaml"
+require "json"
 require "fileutils"
 
 module Reach
@@ -110,10 +111,37 @@ module Reach
       value = ENV["REACH_TEACH_URL"]
       return value if value && !value.empty?
 
+      configured_teach_url || baked_teach_url
+    rescue StandardError
+      nil
+    end
+
+    def configured_teach_url
       config = load_config
       teach = config["teach"] if config.is_a?(Hash)
       url = teach["url"] if teach.is_a?(Hash)
-      url && !url.to_s.empty? ? url : nil
+      url && !url.to_s.empty? ? url.to_s : nil
+    end
+
+    def baked_teach_url
+      path = Reach::Paths.teach_url_file
+      return nil unless File.file?(path)
+
+      data = JSON.parse(File.read(path))
+      url = data["url"] if data.is_a?(Hash)
+      url && !url.to_s.empty? ? url.to_s : nil
+    rescue StandardError
+      nil
+    end
+
+    def bake_teach_url!
+      url = configured_teach_url
+      return nil unless url
+
+      path = Reach::Paths.teach_url_file
+      FileUtils.mkdir_p(File.dirname(path))
+      write_if_different(path, "#{JSON.generate('url' => url)}\n")
+      url
     rescue StandardError
       nil
     end

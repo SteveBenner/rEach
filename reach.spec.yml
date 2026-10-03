@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.18.1
+version: 0.18.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1076,6 +1076,8 @@ cli:
       The course server is config.yml teach.url (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, the course's Teach behind Tailscale
       Funnel); the student is never asked for it. Since 0.16.20 --teach-url is an unlisted operator override (the
       smokes use it), as is REACH_TEACH_URL; without a configured URL enroll says to run reach update.
+      Since 0.18.2 reach setup and update/apply.rb write teach.url to ~/.reach/state/teach.json, read after
+      REACH_TEACH_URL and config.yml, so an install with a missing or broken config.yml still knows Teach.
       Since 0.18.1 the student-facing name is course passkey: --course-passkey, with --course-code kept as an unlisted
       alias. Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and

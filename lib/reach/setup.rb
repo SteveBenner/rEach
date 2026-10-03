@@ -15,6 +15,7 @@ module Reach
 
       Reach::Paths.ensure_home!
       Reach::Runtime.ensure_shim!
+      Reach::Runtime.bake_teach_url!
 
       resolved_source = source || Reach::Runtime.root
       candidates = harness.to_s == "auto" ? detected_harnesses : [harness.to_s]
