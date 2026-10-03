@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.20.4
+version: 0.20.5
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1537,6 +1537,11 @@ auto_update:
       write and shell gates refuse with M-UPDATE-INSTALLING, and reach qualify, submit and sync refuse the same way.
       If an install cannot finish (offline, GitHub down) the student keeps working, is told M-UPDATE-RETRY once, and
       Reach retries; Teach's minimum_reach_version stays the only hard lock.
+  foreground_check: >-
+    Since 0.20.5 reach update run checks GitHub whether or not the hourly check is due and whether or not a terminal is
+    attached, so an agent's reach update run --apply sees a release published since the last check. The detached run
+    Reach spawns at session start passes --scheduled and checks only when due. REACH_OFFLINE=1 and REACH_UPDATE_DISABLE=1
+    still stop the check.
   shim_non_downgrade: >-
     Reach::Runtime.ensure_shim! rewrites ~/.reach/bin/root only when the recorded root is missing or its VERSION is not
     newer than the running copy, so a stale harness copy cannot point the shim back at older code.

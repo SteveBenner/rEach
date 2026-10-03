@@ -1,0 +1,9 @@
+id: DEMO101
+title: Demo Course
+term: Demo Term
+timezone: America/Los_Angeles
+current_assignment:
+  id: A1
+  due: null
+interview:
+  course_question: What would you like to build?

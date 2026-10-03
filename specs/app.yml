@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.20.4
+version: 0.20.5
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -125,6 +125,12 @@ standards:
     text: "Since 0.18.1 the persona section How you talk with the student binds in every session and folder, before and after enrollment: the agent treats the student as a new computer user, never brings up or suggests commands or how rEach works unless the student asks for exactly that, describes student-only steps as what to click, and goes faster or deeper only on evidence (profile coding_experience quite a bit, a remembered finding that the student is an experienced computer or software user, or the student's own request), recording that evidence with reach remember. reach hello's session context (M-AGENT-TALK) and the locked context carry the same rule, and rules/reach.md points to it."
   - id: STD-AGENT-UPDATE
     text: "Since 0.18.1 the agent updates rEach only through reach update run --apply and never searches GitHub, its releases or tags, or downloads, unzips or copies a rEach archive itself (persona section Updating rEach, M-AGENT-UPDATE in reach hello's context, INSTALL.md). Every tagged rEach release since 0.18.1 also has a GitHub release marked Latest, so GitHub's releases page names a rEach version rather than a runtime kit."
+  - id: STD-AGENT-UPDATE-CHECKS
+    text: "Since 0.20.5 every reach update run checks GitHub for a newer release, with or without a terminal, so an agent's reach update run --apply finds a release published since the last hourly check. Only the background run rEach spawns itself passes --scheduled and keeps to the hourly schedule."
+  - id: STD-TIMES-AS-STATED
+    text: "Since 0.20.5 the agent gives dates and times exactly as rEach states them, with the time zone rEach names, and never converts them to another zone (persona section How you talk with the student)."
+  - id: STD-SMOKE-REAL-PACKAGES
+    text: "Since 0.20.5 the platform smoke opens real teach.package/v1 envelopes on every OS leg: a known-answer guardrails envelope sealed by Teach::Crypto, and guardrails and workspace packages that fake_teach seals for the enrolled install, stores, and then answers with 304. R-DOC-GUARD is no longer an expected doctor finding."
   - id: STD-CLI-VERSION
     text: "Since 0.18.1 reach version, reach --version and reach -V print reach <VERSION> and exit 0, and work before enrollment."
   - id: STD-QUALIFY-UNCOVERED

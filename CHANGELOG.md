@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.5] - 2026-10-03
+
+### Fixed
+
+- `reach update run --apply` run by an agent, with no terminal attached, checked GitHub only when the hourly check was
+  due, so a student's agent reported "no newer update" while a newer release was Latest. Every `reach update run` now
+  checks (`lib/reach/update.rb`, `lib/reach/cli.rb`); only the detached run rEach spawns at session start passes
+  `--scheduled` and keeps to the hourly schedule. `REACH_OFFLINE=1` and `REACH_UPDATE_DISABLE=1` still stop the check.
+- The agent restated a course due time in a different time zone ("Hawaii time") from the one rEach printed. The persona
+  (`skills/reach-assistant/SKILL.md`, `agents/reach.md`) now gives dates and times exactly as rEach states them, with
+  rEach's time zone, never converted.
+- The platform smoke never opened a real course package: fake_teach listed none and `R-DOC-GUARD` was an expected
+  doctor finding. Every OS leg now opens a known-answer guardrails envelope sealed by Teach's own crypto, and fetches,
+  decrypts, stores and revalidates (304) guardrails and workspace packages that fake_teach seals for the enrolled
+  install; doctor must report no `R-DOC-GUARD`. The smoke's workspace stays under its scratch root.
+
 ## [0.20.4] - 2026-10-02
 
 ### Fixed

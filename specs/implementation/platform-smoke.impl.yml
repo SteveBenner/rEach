@@ -19,12 +19,15 @@ slices:
       ruby: Parses and runs on Ruby 2.6.10 through 4.0.x with the standard library only (STD-RUBY-FLOOR applies to this script because macOS legs run it under the system Ruby 2.6.10).
       platforms: Linux, macOS, Windows (x64 and arm64). No shell-specific syntax; every child process is spawned with an argv array except the hook steps, which deliberately go through a shell.
       output: "One line per step, \"PASS <step> <detail>\" or \"FAIL <step> <detail>\" or \"SKIP <step> <reason>\", then \"platform smoke: N passed, M failed, K skipped\". Exit 0 only when no step failed. With --report, also write a JSON report (schema reach.platform-smoke/v1) with platform, ruby version, os version and each step's name, result, detail and duration."
-      environment: Start from a copy of ENV with every TEACH_* and REACH_* variable removed, then set REACH_HOME to the scratch home and REACH_UPDATE_DISABLE=1 (STD-AUTO-UPDATE must not swap the install mid-run). Never read or write the real ~/.reach.
+      environment: Start from a copy of ENV with every TEACH_* and REACH_* variable removed, then set REACH_HOME to the scratch home and REACH_UPDATE_DISABLE=1 (STD-AUTO-UPDATE must not swap the install mid-run). Set REACH_WORKSPACE_ROOT to <scratch>/work so provisioning never writes the real ~/reach-work. Never read or write the real ~/.reach.
       scratch: One scratch root under Dir.tmpdir with a short name, containing a directory whose name has a space ("reach smoke"), so install paths with spaces are exercised. Chrome's socket path limit means the root itself must stay short. Removed at the end unless --keep, retrying a locked tree on Windows for up to 60 s and then warning, never failing a run that passed.
     steps:
       - id: install
         does: Build a zip of the checkout's HEAD with git archive (the checkout is the repository root, found from the script's own path), then run bin/reach-install from the checkout with --archive <zip> --destination "<scratch>/reach smoke/plugin" and any further option the installer needs to take Dovetail from the pinned revision. Use the installer the way INSTALL.md does.
         pass: Installer exits 0; <destination>/VERSION equals the checkout's VERSION; <destination>/exe/reach exists.
+      - id: package_known_answer
+        does: In a child Ruby loading the installed lib/reach/crypto.rb and tarball.rb, open tools/platform_smoke/fixtures/known-answer/envelope.json (sealed by Teach::Crypto.seal) with its throwaway recipient and signing test keys, then read the tarball.
+        pass: Opens; the content digest and hello.txt digest equal expected.json. A failure prints the exception class and message verbatim.
       - id: fake_teach
         does: Start ruby tools/fake_teach/server.rb --port <free port> --home <scratch>/teach from the checkout as a child process; poll GET /api/v1/health with a 2 s timeout per request, up to 30 attempts with 1 s between.
         pass: health answers 200 within the attempts. The server is stopped in an ensure block on every exit path (Process.kill, then wait with a timeout).
@@ -40,6 +43,9 @@ slices:
       - id: enroll
         does: ruby <install>/exe/reach enroll --course-code MGMT327-K7QX-94TD --username mdel101 --student-id 1040217 --password-stdin --teach-url <fake teach url>, with a fixed test password on stdin.
         pass: exit 0 and the output says the student is connected to the course.
+      - id: sync_packages
+        does: ruby <install>/exe/reach sync twice against fake_teach, which seals guardrails and workspace packages for the enrolled install (tools/fake_teach/server.rb).
+        pass: Exit 0; no could-not-fetch package, could-not-update-course-rules or could-not-provision warning; packages/guardrails/1.pkg and packages/workspace/1.pkg exist; each kind is served 200 once and the second sync adds one 304 per kind (requests.jsonl). Then wait for Reach's request bucket to refill so doctor's health check is not throttled.
       - id: machine_id
         does: In a child Ruby with -I <install>/lib, require Reach and print Reach::Fingerprint.machine_id.
         pass: Not "unknown". On Windows it matches the MachineGuid form (8-4-4-4-12 hex), on macOS the IOPlatformUUID form, on Linux 32 hex characters. The detail line shows only the first 8 characters.

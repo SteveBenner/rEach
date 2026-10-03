@@ -1,0 +1,77 @@
+schema: impl-blueprint/v1
+name: platform smoke opens real teach.package/v1 packages on every OS
+versions:
+  reach: 0.20.3
+problem: >-
+  tools/fake_teach answers status with "packages" => [] and tools/platform_smoke/run.rb keeps R-DOC-GUARD in
+  EXPECTED_DOCTOR_FINDINGS, so no platform leg has ever fetched, decrypted, stored or unpacked a course package.
+  On 2026-10-03 a student's Mac (Reach 0.19.2) fetched its guardrails package from live Teach with HTTP 200 on every
+  sync and never stored it (Teach never saw an If-None-Match), and the agent reported a decryption error, while the
+  same Teach envelope opened with Reach 0.19.2 code on Linux.
+decisions:
+  - fake_teach seals packages with Reach::Crypto.seal (the wire's teach.package/v1 envelope, already loaded by the server) for the enrolled install's public key, signed with the fixture signing key fake-sign-1 it already advertises.
+  - A second, independent check is a known-answer envelope sealed by real Teach's Teach::Crypto.seal on Linux, so every OS proves it opens what Teach (OpenSSL 3, Ruby 4.0.6) actually produces, not only a same-library round trip.
+  - Content is dummy, generic and identifies no institution, instructor, course material or student. The known-answer recipient key is a throwaway RSA-4096 test key committed as a fixture and named as such.
+  - Nothing here changes Reach's library code; a failure on a leg is the finding to report, not something to paper over.
+slices:
+  S1_fake_teach_packages:
+    owns:
+      - tools/fake_teach/server.rb
+      - tools/fake_teach/README.md
+      - tools/fake_teach/fixtures/packages/
+    contract:
+      status: >-
+        For an enrolled install, status lists packages [{kind: guardrails, version: 1, content_digest}, {kind: workspace,
+        version: 1, content_digest}], slices [{cutout_id: "demo.a1", slice: "backend", assignment: "A1"}] and
+        current_assignment as today. content_digest is the envelope header's content_digest (the plaintext digest).
+      route: >-
+        GET /api/v1/packages/<kind> (kind guardrails or workspace) authenticates like status, builds the package once
+        per install and kind (cache by install id, rebuild when absent), and answers the envelope JSON. If-None-Match
+        equal to "\"<content_digest>\"" answers 304 with an empty body, matching live Teach (lib/teach/web/app.rb near
+        line 214). Any other kind answers 404 not_found.
+      guardrails_plaintext: >-
+        Reach::Tarball.write of entries course.yml, directives.yml and seal.yml whose shapes satisfy what
+        Reach::Guardrails.load, Reach::Guardrails.course_question and the gate read (read lib/reach/guardrails.rb and
+        Teach's lib/teach/packages/guardrail_content.rb for the minimal valid shapes; one generic directive row, a
+        course block with id, title and timezone America/Los_Angeles). No reference/ entries.
+      workspace_plaintext: >-
+        slices.json {course, assignment: "A1", slices: [{cutout_id: "demo.a1", slice: "backend", root:
+        "demo.a1-backend", owned_files: [<one ruby file>]}]} plus that slice's files under demo.a1-backend/, the minimum
+        Reach::Workspace.provision_from_package needs to provision a slice without error.
+      header: >-
+        {schema: teach.package/v1, kind, id: "pkgenv_<hex>", version: 1, course, assignment: "A1", student_id,
+        created_at, signing_key_id: fake-sign-1}, exactly the fields live Teach writes (lib/teach/packages/builder.rb
+        around line 500).
+  S2_known_answer_fixture:
+    owns:
+      - tools/platform_smoke/fixtures/known-answer/
+    contract:
+      files: >-
+        recipient-test-key.pem (throwaway RSA-4096 private key, test only), signing-test-key.pub.pem (public half of a
+        throwaway signing key), envelope.json (a guardrails envelope for student_id "test0000000" whose plaintext is
+        a Reach::Tarball of one entry hello.txt with fixed text), expected.json {content_digest, entries: ["hello.txt"],
+        hello_sha256}, and README.md saying how it was made and that the keys are public test keys.
+      made_with: >-
+        Teach's own Teach::Crypto.seal and Teach::Tarball.write from ~/bitbucket/paterasai/teach, run with
+        ~/.rubies/ruby-4.0.6/bin/ruby and the bundle there (env -u GEM_HOME -u GEM_PATH, PATH with ruby-4.0.6/bin
+        first; never set TEACH_DATABASE_URL, never touch ~/.teach). Keep the generator script in the session scratchpad, not
+        the repository.
+  S3_smoke_steps:
+    owns:
+      - tools/platform_smoke/run.rb
+      - tools/platform_smoke/README.md
+    steps:
+      - id: package_known_answer
+        does: Load the installed copy's lib/reach/crypto.rb and lib/reach/tarball.rb in a child ruby (the same ruby the other steps use) and open fixtures/known-answer/envelope.json with recipient-test-key.pem and signing-test-key.pub.pem through Reach::Crypto.open_envelope, then Reach::Tarball.read.
+        pass: opens; the content digest and hello.txt digest equal expected.json. On failure print the exception class and message verbatim.
+      - id: sync_packages
+        does: After enroll, run reach sync against fake_teach.
+        pass: exit 0; output carries no "could not fetch" and no "could not update course rules" warning; <REACH_HOME>/packages/guardrails/1.pkg and workspace/1.pkg exist; a second reach sync makes fake_teach log a 304 for both kinds (expose a per-kind hit log in the server's request log or a debug endpoint only fake_teach serves).
+      - id: doctor
+        pass: R-DOC-GUARD is removed from EXPECTED_DOCTOR_FINDINGS, so doctor must not report it.
+    order: package_known_answer runs right after install (needs no server); sync_packages runs after enroll and before doctor.
+acceptance:
+  - ruby tools/platform_smoke/run.rb passes locally on Linux with the system ruby and with Ruby 2.6-compatible syntax (no endless methods, no numbered block params, no Hash#except, no filter_map).
+  - With fake_teach temporarily sealing for the wrong key (a manual negative check, not committed), sync_packages fails and names the reason.
+  - specs/implementation/platform-smoke.impl.yml and tools/platform_smoke/README.md describe the new steps; the README expected-findings table no longer lists R-DOC-GUARD.
+  - No comments in code (Part Q). No new gems.

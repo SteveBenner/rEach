@@ -1,0 +1,19 @@
+{
+  "header": {
+    "schema": "teach.package/v1",
+    "kind": "guardrails",
+    "id": "pkgenv_00000000000000000000",
+    "version": 1,
+    "course": "DEMO101",
+    "assignment": "A1",
+    "student_id": "test0000000",
+    "created_at": "2026-10-03T00:00:00Z",
+    "signing_key_id": "known-answer-sign-1",
+    "content_digest": "86ab9f5adeff2dcbb1ad049520225bfc0c8a78b73c8649bbd8054fadcdd67b6b"
+  },
+  "wrapped_key": "FAEfVG7nPA2vDjl/AjzIbVX6yjkTRjoOIkDf62HVYd1dOQJa8JSEPxiSpIaCwYtiWPWUIfWBJCliftxJaUHOrtEcrWyHw6WaxJfWYSaUYoEl9Bmrl58BYV3fG8SzMpy1fbbQx/ukdDSqh9/VOiroURgp3+NOjhieU85urGyoSzTWtKZ+TNjwAE9JwVoQIg1PziQE4zSSa/ERLjlwPudjfGFKw2vTFg+Gh4VXw44mYjsADI3NeFu0v2PyK5sFZImgEV+r4kDGQSYiit7oRdZu2ELgyuiOnACLM3OsVvp4fFxBySyNUEJvNXZppfp/hJHw2i7RXZYO0NiDpW8UNHuBITgCAh52wVf6tEWbQNpbuK7GEaSy1PX/NxClko635nrIIJROBLDxiWGd5KaxHBQ6PbzZ83Rq5Pl+2J2ar4n3nj35KA1XUBzYblY+fh/h77NNtn0ld1IVCUr/V0+fXx5xdEofz/6IUeDwTyjVbdJP+5NtucOpr4raefBXD788o1K9RPjIOoCIIPbWnoByULVca5nmKiAkbh4WnWXnTeKyWts/Z5DzedyP2D+lLVJqWUMiRdiaf1oNfrLkeQqDc7cmEGk2ssCJUA4foGOIk7pS19wep4Qs+n6Ur+ZBKgoc7uOwgqEenjROVrGvjNuHIkIai1FtvZBL9bRws943ELME1G8=",
+  "nonce": "AM76Jy5/DqPRJrW8",
+  "ciphertext": "JWhyAnafjV/PvbT+oGf5GZADZ2kEcHKMoGK1Cpt9i7tV3G0D7M/+YJ4coe0Pxg2LV61o78J1JOYp80gfirDfp7HL9QFdDRPBDWTCvT5sx1SOAX3Ui6XKiA5CgxtwWPCGg2Iyi6qcWxC54oPSxBnTM1yhBM4UaWsM/kZwemWCeg==",
+  "tag": "YqcwzAZURFDn4Ny18J/f1g==",
+  "signature": "inLs+eT/n85HsCoCDqf86FQEXqTz6YpuWQ6fVLr1Lw/wnfxJsxRnx3H8VLY9VHrke0R4dEi2b1rBusWklUn2RCjitAvLgl5o1KdUrwba/jtUpHe7LbhvwFqB/iOEW+guLQrQmGUrLb01Zm9MfLxmKJOVQZWHIG93t15reUgorL5MSHNU585cJ7cuM7+pvUglXIEyGEpd3ws+OpUA9LlWKOFfmc5ysVPUa1gL3UunAbqMaEWS4rQildSpcZblw3xBX+wRhTypXD3qQw3HOHT7irxrr+bYqlkSuvFbqY67lPE97+da+DPqLrDl+mGRgdwuqL5Vi39kzpyfPpfG0nWhzkwuWUM712ei//or8fisOom1X4I271fQPsykI5MM8yoADPbv0WTKTChGYvRoF0MGjyd8/4SU8IKRKJi/Z/PLW6XrR3zDeulJhmdt998HqICHTuDCD0/b0iiLDWb3hNqOR4H99wlXFLMK3yiyNwL25Ekg5eEhVdUg1drSB7Uuo4HKQeIUwEbO49uDalWvjY88CV0WMc4uvJ5Vhy4Q8IhEpl+RISGeZY+/v1hwpplm/sn5qcWjhVXxBSu7vsiw9zMMJ/LAxwp6zp9eVL4XETDv/xwMR5TMZPdRK2TyniqRGvVbCBwc2R9+GJYBy8pb71YUw88h6pHT8wE15T5v7bcJ7pg="
+}
