@@ -187,6 +187,13 @@ or file text, codes, passwords or keys, sends it to Teach, and shows it at the e
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
 `reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
 
+Since 0.22.0 rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
+qualify or submit is reported the first time it happens, any other the third time in a day, as a hand of type
+`issue` holding where it happened and what rEach was running, never an error message, a prompt or code. The student
+is told once that it was reported and that nothing is needed from them, and once more when the fix reaches their
+version. `reach issues` lists what was seen and reported (test student or debug mode), `reach issues flush` sends
+what is waiting, and `REACH_ISSUES_DISABLE=1` or `issues.enabled: false` in `config.yml` turns it off.
+
 ### Submitting
 
 Since 0.17.0, once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.

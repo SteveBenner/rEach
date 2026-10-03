@@ -28,8 +28,9 @@ module FakeTeach
   LEGACY_TRIGGERS = %w[attempt_gate attempt_ladder student_request check_gate wellbeing].freeze
   NEWER_TRIGGERS = %w[
     late_work late_submission concept_question assignment_question deadline_question grade_question submission_question
-    technical_issue setup_issue access_issue extension_request feedback integrity_question other
+    technical_issue setup_issue access_issue extension_request feedback integrity_question other issue
   ].freeze
+  BUNDLE_TRIGGERS = %w[issue technical_issue setup_issue access_issue].freeze
 
   class Failure < StandardError
     attr_reader :status, :code, :details, :headers
@@ -214,6 +215,7 @@ module FakeTeach
           "trigger" => request["trigger"], "originator" => request["originator"], "summary" => request["summary"],
           "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
+        row["bundle"] = open_hand_bundle(install, request["bundle"]) if BUNDLE_TRIGGERS.include?(request["trigger"])
         @hands << row
         File.open(File.join(@home, "hands.jsonl"), "a") { |file| file.puts(JSON.generate(row)) }
         answer = { "hand_id" => id, "state" => "open" }
@@ -224,12 +226,28 @@ module FakeTeach
       raise Failure.new(400, "invalid_request", "body is not valid JSON")
     end
 
+    def open_hand_bundle(install, envelope)
+      _header, plaintext = Reach::Crypto.open_envelope(
+        envelope, expected_kind: "hand_bundle", expected_student_id: install["student_id"],
+        recipient_private_key: @encryption_key,
+        signer_public_key_for: lambda { |_id| OpenSSL::PKey::RSA.new(install["public_key_pem"]) }
+      )
+      bundle = JSON.parse(Reach::Tarball.read(plaintext).fetch("bundle.json"))
+      raise Failure.new(400, "invalid_request", "bundle is not an object") unless bundle.is_a?(Hash)
+
+      bundle
+    rescue Reach::Error, JSON::ParserError, KeyError
+      raise Failure.new(400, "invalid_request", "bundle could not be opened")
+    end
+
     def hand_state(req, body, id)
       install = authenticate!(req, body)
       row = @hands.find { |hand| hand["id"] == id && hand["student_id"] == install["student_id"] }
       raise Failure.new(404, "not_found", "no such hand") unless row
 
-      { "state" => "open", "reply" => nil }
+      path = File.join(@home, "issues.json")
+      extra = row["trigger"] == "issue" && File.file?(path) ? JSON.parse(File.read(path)) : {}
+      { "state" => extra["state"] || "open", "reply" => extra["reply"] }.merge(extra.select { |name, _| %w[issue_state fix_version].include?(name) })
     end
 
     def grades(req, body)

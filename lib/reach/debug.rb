@@ -410,7 +410,8 @@ module Reach
         "cause" => error.respond_to?(:cause_name) ? error.cause_name : nil,
         "frames" => relative_frames(error), "shown" => shown_id
       }
-      emit_always("fault", fields)
+      emit_always("fault", fields.merge("fault_id" => Reach::Issues.signature(fields)))
+      Reach::Issues.observe(fields)
       error(error, where) if on?
       nil
     rescue StandardError

@@ -1,0 +1,62 @@
+schema: rstack.impl/v1
+component: reach
+version: 0.22.0
+feature: issue reports
+contract:
+  wire: specs/wire.yml W-ISSUE-1 to W-ISSUE-8, W-ISSUE-BLOCKING, W-API-HAND, W-API-HAND-STATUS, W-DBG-FAULT, W-DBG-SCRUB
+  standard: specs/app.yml STD-ISSUES (beside STD-TEACH-LINK, STD-HOOK-RESPONSIVE, STD-SEAL-INVISIBLE)
+  read_first:
+    - specs/wire.yml sections named above, verbatim
+    - lib/reach/debug.rb fault, emit_always, teach_kinds? and the scrub
+    - lib/reach/hands.rb raise_record, build_bundle, the outbox and poll_replies
+    - lib/reach/link.rb for how a once-only notice is kept and told
+    - lib/reach/storage.rb spawn_detached
+owns_paths:
+  - lib/reach/issues.rb
+  - lib/reach/capsule.rb
+shared_surfaces:
+  - lib/reach.rb
+  - lib/reach/debug.rb
+  - lib/reach/hands.rb
+  - lib/reach/submit.rb
+  - lib/reach/sync.rb
+  - lib/reach/cli.rb
+  - locales/en-US.yml
+  - config.yml
+  - skills/reach-help/SKILL.md
+  - tools/fake_teach/server.rb
+  - tools/fake_teach/README.md
+design:
+  signature: Reach::Issues.signature(fields) is W-ISSUE-2. Reach::Debug.fault merges it into the fault event as fault_id, then calls Reach::Issues.observe(fields).
+  observe: >-
+    Never raises and never touches the network. Under issues.lock it updates the registry entry of the signature
+    (count, first_at, last_at, the occurrence times inside the window), decides with classify and the limits, and
+    when an issue is due stores a pending record (hand_ref, the fault fields, harness and surface, the day's
+    suppressed count) and starts a detached reach issues flush --background.
+  classify: A frozen table. ignore for a where beginning issues:, an exception of Reach::NetworkError or Reach::Offline, or any cause; blocking for a W-ISSUE-BLOCKING prefix; repeating otherwise.
+  flush: >-
+    Reach::Issues.flush!(quick:, force:) turns each pending record into an outbox entry (the reach.issue/v1 bundle
+    sealed with Reach::Hands.seal_bundle, body trigger issue and originator reach) and sends the due entries. It does
+    nothing unless Reach::Debug.teach_kinds? is true. A transport failure defers the entry (attempts, next_at) and
+    ends the pass; a refusal drops it and records a fault at issues:refused, which classify ignores.
+  retry_points: the detached flush right after observe, the Stop hook when Reach::Issues.work? is true, reach sync (after the ordinary outbox), reach issues flush by hand (force).
+  outbox: Reach::Submit.retry_outbox skips an entry that carries issue, so the backoff is the issue code's alone and the ordinary retry is unchanged.
+  capsule: Reach::Capsule.build gathers CryptoProbe facts, the runtime kit, the link state, the update manifest, the names of set Diagnose::ENV_FLAGS and the last 20 spool events, each guarded, cut from recent first to fit 16384 bytes.
+  technical_hands: Reach::Hands.build_bundle adds capsule and signature_hint (Reach::Issues.recent_signature, 600 s) when details.technical is set by raise_record for the three technical types.
+  notices: Reach::Issues.notice! returns M-ISSUE-REPORTED and M-ISSUE-FIXED once each per signature; the session, prompt, Hermes and Stop hook sites join it with Reach::Link.notice!, and a terminal command prints it on stderr when stderr is a terminal and the command is not mcp.
+  status: Reach::Hands.status passes a body that names fix_version to Reach::Issues.record_status; poll_replies does not report or reset a ladder for a hand whose originator is reach, and drops a hand answered 404.
+  cli: reach issues [list] for a persona or debug mode, M-ISSUES-NONE-FOR-YOU otherwise; reach issues flush [--background].
+  doctor: check_issues reports R-DOC-ISSUES while an issue entry waits; check_outbox does not count issue entries.
+acceptance:
+  - A blocking fault raises exactly one hand with trigger issue, originator reach, null cutout_id and slice, and the fixed summary.
+  - A non-blocking fault raises nothing at its first and second occurrence, one hand at its third within 24 hours, and nothing at its fourth.
+  - A transport fault and a fault from the issue code raise nothing.
+  - The opened bundle is reach.issue/v1 and holds no error message text and no student identity.
+  - With Teach unreachable the entry waits in the outbox with attempts and next_at; a background flush before next_at leaves it; reach issues flush sends it exactly once.
+  - The fourth issue of a day is suppressed and counted.
+  - REACH_ISSUES_DISABLE=1 raises nothing and leaves the fault event, with fault_id, in the spool.
+  - The next Stop hook after a raise carries M-ISSUE-REPORTED exactly once; M-ISSUE-FIXED appears exactly once after the hand status names the running version.
+  - A technical_issue hand's bundle carries capsule and signature_hint.
+  - A hand Teach answers 404 for is dropped from the open list and later hands are still checked.
+  - Every changed file passes ruby -c on Ruby 2.6.10 and the platform smoke passes.
+verified: 2026-10-03, against tools/fake_teach on Linux with Ruby 3.3; see FEATURES.md 2.39 for what was not.

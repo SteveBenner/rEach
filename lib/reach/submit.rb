@@ -81,6 +81,8 @@ module Reach
         results = []
         Dir.glob(File.join(Reach::Paths.outbox_dir, "*.json")).sort.each do |path|
           entry = JSON.parse(File.read(path))
+          next if entry["issue"]
+
           install = Reach::Enroll.current
           next unless install
 

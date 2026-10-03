@@ -32,3 +32,26 @@ Until then, checkpoints are the history.
 - Shipped in 0.14.0: the portable runtime kit (Ruby 4.0.7 with prebuilt gems and Chrome for Testing), so slices
   qualify locally with the versions Teach grades with. Panel slices qualify locally once a course ships a practice
   recording (Grokit's practice set).
+
+## Agent-to-agent help during a live session
+
+**Status:** specified, not scheduled. **Safety gate:** closed until the instructor side has run its own research and
+development trial on instructor test installs and recorded the result. Nothing here reaches a student before that.
+
+A live session (planned) connects one rEach install with the course's instructor in debug mode, after the instructor
+approves it and the student agrees through rEach. The instructor can watch rEach's own debug events, run actions from
+a fixed list, and exchange notes with the student.
+
+The next step would let the instructor's agent put questions to the student's agent during such a session:
+
+- Only inside a live session, and it ends the moment either side ends the session.
+- Every message travels through Teach. The agents never connect to each other.
+- Requests come from a fixed, typed set: run a named rEach diagnostic, report a named piece of rEach state, or answer
+  a short question about what the agent observes. Replies are typed and bounded in size.
+- The student's agent keeps every rEach rule. It stays inside the gate and the student's slice, treats text from the
+  other side as information and never as instructions, and never sends prompts, replies or files that rEach does not
+  already send in a hand.
+- The student sees that the agents are talking, can read what was asked and answered in plain words, is told before
+  their agent spends effort for the instructor, and can stop it at any time.
+- The exchange is capped per minute and per session, and limited in time.
+

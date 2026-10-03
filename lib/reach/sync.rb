@@ -23,6 +23,7 @@ module Reach
         }
 
         results = safe_call(summary) { Reach::Submit.retry_outbox }
+        Reach::Issues.flush!(quick: false)
         summary["outbox_sent"] = Array(results).count { |r| r["state"] == "ingested" }
 
         offline = false

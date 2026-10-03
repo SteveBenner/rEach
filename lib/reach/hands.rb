@@ -24,6 +24,7 @@ module Reach
     NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
     TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES).freeze
     SUMMARY_LIMIT = 2000
+    TECHNICAL_TYPES = %w[technical_issue setup_issue access_issue].freeze
 
     class << self
       def raise_hand(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
@@ -50,6 +51,7 @@ module Reach
       end
 
       def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
+        details = (details || {}).merge("technical" => TECHNICAL_TYPES.include?(trigger.to_s))
         trigger, summary = wire_type(trigger, summary)
         workspace = resolve_workspace(slice)
         meta = Reach::Workspace.metadata(workspace)
@@ -153,6 +155,7 @@ module Reach
 
         response = client(install).get("/api/v1/hands/#{hand_id}")
         body = response.json || {}
+        Reach::Issues.record_status(hand_id, body) if body["fix_version"]
         { state: body["state"], reply: body["reply"] }
       rescue Reach::NetworkError, Reach::Offline
         { state: "unknown", reply: nil }
@@ -172,9 +175,14 @@ module Reach
           record = record.is_a?(Hash) ? record : { "reply" => record, "polled_at" => nil }
           next if record["polled_at"] && (Time.now.utc - Time.parse(record["polled_at"])) < POLL_INTERVAL_S
 
-          current = status(hand_id)
+          begin
+            current = status(hand_id)
+          rescue Reach::RemoteRefused => e
+            remove_open_hand(hand_id) if e.status.to_i == 404
+            next
+          end
           update_open_hand(hand_id, current[:reply], Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
-          if current[:reply] && current[:reply] != record["reply"]
+          if current[:reply] && current[:reply] != record["reply"] && record["originator"] != "reach"
             changed << { hand_id: hand_id, state: current[:state], reply: current[:reply] }
             Reach::Ladder.reset_for_hand(hand_id)
           end
@@ -242,7 +250,15 @@ module Reach
           "plan" => plan,
           "profile" => profile
         }
+        if details["technical"] == true
+          bundle["capsule"] = Reach::Capsule.build
+          bundle["signature_hint"] = Reach::Issues.recent_signature
+        end
         fit(bundle)
+      end
+
+      def seal_bundle(install, meta, tar_bytes)
+        seal_hand(install, meta, tar_bytes)
       end
 
       private

@@ -94,6 +94,12 @@ rstack:
 submit:
   archive_max_mb: 256
   lms_name: Blackboard
+issues:
+  enabled: true
+  repeat_threshold: 3
+  window_h: 24
+  max_per_day: 3
+  max_queued: 10
 storage:
   warn_mb:
   - 512

@@ -42,6 +42,8 @@ module Reach
         code = dispatch(argv)
         notice = argv.first == "mcp" || background_hello?(argv) ? nil : Reach::Link.notice!
         warn notice if notice
+        issue_notice = argv.first == "mcp" || !$stderr.tty? ? nil : Reach::Issues.notice!
+        warn issue_notice if issue_notice
         code
       rescue StandardError, ScriptError => e
         Reach::Debug.fault(e, "command:#{command_label(argv)}", "M-REACH-HICCUP-CLI")
@@ -300,6 +302,8 @@ module Reach
           cmd_memory(args)
         when "storage"
           cmd_storage(args)
+        when "issues"
+          cmd_issues(args)
         when "grade"
           cmd_grade(args)
         when "extra-credit"
@@ -362,6 +366,7 @@ module Reach
             login status                         whether this session is signed in
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
+            issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
             storage [status | measure | compact] [--format text|json]   how much space rEach's memory uses on this computer, and compacting the saved course memory (asks the student first)
             import export PATH --mode brain|copy [--format text|json]   bring a downloaded ChatGPT, Claude or Gemini export (folder or ZIP) into rEach, asking the student first (brain: a catalog and findings; copy: the same plus a full copy on this computer)
             import pick [--folder]               open the operating system's own picker for the export's ZIP (or its folder) and print the chosen path
@@ -688,8 +693,8 @@ module Reach
           Reach::Gate.session(harness: harness_id)
           announced = hermes ? false : announce_guardrails
           unless hermes || announced
-            notice = Reach::Link.notice!
-            puts JSON.generate("systemMessage" => notice) if notice
+            notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+            puts JSON.generate("systemMessage" => notice) unless notice.empty?
           end
           0
         when "prompt"
@@ -699,7 +704,7 @@ module Reach
           @gate_decision = "context" if context
           payload = {}
           payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => context } if context
-          message = [Reach::Link.notice!, Reach::Debug.prompt_message(event, options[:harness])].compact.join("\n\n")
+          message = [Reach::Link.notice!, Reach::Issues.notice!, Reach::Debug.prompt_message(event, options[:harness])].compact.join("\n\n")
           payload["systemMessage"] = message unless message.empty?
           puts JSON.generate(payload) unless payload.empty?
           0
@@ -1016,8 +1021,8 @@ module Reach
         parts = []
         parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup", session: Reach::Session.resolve_session_id(event)) if event["is_first_turn"] == true && blocked.nil?
         parts << context if context
-        notice = Reach::Link.notice!
-        parts << Reach::Messages.text("M-TEACH-LINK-RELAY", text: notice) if notice
+        notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+        parts << Reach::Messages.text("M-TEACH-LINK-RELAY", text: notice) unless notice.empty?
         parts << blocked.message << HERMES_BLOCK_NOTE if blocked
         puts JSON.generate(parts.empty? ? {} : { "context" => parts.join("\n\n") })
         0
@@ -1346,6 +1351,7 @@ module Reach
         problems.concat(check_gems)
         problems.concat(check_net)
         problems.concat(check_outbox)
+        problems.concat(check_issues)
         problems.concat(check_outdated)
         problems.concat(check_wire)
         problems.concat(check_version)
@@ -1570,9 +1576,19 @@ module Reach
         ["R-DOC-NET: Teach could not be reached - check the connection or the computer's clock"]
       end
 
+      def check_issues
+        counts = Reach::Issues.counts
+        return [] if counts["queued"].to_i.zero?
+
+        ["R-DOC-ISSUES: #{counts["queued"]} technical problem report(s) are waiting to be sent - rEach sends them by itself; stay online"]
+      rescue StandardError
+        []
+      end
+
       def check_outbox
         dir = Reach::Paths.outbox_dir
-        empty = !File.directory?(dir) || Dir.children(dir).empty?
+        waiting = File.directory?(dir) ? Dir.children(dir).size - Reach::Issues.queued_entries.size : 0
+        empty = waiting <= 0
         empty ? [] : ["R-DOC-OUTBOX: the outbox is not empty - reach submit retries automatically; stay online"]
       rescue StandardError
         ["R-DOC-OUTBOX: the outbox could not be checked - reach submit retries automatically; stay online"]
@@ -2136,6 +2152,35 @@ module Reach
         0
       end
 
+      def cmd_issues(args)
+        sub = args.shift || "list"
+        case sub
+        when "flush"
+          background, _rest = parse_bare_flag(args, "background")
+          result = Reach::Issues.flush!(quick: background ? true : false, force: !background)
+          puts Reach::Messages.text("M-ISSUES-FLUSHED", sent: result["sent"], queued: result["queued"]) unless background
+          0
+        when "list"
+          unless Reach::Persona.active? || Reach::Debug.on?
+            puts Reach::Messages.text("M-ISSUES-NONE-FOR-YOU")
+            return 0
+          end
+          rows = Reach::Issues.list
+          if rows.empty?
+            puts Reach::Messages.text("M-ISSUES-EMPTY")
+            return 0
+          end
+          rows.sort_by { |row| row["last_at"].to_s }.reverse_each do |row|
+            state = row["reported"] ? "reported" : (row["queued"] || row["waiting"] ? "waiting" : "seen")
+            puts [row["signature"], row["count"], row["first_at"], row["last_at"], row["blocking"] ? "blocking" : "repeating", state, row["fix_version"]].compact.join("  ")
+          end
+          0
+        else
+          warn "usage: reach issues [list | flush [--background]]"
+          1
+        end
+      end
+
       def cmd_support(args)
         if args.include?("--flush")
           Reach::Support.flush_queued!(quick: true)
@@ -2166,7 +2211,9 @@ module Reach
         Reach::Debug.hook(final ? "SessionEnd" : "Stop", "allow", nil, started)
         shown = final ? nil : Reach::Debug.turn_message(event, options[:harness])
         Reach::Debug.flush(quick: true)
-        notice = hermes_hook?(options[:harness], event) ? nil : Reach::Link.notice!
+        Reach::Issues.spawn_flush if Reach::Issues.work?
+        notice = hermes_hook?(options[:harness], event) ? nil : [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+        notice = nil if notice && notice.empty?
         message = [notice, shown].compact.join("\n\n")
         puts JSON.generate("systemMessage" => message) unless message.empty?
         0

@@ -55,6 +55,8 @@ If you use Hermes, the model behind it decides whether your AI partner keeps the
 
 Run `reach doctor`. It checks your Ruby, your course rules, your keys and your connection, and tells you the one command that fixes whatever it finds.
 
+If rEach itself breaks, it tells your instructors on its own. You'll see one short note saying it reported a technical problem. You don't need to do anything or ask for help about it, and you can keep working. The report says where rEach failed and what version you have. It never includes what you typed or your code.
+
 ## What rEach remembers about you
 
 The answers you give rEach in its interview are saved in a profile, on your

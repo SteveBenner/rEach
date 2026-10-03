@@ -1695,6 +1695,32 @@ debug_mode:
     claude-desktop-3p, claude-vscode, claude-in-teams, local-agent and remote values are gui, as is any value naming a
     desktop, IDE or JetBrains host and any run with CLAUDE_CODE_DESKTOP_APP_VERSION set. Codex: gui when CODEX_DESKTOP_APP
     or a CODEX_IDE_* variable is set, else tui. Hermes and anything unknown: tui.
+issue_reports:
+  standard: STD-ISSUES (specs/app.yml); wire W-ISSUE-1 to W-ISSUE-8, revision 2026-10-03c. Since 0.22.0.
+  library: >-
+    lib/reach/issues.rb (Reach::Issues: signature, classify, observe, flush!, notice!, record_status, list) and
+    lib/reach/capsule.rb (Reach::Capsule.build). Reach::Debug.fault adds fault_id to every fault event and calls
+    Reach::Issues.observe, which never raises.
+  state: >-
+    <home>/state/issues.json (0600, written by rename under issues.lock): {version, day: {date, raised, suppressed},
+    issues: {<signature>: {count, first_at, last_at, window, blocking, reach_version, pending, hand_ref, hand_id,
+    raised_at, raised_version, sent_at, told, silent, fix_version, issue_state, told_fixed}}}.
+  rules: >-
+    Fixed table, no model: transport faults and the issue code's own faults are ignored; a fault on enrollment,
+    sign-in, hello, sync, qualify or submit is raised at once; any other at the third occurrence in 24 hours; once per
+    signature per Reach version, 3 a day, 10 waiting. config.yml issues {enabled, repeat_threshold, window_h,
+    max_per_day, max_queued}; the course policy's limits.issues only tightens; REACH_ISSUES_DISABLE=1 turns it off.
+  delivery: >-
+    A detached reach issues flush --background seals reach.issue/v1 with the hand seal and posts it to W-API-HAND
+    with trigger issue and originator reach, only when Teach's wire digest equals Reach's. Unsent entries stay in
+    the outbox (kind hand, issue <signature>, attempts, next_at) and are retried from the Stop hook, reach sync and
+    reach issues flush with full-jitter backoff (60 s doubling, 6 h cap); a manual flush ignores the wait.
+  told: >-
+    M-ISSUE-REPORTED once after an issue is due and M-ISSUE-FIXED once when the hand status names a fix_version the
+    install has reached, as a systemMessage on Claude Code and Codex hooks, in the prompt context on Hermes and on
+    stderr from a terminal command. Never for a seal, ledger or integrity fault.
+  commands: reach issues [list] (persona or debug mode only), reach issues flush [--background].
+  doctor: R-DOC-ISSUES while an issue report waits in the outbox.
 student_messages:
   principle: >-
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses

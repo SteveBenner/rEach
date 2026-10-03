@@ -838,10 +838,10 @@ routes:
     request:
       cutout_id: string
       slice: {enum: [backend, panel, verification]}
-      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES)"}
-      originator: {enum: [agent, student], required: false, note: "since 2026-09-29d; absent means student"}
+      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1)"}
+      originator: {enum: [agent, student, reach], required: false, note: "since 2026-09-29d; absent means student; reach since 2026-10-03c, on an issue hand only (W-ISSUE-1)"}
       summary: {type: string, maxBytes: 2000}
-      bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2)
+      bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2; reach.issue/v1 on an issue hand, W-ISSUE-4)
     response_200: {hand_id: string, state: string}
     notes: >-
       check_gate (since 2026-09-28) is raised by reach submit when reach check still reports findings on a second
@@ -849,12 +849,13 @@ routes:
       the originator, the attempt count and history, the task, and the code and tests in full. An instructor's reply is
       what resets the slice's attempt ladder (W-QUAL-6). Since 2026-09-30b a wellbeing hand (W-SUP-2) may carry
       cutout_id and slice null, its bundle is reach.hand.wellbeing/v1, and Teach lists open wellbeing hands before
-      every other hand.
+      every other hand. Since 2026-10-03c an issue hand (W-ISSUE-1) carries cutout_id and slice null, originator reach
+      and the bundle reach.issue/v1.
   - id: W-API-HAND-STATUS
     method: GET
     path: /api/v1/hands/:id
     auth: install
-    response_200: {state: string, reply: "object or null"}
+    response_200: {state: string, reply: "object or null", issue_state: "since 2026-10-03c, on an issue hand only (W-ISSUE-7)", fix_version: "since 2026-10-03c, on an issue hand only (W-ISSUE-7)"}
   - id: W-API-GRADES
     method: GET
     path: /api/v1/grades
@@ -1168,7 +1169,7 @@ debug:
     - brain (captures, recalls, refusals)
     - update (phase, outcome, versions)
     - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
-    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT)
+    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT; fault_id since 2026-10-03c, W-ISSUE-2)
     - link (the Teach connection changed: state lost|back, the failure that caused it, outage_s on back; since 2026-10-02b, W-DBG-FAULT)
     - storage (since 2026-10-02d, W-DBG-KINDS-2: corpus_mb, brain_mb, total_mb, tier, outcome measured|warned|demanded|compact_started|compacted|compact_failed, before_mb and after_mb on compacted)
     - import (since 2026-10-02d, W-DBG-KINDS-2: vendor, mode brain|copy, outcome started|progress|finished|failed|cancelled, conversations, done, bytes, findings_queued)
@@ -1203,6 +1204,103 @@ debug:
       block is a plain ASCII table at most 100 columns wide; on a surface that renders Markdown (gui: the Claude desktop
       app, Claude Code in an IDE, the Codex app) it is a Markdown table. Reach decides from the harness's own
       environment and hook payload and falls back to tui; config.yml debug.render (auto, ascii, markdown) overrides it.
+issues:
+  W-ISSUE-1:
+    name: issue hands
+    rule: >-
+      Since revision 2026-10-03c. trigger gains the value issue and originator the value reach. An issue hand is
+      raised by Reach itself, with no agent and no student involved, when a fault on this install meets W-ISSUE-3. It
+      travels on W-API-HAND like every hand, with an Idempotency-Key, and waits in the outbox when Teach cannot be
+      reached (W-ISSUE-8). Its summary is the fixed text of message M-ISSUE-SUMMARY and never anything a person typed.
+      Like a wellbeing hand it carries null for cutout_id and slice. Reach sends trigger issue only when the
+      wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml; otherwise it raises
+      nothing and its fault events keep flowing (W-DBG-FAULT), so an older Teach, which answers 400 to an unknown
+      trigger, never sees one. REACH_ISSUES_DISABLE=1 or config.yml issues.enabled false turns issue hands off on an
+      install; fault events are not affected.
+  W-ISSUE-2:
+    name: issue signature
+    rule: >-
+      signature is the first 16 hexadecimal characters of the SHA-256 digest of the JSON text, written with no
+      whitespace, of the six-item array [where, exception, errno, message_id, cause, frames]. The first five are the
+      fault event's fields of those names as strings, the empty string when absent. frames is the array of the first
+      three signature frames of the fault. A signature frame is made from a backtrace frame that lies inside the
+      plugin: after turning every backslash into a slash, a frame that begins with a slash, with < or with a drive
+      letter and a colon is skipped. What is kept is the path before the line number, one space, and the method
+      label from between the quotes with every class or module qualifier (a capitalised name, with its :: parts,
+      followed by # or .) removed, so `block in run' on Ruby 2.6 and 'block in Reach::Sync.run' on Ruby 3.4 and
+      newer both give "lib/reach/sync.rb block in run"; a frame with no label is the path alone. Reach
+      sends the value as signature in every issue bundle and as fault_id in every fault event. The event field is not
+      named signature because W-DBG-SCRUB drops, and Teach refuses, any debug field whose name contains that word.
+      Teach computes the same value for a fault event that carries no fault_id, so an install older than this
+      revision is grouped too. One signature is one issue: the Reach version, the operating system and the harness
+      are facets of it, never part of it.
+  W-ISSUE-3:
+    name: when Reach raises an issue
+    rule: >-
+      A fault with a cause (a transport failure, an open breaker, a deadline or an HTTP status from Teach), a fault
+      whose exception is Reach::NetworkError or Reach::Offline, and a fault whose where begins with issues: is never
+      an issue on Reach's side. Any other fault is blocking when its where begins with a W-ISSUE-BLOCKING prefix, and
+      Reach raises an issue at its first occurrence. A fault that is not blocking raises an issue at its third
+      occurrence within 24 hours. Reach raises at most one issue per signature per Reach version, at most 3 a day
+      (UTC), and holds at most 10 unsent; what it does not raise it counts in the next bundle's suppressed field.
+      The course policy (W-POL-1 limits.issues) may turn issues off, lower max_per_day and max_queued and raise
+      repeat_threshold; it can never loosen a limit. Classification is a fixed table inside Reach: no model and no
+      network decide it.
+  W-ISSUE-BLOCKING:
+    rule: >-
+      where prefixes: hook:gate-, hook:hello, enroll, login, command:enroll, command:login, command:hello,
+      command:sync, command:qualify, command:submit, mcp:loop, mcp:reach_enroll, mcp:reach_enrol, mcp:reach_hello,
+      mcp:reach_sync, mcp:reach_qualify, mcp:reach_submit.
+  W-ISSUE-4:
+    name: issue bundle
+    rule: >-
+      The sealed bundle of an issue hand is bundle.json {"schema": "reach.issue/v1", hand_ref, created_at, signature,
+      blocking, occurrences, first_at, last_at, suppressed, fault: {where, exception, errno, message_id, cause,
+      frames, shown}, environment: {reach_version, ruby_version, platform, os, harness, surface}, capsule}. fault
+      holds the fields of the fault event as W-DBG-FAULT records them with debug mode off, so it never holds an error
+      message. frames is its first 12, and a frame whose path lies outside the plugin is cut to <outside>/ and the
+      file name, so no folder of the student's computer is in it. capsule is {runtime: what reach doctor --report prints about the running Ruby and
+      its SSL library, kit: {active, runtime_id, platform} of the runtime kit, link: {state, since, cause}, update:
+      {phase, staged_version}, flags: the names, never the values, of the harness environment variables that are set,
+      recent: the kind, where and at of the last 20 debug events}, at most 16384 bytes of JSON, cut from recent
+      first. The bundle carries no message text, no prompt, no code, no path outside the plugin root, no profile and
+      no student identity; the hand's install names the student.
+  W-ISSUE-5:
+    name: capsule on agent-raised technical hands
+    rule: >-
+      A technical_issue, setup_issue or access_issue hand (reach.hand/v2) gains two optional fields: capsule, as in
+      W-ISSUE-4, and signature_hint, the signature of the newest fault on this install within the 10 minutes before
+      the hand, or null. Its description stays what the agent wrote and is untrusted text everywhere it is shown or
+      handed on.
+  W-ISSUE-6:
+    name: what the student is told
+    rule: >-
+      After an issue is due, the next hook context tells the agent once (M-ISSUE-REPORTED) that rEach noticed a
+      technical problem with itself, reported it to the instructors, and nothing is needed from the student. An
+      instructor's reply to an issue hand does not interrupt the student and never resets an attempt ladder
+      (W-QUAL-6). When W-API-HAND-STATUS names a fix_version, Reach tells the agent once (M-ISSUE-FIXED), as soon as
+      the install runs that version or newer. A fault from the seal, the witness ledger or the integrity checks is
+      raised like any other and neither notice is ever shown for it (STD-SEAL-INVISIBLE).
+  W-ISSUE-7:
+    name: hand status for an issue hand
+    rule: >-
+      W-API-HAND-STATUS answers an issue hand with two more fields: issue_state (open, fixing, ready, shipped,
+      verified or closed) and fix_version (a version string x.y.z, or null). Reach ignores a fix_version of any other
+      shape. A hand Teach no longer holds (404) is dropped from Reach's list of open hands and does not stop the
+      check of the others.
+  W-ISSUE-8:
+    name: delivery of issue hands
+    rule: >-
+      An issue hand is built, sealed and sent by a detached process, never inside a hook or a tool call, and one
+      process at a time on an install: a second waits up to 30 seconds for the first and then leaves the work to the
+      next retry point, so one hand is never posted twice at once. An unsent
+      issue hand stays in the outbox and is retried from the Stop hook, reach sync and reach issues flush, keeping
+      its Idempotency-Key. After each failed attempt the next is not before a random wait between zero and the
+      smaller of 6 hours and 60 seconds doubled per attempt; reach issues flush, run by hand, ignores the wait. When
+      Teach cannot be reached the pass stops at the first failure. A refusal Teach will not change its mind about
+      (any status W-SAFE-3 does not retry) drops the entry. When the outbox already holds max_queued issue hands,
+      the oldest that is not blocking gives way; a blocking one gives way only to another blocking one. The wait
+      applies to issue hands only: submissions and every other hand are retried as before.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
@@ -1405,7 +1503,7 @@ alignment:
         binding)}; since 2026-10-01c also device_moves: approve | auto (default approve; default auto since
         2026-10-02e) and identity: {institution_name, username_domain, username_pattern, student_id_pattern}, which
         W-API-ENROLL-PREVIEW serves.
-      limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}; transcript_spool_max_bytes is ignored since 2026-10-03b"
+      limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}; transcript_spool_max_bytes is ignored since 2026-10-03b; since 2026-10-03c also issues: {enabled, repeat_threshold, max_per_day, max_queued}, which only tighten Reach's own limits (W-ISSUE-3)"
       support: "{text: string, the course's own support line appended to W-SUP-1}"
       student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
       module_selection: "{mode: instructor | student_choice, count (2), options: [{id, title}], opens_at, closes_at, capacity_per_module (null), slices: [slice kinds each chosen module gets, default [backend, panel]]}"

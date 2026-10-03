@@ -571,6 +571,32 @@ whether this session is signed in (2.17). Unverified: neither has a separate run
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
+### 2.39 · Issue reports
+
+Since 0.22.0 rEach reports its own technical problems to the instructors by itself (`STD-ISSUES`, wire `W-ISSUE-1` to
+`W-ISSUE-8`). Every fault it hides from the student gets a signature; a fault that stops enrollment, sign-in, sync,
+qualify or submit is reported the first time, any other the third time in 24 hours, once per signature per rEach
+version, at most 3 a day. The report is a hand with trigger `issue` and the sealed bundle `reach.issue/v1`: where it
+happened, the exception class, the backtrace frames inside the plugin, the versions, and a capsule of what
+`reach doctor --report` knows. No error message, prompt, code or profile is in it. It is built and sent by a detached
+process, waits in the outbox with backoff when Teach cannot be reached, and the student is told once, in plain words,
+that rEach reported a problem and that nothing is needed from them, and once more when the fix is in the version they
+run. A technical, setup or access hand the agent raises carries the same capsule. `reach issues` lists the registry
+for an instructor; `REACH_ISSUES_DISABLE=1` turns the feature off.
+
+Verified 2026-10-03 against `tools/fake_teach` on Linux, Ruby 3.3: a blocking fault raised one hand at once and a
+non-blocking one at its third occurrence and not again; a transport fault raised nothing; with Teach stopped the
+report waited in the outbox with a next-attempt time and went out on `reach issues flush`, once; the fourth issue of a
+day was suppressed and counted; the kill switch left fault events flowing and raised nothing; the bundle held no
+message text; the Stop hook told the student once, and told them once that it was fixed after the hand's status
+named the running version; a hand the server had lost no longer stopped the reply check. One fault gave the same
+signature on Ruby 2.6.10, 3.4.11 and 4.0.7, and the platform smoke passed on a copy of the tree (13 passed, runtime
+steps skipped). Not verified: any Teach, because no released Teach accepts trigger `issue` yet; macOS, Windows and
+Hermes; the full flow on Ruby 2.6, where only the syntax and the signature were checked; `tools/smoke` with real
+harness sessions.
+
+Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03c, and until one does rEach raises no issue hand and only its fault events flow.
+
 ## 3 · Course reference
 
 ### 3.1 · Encrypted reference
