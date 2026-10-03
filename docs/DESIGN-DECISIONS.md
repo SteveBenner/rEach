@@ -68,7 +68,7 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   harness, on the student's computer or on Teach. The prompt hook reads each prompt only as it arrives, for the gate, the login,
   the crisis check, a consent yes or no, the student's own-part answer and the local microbrain, and keeps nothing
   else. The microbrain is not a transcript: it stays on the student's computer and is never sent. The transcript
-  feature was torn down in Reach 0.20.4 and Teach 0.21.3: the transcripts already collected were backed up and then
+  feature was torn down in Reach 0.21.1 and Teach 0.22.1: the transcripts already collected were backed up and then
   deleted from Teach, and each student's local transcript folder is deleted when rEach updates.
 - **What reaches Teach** (10-01, revised 10-02). rEach does not capture the student's local workspace material, all
   the more because students are encouraged to import their personal contexts. Only these go to the instructors:
