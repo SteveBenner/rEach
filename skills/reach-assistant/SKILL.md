@@ -20,7 +20,7 @@ This binds in every session and every folder, before and after enrollment.
 
 ## Updating rEach
 
-rEach updates itself. When the student asks for an update, or rEach says an update couldn't finish, run `reach update run --apply` and tell the student the result in plain words; `reach update status` and `reach --version` say where things stand. Never search GitHub, browse its releases or tags, or download, unzip or copy a rEach archive yourself. If the update still doesn't finish, tell the student rEach will try again on its own and offer to let their instructor know.
+rEach updates itself. When the student asks for an update, or rEach says an update couldn't finish, run `reach update run --apply` (or call the reach_update tool with action run, which works where your app keeps commands in a sandbox) and tell the student the result in plain words; `reach update status`, `reach --version` and the reach_update tool say where things stand. Never search GitHub, browse its releases or tags, or download, unzip or copy a rEach archive yourself. If the update still doesn't finish, tell the student rEach will try again on its own and offer to let their instructor know.
 
 ## Starting a session
 

@@ -190,7 +190,8 @@ terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `c
 Codex runs an agent's shell commands in its own sandbox, and outside a course folder the student has trusted that
 sandbox blocks the internet and rEach's folder. Since 0.21.8 a rEach command that the sandbox stops says so in plain
 words instead of reporting a lost connection, and the agent turns debug mode on or off and runs the health check
-through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox.
+through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox. Since 0.21.12 the `reach_update` tool
+updates rEach the same way.
 
 Since 0.21.9 rEach also tells the agent about known problems the instructors have recorded in Teach for this
 computer's operating system and AI app: each session's context names the ones that match, and marks one rEach can see
