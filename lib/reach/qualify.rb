@@ -99,6 +99,9 @@ module Reach
           record["findings"] << { "code" => "QF-UNCOVERED", "name" => nil, "detail" => "no scenario under #{FEATURES_DIR} carries #{qualify['tag']}" }
           record["steps"]["coverage"]["passed"] = false
         end
+        unless record["steps"]["coverage"]["passed"]
+          record["next"] = Reach::Messages.text("M-QUALIFY-UNCOVERED", count: [missing.length, 1].max, tag: qualify["tag"], dir: FEATURES_DIR)
+        end
         record["steps"]["coverage"]["passed"]
       end
 
@@ -520,6 +523,7 @@ module Reach
       def render_text(record)
         lines = []
         lines << record["notice"] if record["notice"]
+        lines << record["next"] if record["next"]
         lines << "Qualification attempt #{record['attempt']} for #{record['slice']}"
         STEP_IDS.each do |id|
           step = record["steps"][id]
