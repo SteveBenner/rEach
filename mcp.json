@@ -3,9 +3,9 @@
   "mcpServers": {
     "reach": {
       "type": "stdio",
-      "command": "ruby",
+      "command": "sh",
       "args": [
-        "${PLUGIN_ROOT}/exe/reach",
+        "${PLUGIN_ROOT}/exe/reach-run",
         "mcp"
       ]
     }

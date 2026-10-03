@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.7] - 2026-10-03
+
+### Fixed
+
+- rEach did nothing on a computer with no Ruby: every hook, the MCP server and the installer called `ruby`, and the
+  bundled runtime kit was only ever installed by Ruby code, so on Windows in Claude Desktop's Cowork the screen stayed
+  blank and the agent never answered (`STD-RUBY-BOOTSTRAP`). The plugin's Claude Code hooks and MCP server now run
+  `sh exe/reach-run`, which uses the Ruby on PATH when it is 2.6.10 or newer, otherwise the kit's Ruby, and otherwise
+  downloads the kit's Ruby (40 to 67 MB) from the pinned runtime release, checks its size and sha256 against
+  `exe/runtime-pins`, and installs it under `~/.reach/runtime` in the background. A prompt that arrives meanwhile reaches
+  the agent with M-BOOTSTRAP-WAIT (send the message again in a minute, no course work yet) instead of being blocked; the
+  MCP server waits up to 120 s. A failed download is logged to `~/.reach/logs/bootstrap.log` and retried by hooks after
+  10 minutes. In a Debian container with no Ruby the first prompt answered in 0.06 s and the kit installed in 8 to 43 s.
+  With a Ruby on PATH the hook output is byte-identical to calling `ruby exe/reach`.
+- On Windows without Ruby, `INSTALL.md` now runs `scripts/reach-install.ps1`, which installs the kit's Ruby the same way
+  and adds it to the user PATH (no administrator rights), instead of asking for RubyInstaller.
+
+### Changed
+
+- `STD-ENROLL-LOCKDOWN` names the one prompt that is not blocked: the one that arrives while Ruby is still installing.
+- A Ruby-only kit gains Chrome for Testing in place on the next background run (`RuntimeKit.chrome_missing?`,
+  `runtime_auto.rb`), never replacing the Ruby a running hook uses.
+- `tools/runtime_pins.rb --write | --check` generates and checks `exe/runtime-pins` against the manifest `RuntimeKit`
+  pins; `runtime/README.md`'s release steps run it.
+
 ## [0.20.6] - 2026-10-03
 
 ### Fixed

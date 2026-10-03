@@ -31,7 +31,7 @@ The bundler version in the lock's BUNDLED WITH must match `BUNDLER_VERSION` in `
 
 ## Cut a release
 
-Push a tag named `runtime-<ruby>-r<n>`, for example `runtime-4.0.7-r1`, or run the workflow by hand with that tag as input. The tag's Ruby part must be 4.0.7. When the publish job finishes, its summary and the release notes show the sha256 of `runtime-manifest.json`. Set `MANIFEST_SHA256` in `lib/reach/runtime_kit.rb` to that value and ship a Reach release; installs refuse a manifest that does not match it.
+Push a tag named `runtime-<ruby>-r<n>`, for example `runtime-4.0.7-r1`, or run the workflow by hand with that tag as input. The tag's Ruby part must be 4.0.7. When the publish job finishes, its summary and the release notes show the sha256 of `runtime-manifest.json`. Set `MANIFEST_SHA256` in `lib/reach/runtime_kit.rb` to that value, then run `ruby tools/runtime_pins.rb --write` to regenerate `exe/runtime-pins` (the sh-sourceable pins that `exe/reach-run` and `scripts/reach-install.ps1` read) from the published manifest, check it with `ruby tools/runtime_pins.rb --check`, and ship a Reach release; installs refuse a manifest that does not match it.
 
 ## Pinned actions
 

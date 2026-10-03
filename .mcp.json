@@ -1,9 +1,9 @@
 {
   "mcpServers": {
     "reach": {
-      "command": "ruby",
+      "command": "sh",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/exe/reach",
+        "${CLAUDE_PLUGIN_ROOT}/exe/reach-run",
         "mcp"
       ]
     }

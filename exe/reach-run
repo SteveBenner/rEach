@@ -1,0 +1,455 @@
+#!/bin/sh
+
+M_BOOTSTRAP_WAIT="rEach is finishing its one-time setup on this computer: it is downloading its own copy of Ruby, which takes about a minute. Tell the student, in one short friendly sentence, that rEach is getting ready and that they should send their message again in a minute. Do no course work and run no rEach command until then."
+
+LOCK_STALE_S=900
+MCP_WAIT_S=120
+JOIN_WAIT_S=900
+
+case $0 in
+  */*) self_dir=${0%/*} ;;
+  *) self_dir=. ;;
+esac
+PLUGIN_ROOT=$(cd "$self_dir/.." 2>/dev/null && pwd) || exit 1
+REACH_HOME=${REACH_HOME:-$HOME/.reach}
+LOCKDIR=$REACH_HOME/state/bootstrap.lock
+FAILED_FILE=$REACH_HOME/state/bootstrap-failed
+BACKOFF_S=600
+STAGE=
+PART=
+VERBOSE=
+
+now() {
+  date +%s
+}
+
+stamp() {
+  date -u +%Y-%m-%dT%H:%M:%SZ
+}
+
+blog() {
+  mkdir -p "$REACH_HOME/logs" 2>/dev/null || return 0
+  printf '%s %.300s\n' "$(stamp)" "$*" >>"$REACH_HOME/logs/bootstrap.log" 2>/dev/null
+  return 0
+}
+
+say() {
+  [ -n "$VERBOSE" ] && printf '%s\n' "$*" >&2
+  return 0
+}
+
+ruby_ok() {
+  "$1" -e 'exit((RUBY_VERSION.split(".").map { |part| part.to_i } <=> [2, 6, 10]) >= 0 ? 0 : 1)' </dev/null >/dev/null 2>&1
+}
+
+kit_ruby() {
+  KIT_RUBY=
+  [ -f "$REACH_HOME/runtime/current" ] || return 1
+  cur=
+  IFS= read -r cur <"$REACH_HOME/runtime/current" || [ -n "$cur" ] || return 1
+  cur=$(printf '%s' "$cur" | tr -d '\r')
+  case $cur in
+    '' | *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+  kit=$REACH_HOME/runtime/$cur
+  [ -f "$kit/.complete" ] || return 1
+  for candidate in "$kit/ruby/bin/ruby.exe" "$kit/ruby/bin/ruby"; do
+    if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+      KIT_RUBY=$candidate
+      return 0
+    fi
+  done
+  return 1
+}
+
+pick_ruby() {
+  RUBY=
+  if [ -n "${REACH_RUBY:-}" ] && [ -x "$REACH_RUBY" ]; then
+    RUBY=$REACH_RUBY
+    return 0
+  fi
+  found=$(command -v ruby 2>/dev/null)
+  if [ -n "$found" ] && ruby_ok "$found"; then
+    RUBY=$found
+    return 0
+  fi
+  if kit_ruby; then
+    RUBY=$KIT_RUBY
+    return 0
+  fi
+  return 1
+}
+
+hook_event() {
+  HOOK_EVENT=
+  case ${1:-} in
+    hello)
+      shift
+      for arg in "$@"; do
+        [ "$arg" = "--format" ] && return 1
+      done
+      HOOK_EVENT=SessionStart
+      return 0
+      ;;
+    gate)
+      case ${2:-} in
+        prompt | enroll) HOOK_EVENT=UserPromptSubmit ;;
+      esac
+      return 0
+      ;;
+    transcript)
+      case ${2:-} in
+        turn | code) return 0 ;;
+      esac
+      return 1
+      ;;
+  esac
+  return 1
+}
+
+answer_hook() {
+  if [ ! -t 0 ]; then
+    cat >/dev/null 2>&1
+  fi
+  if [ -n "$HOOK_EVENT" ]; then
+    printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$HOOK_EVENT" "$1"
+  fi
+  exit 0
+}
+
+detect_platform() {
+  PLAT=
+  PLAT_NAME=
+  os=$(uname -s 2>/dev/null)
+  cpu=$(uname -m 2>/dev/null)
+  case $os in
+    Darwin) kind=macos ;;
+    Linux)
+      if ls /lib/ld-musl-* >/dev/null 2>&1; then
+        return 1
+      fi
+      kind=linux
+      ;;
+    MINGW* | MSYS* | CYGWIN*) kind=windows ;;
+    *) return 1 ;;
+  esac
+  case $cpu in
+    x86_64 | amd64) arch=x86_64 ;;
+    arm64 | aarch64) arch=arm64 ;;
+    *) return 1 ;;
+  esac
+  if [ "$kind" = windows ]; then
+    arch=x86_64
+  fi
+  PLAT=${kind}_${arch}
+  PLAT_NAME=${kind}-${arch}
+  return 0
+}
+
+load_pins() {
+  [ -f "$PLUGIN_ROOT/exe/runtime-pins" ] || return 1
+  # shellcheck source=/dev/null
+  . "$PLUGIN_ROOT/exe/runtime-pins"
+  eval "ASSET=\${ASSET_$PLAT:-}"
+  eval "SHA256=\${SHA256_$PLAT:-}"
+  eval "SIZE=\${SIZE_$PLAT:-}"
+  eval "RUBY_EXE=\${RUBY_EXE_$PLAT:-}"
+  [ -n "$ASSET" ] && [ -n "$SHA256" ] && [ -n "$SIZE" ] && [ -n "$RUBY_EXE" ] || return 1
+  case $RUNTIME_ID in
+    '' | *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+  return 0
+}
+
+write_info() {
+  printf '%s %s\n' "$1" "$(now)" >"$LOCKDIR/info.tmp" 2>/dev/null && mv -f "$LOCKDIR/info.tmp" "$LOCKDIR/info" 2>/dev/null
+  return 0
+}
+
+lock_stale() {
+  if [ -f "$LOCKDIR/info" ]; then
+    lock_pid=0
+    lock_epoch=0
+    read -r lock_pid lock_epoch <"$LOCKDIR/info" 2>/dev/null
+    case $lock_pid in
+      '' | *[!0-9]*) lock_pid=0 ;;
+    esac
+    case $lock_epoch in
+      '' | *[!0-9]*) lock_epoch=0 ;;
+    esac
+    if [ "$lock_epoch" -gt 0 ] && [ $(($(now) - lock_epoch)) -gt "$LOCK_STALE_S" ]; then
+      return 0
+    fi
+    if [ "$lock_pid" -gt 0 ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+      return 0
+    fi
+    return 1
+  fi
+  [ -d "$LOCKDIR" ] || return 1
+  [ -n "$(find "$LOCKDIR" -prune -mmin +15 2>/dev/null)" ]
+}
+
+acquire_lock() {
+  mkdir -p "$REACH_HOME/state" 2>/dev/null || return 1
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    write_info 0
+    return 0
+  fi
+  lock_stale || return 1
+  if ! mkdir "$LOCKDIR.take" 2>/dev/null; then
+    if [ -n "$(find "$LOCKDIR.take" -prune -mmin +1 2>/dev/null)" ]; then
+      rmdir "$LOCKDIR.take" 2>/dev/null
+    fi
+    return 1
+  fi
+  if lock_stale; then
+    rm -rf "$LOCKDIR"
+    blog "took over a stale bootstrap lock"
+  fi
+  acquired=1
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    write_info 0
+    acquired=0
+  fi
+  rmdir "$LOCKDIR.take" 2>/dev/null
+  return $acquired
+}
+
+release_lock() {
+  [ -f "$LOCKDIR/info" ] || return 0
+  owner=
+  read -r owner _ <"$LOCKDIR/info" 2>/dev/null
+  if [ "$owner" = "$$" ]; then
+    rm -rf "$LOCKDIR"
+  fi
+  return 0
+}
+
+cleanup() {
+  [ -n "$STAGE" ] && rm -rf "$STAGE"
+  [ -n "$PART" ] && rm -f "$PART"
+  release_lock
+}
+
+spawn_child() {
+  if command -v nohup >/dev/null 2>&1; then
+    nohup sh "$PLUGIN_ROOT/exe/reach-run" --bootstrap-child </dev/null >/dev/null 2>&1 &
+  else
+    sh "$PLUGIN_ROOT/exe/reach-run" --bootstrap-child </dev/null >/dev/null 2>&1 &
+  fi
+  child=$!
+  write_info "$child"
+  return 0
+}
+
+write_failed() {
+  reason=$(printf '%s' "$*" | tr -cd 'A-Za-z0-9 .,:()/_-' | awk '{print substr($0, 1, 120)}')
+  mkdir -p "$REACH_HOME/state" 2>/dev/null || return 0
+  (
+    umask 077
+    printf '%s %s\n' "$(now)" "$reason" >"$FAILED_FILE.tmp" 2>/dev/null && mv -f "$FAILED_FILE.tmp" "$FAILED_FILE" 2>/dev/null
+  )
+  return 0
+}
+
+recent_failure() {
+  FAIL_REASON=
+  [ -f "$FAILED_FILE" ] || return 1
+  fail_epoch=0
+  read -r fail_epoch FAIL_REASON <"$FAILED_FILE" 2>/dev/null
+  case $fail_epoch in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  [ $(($(now) - fail_epoch)) -lt "$BACKOFF_S" ]
+}
+
+die() {
+  blog "failed: $*"
+  write_failed "$*"
+  exit 1
+}
+
+file_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 <"$1" | awk '{print $NF}'
+  else
+    return 1
+  fi
+}
+
+download() {
+  url=$RELEASE_BASE/$RUNTIME_TAG/$ASSET
+  if command -v curl >/dev/null 2>&1; then
+    err=$(curl -fL --retry 3 --connect-timeout 15 --max-time 840 -sS -o "$PART" "$url" 2>&1) || die "download failed: $err"
+  elif command -v wget >/dev/null 2>&1; then
+    err=$(wget -q -T 30 -O "$PART" "$url" 2>&1) || die "download failed: $err"
+  else
+    die "neither curl nor wget is available"
+  fi
+}
+
+install_steps() {
+  mkdir -p "$REACH_HOME/downloads" "$REACH_HOME/runtime" || die "cannot create folders under $REACH_HOME"
+  say "rEach: downloading its Ruby ($ASSET)"
+  download
+  have_size=$(wc -c <"$PART" | tr -d ' ')
+  [ "$have_size" = "$SIZE" ] || die "size mismatch for $ASSET (expected $SIZE, got $have_size)"
+  have_sha=$(file_sha256 "$PART") || die "no sha256 tool (sha256sum, shasum or openssl) is available"
+  [ "$have_sha" = "$SHA256" ] || die "sha256 mismatch for $ASSET"
+  say "rEach: unpacking"
+  mkdir -p "$STAGE" || die "cannot create $STAGE"
+  err=$(tar -xzf "$PART" -C "$STAGE" 2>&1) || die "extract failed: $err"
+  root=$STAGE/runtime
+  exe=$STAGE/$RUBY_EXE
+  [ -f "$exe" ] || die "the bundle has no $RUBY_EXE"
+  have_version=$("$exe" -e 'print RUBY_VERSION' </dev/null 2>/dev/null) || die "the bundle's Ruby did not start"
+  [ "$have_version" = "$RUBY_VERSION" ] || die "the bundle's Ruby reported $have_version, expected $RUBY_VERSION"
+  cat >"$root/.complete" <<EOF
+{
+  "runtime_id": "$RUNTIME_ID",
+  "platform": "$PLAT_NAME",
+  "components": [
+    "ruby"
+  ],
+  "ruby_version": "$RUBY_VERSION",
+  "chrome_version": null,
+  "profiles": $PROFILES_JSON,
+  "installed_at": "$(stamp)",
+  "bundler_version": "$BUNDLER_VERSION"
+}
+EOF
+  [ -f "$root/.complete" ] || die "cannot write the completion marker"
+  final=$REACH_HOME/runtime/$RUNTIME_ID
+  previous=
+  if [ -e "$final" ]; then
+    previous=$final.old-$(date -u +%Y%m%dT%H%M%SZ)
+    mv "$final" "$previous" || die "cannot move the existing $RUNTIME_ID aside"
+  fi
+  if ! mv "$root" "$final"; then
+    if [ -n "$previous" ] && [ ! -e "$final" ]; then
+      mv "$previous" "$final"
+    fi
+    die "cannot place the runtime at $final"
+  fi
+  printf '%s\n' "$RUNTIME_ID" >"$REACH_HOME/runtime/current.tmp-$$" || die "cannot write the current pointer"
+  mv -f "$REACH_HOME/runtime/current.tmp-$$" "$REACH_HOME/runtime/current" || die "cannot write the current pointer"
+  rm -f "$PART" "$FAILED_FILE"
+  say "rEach: Ruby $RUBY_VERSION is ready"
+  exit 0
+}
+
+run_owned() {
+  STAGE=$REACH_HOME/runtime/.stage-$$
+  PART=$REACH_HOME/downloads/$ASSET.part
+  trap 'exit 1' HUP INT TERM
+  trap cleanup EXIT
+  write_info "$$"
+  for orphan in "$REACH_HOME"/runtime/.stage-*; do
+    [ -d "$orphan" ] && rm -rf "$orphan"
+  done
+  (install_steps)
+  status=$?
+  cleanup
+  trap - EXIT
+  STAGE=
+  PART=
+  return $status
+}
+
+if [ "${1:-}" = "--bootstrap-child" ]; then
+  detect_platform && load_pins || exit 1
+  [ -d "$LOCKDIR" ] || exit 1
+  run_owned
+  exit $?
+fi
+
+if pick_ruby; then
+  exec "$RUBY" "$PLUGIN_ROOT/exe/reach" "$@"
+fi
+
+hook=
+if hook_event "$@"; then
+  hook=1
+fi
+
+fail_unavailable() {
+  reason=$1
+  text="rEach needs Ruby 2.6.10 or newer and cannot install its own copy on this computer ($reason). Install Ruby from https://www.ruby-lang.org/en/downloads/ and start a new session."
+  blog "unavailable: $reason"
+  printf '%s\n' "$text" >&2
+  if [ -n "$hook" ]; then
+    answer_hook "$text"
+  fi
+  exit 1
+}
+
+if [ "${REACH_RUNTIME_DISABLE:-}" = 1 ] || [ "${REACH_OFFLINE:-}" = 1 ]; then
+  fail_unavailable "downloads are turned off by REACH_RUNTIME_DISABLE or REACH_OFFLINE"
+fi
+if ! detect_platform; then
+  fail_unavailable "no Ruby kit is built for this computer"
+fi
+if ! load_pins; then
+  fail_unavailable "this install has no Ruby kit for ${PLAT:-this computer}"
+fi
+
+if [ -n "$hook" ]; then
+  wait_text=$M_BOOTSTRAP_WAIT
+  if recent_failure; then
+    wait_text="$M_BOOTSTRAP_WAIT (The last setup attempt did not finish: ${FAIL_REASON:-unknown reason}. rEach will try again in a few minutes.)"
+  elif acquire_lock; then
+    spawn_child
+  fi
+  answer_hook "$wait_text"
+fi
+
+wait_for_lock() {
+  waited=0
+  limit=$1
+  while [ -d "$LOCKDIR" ] && [ "$waited" -lt "$limit" ]; do
+    if pick_ruby; then
+      return 0
+    fi
+    if lock_stale; then
+      break
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  pick_ruby
+}
+
+if [ "${1:-}" = mcp ]; then
+  if acquire_lock; then
+    spawn_child
+  fi
+  if wait_for_lock "$MCP_WAIT_S"; then
+    exec "$RUBY" "$PLUGIN_ROOT/exe/reach" "$@"
+  fi
+  printf '%s\n' "rEach is still setting up its Ruby and is not ready yet. Try again in a minute; see $REACH_HOME/logs/bootstrap.log if it keeps failing." >&2
+  exit 1
+fi
+
+VERBOSE=1
+attempt=0
+while [ "$attempt" -lt 2 ]; do
+  if acquire_lock; then
+    printf '%s\n' "rEach: setting up its Ruby for the first time (about a minute)" >&2
+    run_owned
+    break
+  fi
+  printf '%s\n' "rEach: waiting for the Ruby setup already in progress" >&2
+  if wait_for_lock "$JOIN_WAIT_S"; then
+    break
+  fi
+  attempt=$((attempt + 1))
+done
+if pick_ruby; then
+  exec "$RUBY" "$PLUGIN_ROOT/exe/reach" "$@"
+fi
+printf '%s\n' "rEach could not set up its Ruby. See $REACH_HOME/logs/bootstrap.log, or install Ruby 2.6.10 or newer from https://www.ruby-lang.org/en/downloads/." >&2
+exit 1

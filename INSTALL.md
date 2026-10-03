@@ -6,7 +6,7 @@ These steps are for the AI agent a student asked to install rEach from this repo
 
 - Ruby 2.6.10 to 4.0.x and `curl` (built into macOS, Windows 10+ and most Linux); Git and `unzip` are not required.
   - macOS: the built-in /usr/bin/ruby (2.6.10) is fine.
-  - Windows: if `ruby -v` fails, ask the student first, then install Ruby 4.0 from https://rubyinstaller.org for this user only (no administrator rights).
+  - Windows: if `ruby -v` fails, do not install RubyInstaller. Use the Windows PowerShell command for a computer without Ruby below: it downloads rEach's own Ruby 4.0.7 into `%USERPROFILE%\.reach\runtime` and adds it to the user's PATH (no administrator rights).
   - Linux: the distribution's Ruby, when it is 2.6.10 to 4.0.x.
 - Never install anything system-wide or with sudo.
 - Do not offer or ask about `reach runtime install`. Reach's checking tools (about 250 MB, into `~/.reach/runtime`, no
@@ -27,6 +27,11 @@ Use "Claude Code, Codex, Antigravity and Hermes" below whenever you can run shel
      ```powershell
      New-Item -ItemType Directory -Force "$env:USERPROFILE\.reach\bootstrap" | Out-Null; curl.exe -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/main/scripts/reach-install -o "$env:USERPROFILE\.reach\bootstrap\reach-install"; if ($LASTEXITCODE -eq 0) { ruby "$env:USERPROFILE\.reach\bootstrap\reach-install" --destination "$env:USERPROFILE\.reach\plugin" }; if ($LASTEXITCODE -eq 0) { ruby "$env:USERPROFILE\.reach\plugin\exe\reach" setup --harness <claude-code | codex | antigravity | hermes> }
      ```
+   - Windows PowerShell, when `ruby -v` fails (no Ruby on the computer):
+     ```powershell
+     New-Item -ItemType Directory -Force "$env:USERPROFILE\.reach\bootstrap" | Out-Null; curl.exe -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/main/scripts/reach-install.ps1 -o "$env:USERPROFILE\.reach\bootstrap\reach-install.ps1"; if ($LASTEXITCODE -eq 0) { powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.reach\bootstrap\reach-install.ps1" -Harness <claude-code | codex | antigravity | hermes> }
+     ```
+     The script installs Ruby only when none is found, then runs the same install and setup as above.
    The archive itself is https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip. An existing `~/.reach/plugin` is moved to `~/.reach/.backup/plugin-<timestamp>` before the new copy goes in; nothing is deleted. Set `REACH_INSTALL_KILL_SWITCH=1` to stop the installer downloading.
 2. Read setup's output. Tell the student about any step it says they must do themselves (for example trusting rEach's hooks in Codex).
 3. Setup prints a NEXT block only after a harness installed successfully. Your next message to the student must begin with the lines after "NEXT", copied exactly as printed, starting with "rEach is installed and ready." Do not summarise them, reword them or put anything before them. After them you may add setup's host steps (a new session, trusting hooks in Codex, or, in Hermes, the command setup prints for opening a course folder, such as `~/.reach/bin/reach work --harness hermes`; give it exactly as printed, since `reach` alone may not be on the student's PATH). Take those host steps from rEach's Installation and Setup Guide: run `ruby ~/.reach/plugin/exe/reach guide` (Windows PowerShell: `ruby "$env:USERPROFILE\.reach\plugin\exe\reach" guide`), read what it prints, and walk the student through the steps in its "Approvals and other extra steps" section for their app and computer that are not done yet, one at a time. The guide is also at `docs/INSTALLATION-AND-SETUP-GUIDE.docx`. Then read and follow the reach-assistant skill immediately.
