@@ -971,8 +971,9 @@ Since 0.21.12 the Codex MCP server starts on Windows and after the cache repair:
 `sh`, which Windows lacks) and `.codex-plugin/plugin.json` runs `ruby exe/reach mcp` with `"cwd": "."`, because Codex
 0.160 does not expand `${PLUGIN_ROOT}` there. Verified in a scratch `CODEX_HOME` with Codex 0.160.0: before and after the
 repair Codex launched a command that started the real server (36 tools, `reach_update` among them), and the root launch
-set the root manifest aside. Not yet seen on a Windows machine. Drift hazard: rplugin 1.6.3's Codex renderer still writes
-`${PLUGIN_ROOT}` into `.codex-plugin/plugin.json`, so a new `rplugin package` run would undo this until rplugin changes.
+set the root manifest aside. Not yet seen on a Windows machine. Since 0.21.14 the generated files come from the sources again: `hooks/reach.hooks.yml` gives Codex its `ruby` hooks through
+`run_by_harness` and `reach.rplugin.yml` gives `.mcp.json` its `sh exe/reach-run` through `by_harness` (rplugin 1.6.5), and
+`rplugin package --check` reports 0 stale files; the shipped hook command text did not change.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine; no Windows Codex run).
 
