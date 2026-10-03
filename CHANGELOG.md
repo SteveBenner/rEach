@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.2] - 2026-10-03
+
+### Fixed
+
+- The `reach_qualify` MCP tool never reached Teach when the local steps took longer than the bridge's 25-second tool
+  budget (about 32 seconds for an A4 panel), because the upload inherited the spent deadline. The agent was told
+  rEach had lost its connection, and the work was never qualified. The Teach half of qualify (upload and polls) now
+  runs under its own 20-second deadline, started after the local steps (`lib/reach/qualify.rb`), so the call stays
+  inside Codex's 60-second tool timeout and a pending qualification resumes on the next run.
+- A Reach deadline running out was reported as a lost connection (`M-TEACH-LINK-LOST`) and marked the Teach link
+  lost. It now says `M-TEACH-DEADLINE` ("did not answer in time") and leaves the link alone (`lib/reach/client.rb`,
+  `locales/en-US.yml`).
+
 ## [0.21.1] - 2026-10-03
 
 ### Removed

@@ -238,6 +238,7 @@ messages:
   M-BRAIN-NO-MATCH: "Nothing remembered matches that."
   M-BRAIN-FORGET-WHAT: "Say which items to forget (ids), or confirm forgetting everything."
   M-TEACH-LINK-LOST: "rEach lost its connection to your course server (Teach). Your work is saved on this computer and will be sent when the connection is back. You can keep working."
+  M-TEACH-DEADLINE: "Your course server (Teach) did not answer in time. Your work is saved on this computer. Try again in a moment."
   M-TEACH-LINK-BACK: "rEach is connected to your course server again. Anything that was waiting is being sent now."
   M-TEACH-OFFLINE-FLAG: "rEach is in offline mode (REACH_OFFLINE=1), so it isn't talking to your course server. Your work is saved on this computer."
   M-TEACH-PACING: "rEach is pacing its messages to your course server. Try again in a minute."
