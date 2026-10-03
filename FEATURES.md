@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 78 | 90% |
+| ✅ Shipped | 79 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 73 | 84% |
+| 🔵 Built, not enabled | 74 | 85% |
 | ⚫ No runtime path | 11 | 13% |
 
 ## 1 · Install
@@ -596,6 +596,46 @@ Hermes; the full flow on Ruby 2.6, where only the syntax and the signature were 
 harness sessions.
 
 Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03c, and until one does rEach raises no issue hand and only its fault events flow.
+
+### 2.40 · Live sessions
+
+Since 0.22.0 a student can open a live session with their instructors to find out together why something in rEach
+does not work (`STD-LIVE`, wire `W-LIVE-1` to `W-LIVE-9`). The student's assistant asks through the `reach_live` tool
+and rEach puts its own question to the student; or an instructor offers a session and rEach asks at the next prompt.
+It opens only after the student's typed yes. While it is open rEach sends what it records in debug mode (what rEach
+did, never prompts, replies, code or files) and the two sides exchange notes. rEach itself enforces two rules: a
+check the instructor's side asks for (one of seven fixed ones) runs only after the student's typed yes for that
+check, and nothing the student's assistant wants to send leaves the computer until the student has seen the exact
+text and typed yes. For an instructor's own test student the two assistants can also write to each other, under the
+same rules. Either side can end it at any time. `REACH_LIVE_DISABLE=1` turns the feature off.
+
+On Claude Code 2.1.288 or newer rEach wakes a waiting assistant when the instructor's side wrote, asked for a check
+or ended the session (a background Stop-hook entry, `reach live watch`), and it shows one desktop notification when
+the instructor writes. A student whose prompts rEach blocks can still ask for, accept, follow and end a live session
+by typing: the question, the instructor's notes and each check's question appear under the block text, and rEach
+takes the typed yes or no there. `config.yml` `live.wake`, `live.notify` and `live.blocked` turn these off.
+
+Verified 2026-10-03 on Linux, Ruby 3.3, against a scratch Teach built from its `mcp-wire` branch: a request, the
+yes through the prompt hook, the instructor's approval and the open notice; an offer accepted and an offer refused;
+a check answered yes (it ran, the result reached Teach) and one answered no (nothing ran, Teach was told); a note
+staged and refused (nothing sent) and one approved (sent); an assistant message refused while another question was
+waiting; debug events flowing with reason `remote` and stopping at the end; the end from either side told once. One
+session ran with a real Claude Code session as the student's assistant: it found `reach_live`, relayed each of
+rEach's questions word for word, and did not treat "go ahead and help them" as a yes. In the first on-screen session the
+student's side showed an instructor's request only at the student's next prompt; the wait is now 45 seconds and the
+assistant is told to keep waiting while an answer is expected, which has not been run from a session's start yet. Not verified: macOS, Windows,
+the flow on Ruby 2.6 (on 2.6.10 only the syntax and loading were checked), Codex, Cowork and Hermes; `tools/fake_teach`, which has no live routes.
+
+The wake ran on 2026-10-03 in a real Claude Code 2.1.288 session: the idle assistant was woken by the open notice,
+an instructor's note, a check's question and the end, each once; one watcher at a time; none left after the end. The
+entry is absent with Claude Code 2.1.100 and with no `claude` on the path. The desktop notification ran on Linux
+only. The blocked path ran through the prompt hook with a student who had no course work: a request and yes, an
+offer accepted and one refused, a note shown word for word, a check answered yes and one answered no, the end typed
+by the student and the end by the instructor; a locked-out sign-in got the question, the ordinary sign-in question
+did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
+student who becomes blocked while a watcher is still running.
+
+Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03d.
 
 ## 3 · Course reference
 

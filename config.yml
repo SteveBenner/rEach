@@ -94,6 +94,11 @@ rstack:
 submit:
   archive_max_mb: 256
   lms_name: Blackboard
+live:
+  enabled: true
+  wake: true
+  notify: true
+  blocked: true
 issues:
   enabled: true
   repeat_threshold: 3

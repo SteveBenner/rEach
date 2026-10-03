@@ -196,42 +196,7 @@ module Reach
       end
 
       def notify_desktop(text)
-        case RbConfig::CONFIG["host_os"]
-        when /darwin/
-          notify_macos(text)
-        when /mswin|mingw|cygwin/
-          notify_windows(text)
-        else
-          notify_linux(text)
-        end
-      rescue StandardError
-        nil
-      end
-
-      def notify_macos(text)
-        escaped = text.gsub('"', '\\"')
-        Open3.capture3("osascript", "-e", "display notification \"#{escaped}\" with title \"rEach\"")
-      end
-
-      def notify_windows(text)
-        escaped = text.gsub("'", "''")
-        script = <<~POWERSHELL
-          [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
-          $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-          $texts = $template.GetElementsByTagName("text")
-          $texts.Item(0).AppendChild($template.CreateTextNode("rEach")) > $null
-          $texts.Item(1).AppendChild($template.CreateTextNode('#{escaped}')) > $null
-          $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
-          [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("rEach").Show($toast)
-        POWERSHELL
-        Open3.capture3("powershell", "-NoProfile", "-Command", script)
-      end
-
-      def notify_linux(text)
-        _out, _err, status = Open3.capture3("which", "notify-send")
-        return unless status.success?
-
-        Open3.capture3("notify-send", "rEach", text)
+        Reach::Desktop.notify(text)
       end
     end
   end

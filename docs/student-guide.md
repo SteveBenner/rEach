@@ -57,6 +57,16 @@ Run `reach doctor`. It checks your Ruby, your course rules, your keys and your c
 
 If rEach itself breaks, it tells your instructors on its own. You'll see one short note saying it reported a technical problem. You don't need to do anything or ask for help about it, and you can keep working. The report says where rEach failed and what version you have. It never includes what you typed or your code.
 
+## A live session with your instructor
+
+When something in rEach does not work and a normal request for help is not enough, you can ask for a live session. Tell your AI partner "ask my instructor for a live session". rEach asks you first, and the session opens only when you type yes and an instructor accepts. An instructor can also offer you one. rEach then asks you, and you can say no.
+
+While a session is open, your instructors can see what rEach itself records on your computer: what rEach did and when. They do not see what you type, your AI partner's replies, your code or your files. Two things always need your yes. rEach asks you before it runs any check your instructor requests, and it shows you every message your AI partner wants to send them, word for word, before it goes out. You can end the session at any time by saying so. It also ends by itself after an hour unless your instructor extends it.
+
+If rEach is not letting your messages through at all, you can still get a live session. Type a message with the words "live session" in it. rEach asks you its question right under its notice, and you answer yes or no. What your instructor writes and each check they ask for show up the same way. To stop, type "end live session".
+
+When your instructor writes while you are waiting, rEach shows a small notification on your screen. On a recent Claude Code your AI partner also picks it up by itself. If nothing new shows in the chat, type anything.
+
 ## What rEach remembers about you
 
 The answers you give rEach in its interview are saved in a profile, on your

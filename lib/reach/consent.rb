@@ -6,7 +6,7 @@ require "rbconfig"
 module Reach
   module Consent
     SCHEMA = "reach.consent/v1".freeze
-    KINDS = %w[module_lock transfer_request submission compaction export_import].freeze
+    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
 
@@ -51,8 +51,23 @@ module Reach
       return nil unless entry.is_a?(Hash) && entry["gate"] == "allowed"
       return nil unless Reach::Login.session_confirmed?(entry["session_id"])
 
+      capture(entry)
+    rescue StandardError
+      nil
+    end
+
+    def observe_blocked(entry, kinds:)
+      return nil unless entry.is_a?(Hash) && entry["gate"] == "blocked"
+
+      capture(entry, kinds: kinds)
+    rescue StandardError
+      nil
+    end
+
+    def capture(entry, kinds: nil)
       pending = Reach::Login.read_json(pending_path)
       return nil unless pending.is_a?(Hash) && pending["student_id"] == Reach::Login.enrolled_id
+      return nil if kinds && !kinds.include?(pending["kind"])
 
       now = Time.now.utc
       return nil if now - Time.iso8601(pending["asked_at"]) > WINDOW_S
@@ -71,17 +86,18 @@ module Reach
         "asked_at" => pending["asked_at"], "answered_at" => iso(now), "used_at" => nil,
         "student_id" => Reach::Login.enrolled_id
       }
+      record["gate"] = "blocked" if entry["gate"] == "blocked"
       FileUtils.mkdir_p(dir)
       File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
       FileUtils.rm_f(pending_path)
       record.merge("subject" => pending["subject"], "replay" => pending["replay"] || {})
-    rescue StandardError
-      nil
     end
 
     def follow_up!(observed)
       subject = observed["subject"] || {}
       replay = observed["replay"] || {}
+      return Reach::Live.follow_up!(observed) if Reach::Live::KINDS.include?(observed["kind"])
+
       if observed["kind"] == "submission"
         return observed["answer"] == "yes" ? Reach::Messages.text("M-SUBMIT-YES-AGENT", slice_id: replay["slice_id"]) : Reach::Messages.text("M-CONSENT-DECLINED")
       end
@@ -110,6 +126,7 @@ module Reach
 
     def agent_context(observed, done)
       return done if %w[submission compaction export_import].include?(observed["kind"]) && observed["answer"] == "yes"
+      return Reach::Live.agent_context(observed, done) if Reach::Live::KINDS.include?(observed["kind"])
 
       Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: done)
     end

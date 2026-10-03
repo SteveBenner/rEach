@@ -169,6 +169,7 @@ module Reach
         FileUtils.mkdir_p(Reach::Paths.state_dir)
         cache = status.merge("fetched_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
         File.write(Reach::Paths.status_cache_file, JSON.generate(cache))
+        Reach::Live.note_status(status)
 
         Reach::Enroll.update!(
           "signing_public_keys" => status["signing_public_keys"],

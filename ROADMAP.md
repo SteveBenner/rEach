@@ -38,9 +38,14 @@ Until then, checkpoints are the history.
 **Status:** specified, not scheduled. **Safety gate:** closed until the instructor side has run its own research and
 development trial on instructor test installs and recorded the result. Nothing here reaches a student before that.
 
-A live session (planned) connects one rEach install with the course's instructor in debug mode, after the instructor
-approves it and the student agrees through rEach. The instructor can watch rEach's own debug events, run actions from
-a fixed list, and exchange notes with the student.
+A live session (built on branch `mcp-wire`, not released) connects one rEach install with the course's instructor in
+debug mode, after the instructor approves it and the student agrees through rEach. The instructor's side can watch
+rEach's own debug events, ask for actions from a fixed list, and exchange notes with the student. rEach runs an
+action only after the student's own yes, and sends nothing to the instructor's side without the student's yes.
+
+On an instructor's own test install the two agents can already write free text to each other during a live session;
+the person at that install approves every message before it is sent. That is the trial vehicle, and a regular
+student's session never carries agent messages.
 
 The next step would let the instructor's agent put questions to the student's agent during such a session:
 

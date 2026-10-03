@@ -86,10 +86,10 @@ module Reach
       window = window_failures(failures, now)
       locked = locked_remaining(failures, now)
       if locked
-        return decision("block", Reach::Messages.text("M-LOGIN-LOCKED", minutes: locked), "login", nil, state, persist: false)
+        return decision("block", Reach::Messages.text("M-LOGIN-LOCKED", minutes: locked), "login", nil, state, persist: false).merge("stuck" => true)
       end
 
-      return decision("block", Reach::Messages.text("M-LOGIN-DENIED"), "login", nil, state, persist: false) if state["state"] == "denied"
+      return decision("block", Reach::Messages.text("M-LOGIN-DENIED"), "login", nil, state, persist: false).merge("stuck" => true) if state["state"] == "denied"
 
       if state["state"] == "awaiting_confirm"
         return evaluate_confirm(text, state, now, harness)
