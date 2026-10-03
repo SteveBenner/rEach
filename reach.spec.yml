@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.12
+version: 0.21.13
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1150,6 +1150,8 @@ cli:
       REACH_TEACH_URL and config.yml, so an install with a missing or broken config.yml still knows Teach.
       Since 0.21.11 Reach::Runtime::TEACH_URL (https://sven-f1l1.tail062fd2.ts.net) is the built-in last resort after
       that file. A network failure prints M-ENR-CLI-OFFLINE, which names the URL and the cause, and exits 1.
+      Since 0.21.13 enrollment requests leave the Teach connection state alone (STD-TEACH-LINK), so that message is
+      the only line a failed terminal enroll prints.
       Since 0.18.1 the student-facing name is course passkey: --course-passkey, with --course-code kept as an unlisted
       alias. Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and

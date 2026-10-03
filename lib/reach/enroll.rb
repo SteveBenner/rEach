@@ -16,7 +16,7 @@ module Reach
 
     def generate_and_register(code, teach_url)
       key = Reach::Crypto.generate_install_key
-      client = Reach::Client.anonymous(teach_url)
+      client = Reach::Client.anonymous(teach_url, link: false)
       body_fields = {
         "code" => code,
         "public_key_pem" => key.public_key.to_pem,
@@ -48,7 +48,7 @@ module Reach
     end
 
     def flow_client(teach_url)
-      Reach::Client.anonymous(teach_url, connect_timeout: CONNECT_TIMEOUT_S, read_timeout: READ_TIMEOUT_S, max_retries: 0)
+      Reach::Client.anonymous(teach_url, connect_timeout: CONNECT_TIMEOUT_S, read_timeout: READ_TIMEOUT_S, max_retries: 0, link: false)
     end
 
     def preview(course_code, teach_url)
