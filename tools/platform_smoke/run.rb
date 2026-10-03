@@ -25,7 +25,12 @@ module PlatformSmoke
   BACKGROUND_WAIT_S = 900
   BACKGROUND_POLL_S = 10
   RUNTIME_BUSY = "the runtime is already being installed in the background".freeze
-  EXPECTED_DOCTOR_FINDINGS = %w[R-DOC-GUARD R-DOC-HARNESS].freeze
+  EXPECTED_DOCTOR_FINDINGS = %w[R-DOC-HARNESS].freeze
+  BUCKET_CAPACITY = 20.0
+  BUCKET_RATE_PER_SECOND = 20.0 / 60.0
+  BUCKET_RESERVE = 6.0
+  PACKAGE_KINDS = %w[guardrails workspace].freeze
+  KNOWN_ANSWER_DIR = File.join(ROOT, "tools", "platform_smoke", "fixtures", "known-answer").freeze
   CHROME_FINDING = "R-DOC-CHROME".freeze
 
   Step = Struct.new(:name, :result, :detail, :duration)
@@ -82,6 +87,7 @@ module PlatformSmoke
         env[key] = nil if key.upcase.start_with?("TEACH_") || key.upcase.start_with?("REACH_")
       end
       env["REACH_HOME"] = File.join(@scratch, "home")
+      env["REACH_WORKSPACE_ROOT"] = File.join(@scratch, "work")
       env["REACH_UPDATE_DISABLE"] = "1"
       env
     end
@@ -162,15 +168,16 @@ module PlatformSmoke
     def run_steps
       step("install") { install_step }
       installed = @steps.last.result == :pass
+      step("package_known_answer") { package_known_answer_step } if installed
       unless installed
-        %w[fake_teach hook_session_start hook_prompt_locked hook_codex enroll machine_id hook_prompt_open status runtime doctor].each do |name|
+        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll sync_packages machine_id hook_prompt_open status runtime doctor].each do |name|
           record(Step.new(name, :skip, "install failed", 0.0))
         end
         return
       end
       step("fake_teach") { fake_teach_step }
       if @steps.last.result != :pass
-        %w[hook_session_start hook_prompt_locked hook_codex enroll machine_id hook_prompt_open status runtime doctor].each do |name|
+        %w[hook_session_start hook_prompt_locked hook_codex enroll sync_packages machine_id hook_prompt_open status runtime doctor].each do |name|
           record(Step.new(name, :skip, "fake_teach failed", 0.0))
         end
         return
@@ -179,6 +186,7 @@ module PlatformSmoke
       step("hook_prompt_locked") { hook_prompt_locked_step }
       step("hook_codex") { hook_codex_step }
       step("enroll") { enroll_step }
+      step("sync_packages") { sync_packages_step }
       step("machine_id") { machine_id_step }
       step("hook_prompt_open") { hook_prompt_open_step }
       step("status") { status_step }
@@ -397,6 +405,105 @@ module PlatformSmoke
       return [:fail, "output does not say connected: #{tail(out, err)}"] unless out =~ /connected to/i
 
       [:pass, out.lines.map(&:strip).reject(&:empty?).first.to_s]
+    end
+
+    KNOWN_ANSWER_SCRIPT = <<'RUBY'.freeze
+lib, dir = ARGV
+require "json"
+require File.join(lib, "reach", "errors.rb")
+require File.join(lib, "reach", "crypto.rb")
+require File.join(lib, "reach", "tarball.rb")
+begin
+  envelope = JSON.parse(File.read(File.join(dir, "envelope.json")))
+  recipient = Reach::Crypto.load_private_key(File.read(File.join(dir, "recipient-test-key.pem")))
+  signer = Reach::Crypto.load_public_key(File.read(File.join(dir, "signing-test-key.pub.pem")))
+  header, plaintext = Reach::Crypto.open_envelope(
+    envelope,
+    expected_kind: "guardrails",
+    expected_student_id: "test0000000",
+    recipient_private_key: recipient,
+    signer_public_key_for: lambda { |_id| signer }
+  )
+  entries = Reach::Tarball.read(plaintext)
+  puts JSON.generate(
+    "content_digest" => header["content_digest"],
+    "entries" => entries.keys.sort,
+    "hello_sha256" => Reach::Crypto.digest_hex(entries["hello.txt"])
+  )
+rescue Exception => e
+  puts "#{e.class}: #{e.message}"
+  exit 1
+end
+RUBY
+
+    def package_known_answer_step
+      code, out, err = spawn_capture(
+        [RbConfig.ruby, "-e", KNOWN_ANSWER_SCRIPT, File.join(@install, "lib"), KNOWN_ANSWER_DIR],
+        chdir: @scratch
+      )
+      return [:fail, "known-answer envelope did not open: #{tail(out, err)}"] unless code == 0
+
+      actual = JSON.parse(out.lines.last.to_s)
+      expected = JSON.parse(File.read(File.join(KNOWN_ANSWER_DIR, "expected.json")))
+      expected.each do |key, value|
+        return [:fail, "#{key} is #{actual[key].inspect}, expected #{value.inspect}"] unless actual[key] == value
+      end
+
+      [:pass, "opened Teach's sealed envelope; digest #{actual['content_digest'][0, 12]}, entries #{actual['entries'].join(',')}"]
+    end
+
+    def request_hits(kind, status)
+      path = File.join(@scratch, "teach", "requests.jsonl")
+      return 0 unless File.file?(path)
+
+      File.readlines(path).count do |line|
+        row = JSON.parse(line)
+        row["method"] == "GET" && row["path"] == "/api/v1/packages/#{kind}" && row["status"] == status
+      end
+    rescue JSON::ParserError
+      0
+    end
+
+    def sync_packages_step
+      code, out, err = reach("sync")
+      combined = out + err
+      return [:fail, "first sync exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+      warning = combined.lines.map(&:strip).find { |line| line =~ /could not fetch (guardrails|shape|workspace) package|could not update course rules|could not provision your workspace/ }
+      return [:fail, "first sync warned: #{warning}"] if warning
+
+      PACKAGE_KINDS.each do |kind|
+        stored = File.join(@env["REACH_HOME"], "packages", kind, "1.pkg")
+        return [:fail, "#{stored} was not stored: #{tail(out, err)}"] unless File.file?(stored)
+        return [:fail, "fake_teach served #{kind} #{request_hits(kind, 200)} time(s) with 200, expected 1"] unless request_hits(kind, 200) == 1
+      end
+
+      before = PACKAGE_KINDS.map { |kind| request_hits(kind, 304) }
+      code, out, err = reach("sync")
+      return [:fail, "second sync exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      PACKAGE_KINDS.each_with_index do |kind, index|
+        gained = request_hits(kind, 304) - before[index]
+        return [:fail, "second sync made fake_teach answer #{gained} 304(s) for #{kind}, expected 1: #{tail(out, err)}"] unless gained == 1
+      end
+
+      wait_for_request_budget
+      [:pass, "guardrails and workspace fetched, stored as 1.pkg and revalidated with 304 on the second sync"]
+    end
+
+    def wait_for_request_budget
+      path = File.join(state_dir, "bucket.json")
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 60
+      loop do
+        state = File.file?(path) ? JSON.parse(File.read(path)) : nil
+        return if state.nil?
+
+        tokens = [BUCKET_CAPACITY, state["tokens"].to_f + (Time.now.to_f - state["updated_at"].to_f) * BUCKET_RATE_PER_SECOND].min
+        return if tokens >= BUCKET_RESERVE || Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+
+        sleep 2
+      end
+    rescue StandardError
+      nil
     end
 
     def machine_id_step

@@ -12,6 +12,7 @@ require "time"
 
 ROOT = File.expand_path("../..", __dir__)
 require File.join(ROOT, "lib", "reach", "crypto.rb")
+require File.join(ROOT, "lib", "reach", "tarball.rb")
 
 module FakeTeach
   MINIMUM_REACH_VERSION = "0.12.0".freeze
@@ -85,7 +86,16 @@ module FakeTeach
     end
   end
 
+  Reply = Struct.new(:status, :body, :etag)
+
   class Store
+    PACKAGE_KINDS = %w[guardrails workspace].freeze
+    PACKAGE_VERSION = 1
+    PACKAGE_COURSE_ID = "demo.a1".freeze
+    PACKAGE_SLICE = "backend".freeze
+    PACKAGE_ASSIGNMENT = "A1".freeze
+    PACKAGE_OWNED_FILE = "lib/greeter.rb".freeze
+
     def initialize(home)
       @home = home
       @mutex = Mutex.new
@@ -104,6 +114,74 @@ module FakeTeach
       @replays = {}
       @hands = []
       @hand_replays = {}
+      @packages = {}
+    end
+
+    def fixture(*parts)
+      File.binread(File.join(__dir__, "fixtures", "packages", *parts))
+    end
+
+    def package_entries(kind, install_id)
+      if kind == "guardrails"
+        seal = {
+          "schema" => "teach.seal/v1",
+          "ledger_key" => Reach::Crypto.digest_hex("ledger:#{install_id}"),
+          "marks" => { PACKAGE_COURSE_ID => { PACKAGE_OWNED_FILE => Reach::Crypto.digest_hex("mark:#{install_id}")[0, 16] } }
+        }
+        {
+          "course.yml" => fixture("guardrails", "course.yml"),
+          "directives.yml" => fixture("guardrails", "directives.yml"),
+          "seal.yml" => YAML.dump(seal)
+        }
+      else
+        root = "#{PACKAGE_COURSE_ID}-#{PACKAGE_SLICE}"
+        manifest = {
+          "course" => "DEMO101",
+          "assignment" => PACKAGE_ASSIGNMENT,
+          "slices" => [
+            { "cutout_id" => PACKAGE_COURSE_ID, "slice" => PACKAGE_SLICE, "root" => root, "owned_files" => [PACKAGE_OWNED_FILE] }
+          ]
+        }
+        {
+          "slices.json" => JSON.generate(manifest),
+          "#{root}/#{PACKAGE_OWNED_FILE}" => fixture("workspace", "lib", "greeter.rb")
+        }
+      end
+    end
+
+    def package_envelope(install_id, install, kind)
+      @mutex.synchronize do
+        @packages[[install_id, kind]] ||= begin
+          header = {
+            "schema" => "teach.package/v1",
+            "kind" => kind,
+            "id" => "pkgenv_#{SecureRandom.hex(10)}",
+            "version" => PACKAGE_VERSION,
+            "course" => install["course_id"],
+            "assignment" => PACKAGE_ASSIGNMENT,
+            "student_id" => install["student_id"],
+            "created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "signing_key_id" => SIGN_KEY_ID
+          }
+          Reach::Crypto.seal(
+            header: header,
+            plaintext: Reach::Tarball.write(package_entries(kind, install_id)),
+            recipient_public_key: OpenSSL::PKey::RSA.new(install["public_key_pem"]),
+            signer_private_key: @signing_key
+          )
+        end
+      end
+    end
+
+    def package(req, body, kind)
+      install = authenticate!(req, body)
+      raise Failure.new(404, "not_found", "no such route") unless PACKAGE_KINDS.include?(kind)
+
+      envelope = package_envelope(req["X-Teach-Install"], install, kind)
+      etag = "\"#{envelope['header']['content_digest']}\""
+      return Reply.new(304, "", etag) if req["If-None-Match"] == etag
+
+      Reply.new(200, JSON.generate(envelope), etag)
     end
 
     def log_request(req, status)
@@ -483,8 +561,10 @@ module FakeTeach
         "student" => { "id" => install["student_id"], "display_name" => install["display_name"], "group" => nil },
         "course" => { "id" => install["course_id"] },
         "current_assignment" => due_text ? { "id" => "A1", "due" => due_text } : nil,
-        "slices" => [],
-        "packages" => [],
+        "slices" => [{ "cutout_id" => PACKAGE_COURSE_ID, "slice" => PACKAGE_SLICE, "assignment" => PACKAGE_ASSIGNMENT }],
+        "packages" => PACKAGE_KINDS.map do |kind|
+          { "kind" => kind, "version" => PACKAGE_VERSION, "content_digest" => package_envelope(req["X-Teach-Install"], install, kind)["header"]["content_digest"] }
+        end,
         "outstanding_receipts" => [],
         "server_time" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "signing_public_keys" => signing_public_keys,
@@ -510,8 +590,16 @@ module FakeTeach
       sleep(delay) if delay.positive?
       body = read_body(req)
       payload = route(req, body)
-      respond(res, 200, payload)
-      @store.log_request(req, 200)
+      if payload.is_a?(Reply)
+        res.status = payload.status
+        res["Content-Type"] = "application/json"
+        res["ETag"] = payload.etag
+        res.body = payload.body
+        @store.log_request(req, payload.status)
+      else
+        respond(res, 200, payload)
+        @store.log_request(req, 200)
+      end
     rescue Failure => e
       @store.log_request(req, e.status)
       fail_with(res, e)
@@ -552,6 +640,8 @@ module FakeTeach
         @store.enroll(parse_json(body))
       elsif method == "GET" && path == "/api/v1/status"
         @store.status(req, body)
+      elsif method == "GET" && path =~ %r{\A/api/v1/packages/([A-Za-z0-9_]+)\z}
+        @store.package(req, body, Regexp.last_match(1))
       elsif method == "POST" && path == "/api/v1/submissions"
         @store.submit(req, body)
       elsif method == "POST" && path == "/api/v1/hands"

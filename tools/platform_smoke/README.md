@@ -8,23 +8,25 @@ Every step prints `PASS <step> <detail>`, `FAIL <step> <detail>` or `SKIP <step>
 
 The fixture Teach needs the `webrick` gem, which Ruby 3.0 and later no longer bundle. When `require "webrick"` fails, the script runs `gem install --no-document --install-dir <scratch>/gems webrick` (one attempt and one retry, each with a timeout) and starts the fixture with `GEM_PATH` including that directory and `GEM_HOME` unset. The outcome is part of the fake_teach step detail, so the machine needs network access to rubygems.org in that case.
 
-The script starts from a copy of the environment with every `TEACH_*` and `REACH_*` variable removed, sets `REACH_HOME` to the scratch home and `REACH_UPDATE_DISABLE=1`, and never touches the real `~/.reach`. The scratch root sits directly under the system temp directory with a short name, because Chrome cannot start when its socket path is long. Set no long `TMPDIR` when you run it.
+The scratch workspace root is `<scratch>/work` (`REACH_WORKSPACE_ROOT`), so provisioning never writes to the real `~/reach-work`. The script starts from a copy of the environment with every `TEACH_*` and `REACH_*` variable removed, sets `REACH_HOME` to the scratch home and `REACH_UPDATE_DISABLE=1`, and never touches the real `~/.reach`. The scratch root sits directly under the system temp directory with a short name, because Chrome cannot start when its socket path is long. Set no long `TMPDIR` when you run it.
 
 ## Steps
 
 | Step | What it proves |
 | --- | --- |
 | install | `scripts/reach-install --archive` of a `git archive` of HEAD installs the same VERSION and an `exe/reach` |
+| package_known_answer | the installed copy's `Reach::Crypto.open_envelope` and `Reach::Tarball.read` open `fixtures/known-answer/envelope.json`, sealed by real Teach's crypto, with the committed test keys; the content digest and the `hello.txt` digest equal `expected.json`; a failure prints the exception class and message |
 | fake_teach | the fixture answers `GET /api/v1/health` with 200 |
 | hook_session_start | the SessionStart command from the installed `hooks/hooks.json` exits 0 |
 | hook_prompt_locked | the UserPromptSubmit gate blocks before enrollment: exit 2, a message on stderr, nothing on stdout |
 | hook_codex | the same block through the command from `hooks/codex.json` |
 | enroll | `reach enroll` against the fixture connects the student to the course |
 | machine_id | `Reach::Fingerprint.machine_id` is not `unknown` and has the platform's form |
+| sync_packages | `reach sync` exits 0 with no package fetch, course rules or workspace warning; `packages/guardrails/1.pkg` and `packages/workspace/1.pkg` are stored under the scratch `REACH_HOME`; a second `reach sync` makes the fixture answer 304 to both kinds, counted from its `requests.jsonl`; it then waits for Reach's local request budget to refill so doctor's health check is not rate limited |
 | hook_prompt_open | the same gate command exits 0 and does not block once enrolled |
 | status | `reach status` names the enrolled student and does not report `fingerprint_mismatch` |
 | runtime | `reach runtime install` and `status` show the pinned runtime and its Ruby 4.0.7; on a platform with no kit the unsupported message is the pass |
-| doctor | runs after runtime so it sees the runtime Chrome; every finding code `reach doctor` prints is in `EXPECTED_DOCTOR_FINDINGS` |
+| doctor | runs after runtime so it sees the runtime Chrome; every finding code `reach doctor` prints is in `EXPECTED_DOCTOR_FINDINGS`; with the packages stored, `R-DOC-GUARD` is no longer expected |
 
 Hook commands run through `sh -c` on Linux and macOS and through Git for Windows' `bash.exe` (found next to `git.exe`, never WSL's) on Windows.
 
@@ -34,8 +36,6 @@ Hook commands run through `sh -c` on Linux and macOS and through Git for Windows
 
 | Code | Reason |
 | --- | --- |
-| R-DOC-GUARD | the fixture releases no guardrails package, so `reach sync` has nothing to verify and the guardrails package never becomes the latest known |
-
 | R-DOC-HARNESS | the smoke installs no agent harness by design (commands-only smoke) |
 
 `R-DOC-CHROME` is expected only when the runtime step did not install a kit: with `--skip-runtime`, or on a platform outside `Reach::RuntimeKit::PLATFORMS` such as Windows arm64. When a kit was installed, doctor must find the runtime's Chrome (`check_chrome` reads `chrome_exe` from the active runtime) and the finding fails the step.

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.20.4 |
+| **Registry version** | 0.20.5 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -427,6 +427,13 @@ and the runtime Chrome check on Windows (0.16.7). Run 36932174987 passed 11 of 1
 arm64 and Intel (system Ruby 2.6.10), Windows x64 and Windows 11 arm64 (Ruby 4.0.7). The Windows 10 and Windows 11
 x64 legs run on self-hosted VMs on SVEN-F1L1 (`tools/platform_smoke/windows-runner/bootstrap.ps1` and
 `register.ps1`); they are off until the repository variable `REACH_VM_RUNNERS` is `on`.
+
+Since 0.20.5 every leg opens real `teach.package/v1` envelopes, which no leg did before (fake_teach listed no packages
+and `R-DOC-GUARD` was an expected doctor finding, so a student's Mac could fail to decrypt its guardrails package while
+CI stayed green). `package_known_answer` opens a guardrails envelope sealed by Teach's own `Teach`
+(`tools/platform_smoke/fixtures/known-answer/`, throwaway test keys), and `sync_packages` has fake_teach seal guardrails
+and workspace packages for the enrolled install, checks both are stored and revalidated with 304, and doctor must no
+longer report `R-DOC-GUARD`. The smoke now keeps its workspace under the scratch root (`REACH_WORKSPACE_ROOT`).
 
 Build ✅ · Deploy 🟡 · Hosted legs green in CI; the Windows 10 and 11 VM runners are not registered yet (waiting on the Windows ISOs, which Microsoft would not serve to a script).
 

@@ -1,0 +1,3 @@
+- id: G-SCOPE-1
+  scope: slice
+  rule: Write only the files your slice owns.

@@ -595,7 +595,7 @@ module Reach
       return nil if disabled?
 
       exe = File.join(Reach::Runtime.root, "exe", "reach")
-      arguments = [RbConfig.ruby, exe, "update", "run"]
+      arguments = [RbConfig.ruby, exe, "update", "run", "--scheduled"]
       arguments << "--apply" if apply
       options = { in: File::NULL, out: File::NULL, err: File::NULL }
       if Reach::Runtime.windows?
@@ -696,14 +696,14 @@ module Reach
       []
     end
 
-    def run(apply: false, force: false)
+    def run(apply: false, force: false, check: false)
       return { "skipped" => "disabled" } if disabled?
 
-      outcome = with_lock { run_locked(apply, force) }
+      outcome = with_lock { run_locked(apply, force, check) }
       outcome == :locked ? { "skipped" => "locked" } : outcome
     end
 
-    def run_locked(apply, force)
+    def run_locked(apply, force, check = false)
       manifest = load_manifest
       managed = managed?
       if managed && apply && interrupted_swap?(manifest)
@@ -716,7 +716,7 @@ module Reach
         manifest["staged_path"] = nil
         save_manifest(manifest)
       end
-      due = check_due?(manifest) || (force && !offline?)
+      due = check_due?(manifest) || ((force || check) && !offline?)
       manifest = check(manifest) if due
       attempts_left = manifest["attempts"].to_i < config["max_attempts"]
       if !attempts_left && !force && %w[detected downloaded staged].include?(manifest["phase"])

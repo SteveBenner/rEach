@@ -1724,6 +1724,7 @@ module Reach
         apply, args = parse_bare_flag(args, "apply")
         background, args = parse_bare_flag(args, "background")
         force, args = parse_bare_flag(args, "force")
+        scheduled, args = parse_bare_flag(args, "scheduled")
         options, _remaining = parse_flags(args, [:format])
         json = options[:format] == "json"
         case sub
@@ -1755,7 +1756,7 @@ module Reach
             Reach::Update.spawn_background(apply: apply)
             return 0
           end
-          result = Reach::Update.run(apply: apply, force: force || STDIN.tty?)
+          result = Reach::Update.run(apply: apply, force: force || STDIN.tty?, check: !scheduled)
           if json
             puts JSON.pretty_generate(result)
           elsif result["skipped"]
