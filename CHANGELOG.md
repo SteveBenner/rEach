@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.3] - 2026-10-03
+
+### Added
+
+- `reach doctor --report [--offline] [--format json]` prints every diagnostic fact a field failure needs, and no
+  secret (`lib/reach/diagnose.rb`): the running Ruby's path, version and platform, its SSL library, openssl gem and
+  whether native GCM works, the runtime kit, the home and Reach home (home-relative), which harness and sandbox
+  variables are set and whether the Reach home is writable, a stage-by-stage native GCM test, an envelope GCM round
+  trip on the path Reach uses, RSA-OAEP and PSS, the same GCM test in a subprocess under every other Ruby it finds
+  (PATH, `/usr/bin/ruby`, the kit), and each package kind opened stage by stage (header, signing key, signature,
+  unwrap, decrypt, digest) from the stored copy and, unless `--offline`, the latest copy from Teach, with the
+  network cause of a failed fetch.
+- On a Ruby whose SSL library cannot use GCM additional authenticated data (macOS's Ruby 2.6.10 with LibreSSL
+  3.3.6), every reach command runs again under the runtime kit's Ruby when the kit is installed
+  (`lib/reach/crypto_probe.rb`, `exe/reach`), for native OpenSSL speed instead of the pure-Ruby GCM of 0.20.6; with
+  no kit it starts the kit install and carries on. A fault event records either outcome. `REACH_KIT_FALLBACK=0`
+  turns it off.
+- Debug session events carry `ruby_path`, `openssl_library`, `openssl_gem`, `kit_ruby`, `kit_reexec` and
+  `gcm_self_test`; sync events carry the scrubbed `warning_texts`, not just their count. A native decryption error
+  names the OpenSSL stage, the SSL library and the Ruby version.
+- The platform smoke installs the kit before syncing, opens Teach's known-answer envelope with the kit Ruby
+  (`kit_known_answer`), records a `doctor --report` summary after the sync (`doctor_report`) and, on both macOS
+  legs, runs `reach doctor --report` inside `codex sandbox` (Codex CLI 0.160.0, installed by the workflow) and
+  requires it to move to the kit Ruby and open the stored guardrails package (`codex_sandbox_decrypt`).
+
 ## [0.21.2] - 2026-10-03
 
 ### Fixed
