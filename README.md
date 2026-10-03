@@ -214,6 +214,13 @@ recorded AI conversations to Downloads as a ZIP organized by assignment, and rEa
 course ends. A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
 on) so the instructor sees what it is about.
 
+### Extra credit
+
+When the instructor texts a student an extra-credit code, the student gives it to rEach with their answer, at any time:
+`reach extra-credit XC-ABCD-EFGH "my answer"`, or just tell the agent. rEach keeps it in the student's profile and sends
+it to Teach, or keeps it until the next sync when Teach cannot be reached. `reach extra-credit list` shows what is
+recorded. Only this part of the profile goes to Teach; the getting-to-know-you answers never leave the computer.
+
 ```
 reach transcripts export [--format json]        save your recorded conversations to Downloads
 reach grade [--format json]                     the points recorded in Teach

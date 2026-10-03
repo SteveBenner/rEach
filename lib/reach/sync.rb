@@ -101,6 +101,14 @@ module Reach
 
         unless offline
           begin
+            Reach::ExtraCredit.retry_pending!
+            pulled = Reach::ExtraCredit.pull!
+            summary["extra_credit"] = pulled["entries"] if pulled
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not sync your extra credit (#{Reach::Link.reason(e, "sync")})"
+          end
+
+          begin
             summary["hand_replies"] = Reach::Hands.poll_replies
           rescue StandardError => e
             summary["warnings"] << "reach: could not check for hand replies (#{Reach::Link.reason(e, "sync")})"

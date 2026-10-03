@@ -284,6 +284,20 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_extra_credit",
+        "description" => "Turn in an extra-credit answer: the code the instructor gave the student and the student's own answer, exactly as the student typed it. Never write, improve or invent the answer; relay Reach's message to the student",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "code" => { "type" => "string" }, "answer" => { "type" => "string" } },
+          "required" => %w[code answer]
+        }
+      },
+      {
+        "name" => "reach_extra_credit_list",
+        "description" => "List the extra credit the student has turned in and whether each answer is recorded, waiting to be sent or not accepted",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_storage",
         "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
         "inputSchema" => {
@@ -506,6 +520,12 @@ module Reach
           transcripts_tool(arguments)
         when "reach_grade"
           Reach::Grades.fetch
+        when "reach_extra_credit"
+          result = Reach::ExtraCredit.redeem(code: arguments["code"], answer: arguments["answer"])
+          result.merge("message" => result["text"])
+        when "reach_extra_credit_list"
+          result = Reach::ExtraCredit.list
+          result.merge("message" => result["text"])
         when "reach_import"
           import_tool(arguments)
         else

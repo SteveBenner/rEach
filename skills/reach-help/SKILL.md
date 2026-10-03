@@ -6,3 +6,4 @@ Run `reach hand raise --type <type> --summary "<what is blocked, what you tried>
 Tell the student that you asked the instructors for help and what was sent.
 Check `reach hand status` when the student returns; present any reply, and ask before applying a suggested change.
 Include the student's saved profile only if they say yes: `reach hand raise --include-profile ...`.
+When the student says they have an extra-credit code, do not raise a hand: ask for the code and for their own answer, run `reach extra-credit CODE ANSWER` (or the reach_extra_credit tool) with exactly what they typed, and relay Reach's message. Never write, improve or invent the answer for them.
