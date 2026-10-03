@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.4] - 2026-10-02
+
+### Fixed
+
+- rEach installs in Claude Cowork and claude.ai from a marketplace added by URL (`https://github.com/SteveBenner/rEach`
+  or `SteveBenner/rEach`). claude.ai rejects any plugin with a top-level `bin/` directory ("Plugin contains a top-level
+  bin/ directory"), and rEach had `bin/reach-install`. The installer moved to `scripts/reach-install`; `INSTALL.md`
+  downloads it from `raw.githubusercontent.com/SteveBenner/rEach/main/scripts/reach-install`, `reach update`
+  (`lib/reach/update.rb`) loads it from the installed plugin's `scripts/`, and `tools/smoke` and
+  `tools/platform_smoke` run it from there (`STD-NO-TOP-BIN`). An install command copied before 0.18.4 that names
+  `main/bin/reach-install` now gets a 404; the command in `INSTALL.md` is the current one.
+
 ## [0.18.3] - 2026-10-02
 
 ### Changed

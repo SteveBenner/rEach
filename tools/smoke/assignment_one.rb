@@ -477,7 +477,7 @@ module AssignmentOne
     def install_plugin(dereference)
       FileUtils.rm_rf(@plugin_dir) if dereference
       archive = build_archive(dereference)
-      installer = File.join(REPO, "bin", "reach-install")
+      installer = File.join(REPO, "scripts", "reach-install")
       out, status = capture({ "HOME" => @student_home }, ["ruby", installer, "--archive", archive, "--destination", @plugin_dir, "--dovetail-revision", File.join(REPO, "dovetail-revision.txt")])
       @last[:expected] = "GitHub-shaped archive installs to #{@plugin_dir}"
       @last[:actual] = "exit #{status.exitstatus}"
@@ -490,7 +490,7 @@ module AssignmentOne
 
     def install_public
       target = File.join(@run_dir, "plugin_public")
-      installer = File.join(REPO, "bin", "reach-install")
+      installer = File.join(REPO, "scripts", "reach-install")
       out, status = capture({ "HOME" => @student_home }, ["ruby", installer, "--destination", target])
       raise Fail, "public install exited #{status.exitstatus}: #{out.lines.last(6).join}" unless status.success?
 

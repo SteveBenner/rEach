@@ -13,7 +13,7 @@ model behaves in the conversation, and the dialogue pass says nothing about whet
 the wire works.
 
 Local archive mode does not prove public availability. The transport smoke builds a
-GitHub-shaped ZIP from the working tree and installs it with `bin/reach-install
+GitHub-shaped ZIP from the working tree and installs it with `scripts/reach-install
 --archive`. Only the dialogue pass, run after the parent has published the repository,
 proves that `https://github.com/SteveBenner/rEach` serves a ZIP an unauthenticated
 student can install. `--public` makes the transport smoke additionally run the real
@@ -58,7 +58,7 @@ Steps, in order, grouped by evidence class:
 | install | prerequisites | Ruby 4.0.6, Teach gems, Grokit, Dovetail, `zip` and `unzip` found |
 | handshake | teach-course-provision | roster, course and the G1 backend slice assignment exist |
 | handshake | release-before-enroll | `<Teach command>` succeeds with zero installs |
-| install | install-local-archive | a GitHub-shaped ZIP (symlinks kept) installs with `bin/reach-install --archive` |
+| install | install-local-archive | a GitHub-shaped ZIP (symlinks kept) installs with `scripts/reach-install --archive` |
 | install | install-local-archive-dereferenced | fallback, only when the faithful ZIP is refused; a workaround, not a pass for the public path |
 | handshake | blocked-before-enroll | `reach gate session` exits 2 and `reach work` refuses before enrollment |
 | install | setup-codex | `reach setup --harness codex` succeeds with an isolated `CODEX_HOME`; skipped without `codex` |
