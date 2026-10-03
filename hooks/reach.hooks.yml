@@ -3,10 +3,14 @@ hooks:
   - event: session_start
     match: any
     run: ["sh", "${PLUGIN_ROOT}/exe/reach-run", "hello"]
+    run_by_harness:
+      codex: ["ruby", "${PLUGIN_ROOT}/exe/reach", "hello"]
     timeout_s: 10
     blocking: false
   - event: prompt_submit
     match: any
-    run: ["sh", "${PLUGIN_ROOT}/exe/reach-run", "gate", "enroll", "--harness", "claude-code"]
+    run: ["sh", "${PLUGIN_ROOT}/exe/reach-run", "gate", "enroll", "--harness", "${HARNESS}"]
+    run_by_harness:
+      codex: ["ruby", "${PLUGIN_ROOT}/exe/reach", "gate", "enroll", "--harness", "${HARNESS}"]
     timeout_s: 60
     blocking: true

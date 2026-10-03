@@ -290,6 +290,35 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_debug",
+        "description" => "Turn rEach's debug mode on (action on, optional minutes), off (action off) or show whether it is on (action status, the default); works where the harness's shell is sandboxed. Tell the student the text in plain words",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[on off status] },
+            "minutes" => { "type" => "integer", "minimum" => 1, "maximum" => 999_999 }
+          }
+        }
+      },
+      {
+        "name" => "reach_doctor",
+        "description" => "rEach's health check (the same report as reach doctor) for the agent to read and explain to the student in plain words; works where the harness's shell is sandboxed",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
+        "name" => "reach_update",
+        "description" => "Update rEach: action run starts rEach's own updater in the background (the same as reach update run --apply), and action status (the default) says which version is installed and where an update stands; works where the harness's shell is sandboxed. Tell the student the text in plain words",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "action" => { "type" => "string", "enum" => %w[status run] } }
+        }
+      },
+      {
+        "name" => "reach_known_issues",
+        "description" => "The known problems from the course server that match this computer's system and AI app, whether rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student through the steps in plain words, one at a time",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_storage",
         "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
         "inputSchema" => {
@@ -313,7 +342,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -473,7 +502,7 @@ module Reach
         when "reach_hand_status"
           Reach::Hands.status(arguments.fetch("hand_id"))
         when "reach_hello"
-          JSON.parse(Reach::Hello.run(harness: arguments["harness"], format: "json"))
+          JSON.parse(Reach::Hello.run(harness: arguments["harness"], format: "json", mcp: true))
         when "reach_profile_show"
           Reach::Profile.load
         when "reach_profile_save"
@@ -520,8 +549,16 @@ module Reach
         when "reach_next"
           step = Reach::Next.compute
           step.merge("relay_verbatim" => true)
+        when "reach_known_issues"
+          known_issues_tool
         when "reach_storage"
           storage_tool(arguments)
+        when "reach_debug"
+          debug_tool(arguments)
+        when "reach_doctor"
+          doctor_tool
+        when "reach_update"
+          update_tool(arguments)
         when "reach_grade"
           Reach::Grades.fetch
         when "reach_extra_credit"
@@ -568,6 +605,75 @@ module Reach
                  else raise Reach::Error, "reach: unknown live action"
                  end
         result.key?("question") ? result.merge("relay_verbatim" => true) : result
+      end
+
+      def debug_tool(arguments)
+        action = arguments["action"].to_s
+        action = "status" if action.empty?
+        case action
+        when "on"
+          minutes = arguments["minutes"]
+          if !minutes.nil? && !minutes.to_s.match?(/\A[1-9][0-9]{0,5}\z/)
+            raise Reach::Refused, Reach::Messages.text("M-DEBUG-USAGE")
+          end
+          return { "text" => Reach::Messages.text("M-DEBUG-PERSONA") } if Reach::Persona.active?
+
+          until_at = Reach::Debug.turn_on!(minutes)
+          { "text" => until_at ? Reach::Messages.text("M-DEBUG-ON-UNTIL", until: until_at) : Reach::Messages.text("M-DEBUG-ON") }
+        when "off"
+          return { "text" => Reach::Messages.text("M-DEBUG-PERSONA") } if Reach::Persona.active?
+
+          Reach::Debug.turn_off!
+          lines = [Reach::Messages.text("M-DEBUG-OFF")]
+          lines << Reach::Messages.text("M-DEBUG-REMOTE-STILL") if Reach::Debug.on?
+          { "text" => lines.join("\n") }
+        when "status"
+          report = Reach::Debug.status
+          text = if report["on"]
+                   Reach::Messages.text(
+                     "M-DEBUG-STATUS-ON", reason: report["reason"], until: report["until"] || "no end time",
+                     queued: report["spool"]["queued"], sent: report["spool"]["sent"], dropped: report["spool"]["dropped"]
+                   )
+                 else
+                   Reach::Messages.text("M-DEBUG-STATUS-OFF", queued: report["spool"]["queued"], sent: report["spool"]["sent"])
+                 end
+          { "text" => text }
+        else
+          raise Reach::Error, "reach: unknown debug action"
+        end
+      end
+
+      def known_issues_tool
+        Reach::KnownIssues.refresh_if_stale!(quick: true)
+        issues = Reach::KnownIssues.matching(mcp: true)
+        { "issues" => issues, "text" => issues.empty? ? Reach::Messages.text("M-KNOWN-ISSUES-NONE") : nil }
+      end
+
+      def update_tool(arguments)
+        if arguments["action"].to_s == "run"
+          pid = Reach::Update.spawn_background(apply: true, now: true)
+          return { "text" => Reach::Messages.text(pid ? "M-UPDATE-STARTED" : "M-UPDATE-NOT-STARTED") }
+        end
+        { "text" => ["rEach #{Reach::VERSION}", *Reach::Update.status_lines].join("\n") }
+      end
+
+      def doctor_tool
+        code = nil
+        output = capture_output { code = Reach::CLI.run(["doctor"]) }
+        { "text" => output.to_s.strip, "exit" => code }
+      end
+
+      def capture_output
+        original_out = $stdout
+        original_err = $stderr
+        buffer = StringIO.new
+        $stdout = buffer
+        $stderr = buffer
+        yield
+        buffer.string
+      ensure
+        $stdout = original_out
+        $stderr = original_err
       end
 
       def storage_tool(arguments)

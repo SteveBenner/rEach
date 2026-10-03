@@ -28,6 +28,7 @@ module Reach
     module_function
 
     def session(harness:)
+      safely { Reach::KnownIssues.spawn_refresh! }
       return nil if Reach::Instructor.mode?
 
       check_enrolled!

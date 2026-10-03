@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reach issues` (instructor persona or debug mode) lists the registry; `reach issues flush` sends what is waiting.
   `reach doctor` reports `R-DOC-ISSUES` while a report is waiting. `config.yml` gains `issues`; the course policy's
   `limits.issues` can only tighten it; `REACH_ISSUES_DISABLE=1` turns it off.
-- Live sessions (`STD-LIVE`, wire revision 2026-10-03d, `W-LIVE-1` to `W-LIVE-9`). A student can ask their
+- Live sessions (`STD-LIVE`, wire revision 2026-10-03e, `W-LIVE-1` to `W-LIVE-9`). A student can ask their
   instructors for a live session through their assistant (the `reach_live` tool, or `reach live request`), or accept
   one an instructor offers. It opens only after the student's own typed yes and, for a request, the instructor's
   approval. While it is open rEach sends its debug events (what rEach did, never prompts, replies, code or files),
@@ -60,6 +60,142 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reach sync` stopped checking for hand replies at the first hand Teach no longer held ("could not check for hand
   replies (no such hand)"), so replies to every later hand were never fetched. A hand answered with 404 is now dropped
   from the open list and the check goes on.
+
+## [0.21.14] - 2026-10-03
+
+### Fixed
+
+- `rplugin package` no longer breaks rEach. The generated `hooks/codex.json`, `.mcp.json` and root `plugin.json` had
+  been edited by hand, so a render would have put Codex's hooks on `sh` (absent on Windows, and new hook text that
+  every student would have to trust again), put Claude's MCP server on plain `ruby` (undoing the 0.20.7 start
+  without Ruby) and dropped the root manifest's Codex hooks pointer. `hooks/reach.hooks.yml` now gives Codex its
+  `ruby "${PLUGIN_ROOT}/exe/reach"` commands through `run_by_harness`, `reach.rplugin.yml` gives Claude Code's
+  `.mcp.json` `sh exe/reach-run` through `by_harness`, and rplugin 1.6.5 writes the root pointer itself. A render
+  with rplugin 1.6.5 changed only `.codex-plugin/plugin.json`'s `exe/reach` to `./exe/reach` (the same launch, from
+  the plugin folder), and `rplugin package --check` reports 0 stale files.
+
+## [0.21.13] - 2026-10-03
+
+### Fixed
+
+- A failed `reach enroll` in a terminal printed its own message (`M-ENR-CLI-OFFLINE`) and then "rEach lost its
+  connection to your course server... Your work is saved", which is false before enrollment, and a later successful
+  enrollment request added "rEach is connected to your course server again". Enrollment requests (preview, enroll,
+  the instructor persona enroll and the v1 code enroll) now leave the Teach connection state alone
+  (`Reach::Client.anonymous(..., link: false)` in `lib/reach/enroll.rb`), so each enrollment path says only its own
+  message (`STD-TEACH-LINK`).
+
+### Changed
+
+- `STD-TEACH-URL` notes that its no-URL clause has been unreachable since 0.21.11 built the Teach URL in.
+
+## [0.21.12] - 2026-10-03
+
+### Fixed
+
+- rEach's tools never started in Codex on Windows, so a student who reinstalled rEach from the app's Plugins
+  directory still got "can't run rEach" and no way to update. While Codex's cached copy still has the root
+  `plugin.json`, Codex 0.160 starts the server from the root `mcp.json`, which since 0.20.7 ran `sh exe/reach-run`;
+  Windows has no `sh`. `mcp.json` runs `ruby ${PLUGIN_ROOT}/exe/reach mcp` again (as `reach.rplugin.yml` already
+  declares), so the server starts there and sets the root manifest aside (`STD-CODEX-PLUGIN-HOOKS`).
+- After that repair Codex reads `.codex-plugin/plugin.json`, whose MCP server Codex 0.160 started as a literal
+  `ruby '${PLUGIN_ROOT}/exe/reach' mcp` from the chat folder, on every operating system: Codex expands
+  `${PLUGIN_ROOT}` only in the root `mcp.json` and in hooks. The server now runs `ruby exe/reach mcp` with `"cwd": "."`,
+  which Codex resolves to its cached copy of rEach. Measured with Codex 0.160.0 in a scratch `CODEX_HOME`.
+- `Reach::Wire.digest` hashes `specs/wire.yml` with CRLF line endings turned into LF, so a copy whose line endings
+  were changed on Windows no longer reports R-DOC-WIRE against a Teach of the same revision. The digest of the
+  file as shipped is unchanged.
+
+### Added
+
+- The MCP tool `reach_update` (`lib/reach/mcp_bridge.rb`): action `run` starts `reach update run --apply --force` as
+  a detached process (`Reach::Update.spawn_background(now: true)`) and answers M-UPDATE-STARTED or
+  M-UPDATE-NOT-STARTED; action `status` (the default) returns the installed version and `reach update status`.
+  It works before enrollment and where Codex sandboxes the agent's commands, which until now had no way to update.
+  M-SANDBOX-AGENT, M-AGENT-UPDATE, the persona and the reach-assistant skill name it (`STD-CODEX-SANDBOX`).
+
+## [0.21.11] - 2026-10-03
+
+### Fixed
+
+- On macOS every HTTPS request from the runtime kit's Ruby failed certificate verification, so a Mac student could
+  not enroll, sync or update: since 0.21.3 every command on macOS's Ruby 2.6 runs again under the kit, and the kit's
+  OpenSSL (rv-ruby) looks for CA certificates only under the build machine's
+  `/opt/homebrew/Cellar/rv-portable-openssl` path. `exe/reach` now sets `SSL_CERT_FILE` to the kit's own
+  `libexec/cert.pem` before OpenSSL loads, when it is unset or names a missing file (`lib/reach/ca_roots.rb`,
+  `STD-CA-ROOTS`); child processes inherit it.
+- `reach enroll` in a terminal said "rEach lost its connection to your course server... your work is saved" on any
+  network failure. It now names the course server and the cause, such as `certificate verify failed`
+  (`M-ENR-CLI-OFFLINE`).
+- `reach doctor` skipped the Teach check (`R-DOC-NET`) until enrollment, the one time a student most needs it. It
+  now checks the default Teach URL before enrollment, and names the URL and the cause when Teach cannot be reached.
+
+### Changed
+
+- The course server `https://sven-f1l1.tail062fd2.ts.net` is built into rEach (`Reach::Runtime::TEACH_URL`) as the
+  last resort after `REACH_TEACH_URL`, `config.yml` `teach.url` and `~/.reach/state/teach.json`, so rEach always has
+  a course server (`STD-TEACH-URL`).
+
+## [0.21.10] - 2026-10-03
+
+### Fixed
+
+- Codex's plugin hook ran rEach's prompt gate as Claude Code: `hooks/codex.json` passed `gate enroll --harness
+  claude-code`, because `hooks/reach.hooks.yml` gave both harnesses one command. The source now passes
+  `--harness ${HARNESS}`, so rplugin renders `claude-code` into `hooks/hooks.json` and `codex` into
+  `hooks/codex.json`, and `hooks/codex.json` says `--harness codex` (`STD-HOOK-HARNESS`).
+- The root `plugin.json` names the Codex hook file under `extensions.com.openai.hooks`, so a Codex that reads the
+  root manifest never falls back to `hooks/hooks.json`, the Claude Code file that runs `sh`, which Windows lacks.
+
+### Added
+
+- `directory/`: a hooks-free listing for OpenAI's plugin directory (ChatGPT and Codex), plugin `reach-installer`
+  shown as rEach, with one skill, `install-reach`, that installs rEach by following `INSTALL.md` and asks for Full
+  access first. `ruby tools/directory/build.rb` writes `.scratch/directory/reach-installer-<VERSION>.zip` and
+  refuses hooks, apps or MCP servers. `directory/SUBMISSION.md` holds the portal fields and test cases.
+- `PRIVACY.md` and `TERMS.md`, linked from the directory listing.
+
+## [0.21.9] - 2026-10-03
+
+### Added
+
+- Known issues from Teach for the student's agent (`STD-KNOWN-ISSUES`, wire revision 2026-10-03d,
+  W-API-KNOWN-ISSUES, W-KI-1 to W-KI-4). New `Reach::KnownIssues` fetches Teach's list of known problems without
+  signing, so it works before enrollment, with `If-None-Match` for a 304, and caches it in
+  `~/.reach/state/known_issues.json`. It fetches during `reach sync`, from a detached refresh that the session start
+  hook spawns when the cache is over an hour old, and inline from `reach_hello` and `reach_known_issues`. A failed
+  fetch shows nothing and leaves the connection state alone (`Reach::Client` `link: false`). Every session context
+  (enrolled, locked and sign-in) names the entries matching this computer's operating system, harness and rEach
+  version (M-KNOWN-ISSUES-AGENT) and marks a detected one (M-KNOWN-ISSUE-DETECTED). The full steps for this system and
+  harness come from the MCP tool `reach_known_issues` and `reach known-issues [--format json]`, both available before
+  enrollment. There are two detectors: `codex_sandbox` (STD-CODEX-SANDBOX) and `hooks_not_running`, which fires on an
+  MCP call under Codex when no rEach hook has run for 15 minutes; hooks record their runs in
+  `~/.reach/state/hooks_seen.json`. Under an MCP server whose environment has no Codex variables, the harness comes
+  from the parent process name.
+
+## [0.21.8] - 2026-10-03
+
+### Fixed
+
+- A rEach command that Codex runs in its own sandbox no longer reports a course-server outage or a hiccup "your
+  instructor was told" (STD-CODEX-SANDBOX). Outside a course folder the student has trusted, Codex's sandbox blocks the
+  network and `~/.reach`, so a macOS student's `reach debug on` failed with M-REACH-HICCUP-CLI and `reach doctor` said
+  the course server was unreachable while Teach was up. New `Reach::Sandbox` recognizes the sandbox
+  (`CODEX_SANDBOX`, or `CODEX_SANDBOX_NETWORK_DISABLED=1`, the only marker on Linux, plus a write probe of the Reach
+  home). `Reach::Client` then makes no request and raises `Reach::Offline` with M-SANDBOX-AGENT (cause
+  `codex_sandbox`), so the link is not marked lost. A command that fails on a blocked write says M-SANDBOX-AGENT
+  instead of M-REACH-HICCUP-CLI. `reach update run` and `reach update check` say M-SANDBOX-AGENT and do not run, and
+  `reach update status` adds M-SANDBOX-UPDATE-STALE, so a stale check is not read as "no newer version". `reach doctor`
+  opens with M-SANDBOX-AGENT, and `reach doctor --report` has a `sandbox` section. M-SANDBOX-AGENT points the agent to
+  the reach_ tools and carries M-SANDBOX-STUDENT, which tells the student in plain words to start a new chat from
+  their course folder and trust it.
+
+### Added
+
+- MCP tools `reach_debug` (action on with optional minutes, off, status) and `reach_doctor` (the `reach doctor` report),
+  available before enrollment like the commands they mirror, so an agent whose shell is sandboxed can still turn debug
+  mode on and run the health check.
+
 ## [0.21.7] - 2026-10-03
 
 ### Fixed

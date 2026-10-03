@@ -187,6 +187,17 @@ or file text, codes, passwords or keys, sends it to Teach, and shows it at the e
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
 `reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
 
+Codex runs an agent's shell commands in its own sandbox, and outside a course folder the student has trusted that
+sandbox blocks the internet and rEach's folder. Since 0.21.8 a rEach command that the sandbox stops says so in plain
+words instead of reporting a lost connection, and the agent turns debug mode on or off and runs the health check
+through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox. Since 0.21.12 the `reach_update` tool
+updates rEach the same way.
+
+Since 0.21.9 rEach also tells the agent about known problems the instructors have recorded in Teach for this
+computer's operating system and AI app: each session's context names the ones that match, and marks one rEach can see
+happening now, and the agent gets the student's steps from the `reach_known_issues` tool (or `reach known-issues`).
+This works before enrollment, and from the last saved copy when the course server can't be reached.
+
 Since 0.22.0 rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
 qualify or submit is reported the first time it happens, any other the third time in a day, as a hand of type
 `issue` holding where it happened and what rEach was running, never an error message, a prompt or code. The student

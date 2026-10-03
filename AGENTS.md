@@ -37,6 +37,13 @@ reach is a plugin built on rplugin, the SDK for agent-harness plugins.
   entries in the encrypted guardrails package, and `reach reference` reads
   them from the vault. reach-course wires them in as grounding material only,
   never as a source of answers.
+- Known issues are not `TODO.md`. A known issue is a problem students hit, with
+  its workaround, kept in Teach's `known_issues` table (Teach's console Issues
+  page or `bin/teach known-issues`) and shown to students' agents through
+  `reach known-issues`; reach only reads them. `TODO.md` is this repository's
+  code backlog. Never write a known issue or its status into `TODO.md`, and
+  never treat a `TODO.md` item as a known issue; an unbuilt fix for a known
+  issue may be a `TODO.md` item that names the issue id.
 
 ## Changing it
 

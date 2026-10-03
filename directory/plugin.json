@@ -1,0 +1,40 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "reach-installer",
+  "version": "0.22.0",
+  "description": "Installs rEach, the student's academic assistant for a Teach-run course, from its public GitHub repository.",
+  "author": {
+    "name": "PatḗrasAI",
+    "url": "https://github.com/SteveBenner/rEach"
+  },
+  "homepage": "https://github.com/SteveBenner/rEach",
+  "repository": "https://github.com/SteveBenner/rEach",
+  "keywords": [
+    "education",
+    "course",
+    "students",
+    "assistant"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "rEach",
+        "shortDescription": "Install rEach, the academic assistant for Teach-run courses",
+        "longDescription": "rEach is the academic assistant for students in a course run on Teach. It gets to know the student, keeps the course rules, checks their work and submits it to their instructors' course server. This listing installs rEach on the student's computer from its public GitHub repository and sets it up for the Codex app. It needs the Codex app with Full access, because the install downloads rEach and writes to the student's home folder. Students need a course passkey from their instructor to enroll.",
+        "developerName": "PatḗrasAI",
+        "category": "Education",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://github.com/SteveBenner/rEach",
+        "privacyPolicyURL": "https://github.com/SteveBenner/rEach/blob/main/PRIVACY.md",
+        "termsOfServiceURL": "https://github.com/SteveBenner/rEach/blob/main/TERMS.md",
+        "defaultPrompt": [
+          "Install rEach",
+          "Set up rEach for my course"
+        ]
+      }
+    }
+  }
+}
