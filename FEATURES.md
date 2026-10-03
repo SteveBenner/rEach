@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.21.4 |
+| **Registry version** | 0.21.5 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -329,6 +329,8 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.17 · Sign-in every session
 
 Since 0.12.0 the prompt hook asks for the student ID, then "Am I speaking with <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Wrong IDs lock the session after three tries; a no ends course work for the session; both reach Teach as integrity events. The A1 smoke signs in this way before any write. Re-verified 2026-10-01 against a scratch Teach: every gate refused before sign-in, the ID stayed out of the greeting, another student's ID was refused, offline sign-in worked, three wrong tries locked the install for a minute, and Teach recorded login_failed and identity_denied.
+
+Since 0.21.5 the plugin's own prompt hook signs the student in too (`STD-SIGNIN-PLUGIN-HOOK`): in Codex in every folder, keyed on Codex's `turn_id` so that when a course folder's hook also runs, only one of them judges the prompt; in Claude Code outside the course folders. Before, the sign-in lived only in each course folder's `.codex/hooks.json`, which Codex never runs until the student trusts it, so a Codex student on Windows (hand 2026-10-03, Reach 0.21.1) was told to wait for a question nothing asked. Verified by the platform smoke on Linux (15 passed): ask, confirm, yes, a second hook on the same turn silent, the signed-in context on the next turn, then the gate open. Not verified: a live Codex session on Windows.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

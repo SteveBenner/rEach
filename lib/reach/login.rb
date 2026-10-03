@@ -1,6 +1,7 @@
 require "json"
 require "time"
 require "fileutils"
+require "digest"
 
 module Reach
   module Login
@@ -141,6 +142,37 @@ module Reach
 
       out = decision("block", Reach::Messages.text("M-LOGIN-WRONG"), "login", nil, state, persist: false)
       out["failures_data"] = failures.merge("failures" => recent, "locked_until" => nil)
+      out
+    end
+
+    def claim(event:, harness:)
+      event = {} unless event.is_a?(Hash)
+      sid = session_id(event)
+      turn = event["turn_id"].to_s
+      return step!(event, harness) if turn.empty?
+
+      key = Digest::SHA256.hexdigest("#{sid}\n#{turn}")
+      turns = File.join(state_dir, "turns")
+      FileUtils.mkdir_p(turns)
+      name = sid.to_s.gsub(/[^A-Za-z0-9._-]/, "_")
+      path = File.join(turns, "#{name}.json")
+      result = Reach::Locks.exclusive(File.join(turns, "#{name}.lock")) do
+        held = read_json(path)
+        if held.is_a?(Hash) && held["turn"] == key
+          :elsewhere
+        elsif session_confirmed?(sid)
+          step!(event, harness)
+        else
+          write_json(path, "turn" => key, "at" => iso(Time.now.utc))
+          step!(event, harness)
+        end
+      end
+      result == :busy ? :elsewhere : result
+    end
+
+    def step!(event, harness)
+      out = evaluate(event: event, harness: harness)
+      commit!(out, event: event, harness: harness)
       out
     end
 
