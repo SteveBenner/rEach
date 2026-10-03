@@ -7,7 +7,7 @@ slice: all
 spaces: [slice, extracurricular, root]
 rule: "put code in files, never in chat: owned files for coursework, extracurricular/ else"
 when: [always]
-enforce: hook:transcript
+enforce: none
 ---
 # CODEFILE: code goes in files, never in chat
 

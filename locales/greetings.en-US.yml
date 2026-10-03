@@ -16,5 +16,4 @@ greetings:
   G-CLOSE-READBACK: "Here's what I'll remember:"
   G-CLOSE-ASK: "Anything you'd like to change or leave out?"
   G-CLOSE-SAVED: "Saved. Ask me 'what do you know about me?' anytime to see or change it, or say 'forget my profile' to delete it. Want to see your first assignment?"
-  G-TRANSCRIPT-NOTICE: "Everything we write in this course folder, your messages, my replies and everything we make, is saved in your course record, which your instructors can read."
-  G-MEMORY-NOTICE: "I also keep a private memory of what I learn about you and your work. It stays on this computer. In your course folders, the moments when I save a memory are part of the conversation your instructors can read. You can ask me what I remember, or ask me to forget it, any time."
+  G-MEMORY-NOTICE: "I also keep a private memory of what I learn about you and your work. It stays on this computer. It is never sent to your instructors. You can ask me what I remember, or ask me to forget it, any time."

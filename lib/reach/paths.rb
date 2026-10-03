@@ -192,8 +192,8 @@ module Reach
       File.join(state_dir, "transcript-flush.json")
     end
 
-    def transcript_log
-      File.join(logs_dir, "transcript.jsonl")
+    def workspace_log
+      File.join(logs_dir, "workspace.jsonl")
     end
 
     def login_state_dir
@@ -254,10 +254,6 @@ module Reach
 
     def imports_file
       File.join(state_dir, "imports.jsonl")
-    end
-
-    def transcripts_archive_dir
-      File.join(transcripts_dir, "archive")
     end
 
     def corpus_fallback_dir
@@ -336,10 +332,6 @@ module Reach
 
     def legacy_workspace_path(course, assignment, cutout, slice)
       File.join(workspace_root, course.to_s, assignment.to_s, "#{cutout}-#{slice}")
-    end
-
-    def transcript_spaces_dir
-      File.join(transcripts_dir, "spaces")
     end
   end
 end

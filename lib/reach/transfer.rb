@@ -9,8 +9,6 @@ module Reach
     POLL_INTERVAL_S = 60
     OFF_HOURS = 24
     NOTE_LIMIT = 2000
-    PROMPT_LIMIT = 1500
-    PROMPT_WINDOW_S = 1800
 
     module_function
 
@@ -214,43 +212,9 @@ module Reach
     end
 
     def compose_note(agent_note)
-      said = latest_student_text
       parts = []
-      parts << "Student said: #{said}" if said
       parts << "Agent note: #{agent_note}" unless agent_note.to_s.strip.empty?
       cut(parts.join("\n"), NOTE_LIMIT)
-    end
-
-    def latest_student_text
-      dir = Reach::Paths.transcripts_dir
-      return nil unless File.directory?(dir)
-
-      cutoff = Time.now.utc - PROMPT_WINDOW_S
-      enrolled = Reach::Login.enrolled_id
-      best = nil
-      Dir.glob(File.join(dir, "*.jsonl")).each do |file|
-        next if file.end_with?(".rejected.jsonl")
-
-        File.foreach(file) do |line|
-          entry = begin
-            JSON.parse(line)
-          rescue JSON::ParserError
-            next
-          end
-          next unless entry.is_a?(Hash) && entry["kind"] == "prompt" && entry["gate"] == "allowed"
-          next unless entry["student_id"].nil? || entry["student_id"] == enrolled
-
-          text = entry["text"].to_s
-          next if text.strip.empty? || Reach::Login.yes?(text) || Reach::Login.no?(text)
-
-          at = Time.iso8601(entry["at"].to_s) rescue nil
-          next unless at && at >= cutoff
-          best = { at: at, text: text } if best.nil? || at >= best[:at]
-        end
-      end
-      best && cut(best[:text], PROMPT_LIMIT)
-    rescue StandardError
-      nil
     end
 
     def cut(text, limit)

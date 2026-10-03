@@ -109,7 +109,7 @@ module Reach
       end
 
       def harness_name
-        Reach::Transcript.resolve_harness(ENV["REACH_HARNESS"])
+        Reach::Session.resolve_harness(ENV["REACH_HARNESS"])
       end
 
       def current_space

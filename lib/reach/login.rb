@@ -28,7 +28,7 @@ module Reach
     end
 
     def session_id(event)
-      Reach::Transcript.resolve_session_id(event)
+      Reach::Session.resolve_session_id(event)
     end
 
     def student

@@ -23,6 +23,7 @@ rescue ScriptError, StandardError
   closed = argv[0] == "gate" && %w[write shell read].include?(argv[1]) && harness == "hermes"
   hook = case argv[0]
          when "gate", "hello" then true
+         when "hook" then argv[1] == "stop"
          when "transcript" then %w[turn code].include?(argv[1])
          when "check" then %w[agent hermes].include?(format)
          else false

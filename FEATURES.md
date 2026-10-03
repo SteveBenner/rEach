@@ -10,28 +10,29 @@ agent harness.
 |---|---|
 | **Registry version** | 0.21.0 |
 | **Last audited** | 2026-10-02 |
-| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
+| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
 | **Feature count** | 87 catalogued |
 
 ## How to read this registry
 
-Build: ✅ Shipped · 🟡 Partial · 🟠 Scaffolded · ⚪ Planned.
+Build: ✅ Shipped · 🟡 Partial · 🟠 Scaffolded · ⚪ Planned · ⛔ Torn down.
 Deploy: 🟢 Live · 🟣 Live on fixtures · 🔵 Built, not enabled · 🔴 Kill-switch OFF · ⚫ No runtime path.
 For a cli, 🟢 means the version students actually run carries the feature. Blockers: Access · Intelligence ·
 Temporal · Inference · Financial · Human · Engineering; a dash means nothing is outstanding.
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 80 | 92% |
+| ✅ Shipped | 78 | 90% |
 | ⚪ Planned | 6 | 7% |
+| ⛔ Torn down | 2 | 2% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 75 | 86% |
-| ⚫ No runtime path | 9 | 10% |
+| 🔵 Built, not enabled | 73 | 84% |
+| ⚫ No runtime path | 11 | 13% |
 
 ## 1 · Install
 
@@ -251,7 +252,7 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 Reach counts failed qualifications per slice: the second prints a notice for the student, the third raises an agent
 hand and holds further passes and writes until `reach attempts continue` records the student's yes (accepted only
-after a captured student prompt), and the tenth stops everything until an instructor replies. A pass or a reply
+after a student prompt typed since the hand; only the time of the last slice prompt is kept), and the tenth stops everything until an instructor replies. A pass or a reply
 resets it. Verified end to end on 2026-09-29.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
@@ -264,22 +265,19 @@ top (M-GATE-NOGIT); the extracurricular folder is the student's own. Git support
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.12 · Course record
+### 2.12 · Course record (transcript capture, torn down)
 
-In every course folder on Claude Code and Codex, Reach captures the student's prompts (`reach gate prompt`, before
-any gate check) and, since 0.10.0, the AI's replies, its reasoning where the harness stores it readably, its actions
-and every version of every owned file in a slice: `reach transcript code` after each write and `reach transcript turn`
-at each turn end, which reads the harness's own session transcript and scans the slice for changes the hooks did not
-see. Since 0.16.12 files in the extracurricular folder never leave the computer; only the conversation held there
-is captured (docs/DESIGN-DECISIONS.md, data capture).
-A code block pasted into a reply is filed as a snippet and replaced by a pointer. Everything is spooled in
-`~/.reach/transcripts/` and sent from the Stop and SessionEnd hooks and `reach sync` to `POST /api/v1/transcripts`,
-only in the kinds the course server lists; Teach files it in the student's subcorpus. `reach transcript status` and
-`reach status` show what is sent, waiting and held. Claude Code stores its thinking only as a signature, so its
-reasoning arrives as "reasoning not readable". Antigravity sessions and conversations outside course folders are
-not captured.
+Torn down 2026-10-03 (wire revision 2026-10-03b, `STD-TRANSCRIPT`). Until 0.20.x Reach captured the student's prompts,
+the AI's replies, reasoning, actions and every version of every owned file, spooled them in `~/.reach/transcripts/` and
+sent them to `POST /api/v1/transcripts`. None of that exists now: no prompt, reply, reasoning, action or code entry is
+written to disk or sent, in any folder or harness, and Teach keeps no transcript or subcorpus. The Stop and SessionEnd
+hooks run `reach hook stop [--final] --harness H` (debug flush, link notice, debug block); `reach transcript turn`,
+`code`, `flush` and `status` stay only as hidden aliases for old hook files. The first rEach command after updating
+deletes `~/.reach/transcripts` and each persona's copy (`Reach::RetiredCapture`, marker
+`~/.reach/state/transcripts-retired.json`); brain sources are kept. Not re-verified here: the teardown has not been
+run on a student computer.
 
-Build ✅ · Deploy 🔵 · Blocker: -
+Build ⛔ · Deploy ⚫ · Blocker: -
 
 ### 2.13 · Slice API reference
 
@@ -333,7 +331,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.18 · The student's own part
 
-Since 0.12.0 `reach part` lists the questions only the student can answer, `reach part record` takes their typed words verbatim, and `reach submit` refuses until all are answered and sends `part.json`. In the smoke, submit was refused without the part, four answers were recorded, and Teach verified them against the transcript. Re-verified 2026-10-01: a two-word answer was refused as too short, and in live sessions Haiku and Sonnet coached the own part on process only, without candidate answers.
+Since 0.12.0 `reach part` lists the questions only the student can answer, `reach part record` takes their typed words verbatim, and `reach submit` refuses until all are answered and sends `part.json`. Since 2026-10-03 the prompt hook keeps only the latest long enough prompt in `~/.reach/state/part/pending.json`, `reach part record` takes it and deletes it, and the answer carries no session or seq; Teach stores answers as sent and checks nothing against a conversation. In the 0.12.0 smoke, submit was refused without the part and four answers were recorded. Re-verified 2026-10-01: a two-word answer was refused as too short, and in live sessions Haiku and Sonnet coached the own part on process only, without candidate answers.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -369,7 +367,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.24 · Local size limits
 
-Since 0.12.0 `reach sync` keeps the transcript spool under the course's caps, and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
+Since 0.12.0 `reach sync` kept the transcript spool under the course's caps (removed with the spool 2026-10-03), and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -451,7 +449,7 @@ Build ✅ · Deploy 🟡 · Hosted legs green in CI; the Windows 10 and 11 VM ru
 
 ### 2.29 · Microbrain learning and recall
 
-Since 0.16.15 Reach learns about the student and their work and uses it, all on this computer. `Reach::Transcript.turn` calls `Reach::Brain.capture_turn`, which turns each conversation turn Reach already records in a course folder into a private `source` spool line; the host agent distils durable findings with `reach remember` (or `reach_remember`); a novelty gate (cosine at least 0.85 within the category only reinforces), a per-hour and per-day write budget, a secret and student-ID refusal and a backing-off nudge stop floods. Session start injects the profile (at most 1500 bytes) and each prompt the matching memories (at most 800 bytes) from `Reach::BrainIndex`, a BM25 and cosine read model over the spool, with decay and reinforcement salience. `reach memory list|show|forget|export` and the `reach_recall` and `reach_memory_forget` tools show and erase it; forgetting scrubs Reach's spool. Verified 2026-10-01 in scratch homes on Ruby 3.3.8 and in `ruby:2.6.10-slim`: three turns captured as source lines, a save, a reinforcement, a related save, a refused password, a held write at `per_hour: 2`, the profile in `reach hello`, matching memory and the nudge in `reach gate prompt`, forget by id and `--all --yes` leaving no claim text in the spool, the three MCP tools, a locked install refusing both commands, and brain work in 43 to 54 ms (cold 118 to 130 ms) with 2000 findings and 2000 sources in the spool. Not verified: the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths, which need rcorpus 0.9.0, and a real harness session on Codex or Hermes.
+Since 0.16.15 Reach learns about the student and their work and uses it, all on this computer. Since 2026-10-03 `Reach::Brain.capture_prompt`, called from the prompt hook, turns every gate-allowed prompt the student types, in any folder, into a private `source` spool line (never a blocked prompt, a secret-looking prompt or one holding the student's ID; `capture_min_chars` is 1; AI replies are not ingested), kept only on the computer; the host agent distils durable findings with `reach remember` (or `reach_remember`); a novelty gate (cosine at least 0.85 within the category only reinforces), a per-hour and per-day write budget, a secret and student-ID refusal and a backing-off nudge stop floods. Session start injects the profile (at most 1500 bytes) and each prompt the matching memories (at most 800 bytes) from `Reach::BrainIndex`, a BM25 and cosine read model over the spool, with decay and reinforcement salience. `reach memory list|show|forget|export` and the `reach_recall` and `reach_memory_forget` tools show and erase it; forgetting scrubs Reach's spool. Verified 2026-10-01 in scratch homes on Ruby 3.3.8 and in `ruby:2.6.10-slim`: three turns captured as source lines, a save, a reinforcement, a related save, a refused password, a held write at `per_hour: 2`, the profile in `reach hello`, matching memory and the nudge in `reach gate prompt`, forget by id and `--all --yes` leaving no claim text in the spool, the three MCP tools, a locked install refusing both commands, and brain work in 43 to 54 ms (cold 118 to 130 ms) with 2000 findings and 2000 sources in the spool. Not verified: the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths, which need rcorpus 0.9.0, and a real harness session on Codex or Hermes.
 
 Build ✅ · Deploy 🔵 · Blocker: Engineering. Verified on Ruby 2.6.10 and 3.3 (capture, remember, novelty, budget, recall, forget, spool cap) and end to end with rplugin 1.4.0 and rcorpus 0.9.0 (admission, audit 0, check 0). A student computer has no rplugin, so it runs on the spool and Reach's own recall; shipping rplugin and rcorpus in the runtime kit is deferred (TODO.md).
 
@@ -633,15 +631,13 @@ were built but not run on macOS or Windows.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
 
-### 3.6 · Transcript export
+### 3.6 · Transcript export (torn down)
 
-Since 0.19.0 (`STD-TRANSCRIPT-EXPORT`) `reach transcripts export` writes the student's own recorded conversations to
-Downloads as one ZIP organized by assignment and slice, and the first session after the course ends does it once on its
-own. Verified 2026-10-02 in a scratch HOME on Ruby 3.3 and 2.6.10: the layout, `unzip -t`, another student's entries
-left out, archived sessions included, -2 and -3 names, one auto export with one notice, and the export working while
-the course-ended lock was on.
+Torn down 2026-10-03 (`STD-TRANSCRIPT-EXPORT`, retired). Added in 0.19.0 to export the student's recorded conversations;
+with no conversation recorded there is nothing to export, so `reach transcripts export`, the `reach_transcripts` tool and
+the automatic export at course end are removed.
 
-Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
+Build ⛔ · Deploy ⚫ · Blocker: -
 
 ### 3.7 · Late work
 

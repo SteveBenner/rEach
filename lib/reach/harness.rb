@@ -149,10 +149,9 @@ module Reach
       def claude_settings_content(space_kind = "slice")
         post_tool_use = []
         post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if space_kind == "slice"
-        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("transcript", "code", "--harness", "claude-code"), 15)
 
         stop_hooks = []
-        stop_hooks << hook_entry(nil, h("transcript", "turn", "--quick", "--harness", "claude-code"), 30)
+        stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "claude-code"), 30)
 
         {
           "hooks" => {
@@ -165,7 +164,7 @@ module Reach
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks,
-            "SessionEnd" => [hook_entry(nil, h("transcript", "turn", "--quick", "--final", "--harness", "claude-code"), 30)]
+            "SessionEnd" => [hook_entry(nil, h("hook", "stop", "--final", "--harness", "claude-code"), 30)]
           },
           "permissions" => {
             "deny" => [
@@ -219,10 +218,9 @@ module Reach
       def codex_hooks_content(space_kind = "slice")
         post_tool_use = []
         post_tool_use << hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60) if space_kind == "slice"
-        post_tool_use << hook_entry("apply_patch|Write|Edit", h("transcript", "code", "--harness", "codex"), 15)
 
         stop_hooks = []
-        stop_hooks << hook_entry(nil, h("transcript", "turn", "--quick", "--harness", "codex"), 30)
+        stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "codex"), 30)
 
         {
           "hooks" => {
@@ -264,9 +262,8 @@ module Reach
             hermes_hook_entry(h("gate", "shell", "--harness", "hermes"), 10, matcher: HERMES_HOOK_SHELL_MATCHER, fail_closed: true),
             hermes_hook_entry(h("gate", "read", "--harness", "hermes"), 10, matcher: HERMES_HOOK_READ_MATCHER, fail_closed: true)
           ],
-          "post_tool_call" => [hermes_hook_entry(h("transcript", "code", "--harness", "hermes"), 15)],
-          "post_llm_call" => [hermes_hook_entry(h("transcript", "turn", "--quick", "--harness", "hermes"), 30)],
-          "on_session_end" => [hermes_hook_entry(h("transcript", "turn", "--quick", "--final", "--harness", "hermes"), 30)],
+          "post_llm_call" => [hermes_hook_entry(h("hook", "stop", "--harness", "hermes"), 30)],
+          "on_session_end" => [hermes_hook_entry(h("hook", "stop", "--final", "--harness", "hermes"), 30)],
           "pre_verify" => [hermes_hook_entry(h("check", "--format", "hermes"), 60)]
         }
       end

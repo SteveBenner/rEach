@@ -31,24 +31,18 @@ and raises a hand to the instructors on its own after three failed tries. The
 student deals only with the business behaviour; the agent does all the coding,
 following Reach's feature and bug flows, without git (see ROADMAP.md).
 
-The conversation in a course folder and the assignment code are saved in the
-student's course record on Teach, which their instructors can read: the
-student's prompts, the AI's replies, its reasoning where the harness stores it
-readably, its actions, and every version of every file in a slice. Files in the
-extracurricular folder stay on the student's computer
-(docs/DESIGN-DECISIONS.md). The course folder
-is `~/reach-work`: assignment code lives only in
+No conversation is recorded or sent, in any folder or harness: no prompt, reply,
+reasoning, action or code entry is written to disk or sent, and Teach keeps no
+transcript. Instructors receive only the work the student submits, their own-part
+answers, help requests the student agrees to send and usage information. The
+course folder is `~/reach-work`: assignment code lives only in
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
 student wants to build goes in `extracurricular/` (`reach work
---extracurricular`), which is never graded. The agent puts code in files, never
-in chat; a code block it pastes anyway is filed as a snippet. The hooks write
-everything to `~/.reach/transcripts/` with no network call; the Stop and
-SessionEnd hooks and `reach sync` send the queue, and `reach transcript status`
-shows what is sent and what is waiting. The student is told at enrollment and
-in every greeting inside a course folder. Conversations outside course folders
-and Antigravity sessions (no hooks) are not captured. Hermes has no transcript
-file, so its hooks hand Reach the prompt, the reply and each tool call directly;
-it records no reasoning.
+--extracurricular`), which is never graded and never leaves the student's
+computer. The agent puts code in files, never in chat. The Stop and SessionEnd
+hooks run `reach hook stop`, which only flushes debug events and shows the link
+notice and the debug block. The first rEach command after updating deletes any
+transcripts an older version saved in `~/.reach/transcripts/`.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -133,7 +127,7 @@ refused the second time, raising a hand to the instructors.
 ## Memory
 
 rEach keeps a private memory of what it learns about the student and their work, on this computer only. Each
-conversation turn it already records in a course folder is kept as a private source; the agent records durable
+prompt the student types, in any folder, is kept as a private source as it arrives (never the AI's replies, never a prompt rEach blocked or one that looks like a secret); the agent records durable
 findings (a preference, a goal, a decision, a struggle, a skill, a project, a fact) with `reach remember`, and rEach
 adds the profile at session start and the matching memories on each prompt. A novelty check and a write budget stop
 floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced sources are pruned first), and nothing here is sent to Teach. Ask rEach what it remembers, or run `reach memory list`; `reach memory
@@ -208,13 +202,11 @@ may submit again until the due time and the last one counts. After the due time 
 by rEach before it asks and by Teach. Since 0.19.0 rEach says plainly, before and after every submission, that the ZIP in
 Downloads must also be uploaded to Blackboard to receive credit; `reach submit archive` makes the ZIP again.
 
-### Late work, grades and transcripts
+### Late work and grades
 
 Since 0.19.0 a student may keep working on an assignment after its due time: rEach says clearly and repeatedly that
 the work is late, lets the instructor know once, and says when it can no longer be submitted. `reach grade` shows the
-points the instructor has recorded in Teach, when there are any. `reach transcripts export` saves the student's own
-recorded AI conversations to Downloads as a ZIP organized by assignment, and rEach does it once on its own after the
-course ends. A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
+points the instructor has recorded in Teach, when there are any.  A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
 on) so the instructor sees what it is about.
 
 ### Extra credit
@@ -225,7 +217,6 @@ it to Teach, or keeps it until the next sync when Teach cannot be reached. `reac
 recorded. Only this part of the profile goes to Teach; the getting-to-know-you answers never leave the computer.
 
 ```
-reach transcripts export [--format json]        save your recorded conversations to Downloads
 reach grade [--format json]                     the points recorded in Teach
 reach submit archive [--assignment A]           make the assignment's ZIP again
 reach hand raise --type T ...                   raise a hand of a given type

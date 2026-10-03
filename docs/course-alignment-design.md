@@ -1,6 +1,10 @@
 # Course alignment: directives, identity, modules, sandbox (design record)
 
 Status: shipped in Reach 0.12.0 and Teach 0.12.0 (2026-09-30). Written first as TMP.md, before implementation.
+Superseded in part on 2026-10-02 (wire revision 2026-10-03b): no transcript, spool or subcorpus exists any more, and an own-part
+answer is the student's latest long enough prompt, kept in ~/.reach/state/part/pending.json until reach part record takes it; it carries
+no session or seq and Teach runs no check against any conversation. The passages below that mention transcripts, spools,
+subcorpora, seq links or part verification describe the 0.12.0 design as it was and no longer hold.
 Owner request: Sven, 2026-09-30 (OPML "ADD THE FOLLOWING TO REACH'S AGENT DIRECTIVES (encrypted)").
 Follow-up instruction: where a bullet needs deterministic software (not just directive prose), build it in
 Reach and map it to Teach.

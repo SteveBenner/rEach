@@ -162,47 +162,23 @@ module Reach
       nil
     end
 
-    def student_prompt_since?(workspace, since)
-      meta = Reach::Workspace.metadata(workspace)
-      Dir.glob(File.join(Reach::Paths.transcripts_dir, "*.jsonl")).any? do |path|
-        next false if path.end_with?(".rejected.jsonl")
-
-        File.foreach(path).any? do |line|
-          entry = begin
-            JSON.parse(line)
-          rescue JSON::ParserError
-            nil
-          end
-          entry.is_a?(Hash) && entry["kind"] == "prompt" && entry["gate"] == "allowed" &&
-            !entry["text"].to_s.strip.empty? && entry["cutout_id"] == meta["cutout_id"] &&
-            entry["slice"] == meta["slice"] && entry["at"].to_s > since
-        end
-      end
-    rescue StandardError
-      false
+    def prompt_path(workspace)
+      File.join(Reach::Paths.state_dir, "ladder", "#{File.basename(workspace)}.prompt.json")
     end
 
-    def last_student_prompt(workspace)
-      meta = Reach::Workspace.metadata(workspace)
-      latest = nil
-      Dir.glob(File.join(Reach::Paths.transcripts_dir, "*.jsonl")).each do |path|
-        next if path.end_with?(".rejected.jsonl")
-
-        File.foreach(path) do |line|
-          entry = begin
-            JSON.parse(line)
-          rescue JSON::ParserError
-            nil
-          end
-          next unless entry.is_a?(Hash) && entry["kind"] == "prompt" && entry["cutout_id"] == meta["cutout_id"] && entry["slice"] == meta["slice"]
-          next if entry["text"].to_s.strip.empty?
-
-          latest = entry if latest.nil? || entry["at"].to_s >= latest["at"].to_s
-        end
-      end
-      latest && latest["text"]
+    def note_prompt(workspace)
+      path = prompt_path(workspace)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, JSON.generate("last_prompt_at" => now))
     rescue StandardError
       nil
+    end
+
+    def student_prompt_since?(workspace, since)
+      data = JSON.parse(File.read(prompt_path(workspace)))
+      data.is_a?(Hash) && data["last_prompt_at"].to_s > since.to_s
+    rescue StandardError
+      false
     end
 
     def witness(workspace, failed, action)

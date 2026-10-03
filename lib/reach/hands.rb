@@ -202,7 +202,6 @@ module Reach
         plan = Reach::Plan.load(workspace)
         qualification = details["qualification"] || Reach::Qualify.read_record(workspace)
         ladder = Reach::Ladder.state(workspace)
-        last_prompt = Reach::Ladder.last_student_prompt(workspace)
         bundle = {
           "schema" => "reach.hand/v2",
           "hand_ref" => SecureRandom.uuid,
@@ -230,7 +229,7 @@ module Reach
           "tests" => Reach::Qualify.test_files(workspace).map { |relative, data| [relative, data.dup.force_encoding(Encoding::UTF_8).scrub] }.to_h,
           "last_output" => last_output(qualification),
           "agent_summary" => cut(details["agent_summary"] || summary.to_s, 4000),
-          "student_last_request" => last_prompt ? cut(last_prompt, 4000) : nil,
+          "student_last_request" => nil,
           "environment" => {
             "reach_version" => Reach::VERSION,
             "ruby_version" => RUBY_VERSION,
