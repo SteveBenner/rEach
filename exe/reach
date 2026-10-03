@@ -12,6 +12,7 @@ if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.3") && File.file?(File.
 end
 begin
   require_relative "../lib/reach"
+  Reach::CryptoProbe.fallback!(ARGV, File.expand_path(__FILE__))
   status = Plugin.run(ARGV)
 rescue ScriptError, StandardError
   argv = ARGV.dup

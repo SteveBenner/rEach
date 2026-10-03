@@ -533,7 +533,8 @@ module Reach
         "sync",
         "state" => summary["state"], "packages" => packages, "workspaces" => Array(summary["workspaces"]).length,
         "outbox_sent" => summary["outbox_sent"],
-        "warnings" => Array(summary["warnings"]).length, "duration_ms" => elapsed_ms(started)
+        "warnings" => Array(summary["warnings"]).length, "warning_texts" => Array(summary["warnings"]).map(&:to_s),
+        "duration_ms" => elapsed_ms(started)
       )
     rescue StandardError
       nil
@@ -629,6 +630,12 @@ module Reach
         "persona_id" => Reach::Paths.persona_id, "persona_kind" => persona && persona["kind"],
         "wire_match" => status && status["wire_contract_sha256"] ? status["wire_contract_sha256"] == Reach::Wire.digest : nil
       }
+      probe = Reach::CryptoProbe.facts
+      fields.merge!(
+        "ruby_path" => probe["ruby_path"], "openssl_library" => probe["openssl_library"], "openssl_gem" => probe["openssl_gem"],
+        "kit_ruby" => probe["kit_ruby"], "kit_reexec" => ENV[Reach::CryptoProbe::REEXEC_ENV].to_s == "1",
+        "gcm_self_test" => Reach::CryptoProbe.gcm_self_test["ok"]
+      )
       emit("session", fields.merge(Reach::OsInfo.snapshot) { |_name, existing, _fresh| existing })
     rescue StandardError
       nil

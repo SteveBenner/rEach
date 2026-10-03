@@ -170,14 +170,14 @@ module PlatformSmoke
       installed = @steps.last.result == :pass
       step("package_known_answer") { package_known_answer_step } if installed
       unless installed
-        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll sync_packages machine_id hook_prompt_open status runtime doctor].each do |name|
+        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open status doctor].each do |name|
           record(Step.new(name, :skip, "install failed", 0.0))
         end
         return
       end
       step("fake_teach") { fake_teach_step }
       if @steps.last.result != :pass
-        %w[hook_session_start hook_prompt_locked hook_codex enroll sync_packages machine_id hook_prompt_open status runtime doctor].each do |name|
+        %w[hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open status doctor].each do |name|
           record(Step.new(name, :skip, "fake_teach failed", 0.0))
         end
         return
@@ -186,15 +186,18 @@ module PlatformSmoke
       step("hook_prompt_locked") { hook_prompt_locked_step }
       step("hook_codex") { hook_codex_step }
       step("enroll") { enroll_step }
+      if @options[:skip_runtime]
+        %w[runtime kit_known_answer].each { |name| record(Step.new(name, :skip, "--skip-runtime", 0.0)) }
+      else
+        step("runtime") { runtime_step }
+        step("kit_known_answer") { kit_known_answer_step }
+      end
       step("sync_packages") { sync_packages_step }
+      step("doctor_report") { doctor_report_step }
+      step("codex_sandbox_decrypt") { codex_sandbox_decrypt_step }
       step("machine_id") { machine_id_step }
       step("hook_prompt_open") { hook_prompt_open_step }
       step("status") { status_step }
-      if @options[:skip_runtime]
-        record(Step.new("runtime", :skip, "--skip-runtime", 0.0))
-      else
-        step("runtime") { runtime_step }
-      end
       step("doctor") { doctor_step }
     end
 
@@ -443,6 +446,76 @@ RUBY
       )
       return [:fail, "known-answer envelope did not open: #{tail(out, err)}"] unless code == 0
 
+      known_answer_result(out)
+    end
+
+    def libressl?(ruby)
+      code, out, _err = spawn_capture([ruby, "-ropenssl", "-e", "print OpenSSL::OPENSSL_LIBRARY_VERSION"], chdir: @scratch)
+      code == 0 && out.include?("LibreSSL")
+    end
+
+    def kit_ruby
+      File.join(@env["REACH_HOME"], "runtime", RUNTIME_ID, "ruby", "bin", windows? ? "ruby.exe" : "ruby")
+    end
+
+    def kit_known_answer_step
+      return [:skip, "no runtime kit was installed on this platform"] unless File.file?(kit_ruby)
+
+      code, out, err = spawn_capture([kit_ruby, "-e", KNOWN_ANSWER_SCRIPT, File.join(@install, "lib"), KNOWN_ANSWER_DIR], chdir: @scratch)
+      return [:fail, "the kit Ruby could not open the known-answer envelope: #{tail(out, err)}"] unless code == 0
+
+      result, detail = known_answer_result(out)
+      [result, "kit Ruby #{RUNTIME_RUBY}: #{detail}"]
+    end
+
+    def codex_sandbox_decrypt_step
+      return [:skip, "codex sandbox runs only on the macOS legs"] unless macos?
+
+      codex = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "codex") }.find { |path| File.executable?(path) }
+      return [:fail, "codex is not on PATH"] unless codex
+
+      argv = [codex, "sandbox", "--", RbConfig.ruby, File.join(@install, "exe", "reach"), "doctor", "--report", "--offline", "--format", "json"]
+      codex_home = File.join(@scratch, "codex-home")
+      FileUtils.mkdir_p(codex_home)
+      code, out, err = spawn_capture(argv, chdir: @scratch, extra_env: { "CODEX_HOME" => codex_home })
+      return [:fail, "codex sandbox doctor --report exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      report = JSON.parse(out[out.index("{")..-1])
+      runtime = report["runtime"] || {}
+      stored = ((report["packages"] || {})["guardrails"] || {})["stored"] || {}
+      return [:fail, "inside the Codex sandbox the command did not move to the kit Ruby: #{report_summary(report)}"] unless runtime["kit_ruby"] == true || !libressl?(RbConfig.ruby)
+      return [:fail, "inside the Codex sandbox the stored guardrails package did not open: #{report_summary(report)}"] unless stored["ok"] == true
+
+      [:pass, "codex sandbox ran reach under #{runtime['ruby_path']} (#{runtime['openssl_library']}) and opened guardrails v#{stored['version']}"]
+    rescue JSON::ParserError, ArgumentError, TypeError => e
+      [:fail, "codex sandbox doctor --report was not JSON (#{e.message}): #{tail(out.to_s, err.to_s)}"]
+    end
+
+    def report_summary(report)
+      runtime = report["runtime"] || {}
+      tests = report["self_test"] || {}
+      gcm = tests["gcm"] || {}
+      packages = report["packages"] || {}
+      opened = %w[guardrails workspace].map do |kind|
+        entry = packages[kind] || {}
+        stored = entry["stored"] || {}
+        latest = entry["latest"] || {}
+        "#{kind} stored=#{stored['ok'].inspect}/#{stored['stage']} latest=#{latest['ok'].inspect}/#{latest['stage']} #{latest['error']}"
+      end
+      rubies = Array(report["rubies"]).map { |entry| "#{entry['label']}:#{entry['ruby_version'] || '-'}:#{entry['openssl_library'] || '-'}:gcm=#{entry['gcm_ok'].inspect}/#{entry['gcm_stage']}" }
+      "ruby #{runtime['ruby_version']} #{runtime['ruby_path']} #{runtime['openssl_library']} kit_ruby=#{runtime['kit_ruby']} | gcm=#{gcm['ok'].inspect} #{gcm['stage']} #{gcm['error']} | kit=#{(report['kit'] || {})['active'].inspect} | #{opened.join(' ; ')} | rubies #{rubies.join(' ')} | env #{Array((report['environment'] || {})['set']).join(',')}"
+    end
+
+    def doctor_report_step
+      code, out, err = reach("doctor", "--report", "--format", "json")
+      return [:fail, "doctor --report exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      [:pass, report_summary(JSON.parse(out[out.index("{")..-1]))]
+    rescue JSON::ParserError, ArgumentError, TypeError => e
+      [:fail, "doctor --report was not JSON (#{e.message}): #{tail(out.to_s, err.to_s)}"]
+    end
+
+    def known_answer_result(out)
       actual = JSON.parse(out.lines.last.to_s)
       expected = JSON.parse(File.read(File.join(KNOWN_ANSWER_DIR, "expected.json")))
       expected.each do |key, value|
