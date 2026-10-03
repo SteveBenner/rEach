@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.9] - 2026-10-03
+
+### Added
+
+- Known issues from Teach for the student's agent (`STD-KNOWN-ISSUES`, wire revision 2026-10-03d,
+  W-API-KNOWN-ISSUES, W-KI-1 to W-KI-4). New `Reach::KnownIssues` fetches Teach's list of known problems without
+  signing, so it works before enrollment, with `If-None-Match` for a 304, and caches it in
+  `~/.reach/state/known_issues.json`. It fetches during `reach sync`, from a detached refresh that the session start
+  hook spawns when the cache is over an hour old, and inline from `reach_hello` and `reach_known_issues`. A failed
+  fetch shows nothing and leaves the connection state alone (`Reach::Client` `link: false`). Every session context
+  (enrolled, locked and sign-in) names the entries matching this computer's operating system, harness and rEach
+  version (M-KNOWN-ISSUES-AGENT) and marks a detected one (M-KNOWN-ISSUE-DETECTED). The full steps for this system and
+  harness come from the MCP tool `reach_known_issues` and `reach known-issues [--format json]`, both available before
+  enrollment. There are two detectors: `codex_sandbox` (STD-CODEX-SANDBOX) and `hooks_not_running`, which fires on an
+  MCP call under Codex when no rEach hook has run for 15 minutes; hooks record their runs in
+  `~/.reach/state/hooks_seen.json`. Under an MCP server whose environment has no Codex variables, the harness comes
+  from the parent process name.
+
 ## [0.21.8] - 2026-10-03
 
 ### Fixed

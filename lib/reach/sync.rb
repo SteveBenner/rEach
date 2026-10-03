@@ -25,6 +25,12 @@ module Reach
         results = safe_call(summary) { Reach::Submit.retry_outbox }
         summary["outbox_sent"] = Array(results).count { |r| r["state"] == "ingested" }
 
+        begin
+          Reach::KnownIssues.fetch!(quick: false)
+        rescue StandardError
+          nil
+        end
+
         offline = false
         begin
           status = refresh_status(quick: false)

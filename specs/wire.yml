@@ -1069,6 +1069,17 @@ routes:
     path: /api/v1/health
     auth: none
     response_200: {status: "ok | degraded", database: boolean, blob_store: boolean}
+  - id: W-API-KNOWN-ISSUES
+    since: 2026-10-03d
+    method: GET
+    path: /api/v1/known-issues
+    auth: none (rate limited per IP, shared with W-API-ENROLL)
+    request_headers: If-None-Match with the revision Reach last cached, optional
+    response_200:
+      revision: "lowercase hex SHA-256 of the canonical JSON of issues (W-KI-1); also sent as the ETag header"
+      issues: "[known issue (W-KI-1)], every entry not retired, ordered by id"
+    response_304: when If-None-Match equals the current revision; no body
+    reach_use: W-KI-3. Carries no student, install or course data, so it is served before enrollment.
 submissions:
   W-SUB-1:
     name: resubmission
@@ -1791,3 +1802,44 @@ extra_credit:
       refused entries that Teach does not know. Teach shows every code and its entry on the console's Extra credit page
       and on the student's page. A debug event about extra credit carries entry_id, state and outcome, never the code
       or the answer (W-DBG-SCRUB).
+known_issues:
+  since: 2026-10-03d
+  W-KI-1:
+    name: known issue entry
+    rule: >-
+      {id, title, symptom, detector, applies, steps}. id matches ^[a-z0-9][a-z0-9-]{1,47}$; title is at most 120
+      characters; symptom (what the student or agent sees, for the agent) is at most 600; detector is null or a name
+      matching ^[a-z_]{1,40}$; applies is {os: [macos | windows | linux], harness: [harness label or family], reach_min:
+      version or null, reach_max: version or null}, where an empty list means any; steps is a list of at most 12
+      {os: [...], harness: [...], text} with text (plain words for the student, at most 1500 characters) and the same
+      empty-means-any lists. A harness label is one Reach's fingerprint reports (claude-code-tui, claude-cowork,
+      claude-desktop, claude-code-vscode, claude-code-headless, claude-agent-sdk, codex-tui, codex-app, codex-vscode,
+      hermes, terminal); a family (claude, codex) matches every label that starts with it and a hyphen. The canonical
+      JSON for the revision is JSON.generate of the issues list with keys in the order above and no extra whitespace.
+  W-KI-2:
+    name: matching
+    rule: >-
+      An entry matches an install when its os list is empty or holds the install's operating system, its harness list
+      is empty or holds the install's label or that label's family, and the install's Reach version is at or above
+      reach_min and at or below reach_max where they are set. For a matching entry the steps shown are the first step
+      set whose os and harness lists match the same way; an entry with no matching step set is shown with its symptom
+      only. When Reach knows only the install's harness family (claude or codex), every label in that family matches.
+      Reach takes the harness from its fingerprint's environment markers, then from the name of the process that
+      started it (an MCP server under Codex is started by codex and may not see Codex's variables), then from the label
+      the last hook recorded in hooks_seen.json; with none of them it matches only entries whose harness list is empty.
+  W-KI-3:
+    name: what Reach does with them
+    rule: >-
+      Reach fetches the list without signing (no install key is needed), sends If-None-Match with its cached revision,
+      and keeps the answer in known_issues.json (0600) under the Reach root state directory; a 304 only refreshes the
+      fetched time. It fetches from reach sync, from a detached refresh the session start hook spawns when the cache is
+      older than one hour, and inline (the quick client) from reach_hello and reach_known_issues when the cache is
+      older than one hour. A failed fetch keeps the cache, never shows the student an error and leaves the connection state (link.json) alone. The agent's session
+      context names each matching entry in one line, marks one whose detector Reach sees firing as detected, and points
+      to reach_known_issues for the full steps.
+  W-KI-4:
+    name: detectors
+    rule: >-
+      Reach implements codex_sandbox (Reach::Sandbox.blocked?, STD-CODEX-SANDBOX) and hooks_not_running (an MCP call
+      on a Codex harness when no Reach hook has run on this computer for 15 minutes). A detector name Reach does not
+      implement is never detected; its entry is still listed.

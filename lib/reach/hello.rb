@@ -11,7 +11,7 @@ module Reach
 
     module_function
 
-    def run(harness: nil, source: nil, format: "hook", cwd: Dir.pwd)
+    def run(harness: nil, source: nil, format: "hook", cwd: Dir.pwd, mcp: false)
       Reach::Runtime.ensure_shim!
 
       event = {}
@@ -25,7 +25,8 @@ module Reach
       harness_id = resolve_harness(harness)
       Reach::Debug.begin_hook(event, harness_id)
       Reach::Debug.session(harness_id, source)
-      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook")
+      Reach::KnownIssues.refresh_if_stale!(quick: true) if mcp
+      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook", mcp: mcp)
 
       emit(format, context, banner, greeting_id, greeting_text)
     rescue StandardError
@@ -170,11 +171,11 @@ module Reach
       nil
     end
 
-    def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil)
+    def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil, mcp: false)
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         message = Reach::EnrollFlow.next_message(lock)
-        return [nil, message, message, locked_context(format)]
+        return [nil, message, message, locked_context(format, mcp: mcp)]
       end
 
       maybe_refresh_status unless local
@@ -188,7 +189,7 @@ module Reach
       if login_pending?(event)
         updating = safe_update_start(session_id, source)
         greeting_text = [nil, "startup", "clear"].include?(source) ? Reach::Greetings.text("G-LOGIN") : nil
-        return [greeting_text && "G-LOGIN", greeting_text, nil, login_context(updating)]
+        return [greeting_text && "G-LOGIN", greeting_text, nil, login_context(updating, mcp: mcp)]
       end
 
       greeting_id, greeting_text, banner = choose_greeting(source)
@@ -201,7 +202,7 @@ module Reach
         Reach::Brain.memory_notice_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp)
       [greeting_id, greeting_text, banner, context]
     end
 
@@ -236,9 +237,15 @@ module Reach
       nil
     end
 
-    def locked_context(format = "hook")
+    def known_issue_lines(mcp)
+      Reach::KnownIssues.context_lines(mcp: mcp).map { |line| "- #{line}" }
+    rescue StandardError
+      []
+    end
+
+    def locked_context(format = "hook", mcp: false)
       guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: Reach::Runtime.hook_command("enroll"))
-      text = "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}"
+      text = ["#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
       return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
 
       "#{text}\n#{Reach::Messages.text("M-ENR-AGENT-CODEX-REPAIRED")}"
@@ -257,8 +264,8 @@ module Reach
       false
     end
 
-    def login_context(updating = nil)
-      text = "#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}\n- #{Reach::Messages.text('M-AGENT-TALK')}"
+    def login_context(updating = nil, mcp: false)
+      text = ["#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
       updating ? "#{text}\n#{update_line(updating)}" : text
     end
 
@@ -458,11 +465,12 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false)
       lines = []
       lines << "rEach session context (from reach hello)"
       lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
       lines << "- #{Reach::Messages.text("M-AGENT-TALK")}"
+      lines.concat(known_issue_lines(mcp))
       lines << "- #{Reach::Messages.text("M-AGENT-UPDATE")}"
       if greeting_text
         lines << "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:"

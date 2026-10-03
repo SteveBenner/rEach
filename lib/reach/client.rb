@@ -173,11 +173,12 @@ module Reach
       new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick)
     end
 
-    def self.anonymous(base_url, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
-      new(base_url: base_url, install_id: nil, install_private_key: nil, quick: quick, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries)
+    def self.anonymous(base_url, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, link: true)
+      new(base_url: base_url, install_id: nil, install_private_key: nil, quick: quick, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries, link: link)
     end
 
-    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
+    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, link: true)
+      @track_link = link
       @base_url = base_url.to_s.sub(%r{/+\z}, "")
       @install_id = install_id
       @install_private_key = install_private_key
@@ -216,7 +217,7 @@ module Reach
         error = Reach::Offline.new(Reach::Messages.text("M-TEACH-LINK-LOST"))
         error.cause_name = "breaker_open"
         error.detail = "#{method.to_s.upcase} #{path} breaker_open: circuit breaker open"
-        Reach::Link.lost!("breaker_open")
+        Reach::Link.lost!("breaker_open") if @track_link
         raise error
       end
 
@@ -241,7 +242,7 @@ module Reach
 
           if response.status < 400
             self.class.breaker.record_success
-            Reach::Link.restored!
+            Reach::Link.restored! if @track_link
             return response
           end
 
@@ -264,7 +265,7 @@ module Reach
           end
 
           self.class.breaker.record_success
-          Reach::Link.restored!
+          Reach::Link.restored! if @track_link
           refusal = Reach::RemoteRefused.new(code, response.status, message)
           refusal.details = error["details"] || (parsed || {})["details"]
           raise refusal
@@ -311,7 +312,7 @@ module Reach
       error = Reach::NetworkError.new(Reach::Messages.text(deadline ? "M-TEACH-DEADLINE" : "M-TEACH-LINK-LOST"))
       error.cause_name = cause_name
       error.detail = "#{method.to_s.upcase} #{path} #{cause_name.to_s.sub(/\Ahttp_/, "")}: #{message}"
-      Reach::Link.lost!(cause_name) unless deadline
+      Reach::Link.lost!(cause_name) unless deadline || !@track_link
       error
     end
 

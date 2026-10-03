@@ -46,6 +46,7 @@ require_relative "reach/greetings"
 
 require_relative "reach/identity"
 require_relative "reach/fingerprint"
+require_relative "reach/known_issues"
 require_relative "reach/stamp"
 require_relative "reach/enroll"
 require_relative "reach/instructor"

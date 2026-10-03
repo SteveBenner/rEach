@@ -1,0 +1,117 @@
+schema: reach.impl/v1
+version: 0.21.9
+kind: feature
+normative:
+  - specs/wire.yml W-API-KNOWN-ISSUES and the known_issues section W-KI-1 to W-KI-4 (wins over this file)
+  - specs/app.yml STD-KNOWN-ISSUES, and STD-TEACH-LINK's 0.21.9 sentence
+  - reach.spec.yml mcp_bridge tool reach_known_issues
+constraints:
+  - No comments in code. No new test files (Part S). Ruby 2.6.10 syntax floor.
+  - Do not touch lib/reach/debug.rb, hands.rb, submit.rb (a peer branch owns them) or specs/*.yml, reach.spec.yml,
+    VERSION, CHANGELOG.md, README.md, FEATURES.md, plugin manifests, hooks/*.json (hooks/codex.json must stay byte
+    stable or every student's trusted Codex hook stops). Do not commit, stage, stash or push.
+  - Never use the real ~/.reach, ~/.codex or ~/.claude; scratch REACH_HOME under the scratch directory in the task
+    prompt. Never run rplugin install.
+  - Student and agent visible strings come from locales/en-US.yml by id.
+slices:
+  - id: known_issues_module
+    owns_paths: [lib/reach/known_issues.rb, lib/reach.rb]
+    build: |
+      Module Reach::KnownIssues, module_function:
+        cache_file -> File.join(Reach::Paths.root_state_dir, "known_issues.json"), written 0600 by rename, under
+          Reach::Locks if the codebase has a helper for atomic JSON writes (reuse it; see link.rb/update.rb).
+          Shape {"revision", "fetched_at", "issues"}.
+        STALE_S = 3600
+        stale? -> no cache or fetched_at older than STALE_S
+        fetch!(quick: true) -> GET /api/v1/known-issues WITHOUT signing, with If-None-Match from the cache. Find how
+          Reach::Client sends unauthenticated requests (enrollment W-API-ENROLL is auth none; reuse that path and the
+          client's limiter, retries and timeouts; quick: true uses the quick client the hooks use). It must not call
+          Reach::Link.lost! or change link state on failure: if the client marks link state internally for every
+          failure, add a keyword (for example link: false) to the client request path rather than duplicating HTTP
+          code, and pass it here. 200 -> write cache; 304 -> refresh fetched_at only; any failure -> keep the cache,
+          return nil, record nothing student-visible. Without a Teach URL (Reach's normal lookup) do nothing.
+        refresh_if_stale!(quick: true) -> fetch! when stale?, rescuing everything.
+        spawn_refresh! -> when stale?, spawn the detached background process the way Reach::Update.spawn_background
+          does, running `reach known-issues --refresh` (exit at once in the parent).
+        environment -> {"os" => macos|windows|linux (reuse Reach::OsInfo or RbConfig host_os like the codebase does),
+          "harness" => label or family or nil, "reach_version" => Reach::VERSION}. Harness order (W-KI-2): the
+          fingerprint label from environment markers when they identify a harness (Reach::Fingerprint.harness_label,
+          but only when its markers are actually present; do not let a default fall through to a guessed label),
+          else the parent process command name (Process.ppid; `ps -o comm= -p PID` on macOS/Linux, and on Windows
+          skip unless a cheap built-in way exists) mapped "codex" -> "codex", "claude" -> "claude", else the "label"
+          in hooks_seen.json, else nil.
+        matches?(entry, env) and steps_for(entry, env) exactly per W-KI-2 (empty list = any; family entries "claude"
+          and "codex" match labels starting with "<family>-"; when env harness is only a family, any label of that
+          family matches; reach_min/reach_max with Gem::Version).
+        detected?(entry) -> case entry["detector"]: "codex_sandbox" -> Reach::Sandbox.blocked?; "hooks_not_running"
+          -> Reach::Sandbox / env says Codex family AND (hooks_seen.json missing or its "at" older than 900 s) AND the
+          current process is an MCP call (pass a flag: detect(mcp: true)); anything else false.
+        matching(mcp: false) -> list of {"id","title","symptom","detected","steps" (text or nil)} for the cached
+          issues that match; empty when no cache.
+        context_lines(mcp: false) -> [] when nothing matches; else one line from M-KNOWN-ISSUES-AGENT (with
+          {titles} = the matching titles joined by "; ") plus one M-KNOWN-ISSUE-DETECTED line per detected entry
+          (with {title}).
+        record_hook!(harness_label) -> write {"at": now ISO-8601 UTC, "label": label} to
+          File.join(Reach::Paths.root_state_dir, "hooks_seen.json") (0600), rescuing everything (never slow or fail
+          a hook).
+      Require it from lib/reach.rb after sandbox and client dependencies.
+  - id: messages
+    owns_paths: [locales/en-US.yml]
+    build: |
+      M-KNOWN-ISSUES-AGENT: "Known problems that can affect this student's computer: {titles}. If the student describes one of these, or something here isn't working, call reach_known_issues (or run reach known-issues) and walk them through its steps in plain words, one step at a time."
+      M-KNOWN-ISSUE-DETECTED: "rEach sees this known problem happening now: {title}. Call reach_known_issues and walk the student through its steps before anything else."
+      M-KNOWN-ISSUES-NONE: "rEach knows of no problems that affect this computer right now."
+  - id: wiring
+    owns_paths: [lib/reach/hello.rb, lib/reach/gate.rb, lib/reach/sync.rb, lib/reach/cli.rb, lib/reach/mcp_bridge.rb, lib/reach/client.rb]
+    build: |
+      1. hello.rb: append Reach::KnownIssues.context_lines(mcp: <whether this hello runs from the MCP bridge>) as
+         "- " lines to the session context in every variant: the enrolled context (near M-AGENT-TALK at ~line 465),
+         the locked/enrollment context (~241) and the minimal context (~261). Never raise from it. In the CLI and
+         hook path use only the cache (no network); the MCP reach_hello path first calls refresh_if_stale!(quick: true).
+      2. gate.rb: wherever every Reach hook entry point runs (session, prompt, write/shell/read gates, stop - find the
+         common entry; reach gate enroll from the plugin hook counts), call Reach::KnownIssues.record_hook!(<the
+         harness label the hook knows, via Reach::Fingerprint.harness_label(<harness flag>)>). In the session start
+         hook also call Reach::KnownIssues.spawn_refresh!. Both rescue everything and add no network wait.
+      3. sync.rb: during reach sync call Reach::KnownIssues.fetch!(quick: false) once, rescuing everything; it never
+         changes sync's result or output.
+      4. cli.rb: command `known-issues` added to UNLOCKED_COMMANDS. `reach known-issues [--format json]` prints the
+         matching entries (title, detected marker, symptom, steps) or M-KNOWN-ISSUES-NONE, using the cache after
+         refresh_if_stale!(quick: true); `--refresh` fetches (used by the detached refresh), prints nothing, exit 0.
+      5. mcp_bridge.rb: tool reach_known_issues (empty input schema) before reach_storage, added to UNLOCKED_TOOLS;
+         description "The known problems from the course server that match this computer's system and AI app, whether
+         rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student
+         through the steps in plain words, one at a time". Dispatch: refresh_if_stale!(quick: true) then
+         {"issues" => matching(mcp: true), "text" => <M-KNOWN-ISSUES-NONE when empty>}. reach_hello via MCP passes
+         mcp: true to hello's context so hooks_not_running can fire there.
+      6. client.rb: only the minimal change the module slice needs (unsigned GET and/or not touching link state).
+verification:
+  scratch: the scratch directory from the task prompt; REACH_HOME there; REACH_TEACH_URL pointed at a local server.
+  steps:
+    - >-
+      ruby -c every changed file.
+    - >-
+      Local server: preferably the Teach worker's scratch Teach if the prompt gives its URL; otherwise a tiny
+      WEBrick or ruby socket server in the scratch dir that serves GET /api/v1/known-issues with the JSON built from
+      <teach>/deploy/known-issues.yml (revision = sha256 of JSON.generate(issues)), honoring If-None-Match with 304,
+      and logging each request line.
+    - >-
+      Unenrolled scratch install - reach known-issues with CODEX_THREAD_ID=x CODEX_DESKTOP_APP=1 on this Linux
+      host shows both Codex entries with the macos/linux codex-app steps; without Codex markers (and parent not
+      codex) shows M-KNOWN-ISSUES-NONE; --format json is valid JSON; the second fetch sends If-None-Match and gets
+      304 (server log).
+    - >-
+      With CODEX_SANDBOX_NETWORK_DISABLED=1 reach hello --format text (or however hello prints the context) contains
+      the M-KNOWN-ISSUE-DETECTED line for codex-sandbox-outside-course-folder, served from the cache with no request.
+    - >-
+      Server stopped: reach known-issues still answers from the cache, no error, and <REACH_HOME>'s link.json is not
+      created or set to lost.
+    - >-
+      MCP (newline JSON-RPC into exe/reach mcp, started from a parent shell whose comm is not codex, with
+      CODEX_THREAD_ID set to simulate Codex, no hooks_seen.json): tools/list has reach_known_issues; tools/call
+      returns both entries and hooks_not_running detected true; after `reach gate session --harness codex` (or the
+      real hook command line from hooks/codex.json with a minimal stdin) writes hooks_seen.json, detected false.
+    - >-
+      Parent-process fallback: run exe/reach mcp under a process named codex if feasible (e.g. `exec -a codex` in a
+      bash wrapper, or a symlink named codex to ruby) and show environment["harness"] resolves to codex with no
+      CODEX_* variables; report if not feasible.
+  report: files changed, commands and key output, deviations.
