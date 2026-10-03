@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.20.1
+version: 0.20.2
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -127,5 +127,7 @@ standards:
     text: "Since 0.18.1 the agent updates rEach only through reach update run --apply and never searches GitHub, its releases or tags, or downloads, unzips or copies a rEach archive itself (persona section Updating rEach, M-AGENT-UPDATE in reach hello's context, INSTALL.md). Every tagged rEach release since 0.18.1 also has a GitHub release marked Latest, so GitHub's releases page names a rEach version rather than a runtime kit."
   - id: STD-CLI-VERSION
     text: "Since 0.18.1 reach version, reach --version and reach -V print reach <VERSION> and exit 0, and work before enrollment."
+  - id: STD-MODULES-PENDING
+    text: "Since 0.20.2, while a student has no modules, reach next says to choose them (M-NEXT-CHOOSE, or M-NEXT-CHOOSE-OPEN when the choice has no closing time) or to wait for the instructor to assign them (M-NEXT-WAIT-MODULES, in student-choice and instructor modes alike), never that nothing is released."
   - id: STD-STUDENT-MESSAGES
     text: "Every message shown to a student comes from a catalogue by id, never an inline string: Reach::Messages (locales/en-US.yml) for course messages and Reach::Greetings (locales/greetings.en-US.yml) for rEach's greetings, so both stay translatable and consistent."

@@ -11,8 +11,11 @@ module Reach
         selection = status["module_selection"].is_a?(Hash) ? status["module_selection"] : {}
         if status["modules"].nil?
           if selection["open"]
-            return result("M-NEXT-CHOOSE", count: selection_count, closes: Reach::Messages.course_time(selection["closes_at"]))
-          elsif selection["mode"] == "student_choice"
+            closes = Reach::Messages.course_time(selection["closes_at"])
+            return result("M-NEXT-CHOOSE-OPEN", count: selection_count) if closes.to_s.empty?
+
+            return result("M-NEXT-CHOOSE", count: selection_count, closes: closes)
+          elsif %w[student_choice instructor].include?(selection["mode"])
             return result("M-NEXT-WAIT-MODULES")
           end
         end

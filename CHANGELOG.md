@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.2] - 2026-10-03
+
+### Fixed
+
+- A student whose instructor assigns modules, and who had none yet, was told "Nothing is open right now. The next
+  assignment appears here as soon as your instructor releases it" while the assignment was already released.
+  `reach next` (`lib/reach/next.rb`) now answers `M-NEXT-WAIT-MODULES` in instructor mode as it already did for
+  student choice. Teach 0.21.1 issues each student's group module, so this shows only until that happens.
+- A module choice with no closing time read "Choose your 2 modules for the course before ." and "until ."; it now
+  reads `M-NEXT-CHOOSE-OPEN` and `M-MODULES-OPTIONS-OPEN` (`lib/reach/modules.rb`, `locales/en-US.yml`).
+
 ## [0.20.1] - 2026-10-03
 
 ### Added
