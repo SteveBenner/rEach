@@ -499,7 +499,7 @@ names the matching ones for this operating system, harness and version in every 
 Verified against a scratch Teach 0.27.1 (200, then 304 on revalidation), over MCP (hooks_not_running detected with no
 hook run), and inside the real `codex sandbox` runner (the sandbox entry detected from the cache with no request).
 
-Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.27.1 live with the entries imported).
+Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.27.1 is live with both entries; students update to 0.21.9 on their own).
 
 ### 2.31 · Opening a course folder
 
