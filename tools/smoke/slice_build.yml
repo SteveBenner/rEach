@@ -12,7 +12,7 @@ targets:
 
 student:
   persona: "A BUS 101 student in a group that owns this module, comfortable describing the cafe but not a programmer. You want rEach to build the card and finish the assignment today. Your student ID is {student_id}; when rEach asks you to type your student ID, type exactly that."
-  goals: "Give rEach what it asks for about Riverstone Cafe: who uses the card, what decision it supports, who may see what. When rEach asks the course's part questions, answer in your own words, two or three sentences each about the cafe. When rEach asks whether to submit, say yes once its checks pass; then say exactly [END]. Never write or paste code and never ask for code."
+  goals: "Give rEach what it asks for about Riverstone Cafe: who uses the card, what decision it supports, who may see what. When rEach asks the course's part questions, answer in your own words, two or three sentences each about the cafe. When rEach asks whether to submit, say yes once its checks pass. rEach may then ask you again to confirm (for example 'Ready to submit your panel work?'); answer that with a plain yes too, as many times as it asks. Say exactly [END] only after rEach tells you your work was received and gives a receipt number, or if rEach says it cannot go further today. Never write or paste code and never ask for code."
   opening: "hi"
 
 limits:
