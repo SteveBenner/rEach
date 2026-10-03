@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.10] - 2026-10-03
+
+### Fixed
+
+- Codex's plugin hook ran rEach's prompt gate as Claude Code: `hooks/codex.json` passed `gate enroll --harness
+  claude-code`, because `hooks/reach.hooks.yml` gave both harnesses one command. The source now passes
+  `--harness ${HARNESS}`, so rplugin renders `claude-code` into `hooks/hooks.json` and `codex` into
+  `hooks/codex.json`, and `hooks/codex.json` says `--harness codex` (`STD-HOOK-HARNESS`).
+- The root `plugin.json` names the Codex hook file under `extensions.com.openai.hooks`, so a Codex that reads the
+  root manifest never falls back to `hooks/hooks.json`, the Claude Code file that runs `sh`, which Windows lacks.
+
+### Added
+
+- `directory/`: a hooks-free listing for OpenAI's plugin directory (ChatGPT and Codex), plugin `reach-installer`
+  shown as rEach, with one skill, `install-reach`, that installs rEach by following `INSTALL.md` and asks for Full
+  access first. `ruby tools/directory/build.rb` writes `.scratch/directory/reach-installer-<VERSION>.zip` and
+  refuses hooks, apps or MCP servers. `directory/SUBMISSION.md` holds the portal fields and test cases.
+- `PRIVACY.md` and `TERMS.md`, linked from the directory listing.
+
 ## [0.21.9] - 2026-10-03
 
 ### Added
