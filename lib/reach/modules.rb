@@ -157,6 +157,10 @@ module Reach
         return Reach::Messages.text("M-MODULES-CLOSED") unless data["open"]
 
         closes = data["window"].is_a?(Hash) ? Reach::Messages.course_time(data["window"]["closes_at"]) : ""
+        if closes.to_s.empty?
+          return Reach::Messages.text("M-MODULES-OPTIONS-OPEN", count: data["count"], options: join_names(option_titles(data)))
+        end
+
         return Reach::Messages.text(
           "M-MODULES-OPTIONS", count: data["count"], closes: closes, options: join_names(option_titles(data))
         )
