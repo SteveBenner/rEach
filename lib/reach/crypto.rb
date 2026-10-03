@@ -80,15 +80,23 @@ module Reach
         return Reach::GCM.decrypt(key: key, nonce: nonce, ciphertext: ciphertext, tag: tag, aad: aad)
       end
 
+      stage = "init"
       cipher = OpenSSL::Cipher.new(GCM_CIPHER)
       cipher.decrypt
+      stage = "set_key"
       cipher.key = key
+      stage = "set_nonce"
       cipher.iv = nonce
+      stage = "set_tag"
       cipher.auth_tag = tag
+      stage = "set_aad"
       cipher.auth_data = aad
-      cipher.update(ciphertext) + cipher.final
+      stage = "update"
+      out = cipher.update(ciphertext)
+      stage = "final"
+      out + cipher.final
     rescue OpenSSL::Cipher::CipherError => e
-      raise Reach::VerificationFailed, "reach: could not decrypt (#{e.message})"
+      raise Reach::VerificationFailed, "reach: could not decrypt (#{e.message}; stage #{stage}, #{OpenSSL::OPENSSL_LIBRARY_VERSION}, Ruby #{RUBY_VERSION})"
     end
 
     def wrap_key(recipient_public_key, data_key)

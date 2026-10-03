@@ -336,6 +336,7 @@ module Reach
             extra-credit CODE ANSWER... | extra-credit CODE --answer TEXT | extra-credit list [--format text|json]   turn in an extra-credit answer, or list what was turned in
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor [--install-chromium]          check the local install, one line per problem
+            doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
             debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush   debug mode: what rEach did, with no prompts, replies, code or secrets
             instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | exit   instructor unlock codes
@@ -1281,6 +1282,18 @@ module Reach
       end
 
       def cmd_doctor(args)
+        report, args = parse_bare_flag(args, "report")
+        if report
+          offline, args = parse_bare_flag(args, "offline")
+          options, _remaining = parse_flags(args, [:format])
+          data = Reach::Diagnose.report(network: !offline)
+          if options[:format] == "json"
+            puts JSON.pretty_generate(data)
+          else
+            puts Reach::Diagnose.text_lines(data)
+          end
+          return 0
+        end
         install_chrome, _rest = parse_bare_flag(args, "install-chromium")
         if install_chrome
           if Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(only: "chrome") } == :busy

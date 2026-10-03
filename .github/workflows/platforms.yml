@@ -23,7 +23,7 @@ jobs:
   hosted:
     name: smoke ${{ matrix.leg }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -81,8 +81,16 @@ jobs:
             ruby -v | grep -q '^ruby 2\.6' || { echo "expected the system Ruby 2.6, got: $(ruby -v)"; exit 1; }
           fi
 
+      - name: Install the Codex CLI
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          npm install --global @openai/codex@0.160.0
+          codex --version
+
       - name: Platform smoke
-        timeout-minutes: 20
+        timeout-minutes: 30
         shell: bash
         run: ruby tools/platform_smoke/run.rb --report "${RUNNER_TEMP}/platform-smoke-${{ matrix.leg }}.json"
 
