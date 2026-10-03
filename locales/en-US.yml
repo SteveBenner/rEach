@@ -86,6 +86,7 @@ messages:
   M-DEBUG-USAGE: "usage: reach debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush"
   M-ENR-LOCKED: "Too many tries. Please wait {minutes} minutes and try again, or ask your instructor for help."
   M-ENR-OFFLINE: "rEach couldn't reach your course server just now. Check your internet connection, then type yes to try again."
+  M-ENR-CLI-OFFLINE: "rEach couldn't reach your course server at {url} ({detail}). Check your internet connection and run reach enroll again. If it keeps failing, run reach doctor and send what it prints to your instructor."
   M-ENR-FAILED: "rEach couldn't finish enrolling you: {reason} Type yes to try again, or start over to begin again."
   M-ENR-DONE: "You're enrolled in {course_title}, {first_name}. rEach is fetching your course materials now. Keep the password you chose written down somewhere safe. To start on course work, run: {launch}"
   M-ENR-MOVED: "This rEach was enrolled on a different computer or computer account, so it's locked here. To use rEach on this computer, enroll it: please type the course passkey your instructor gave you."

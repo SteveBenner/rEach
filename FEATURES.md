@@ -162,7 +162,7 @@ six- or seven-digit IDs and an optional trailing username letter, matching live 
 is a password the student chooses twice (at least 8 characters) and is told to write down; the hook hides it from
 the agent, Hermes students finish in a terminal, and Teach keeps only its scrypt hash. Since 0.18.2 `reach setup`
 and `update/apply.rb` write `teach.url` to `~/.reach/state/teach.json`, read after `REACH_TEACH_URL` and `config.yml`,
-so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`.
+so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`. Since 0.21.11 `Reach::Runtime::TEACH_URL` builds the same URL in as the last resort, and a terminal enroll that cannot reach Teach names the URL and the network cause instead of saying the work is saved.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -382,6 +382,8 @@ Since 0.14.0 `reach runtime install` puts Ruby 4.0.7 with the course gems prebui
 install --from DIR` installs from a folder of release files so a classroom can share one download. When Chrome's system libraries are missing, `reach runtime install` names them. Since 0.16.5 the session-start hook installs the kit in the background when it is missing (`config.yml` `runtime.auto_install`, default on; a lock, an hourly jittered limit and five attempts per pinned kit), so nobody asks the student; verified on Linux x86_64 in a scratch home and inside `codex sandbox`, where nothing starts. Before 0.16.10 it skipped any computer that already had a kit, so a student who installed r1 kept it after the pin moved to r3; since 0.16.10 it also starts when the active kit is not the pinned one, and the older kit stays on disk. Verified on Linux x86_64 in a scratch home holding an r1 kit: the background run installed the published r3 kit in 36 s, `runtime/current` moved to r3 and the r1 directory was kept.
 
 Build ✅ · Deploy 🔵 · runtime-4.0.7-r3 published and pinned; installed from the release by the platform smoke on Linux x86_64, macOS arm64, macOS x86_64 and Windows x86_64 GitHub runners; no student machine yet, and Linux arm64 is relocation-checked only
+
+Before 0.21.11 the macOS kits could not make a verified HTTPS request: their OpenSSL looks for CA certificates only under the build machine's `/opt/homebrew/Cellar/rv-portable-openssl` path, and since 0.21.3 every command on macOS's Ruby 2.6 runs under the kit, so a Mac student with the kit could not enroll, sync or update (field report 2026-10-03, Antigravity on macOS). Since 0.21.11 `exe/reach` points `SSL_CERT_FILE` at the kit's own `libexec/cert.pem` (`STD-CA-ROOTS`). Verified on Linux x86_64 against live Teach with a copy of the kit given the macOS kit's `cert.pem` and every system CA path hidden: without the fix `certificate verify failed`, with it Teach answered the enrollment preview. Not yet run on a Mac.
 
 ### 2.26 · Microbrain records
 

@@ -456,6 +456,10 @@ module Reach
         end
         install = Reach::Enroll.generate_and_register(code, teach_url)
         finish_enroll(install)
+      rescue Reach::NetworkError => e
+        Reach::Debug.note(e)
+        warn Reach::Messages.text("M-ENR-CLI-OFFLINE", url: teach_url, detail: e.detail || e.cause_name)
+        1
       end
 
       def enroll_with_identity(options, teach_url)
@@ -1568,17 +1572,18 @@ module Reach
 
       def check_net
         return [] if ENV["REACH_OFFLINE"] == "1"
-        return [] unless Reach::Enroll.current
-
-        Reach::Client.anonymous(Reach::Enroll.current["teach_url"], quick: true).get("/api/v1/health")
+        url = Reach::Enroll.current ? Reach::Enroll.current["teach_url"] : Reach::Runtime.default_teach_url
+        Reach::Client.anonymous(url, quick: true, link: false).get("/api/v1/health")
         cached = Reach::Sync.cached_status
         if cached && cached["server_time"] && cached["fetched_at"]
           skew = (Time.parse(cached["server_time"].to_s).to_f - Time.parse(cached["fetched_at"].to_s).to_f).abs rescue nil
           return ["R-DOC-NET: the course server's clock is more than 300 s from this computer's - check both clocks"] if skew && skew > 300
         end
         []
-      rescue StandardError
-        ["R-DOC-NET: Teach could not be reached - check the connection or the computer's clock"]
+      rescue Reach::NetworkError => e
+        ["R-DOC-NET: Teach at #{url} could not be reached (#{e.detail || e.cause_name}) - check the connection or the computer's clock"]
+      rescue StandardError => e
+        ["R-DOC-NET: Teach at #{url} could not be reached (#{e.class.name}) - check the connection or the computer's clock"]
       end
 
       def check_outbox

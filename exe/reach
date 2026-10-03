@@ -1,6 +1,13 @@
 #!/usr/bin/env ruby
 # SPDX-License-Identifier: MIT
 
+begin
+  require_relative "../lib/reach/ca_roots"
+  Reach::CaRoots.apply!
+rescue ScriptError, StandardError
+  nil
+end
+
 rplugin_home = ENV["RPLUGIN_HOME"]
 rplugin_home = File.expand_path(rplugin_home && !rplugin_home.empty? ? rplugin_home : "~/.rplugin")
 if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.3") && File.file?(File.join(rplugin_home, "lib", "rplugin.rb"))

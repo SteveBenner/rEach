@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.11] - 2026-10-03
+
+### Fixed
+
+- On macOS every HTTPS request from the runtime kit's Ruby failed certificate verification, so a Mac student could
+  not enroll, sync or update: since 0.21.3 every command on macOS's Ruby 2.6 runs again under the kit, and the kit's
+  OpenSSL (rv-ruby) looks for CA certificates only under the build machine's
+  `/opt/homebrew/Cellar/rv-portable-openssl` path. `exe/reach` now sets `SSL_CERT_FILE` to the kit's own
+  `libexec/cert.pem` before OpenSSL loads, when it is unset or names a missing file (`lib/reach/ca_roots.rb`,
+  `STD-CA-ROOTS`); child processes inherit it.
+- `reach enroll` in a terminal said "rEach lost its connection to your course server... your work is saved" on any
+  network failure. It now names the course server and the cause, such as `certificate verify failed`
+  (`M-ENR-CLI-OFFLINE`).
+- `reach doctor` skipped the Teach check (`R-DOC-NET`) until enrollment, the one time a student most needs it. It
+  now checks the default Teach URL before enrollment, and names the URL and the cause when Teach cannot be reached.
+
+### Changed
+
+- The course server `https://sven-f1l1.tail062fd2.ts.net` is built into rEach (`Reach::Runtime::TEACH_URL`) as the
+  last resort after `REACH_TEACH_URL`, `config.yml` `teach.url` and `~/.reach/state/teach.json`, so rEach always has
+  a course server (`STD-TEACH-URL`).
+
 ## [0.21.10] - 2026-10-03
 
 ### Fixed

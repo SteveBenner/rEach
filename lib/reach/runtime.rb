@@ -6,6 +6,8 @@ require "fileutils"
 
 module Reach
   module Runtime
+    TEACH_URL = "https://sven-f1l1.tail062fd2.ts.net".freeze
+
     module_function
 
     def root
@@ -111,9 +113,9 @@ module Reach
       value = ENV["REACH_TEACH_URL"]
       return value if value && !value.empty?
 
-      configured_teach_url || baked_teach_url
+      configured_teach_url || baked_teach_url || TEACH_URL
     rescue StandardError
-      nil
+      TEACH_URL
     end
 
     def configured_teach_url
