@@ -254,7 +254,7 @@ module Reach
     end
 
     def locked_context(format = "hook")
-      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"))
+      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: Reach::Runtime.hook_command("enroll"))
       text = "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}"
       return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
 

@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.20.3
+version: 0.20.4
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -44,7 +44,7 @@ standards:
   - id: STD-PERSONA-ONE-SOURCE
     text: "The rEach persona body is identical in skills/reach-assistant/SKILL.md and agents/reach.md, and quotes the G-FIRST-RUN greeting from locales/greetings.en-US.yml; reach doctor reports R-DOC-PERSONA otherwise."
   - id: STD-CODEX-PLUGIN-HOOKS
-    text: "Codex lists rEach's plugin hooks for the student to trust. Codex 0.156 and newer loads no plugin hooks when a root plugin.json sits beside .codex-plugin/plugin.json (openai/codex#47925), so since 0.16.16 reach setup, every update and reach mcp rename that file to plugin.json.agent-plugins in Codex's cached copy of rEach only ($CODEX_HOME/plugins/cache/*/reach/*/ holding .codex-plugin/plugin.json). The repository and the install folder keep it for Antigravity, and nothing is deleted."
+    text: "Codex lists rEach's plugin hooks for the student to trust. Codex 0.156 and newer loads no plugin hooks when a root plugin.json sits beside .codex-plugin/plugin.json (openai/codex#47925), so since 0.16.16 reach setup, every update and reach mcp rename that file to plugin.json.agent-plugins in Codex's cached copy of rEach only ($CODEX_HOME/plugins/cache/*/reach/*/ holding .codex-plugin/plugin.json). The repository and the install folder keep it for Antigravity, and nothing is deleted. Since 0.20.4 a locked reach hello run by the agent reports the repair (M-ENR-AGENT-CODEX-REPAIRED) only in the run that renamed a file, never again for a copy set aside earlier, and when the student has already restarted and rEach is still locked M-ENR-AGENT-GUIDE sends them to enroll in Terminal (reach enroll, interactive, so the agent never sees the passkey, username, student ID or password) instead of restarting again."
   - id: STD-HOOK-RESPONSIVE
     text: "Since 0.19.1 no session-start or prompt hook waits on the network or on another process, and the Stop and SessionEnd transcript flush keeps to its bounded quick requests (STD-TRANSCRIPT). The prompt that follows a successful sign-in gets a short signed-in context (the student's name and that course work may begin, M-LOGIN-DONE-AGENT) with the session start's local parts only; the status refresh, the course reference ingest and every other step that can touch the network or a contended lock run in one detached reach hello --background, whose result the next prompt carries. The just-signed-in marker is removed only after the hook has written its answer, so a hook the harness kills delivers it on the next prompt. Every file lock taken on a hook path waits at most hooks.lock_wait_s (default 2) and then degrades without losing data: a prompt or turn whose transcript lock is busy is written to a pending spool merged by the next holder, and any other step is skipped for that event. Each hook answers within 2 s on a warm computer; the Codex workspace prompt and session hooks get the same 60 s and 10 s limits as the plugin's."
   - id: STD-NO-TOP-BIN
