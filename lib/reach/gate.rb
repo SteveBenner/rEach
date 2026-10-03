@@ -83,8 +83,9 @@ module Reach
         end
       end
 
+      blocked = Reach::GateBlocked.new(blocked.message_id, "#{blocked.message}\n\n#{toggled}") if blocked && toggled
       raise blocked if blocked
-      raise Reach::GateBlocked.new("M-LOGIN", decision["message"].to_s) if login_block
+      raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, toggled].compact.join("\n\n")) if login_block
 
       if entry
         witness("prompt", "session" => entry["session_id"], "seq" => entry["seq"], "digest" => entry["digest"])
