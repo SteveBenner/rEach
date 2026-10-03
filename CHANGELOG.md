@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.14] - 2026-10-03
+
+### Fixed
+
+- `rplugin package` no longer breaks rEach. The generated `hooks/codex.json`, `.mcp.json` and root `plugin.json` had
+  been edited by hand, so a render would have put Codex's hooks on `sh` (absent on Windows, and new hook text that
+  every student would have to trust again), put Claude's MCP server on plain `ruby` (undoing the 0.20.7 start
+  without Ruby) and dropped the root manifest's Codex hooks pointer. `hooks/reach.hooks.yml` now gives Codex its
+  `ruby "${PLUGIN_ROOT}/exe/reach"` commands through `run_by_harness`, `reach.rplugin.yml` gives Claude Code's
+  `.mcp.json` `sh exe/reach-run` through `by_harness`, and rplugin 1.6.5 writes the root pointer itself. A render
+  with rplugin 1.6.5 changed only `.codex-plugin/plugin.json`'s `exe/reach` to `./exe/reach` (the same launch, from
+  the plugin folder), and `rplugin package --check` reports 0 stale files.
+
 ## [0.21.13] - 2026-10-03
 
 ### Fixed
