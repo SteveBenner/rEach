@@ -222,12 +222,20 @@ module Reach
       outcome = send_pending(quick: quick)
       case outcome[:state]
       when :locked
+        spawn_sync
         { "state" => "locked", "text" => Reach::Messages.text("M-MODULES-LOCKED", modules: names(outcome[:record]["modules"])) }
       when :already
         { "state" => "refused", "text" => Reach::Messages.text("M-MODULES-ALREADY", modules: names(module_ids)) }
       else
         { "state" => "queued", "text" => Reach::Messages.text("M-MODULES-PENDING") }
       end
+    end
+
+    def spawn_sync
+      pid = Process.spawn(RbConfig.ruby, Reach::Runtime.exe_path, "sync", in: File::NULL, out: File::NULL, err: File::NULL, pgroup: true)
+      Process.detach(pid)
+    rescue StandardError
+      nil
     end
 
     def resolve_choice(modules, data)

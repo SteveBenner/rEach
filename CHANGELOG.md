@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.4] - 2026-10-03
+
+### Fixed
+
+- After a student locked in their modules, their next message was blocked with "Your course rules haven't arrived
+  yet" until something ran `reach sync`, because the new modules' slice workspaces had not been provisioned and the
+  prompt gate needs one. `Reach::Modules.choose!` now starts a detached `reach sync` as soon as Teach accepts the
+  lock-in (`STD-MODULES-LOCK-SYNC`). The other two causes of the reported lock-in failure were on Teach and are fixed
+  in Teach 0.22.3: guardrails carried the base `module_selection` (mode `instructor`) instead of the student's
+  course setting, so every prompt of a student-choice student was blocked, the consent yes included; and Teach
+  refused the null consent `seq` this wire revision sends, so no lock-in or transfer request could succeed.
+
 ## [0.21.3] - 2026-10-03
 
 ### Added
