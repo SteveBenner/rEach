@@ -68,6 +68,10 @@ module Reach
       File.join(root, "state")
     end
 
+    def teach_url_file
+      File.join(root_state_dir, "teach.json")
+    end
+
     def root_logs_dir
       File.join(root, "logs")
     end

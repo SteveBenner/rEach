@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.18.1 |
+| **Registry version** | 0.18.2 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -147,7 +147,9 @@ refused. Since 0.10.0 it posts to `/api/v1/enroll` and retries once at `/api/v1/
 path asks for it: `reach_enroll` takes no `teach_url`, help hides `--teach-url`, and the identity rules accept
 six- or seven-digit IDs and an optional trailing username letter, matching live Teach. Since 0.16.21 the last step
 is a password the student chooses twice (at least 8 characters) and is told to write down; the hook hides it from
-the agent, Hermes students finish in a terminal, and Teach keeps only its scrypt hash.
+the agent, Hermes students finish in a terminal, and Teach keeps only its scrypt hash. Since 0.18.2 `reach setup`
+and `update/apply.rb` write `teach.url` to `~/.reach/state/teach.json`, read after `REACH_TEACH_URL` and `config.yml`,
+so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

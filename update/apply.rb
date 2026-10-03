@@ -8,6 +8,7 @@ require "securerandom"
 require "open3"
 require "timeout"
 require "time"
+require "yaml"
 
 HARNESS_TIMEOUT_S = 120
 
@@ -137,6 +138,17 @@ end
 home = File.dirname(destination)
 bin = File.join(home, "bin")
 File.write(File.join(bin, "root"), "#{destination}\n") if File.directory?(bin)
+begin
+  config = YAML.safe_load(File.read(File.join(destination, "config.yml"))) || {}
+  teach = config["teach"] if config.is_a?(Hash)
+  teach_url = teach.is_a?(Hash) ? teach["url"].to_s : ""
+  unless teach_url.empty?
+    FileUtils.mkdir_p(File.join(home, "state"))
+    File.write(File.join(home, "state", "teach.json"), "#{JSON.generate('url' => teach_url)}\n")
+  end
+rescue StandardError
+  nil
+end
 
 results = manifest["harness_results"]
 results = {} unless results.is_a?(Hash)

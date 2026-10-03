@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.18.1
+version: 0.18.2
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -40,7 +40,7 @@ standards:
   - id: STD-ENROLL-PASSWORD
     text: "Since 0.16.21 (wire revision 2026-10-01e) the last enrollment step asks the student to choose a password of at least 8 characters, twice, and to write it down (M-ENR-ASK-PASSWORD, repeated in M-ENR-DONE). Like every enrollment answer the prompt hook blocks both entries, so the agent never sees them and no transcript holds them; the flow file keeps only a salt and a SHA-256 between the two entries and drops both when the flow ends. Reach sends the password once, in the shape v2 W-API-ENROLL body, and never stores it. Hermes, which cannot block a prompt, is sent to reach enroll in a terminal (M-ENR-PASSWORD-TERMINAL), which asks with typing hidden or reads --password-stdin."
   - id: STD-TEACH-URL
-    text: "rEach carries the course's Teach URL and never asks the student or the agent for it. config.yml teach.url names Teach over HTTPS (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, Tailscale Funnel to the course server) and every enrollment path uses it: the prompt-hook enrollment flow, reach enroll and the reach_enroll tool (which takes no teach_url since 0.16.20). REACH_TEACH_URL and the unlisted --teach-url are operator overrides, an install keeps the URL it enrolled with (install.yml teach_url), and with no URL configured rEach says to run reach update. config.yml's enrollment identity rules match live Teach (student IDs ^[0-9]{5,10}$, usernames ^[a-z][a-z0-9._-]{1,31}$ since 0.16.20); Teach's preview rules still win."
+    text: "rEach carries the course's Teach URL and never asks the student or the agent for it. config.yml teach.url names Teach over HTTPS (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, Tailscale Funnel to the course server) and every enrollment path uses it: the prompt-hook enrollment flow, reach enroll and the reach_enroll tool (which takes no teach_url since 0.16.20). REACH_TEACH_URL and the unlisted --teach-url are operator overrides, an install keeps the URL it enrolled with (install.yml teach_url), and with no URL configured rEach says to run reach update. Since 0.18.2 reach setup and update/apply.rb also write config.yml teach.url to ~/.reach/state/teach.json, so an installed rEach still knows Teach when config.yml is missing, unreadable or blank; the lookup order is REACH_TEACH_URL, config.yml teach.url, then that file, so a URL changed by an update wins over the saved copy. config.yml's enrollment identity rules match live Teach (student IDs ^[0-9]{5,10}$, usernames ^[a-z][a-z0-9._-]{1,31}$ since 0.16.20); Teach's preview rules still win."
   - id: STD-PERSONA-ONE-SOURCE
     text: "The rEach persona body is identical in skills/reach-assistant/SKILL.md and agents/reach.md, and quotes the G-FIRST-RUN greeting from locales/greetings.en-US.yml; reach doctor reports R-DOC-PERSONA otherwise."
   - id: STD-CODEX-PLUGIN-HOOKS
