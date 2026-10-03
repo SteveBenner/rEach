@@ -15,6 +15,7 @@ module Reach
     RECORD_FILE = "qualification.json"
     POLL_INTERVAL_S = 10
     MAX_POLLS = 36
+    REMOTE_BUDGET_S = 20
     STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
@@ -304,6 +305,10 @@ module Reach
                               previous["qualification_id"]
                             end
 
+        Reach::Client.with_deadline(REMOTE_BUDGET_S) { remote_exchange(install, workspace, meta, record, qualification_id) }
+      end
+
+      def remote_exchange(install, workspace, meta, record, qualification_id)
         client = Reach::Client.for_install(install)
         qualification_id ||= begin
           post_qualification(client, install, workspace, meta, record)

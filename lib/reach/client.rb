@@ -301,10 +301,11 @@ module Reach
     end
 
     def final_failure(method, path, cause_name, message)
-      error = Reach::NetworkError.new(Reach::Messages.text("M-TEACH-LINK-LOST"))
+      deadline = cause_name.to_s == "deadline"
+      error = Reach::NetworkError.new(Reach::Messages.text(deadline ? "M-TEACH-DEADLINE" : "M-TEACH-LINK-LOST"))
       error.cause_name = cause_name
       error.detail = "#{method.to_s.upcase} #{path} #{cause_name.to_s.sub(/\Ahttp_/, "")}: #{message}"
-      Reach::Link.lost!(cause_name)
+      Reach::Link.lost!(cause_name) unless deadline
       error
     end
 

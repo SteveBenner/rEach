@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.1
+version: 0.21.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -738,7 +738,9 @@ qualification:
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,
     again on the starting copy, and the hidden graded scenarios (QF-REMOTE-FAIL, QF-VACUOUS, QF-HIDDEN). Offline,
     network errors and Teach's unavailable answer leave it pending, which counts for nothing; a later run resumes the
-    same qualification when the digests have not changed.
+    same qualification when the digests have not changed. Since 0.21.2 the upload and the polls run under their own
+    20-second deadline, started after the local steps, so an MCP tool budget spent on the local steps cannot starve
+    the upload; polls that run out leave the qualification pending with its id.
   answers_from_teach: >-
     Per row: name, result, the failing step only when it is verbatim a line of the agent's own feature files, and an
     error class from a fixed whitelist (else other). Never messages or output, because the run directory holds course
