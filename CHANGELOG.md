@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.6] - 2026-10-03
+
+### Fixed
+
+- On a Mac running the built-in Ruby (2.6.10, LibreSSL 3.3.6) rEach could not open its course packages or seal a
+  qualification, submission or hand: LibreSSL refuses additional authenticated data on every AES-GCM call
+  ("couldn't set additional authenticated data"), in every call order, found by the 0.20.5 platform smoke on both
+  macOS legs. `Reach::Crypto` now probes the native cipher once and, when it refuses, uses `Reach::GCM`
+  (`lib/reach/gcm.rb`): AES-256-CTR from the same library with GHASH computed in Ruby, byte-identical to OpenSSL's GCM
+  and verified against envelopes sealed by Teach. `Reach::Reference` decrypts through the same path.
+
 ## [0.20.5] - 2026-10-03
 
 ### Fixed

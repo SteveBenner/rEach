@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.20.5
+version: 0.20.6
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -333,6 +333,11 @@ library:
     role: Signed HTTPS requests to Teach with timeouts, retries and a circuit breaker
   - name: Reach::Crypto
     role: RSA-PSS verification and signing, RSA-OAEP unwrapping, AES-256-GCM, from the standard-library OpenSSL
+  - name: Reach::GCM
+    role: >-
+      AES-256-GCM for a library whose GCM refuses additional authenticated data (macOS's built-in Ruby with LibreSSL
+      3.3.6): AES-256-CTR from the library plus GHASH in Ruby, byte-identical to OpenSSL's GCM; Reach::Crypto uses it
+      only when a one-time probe of the native cipher fails (since 0.20.6)
   - name: Reach::Packages
     role: Fetch, verify, store and unpack packages into the vault or the workspace
   - name: Reach::Guardrails

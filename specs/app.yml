@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.20.5
+version: 0.20.6
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -129,6 +129,8 @@ standards:
     text: "Since 0.20.5 every reach update run checks GitHub for a newer release, with or without a terminal, so an agent's reach update run --apply finds a release published since the last hourly check. Only the background run rEach spawns itself passes --scheduled and keeps to the hourly schedule."
   - id: STD-TIMES-AS-STATED
     text: "Since 0.20.5 the agent gives dates and times exactly as rEach states them, with the time zone rEach names, and never converts them to another zone (persona section How you talk with the student)."
+  - id: STD-PORTABLE-GCM
+    text: "Since 0.20.6 every AES-256-GCM seal and open in Reach (course packages, qualify, submit, hands and reference) goes through Reach::Crypto, which uses the native cipher when it accepts additional authenticated data and otherwise Reach::GCM: AES-256-CTR from the same library plus GHASH in Ruby, byte-identical to OpenSSL's GCM. macOS's built-in Ruby 2.6.10 (LibreSSL 3.3.6) refuses AAD on every GCM call, so without it no Mac running the system Ruby could open a package or submit."
   - id: STD-SMOKE-REAL-PACKAGES
     text: "Since 0.20.5 the platform smoke opens real teach.package/v1 envelopes on every OS leg: a known-answer guardrails envelope sealed by Teach, and guardrails and workspace packages that fake_teach seals for the enrolled install, stores, and then answers with 304. R-DOC-GUARD is no longer an expected doctor finding."
   - id: STD-CLI-VERSION

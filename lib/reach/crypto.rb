@@ -2,6 +2,7 @@ require "openssl"
 require "securerandom"
 require "base64"
 require "json"
+require_relative "gcm"
 
 module Reach
   module Crypto
@@ -58,6 +59,13 @@ module Reach
     end
 
     def encrypt_gcm(plaintext, aad:)
+      unless Reach::GCM.native_aad?
+        key = SecureRandom.random_bytes(AES_KEY_BYTES)
+        nonce = SecureRandom.random_bytes(AES_IV_BYTES)
+        ciphertext, tag = Reach::GCM.encrypt(key: key, nonce: nonce, plaintext: plaintext, aad: aad)
+        return { key: key, nonce: nonce, ciphertext: ciphertext, tag: tag }
+      end
+
       cipher = OpenSSL::Cipher.new(GCM_CIPHER)
       cipher.encrypt
       key = cipher.random_key
@@ -68,6 +76,10 @@ module Reach
     end
 
     def decrypt_gcm(key:, nonce:, ciphertext:, tag:, aad:)
+      unless Reach::GCM.native_aad?
+        return Reach::GCM.decrypt(key: key, nonce: nonce, ciphertext: ciphertext, tag: tag, aad: aad)
+      end
+
       cipher = OpenSSL::Cipher.new(GCM_CIPHER)
       cipher.decrypt
       cipher.key = key
