@@ -758,6 +758,7 @@ module Reach
       if results.is_a?(Hash) && !results.empty?
         lines << "harness results: #{results.map { |id, result| "#{id}=#{result}" }.join(', ')}"
       end
+      lines << Reach::Messages.text("M-SANDBOX-UPDATE-STALE", last_check: manifest["last_check_at"] || "never") if Reach::Sandbox.network_blocked?
       lines
     end
   end

@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.8] - 2026-10-03
+
+### Fixed
+
+- A rEach command that Codex runs in its own sandbox no longer reports a course-server outage or a hiccup "your
+  instructor was told" (STD-CODEX-SANDBOX). Outside a course folder the student has trusted, Codex's sandbox blocks the
+  network and `~/.reach`, so a macOS student's `reach debug on` failed with M-REACH-HICCUP-CLI and `reach doctor` said
+  the course server was unreachable while Teach was up. New `Reach::Sandbox` recognizes the sandbox
+  (`CODEX_SANDBOX`, or `CODEX_SANDBOX_NETWORK_DISABLED=1`, the only marker on Linux, plus a write probe of the Reach
+  home). `Reach::Client` then makes no request and raises `Reach::Offline` with M-SANDBOX-AGENT (cause
+  `codex_sandbox`), so the link is not marked lost. A command that fails on a blocked write says M-SANDBOX-AGENT
+  instead of M-REACH-HICCUP-CLI. `reach update run` and `reach update check` say M-SANDBOX-AGENT and do not run, and
+  `reach update status` adds M-SANDBOX-UPDATE-STALE, so a stale check is not read as "no newer version". `reach doctor`
+  opens with M-SANDBOX-AGENT, and `reach doctor --report` has a `sandbox` section. M-SANDBOX-AGENT points the agent to
+  the reach_ tools and carries M-SANDBOX-STUDENT, which tells the student in plain words to start a new chat from
+  their course folder and trust it.
+
+### Added
+
+- MCP tools `reach_debug` (action on with optional minutes, off, status) and `reach_doctor` (the `reach doctor` report),
+  available before enrollment like the commands they mirror, so an agent whose shell is sandboxed can still turn debug
+  mode on and run the health check.
+
 ## [0.21.7] - 2026-10-03
 
 ### Fixed

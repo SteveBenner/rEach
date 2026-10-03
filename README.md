@@ -187,6 +187,11 @@ or file text, codes, passwords or keys, sends it to Teach, and shows it at the e
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
 `reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
 
+Codex runs an agent's shell commands in its own sandbox, and outside a course folder the student has trusted that
+sandbox blocks the internet and rEach's folder. Since 0.21.8 a rEach command that the sandbox stops says so in plain
+words instead of reporting a lost connection, and the agent turns debug mode on or off and runs the health check
+through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox.
+
 ### Submitting
 
 Since 0.17.0, once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.

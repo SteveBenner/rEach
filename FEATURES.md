@@ -482,6 +482,13 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 
 Since 0.16.25 (wire revision 2026-10-02b, `STD-TEACH-LINK`) a student never sees a raw error, backtrace, hook error or hook timeout from rEach. `Reach::Link` tracks the Teach connection in `link.json` and tells the student once per outage that the connection was lost and their work is saved (`M-TEACH-LINK-LOST`), and once when it is back (`M-TEACH-LINK-BACK`): a hook `systemMessage` on Claude Code and Codex, a relay line on Hermes, stderr at the terminal. Every hook runs in a guard that keeps its allow or block outcome, shows at most one plain hiccup every 15 minutes, and gives the network a deadline inside the hook timeout. MCP tools and terminal commands answer in plain words. Every hidden error becomes a `fault` event and every connection change a `link` event, and both are sent to Teach even with debug mode off (reason `fault`, no message text) for `teach debug show --kind fault`. Verified 2026-10-02 against a real scratch Teach 0.17.3: the assignment-one smoke with link and crash journeys passed 51 steps (Teach stopped and restarted, notices once each, injected crashes in Claude Code, Hermes, terminal, MCP and load paths with no raw text, faults and link events stored at Teach as `student`), and a silent server held the 25 s tool deadline. Not verified: a live harness session showing the notices.
 
+Since 0.21.8 (`STD-CODEX-SANDBOX`) a command Codex runs in its own sandbox (outside a trusted course folder: no
+network, no writes to `~/.reach`) is not an outage: `Reach::Sandbox` recognizes it, `Reach::Client` makes no request,
+and the command says M-SANDBOX-AGENT (with M-SANDBOX-STUDENT for the student) instead of M-TEACH-LINK-LOST or
+M-REACH-HICCUP-CLI; `reach update` and `reach doctor` say so too. The MCP tools `reach_debug` and `reach_doctor` give
+the agent debug mode and the health check outside the sandbox. Verified with the real `codex sandbox` runner on Linux;
+not yet seen on a student's macOS Codex.
+
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 
 ### 2.31 · Opening a course folder

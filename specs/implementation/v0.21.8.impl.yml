@@ -1,0 +1,141 @@
+schema: reach.impl/v1
+version: 0.21.8
+kind: bug
+standard: STD-CODEX-SANDBOX (specs/app.yml, last entry; read it first, it is normative)
+problem: >-
+  A macOS student on Codex, working outside a trusted course folder, ran reach debug on and reach doctor through
+  Codex's shell. Codex's default workspace-write sandbox blocks the network and writes under ~/.reach. debug on failed
+  with M-REACH-HICCUP-CLI ("has let your instructor know", which is false because nothing could be sent). doctor
+  reported that the course server was unreachable and the rules had not synced, although Teach was up. The update
+  status showed a stale "none newer". The agent called the result "sign-in unavailable".
+constraints:
+  - No comments anywhere in code (shebang and magic comments that already exist stay).
+  - Do not write tests. There is no test suite; verify by running the CLI for real as described under verification.
+  - Do not touch lib/reach/debug.rb, lib/reach/hands.rb, lib/reach/submit.rb or specs/wire.yml; a peer branch owns them.
+  - Do not edit VERSION, CHANGELOG.md, README.md, reach.spec.yml, specs/app.yml, reach.rplugin.yml or plugin JSON
+    files; the primary does those.
+  - Never run rplugin install reach on this machine, and never touch ~/.reach or ~/.codex of the real user. Use a scratch
+    REACH_HOME under the scratchpad given in the task prompt.
+  - Every student- or agent-visible string goes in locales/en-US.yml by id (STD-STUDENT-MESSAGES). American English.
+  - Ruby floor is 2.6.10. No endless methods, no pattern matching, no numbered block params, no `it`.
+  - Follow the existing style (module_function or class << self, double quotes, two-space indent).
+slices:
+  - id: sandbox_module
+    owns_paths: [lib/reach/sandbox.rb, lib/reach.rb]
+    build: |
+      New file lib/reach/sandbox.rb, `# frozen_string_literal: true` only if sibling files use it (check lib/reach/link.rb
+      and copy its header), defining module Reach::Sandbox with module_function:
+        WRITE_ERRORS = [Errno::EPERM, Errno::EACCES, Errno::EROFS].freeze
+        active?            -> !ENV["CODEX_SANDBOX"].to_s.empty? || ENV["CODEX_SANDBOX_NETWORK_DISABLED"].to_s == "1"
+                              (macOS Codex sets CODEX_SANDBOX=seatbelt; Linux `codex sandbox` was observed to set only
+                              CODEX_SANDBOX_NETWORK_DISABLED=1)
+        network_blocked?   -> ENV["CODEX_SANDBOX_NETWORK_DISABLED"].to_s == "1"
+        home_writable?     -> memoized per process (@home_writable, reset by reset!). FileUtils.mkdir_p(Reach::Paths.root_state_dir),
+                              then File.write a probe file ".sandbox-probe-#{Process.pid}" in it and File.delete it; true on
+                              success; false on any WRITE_ERRORS; true on any other StandardError (never claim a sandbox
+                              on an unrelated failure).
+        blocked?           -> active? && (network_blocked? || !home_writable?)
+        blocking_error?(e) -> false unless active?; true when e is a Reach::NetworkError whose cause_name is "codex_sandbox";
+                              true when e (or e.cause, one level) is one of WRITE_ERRORS; else false.
+        agent_text         -> Reach::Messages.text("M-SANDBOX-AGENT", student: Reach::Messages.text("M-SANDBOX-STUDENT"))
+        reset!             -> clears the memo.
+      Require it from lib/reach.rb next to the other require_relative lines (before client and cli; after messages and paths).
+  - id: messages
+    owns_paths: [locales/en-US.yml]
+    build: |
+      Add, near M-TEACH-LINK-LOST / M-REACH-HICCUP-CLI, exactly these three keys (keep the file's quoting style):
+        M-SANDBOX-AGENT: "Codex ran this rEach command inside its sandbox, which blocks the internet and rEach's folder on this computer, so it could not finish. The course server is fine. Use rEach's reach_ tools instead (for example reach_debug, reach_doctor and reach_sync), because Codex runs them outside its sandbox. If no tool does what you need, tell the student: {student}"
+        M-SANDBOX-STUDENT: "Your AI app is running rEach in a locked-down mode that keeps it offline, so this step couldn't finish. Nothing is wrong with your course. To fix it, start a new chat from your course folder in the app, and if the app asks whether you trust that folder, say yes."
+        M-SANDBOX-UPDATE-STALE: "Codex's sandbox blocks the internet here, so these results are from rEach's last check ({last_check}), not a new one."
+      If the catalogue has a doctor/check that lists every key used in code (grep lib for Messages.text key validation),
+      make sure the new keys pass it.
+  - id: client
+    owns_paths: [lib/reach/client.rb]
+    build: |
+      In Reach::Client#request (private, around line 202), immediately after the REACH_OFFLINE block and before the
+      breaker check, add:
+        if Reach::Sandbox.network_blocked?
+          error = Reach::Offline.new(Reach::Sandbox.agent_text)
+          error.cause_name = "codex_sandbox"
+          error.detail = "#{method.to_s.upcase} #{path} codex_sandbox: CODEX_SANDBOX_NETWORK_DISABLED=1"
+          raise error
+        end
+      Do not call Reach::Link.lost! for it. Check every other place that issues HTTP outside Client#request
+      (grep lib/reach for Net::HTTP); the update checker (lib/reach/update.rb http_get) is handled in the cli slice, leave
+      it, but report any other direct Net::HTTP user you find.
+  - id: cli
+    owns_paths: [lib/reach/cli.rb, lib/reach/update.rb]
+    build: |
+      1. run_terminal's `rescue StandardError, ScriptError => e`: when Reach::Sandbox.blocking_error?(e), `warn
+         Reach::Sandbox.agent_text` and return 1 without Reach::Debug.fault (its spool cannot be written there); otherwise
+         keep the current behavior byte for byte.
+      2. failure_text(error, name): when Reach::Sandbox.blocking_error?(error), return Reach::Sandbox.agent_text before
+         anything else (no fault, no Link.notice!).
+      3. cmd_update: for sub "run" (not --background) and "check", when Reach::Sandbox.blocked?, `warn
+         Reach::Sandbox.agent_text` and return 1 before touching the lock or manifest. For "status" text output, after
+         the status lines, when Reach::Sandbox.network_blocked? also puts Reach::Messages.text("M-SANDBOX-UPDATE-STALE",
+         last_check: manifest last_check_at or "never"). Add that line inside Reach::Update.status_lines (append to
+         lines) so cmd_update stays simple; JSON status output stays unchanged.
+      4. cmd_doctor: at the very start of both the --report path and the normal path, when Reach::Sandbox.blocked?,
+         puts Reach::Sandbox.agent_text as the first line, then continue as before. Text output only; with
+         --report --format json do not print it (the sandbox section below carries it).
+  - id: diagnose
+    owns_paths: [lib/reach/diagnose.rb]
+    build: |
+      In Reach::Diagnose.report add a "sandbox" key after "environment":
+        { "active" => Reach::Sandbox.active?, "network_blocked" => Reach::Sandbox.network_blocked?,
+          "home_writable" => Reach::Sandbox.active? ? Reach::Sandbox.home_writable? : nil }
+      Wrap it the same way the other sections guard against exceptions (see `safe`). Make sure text_lines renders it.
+  - id: mcp_tools
+    owns_paths: [lib/reach/mcp_bridge.rb]
+    build: |
+      Add two entries to TOOLS, placed just before reach_storage:
+        reach_debug: description "Turn rEach's debug mode on (action on, optional minutes), off (action off) or show
+          whether it is on (action status, the default); works where the harness's shell is sandboxed. Tell the student
+          the text in plain words". inputSchema properties action (string enum on, off, status) and minutes (integer,
+          minimum 1, maximum 999999).
+        reach_doctor: description "rEach's health check (the same report as reach doctor) for the agent to read and
+          explain to the student in plain words; works where the harness's shell is sandboxed". Empty properties.
+      Add both to UNLOCKED_TOOLS (they mirror the unlocked CLI commands debug and doctor).
+      dispatch:
+        "reach_debug" -> debug_tool(arguments), a private helper that mirrors Reach::CLI.cmd_debug's on, off and status
+          text branches exactly (same Persona.active? handling, same message ids M-DEBUG-PERSONA, M-DEBUG-ON-UNTIL,
+          M-DEBUG-ON, M-DEBUG-OFF, M-DEBUG-REMOTE-STILL, M-DEBUG-STATUS-ON, M-DEBUG-STATUS-OFF and the same
+          interpolation values), returning { "text" => <the joined lines> }. Validate minutes like the CLI (positive
+          integer up to 6 digits) and raise Reach::Refused with Reach::Messages.text("M-DEBUG-USAGE") otherwise; an
+          unknown action raises Reach::Error "reach: unknown debug action".
+        "reach_doctor" -> run Reach::CLI.run(["doctor"]) with both $stdout and $stderr captured (extend capture_stdout
+          or add a capture_output helper that swaps both and restores both in ensure) and return
+          { "text" => <stdout + stderr, stripped>, "exit" => <code> }.
+verification:
+  scratch: Use the scratchpad directory given in the task prompt; set REACH_HOME there; never the real ~/.reach.
+  steps:
+    - >-
+      ruby -c every changed .rb file; run the CLI as the repo does (exe/reach or bin; find it) with `ruby -Ilib`.
+    - >-
+      Baseline outside a sandbox (CODEX_SANDBOX unset) with a scratch REACH_HOME: reach debug on, reach debug status,
+      reach debug off, reach doctor and reach update status produce exactly the pre-change output (compare to
+      `git stash`-free baseline by running the same commands against `git show HEAD:<file>` copies in a scratch worktree
+      if needed; a plain `git worktree add <scratch>/base HEAD` is fine; remove only that worktree by name afterwards).
+    - >-
+      CODEX_SANDBOX=seatbelt CODEX_SANDBOX_NETWORK_DISABLED=1 with a writable scratch REACH_HOME: reach doctor starts
+      with the M-SANDBOX-AGENT text and finishes quickly without network waits; reach update run --apply and reach
+      update check print M-SANDBOX-AGENT and exit 1; reach update status ends with M-SANDBOX-UPDATE-STALE; reach sync
+      (or any Teach-calling command available unenrolled) shows M-SANDBOX-AGENT, never M-TEACH-LINK-LOST, and
+      <REACH_HOME>/link.json (or wherever Link keeps state) is not set to lost.
+    - >-
+      CODEX_SANDBOX=seatbelt with a read-only scratch REACH_HOME (chmod -R a-w after creating it; restore with chmod
+      u+w before cleanup): reach debug on prints M-SANDBOX-AGENT, not M-REACH-HICCUP-CLI.
+    - >-
+      Reproduced before the change (primary, 0.21.7): `cd <scratch>/cwd && codex sandbox -- env REACH_HOME=<scratch>/home
+      ruby -I<repo>/lib <repo>/exe/reach debug on` printed M-REACH-HICCUP-CLI and exited 1; the sandbox env carried only
+      CODEX_SANDBOX_NETWORK_DISABLED=1. After the change the same command must print M-SANDBOX-AGENT.
+    - >-
+      If `codex` is on PATH and has a sandbox runner (`codex sandbox --help` or `codex debug landlock --help`), also run
+      one reach debug on and one reach doctor inside the real Codex sandbox against the scratch REACH_HOME placed
+      outside the sandboxed cwd, and report the output. If not available, say so.
+    - >-
+      MCP: pipe newline-delimited JSON-RPC (initialize, tools/list, tools/call reach_debug status/on/off, tools/call
+      reach_doctor) into `ruby -Ilib exe/reach mcp` (or the shim the repo uses) with the scratch REACH_HOME and show
+      that both tools answer, including before enrollment.
+  report: List files changed, the exact commands run and their key output lines, and anything you could not do.

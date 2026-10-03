@@ -44,6 +44,10 @@ module Reach
         warn notice if notice
         code
       rescue StandardError, ScriptError => e
+        if Reach::Sandbox.blocking_error?(e)
+          warn Reach::Sandbox.agent_text
+          return 1
+        end
         Reach::Debug.fault(e, "command:#{command_label(argv)}", "M-REACH-HICCUP-CLI")
         warn Reach::Messages.text("M-REACH-HICCUP-CLI")
         1
@@ -173,6 +177,8 @@ module Reach
       end
 
       def failure_text(error, name = nil)
+        return Reach::Sandbox.agent_text if Reach::Sandbox.blocking_error?(error)
+
         if Reach::Link.masked?(error)
           Reach::Debug.fault(error, "command:#{name || @command_name || "?"}", "M-REACH-HICCUP-CLI")
         end
@@ -1319,6 +1325,7 @@ module Reach
         if report
           offline, args = parse_bare_flag(args, "offline")
           options, _remaining = parse_flags(args, [:format])
+          puts Reach::Sandbox.agent_text if options[:format] != "json" && Reach::Sandbox.blocked?
           data = Reach::Diagnose.report(network: !offline)
           if options[:format] == "json"
             puts JSON.pretty_generate(data)
@@ -1327,6 +1334,7 @@ module Reach
           end
           return 0
         end
+        puts Reach::Sandbox.agent_text if Reach::Sandbox.blocked?
         install_chrome, _rest = parse_bare_flag(args, "install-chromium")
         if install_chrome
           if Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(only: "chrome") } == :busy
@@ -1759,6 +1767,10 @@ module Reach
           end
           0
         when "check"
+          if Reach::Sandbox.blocked?
+            warn Reach::Sandbox.agent_text
+            return 1
+          end
           result = Reach::Update.with_lock { Reach::Update.check(Reach::Update.load_manifest) }
           if result == :locked
             puts "reach: an update is already running"
@@ -1778,6 +1790,10 @@ module Reach
           if background
             Reach::Update.spawn_background(apply: apply)
             return 0
+          end
+          if Reach::Sandbox.blocked?
+            warn Reach::Sandbox.agent_text
+            return 1
           end
           result = Reach::Update.run(apply: apply, force: force || STDIN.tty?, check: !scheduled)
           if json
