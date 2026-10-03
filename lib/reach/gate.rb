@@ -138,6 +138,7 @@ module Reach
         context << safely { Reach::Next.anchor_text(space) }
       end
       context << safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) }
+      context << safely { Reach::Subscribe.prompt_notice }
       context << Reach::Messages.text("M-DEBUG-RELAY", text: toggled) if toggled
 
       text = context.compact.map(&:to_s).reject(&:empty?).join("\n\n")

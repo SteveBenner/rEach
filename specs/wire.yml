@@ -1080,6 +1080,31 @@ routes:
       issues: "[known issue (W-KI-1)], every entry not retired, ordered by id"
     response_304: when If-None-Match equals the current revision; no body
     reach_use: W-KI-3. Carries no student, install or course data, so it is served before enrollment.
+  - id: W-API-REVISION
+    since: 2026-10-03e
+    method: GET
+    path: /api/v1/revision
+    auth: install
+    request_headers: If-None-Match with the quoted revision Reach last stored, optional
+    response_200:
+      revision: "W-CONV-4 digest of canonical_json(parts); also sent as the ETag header in double quotes"
+      parts:
+        status: "W-CONV-4 digest of canonical_json of the W-API-STATUS body this install would get, with server_time removed"
+        grades: "W-CONV-4 digest of canonical_json of the W-API-GRADES body with as_of removed, or null while grades are switched off"
+        hands: "W-CONV-4 digest of canonical_json of [{hand_id, state, reply}] for every hand of the install's student, sorted by hand_id, with state and reply as W-API-HAND-STATUS answers them"
+        extra_credit: "W-CONV-4 digest of canonical_json of the W-API-EXTRA-CREDIT-LIST entries, or null while extra credit is switched off"
+        receipts: "W-CONV-4 digest of canonical_json of the receipt_ids of every receipt of the install's student, sorted"
+        known_issues: "the W-API-KNOWN-ISSUES revision"
+      server_time: W-CONV-3 timestamp
+    response_304: when If-None-Match equals the current revision; no body
+    notes: >-
+      The cheap probe behind Reach's subscription (W-SAFE-14): one signed request tells Reach whether anything it would
+      fetch on reach sync has changed, and which part. It carries digests only, never the content they cover. Computing
+      the status part has the same effects as answering W-API-STATUS. It is rate limited per install like every
+      authenticated route, and X-Reach-Fingerprint is not sent on it.
+    reach_use: >-
+      W-SAFE-14. A Teach that predates the revision answers 404, which Reach treats as no subscription available and
+      checks again no sooner than six hours later.
 submissions:
   W-SUB-1:
     name: resubmission
@@ -1281,6 +1306,7 @@ reach_client_safety:
   W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
   W-SAFE-13: {name: enrollment, rule: "since 2026-10-01b: only the enrollment prompt hook and reach enroll call W-API-ENROLL-PREVIEW and W-API-ENROLL, never in quick mode: connect 5 s, read 10 s, no retries, at most one preview per typed code and one enroll per yes; the local lockout (W-ENR-7) stops calls entirely while it lasts; X-Reach-Fingerprint is sent only on GET /api/v1/status"}
   W-SAFE-9: {name: transcripts, rule: "retired 2026-10-03b (W-TRN-0)"}
+  W-SAFE-14: {name: subscription, rule: "since 2026-10-03e: Reach checks W-API-REVISION in normal mode with one attempt and no retries, through the shared token bucket and circuit breaker, from its MCP server about every 60 s (plus up to 15 s of jitter) while a harness session runs and from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task for the current user) about every 900 s, and never more than once per 50 s across every Reach process on the machine; a 304 or an unchanged revision only records the check; a changed part runs one reach sync in that detached process, at most one at a time, and stores the new parts only after the sync completes; a 404 waits six hours; a failure backs off exponentially from 60 s to one hour; REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 stops every check, and a revoked install removes the operating system job"}
 transcripts:
   W-TRN-0:
     name: no capture

@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.21.6 |
-| **Last audited** | 2026-10-02 |
+| **Registry version** | 0.22.0 |
+| **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 88 catalogued |
+| **Feature count** | 89 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 78 | 90% |
+| ✅ Shipped | 79 | 89% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,8 +31,8 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 73 | 84% |
-| ⚫ No runtime path | 11 | 13% |
+| 🔵 Built, not enabled | 74 | 83% |
+| ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
 
@@ -591,6 +591,12 @@ Build ✅ · Deploy 🔵 · Blocker: Human (never run against a harness).
 whether this session is signed in (2.17). Unverified: neither has a separate run recorded.
 
 Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.39 · Teach subscription
+
+Since 0.22.0 (wire revision 2026-10-03e, Teach 0.30.0; STD-TEACH-SUBSCRIBE) Reach checks Teach's signed W-API-REVISION probe, about every 60 seconds from its MCP server while a harness session runs and about every 15 minutes from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task), and runs one `reach sync` only when a part changed, so rebuilt packages, assignments, policy, grades, hand replies, extra credit, receipts and known issues arrive without the student asking. `reach subscribe status|tick|install|uninstall` manage it, `reach doctor` prints R-DOC-SUBSCRIBE, and the prompt hook adds one plain line (M-SUBSCRIBE-UPDATES) naming what changed. `REACH_OFFLINE=1`, `REACH_SUBSCRIBE=0` and `subscribe.background: false` switch it off. Unverified: the macOS LaunchAgent and the Windows Task Scheduler job were generated as text only and never run on those systems; the Linux unit files were written to a scratch folder with no `systemctl` call.
+
+Build ✅ · Deploy 🔵 · Blocker: Engineering (not yet released; Teach 0.30.0 must serve the route, and the operating system jobs have not run on macOS or Windows).
 
 ## 3 · Course reference
 

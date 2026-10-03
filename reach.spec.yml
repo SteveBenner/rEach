@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.14
+version: 0.22.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -481,7 +481,9 @@ harness_integration:
         introduces itself first; it never blocks, so the student's other sessions are untouched. Since 0.19.1 it
         answers at once from local files and starts one detached reach hello --background (status refresh, course
         reference ingest, storage and import session start, late retry), which stores a refreshed context that the
-        session's next prompt carries once.
+        session's next prompt carries once. Since 0.22.0 the same background run keeps the Teach subscription's operating
+        system job current (Reach::Subscribe.ensure!, STD-TEACH-SUBSCRIBE), and the session's MCP server checks Teach for
+        changes about every 60 seconds (subscription).
     session_agent: >-
       settings.json {"agent": "reach:reach"} makes rEach the main session agent in Claude Code. A plugin agent's
       initialPrompt is ignored, so rEach speaks first through the hello context, not an automatic turn.
@@ -961,6 +963,9 @@ hand_raising:
     to owned files.
 mcp_bridge:
   command: reach mcp (stdio)
+  subscription: >-
+    Since 0.22.0 serving starts one daemon thread that spawns a detached reach subscribe tick --source session about every
+    60 seconds (STD-TEACH-SUBSCRIBE, subscription); it never writes to stdout or stderr and never blocks a tool call.
   tools:
   - name: reach_status
     description: The student's enrollment, current assignment, slices, package versions and outstanding receipts
@@ -1083,6 +1088,13 @@ cli:
       status shows the update manifest; check looks for newer releases and tags (the newest of both, since 0.16.14) and records them; run
       checks, downloads and stages the newest release and, with --apply, installs it through the release's own
       update/apply.rb, resuming an interrupted update first. Hooks call it with --background.
+  - name: subscribe
+    synopsis: reach subscribe status [--format text|json] | tick --source session|background | install | uninstall
+    purpose: >-
+      Since 0.22.0 (STD-TEACH-SUBSCRIBE), works before enrollment as an unlocked command. status shows the settings,
+      whether the background job is installed and where, the last and next check, the last sync, failures and
+      unsupported_until; tick makes one check of W-API-REVISION and syncs only when something changed; install and
+      uninstall manage the operating system job.
   - name: setup
     synopsis: reach setup [--harness auto|claude-code|codex|antigravity] [--source <link or path>]
     purpose: >-
@@ -1272,6 +1284,60 @@ cli:
       nonzero with the connect-to-course hint, and a blob that fails authentication is refused. Since 0.17.1 ingest
       spools the delivered course corpus into the microbrain when it changed, or always with --force, and prints
       M-COURSE-INGESTED; it exits 0 for ingested, unchanged and none, and 1 for disabled and failed.
+subscription:
+  standard: STD-TEACH-SUBSCRIBE
+  since: 0.22.0
+  wire: W-API-REVISION, W-SAFE-14
+  summary: >-
+    Reach polls Teach's signed W-API-REVISION probe and runs one reach sync only when a part changed. A student's
+    computer is behind NAT and Teach cannot hold a connection per student, so this is polling from two places: the
+    MCP server while a harness session runs and a user-level operating system job.
+  module: Reach::Subscribe (lib/reach/subscribe.rb)
+  state: >-
+    <home>/state/subscribe.json (0600, written under state/subscribe.state.lock): revision, parts, checked_at,
+    next_due_at, failures, unsupported_until, last_sync_at, notices and job. state/subscribe.lock holds one tick at a
+    time (non-blocking); state/sync.lock is Reach::Sync.run's exclusive lock.
+  settings: >-
+    config.yml subscribe: {background: true, session_interval_s: 60, background_interval_s: 900}. REACH_OFFLINE=1 and
+    REACH_SUBSCRIBE=0 make every entry point a no-op.
+  tick: >-
+    reach subscribe tick --source session|background returns at once when a kill switch is set, when no install is
+    enrolled or the install is revoked, when another tick holds the lock, when the last check was under 50 s ago, and
+    when unsupported_until or a backoff's next_due_at is ahead. Otherwise one GET /api/v1/revision (normal mode, one
+    attempt, If-None-Match with the stored quoted revision). 304 or an unchanged revision: record checked_at. A new
+    revision: Reach::Sync.run in this process (non-blocking sync lock), then store revision and parts, append one
+    notice per changed part and reset failures; a held sync lock or a raising sync keeps the old revision and parts.
+    404: unsupported_until = now + 21600. 403 revoked or not_enrolled: mark revoked and uninstall the job. Any other
+    failure: failures += 1 and next_due_at = now + min(60 * 2^(failures-1), 3600).
+  sync_lock: >-
+    Reach::Sync.run holds state/sync.lock for its whole run, waiting up to 120 seconds for interactive callers (reach
+    sync, reach_sync, persona) and not at all for a tick. Hooks never call Reach::Sync.run, so STD-HOOK-RESPONSIVE is
+    unchanged.
+  session_polling: >-
+    reach mcp starts one daemon thread that sleeps session_interval_s plus 0-15 s, spawns the tick through
+    Reach::Storage.spawn_detached when Reach::Subscribe.due? (a file read) says so, and repeats until the server exits.
+    It rescues everything and writes nothing to stdout or stderr.
+  background_job: >-
+    Reach::Subscribe.install!, uninstall! and installed? manage one idempotent job running <ruby> <shim> subscribe tick
+    --source background every background_interval_s. Linux: reach-subscribe.service and reach-subscribe.timer in
+    ~/.config/systemd/user (REACH_SYSTEMD_USER_DIR overrides the folder and suppresses every systemctl call), enabled
+    with systemctl --user enable --now; with no usable systemctl --user nothing is installed. macOS:
+    ~/Library/LaunchAgents/reach.subscribe.plist loaded with launchctl bootstrap gui/<uid> or launchctl load -w.
+    Windows: schtasks task rEach\Update check for the current user, run through rubyw.exe or, when absent, wscript.exe
+    on ~/.reach/bin/reach-subscribe.vbs. Every operating system call times out at 10 s and never prompts; a failure is
+    recorded in subscribe.json and Reach::Debug.fault.
+  ensure: >-
+    Reach::Subscribe.ensure! does nothing while a kill switch is set (REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 pause checks
+    but never remove the job), and otherwise installs the job when the install is enrolled and not revoked and settings
+    background is true, and uninstalls it when not. It runs from the detached reach hello --background, from a
+    detached reach subscribe ensure after enrollment and after reach update applies a release, never in a hook.
+  notices: >-
+    status course_update, grades grade, hands hand_reply, extra_credit extra_credit, receipts receipt; known_issues adds
+    none. They are stored unannounced and deduplicated by kind; the prompt hook reads them and adds M-SUBSCRIBE-UPDATES
+    once, then marks them announced; a notice older than 7 days is dropped.
+  cli: >-
+    reach subscribe status [--format text|json], tick --source session|background, install, uninstall (and ensure, the
+    detached entry). subscribe is an unlocked command. reach doctor prints R-DOC-SUBSCRIBE, informational only.
 client_safety:
   applies_to: Every call from Reach to Teach.
   version_header: Since 0.21.0 every signed request carries X-Reach-Version (W-AUTH-7, STD-VERSION-REPORT), set in Reach::Client#sign! beside the X-Teach-* headers.
@@ -1730,6 +1796,8 @@ student_messages:
     text: rEach is up to date (version {version}). Start a new session when it suits you to load everything.
   - id: M-UPDATE-RETRY
     text: rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own.
+  - id: M-SUBSCRIBE-UPDATES
+    text: "rEach picked up new course updates since your last message: {updates}. Tell the student in plain words if it helps their work."
   - id: M-GATE-NOENROLL
     text: rEach is locked until you enroll in your course. Type anything in a chat with your AI partner and rEach will walk you through it, or run reach enroll in a terminal.
   - id: M-GATE-NOGUARD

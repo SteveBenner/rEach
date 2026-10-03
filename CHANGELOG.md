@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-10-03
+
+### Added
+
+- Reach subscribes to Teach. It checks Teach's signed `W-API-REVISION` probe (wire revision 2026-10-03e, served by
+  Teach 0.30.0) about every 60 seconds from its MCP server while a harness session runs and about every 15 minutes
+  from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task), and
+  runs one `reach sync` only when something changed, so new packages, assignments, policy, grades, hand replies, extra
+  credit, receipts and known issues arrive on their own (STD-TEACH-SUBSCRIBE, W-SAFE-14). One check is one signed
+  request with no retries, never more often than every 50 seconds across every Reach process; a 404 waits six hours,
+  a failure backs off from a minute to an hour, and a revoked install removes the job.
+- `reach subscribe status|tick|install|uninstall`, a `reach doctor` line (R-DOC-SUBSCRIBE) and the prompt hook's
+  one-time line (M-SUBSCRIBE-UPDATES) telling the agent what changed so it can say so in plain words.
+- `REACH_SUBSCRIBE=0`, `REACH_OFFLINE=1` and `subscribe.background: false` in `config.yml` switch the checks off;
+  PRIVACY.md, INSTALL.md and the student guide say so.
+
+### Changed
+
+- `Reach::Sync.run` holds an exclusive lock, `state/sync.lock`, for its whole run, so a background sync never runs
+  beside a student's own; interactive callers wait up to 120 seconds.
+
 ## [0.21.14] - 2026-10-03
 
 ### Fixed

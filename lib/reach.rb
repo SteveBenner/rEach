@@ -104,6 +104,7 @@ require_relative "reach/ladder"
 require_relative "reach/qualify"
 
 require_relative "reach/update"
+require_relative "reach/subscribe"
 require_relative "reach/harness"
 require_relative "reach/hello"
 require_relative "reach/codex_cache"
