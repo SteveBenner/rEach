@@ -1,0 +1,71 @@
+schema: rstack.impl/v1
+component: reach
+version: 0.20.0
+feature: extra-credit codes
+contract:
+  wire: specs/wire.yml W-API-EXTRA-CREDIT, W-API-EXTRA-CREDIT-LIST, W-XC-1, W-XC-2, W-XC-3, W-ERR-2 extra_credit_*
+  standard: specs/app.yml STD-EXTRA-CREDIT (and the amended STD-PROFILE-LOCAL)
+  read_first:
+    - specs/wire.yml sections named above, verbatim
+    - git show 6551cd7 (Reach 0.19.0) for how lib/reach/grades.rb, the CLI verb, the MCP tool and messages were added
+    - lib/reach/profile.rb, lib/reach/client.rb, lib/reach/sync.rb, lib/reach/hands.rb (outbox and Idempotency-Key retry)
+    - lib/reach/enrollment_lock.rb and gate.rb for the locked-verb allowlist, lib/reach/debug.rb for W-DBG-SCRUB
+    - skills/reach-assistant/SKILL.md and agents/reach.md (persona bodies must stay identical, STD-PERSONA-ONE-SOURCE)
+owns_paths:
+  - lib/reach/extra_credit.rb
+shared_surfaces:
+  - lib/reach/profile.rb
+  - lib/reach/cli.rb
+  - lib/reach/sync.rb
+  - lib/reach/mcp_bridge.rb
+  - locales/en-US.yml
+  - skills/reach-assistant/SKILL.md
+  - agents/reach.md
+  - skills/reach-help/SKILL.md
+do_not_touch:
+  - specs/wire.yml
+  - specs/app.yml
+  - VERSION
+  - CHANGELOG.md
+  - FEATURES.md
+  - README.md
+  - TODO.md
+  - reach.spec.yml
+  - generated native plugin files (.claude-plugin/*, .codex-plugin/*, plugin.json, hooks/*.json); if an MCP tool list
+    lives in reach.rplugin.yml, edit that and report that rplugin package must be re-run
+slices:
+  profile:
+    - profile.yml gains extra_credit, a list of {entry_id (null while pending), local_id, code (display form
+      XC-ABCD-EFGH), label, points, answer, answered_at, recorded_at, state pending|recorded|refused, reason,
+      idempotency_key}; load/normalize keep it; save(fields:) never drops it; FIELDS is unchanged
+    - forget! deletes the file as now; reach profile forget prints that Teach keeps its record of extra credit (new message)
+  domain (lib/reach/extra_credit.rb):
+    - normalize(text) exactly per W-XC-1 (same algorithm as Teach), nil when invalid
+    - redeem(code:, answer:) refuses while locked or not enrolled; refuses an invalid code locally (M-XC-INVALID) and an
+      empty answer (M-XC-NO-ANSWER); refuses a code already recorded or pending in the profile; appends the pending
+      entry with a new Idempotency-Key and answered_at BEFORE any network call; then posts; 200 -> recorded with Teach's
+      entry fields; extra_credit_unknown/expired/used -> refused with the reason; transport failure, 429, 5xx -> stays
+      pending (M-XC-PENDING)
+    - retry_pending! posts every pending entry with its own key; called from reach sync
+    - pull! GETs the list and makes the recorded entries equal Teach's entries (keyed by entry_id), keeping pending and
+      refused ones; 404 from an old Teach is no change
+    - debug events (if debug is on) carry entry_id, state and outcome only; field names avoid the W-DBG-SCRUB substrings
+  surfaces:
+    - CLI: reach extra-credit CODE ANSWER... (answer is the remaining args joined, or --answer TEXT), and
+      reach extra-credit list; listed in reach help; refused while locked like other course verbs
+    - MCP tool reach_extra_credit {code, answer} and reach_extra_credit_list, following the grades tool pattern
+    - reach sync calls retry_pending! then pull!
+    - messages M-XC-RECORDED, M-XC-PENDING, M-XC-INVALID, M-XC-NO-ANSWER, M-XC-UNKNOWN, M-XC-EXPIRED, M-XC-USED,
+      M-XC-ALREADY, M-XC-FORGET-NOTE in locales/en-US.yml, plain student language (course passkey style of 0.18.1)
+    - persona (both copies identically) and reach-help: when the student says they have an extra-credit code, the
+      agent asks for the code and the student's own answer, runs reach extra-credit with exactly what the student
+      typed, relays Reach's message, and never writes, improves or invents the answer for the student
+acceptance:
+  - ruby -c passes on every changed file; reach doctor still reports R-DOC-PERSONA clean
+  - against tools/fake_teach extended in the scratchpad (or a scratch real Teach 0.20.0 if the Teach worker is done),
+    with REACH_HOME and workspace roots in the scratchpad: redeem recorded; redeem with Teach down stays pending and the
+    next reach sync records it with the same Idempotency-Key; unknown/expired/used become refused with the right message;
+    a second redeem of a recorded code is refused locally; reach extra-credit list shows all three states; sync pull
+    adds an entry present only on Teach; profile interview fields are never sent (inspect the request bodies)
+  - a locked (unenrolled) install refuses reach extra-credit
+  - nothing under tests/ or spec/ is added (no committed tests); tools/fake_teach changes, if any, stay in the scratchpad

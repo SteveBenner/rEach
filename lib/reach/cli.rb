@@ -299,6 +299,8 @@ module Reach
           cmd_transcripts(args)
         when "grade"
           cmd_grade(args)
+        when "extra-credit"
+          cmd_extra_credit(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -328,6 +330,7 @@ module Reach
             receipts [wait|show|acks]            receipts
             hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other)
             grade [--format text|json]           the points recorded for the student in Teach
+            extra-credit CODE ANSWER... | extra-credit CODE --answer TEXT | extra-credit list [--format text|json]   turn in an extra-credit answer, or list what was turned in
             transcripts export [--format text|json]   save a ZIP of the student's saved conversations to Downloads (works after the course has ended)
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor [--install-chromium]          check the local install, one line per problem
@@ -1111,6 +1114,26 @@ module Reach
         0
       end
 
+      def cmd_extra_credit(args)
+        if args.first == "list"
+          options, _remaining = parse_flags(args.drop(1), [:format])
+          result = Reach::ExtraCredit.list
+          puts((options[:format] || "text") == "json" ? JSON.generate(result) : result["text"])
+          return 0
+        end
+
+        options, remaining = parse_flags(args, [:answer, :format])
+        code = remaining.shift
+        if code.nil?
+          warn "usage: reach extra-credit CODE ANSWER... | reach extra-credit CODE --answer TEXT | reach extra-credit list"
+          return 1
+        end
+        answer = options[:answer] || remaining.join(" ")
+        result = Reach::ExtraCredit.redeem(code: code, answer: answer)
+        puts((options[:format] || "text") == "json" ? JSON.generate(result) : result["text"])
+        result["state"] == "refused" ? 1 : 0
+      end
+
       def cmd_submit(args)
         Reach::Update.hold!
         return cmd_submit_archive(args.drop(1)) if args.first == "archive"
@@ -1785,6 +1808,7 @@ module Reach
         when "forget"
           Reach::Profile.forget!
           puts "Your profile is deleted."
+          puts Reach::Messages.text("M-XC-FORGET-NOTE")
           0
         else
           warn "usage: reach profile show|save|forget"

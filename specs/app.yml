@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.19.2
+version: 0.20.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -50,7 +50,9 @@ standards:
   - id: STD-NO-TOP-BIN
     text: "The plugin root carries no top-level bin/ directory, because claude.ai and Cowork reject a plugin that has one (\"Plugin contains a top-level bin/ directory\"), whether it arrives by a marketplace added by URL, by organization sync or by upload. Since 0.18.4 the installer is scripts/reach-install, fetched by INSTALL.md from raw.githubusercontent.com/SteveBenner/rEach/main/scripts/reach-install and loaded by reach update from the installed plugin's scripts/ folder."
   - id: STD-PROFILE-LOCAL
-    text: "The student's interview profile lives only in ~/.reach/profile.yml (0600). It is sent to Teach only inside a hand-raise bundle the student agreed to include it in, and reach profile forget deletes it. Interview answers typed in a course workspace are prompts, and reach the course transcript like any other (STD-TRANSCRIPT)."
+    text: "The student's interview profile lives only in ~/.reach/profile.yml (0600). It is sent to Teach only inside a hand-raise bundle the student agreed to include it in, and reach profile forget deletes it. The profile's extra_credit list is not interview data and is the one part that syncs with Teach (STD-EXTRA-CREDIT). Interview answers typed in a course workspace are prompts, and reach the course transcript like any other (STD-TRANSCRIPT)."
+  - id: STD-EXTRA-CREDIT
+    text: "Since 0.20.0 (wire revision 2026-10-02f, W-XC-1..3) a student redeems an extra-credit code an instructor texted them, with their answer, at any time while enrolled: reach extra-credit CODE ANSWER, the reach_extra_credit MCP tool, or by telling the agent, which runs it. Reach saves the entry to the extra_credit list of ~/.reach/profile.yml as pending before sending it to Teach, keeps it pending through transport failures and retries it on every reach sync, and marks it recorded or refused with Teach's reason (M-XC-*). reach sync makes the recorded entries equal Teach's list. reach extra-credit list shows the entries. reach profile forget deletes the local list only and says Teach keeps its record. Debug events carry entry_id, state and outcome, never the code or the answer."
   - id: STD-TRANSCRIPT
     text: "Everything written in a course folder on a harness with hooks (Claude Code, Codex, Hermes) reaches the student's course record on Teach through W-API-TRANSCRIPT: every prompt, captured by reach gate prompt before any gate check, and since 0.10.0 the AI partner's replies, readable reasoning and actions, read from the harness's own session transcript by reach transcript code and reach transcript turn (on Hermes, which has no transcript file, from its hook payloads), and every version of every owned file written in a slice workspace, filed as assignment code. Since 0.16.12 files in the extracurricular folder never leave the student's computer; only the conversation held there is captured. Code blocks in a reply are split out as chat snippets, so the chat stays prose. Everything is spooled in ~/.reach/transcripts (0700, files 0600) and sent from the Stop and SessionEnd hooks and reach sync; no hook blocks on the network, a failure keeps every entry queued, and Reach sends only the entry kinds the course server's status lists. The student is told at enrollment (M-TRANSCRIPT-NOTICE), in every greeting inside a course folder (G-TRANSCRIPT-NOTICE) and by reach status. Conversations outside course folders and Antigravity sessions are not captured."
   - id: STD-BRAIN

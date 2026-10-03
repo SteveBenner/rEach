@@ -52,9 +52,26 @@ module Reach
         "fields" => merged,
         "started_at" => current["started_at"] || now,
         "completed_at" => status.to_s == "complete" ? now : current["completed_at"],
-        "updated_at" => now
+        "updated_at" => now,
+        "extra_credit" => current["extra_credit"]
       }
 
+      write(result)
+      result
+    end
+
+    def save_extra_credit(entries)
+      current = load
+      result = current.merge("extra_credit" => Array(entries).select { |entry| entry.is_a?(Hash) })
+      write(result)
+      result
+    end
+
+    def extra_credit
+      load["extra_credit"]
+    end
+
+    def write(result)
       Reach::Paths.ensure_home!
       File.write(path, YAML.dump(result), perm: 0o600)
       begin
@@ -62,7 +79,6 @@ module Reach
       rescue NotImplementedError, Errno::ENOENT
         nil
       end
-      result
     end
 
     def forget!
@@ -82,7 +98,8 @@ module Reach
         "fields" => {},
         "started_at" => nil,
         "completed_at" => nil,
-        "updated_at" => nil
+        "updated_at" => nil,
+        "extra_credit" => []
       }
     end
 
@@ -93,7 +110,8 @@ module Reach
         "fields" => data["fields"].is_a?(Hash) ? data["fields"] : {},
         "started_at" => data["started_at"],
         "completed_at" => data["completed_at"],
-        "updated_at" => data["updated_at"]
+        "updated_at" => data["updated_at"],
+        "extra_credit" => data["extra_credit"].is_a?(Array) ? data["extra_credit"].select { |entry| entry.is_a?(Hash) } : []
       }
     end
   end

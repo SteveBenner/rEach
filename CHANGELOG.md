@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-10-02
+
+### Added
+
+- Extra-credit codes (`STD-EXTRA-CREDIT`, wire revision 2026-10-02f, `W-XC-1`..`W-XC-3`, byte for byte with Teach
+  0.20.0). `reach extra-credit CODE ANSWER` (or `--answer TEXT`) and the `reach_extra_credit` MCP tool redeem a code an
+  instructor minted on Teach for this student, with the student's own answer, at any time while enrolled. The entry is
+  saved to the new `extra_credit` list of `~/.reach/profile.yml` as pending before anything is sent, posted to
+  `POST /api/v1/extra-credit` with an Idempotency-Key, and marked recorded or refused (`M-XC-UNKNOWN`, `M-XC-EXPIRED`,
+  `M-XC-USED`); offline it stays pending and `reach sync` retries it with the same key, then pulls
+  `GET /api/v1/extra-credit` so the recorded entries equal Teach's. `reach extra-credit list` and
+  `reach_extra_credit_list` show every entry and its state (`lib/reach/extra_credit.rb`).
+- The persona and `reach-help` tell the agent to ask for the code and the student's own answer, run the verb with
+  exactly what the student typed and never write the answer for them.
+
+### Changed
+
+- `STD-PROFILE-LOCAL`: the interview fields still never leave the computer; the profile's `extra_credit` list is the
+  one part that syncs with Teach. `reach profile forget` says Teach keeps its record of extra credit.
+- Debug `command` events for `extra-credit` keep only its own flag names, so an answer word that starts with `--`
+  never reaches an event.
+
 ## [0.19.2] - 2026-10-03
 
 ### Fixed

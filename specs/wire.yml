@@ -856,6 +856,36 @@ routes:
       A grade is a number of points an instructor records in Teach; the autograder's scenario results (W-RCPT-1) are
       not grades and this route never derives points from them. Teach that predates the revision answers 404, which
       Reach shows as grades not available yet.
+  - id: W-API-EXTRA-CREDIT
+    method: POST
+    path: /api/v1/extra-credit
+    auth: install
+    since: 2026-10-02f
+    request_headers:
+      Idempotency-Key: Required, as for submissions; a retry of one redemption reuses its key.
+    request:
+      redemption: {type: string, minLength: 10, maxLength: 10, note: "the extra-credit code normalized by W-XC-1"}
+      answer: {type: string, minLength: 1, maxBytes: 4000, note: "the student's answer, trimmed, stored by Teach as given (W-XC-2)"}
+      answered_at: W-CONV-3 timestamp of when the student gave the answer to Reach
+    response_200:
+      entry: "{entry_id, label, points, answer, answered_at, recorded_at} for the redeemed code (W-XC-3); points is a non-negative number or null"
+    errors:
+      400: "extra_credit_unknown when no live code of this course matches, or it is bound to another student; extra_credit_expired when its expiry has passed"
+      409: extra_credit_used when the code was already redeemed by a request with a different Idempotency-Key
+      503: unavailable when Teach's extra-credit kill switch is on
+    notes: >-
+      Teach never says whether an unknown code exists for another student. A redemption is final: the student cannot
+      change the answer, and an instructor who wants a new answer mints a new code.
+  - id: W-API-EXTRA-CREDIT-LIST
+    method: GET
+    path: /api/v1/extra-credit
+    auth: install
+    since: 2026-10-02f
+    response_200:
+      entries: "[W-XC-3 entry] for the install's own student in this course, oldest first"
+      as_of: W-CONV-3 timestamp of the answer
+    errors: {503: unavailable when Teach's extra-credit kill switch is on}
+    notes: Teach that predates the revision answers 404, which Reach treats as no extra credit recorded on Teach yet.
   - id: W-API-INTEGRITY
     method: POST
     path: /api/v1/integrity
@@ -1252,6 +1282,9 @@ errors:
       student_not_found: {status: 404, reach: "never retried; M-PERSONA-NO-STUDENT (since 2026-10-02a)"}
       device_move_pending: {status: 409, reach: "never retried automatically; M-ENR-MOVE-PENDING, the student's yes re-posts the same request; details {move_id} (since 2026-10-01c)"}
       device_move_denied: {status: 403, reach: "never retried; M-ENR-MOVE-DENIED with details.reason (since 2026-10-01c)"}
+      extra_credit_unknown: {status: 400, reach: "never retried; M-XC-UNKNOWN; the entry stays in the profile as refused (since 2026-10-02f)"}
+      extra_credit_expired: {status: 400, reach: "never retried; M-XC-EXPIRED; the entry stays in the profile as refused (since 2026-10-02f)"}
+      extra_credit_used: {status: 409, reach: "never retried; M-XC-USED; the entry stays in the profile as refused (since 2026-10-02f)"}
     rule: Reach branches on error.code, never on the HTTP status alone, because five codes share 403.
 compatibility:
   W-COMPAT-1:
@@ -1819,3 +1852,35 @@ enrollment:
       the per-IP limit Teach answers 429 rate_limited for more than 150 enrollment or preview requests per minute
       naming one course code (60 before revision 2026-10-01d), and for more than 5 enrollment_refused answers within 15 minutes naming one student_id
       or one username. Every refusal, move and mismatch is an audit record and appears on the console.
+extra_credit:
+  W-XC-1:
+    name: extra-credit codes
+    rule: >-
+      Since revision 2026-10-02f. An instructor mints an extra-credit code on Teach for one rostered student of one
+      course, with a label of 1 to 120 characters and optional points (a non-negative number). The code is "XC" plus 8
+      characters of Crockford base32 from a CSPRNG, shown as XC-ABCD-EFGH; the 8 characters are unique among the
+      course's codes. It is bound to that student, single use, and expires at 23:59 course time on the course's last
+      day unless the instructor sets an earlier expiry; an instructor can void an unredeemed code. The instructor
+      gives the code to the student outside Teach (Teach sends no message). Reach and Teach both normalize a typed
+      code the same way: uppercase, drop every character that is not A-Z or 0-9, map I and L to 1 and O to 0 after the
+      first two characters, and accept only XC followed by 8 Crockford characters (10 characters).
+  W-XC-2:
+    name: redemption
+    rule: >-
+      Since revision 2026-10-02f. A student gives Reach a code and an answer at any time while enrolled, inside or
+      outside a course folder. Reach saves the entry to the extra-credit section of its profile as pending before it
+      sends anything, then posts W-API-EXTRA-CREDIT. A transport failure, 429 or 5xx leaves it pending and every
+      later reach sync retries it with the same Idempotency-Key; an error code ends it as refused with the reason.
+      Teach records the redemption against the student the install belongs to only when the code is live, bound to
+      that student and unexpired, and keeps the answer only in its database: never in a log line, a debug event or an
+      audit record's text. An instructor persona's test student redeems codes minted for that test student only.
+  W-XC-3:
+    name: entries and profile sync
+    rule: >-
+      Since revision 2026-10-02f. An entry is {entry_id "xc_" + 20 lowercase hex, label, points, answer,
+      answered_at, recorded_at}. Reach keeps entries in the extra_credit list of ~/.reach/profile.yml, separate from
+      the interview fields, which never leave the computer (STD-PROFILE-LOCAL). reach sync fetches
+      W-API-EXTRA-CREDIT-LIST and makes the recorded entries in the profile equal Teach's list, keeping pending and
+      refused entries that Teach does not know. Teach shows every code and its entry on the console's Extra credit page
+      and on the student's page. A debug event about extra credit carries entry_id, state and outcome, never the code
+      or the answer (W-DBG-SCRUB).

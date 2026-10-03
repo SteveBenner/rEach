@@ -432,6 +432,7 @@ module Reach
 
       rest = argv.drop(1)
       flags = rest.select { |token| token.start_with?("--") }.map { |token| token.split("=", 2).first }.select { |token| token.match?(/\A--[a-z][a-z-]{0,30}\z/) }
+      flags &= %w[--answer --format] if name == "extra-credit"
       sub = rest.first.to_s
       sub = nil unless SUBCOMMAND_COMMANDS.include?(name) && sub.match?(/\A[a-z][a-z-]{0,23}\z/)
       emit(

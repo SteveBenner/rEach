@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.19.2 |
+| **Registry version** | 0.20.0 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 84 catalogued |
+| **Feature count** | 85 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,14 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 77 | 92% |
+| ✅ Shipped | 78 | 92% |
 | ⚪ Planned | 6 | 7% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 72 | 86% |
+| 🔵 Built, not enabled | 73 | 86% |
 | ⚫ No runtime path | 9 | 11% |
 
 ## 1 · Install
@@ -646,6 +646,16 @@ a Teach without the 2026-10-02e wire receives student_request with the type in t
 tools/fake_teach with a matching and a mismatched wire digest; Teach 0.19.0 accepted every type on scratch PostgreSQL.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.19.0 not yet live).
+
+### 3.10 · Extra-credit codes
+
+Since 0.20.0 (`STD-EXTRA-CREDIT`, wire 2026-10-02f) `reach extra-credit CODE ANSWER` redeems a code the instructor texted
+the student, keeps the entry in the profile's `extra_credit` list (pending, recorded or refused), retries pending
+entries and pulls Teach's list on `reach sync`. Verified against an extended tools/fake_teach for recorded, unknown,
+expired, used, offline-then-sync with the same Idempotency-Key, pull of a Teach-only entry, locked install and MCP, and
+end to end against a scratch Teach 0.20.0 (recorded, refused, offline then synced).
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students update to 0.20.0 on their own).
 
 ## 4 · Behaviour
 
