@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.12] - 2026-10-03
+
+### Fixed
+
+- rEach's tools never started in Codex on Windows, so a student who reinstalled rEach from the app's Plugins
+  directory still got "can't run rEach" and no way to update. While Codex's cached copy still has the root
+  `plugin.json`, Codex 0.160 starts the server from the root `mcp.json`, which since 0.20.7 ran `sh exe/reach-run`;
+  Windows has no `sh`. `mcp.json` runs `ruby ${PLUGIN_ROOT}/exe/reach mcp` again (as `reach.rplugin.yml` already
+  declares), so the server starts there and sets the root manifest aside (`STD-CODEX-PLUGIN-HOOKS`).
+- After that repair Codex reads `.codex-plugin/plugin.json`, whose MCP server Codex 0.160 started as a literal
+  `ruby '${PLUGIN_ROOT}/exe/reach' mcp` from the chat folder, on every operating system: Codex expands
+  `${PLUGIN_ROOT}` only in the root `mcp.json` and in hooks. The server now runs `ruby exe/reach mcp` with `"cwd": "."`,
+  which Codex resolves to its cached copy of rEach. Measured with Codex 0.160.0 in a scratch `CODEX_HOME`.
+- `Reach::Wire.digest` hashes `specs/wire.yml` with CRLF line endings turned into LF, so a copy whose line endings
+  were changed on Windows no longer reports R-DOC-WIRE against a Teach of the same revision. The digest of the
+  file as shipped is unchanged.
+
+### Added
+
+- The MCP tool `reach_update` (`lib/reach/mcp_bridge.rb`): action `run` starts `reach update run --apply --force` as
+  a detached process (`Reach::Update.spawn_background(now: true)`) and answers M-UPDATE-STARTED or
+  M-UPDATE-NOT-STARTED; action `status` (the default) returns the installed version and `reach update status`.
+  It works before enrollment and where Codex sandboxes the agent's commands, which until now had no way to update.
+  M-SANDBOX-AGENT, M-AGENT-UPDATE, the persona and the reach-assistant skill name it (`STD-CODEX-SANDBOX`).
+
 ## [0.21.11] - 2026-10-03
 
 ### Fixed

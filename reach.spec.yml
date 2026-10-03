@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.11
+version: 0.21.12
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -443,7 +443,7 @@ harness_integration:
       hooks/hooks.json: Claude's rendering of it (${CLAUDE_PLUGIN_ROOT}).
       hooks/codex.json: Codex's rendering, named by .codex-plugin/plugin.json (${PLUGIN_ROOT}, which Codex sets for plugin hooks).
       .mcp.json: Claude's and Cowork's MCP bridge (runs on the student's computer).
-      mcp.json: The Agent Plugins MCP bridge, read by Codex from its plugin cache; ${PLUGIN_ROOT} expands to that copy.
+      mcp.json: The Agent Plugins MCP bridge, read by Codex from its plugin cache; ${PLUGIN_ROOT} expands to that copy. It runs ruby, not sh, since 0.21.12, because Codex on Windows has no sh.
     no_top_level_bin: Claude Cowork refuses a plugin with a top-level bin/ directory, so the executable is exe/reach.
     enforcement_scope: >-
       Plugin-level hooks only greet. Course enforcement (gate, shape check, attempts) lives in each slice workspace's own

@@ -488,8 +488,10 @@ Since 0.21.8 (`STD-CODEX-SANDBOX`) a command Codex runs in its own sandbox (outs
 network, no writes to `~/.reach`) is not an outage: `Reach::Sandbox` recognizes it, `Reach::Client` makes no request,
 and the command says M-SANDBOX-AGENT (with M-SANDBOX-STUDENT for the student) instead of M-TEACH-LINK-LOST or
 M-REACH-HICCUP-CLI; `reach update` and `reach doctor` say so too. The MCP tools `reach_debug` and `reach_doctor` give
-the agent debug mode and the health check outside the sandbox. Verified with the real `codex sandbox` runner on Linux;
-not yet seen on a student's macOS Codex.
+the agent debug mode and the health check outside the sandbox, and since 0.21.12 `reach_update` (status, run) gives it the
+updater: run starts `reach update run --apply --force` detached. Verified with the real `codex sandbox` runner on Linux;
+not yet seen on a student's macOS Codex. `reach_update` was driven over stdio in a scratch home on 2026-10-03: status
+named the version, run started the detached updater and the next status showed its check.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 
@@ -791,7 +793,7 @@ The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 26 tools beyond `re
 `reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, and since 0.14.3 `reach_support`, `reach_part`,
 `reach_transfer_request`, `reach_modules` and `reach_next`, and since 0.16.15 `reach_remember`, `reach_recall` and
-`reach_memory_forget` (2.29) — each a thin wrapper the agent calls instead of shelling out to
+`reach_memory_forget` (2.29), and since 0.21.12 `reach_update` (2.30) — each a thin wrapper the agent calls instead of shelling out to
 the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
 returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
 tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.
@@ -965,7 +967,14 @@ bridge, `rplugin install --dry-run`. Unverified: `rplugin install reach` has not
 (a conflicting `~/.claude/skills/design-taste-frontend` and the id/directory-name mismatch block it), and on a developer
 machine it links the persona into every session (TODO.md).
 
-Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine).
+Since 0.21.12 the Codex MCP server starts on Windows and after the cache repair: the root `mcp.json` runs `ruby` (not
+`sh`, which Windows lacks) and `.codex-plugin/plugin.json` runs `ruby exe/reach mcp` with `"cwd": "."`, because Codex
+0.160 does not expand `${PLUGIN_ROOT}` there. Verified in a scratch `CODEX_HOME` with Codex 0.160.0: before and after the
+repair Codex launched a command that started the real server (36 tools, `reach_update` among them), and the root launch
+set the root manifest aside. Not yet seen on a Windows machine. Drift hazard: rplugin 1.6.3's Codex renderer still writes
+`${PLUGIN_ROOT}` into `.codex-plugin/plugin.json`, so a new `rplugin package` run would undo this until rplugin changes.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine; no Windows Codex run).
 
 ## 11 · Planned
 

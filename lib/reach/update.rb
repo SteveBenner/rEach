@@ -591,11 +591,11 @@ module Reach
       nil
     end
 
-    def spawn_background(apply:)
+    def spawn_background(apply:, now: false)
       return nil if disabled?
 
       exe = File.join(Reach::Runtime.root, "exe", "reach")
-      arguments = [RbConfig.ruby, exe, "update", "run", "--scheduled"]
+      arguments = [RbConfig.ruby, exe, "update", "run", now ? "--force" : "--scheduled"]
       arguments << "--apply" if apply
       options = { in: File::NULL, out: File::NULL, err: File::NULL }
       if Reach::Runtime.windows?

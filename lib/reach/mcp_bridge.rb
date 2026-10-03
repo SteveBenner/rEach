@@ -306,6 +306,14 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_update",
+        "description" => "Update rEach: action run starts rEach's own updater in the background (the same as reach update run --apply), and action status (the default) says which version is installed and where an update stands; works where the harness's shell is sandboxed. Tell the student the text in plain words",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "action" => { "type" => "string", "enum" => %w[status run] } }
+        }
+      },
+      {
         "name" => "reach_known_issues",
         "description" => "The known problems from the course server that match this computer's system and AI app, whether rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student through the steps in plain words, one at a time",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -320,7 +328,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -535,6 +543,8 @@ module Reach
           debug_tool(arguments)
         when "reach_doctor"
           doctor_tool
+        when "reach_update"
+          update_tool(arguments)
         when "reach_grade"
           Reach::Grades.fetch
         when "reach_extra_credit"
@@ -608,6 +618,14 @@ module Reach
         Reach::KnownIssues.refresh_if_stale!(quick: true)
         issues = Reach::KnownIssues.matching(mcp: true)
         { "issues" => issues, "text" => issues.empty? ? Reach::Messages.text("M-KNOWN-ISSUES-NONE") : nil }
+      end
+
+      def update_tool(arguments)
+        if arguments["action"].to_s == "run"
+          pid = Reach::Update.spawn_background(apply: true, now: true)
+          return { "text" => Reach::Messages.text(pid ? "M-UPDATE-STARTED" : "M-UPDATE-NOT-STARTED") }
+        end
+        { "text" => ["rEach #{Reach::VERSION}", *Reach::Update.status_lines].join("\n") }
       end
 
       def doctor_tool
