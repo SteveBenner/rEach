@@ -1,5 +1,23 @@
 # TODO
 
+## Live sessions (branch `mcp-wire`, wire revision 2026-10-03d, not released)
+
+- [ ] Run a live session on a real macOS and a real Windows install, and on Ruby 2.6; only Linux with Ruby 3.3 ran
+      (on 2.6.10 the code was syntax-checked and loaded, nothing more).
+- [ ] Run it under Codex and Cowork; only Claude Code ran as the student's harness.
+- [ ] A student at the ordinary sign-in question cannot ask for a live session until they answered it; only a
+      locked-out or refused sign-in opens the blocked path (a typed yes there would be ambiguous).
+- [ ] The blocked path ran through the prompt hook from a terminal only; see it once in a real harness, where the
+      block text is what the student reads.
+- [ ] A student who becomes blocked while a `reach live watch` is still running has their notices given to the
+      assistant, not shown under the block text. Not run.
+- [ ] The wake exists on Claude Code 2.1.288 or newer only. Codex, Cowork and Hermes show notices at the next
+      prompt; the desktop notification ran on Linux only.
+- [ ] `tools/fake_teach` has no live routes yet.
+- [ ] The installation and setup guide (both copies) does not mention live sessions; the student guide and the
+      reach-help skill do.
+- [ ] Agent messages for regular students stay behind the safety gate in ROADMAP.md.
+
 ## Analytics
 
 - [ ] Analytics we capture, identified by the enrolled student ID: decide and document which usage data, metadata

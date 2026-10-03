@@ -61,7 +61,7 @@ module Reach
         begin
           decision = Reach::Login.claim(event: event, harness: harness) if Reach::Login.required?
         rescue StandardError
-          decision = { "action" => "block", "message" => Reach::Messages.text("M-LOGIN-NEEDED"), "note" => nil, "failed" => true }
+          decision = { "action" => "block", "message" => Reach::Messages.text("M-LOGIN-NEEDED"), "note" => nil, "stuck" => true }
         end
       end
       elsewhere = decision == :elsewhere
@@ -71,9 +71,10 @@ module Reach
       locked = !blocked.nil? && Reach::EnrollmentLock::MESSAGES.value?(blocked.message_id)
       entry = locked || blocked || login_block || elsewhere ? nil : live_prompt(event)
 
-      blocked = Reach::GateBlocked.new(blocked.message_id, "#{blocked.message}\n\n#{toggled}") if blocked && toggled
+      live = blocked || (login_block && decision["stuck"]) ? safely { Reach::Live.blocked_prompt(event) } : nil
+      blocked = Reach::GateBlocked.new(blocked.message_id, [blocked.message, live, toggled].compact.join("\n\n")) if blocked && (toggled || live)
       raise blocked if blocked
-      raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, toggled].compact.join("\n\n")) if login_block
+      raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, live, toggled].compact.join("\n\n")) if login_block
       return nil if elsewhere
 
       witness("prompt")
@@ -131,6 +132,7 @@ module Reach
         done = safely { Reach::Consent.follow_up!(observed) }
         context << Reach::Consent.agent_context(observed, done) unless done.to_s.empty?
       end
+      context.concat(Array(safely { Reach::Live.prompt_notices(session) }))
       if space
         imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"]) }
         context.concat(Array(imports))

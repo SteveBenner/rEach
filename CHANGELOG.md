@@ -29,6 +29,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reach issues` (instructor persona or debug mode) lists the registry; `reach issues flush` sends what is waiting.
   `reach doctor` reports `R-DOC-ISSUES` while a report is waiting. `config.yml` gains `issues`; the course policy's
   `limits.issues` can only tighten it; `REACH_ISSUES_DISABLE=1` turns it off.
+- Live sessions (`STD-LIVE`, wire revision 2026-10-03d, `W-LIVE-1` to `W-LIVE-9`). A student can ask their
+  instructors for a live session through their assistant (the `reach_live` tool, or `reach live request`), or accept
+  one an instructor offers. It opens only after the student's own typed yes and, for a request, the instructor's
+  approval. While it is open rEach sends its debug events (what rEach did, never prompts, replies, code or files),
+  and the student and the instructor can exchange notes. The student or the instructor can end it at any time.
+- Two rules rEach itself enforces in every live session. A check the instructor's side asks for (one of seven fixed
+  ones: doctor, status, sync, update check, update, Codex cache repair, resend) runs only after the student's typed
+  yes for that check; a no, or no answer in 30 minutes, is reported back and nothing runs. And nothing the student's
+  assistant wants to send leaves the computer until the student has seen the exact text and typed yes.
+- For an instructor's own test student the two assistants can write to each other during a live session, under the
+  same two rules.
+- `reach live` (status, request, wait, note, say, end). `config.yml` gains `live`; `REACH_LIVE_DISABLE=1` turns it
+  off.
+- rEach wakes a waiting assistant during a live session. On Claude Code 2.1.288 or newer the Stop hook gains a
+  background entry (`reach live watch`) that ends when the instructor's side wrote, asked for a check, offered,
+  opened or ended a session, and Claude Code then wakes the assistant with rEach's notice. On older Claude Code and
+  on other apps the notice shows at the student's next prompt, as before. rEach also shows one desktop notification
+  when the instructor writes (never the text itself). `config.yml` `live.wake` and `live.notify` turn these off.
+- A student whose prompts rEach blocks (no course rules or course work yet, an update hold, an enrollment lock, a
+  locked-out or refused sign-in) can still have a live session. Typing a prompt with the words "live session" gets
+  rEach's question under the block text; yes or no is taken right there. The instructor's notes, each check's
+  question and the end are shown the same way, and "end live session" ends it. Such prompts are still never stored
+  or sent. `config.yml` `live.blocked` turns this off.
 - `tools/fake_teach` accepts trigger `issue`, opens technical and issue bundles into `hands.jsonl`, and serves
   `issue_state` and `fix_version` from `issues.json`.
 

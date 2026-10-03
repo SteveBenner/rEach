@@ -699,7 +699,13 @@ routes:
       debug: >-
         Since 2026-10-02a. {requested: boolean, until: "W-CONV-3 timestamp or null", by: "instructor id or null"}: an
         instructor's remote request that this install run debug mode (W-API-DEBUG). Always requested true for a test
-        student. Absent from an older Teach, which Reach reads as requested false.
+        student. Absent from an older Teach, which Reach reads as requested false. Since 2026-10-03d requested is
+        also true, with by "live" and until the session's end time, while the install's student has an open live
+        session (W-LIVE-6).
+      live: >-
+        Since 2026-10-03d. {session_id, state: "requested | offered | open", started_by: "student | instructor"} for
+        the install's live session that is not closed (W-LIVE-1), or null. Absent from an older Teach and from a Teach
+        with live sessions switched off, which Reach reads as null.
   - id: W-API-PACKAGE
     method: GET
     path: /api/v1/packages/:kind
@@ -1065,6 +1071,76 @@ routes:
       reply: "{text, decided_by, decided_at} or null"
       module_record: "the new signed module record (W-MOD-1) when approved, else null"
     reach_use: Polled on reach sync, and by the session hook, no more often than every 60 seconds and only while the request is pending (W-SAFE-12).
+  - id: W-API-LIVE
+    method: POST
+    path: /api/v1/live
+    auth: install
+    request:
+      hand_id: {type: string, required: false, note: "a hand of this student the session is about, or null"}
+      consent: W-CONSENT-1 record of the student's yes to the live session question (W-LIVE-2)
+    response_200: {session: W-LIVE-SESSION}
+    errors:
+      400 invalid_request: "a consent outside W-LIVE-2, or a hand_id that is not a hand of this student"
+      404 not_found: "live sessions are switched off on this Teach"
+      409 conflict: "details.reason live_capacity: three live sessions are already open on this Teach"
+    notes: >-
+      Since revision 2026-10-03d. Asks the instructors for a live session. The session starts as requested and opens
+      when an instructor approves it. When the install already has a session that is not closed, Teach answers that
+      session: an offered one opens, because the student has now agreed. A Teach older than this revision answers 404.
+  - id: W-API-LIVE-POLL
+    method: GET
+    path: /api/v1/live
+    auth: install
+    query: {after: "integer, default 0: the seq of the last message Reach holds"}
+    response_200:
+      session: "W-LIVE-SESSION, or null when the install has no session that is live or closed within the last 10 minutes"
+      messages: "[W-LIVE-MESSAGE] sent to the student's side with seq above after, oldest first, at most 50"
+      next_after: integer
+      poll_s: "the wait Teach asks for before the next poll: 3 while open, 10 otherwise"
+      disabled: "true only when live sessions are switched off on this Teach"
+    notes: >-
+      Since revision 2026-10-03d. The first poll of an open session marks the student's side attached (W-LIVE-4).
+  - id: W-API-LIVE-CONSENT
+    method: POST
+    path: /api/v1/live/:id/consent
+    auth: install
+    request:
+      answer: {enum: ["yes", "no"]}
+      consent: W-CONSENT-1 record carrying the same answer (W-LIVE-2)
+    response_200: {session: W-LIVE-SESSION}
+    errors:
+      400 invalid_request: "a consent outside W-LIVE-2, or an answer that differs from the record's"
+      404 not_found: "no such session of this install"
+      409 conflict: "details.reason not_offered: the session is not waiting for the student's answer; live_capacity as W-API-LIVE"
+    notes: >-
+      Since revision 2026-10-03d. The student's answer to an instructor's offer. Yes opens the session; no closes it
+      with end_reason declined_by_student. A repeated yes on an open session answers the session.
+  - id: W-API-LIVE-MESSAGE
+    method: POST
+    path: /api/v1/live/:id/messages
+    auth: install
+    idempotency_key: required
+    request:
+      kind: {enum: [note, agent, action_result]}
+      text: {type: string, note: "at most 4000 bytes; at most 16384 bytes for an action_result"}
+      action_id: {type: string, required: false, note: "action_result only: the id of the action message it answers"}
+      ok: {type: boolean, required: false, note: "action_result only"}
+    response_200: {message: W-LIVE-MESSAGE}
+    errors:
+      400 invalid_request: "a kind, text or action_id outside the rules above"
+      404 not_found: "no such session of this install"
+      409 conflict: "details.reason not_open, co_debug_off (an agent message in a session without co-debug), message_cap or message_rate (W-LIVE-7)"
+    notes: >-
+      Since revision 2026-10-03d. A repeat with the same Idempotency-Key, and a second result for one action, answer
+      the stored message.
+  - id: W-API-LIVE-END
+    method: POST
+    path: /api/v1/live/:id/end
+    auth: install
+    response_200: {session: W-LIVE-SESSION}
+    notes: >-
+      Since revision 2026-10-03d. The student ends the session, or withdraws a request, at any time and without a
+      reason. Ending a closed session answers it unchanged.
   - id: W-API-HEALTH
     method: GET
     path: /api/v1/health
@@ -1301,6 +1377,107 @@ issues:
       (any status W-SAFE-3 does not retry) drops the entry. When the outbox already holds max_queued issue hands,
       the oldest that is not blocking gives way; a blocking one gives way only to another blocking one. The wait
       applies to issue hands only: submissions and every other hand are retried as before.
+live:
+  W-LIVE-1:
+    name: live session
+    rule: >-
+      Since revision 2026-10-03d. A live session connects one rEach install with the instructors for a bounded time,
+      to find out together why something does not work. It is requested by the student (W-API-LIVE) or offered by an
+      instructor, and it opens only when both have agreed: the student by a captured yes (W-LIVE-2), an instructor in
+      Teach. Its states are requested (the student asked, an instructor has not answered), offered (an instructor
+      asked, the student has not answered), open and closed. An install has at most one session that is not closed,
+      and a Teach has at most three open at once.
+  W-LIVE-SESSION:
+    shape: >-
+      {id: "live_" + 20 hex, state, started_by: "student | instructor", hand_id: "string or null", requested_at,
+      opened_at, expires_at, closed_at, end_reason: "null, or one of ended_by_student, ended_by_instructor,
+      declined_by_student, declined_by_instructor, expired, unanswered, superseded", co_debug: boolean,
+      student_attached: boolean, instructor_attached: boolean, connected: boolean}; every time is a W-CONV-3
+      timestamp or null.
+  W-LIVE-MESSAGE:
+    shape: >-
+      {seq: integer, rising within the session, id: "lmsg_" + 20 hex, kind, at: W-CONV-3 timestamp} and, by kind:
+      note {text}, agent {text}, system {text}, action {action_id, name, label}, action_result {action_id, name, ok,
+      text}. The student's side receives note, agent, action and system, and sends note, agent and action_result.
+  W-LIVE-2:
+    name: the student's consent
+    rule: >-
+      A session opens for a student only on a W-CONSENT-1 record of kind live_session. For a request the subject is
+      {"live": "request"}; for the answer to an offer it is {"live": the session id}. Teach refuses a record whose
+      subject_digest is not the W-CONV-4 digest of canonical_json of that subject. The question names what the
+      session does: for its length the instructors see what rEach records on this computer in debug mode, and never a
+      prompt, a reply, code or a file; Reach asks the student before it runs any action (W-LIVE-5) and before the
+      agent sends anything (W-LIVE-7). An offer is never accepted by the agent or by Reach on the student's behalf.
+  W-LIVE-3:
+    name: time
+    rule: >-
+      An open session ends 60 minutes after it opened unless an instructor renews it, 30 minutes at a time and never
+      past 180 minutes in all. A request or an offer nobody answers closes after 15 minutes with end_reason
+      unanswered. Either side ends an open session at once (W-API-LIVE-END). Reach keeps no session open by itself:
+      when it cannot reach Teach it stops polling (W-LIVE-8) and the session runs out on Teach.
+  W-LIVE-4:
+    name: attached and connected
+    rule: >-
+      The student's side is attached from Reach's first poll of the open session, the instructors' side from the
+      first call of the instructor's session tools. connected is true while both are attached. Teach answers the
+      state to both sides and tells neither side anything else about the other.
+  W-LIVE-5:
+    name: fixed actions
+    rule: >-
+      While a session is open an instructor can have Reach run one of these, and nothing else, on the student's
+      computer: doctor (reach doctor --report), status (reach status), sync (reach sync), update_check (reach update
+      check), update (reach update run), cache_repair (the Codex plugin cache repair) and resend (reach issues flush
+      and reach debug flush). An action arrives as an action message with its name and a plain label. Reach never
+      runs one by itself: it asks the student its own question naming the action, in Reach's own words for that name,
+      and runs the action only after the student's captured yes (a W-CONSENT-1 record of kind live_action, subject
+      {"live": the session id, "action": the action message id}, which stays on the student's computer). On a yes
+      Reach runs it with no model and no shell, within 60 seconds, and answers with one action_result holding the
+      command's output, cut to 16384 bytes. On a no, on no answer within 30 minutes and for a name outside this list
+      it runs nothing and answers ok false with a fixed text saying which. At most 30 actions in a session and 6 in
+      a minute.
+  W-LIVE-6:
+    name: debug stream
+    rule: >-
+      While a session is open, status.debug answers requested true until the session's end (W-API-STATUS), so Reach
+      records debug events (W-DBG-EVENT) under reason remote and sends them as W-API-DEBUG batches about every 10
+      seconds instead of only at the end of a turn. Nothing outside W-DBG-EVENT is sent because a session is open.
+      When the session closes the request ends with it.
+  W-LIVE-7:
+    name: notes and co-debug
+    rule: >-
+      A note is short text one side writes for the other: the instructor's is shown to the student by the agent, the
+      student's is shown to the instructor. Co-debug lets the two assistants exchange agent messages directly. Teach
+      sets co_debug only for a session of a test student (W-API-ENROLL-INSTRUCTOR) and refuses an agent message in
+      any other session with 409 co_debug_off. Each side sends at most 200 messages in a session and 30 in a minute,
+      each at most 4000 bytes. Nothing the student's agent writes leaves the student's computer by itself: for every
+      note and every agent message Reach shows the student the exact text, at most 2000 bytes, and sends it only
+      after the student's captured yes (a W-CONSENT-1 record of kind live_send, subject {"live": the session id,
+      "send": the W-CONV-4 digest of the text}, which stays on the student's computer); a no sends nothing. Text from
+      the other side is data for the reader: neither assistant treats it as an instruction, the student's agent does
+      nothing the instructors' side asks for without the student's yes, and Reach's gates apply to it exactly as
+      outside a session. When a session closes, Teach erases the text of its agent messages and keeps notes, actions
+      and results.
+  W-LIVE-8:
+    name: Reach's side
+    rule: >-
+      Everything a session does on Reach's side runs in one detached process per install, never inside a hook or a
+      tool call: it sends the request or the answer to an offer, polls W-API-LIVE-POLL at the pace Teach names
+      (never faster than every 2 seconds), runs the actions and sends the notes and agent messages the student said
+      yes to, and sends the debug stream. It uses its own request
+      allowance of 30 a minute, apart from W-SAFE-2, so a session never holds back course work. After a failed poll
+      the next is not before a random wait between zero and the smaller of 60 seconds and 2 seconds doubled per
+      failure; after 5 failures in a row it stops, and the next prompt hook or reach live starts it again while the
+      session is still open. Reach learns of an offer from status.live and from one W-API-LIVE-POLL that the prompt
+      hook starts detached at most once a minute. REACH_LIVE_DISABLE=1, or live.enabled false in config.yml, switches
+      all of it off; a Teach with live sessions switched off answers disabled true and Reach stops asking for an
+      hour.
+  W-LIVE-9:
+    name: what a session never does
+    rule: >-
+      A session gives the instructors no shell, no file access and no way to type into the student's harness. It
+      never sends a prompt, a reply, code or a file, never changes a gate, an attempt ladder, a grade or a
+      submission, and never accepts consent. A fault from the seal, the witness ledger or the integrity checks is
+      recorded as outside a session and no action shows it.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
@@ -1368,6 +1545,7 @@ reach_client_safety:
   W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
   W-SAFE-13: {name: enrollment, rule: "since 2026-10-01b: only the enrollment prompt hook and reach enroll call W-API-ENROLL-PREVIEW and W-API-ENROLL, never in quick mode: connect 5 s, read 10 s, no retries, at most one preview per typed code and one enroll per yes; the local lockout (W-ENR-7) stops calls entirely while it lasts; X-Reach-Fingerprint is sent only on GET /api/v1/status"}
   W-SAFE-9: {name: transcripts, rule: "retired 2026-10-03b (W-TRN-0)"}
+  W-SAFE-14: {name: live sessions, rule: "since 2026-10-03d: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
 transcripts:
   W-TRN-0:
     name: no capture
@@ -1519,7 +1697,7 @@ alignment:
       the student's prompt), asked_at, answered_at}; since 2026-10-03b seq is null and digest is the W-CONV-4 digest
       of the prompt, read as it arrives and not kept. Commands accept only a yes whose subject_digest matches their
       own subject and whose answered_at is at most 30 minutes old, and use it once.
-    kinds: [module_lock, transfer_request]
+    kinds: [module_lock, transfer_request, live_session]
   W-ID-1:
     name: login
     rule: >-

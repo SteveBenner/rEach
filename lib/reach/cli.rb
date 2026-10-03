@@ -304,6 +304,8 @@ module Reach
           cmd_storage(args)
         when "issues"
           cmd_issues(args)
+        when "live"
+          cmd_live(args)
         when "grade"
           cmd_grade(args)
         when "extra-credit"
@@ -367,6 +369,7 @@ module Reach
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
+            live [status | request [--hand ID] | wait | note TEXT | say TEXT | end]   a live session with your instructors; rEach asks you before anything is run or sent
             storage [status | measure | compact] [--format text|json]   how much space rEach's memory uses on this computer, and compacting the saved course memory (asks the student first)
             import export PATH --mode brain|copy [--format text|json]   bring a downloaded ChatGPT, Claude or Gemini export (folder or ZIP) into rEach, asking the student first (brain: a catalog and findings; copy: the same plus a full copy on this computer)
             import pick [--folder]               open the operating system's own picker for the export's ZIP (or its folder) and print the chosen path
@@ -2177,6 +2180,37 @@ module Reach
           0
         else
           warn "usage: reach issues [list | flush [--background]]"
+          1
+        end
+      end
+
+      def cmd_live(args)
+        sub = args.shift || "status"
+        case sub
+        when "run"
+          Reach::Live.run!
+        when "watch"
+          Reach::Live.watch!
+        when "status"
+          puts Reach::Live.status["message"]
+          0
+        when "request"
+          options, _rest = parse_flags(args, [:hand])
+          puts Reach::Live.ask!(hand_id: options[:hand])["message"]
+          0
+        when "note", "say"
+          puts Reach::Live.send!(sub == "say" ? "agent" : "note", args.join(" "))["message"]
+          0
+        when "wait"
+          result = Reach::Live.wait
+          result["messages"].each { |row| puts "#{row['from']}: #{row['text']}" }
+          puts result["message"]
+          0
+        when "end"
+          puts Reach::Live.end!["message"]
+          0
+        else
+          warn "usage: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end]"
           1
         end
       end

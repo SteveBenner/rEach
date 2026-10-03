@@ -48,13 +48,14 @@ module Reach
   module TokenBucket
     CAPACITY = 20.0
     RATE_PER_SECOND = 20.0 / 60.0
+    BUCKETS = { "live" => { "capacity" => 30.0, "rate" => 30.0 / 60.0 } }.freeze
 
     module_function
 
-    def acquire!(quick: false)
+    def acquire!(quick: false, bucket: nil)
       deadline = Time.now + 30
       loop do
-        wait = try_take
+        wait = try_take(bucket)
         return if wait.nil?
 
         pacing_error!("busy") if wait == :busy
@@ -73,34 +74,37 @@ module Reach
       raise error
     end
 
-    def try_take
+    def try_take(bucket = nil)
       FileUtils.mkdir_p(Reach::Paths.state_dir)
-      path = Reach::Paths.bucket_file
+      named = BUCKETS[bucket.to_s]
+      path = named ? File.join(Reach::Paths.state_dir, "bucket-#{bucket}.json") : Reach::Paths.bucket_file
+      capacity = named ? named["capacity"] : CAPACITY
+      rate = named ? named["rate"] : RATE_PER_SECOND
       wait = nil
       held = Reach::Locks.exclusive(path) do |file|
         now = Time.now.to_f
-        state = read_state(file)
+        state = read_state(file, capacity)
         elapsed = [now - state["updated_at"].to_f, 0].max
-        tokens = [CAPACITY, state["tokens"].to_f + (elapsed * RATE_PER_SECOND)].min
+        tokens = [capacity, state["tokens"].to_f + (elapsed * rate)].min
         if tokens >= 1.0
           tokens -= 1.0
           write_state(file, "tokens" => tokens, "updated_at" => now)
         else
           write_state(file, "tokens" => tokens, "updated_at" => now)
-          wait = (1.0 - tokens) / RATE_PER_SECOND
+          wait = (1.0 - tokens) / rate
         end
       end
       held == :busy ? :busy : wait
     end
 
-    def read_state(file)
+    def read_state(file, capacity = CAPACITY)
       file.rewind
       raw = file.read
-      return { "tokens" => CAPACITY, "updated_at" => Time.now.to_f } if raw.nil? || raw.strip.empty?
+      return { "tokens" => capacity, "updated_at" => Time.now.to_f } if raw.nil? || raw.strip.empty?
 
       JSON.parse(raw)
     rescue JSON::ParserError
-      { "tokens" => CAPACITY, "updated_at" => Time.now.to_f }
+      { "tokens" => capacity, "updated_at" => Time.now.to_f }
     end
 
     def write_state(file, state)
@@ -166,18 +170,18 @@ module Reach
       @@breaker
     end
 
-    def self.for_install(install = Reach::Enroll.current, quick: false)
+    def self.for_install(install = Reach::Enroll.current, quick: false, bucket: nil, quiet: false)
       raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
       private_key = Reach::Crypto.load_private_key(File.read(Reach::Paths.install_key_file))
-      new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick)
+      new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick, bucket: bucket, quiet: quiet)
     end
 
     def self.anonymous(base_url, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
       new(base_url: base_url, install_id: nil, install_private_key: nil, quick: quick, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries)
     end
 
-    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
+    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, bucket: nil, quiet: false)
       @base_url = base_url.to_s.sub(%r{/+\z}, "")
       @install_id = install_id
       @install_private_key = install_private_key
@@ -185,6 +189,8 @@ module Reach
       @connect_timeout = connect_timeout
       @read_timeout = read_timeout
       @max_retries = max_retries
+      @bucket = bucket
+      @quiet = quiet
     end
 
     def get(path, query: nil, headers: {})
@@ -227,11 +233,11 @@ module Reach
             raise final_failure(method, path, "deadline", "deadline reached")
           end
 
-          TokenBucket.acquire!(quick: @quick)
+          TokenBucket.acquire!(quick: @quick, bucket: @bucket)
           response = perform(method, path, query_string, body, headers, target)
           duration_ms = ((Time.now - began_at) * 1000).round
-          log_request(method, target, response.status, duration_ms, attempt - 1)
-          Reach::Debug.response(method, path, response, attempt - 1, duration_ms, body)
+          log_request(method, target, response.status, duration_ms, attempt - 1) unless @quiet && response.status < 400
+          Reach::Debug.response(method, path, response, attempt - 1, duration_ms, body) unless @quiet && response.status < 400
 
           if response.status < 400
             self.class.breaker.record_success

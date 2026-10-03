@@ -1,4 +1,5 @@
 require "open3"
+require "timeout"
 require "json"
 require "fileutils"
 require "yaml"
@@ -152,6 +153,7 @@ module Reach
 
         stop_hooks = []
         stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "claude-code"), 30)
+        stop_hooks << wake_entry(h("live", "watch", "--harness", "claude-code")) if claude_wake?
 
         {
           "hooks" => {
@@ -182,6 +184,35 @@ module Reach
             "reach" => { "command" => Reach::Runtime.ruby_path, "args" => [Reach::Runtime.shim_path, "mcp"] }
           }
         }
+      end
+
+      CLAUDE_WAKE_VERSION = [2, 1, 288].freeze
+      CLAUDE_PROBE_S = 5
+      WAKE_TIMEOUT_S = 900
+
+      def wake_entry(command)
+        { "hooks" => [{ "type" => "command", "command" => command, "timeout" => WAKE_TIMEOUT_S, "async" => true, "asyncRewake" => true }] }
+      end
+
+      def claude_version
+        return @claude_version if defined?(@claude_version)
+
+        @claude_version = begin
+          out = Timeout.timeout(CLAUDE_PROBE_S) { Open3.capture2e("claude", "--version").first }
+          found = out.to_s.match(/(\d+)\.(\d+)\.(\d+)/)
+          found && found.captures.map(&:to_i)
+        rescue StandardError, Timeout::Error
+          nil
+        end
+      end
+
+      def claude_wake?
+        return false unless Reach::Live.wake?
+
+        version = claude_version
+        !version.nil? && (version <=> CLAUDE_WAKE_VERSION) >= 0
+      rescue StandardError
+        false
       end
 
       def hook_entry(matcher, command, timeout)

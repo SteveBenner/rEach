@@ -1721,6 +1721,50 @@ issue_reports:
     stderr from a terminal command. Never for a seal, ledger or integrity fault.
   commands: reach issues [list] (persona or debug mode only), reach issues flush [--background].
   doctor: R-DOC-ISSUES while an issue report waits in the outbox.
+live_sessions:
+  standard: STD-LIVE (specs/app.yml); wire W-LIVE-1 to W-LIVE-9 and W-API-LIVE routes, revision 2026-10-03d. Since 0.22.0.
+  library: >-
+    lib/reach/live.rb (Reach::Live: ask!, follow_up!, prompt_notices, status, send!, wait, end!, run!, note_status).
+    Reach::Consent hands the kinds live_session, live_action and live_send to it; Reach::Gate adds its notices to the
+    prompt context; Reach::Sync passes the status answer's live field to note_status.
+  state: >-
+    <home>/state/live/ (0600): state.json (the session, pending request or consent, actions waiting for the student,
+    the one staged outgoing message, what the student was told), inbox.jsonl (messages from the instructor's side),
+    state.lock and runner.lock. <home>/state/bucket-live.json is the runner's own token bucket (30 a minute).
+  rules: >-
+    A session is asked for or accepted only after the student's typed yes (consent live_session, sent to Teach). An
+    instructor-requested action runs only after the student's typed yes for that action (consent live_action, kept
+    local), within 30 minutes; otherwise the answer is ok false with a fixed sentence. A note or agent message is
+    sent only after the student saw its exact text and typed yes (consent live_send over the text's SHA-256, kept
+    local); one waits at a time. Agent messages only in a co_debug session. Actions are a fixed table:
+    doctor (reach doctor --report), status, sync, update_check (reach update check), update (reach update run),
+    cache_repair (Reach::CodexCache.repair), resend (reach issues flush and reach debug flush). 60 s and 16000
+    bytes per action, 2000 bytes per message.
+  runner: >-
+    reach live run --background, detached, one per install (runner.lock): sends the pending request or consent,
+    polls W-API-LIVE-POLL every 3 s while open and 10 s while waiting, runs approved actions, sends approved
+    messages, flushes debug events every 10 s, and exits when the session closes, after five failures in a row or
+    after 4 hours.
+  told: >-
+    M-LIVE-ASK and M-LIVE-OFFER-ASK (the session), M-LIVE-ACTION-ASK (each action), M-LIVE-SEND-ASK and
+    M-LIVE-SEND-ASK-AGENT (each message), M-LIVE-OPEN-AGENT or M-LIVE-OPEN-AGENT-CODEBUG with the rules once when
+    the session opens, M-LIVE-UNREAD while messages wait, M-LIVE-CLOSED once when it ends.
+  wake: >-
+    reach live watch, written into Claude Code's Stop hook as a second entry (async, asyncRewake, timeout 900) only
+    when claude --version answers 2.1.288 or newer (Reach::Harness.claude_wake?). Reach::Live.watch! takes the watch
+    token in state.json (the newest watcher wins), looks once a second for at most 840 s, and exits 2 with the
+    notices on stderr, or 0 with nothing. Reach::Desktop.notify shows M-LIVE-NOTIFY when a message arrives in an
+    open session, at most once every 20 s.
+  blocked: >-
+    Reach::Gate.prompt calls Reach::Live.blocked_prompt for a prompt it blocks (a GateBlocked, or a sign-in decision
+    marked stuck: locked out, refused, or the sign-in step failed) and adds its text under the block text.
+    Reach::Consent.observe_blocked captures yes or no for the live kinds only, without a confirmed sign-in, and
+    writes gate blocked into the answered record. The words live session ask M-LIVE-ASK; end live session queues a
+    pending end the runner posts to W-API-LIVE-END. Notices take the student form (the question itself,
+    M-LIVE-OPEN-STUDENT, M-LIVE-NOTE-STUDENT for each note, which marks the inbox read).
+  commands: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | watch | run [--background]].
+  tool: reach_live with action status, request, wait (up to 45 s, local inbox only), note, say or end.
+  switches: REACH_LIVE_DISABLE=1, config.yml live.enabled false; live.wake, live.notify and live.blocked false turn off the watcher, the desktop notification and the blocked-prompt path.
 student_messages:
   principle: >-
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses
