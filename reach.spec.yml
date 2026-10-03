@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.18.3
+version: 0.18.4
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1345,7 +1345,7 @@ corpus:
   degradation: Without rplugin and rcorpus, records stay in the spool until a run that can load them admits them.
 installer:
   public_zip: >-
-    bin/reach-install installs from the repository's public ZIP with no Git and no login. It reads the ZIP with a
+    scripts/reach-install installs from the repository's public ZIP with no Git and no login. It reads the ZIP with a
     pure-Ruby reader, materialises symlinks safely, backs up an existing install before replacing it, and downloads
     the Dovetail archive pinned in dovetail-revision.txt (Dovetail is also a git submodule at dovetail). It enforces
     size and count limits and bounded retries, and REACH_INSTALL_KILL_SWITCH stops it. Verified only against a local
@@ -1353,7 +1353,7 @@ installer:
   from_a_link: >-
     The student pastes the repository link into their agent (Claude Code, Cowork, Codex or Antigravity) and asks it
     to install rEach. The agent reads INSTALL.md, which tells it to run the harness's own plugin install, or (since
-    0.16.5) one command that downloads bin/reach-install, installs ~/.reach/plugin and runs exe/reach setup, asked to
+    0.16.5) one command that downloads scripts/reach-install, installs ~/.reach/plugin and runs exe/reach setup, asked to
     run outside the sandbox from the start so a sandboxing app asks the student once; setup ends with the NEXT block, which the agent reads
     to the student word for word ("rEach is installed and ready." and the greeting). In the Claude app and Codex app
     the student adds the link as a plugin marketplace in the app's plugin settings instead.
@@ -1401,7 +1401,7 @@ auto_update:
       advertisement, no git binary and no API limit). refs/tags/v?X.Y.Z entries are versions; peeled ^{} lines are
       ignored.
     archive: >-
-      https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip, read with bin/reach-install's own ZIP reader and
+      https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip, read with scripts/reach-install's own ZIP reader and
       completed with the Dovetail archive pinned in the release's dovetail-revision.txt. The unpacked VERSION must
       equal the tag's version or the stage is refused.
     repository: >-

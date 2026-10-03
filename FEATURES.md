@@ -37,7 +37,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 ### 1.1 · Public-ZIP installer
 
-`bin/reach-install` installs from the repository's public ZIP without Git or a GitHub login, using a pure-Ruby ZIP
+`scripts/reach-install` installs from the repository's public ZIP without Git or a GitHub login, using a pure-Ruby ZIP
 reader. It materialises symlinks safely, because the smoke found that the repository's `CLAUDE.md` symlink blocked
 installs from the public archive. It backs up an existing install, downloads the Dovetail archive pinned in
 `dovetail-revision.txt`, enforces size and count limits and bounded retries, and stops when

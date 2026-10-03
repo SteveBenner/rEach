@@ -196,7 +196,7 @@ module PlatformSmoke
       return [:fail, "git archive exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
 
       code, out, err = spawn_capture(
-        [RbConfig.ruby, File.join(ROOT, "bin", "reach-install"), "--archive", zip, "--destination", @install],
+        [RbConfig.ruby, File.join(ROOT, "scripts", "reach-install"), "--archive", zip, "--destination", @install],
         timeout: 300
       )
       return [:fail, "reach-install exited #{code.inspect}: #{tail(out, err)}"] unless code == 0

@@ -398,7 +398,7 @@ module Reach
       tag = manifest["target_tag"]
       target = manifest["target_version"]
       url = "https://#{host}/#{owner}/#{repo}/archive/refs/tags/#{tag}.zip"
-      load File.join(Reach::Runtime.root, "bin", "reach-install") unless defined?(::ReachInstall)
+      load File.join(Reach::Runtime.root, "scripts", "reach-install") unless defined?(::ReachInstall)
       FileUtils.mkdir_p(Reach::Paths.updates_dir, mode: 0o700)
       Dir[File.join(Reach::Paths.updates_dir, "staging-*")].each { |orphan| remove_staging(orphan) }
       temp = File.join(Reach::Paths.updates_dir, "staging-#{target}-#{SecureRandom.hex(3)}")

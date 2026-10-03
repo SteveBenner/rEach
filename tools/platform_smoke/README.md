@@ -14,7 +14,7 @@ The script starts from a copy of the environment with every `TEACH_*` and `REACH
 
 | Step | What it proves |
 | --- | --- |
-| install | `bin/reach-install --archive` of a `git archive` of HEAD installs the same VERSION and an `exe/reach` |
+| install | `scripts/reach-install --archive` of a `git archive` of HEAD installs the same VERSION and an `exe/reach` |
 | fake_teach | the fixture answers `GET /api/v1/health` with 200 |
 | hook_session_start | the SessionStart command from the installed `hooks/hooks.json` exits 0 |
 | hook_prompt_locked | the UserPromptSubmit gate blocks before enrollment: exit 2, a message on stderr, nothing on stdout |
