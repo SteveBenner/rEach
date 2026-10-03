@@ -92,7 +92,7 @@ module Reach
 
     def locked_context(format = "hook")
       guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"))
-      text = "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}"
+      text = "#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}"
       return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
 
       "#{text}\n#{Reach::Messages.text("M-ENR-AGENT-CODEX-REPAIRED")}"
@@ -112,7 +112,7 @@ module Reach
     end
 
     def login_context(updating = nil)
-      text = "#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}"
+      text = "#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}\n- #{Reach::Messages.text('M-AGENT-TALK')}"
       updating ? "#{text}\n#{update_line(updating)}" : text
     end
 
@@ -316,6 +316,8 @@ module Reach
       lines = []
       lines << "rEach session context (from reach hello)"
       lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
+      lines << "- #{Reach::Messages.text("M-AGENT-TALK")}"
+      lines << "- #{Reach::Messages.text("M-AGENT-UPDATE")}"
       if greeting_text
         lines << "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:"
         greeting_text.each_line { |line| lines << "  #{line.chomp}" }

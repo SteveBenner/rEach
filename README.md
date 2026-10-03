@@ -10,7 +10,7 @@ agent into **rEach**, a bounded course partner for a
 
 Until the student enrolls, rEach refuses everything else: it blocks every
 prompt and asks the student itself, one at a time, for the class-wide course
-code their instructor shared (like `BUS101-K7QX-94TD`), their institutional
+passkey their instructor shared (like `BUS101-K7QX-94TD`), their institutional
 username (`FLLLNNN@school.example`) and their student ID, and last asks them to
 choose a password (at least 8 characters, typed twice, to write down), so the
 agent never sees any of it. Teach checks them against its roster and returns a signed
@@ -91,7 +91,7 @@ An install at `~/.reach/plugin` updates itself. rEach looks for the newest versi
 when a session starts and once an hour while you work, downloads it in the background, and installs it
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
 `~/.reach/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
-things stand; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
+things stand and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
 is never updated.
 
 Hermes keeps hooks and MCP servers in a profile's `config.yaml`, never per

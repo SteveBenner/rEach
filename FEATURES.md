@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.18.0 |
+| **Registry version** | 0.18.1 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 77 catalogued |
+| **Feature count** | 80 catalogued |
 
 ## How to read this registry
 
@@ -23,15 +23,15 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 70 | 91% |
+| ✅ Shipped | 73 | 91% |
 | ⚪ Planned | 6 | 8% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 65 | 84% |
-| ⚫ No runtime path | 9 | 12% |
+| 🔵 Built, not enabled | 68 | 85% |
+| ⚫ No runtime path | 9 | 11% |
 
 ## 1 · Install
 
@@ -75,6 +75,25 @@ plugin cache moved from 0.12.9 to 0.13.0 through the refresh. Students on 0.12.0
 one manual reinstall; only tagged versions are offered.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student install has received a real release through it yet; Codex refresh and Windows unverified).
+
+### 1.4.1 · The agent updates only through Reach
+
+Since 0.18.1 (`STD-AGENT-UPDATE`) the persona's "Updating rEach" section, `M-AGENT-UPDATE` in `reach hello`'s
+context and `INSTALL.md` tell the agent to update with `reach update run --apply` and never to search GitHub's
+releases or tags or download an archive itself, after a rEach agent called GitHub's web index "noisy" while looking
+for a tagged ZIP. GitHub's releases page then listed only Ruby runtime kits, with `runtime-4.0.7-r3` marked Latest.
+v0.18.1 is the first rEach version with its own GitHub release, marked Latest. Verified 2026-10-02 with Sonnet
+given the persona and the signed-in context: a student "who doesn't really know computers" got a plain answer with no
+command, and a self-described engineer who asked for the command got `reach update run --apply`.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
+
+### 1.4.2 · reach --version
+
+Since 0.18.1 (`STD-CLI-VERSION`) `reach version`, `reach --version` and `reach -V` print `reach <VERSION>` and exit 0,
+enrolled or not. Verified 2026-10-02 in scratch HOMEs, before and after enrolling against `tools/fake_teach`.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
 
 ### 1.5 · Installation and setup guide
 
@@ -356,14 +375,16 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 ### 2.27 · Enrollment v2 and lockdown
 
 Since 0.16.0 rEach does nothing until it is enrolled. A plugin-level prompt hook blocks every prompt in every
-harness session and asks, one at a time, for the class-wide course code (`BUS101-K7QX-94TD`, typed any way:
+harness session and asks, one at a time, for the class-wide course passkey (since 0.18.1 the student-facing name of the wire's course
+code, `STD-COURSE-PASSKEY`; `BUS101-K7QX-94TD`, typed any way:
 dashes, spaces, case and O/0, I/L/1 in the secret are forgiven; a course id within two edits still matches), the
 school username (`FLLLNNN@school.example`) and the student ID. It confirms, then enrolls with wire
 shape v2. Teach answers with a signed enrollment stamp binding the install, the student, the course and a salted,
 hashed fingerprint of the computer, the account and the install key. Every CLI verb except help, enroll, setup,
 doctor, support, update, guide and the hooks, and every MCP tool, refuses while locked. Reach locks again when the stamp
 fails, the course ends, or the fingerprint stops matching, locally or on Teach's status check. The crisis check runs
-before every step. `reach enroll --course-code ... --username ... --student-id ...` does the same from a terminal.
+before every step. `reach enroll --course-passkey ... --username ... --student-id ...` does the same from a terminal
+(`--course-code` stays as an unlisted alias).
 
 Verified 2026-10-01 against `tools/fake_teach`, the stand-in for Teach's half:
 - every flow branch: format errors, course id only, did-you-mean, expired code, refusal, five-refusal lockout with no
@@ -618,6 +639,19 @@ crisis and own-part scenarios, 2.22, 2.23, 2.18) and on Hermes with Sonnet (10.5
 Antigravity sessions, and whether Claude applies `settings.json` `"agent": "reach:reach"` for an installed plugin (TODO.md).
 
 Build ✅ · Deploy 🔵 · Blocker: Human (Codex, Antigravity and the plugin `agent` setting).
+
+### 4.3.1 · Plain talk for new computer users
+
+Since 0.18.1 (`STD-PLAIN-TALK`) the persona's "How you talk with the student" section binds in every session and
+folder: the agent treats the student as a new computer user, keeps commands and rEach's workings out of the
+conversation unless the student asks for exactly that, describes student-only steps as what to click, and goes faster
+or deeper only on evidence (profile coding experience "quite a bit", a remembered finding, or the student's own
+request), which it records with `reach remember`. `M-AGENT-TALK` repeats the rule in the signed-in, sign-in-pending
+and locked session contexts. Verified 2026-10-02 with Sonnet given the persona and the signed-in context: asked to
+open a side-project folder or fix a failed update, it answered in plain words and named no command. Codex,
+Antigravity and Hermes sessions were not run.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
 
 ### 4.4 · Real-Claude smoke
 

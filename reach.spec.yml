@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.18.0
+version: 0.18.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1002,6 +1002,9 @@ cli:
       which means the enrollment hook is not running (in Codex, rEach's hooks are untrusted). INSTALL.md has the
       installing agent use it for setup's host steps. It exits 1 with M-GUIDE-MISSING or M-GUIDE-DAMAGED when the
       file is absent or unreadable.
+  - name: version
+    synopsis: reach version | reach --version | reach -V
+    purpose: Since 0.18.1, prints reach <VERSION> and exits 0; it works before enrollment
   - name: update
     synopsis: reach update status|check|run [--apply] [--background] [--format text|json]
     purpose: >-
@@ -1068,12 +1071,13 @@ cli:
       (the PostToolUse write hook) records the files just written; flush sends the spool to Teach; status says how
       many entries are sent and how many wait
   - name: enroll
-    synopsis: reach enroll [--course-code CODE --username USER --student-id ID [--password-stdin] | <code>]
+    synopsis: reach enroll [--course-passkey PASSKEY --username USER --student-id ID [--password-stdin] | <code>]
     purpose: >-
       The course server is config.yml teach.url (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, the course's Teach behind Tailscale
       Funnel); the student is never asked for it. Since 0.16.20 --teach-url is an unlisted operator override (the
       smokes use it), as is REACH_TEACH_URL; without a configured URL enroll says to run reach update.
-      Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
+      Since 0.18.1 the student-facing name is course passkey: --course-passkey, with --course-code kept as an unlisted
+      alias. Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and
       fingerprint, prints M-ENROLL-DONE, M-TRANSCRIPT-NOTICE and M-FINGERPRINT-NOTICE, then syncs; a bare <code>
       enrolls with shape v1 as before. Generate keys, enroll with Teach, then sync. It verifies the response fields, the wire digest equality and

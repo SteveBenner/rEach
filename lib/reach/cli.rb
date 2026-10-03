@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -199,6 +199,9 @@ module Reach
         when nil, "--help", "-h", "help"
           print_usage
           0
+        when "version", "--version", "-V"
+          puts "reach #{Reach::VERSION}"
+          0
         when "enroll", "enrol"
           cmd_enroll(args)
         when "instructor"
@@ -293,8 +296,9 @@ module Reach
           usage: reach <command> [options]
 
           commands:
-            enroll [--course-code C --username U --student-id I --password-stdin]   enroll with your course code, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
+            enroll [--course-passkey P --username U --student-id I --password-stdin]   enroll with your course passkey, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
             enroll <code>                        enroll with a per-student code
+            version                              print this rEach's version (also --version, -V)
             sync                                 fetch new packages and refresh workspaces
             status                               enrollment, slices, receipts, open hands
             work [--harness ...] [--slice ... | --extracurricular]   open a slice, or your own folder
@@ -399,7 +403,8 @@ module Reach
 
       def cmd_enroll(args)
         password_stdin, args = parse_bare_flag(args, "password-stdin")
-        options, remaining = parse_flags(args, [:teach_url, :course_code, :username, :student_id])
+        options, remaining = parse_flags(args, [:teach_url, :course_passkey, :course_code, :username, :student_id])
+        options[:course_code] = options.delete(:course_passkey) || options[:course_code]
         options[:password_stdin] = password_stdin
         code = remaining.shift
         teach_url = options[:teach_url] || Reach::Runtime.default_teach_url
@@ -412,7 +417,7 @@ module Reach
         end
 
         unless code
-          warn "usage: reach enroll [--course-code C --username U --student-id I --password-stdin] | reach enroll <code>"
+          warn "usage: reach enroll [--course-passkey P --username U --student-id I --password-stdin] | reach enroll <code>"
           return 1
         end
         install = Reach::Enroll.generate_and_register(code, teach_url)
