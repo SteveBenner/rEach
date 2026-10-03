@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-10-03
+
+### Added
+
+- Debug mode by phrase: a prompt that is only "enable debug mode", "turn debug on", "turn debug off" or a close variant
+  switches debug mode from the prompt hook (`Reach::Debug.phrase`, `toggle_from_prompt!`, `lib/reach/gate.rb`), before
+  any enrollment or lock check, and the agent relays the confirmation word for word (M-DEBUG-SAID-ON, M-DEBUG-SAID-OFF,
+  M-DEBUG-RELAY). On a locked install the confirmation follows the lock message. A sentence that only mentions debug
+  changes nothing.
+- Operating-system detail in the debug `session` event (`lib/reach/os_info.rb`): OS family, name, version and build,
+  kernel, arch, WSL, container, virtualization, CPU, memory, disk, uptime, load, locale, timezone, shell, terminal,
+  desktop, session type, ssh, and Ruby, git, node and Chrome versions. Never a hostname, username, path or address;
+  cached for 24 hours, every probe bounded to 2 seconds. No wire change.
+
 ## [0.20.0] - 2026-10-02
 
 ### Added

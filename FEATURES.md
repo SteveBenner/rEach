@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.20.0 |
+| **Registry version** | 0.20.1 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -451,6 +451,8 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed and the instru
 ### 2.30c · Debug mode
 
 Since 0.16.23 rEach records scrubbed metadata events (W-DBG-KINDS; never prompt or file text, codes, passwords or keys) under `debug/` in the rEach home, always for a persona and otherwise after `reach debug on [--for MINUTES]` or an instructor's `teach debug on`, which the student is told about. It sends them to Teach (`W-API-DEBUG`), keeps them queued on any failure, and shows each turn's events as a hook `systemMessage`: an ASCII table on terminal surfaces, a Markdown table on desktop and IDE surfaces, with `debug.render` as the override; Hermes has no user-visible hook channel, so `reach debug show` is the way there. Verified 2026-10-02: with debug off every hook output and file listing is identical to 0.16.22's (117-line diff); against the real scratch Teach a persona's 29 events of 8 kinds were stored as classification instructor and both table formats rendered; against a stub, the scrub, local and remote switches, the once-per-session notice and the offline queue. Not verified: a live harness rendering the block.
+
+Since 0.20.1 the person can say "enable debug mode" or "turn debug on" (and "turn debug off") to their AI partner instead of running a command; rEach switches it from the prompt hook, even before enrollment or while locked, and the agent relays the confirmation word for word. The session event then carries operating-system detail (`Reach::OsInfo`: distro or macOS or Windows version and build, kernel, arch, WSL, container, CPU, memory, disk, locale, timezone, shell, terminal, desktop, tool versions; never a hostname, username or path). Verified 2026-10-03 on a scratch home: the phrases switch it on and off, sentences that only mention debug change nothing, the confirmation shows locked and unlocked, and the spooled session event carried 33 OS fields (46 in all). Not verified: the macOS, Windows and WSL probes.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 

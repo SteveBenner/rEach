@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.20.0
+version: 0.20.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1246,6 +1246,14 @@ cli:
       M-PERSONA-TEACH-OLD; a revoked or unpinned code locks the persona at the next prompt (M-PERSONA-LOCKED).
   - name: debug
     synopsis: reach debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush
+    phrase: >-
+      Since 0.20.1 a prompt that is only "enable debug mode", "turn debug on", "turn debug off" or a close variant (an
+      optional please, trailing punctuation) switches debug mode from the prompt hook, before any enrollment or lock check,
+      and the agent relays M-DEBUG-SAID-ON or M-DEBUG-SAID-OFF word for word (M-DEBUG-RELAY); a sentence that only mentions
+      debug changes nothing. While debug mode is on, the session event also carries Reach::OsInfo.snapshot: OS family,
+      name, version and build, kernel, arch, WSL, container, virtualization, CPU, memory, disk, uptime, load, locale,
+      timezone, shell, terminal, desktop, session type, ssh, and Ruby, git, node and Chrome versions; never a hostname,
+      username, path or address. Cached for 24 hours; every probe is bounded to 2 seconds.
     purpose: >-
       Since 0.16.23 (STD-DEBUG-MODE), and it runs while Reach is locked. on turns local debug mode on, for MINUTES minutes or until off; off turns the local switch off (an instructor's remote request or an active persona still keeps it on, and the command says so). status prints whether it is on, the reason (persona, local or remote), the end time and the spool counts. show prints the latest events as an ASCII table, a Markdown table or JSON, by default the form the detected surface renders. flush sends the spool through W-API-DEBUG now. At the end of every turn, while debug is on, the Stop hook shows the turn's events as a hook systemMessage (never agent context) on Claude Code and Codex; Hermes has no user-visible hook output, so reach debug show is its way. Outside course folders, where only the plugin-level hooks run, the next prompt shows the pending events. A remote request on a real student prints M-DEBUG-NOTICE once per session.
   - name: mcp
