@@ -569,7 +569,7 @@ routes:
       400 course_code_unknown: "shape v2: no live course code matches (W-ENR-1); details may carry {did_you_mean: course id}, or since 2026-10-01d {course_only: course id}"
       400 course_code_expired: "shape v2: the course code matched but its course has ended"
       403 enrollment_refused: "shape v2: the username and student id do not name one roster entry of the code's course; never says which field failed"
-      409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the policy wants an instructor's approval (W-ENR-8)"
+      409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the course policy's enrollment.device_moves is approve (W-ENR-8)"
       403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
       400 password_required: "shape v2, since 2026-10-01e: password is missing, not a string, shorter than 8 or longer than 256 characters; checked before the course code is looked up, and the message tells an older Reach to update and enroll again"
       429 rate_limited: "too many attempts"
@@ -1445,8 +1445,9 @@ alignment:
       login: "{required: boolean (default true), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
       enrollment: >-
         since 2026-10-01b: {require_stamp: boolean (default false), fingerprint_match: binding | strict (default
-        binding)}; since 2026-10-01c also device_moves: approve | auto (default approve) and identity:
-        {institution_name, username_domain, username_pattern, student_id_pattern}, which W-API-ENROLL-PREVIEW serves.
+        binding)}; since 2026-10-01c also device_moves: approve | auto (default approve; default auto since
+        2026-10-02e) and identity: {institution_name, username_domain, username_pattern, student_id_pattern}, which
+        W-API-ENROLL-PREVIEW serves.
       limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}"
       support: "{text: string, the course's own support line appended to W-SUP-1}"
       student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
@@ -1764,8 +1765,9 @@ enrollment:
       same computer, account and salt; Teach enrolls the new install and revokes the old one. Since revision
       2026-10-01d the same holds when the salts are equal and the machine_id, os_user and platform hashes are equal,
       whatever install_key says, because every enrollment generates a new install key. Different digest: a
-      device move. With the course policy's enrollment.device_moves auto, Teach enrolls the new install and revokes
-      the old one. With approve (the default), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
+      device move. With the course policy's enrollment.device_moves auto (the default since revision 2026-10-02e),
+      Teach enrolls the new install and revokes the old one, so a student who sets their password is enrolled with
+      no instructor step. With approve (an instructor's opt-in; the default before 2026-10-02e), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
       student_id, course_id, fingerprint digest and descriptive components, harness, platform, requested_at} and
       answers 409 device_move_pending; a repeat of the same request (same student and digest) answers the same move.
       An instructor approves or denies the move with a reason. After approval the same request enrolls the new install

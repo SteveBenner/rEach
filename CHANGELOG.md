@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - 2026-10-02
+
+### Changed
+
+- Wire revision 2026-10-02e (`specs/wire.yml`, byte for byte with Teach 0.18.5): a course policy's
+  `enrollment.device_moves` defaults to `auto`, so a student enrolling from a second computer is enrolled as soon as
+  they set their password. Teach holds the computer for an instructor's approval (`device_move_pending`) only when the
+  instructor sets `approve`. rEach's own handling of a pending or denied move is unchanged. rEach 0.18.2 and older
+  carry the previous wire digest and refuse a Teach 0.18.5 enrollment with `M-ENROLL-WIRE` until they update.
+
 ## [0.18.2] - 2026-10-02
 
 ### Added
