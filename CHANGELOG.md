@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.2] - 2026-10-03
+
+### Fixed
+
+- `reach support` run from a terminal outside every rEach folder never reached the instructors. The wellbeing hand
+  (W-SUP-2) sent `space: null`, Teach refused it with 400 (every bundle field must be a string), and the student was
+  told "Your instructor will be told you may need support as soon as this computer is back online." `Reach::Hands.raise_wellbeing`
+  now sends `space: outside` there, and a wellbeing hand Teach refuses is removed from the outbox, sent to Teach as a
+  fault event (`support:wellbeing`, `support:flush`), never reported as told or queued, and does not arm the
+  hour-long repeat guard (`lib/reach/hands.rb`, `lib/reach/support.rb`, `STD-WELLBEING-DELIVERED`). Works against
+  the live Teach without a wire change.
+- `tools/smoke/assignment_one.rb` ran Teach with `TEACH_HANDS_DISABLE=1`, so it never exercised a hand. It now runs
+  with hand-raises on and adds `hand-raise-cli`, `hand-raise-mcp` (`reach_raise_hand`, type `concept_question`),
+  `hand-wellbeing-outside-folder` and `hands-on-teach`, which checks all three hands on Teach (40 PASS).
+
 ## [0.19.1] - 2026-10-02
 
 ### Fixed

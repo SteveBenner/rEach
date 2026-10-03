@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.19.1
+version: 0.19.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -921,6 +921,7 @@ course_alignment:
     - Every prompt in a slice or the root gets a short anchor in the agent's context naming the current step and the next one.
   support:
     - reach support prints a fixed message beginning "If this is an emergency, call 911 now.", then 988 and the course's support line, and raises a wellbeing hand to the instructors (no code, no transcript), at most once an hour; it works signed out and offline (queued).
+    - Since 0.19.2 the wellbeing bundle's space is outside when reach support runs outside every rEach folder (never null), and a hand Teach refuses is dropped from the outbox, sent to Teach as a fault event, and never reported to the student as told or queued (STD-WELLBEING-DELIVERED).
     - The prompt hook matches a fixed list of crisis phrases before sign-in, answers with the same message, queues the hand, and sends it at once through a detached quick flush (W-SUP-3); in a signed-in session it tells the agent to run reach support.
   limits: >-
     reach sync enforces the policy limits: the corpus spool still waiting for admission is measured against the 50 MB

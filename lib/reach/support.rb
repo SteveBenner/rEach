@@ -18,7 +18,7 @@ module Reach
                           rescue StandardError
                             nil
                           end
-                          remember(state) if state
+                          remember(state) if state && state != :refused
                           state
                         end
                  message(told: told)
@@ -60,8 +60,9 @@ module Reach
             FileUtils.rm_f(path)
             Reach::Hands.track(result["hand_id"], slice: entry["slice"], hand_ref: entry["hand_ref"], originator: "agent") if result["hand_id"]
             sent += 1
-          rescue Reach::RemoteRefused
+          rescue Reach::RemoteRefused => e
             FileUtils.rm_f(path)
+            Reach::Debug.fault(e, "support:flush")
           rescue Reach::Offline, Reach::NetworkError
             break
           end
@@ -102,6 +103,8 @@ module Reach
 
       def raise_hand(harness:, space:, queue_only:)
         outcome = Reach::Hands.raise_wellbeing(harness: harness, space: space, queue_only: queue_only)
+        return :refused if outcome == :refused
+
         outcome == :sent ? :told : :queued
       end
 

@@ -94,6 +94,7 @@ module Reach
         slice_kind = %w[backend panel verification].include?(meta["slice"]) ? meta["slice"] : nil
         cutout_id = slice_kind ? meta["cutout_id"] : nil
         space_kind = space.is_a?(Hash) ? space["kind"] : space
+        space_kind = "outside" if space_kind.to_s.empty?
         raised_at = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         hand_ref = SecureRandom.uuid
         bundle = {
@@ -128,7 +129,11 @@ module Reach
           FileUtils.rm_f(outbox_path)
           track(result["hand_id"], slice: slice_name, hand_ref: hand_ref, originator: "agent") if result["hand_id"]
           :sent
-        rescue Reach::RemoteRefused, Reach::Offline, Reach::NetworkError
+        rescue Reach::RemoteRefused => e
+          FileUtils.rm_f(outbox_path)
+          Reach::Debug.fault(e, "support:wellbeing")
+          :refused
+        rescue Reach::Offline, Reach::NetworkError
           :queued
         end
       end
