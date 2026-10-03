@@ -1,0 +1,88 @@
+schema: rstack.impl/v1
+name: reach-0.19.0-term-tools
+recorded: '2026-10-02'
+author: primary
+versions:
+  reach: 0.19.0
+  teach: 0.19.0
+  wire: 2026-10-02e
+specs:
+  - reach: specs/app.yml STD-TRANSCRIPT-EXPORT, STD-LATE-WORK, STD-GRADE-VIEW, STD-HAND-TYPES, STD-SUBMIT-ARCHIVE (0.19.0 sentence), STD-ENROLL-LOCKDOWN (transcripts exception)
+  - wire: specs/wire.yml W-API-GRADES, W-PACE-1, W-PACE-2, W-HAND-TYPES, W-API-HAND trigger enum (byte-identical in teach/specs/wire.yml; never edit either copy)
+  - teach: teach/specs/app.yml STD-HAND-TYPES, STD-GRADES-API
+rules:
+  - No comments in code (Part Q). No tests or spec files in either repo (Part S); acceptance runs from scratch scripts in your scratchpad.
+  - Reach stays Ruby 2.6.10-compatible and stdlib only; verify with docker ruby:2.6.10 (ruby -wc on every changed file, require lib/reach.rb).
+  - Teach is Ruby 4.0.6 (/home/sven/.rubies/ruby-4.0.6/bin) and PostgreSQL only. Always `unset TEACH_DATABASE_URL` (the shell's value is the LIVE database); use a scratch PostgreSQL database.
+  - Never touch the real ~/.reach, ~/Downloads, ~/.corpora, the live Teach units or live database. Reach acceptance runs in a scratch HOME with REACH_DOWNLOADS_DIR pointing into it, against tools/fake_teach or a scratch Teach.
+  - Do not commit, tag, bump versions, or edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md, specs/*.yml, teach.spec.yml or reach.spec.yml version lines. The primary does release work.
+  - American English in every string. Students read plain words (STD-PLAIN-TALK); new student-facing text goes in locales/en-US.yml as new ids appended, never by rewording unrelated ids.
+  - No hook may block on the network or spawn more than one detached process per event; anything that talks to Teach from a hook path runs detached.
+slices:
+  - id: teach
+    worker: coding-worker
+    repo: /home/sven/bitbucket/paterasai/teach
+    owns_paths:
+      - lib/teach/db.rb (grade_points table in SCHEMA)
+      - lib/teach/grades.rb (a points query; export_rows unchanged)
+      - lib/teach/web/app.rb (GET /api/v1/grades)
+      - lib/teach/web/helpers.rb (TRIGGER_VALUES)
+      - lib/teach/config.rb (grades_disabled?)
+      - lib/teach/errors.rb (GradesDisabled 403 grades_disabled, if errors are declared there)
+      - lib/teach/mcp/reach_server.rb and lib/teach/mcp/queue_server.rb (only if they validate trigger against a list)
+      - lib/teach/web/console/pages/hands.rb, lib/teach/web/console/queries/hands.rb, lib/teach/web/console/views/hands/index.erb, show.erb (type column, filter, label)
+      - teach.spec.yml (route, table, env var, trigger list sections; not the version line)
+    work:
+      - grade_points table (id, student_id, course_id, assignment, points NUMERIC NOT NULL CHECK >= 0, points_possible NUMERIC NULL CHECK >= 0, recorded_at, recorded_by, note), index on (student_id, assignment, recorded_at). No writer, no CLI.
+      - GET /api/v1/grades, install auth, the same install rate limiter as other install GETs, answering W-API-GRADES exactly for install["student_id"] only; numbers serialized as JSON numbers (integers when whole). TEACH_GRADES_DISABLE truthy => 403 grades_disabled. Never reads receipts or grading runs.
+      - TRIGGER_VALUES gains the 14 W-HAND-TYPES values; any other value stays 400. Kill switch and rate limits unchanged.
+      - Hands console - a Type column showing a plain label per trigger (e.g. "Late work", "Grade question", "Access (accounts, Blackboard)"), and a type filter built with the console's existing themed controls (no raw native inputs); wellbeing first ordering unchanged. All three themes (apple-noir, apple-austere, tronwave) through the existing switcher; follow the design-taste-frontend skill and match the existing console components.
+    acceptance:
+      - On a scratch PostgreSQL with a scratch TEACH_HOME - an enrolled scratch install gets {available:false, grades:[], total:null}; after inserting two rows for its student (and one for another student, and an older row for the same assignment) it gets only its own latest rows and the right total; points_possible null on one row makes total.points_possible null; TEACH_GRADES_DISABLE=1 gives 403 grades_disabled; no install auth gives 401.
+      - POST /api/v1/hands accepts each new trigger and still refuses "nonsense" with 400.
+      - The hands console, served locally, shows the Type column and filters by type in all three themes at desktop and 390px width with no console errors (Playwright borrowed from /home/sven/bitbucket/paterasai/rstack-uber/rocketlaunch/node_modules/playwright, channel chrome; script in your scratchpad).
+      - `bin/teach doctor` on the scratch setup still passes; existing teach smoke or check commands the repo documents still pass.
+  - id: reach
+    worker: coding-worker-high
+    repo: /home/sven/github/foss/rEach
+    owns_paths:
+      - lib/reach/transcript_export.rb (new)
+      - lib/reach/late_work.rb (new)
+      - lib/reach/grades.rb (new)
+      - lib/reach/archive.rb, lib/reach/submit.rb, lib/reach/receipts.rb
+      - lib/reach/pace.rb, lib/reach/gate.rb, lib/reach/hello.rb, lib/reach/status.rb
+      - lib/reach/hands.rb, lib/reach/enrollment_lock.rb or wherever the locked-command allowlist lives
+      - lib/reach/cli.rb, lib/reach/mcp_bridge.rb, lib/reach/teach_client.rb (or the HTTP client file) for the grades GET
+      - lib/reach.rb (requires)
+      - locales/en-US.yml (append ids; the M-SUBMIT-ASK, M-SUBMIT-ARCHIVED, M-SUBMIT-ARCHIVE-SKIPPED and M-SUBMIT-ARCHIVE-FAILED texts may be extended with the Blackboard sentence)
+      - config.yml (append submit.lms_name, late_work, transcripts blocks)
+      - skills/reach-submit/SKILL.md, skills/reach-assistant/SKILL.md and agents/reach.md (identical bullets in the last two), skills/reach-help/SKILL.md if it lists commands
+      - reach.spec.yml (cli, tools, config sections; not the version line)
+      - tools/fake_teach/server.rb and its README (grades route, new triggers, so acceptance can run)
+    work:
+      transcripts_export:
+        - Reach::TranscriptExport.write!(auto: false) reads ~/.reach/transcripts/*.jsonl and archive/*.jsonl.gz, keeps entries whose student_id is the enrolled student's (or absent), groups sessions by assignment and slice using each entry's workspace/space mapping (spaces/<digest>.json) and cutout_id/slice; extracurricular sessions under extracurricular/, the rest under unsorted/. Per session one Markdown file <YYYY-MM-DD-HHMM>-<session8>.md (course time, STD-COURSE-TIME) rendering prompts, replies, reasoning, actions and code entries in seq order with timestamps and plain headings, and the raw lines under raw/<session>.jsonl. README.md at the root lists each assignment and session with counts. One root folder <course>-transcripts-<stamp>/. Name <course>-transcripts-<YYYY-MM-DD>-<HHMM>-<zone>.zip via the same Downloads resolution, claim (-2, -3) and temp-file-plus-rename as Reach::Archive (reuse its helpers rather than copying them; extract shared helpers into Archive as public module functions if needed) and Reach::Zip. Course id from the stamp, else config course id, else "course". Streams line by line; memory bounded by the largest session.
+        - reach transcripts export [--format json] and the reach_transcripts MCP tool (action export) print/return the path, sessions and bytes (M-TRANSCRIPTS-EXPORTED, M-TRANSCRIPTS-NONE when there is nothing). transcripts is allowed while Reach is locked (STD-ENROLL-LOCKDOWN exception); keep every other lockdown rule.
+        - Auto export - in Hello session start, when transcripts.auto_export is true and the stamp's expires_at has passed and state transcripts-export.json has no auto export for this course, spawn one detached `reach transcripts export --auto` (throttled like Storage.spawn_measure_if_due) that records {course, path, at} on success; the next prompt hook (or hello when locked, since the prompt hook blocks while course_ended) carries M-TRANSCRIPTS-AUTO once with the path. Must work while the course_ended lock is on.
+      blackboard:
+        - config.yml submit.lms_name (default Blackboard). The submit ask and every post-ingest followup (archived, skipped, failed) state that the ZIP is (or will be) in Downloads and that the student MUST also upload it to {lms} to receive credit for this coursework; when skipped or failed, it names reach submit archive to make it again.
+        - reach submit archive [--assignment A] and reach_submit with archive true rebuild the ZIP for an assignment that has a verified ingest receipt, using Reach::Archive.write!, and answer with the same Blackboard reminder; refuse plainly when nothing has been submitted for it.
+        - The reach-submit skill tells the agent to repeat the Blackboard requirement in its own words after every submission.
+      late_work:
+        - Reach::Pace.writable? allows a slice whose own due (its workspace package's due) has passed by Teach's clock when late_work.allow is true; a not-yet-current, not-yet-due assignment stays refused with M-GATE-NOT-CURRENT. Reach::LateWork.late?(workspace) and .info(workspace) give due, how late, submitted_before_due (an ingest receipt with late false exists for the slice), and can_submit (no submission on record, or the due has not passed).
+        - Notices (new ids M-LATE-*) - hello context when the cwd workspace is late; the prompt hook on the first prompt of each session in a late workspace and every late_work.notice_every (10) prompts after (counter per session in state, no network); reach status shows LATE with how late; the submit ask uses the existing M-SUBMIT-ASK-LATE path. When can_submit is false the notice says the work can no longer be submitted.
+        - Hands - on the first allowed late write in an assignment (gate write path), record it in state and spawn one detached `reach hand late --assignment A` that raises trigger late_work, originator agent, summary "Working on <assignment> after its due time (<due in course time>)", bundle from the existing builder; once per assignment ever (state late-hands.json), retried by the next session start while unsent, given up quietly after a 403 hands_disabled or 400. When a verified ingest receipt has late true, one late_submission hand per assignment the same way (receipts path, detached). Debug events through existing kinds only (gate/command/submit fields), no new debug kinds.
+      hand_types:
+        - Reach::Hands::TYPES lists W-HAND-TYPES. reach raise-hand (whatever the existing CLI verb is) gains --type T and reach_raise_hand gains a type enum parameter (trigger stays accepted as an alias); unknown types are refused before any network call. Every existing literal trigger uses the constant.
+        - Send newer types only when the cached status wire_contract_sha256 equals Reach's own specs/wire.yml digest (the same check Reach::Debug uses for W-DBG-KINDS-2; reuse it); otherwise trigger student_request and summary prefixed "[<type>] " within the 2000-byte limit.
+        - Skills tell the agent to pick the closest type for a student's request (access_issue covers accounts and Blackboard; grade_question for grades; extension_request when they ask for more time) and to use student_request when none fits.
+      grade_view:
+        - Reach::Grades.fetch GETs /api/v1/grades through the existing Teach client (its limiter, timeouts and retries); renders each assignment's points/points_possible and the total, or M-GRADES-UNAVAILABLE when available is false, 404 or 403 grades_disabled, and M-GRADES-OFFLINE when Teach cannot be reached. reach grade [--format json] and reach_grade MCP tool. Keeps only the last answer in state for offline display, labelled with as_of. Never derives points from receipts.
+        - Skill bullet - when the student asks about their grade, run reach grade; say these are the points recorded in Teach and that the course grade of record is in Blackboard.
+    acceptance:
+      - Transcripts - in a scratch HOME with synthetic transcript sessions (two assignments, one extracurricular, one unsorted, one archived .gz, entries of another student id) `reach transcripts export` writes the ZIP under REACH_DOWNLOADS_DIR, `unzip -t` passes, the tree matches the layout, the other student's entries are absent, a second export gets -2; with the stamp's expires_at in the past the first hello spawns the auto export once, a second hello does not, the next prompt (or hello while locked) carries M-TRANSCRIPTS-AUTO once; works while course_ended locks Reach; runs under ruby:2.6.10.
+      - Blackboard - against tools/fake_teach, a submit's ask and followup name Blackboard and the Downloads ZIP; config lms_name override changes the text; reach submit archive rebuilds the ZIP; refuses with no submission.
+      - Late - with a slice whose due has passed, a write through `reach gate` is allowed (was refused before), a not-yet-current future assignment is still refused; first prompt of a session carries M-LATE notice, prompts 2-10 do not, prompt 11 does; hello in the late workspace carries it; status shows LATE; exactly one late_work hand reaches fake_teach across several writes and sessions; a late ingest receipt raises exactly one late_submission hand; with a slice submitted before due, the notice says it cannot be submitted again; late_work.allow false restores the old refusal. No hook makes a network call (strace or a fake_teach request log during hook runs).
+      - Hand types - reach raise-hand --type grade_question reaches fake_teach with trigger grade_question when the digest matches, and as student_request with "[grade_question] " prefix when it does not; an unknown type is refused locally.
+      - Grades - fake_teach returning available false, a populated answer, 404 and 403 each render correctly; offline shows the last answer with its as_of.
+      - Ruby 2.6.10 parse and load; tools/smoke/assignment_one.rb still passes against a Teach export (run once at the end; report the counts).

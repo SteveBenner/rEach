@@ -107,6 +107,9 @@ module Reach
       context.concat(Array(safely { Reach::Storage.prompt_notices(session, greeted: greeted) }))
       context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
       context << safely { Reach::Debug.remote_notice(session) }
+      context << safely { Reach::LateWork.prompt_notice(session) }
+      transcripts = safely { Reach::TranscriptExport.pending_notice! }
+      context << Reach::TranscriptExport.agent_notice(transcripts) if transcripts
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed
         done = safely { Reach::Consent.follow_up!(observed) }
@@ -409,6 +412,7 @@ module Reach
 
       meta = Reach::Workspace.metadata(workspace)
       raise_blocked!("M-GATE-NOT-CURRENT") unless Reach::Pace.writable?(workspace)
+      safely { Reach::LateWork.note_write(workspace) }
 
       allowed = begin
         Reach::Modules.allows?(meta["cutout_id"])

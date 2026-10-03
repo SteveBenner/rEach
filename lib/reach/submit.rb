@@ -60,6 +60,24 @@ module Reach
         end
       end
 
+      def archive_again(assignment: nil)
+        submitted = submitted_assignments
+        name = assignment.to_s.strip
+        name = default_archive_assignment(submitted) if name.empty?
+        if name.empty?
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NONE", assignment: "this course") if submitted.empty?
+
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-WHICH", assignments: submitted.join(", "))
+        end
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NONE", assignment: name) unless submitted.include?(name)
+
+        workspace = archive_workspace(name)
+        archive = workspace ? Reach::Archive.write!(workspace, Reach::Workspace.metadata(workspace)) : { "state" => "failed" }
+        result = { "state" => "archive", "assignment" => name, "archive" => archive, "receipt" => { "assignment" => name } }
+        result["text"] = followup_text(result)
+        result
+      end
+
       def retry_outbox
         results = []
         Dir.glob(File.join(Reach::Paths.outbox_dir, "*.json")).sort.each do |path|
@@ -97,11 +115,11 @@ module Reach
         if archive
           case archive["state"]
           when "saved"
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"])
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"], lms: Reach::Archive.lms_name)
           when "skipped"
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED")
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED", lms: Reach::Archive.lms_name)
           else
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED")
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED", lms: Reach::Archive.lms_name)
           end
         end
         due = result["due"].to_s.empty? ? nil : Reach::Messages.course_time(result["due"])
@@ -115,6 +133,24 @@ module Reach
       end
 
       private
+
+      def submitted_assignments
+        Reach::Receipts.list.select { |receipt| receipt["kind"] == "ingest" }.map { |receipt| receipt["assignment"].to_s }.reject(&:empty?).uniq.sort
+      end
+
+      def default_archive_assignment(submitted)
+        workspace = Reach::Gate.current_workspace_path
+        here = workspace ? Reach::Workspace.metadata(workspace)["assignment"].to_s : ""
+        return here if submitted.include?(here)
+
+        submitted.length == 1 ? submitted.first : ""
+      end
+
+      def archive_workspace(assignment)
+        Reach::Workspace.current_slices.sort.find do |path|
+          Reach::Workspace.metadata(path)["assignment"].to_s == assignment
+        end
+      end
 
       def archive_assignment(result)
         receipt = result["receipt"].is_a?(Hash) ? result["receipt"] : {}
@@ -197,7 +233,7 @@ module Reach
 
         summary = "reach check still reports #{findings.length} finding(s) at submit: #{findings.map { |finding| finding[:id] }.uniq.join(', ')}"
         hand_id = begin
-          Reach::Hands.raise_hand(trigger: "check_gate", summary: summary, slice: File.basename(workspace))
+          Reach::Hands.raise_hand(trigger: Reach::Hands::CHECK_GATE, summary: summary, slice: File.basename(workspace))
         rescue StandardError
           nil
         end
@@ -327,11 +363,7 @@ module Reach
       end
 
       def due_for(meta)
-        current = Reach::Pace.current_assignment
-        return nil unless current && current["id"].to_s == meta["assignment"].to_s
-        return nil if current["due"].to_s.empty?
-
-        Time.parse(current["due"].to_s).utc
+        Reach::LateWork.due_for_meta(meta)
       rescue StandardError
         nil
       end
@@ -364,7 +396,7 @@ module Reach
                 else
                   Reach::Messages.text("M-SUBMIT-ASK-LATE", due: Reach::Messages.course_time(due))
                 end
-        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again }
+        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again, lms: Reach::Archive.lms_name }
       end
 
       def approve!(workspace, meta)

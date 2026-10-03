@@ -824,7 +824,7 @@ routes:
     request:
       cutout_id: string
       slice: {enum: [backend, panel, verification]}
-      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2)"}
+      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES)"}
       originator: {enum: [agent, student], required: false, note: "since 2026-09-29d; absent means student"}
       summary: {type: string, maxBytes: 2000}
       bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2)
@@ -841,6 +841,21 @@ routes:
     path: /api/v1/hands/:id
     auth: install
     response_200: {state: string, reply: "object or null"}
+  - id: W-API-GRADES
+    method: GET
+    path: /api/v1/grades
+    auth: install
+    since: 2026-10-02e
+    response_200:
+      available: "boolean; false while the course has no recorded points for this student, or grades are switched off"
+      grades: "[{assignment, points, points_possible, recorded_at}] for the install's own student, one row per assignment, the latest recording of each; points and points_possible are non-negative numbers, points_possible may be null"
+      total: "{points, points_possible} summed over grades, points_possible null when any row's is null; null when grades is empty"
+      as_of: W-CONV-3 timestamp of the answer
+    errors: {403: grades_disabled when Teach's grade kill switch is on}
+    notes: >-
+      A grade is a number of points an instructor records in Teach; the autograder's scenario results (W-RCPT-1) are
+      not grades and this route never derives points from them. Teach that predates the revision answers 404, which
+      Reach shows as grades not available yet.
   - id: W-API-INTEGRITY
     method: POST
     path: /api/v1/integrity
@@ -1610,7 +1625,29 @@ alignment:
     rule: >-
       Reach refuses writes (M-GATE-NOT-CURRENT) in a slice whose assignment is not status.current_assignment, or
       whose due time has passed by Teach's clock (server_time from the last status plus the time elapsed locally
-      since it was fetched). Reads stay allowed. extracurricular/ is outside the time gate.
+      since it was fetched). Reads stay allowed. extracurricular/ is outside the time gate. Since revision 2026-10-02e
+      (W-PACE-2) a past-due slice is writable, as late work.
+  W-PACE-2:
+    name: late work
+    rule: >-
+      Since revision 2026-10-02e. A slice whose own due time (its workspace package's due) has passed by Teach's clock
+      stays writable while Reach's late_work.allow is true (default); an assignment whose due time has not come and
+      that is not status.current_assignment stays refused. Reach tells the student the work is late at session start,
+      on the first prompt of each session in that slice and every late_work.notice_every (10) prompts after, and in
+      the submit ask, and says when the slice cannot be submitted again (W-SUB-1). It raises one hand with trigger
+      late_work per assignment on the first late write, and one with trigger late_submission per assignment when an
+      ingest receipt with late true verifies, each from a detached process, never inside a hook.
+  W-HAND-TYPES:
+    name: hand types
+    rule: >-
+      Since revision 2026-10-02e. trigger classifies a hand: attempt_gate, attempt_ladder, check_gate and wellbeing are
+      raised by Reach itself; late_work and late_submission by the late-work rule (W-PACE-2); student_request,
+      concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue,
+      setup_issue, access_issue (accounts, Blackboard and other course systems), extension_request, feedback,
+      integrity_question and other are chosen by the agent for a hand the student asks for, student_request when none
+      fits better. Reach sends the newer types only when the wire_contract_sha256 Teach last advertised equals the
+      digest of its own specs/wire.yml; otherwise it sends student_request and prefixes the summary with
+      [<type>], so an older Teach, which answers 400 to an unknown trigger, never sees one.
   W-SUP-1:
     name: support message
     rule: >-

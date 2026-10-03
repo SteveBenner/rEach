@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.18.4
+version: 0.19.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -357,6 +357,12 @@ library:
     role: Verifies and stores receipts; announces them
   - name: Reach::Hands
     role: Builds context bundles and raises hands; delivers replies
+  - name: Reach::TranscriptExport
+    role: The student's saved conversations as a ZIP in Downloads, and the once-per-course automatic export after the course ends; since 0.19.0 (STD-TRANSCRIPT-EXPORT)
+  - name: Reach::LateWork
+    role: Late-work detection, notices and the once-per-assignment late_work and late_submission hands; since 0.19.0 (STD-LATE-WORK)
+  - name: Reach::Grades
+    role: The points Teach has recorded for the student (W-API-GRADES); since 0.19.0 (STD-GRADE-VIEW)
   - name: Reach::MCPBridge
     role: >-
       A local stdio MCP server the harness connects to, proxying the permitted Teach tools with the install's credentials
@@ -796,7 +802,18 @@ submission:
     REACH_DOWNLOADS_DIR when set, otherwise XDG_DOWNLOAD_DIR on Linux, otherwise Downloads in the home folder. It is
     skipped above config.yml submit.archive_max_mb (default 256) and a skipped or failed copy never fails, undoes or
     delays the submission. A queued submission that Reach later sends from the outbox is archived the same way when its
-    workspace still exists. Nothing about the copy is sent to Teach.
+    workspace still exists. Nothing about the copy is sent to Teach. Since 0.19.0 (STD-SUBMIT-ARCHIVE) the submit ask
+    (M-SUBMIT-ASK) and every answer after an ingest (M-SUBMIT-ARCHIVED, M-SUBMIT-ARCHIVE-SKIPPED,
+    M-SUBMIT-ARCHIVE-FAILED) say the ZIP is or will be in Downloads and that the student must also upload it to the
+    learning system named by config.yml submit.lms_name (default Blackboard) to receive credit; a skipped or failed
+    copy names reach submit archive. Reach::Archive.claim_zip is the shared claim-and-rename step (also used by
+    Reach::TranscriptExport) and Reach::Archive.lms_name reads the setting.
+  archive_again: >-
+    Since 0.19.0 reach submit archive [--assignment A] (and reach_submit with archive true and optional assignment)
+    runs Reach::Submit.archive_again: it needs a stored ingest receipt for the assignment (default the current
+    workspace's, else the only one with a submission), refuses with M-SUBMIT-ARCHIVE-NONE or M-SUBMIT-ARCHIVE-WHICH
+    otherwise, writes the ZIP with Reach::Archive.write! from a workspace of that assignment, and answers with the
+    same followup text as a submission, Blackboard reminder included.
   retries:
     policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
     never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason.
@@ -892,7 +909,21 @@ course_alignment:
     cap and reported (spool lines are never rewritten, since admission depends on them), and fully acknowledged transcript sessions are gzipped into
     ~/.reach/transcripts/archive/ above 200 MB. reach doctor reports the sizes (R-DOC-LIMITS).
 hand_raising:
-  command: reach hand raise [--trigger student_request] [--summary ...] [--include-profile]
+  command: reach hand raise [--type student_request] [--summary ...] [--slice ...] [--include-profile]
+  types: >-
+    Since 0.19.0 (STD-HAND-TYPES, W-HAND-TYPES) Reach::Hands::TYPES lists attempt_gate, attempt_ladder, check_gate,
+    wellbeing, late_work, late_submission and the thirteen agent-chosen types (Reach::Hands::AGENT_TYPES:
+    student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question,
+    technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other). --type (the
+    reach_raise_hand tool's type; trigger remains an alias) names one; an unknown type is refused with
+    M-HAND-TYPE-UNKNOWN before any network call. The fourteen types newer than the previous wire revision go out as
+    themselves only when the cached status's wire_contract_sha256 equals the digest of this Reach's own specs/wire.yml
+    (Reach::Debug.teach_kinds?); otherwise Reach sends student_request with the summary prefixed "[<type>] " (cut to 2000
+    bytes), in the wire body and in the bundle.
+  late: >-
+    Since 0.19.0 reach hand late --assignment A [--type late_submission] is the detached worker of STD-LATE-WORK:
+    Reach::LateWork.send_hand raises the hand (originator agent, the bundle from the existing builder, summary
+    M-LATE-HAND-WORK or M-LATE-HAND-SUBMISSION) once per assignment and type, kept in state late-hands.json.
   bundle: >-
     reach.hand/v2 (W-PKG-6-v2): originator (student or agent), trigger, course, assignment, cutout and slice, the task,
     the attempt history, every owned file and scenario file in full, the last qualification's output (up to 64 KB), the
@@ -923,9 +954,14 @@ mcp_bridge:
   - name: reach_attempts
     description: Show the attempt ladder or record the student's yes to continue
   - name: reach_submit
-    description: Submit the current slice and wait for the ingest receipt; it asks the student through Reach first and submits only on their yes
+    description: >-
+      Submit the current slice and wait for the ingest receipt; it asks the student through Reach first and submits only
+      on their yes. Since 0.19.0 archive true (with an optional assignment) saves the ZIP of an already submitted
+      assignment to Downloads again instead
   - name: reach_raise_hand
-    description: Raise a hand with a summary
+    description: >-
+      Raise a hand with a summary. Since 0.19.0 it takes type (an enum of the agent-chosen request types, default
+      student_request; trigger remains an alias) and refuses an unknown one before any network call
   - name: reach_hand_status
     description: A hand's state and reply
   - name: reach_hello
@@ -970,6 +1006,15 @@ mcp_bridge:
     description: What rEach remembers; the profile when query is absent, the matching findings when it is given
   - name: reach_memory_forget
     description: Forget findings by id, or everything with all true
+  - name: reach_transcripts
+    description: >-
+      Since 0.19.0 (STD-TRANSCRIPT-EXPORT), action export (the default) saves a ZIP of the student's saved conversations
+      to Downloads and returns its name, path, session and entry counts and size; it also runs while Reach is locked,
+      the course-ended lock included
+  - name: reach_grade
+    description: >-
+      Since 0.19.0 (STD-GRADE-VIEW), the points Teach has recorded for the student per assignment and in total, or the
+      plain message that grades are not available yet, or the last answer with its as_of when Teach cannot be reached
   - name: reach_storage
     description: >-
       Since 0.18.0, how much space rEach's memory uses (action status, the default), or compact the saved course memory
@@ -1110,14 +1155,29 @@ cli:
     synopsis: reach attempts show|continue [--slice ...]
     purpose: The attempt ladder; continue records the student's yes after the third failed qualification
   - name: submit
-    synopsis: reach submit [--slice ...]
-    purpose: Ask the student, then submit and wait for the receipt
+    synopsis: reach submit [--slice ...] | archive [--assignment A]
+    purpose: >-
+      Ask the student, then submit and wait for the receipt; archive (since 0.19.0) saves the Downloads ZIP of a
+      submitted assignment again
   - name: receipts
     synopsis: reach receipts [wait|show]
     purpose: Receipts
   - name: hand
-    synopsis: reach hand raise|status|list
-    purpose: Hand-raises
+    synopsis: reach hand raise [--type T] | status | list | late --assignment A [--type late_submission]
+    purpose: Hand-raises; --type names one of the request types (STD-HAND-TYPES) and late is the detached late-work worker
+  - name: transcripts
+    synopsis: reach transcripts export [--format text|json]
+    purpose: >-
+      Since 0.19.0 (STD-TRANSCRIPT-EXPORT), and it runs while Reach is locked, the course-ended lock included. Saves the
+      ZIP of the student's saved conversations to Downloads and prints M-TRANSCRIPTS-EXPORTED with the path, or
+      M-TRANSCRIPTS-NONE when there is nothing to save. The detached auto export of the first session start after the
+      course's end is this command with --auto.
+  - name: grade
+    synopsis: reach grade [--format text|json]
+    purpose: >-
+      Since 0.19.0 (STD-GRADE-VIEW), asks Teach for the student's recorded points (W-API-GRADES) and prints them per
+      assignment with the total, M-GRADES-UNAVAILABLE when Teach has none, answers 404 or grades_disabled, or
+      M-GRADES-OFFLINE (or the last answer with its as_of) when Teach cannot be reached
   - name: watch
     synopsis: reach watch
     purpose: A polling file watcher that runs the shape check on change (the Codex backstop)
@@ -2062,11 +2122,12 @@ templates:
     name: reach-submit
     description: Use when the student wants to submit their slice, submit it again before the due time, or asks whether a submission was received.
     ---
-    Offer to submit once `reach qualify` has passed: tell the student they can ask you to submit this part whenever they are ready, that it sends the work to their instructors and saves a copy of all their work for the assignment in their Downloads folder, and that they can submit again until the due time (the last one counts).
+    Offer to submit once `reach qualify` has passed: tell the student they can ask you to submit this part whenever they are ready, that it sends the work to their instructors and saves a ZIP of all their work for the assignment in their Downloads folder, that to receive credit for this coursework they must also upload that ZIP to Blackboard (or the system Reach names), and that they can submit again until the due time (the last one counts).
     Before submitting, run `reach part`: every question must be answered in the student's own words. If one is missing, ask it first.
     `reach submit` works only after `reach qualify` passed on exactly the files you have now; if it refuses, run `reach qualify` first. Run `reach submit` (or the reach_submit tool). Reach asks the student itself: when it answers with Reach's question, relay it word for word and wait. Reach captures the student's answer itself. Never answer the question for the student, and never submit after a no.
-    When Reach then says the student said yes, run `reach submit` again once, as it says. Most of the time the receipt comes back straight away; tell the student in plain words what was received, the receipt number and the time, where the copy of their work was saved, and whether and until when they can submit again.
-    If submit says the due time has passed and the part is already submitted, tell the student it can't be submitted again and that their instructor can help; never try to submit a slice Reach says is closed.
+    When Reach then says the student said yes, run `reach submit` again once, as it says. Most of the time the receipt comes back straight away; tell the student in plain words what was received, the receipt number and the time, where the ZIP of their work was saved, and whether and until when they can submit again. After every submission, say again in your own words that the student must also upload that ZIP to Blackboard (or the system Reach names) to receive credit; the submission to rEach alone does not give credit.
+    If the ZIP was not saved (Reach says it was too large or could not be saved), or the student lost it, run `reach submit archive` (or the reach_submit tool with archive true) to make it again for an assignment that has been submitted, and tell them it still has to be uploaded to Blackboard. Reach refuses when nothing has been submitted for that assignment.
+    If Reach says the part is late, tell the student in plain words that it will be marked late and cannot be submitted again after this one. If submit says the due time has passed and the part is already submitted, tell the student it can't be submitted again and that their instructor can help; never try to submit a slice Reach says is closed.
     On Antigravity, Reach cannot ask for you: ask the same question in plain words, and run the command only after the student's yes.
     If submit says the work is queued, run `reach receipts wait --submission <id>` when you have an id, or `reach sync` when you are back online, and tell the student it has not been received yet.
     If submit says the work wasn't accepted, read the reason and the fix to the student in plain words.
@@ -2076,7 +2137,7 @@ templates:
     name: reach-help
     description: Use when the student asks for instructor help. After three failed qualifications Reach raises the hand itself.
     ---
-    Run `reach hand raise --summary "<what is blocked, what you tried>"`. Do not raise one for failed qualifications: Reach raises that hand itself on the third failure, with your code and scenarios in it.
+    Run `reach hand raise --type <type> --summary "<what is blocked, what you tried>"` (or the reach_raise_hand tool with type). Pick the closest type: grade_question (grades), access_issue (accounts, Blackboard and other course systems), extension_request (the student asks for more time), concept_question, assignment_question, deadline_question, submission_question, technical_issue, setup_issue, feedback, integrity_question or other; use student_request when none fits better (it is also the default). Reach refuses a type it does not know. Do not raise one for failed qualifications: Reach raises that hand itself on the third failure, with your code and scenarios in it.
     Tell the student that you asked the instructors for help and what was sent.
     Check `reach hand status` when the student returns; present any reply, and ask before applying a suggested change.
     Include the student's saved profile only if they say yes: `reach hand raise --include-profile ...`.
@@ -2424,6 +2485,68 @@ import:
     Reach::Debug.import records started, progress (at most every progress_every conversations), finished, failed and
     cancelled with the vendor, mode, counts and bytes only, under W-DBG-KINDS-2.
   agent_text: skills/reach-import/SKILL.md; one bullet in agents/reach.md and skills/reach-assistant/SKILL.md.
+transcript_export:
+  since: 0.19.0
+  standard: STD-TRANSCRIPT-EXPORT
+  sources: >-
+    Reach::TranscriptExport reads ~/.reach/transcripts/*.jsonl (not *.rejected.jsonl) and
+    ~/.reach/transcripts/archive/*.jsonl.gz line by line. A session's files are found by the session_id of their first
+    entry, merged, de-duplicated by seq and sorted by seq; memory is bounded by the largest session. Entries whose
+    student_id is another student's are dropped (the enrolled student's, or none, are kept).
+  layout: >-
+    One root folder <course>-transcripts-<YYYY-MM-DD>-<HHMM>-<zone> (the ZIP's name, without .zip, with -2, -3 on a
+    clash) holds README.md (every group and session with counts), <assignment>/<slice>/<YYYY-MM-DD-HHMM>-<session8>.md
+    in course time (STD-COURSE-TIME), extracurricular/ and unsorted/ with the same file names, and raw/<session>.jsonl
+    with the student's raw lines. A session's group is that of its first entry that resolves to an assignment (a code
+    entry's scope.assignment, else the cutout_id and slice mapped through the open workspaces and the stored receipts);
+    otherwise extracurricular when an entry's space says so, otherwise unsorted. Each Markdown file renders the
+    prompts, replies, reasoning, actions and code entries in seq order under plain headings with course-time
+    timestamps. The course id is the stamp's, else the install's, else config.yml course.id, else course.
+  write: >-
+    The destination, the -2, -3 claim and the temporary-file-and-rename step are Reach::Archive's (downloads_dir,
+    claim_zip); the writer is Reach::Zip. Nothing is sent anywhere.
+  auto: >-
+    config.yml transcripts.auto_export (default true). Reach hello (also while locked) calls
+    Reach::TranscriptExport.session_start: when an enrolled student's signed stamp has expired and state
+    transcripts-export.json holds no auto export for the course, it spawns one detached reach transcripts export --auto
+    (at most once per 120 seconds, under an exclusive lock) that records {course, path, at} on success (or none, so it
+    is not retried). The next prompt (or hello, or the blocked prompt of the course-ended lock) carries
+    M-TRANSCRIPTS-AUTO once.
+late_work:
+  since: 0.19.0
+  standard: STD-LATE-WORK
+  wire: W-PACE-1, W-PACE-2, W-HAND-TYPES
+  config: >-
+    config.yml late_work: allow (default true), notice_every (default 10).
+  writable: >-
+    Reach::Pace.writable? allows a slice whose own due has passed by Teach's clock when late_work.allow is true. The due
+    is the status's current_assignment.due when the slice's assignment is the current one, otherwise the workspace
+    package's due (Reach::LateWork.due_for_meta); an assignment that is neither current nor past due stays refused
+    (M-GATE-NOT-CURRENT).
+  info: >-
+    Reach::LateWork.late?(workspace) and .info(workspace) give the due, how late (M-LATE-HOW-*), submitted_before_due (an
+    ingest receipt with late false exists for the slice), on_record and can_submit (no ingest receipt for the slice, or
+    the due has not passed).
+  notices: >-
+    M-LATE-NOTICE in reach hello's context when the cwd workspace is late; on the first prompt of each session in a late
+    workspace and every notice_every prompts after (a per-session counter in state late-prompts.json, no network);
+    M-LATE-STATUS in reach status; the submit ask uses M-SUBMIT-ASK-LATE. M-LATE-CAN-SUBMIT, M-LATE-CANNOT-SUBMIT and
+    M-LATE-CANNOT-SUBMIT-ONTIME say whether it can still be submitted.
+  hands: >-
+    The first allowed late write in an assignment (the gate's write path) records it in state late-hands.json and spawns
+    a detached reach hand late --assignment A (trigger late_work); a verified ingest receipt with late true does the same
+    with trigger late_submission (Reach::Receipts.store). Once per assignment and type ever; the next session start retries
+    an unsent one; a 403 hands_disabled or a 400 gives it up quietly, as do five failed tries. No hook waits on the network.
+grade_view:
+  since: 0.19.0
+  standard: STD-GRADE-VIEW
+  wire: W-API-GRADES
+  fetch: >-
+    Reach::Grades.fetch GETs /api/v1/grades through Reach::Client (its token bucket, timeouts, retries and breaker),
+    keeps only the last answer in state grades.json, and renders each assignment's points and points_possible and the
+    total (M-GRADES-*), with the course grade of record named as in config.yml submit.lms_name. 404 and 403
+    grades_disabled forget the stored answer and answer M-GRADES-UNAVAILABLE; a network failure shows the stored answer
+    labelled with its as_of (M-GRADES-OFFLINE-LAST) or M-GRADES-OFFLINE. Points are never derived from receipts.
 smoke_test:
   command: ruby tools/smoke/run.rb
   purpose: >-

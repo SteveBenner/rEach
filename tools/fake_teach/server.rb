@@ -24,6 +24,11 @@ module FakeTeach
   NONCE_TTL_S = 600
   PLATFORMS = %w[macos windows linux].freeze
   HEX64 = /\A[0-9a-f]{64}\z/.freeze
+  LEGACY_TRIGGERS = %w[attempt_gate attempt_ladder student_request check_gate wellbeing].freeze
+  NEWER_TRIGGERS = %w[
+    late_work late_submission concept_question assignment_question deadline_question grade_question submission_question
+    technical_issue setup_issue access_issue extension_request feedback integrity_question other
+  ].freeze
 
   class Failure < StandardError
     attr_reader :status, :code, :details, :headers
@@ -94,8 +99,76 @@ module FakeTeach
       @encryption_key = load_key("encryption")
       @installs = load_installs
       @wire_sha = Reach::Crypto.digest_hex(File.binread(File.join(ROOT, "specs", "wire.yml")))
+      @wire_sha = ENV["FAKE_TEACH_WIRE_SHA"] unless ENV["FAKE_TEACH_WIRE_SHA"].to_s.empty?
       @submissions = []
       @replays = {}
+      @hands = []
+      @hand_replays = {}
+    end
+
+    def log_request(req, status)
+      line = JSON.generate("at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%LZ"), "method" => req.request_method, "path" => req.path.to_s, "status" => status)
+      File.open(File.join(@home, "requests.jsonl"), "a") { |file| file.puts(line) }
+    end
+
+    def triggers
+      ENV["FAKE_TEACH_HANDS_LEGACY"].to_s == "1" ? LEGACY_TRIGGERS : LEGACY_TRIGGERS + NEWER_TRIGGERS
+    end
+
+    def raise_hand(req, body)
+      install = authenticate!(req, body)
+      key = req["Idempotency-Key"].to_s
+      raise Failure.new(400, "invalid_request", "Idempotency-Key is required") if key.empty?
+
+      request = JSON.parse(body)
+      raise Failure.new(400, "invalid_request", "body must be a JSON object") unless request.is_a?(Hash)
+      raise Failure.new(403, "hands_disabled", "hand-raises are switched off") if ENV["FAKE_TEACH_HANDS_DISABLE"].to_s == "1"
+      raise Failure.new(400, "invalid_request", "trigger is not recognized") unless triggers.include?(request["trigger"])
+      raise Failure.new(400, "invalid_request", "summary is too long") if request["summary"].to_s.bytesize > 2000
+
+      @mutex.synchronize do
+        replay = @hand_replays[[install["student_id"], key]]
+        next replay if replay
+
+        id = "hand_#{SecureRandom.hex(10)}"
+        row = {
+          "id" => id, "student_id" => install["student_id"], "cutout_id" => request["cutout_id"], "slice" => request["slice"],
+          "trigger" => request["trigger"], "originator" => request["originator"], "summary" => request["summary"],
+          "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        }
+        @hands << row
+        File.open(File.join(@home, "hands.jsonl"), "a") { |file| file.puts(JSON.generate(row)) }
+        answer = { "hand_id" => id, "state" => "open" }
+        @hand_replays[[install["student_id"], key]] = answer
+        answer
+      end
+    rescue JSON::ParserError
+      raise Failure.new(400, "invalid_request", "body is not valid JSON")
+    end
+
+    def hand_state(req, body, id)
+      install = authenticate!(req, body)
+      row = @hands.find { |hand| hand["id"] == id && hand["student_id"] == install["student_id"] }
+      raise Failure.new(404, "not_found", "no such hand") unless row
+
+      { "state" => "open", "reply" => nil }
+    end
+
+    def grades(req, body)
+      install = authenticate!(req, body)
+      path = File.join(@home, "grades.json")
+      config = File.file?(path) ? JSON.parse(File.read(path)) : {}
+      raise Failure.new(404, "not_found", "no such route") if config["mode"] == "404"
+      raise Failure.new(403, "grades_disabled", "grades are switched off") if config["mode"] == "disabled"
+
+      rows = Array(config["grades"]).select { |row| row["student_id"].nil? || row["student_id"] == install["student_id"] }
+      rows = rows.map { |row| row.reject { |key, _| key == "student_id" } }
+      total = nil
+      unless rows.empty?
+        possible = rows.any? { |row| row["points_possible"].nil? } ? nil : rows.sum { |row| row["points_possible"] }
+        total = { "points" => rows.sum { |row| row["points"] }, "points_possible" => possible }
+      end
+      { "available" => !rows.empty?, "grades" => rows, "total" => total, "as_of" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
     end
 
     def due_time
@@ -436,7 +509,9 @@ module FakeTeach
       body = read_body(req)
       payload = route(req, body)
       respond(res, 200, payload)
+      @store.log_request(req, 200)
     rescue Failure => e
+      @store.log_request(req, e.status)
       fail_with(res, e)
     rescue StandardError => e
       @logger = @server.logger
@@ -477,6 +552,12 @@ module FakeTeach
         @store.status(req, body)
       elsif method == "POST" && path == "/api/v1/submissions"
         @store.submit(req, body)
+      elsif method == "POST" && path == "/api/v1/hands"
+        @store.raise_hand(req, body)
+      elsif method == "GET" && path =~ %r{\A/api/v1/hands/([A-Za-z0-9_]+)\z}
+        @store.hand_state(req, body, Regexp.last_match(1))
+      elsif method == "GET" && path == "/api/v1/grades"
+        @store.grades(req, body)
       else
         raise Failure.new(404, "not_found", "no such route")
       end

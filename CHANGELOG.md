@@ -5,6 +5,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-10-02
+
+### Added
+
+- Transcript export (`STD-TRANSCRIPT-EXPORT`, `lib/reach/transcript_export.rb`). `reach transcripts export` and the
+  `reach_transcripts` tool write the student's own recorded AI conversations (live and archived sessions) to Downloads
+  as `<course>-transcripts-<YYYY-MM-DD>-<HHMM>-<zone>.zip`, organized by assignment and slice, then extracurricular and
+  unsorted, one readable Markdown file per session plus the raw lines and an index README. With
+  `transcripts.auto_export` (default on) the first session start after the course ends exports once in the background,
+  even while the course-ended lock is on, and the next prompt says where the ZIP is. `transcripts` is allowed while
+  rEach is locked (`STD-ENROLL-LOCKDOWN`).
+- Late work (`STD-LATE-WORK`, wire 2026-10-02e `W-PACE-2`, `lib/reach/late_work.rb`). A slice whose due time has passed
+  stays writable while `late_work.allow` is true (default); assignments not yet current stay closed. rEach says the work
+  is late at session start, on the first prompt of each session in that slice and every `late_work.notice_every` (10)
+  prompts after, in `reach status` and in the submit ask, and says when the slice can no longer be submitted. It raises
+  one `late_work` hand per assignment on the first late write and one `late_submission` hand when a late ingest receipt
+  verifies, from a detached `reach hand late`; offline hands wait in the outbox, and a 403 or 400 ends the retries.
+- Grade view (`STD-GRADE-VIEW`, `W-API-GRADES`, `lib/reach/grades.rb`). `reach grade` and the `reach_grade` tool show
+  the points Teach records for each assignment and the total, or say grades are not available yet (available false,
+  an older Teach's 404, or `grades_disabled`); offline, the last answer with its time.
+- Hand types (`STD-HAND-TYPES`, `W-HAND-TYPES`). `reach hand raise --type T` and `reach_raise_hand`'s `type` choose
+  among nineteen types (late work, concept, assignment, deadline, grade and submission questions, technical, setup and
+  access issues, extension requests, feedback, integrity questions, other and rEach's own); an unknown type is refused
+  before any request, and a Teach without the 2026-10-02e wire gets `student_request` with `[type]` in the summary.
+- `reach submit archive [--assignment A]` (and `reach_submit` with `archive` true) writes the assignment's ZIP again.
+
+### Changed
+
+- Every submit ask and every answer after an ingest says the ZIP is (or will be) in Downloads and that the student
+  must also upload it to Blackboard (`submit.lms_name`) to receive credit for the coursework (`STD-SUBMIT-ARCHIVE`).
+- `M-GATE-NOT-CURRENT` now says a part is closed because it is not the current assignment yet, or because late work is
+  switched off.
+- `tools/fake_teach` answers hands, hand status and grades, with switches for a legacy Teach, hands off and the wire
+  digest.
+
 ## [0.18.4] - 2026-10-02
 
 ### Fixed
