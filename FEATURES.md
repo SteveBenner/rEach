@@ -491,6 +491,16 @@ not yet seen on a student's macOS Codex.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 
+### 2.30e · Known issues for the agent
+
+Since 0.21.9 (`STD-KNOWN-ISSUES`, W-API-KNOWN-ISSUES) rEach fetches Teach's known issues without signing, caches them,
+names the matching ones for this operating system, harness and version in every session context, flags detected ones
+(`codex_sandbox`, `hooks_not_running`) and gives the steps through `reach_known_issues` and `reach known-issues`.
+Verified against a scratch Teach 0.27.1 (200, then 304 on revalidation), over MCP (hooks_not_running detected with no
+hook run), and inside the real `codex sandbox` runner (the sandbox entry detected from the cache with no request).
+
+Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.27.1 live with the entries imported).
+
 ### 2.31 · Opening a course folder
 
 `reach work [--harness H] [--slice S | --extracurricular]` opens a slice, or the student's own folder, in the chosen

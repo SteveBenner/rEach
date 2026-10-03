@@ -192,6 +192,11 @@ sandbox blocks the internet and rEach's folder. Since 0.21.8 a rEach command tha
 words instead of reporting a lost connection, and the agent turns debug mode on or off and runs the health check
 through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox.
 
+Since 0.21.9 rEach also tells the agent about known problems the instructors have recorded in Teach for this
+computer's operating system and AI app: each session's context names the ones that match, and marks one rEach can see
+happening now, and the agent gets the student's steps from the `reach_known_issues` tool (or `reach known-issues`).
+This works before enrollment, and from the last saved copy when the course server can't be reached.
+
 ### Submitting
 
 Since 0.17.0, once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.

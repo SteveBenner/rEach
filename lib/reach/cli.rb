@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -306,6 +306,8 @@ module Reach
           cmd_memory(args)
         when "storage"
           cmd_storage(args)
+        when "known-issues"
+          cmd_known_issues(args)
         when "grade"
           cmd_grade(args)
         when "extra-credit"
@@ -662,6 +664,7 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
         @gate_decision = "allow"
@@ -1686,12 +1689,38 @@ module Reach
           Reach::Hello.background(session: options[:session], cwd: Dir.pwd)
           return 0
         end
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil))) if (options[:format] || "hook") == "hook"
         puts Reach::Hello.run(
           harness: options[:harness],
           source: options[:source],
           format: options[:format] || "hook",
           cwd: Dir.pwd
         )
+        0
+      end
+
+      def cmd_known_issues(args)
+        refresh, args = parse_bare_flag(args, "refresh")
+        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
+        if refresh
+          Reach::KnownIssues.fetch!(quick: true)
+          return 0
+        end
+
+        Reach::KnownIssues.refresh_if_stale!(quick: true)
+        issues = Reach::KnownIssues.matching
+        if json
+          puts JSON.generate("issues" => issues)
+        elsif issues.empty?
+          puts Reach::Messages.text("M-KNOWN-ISSUES-NONE")
+        else
+          issues.each_with_index do |issue, index|
+            puts "" if index.positive?
+            puts issue["detected"] ? Reach::Messages.text("M-KNOWN-ISSUE-DETECTED", title: issue["title"]) : issue["title"]
+            puts "  #{issue['symptom']}"
+            puts "  #{issue['steps']}" if issue["steps"]
+          end
+        end
         0
       end
 
@@ -2170,6 +2199,7 @@ module Reach
         end
         options, remaining = parse_flags(args, [:harness])
         final, _remaining = parse_bare_flag(remaining, "final")
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
         event = read_stdin_json
         if hermes_hook?(options[:harness], event)
           event = normalize_hermes_event(event)

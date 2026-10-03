@@ -306,6 +306,11 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_known_issues",
+        "description" => "The known problems from the course server that match this computer's system and AI app, whether rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student through the steps in plain words, one at a time",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_storage",
         "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
         "inputSchema" => {
@@ -315,7 +320,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -475,7 +480,7 @@ module Reach
         when "reach_hand_status"
           Reach::Hands.status(arguments.fetch("hand_id"))
         when "reach_hello"
-          JSON.parse(Reach::Hello.run(harness: arguments["harness"], format: "json"))
+          JSON.parse(Reach::Hello.run(harness: arguments["harness"], format: "json", mcp: true))
         when "reach_profile_show"
           Reach::Profile.load
         when "reach_profile_save"
@@ -522,6 +527,8 @@ module Reach
         when "reach_next"
           step = Reach::Next.compute
           step.merge("relay_verbatim" => true)
+        when "reach_known_issues"
+          known_issues_tool
         when "reach_storage"
           storage_tool(arguments)
         when "reach_debug"
@@ -595,6 +602,12 @@ module Reach
         else
           raise Reach::Error, "reach: unknown debug action"
         end
+      end
+
+      def known_issues_tool
+        Reach::KnownIssues.refresh_if_stale!(quick: true)
+        issues = Reach::KnownIssues.matching(mcp: true)
+        { "issues" => issues, "text" => issues.empty? ? Reach::Messages.text("M-KNOWN-ISSUES-NONE") : nil }
       end
 
       def doctor_tool

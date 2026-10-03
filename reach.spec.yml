@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.8
+version: 0.21.9
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1037,6 +1037,11 @@ mcp_bridge:
     description: >-
       Since 0.21.8 (STD-CODEX-SANDBOX), the reach doctor health check through the bridge, which Codex runs outside its
       sandbox; works before enrollment like reach doctor
+  - name: reach_known_issues
+    description: >-
+      Since 0.21.9 (STD-KNOWN-ISSUES), the known issues from Teach that match this computer's operating system, harness
+      and Reach version, each with its symptom, whether its detector fires and the steps for this system and harness;
+      works before enrollment
   - name: reach_storage
     description: >-
       Since 0.18.0, how much space rEach's memory uses (action status, the default), or compact the saved course memory
