@@ -1,0 +1,59 @@
+schema: rstack.impl/v1
+name: reach-0.20.7-ruby-bootstrap
+recorded: '2026-10-02'
+author: primary
+kind: bug
+versions:
+  reach: 0.20.7
+spec: specs/app.yml STD-RUBY-BOOTSTRAP (new) and STD-ENROLL-LOCKDOWN (amended); reach.spec.yml ruby_bootstrap (normative detail - read it first)
+symptom: >-
+  On Windows in Claude Desktop Cowork, rEach installs through the plugin installer but the screen stays blank and the
+  agent never answers. Every rEach entry point calls bare `ruby` (hooks/hooks.json, hooks/codex.json, .mcp.json,
+  mcp.json, INSTALL.md's bootstrap), and the runtime kit's Ruby is only ever installed by Ruby code, so a computer with
+  no Ruby never gets one and every hook fails.
+decisions:
+  - "Sven 2026-10-02: a prompt that arrives while Ruby is still installing passes to the agent with M-BOOTSTRAP-WAIT context instead of being blocked (STD-ENROLL-LOCKDOWN exception)."
+  - "Sven 2026-10-02: on Windows the PowerShell bootstrap installs the kit Ruby and prepends its bin folder to the user PATH; an existing Ruby is left alone."
+rules:
+  - No code comments (Part Q) - shebangs and `# shellcheck` pragmas only if a tool reads them. No tests in the repo (Part S); scratch scripts live in your scratchpad.
+  - lib/ stays on the Ruby 2.6.10 floor (docker ruby:2.6.10 for ruby -wc on every changed .rb and require lib/reach.rb).
+  - exe/reach-run is POSIX sh (dash, bash 3.2 on macOS, Git Bash on Windows, busybox ash) - no bashisms; check with `sh -n`, `dash -n`, and shellcheck -s sh if available. No jq, python, flock or GNU-only flags; macOS has shasum not sha256sum, BSD tar, no timeout(1).
+  - scripts/reach-install.ps1 runs on Windows PowerShell 5.1 and PowerShell 7 (no ?? or ?. or ternary; -UseBasicParsing on Invoke-WebRequest; [Net.ServicePointManager]::SecurityProtocol TLS 1.2 on 5.1). Parse-check it with pwsh if installed on this host (install nothing).
+  - Never touch the real ~/.reach, ~/.codex, ~/.claude, ~/Downloads, ~/.corpora or live Teach. Use a scratch HOME/REACH_HOME and tools/fake_teach.
+  - Do not commit, tag, bump versions, or edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md, specs/*.yml or reach.spec.yml. The primary does release work.
+  - Do not change behavior beyond STD-RUBY-BOOTSTRAP; when a usable Ruby is on PATH the result must be byte-identical hook output to calling `ruby exe/reach ...` directly.
+slices:
+  - id: reach
+    worker: coding-worker-high
+    repo: /home/sven/github/foss/rEach
+    owns_paths:
+      - exe/reach-run (new, mode 0755)
+      - exe/runtime-pins (new, generated, sh-sourceable KEY=VALUE lines - RUNTIME_TAG, RUNTIME_ID, RELEASE_BASE, and per platform ASSET_<plat>, SHA256_<plat>, SIZE_<plat>, RUBY_EXE_<plat> with plat underscored)
+      - tools/runtime_pins.rb (new - --write regenerates exe/runtime-pins from the manifest fetched at RuntimeKit.manifest_url and verified against RuntimeKit::MANIFEST_SHA256, or from --manifest FILE; --check exits 1 naming each difference)
+      - scripts/reach-install.ps1 (new)
+      - hooks/hooks.json, hooks/reach.hooks.yml, .mcp.json, mcp.json (command lines only)
+      - lib/reach/runtime_auto.rb, lib/reach/runtime_kit.rb (ruby-only kit - auto-install adds chrome with only chrome when the active kit lacks it and the platform has one; never re-place the ruby of an active kit)
+      - locales/en-US.yml (append M-BOOTSTRAP-WAIT if the launcher reads its copy from there - otherwise keep the text in exe/reach-run and say so)
+      - INSTALL.md (Windows prerequisite and bootstrap command - use scripts/reach-install.ps1 when ruby -v fails instead of RubyInstaller)
+      - runtime/README.md (Cut a release - add the tools/runtime_pins.rb --write step after MANIFEST_SHA256)
+      - tools/platform_smoke/run.rb and .github/workflows/platforms.yml (only so the existing smoke still runs the hook command lines through sh; add no new test cases)
+    work:
+      - "exe/reach-run: resolve PLUGIN_ROOT from $0. REACH_HOME default ~/.reach. Ruby choice - REACH_RUBY if executable; else `ruby` on PATH whose RUBY_VERSION >= 2.6.10 (one `ruby -e` call); else $REACH_HOME/runtime/$(cat current)/ruby/bin/ruby[.exe] with .complete present. Found -> exec it with \"$PLUGIN_ROOT/exe/reach\" \"$@\" (stdin passed through unchanged, so hook JSON on stdin still reaches reach)."
+      - "No Ruby: detect platform from uname -s/-m (Darwin, Linux non-musl, MINGW*/MSYS*/CYGWIN* -> windows; x86_64/amd64, arm64/aarch64; Windows ARM64 -> windows-x86_64); unknown -> one plain stderr line naming how to install Ruby, then for hook verbs the M-BOOTSTRAP-WAIT path with that text, exit 0. REACH_RUNTIME_DISABLE=1 or REACH_OFFLINE=1 -> plain message, no download."
+      - "Bootstrap: lock by mkdir $REACH_HOME/state/bootstrap.lock (write pid and epoch inside; a lock older than 15 minutes or whose pid is gone is taken over). Download $RELEASE_BASE/$RUNTIME_TAG/$ASSET to $REACH_HOME/downloads/<asset>.part with curl -fL --retry 3 --connect-timeout 15 (wget fallback), check byte size and sha256 against exe/runtime-pins, extract with tar -xzf into $REACH_HOME/runtime/.stage-<pid>, find runtime/ruby/bin/ruby[.exe], run it with -e 'print RUBY_VERSION' (must equal 4.0.7), write BUILD.json-compatible .complete {runtime_id, platform, components:[ruby], ruby_version, bundler_version, profiles, installed_at} in the shape RuntimeKit.place! writes, rename stage to $REACH_HOME/runtime/$RUNTIME_ID (an existing dir is renamed to .old-<stamp> first, as place! does), write current via temp+rename, remove the .part and the lock. Every failure removes the stage and the lock, appends one line to $REACH_HOME/logs/bootstrap.log, and leaves the next call free to retry."
+      - "Hook verbs while installing: for `hello` and `gate *` (detect from args), start the bootstrap detached (nohup ... </dev/null >/dev/null 2>&1 &) unless the lock is held, read and discard stdin, print one JSON line {\"hookSpecificOutput\":{\"hookEventName\":<SessionStart for hello, UserPromptSubmit for gate prompt/enroll>,\"additionalContext\":M-BOOTSTRAP-WAIT}} and exit 0 within 1 s. Other gate verbs (write, shell, read) and transcript verbs exit 0 silently. M-BOOTSTRAP-WAIT says rEach is finishing its one-time setup (downloading its Ruby, about a minute), the agent should tell the student in one short friendly sentence to send their message again in a minute, and must do no course work and run no rEach command until then."
+      - "mcp while installing: start or join the bootstrap and poll for runtime/current up to 120 s, then exec; on timeout one stderr line and exit 1. Any other verb: run the bootstrap in the foreground with a progress line on stderr, then exec."
+      - "hooks/hooks.json: SessionStart `sh \"${CLAUDE_PLUGIN_ROOT}/exe/reach-run\" hello`, UserPromptSubmit `sh \"${CLAUDE_PLUGIN_ROOT}/exe/reach-run\" gate enroll --harness claude-code`, same timeouts. .mcp.json and mcp.json: command sh, args [\"${CLAUDE_PLUGIN_ROOT}/exe/reach-run\", \"mcp\"]. hooks/reach.hooks.yml run arrays the same with ${PLUGIN_ROOT}. hooks/codex.json unchanged."
+      - "scripts/reach-install.ps1: param -Destination, -Harness. If a Ruby >= 2.6.10 is on PATH, run the existing scripts/reach-install with it and stop. Otherwise read pins from exe/runtime-pins next to it (download that file from the same raw GitHub main as INSTALL.md uses when run standalone), download, verify Get-FileHash -Algorithm SHA256 and size, extract with tar.exe, smoke ruby.exe, place under $env:USERPROFILE\\.reach\\runtime\\<id> with .complete and current exactly as the sh launcher does, prepend <id>\\ruby\\bin to the User Path (no duplicate entry) and to the current process Path, then run `ruby reach-install --destination ...` and `ruby <plugin>\\exe\\reach setup --harness <h>` with that ruby. Plain messages, nonzero exit on failure."
+      - "INSTALL.md: Windows prerequisite line - if ruby -v fails, run the PowerShell one-liner that downloads scripts/reach-install.ps1 to %USERPROFILE%\\.reach\\bootstrap and runs it with -Harness (no RubyInstaller, no administrator rights); keep the macOS/Linux lines as they are."
+      - "runtime_auto: a ruby-only active kit with the pinned id on a platform whose manifest entry has chrome counts as needing chrome; the background run then installs only chrome in place."
+    acceptance:
+      - "Linux no-Ruby: in docker debian:bookworm-slim (curl, ca-certificates and tar only, no ruby) with the checkout mounted read-only, scratch REACH_HOME - echo a UserPromptSubmit JSON into `sh exe/reach-run gate enroll --harness claude-code`: exits 0 in under 1 s with the M-BOOTSTRAP-WAIT JSON; the detached bootstrap installs the real r3 linux-x86_64 bundle from GitHub, verified; the next call execs kit Ruby and gives the normal locked-enrollment answer (exit 2 + stderr, as the platform smoke expects). Report download and install time."
+      - "Same container: `sh exe/reach-run mcp` with no Ruby yet completes an MCP initialize request from stdin after the bootstrap (or report the wait); `sh exe/reach-run version` bootstraps in the foreground."
+      - "Tampered pins (wrong sha256) -> no install, stage and lock removed, one bootstrap.log line, hook still answers M-BOOTSTRAP-WAIT and exit 0. Concurrent: 5 parallel hook calls start exactly one download. A stale lock (dead pid) is taken over."
+      - "Ruby on PATH: on this host, hook output and exit codes of `sh exe/reach-run hello`, `gate enroll` and `version` equal those of `ruby exe/reach ...` in the same scratch home (diff them). In docker ruby:2.6.10 the same."
+      - "macOS-like: run exe/reach-run under `busybox sh` and `dash` for the no-Ruby path to catch bashisms (the download may be pointed at a local copy of the asset via a REACH_RUNTIME_BASE override if you add one - only if it is also honored by RuntimeKit; otherwise skip and say so)."
+      - "After a ruby-only bootstrap, runtime auto-install (reach hello in that home, auto on) adds chrome in place without touching ruby/; reach runtime status shows both. If the 196 MB chrome download is too slow, show the decision path (status/--json) and say so."
+      - "tools/runtime_pins.rb --check passes against the committed exe/runtime-pins; editing one sha makes it fail naming it."
+      - "PowerShell: parse-check scripts/reach-install.ps1 with pwsh if present (pwsh -NoProfile -Command \"[ScriptBlock]::Create((Get-Content -Raw scripts/reach-install.ps1)) | Out-Null\"); if pwsh is absent say so. Real Windows runs only in CI: say what the platform workflow will exercise."
+      - "ruby -wc on every changed .rb on Ruby 2.6.10 and 4.0; tools/smoke/assignment_one.rb passes (unset TEACH_DATABASE_URL; --run-dir in scratch). tools/platform_smoke/run.rb needs a commit; skip and say so."

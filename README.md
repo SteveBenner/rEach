@@ -60,12 +60,15 @@ until a student is enrolled, every session tells the agent to read it and finish
 
 Ruby 2.6.10 to 4.0.x, standard library only, no native gems. macOS's built-in
 `/usr/bin/ruby` is enough.
+A computer with no Ruby needs nothing first: since 0.20.7 the plugin's hooks run `sh exe/reach-run`, which downloads
+and verifies the runtime kit's Ruby in the background and then runs Reach with it (on Windows,
+`scripts/reach-install.ps1` does the same for the install and adds it to the user PATH).
 
 Local qualification runs the course's Cucumber suite, which needs Ruby 4 gems and Chrome. The session-start hook
 installs Reach's runtime kit in the background when it is missing or is not the one Reach pins (`config.yml` `runtime.auto_install`), and `reach
 runtime install` does the same by hand. It fetches Reach's runtime kit for this computer: Ruby 4.0.7 with the gems prebuilt and Chrome for Testing
 154.0.8037.92, the same versions Teach grades with, verified against a manifest pinned in Reach and kept in
-`~/.reach/runtime/`. Reach itself keeps running on the student's own Ruby; the runtime only runs the checks. [rplugin](https://bitbucket.org/paterasai/rplugin) is
+`~/.reach/runtime/`. Reach itself keeps running on the student's own Ruby when there is one; otherwise on the kit's. [rplugin](https://bitbucket.org/paterasai/rplugin) is
 optional: Reach uses its ports when it is installed and runs standalone otherwise.
 
 ## Install

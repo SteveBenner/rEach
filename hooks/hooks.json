@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruby \"${CLAUDE_PLUGIN_ROOT}/exe/reach\" hello",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/exe/reach-run\" hello",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruby \"${CLAUDE_PLUGIN_ROOT}/exe/reach\" gate enroll --harness claude-code",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/exe/reach-run\" gate enroll --harness claude-code",
             "timeout": 60
           }
         ]

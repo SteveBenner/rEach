@@ -17,6 +17,7 @@ module Reach
     MANIFEST_SCHEMA = "reach.runtime-manifest/v1".freeze
     SMOKE_TIMEOUT_S = 30
     PLATFORMS = %w[macos-arm64 macos-x86_64 linux-x86_64 linux-arm64 windows-x86_64].freeze
+    CHROME_PLATFORMS = %w[macos-arm64 macos-x86_64 linux-x86_64 windows-x86_64].freeze
 
     COPY = {
       offer: "Local checks run best with Reach's runtime (Ruby 4.0.7, prebuilt gems, Chrome for Testing 154). Install it with: reach runtime install",
@@ -361,6 +362,14 @@ module Reach
       temp = "#{current_file}.tmp"
       File.write(temp, "#{runtime_id}\n")
       File.rename(temp, current_file)
+    end
+
+    def chrome_missing?
+      runtime = active
+      return false unless runtime && runtime["runtime_id"] == RUNTIME_ID
+      return false if Array(runtime["info"]["components"]).include?("chrome")
+
+      CHROME_PLATFORMS.include?(platform)
     end
 
     def current_id

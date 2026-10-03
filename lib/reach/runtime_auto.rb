@@ -84,7 +84,7 @@ module Reach
 
     def due?(now = Time.now)
       return false unless enabled?
-      return false if Reach::RuntimeKit.current_id == Reach::RuntimeKit::RUNTIME_ID && Reach::RuntimeKit.active
+      return false if Reach::RuntimeKit.current_id == Reach::RuntimeKit::RUNTIME_ID && Reach::RuntimeKit.active && !Reach::RuntimeKit.chrome_missing?
       return false if installing?
 
       state = load_state
@@ -129,7 +129,8 @@ module Reach
     end
 
     def run
-      result = with_lock { Reach::RuntimeKit.install!(out: StringIO.new) }
+      only = Reach::RuntimeKit.chrome_missing? ? "chrome" : nil
+      result = with_lock { Reach::RuntimeKit.install!(only: only, out: StringIO.new) }
       if result == :busy
         Reach::Download.log("event" => "runtime.auto.skip", "reason" => "busy")
         return 0
