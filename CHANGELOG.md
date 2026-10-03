@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-10-03
+
+### Added
+
+- Version report (`STD-VERSION-REPORT`, wire revision 2026-10-03a, `W-AUTH-7`, byte for byte with Teach 0.22.0): every
+  request rEach signs carries `X-Reach-Version` with its version (`Reach::Client#sign!`), so Teach records which rEach
+  each install runs after every self-update, not only at enrollment, and shows it in its console. Enrollment preview
+  and enroll are unchanged. tools/fake_teach logs the header in `requests.jsonl`.
+
+### Changed
+
+- specs/wire.yml gains W-AUTH-7, so its digest changes: an install enrolls only against a Teach of the same revision
+  (Teach 0.22.0), as with every wire revision.
+
 ## [0.20.7] - 2026-10-03
 
 ### Fixed

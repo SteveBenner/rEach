@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.20.7 |
+| **Registry version** | 0.21.0 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 27 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 86 catalogued |
+| **Feature count** | 87 catalogued |
 
 ## How to read this registry
 
@@ -23,14 +23,14 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 79 | 92% |
+| ✅ Shipped | 80 | 92% |
 | ⚪ Planned | 6 | 7% |
 
 | Deploy | Count | Share |
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 74 | 86% |
+| 🔵 Built, not enabled | 75 | 86% |
 | ⚫ No runtime path | 9 | 10% |
 
 ## 1 · Install
@@ -677,6 +677,15 @@ expired, used, offline-then-sync with the same Idempotency-Key, pull of a Teach-
 end to end against a scratch Teach 0.20.0 (recorded, refused, offline then synced).
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (students update to 0.20.0 on their own).
+
+### 3.11 · Version report
+
+Since 0.21.0 (`STD-VERSION-REPORT`, wire 2026-10-03a, `W-AUTH-7`) every request rEach signs carries `X-Reach-Version`,
+so Teach always knows which rEach each install runs, including after a self-update, and shows it in its console.
+Verified against tools/fake_teach (status, sync and a hand raise carried the version; enrollment preview and enroll
+carried none) and by the Assignment 1 smoke against a Teach of the same wire revision.
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (students update to 0.21.0 on their own; Teach 0.22.0 must be live).
 
 ## 4 · Behaviour
 
