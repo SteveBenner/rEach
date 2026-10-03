@@ -12,6 +12,18 @@ module Reach
   module Fingerprint
     SCHEMA = "reach.fingerprint/v1".freeze
     CACHE_TTL_S = 600
+    CLAUDE_ENTRYPOINTS = {
+      "cli" => "claude-code-tui",
+      "local-agent" => "claude-cowork",
+      "remote_cowork" => "claude-cowork",
+      "claude-desktop" => "claude-desktop",
+      "claude-desktop-3p" => "claude-desktop",
+      "claude-vscode" => "claude-code-vscode",
+      "sdk-cli" => "claude-code-headless",
+      "sdk-ts" => "claude-agent-sdk",
+      "sdk-py" => "claude-agent-sdk",
+      "remote" => "claude-code-web"
+    }.freeze
     READER_TIMEOUT_S = 3
     UNKNOWN = "unknown".freeze
 
@@ -24,7 +36,7 @@ module Reach
       hostname_hash = component(salt, "hostname", hostname)
       descriptive = {
         "hostname" => hostname_hash,
-        "harness" => harness.to_s,
+        "harness" => harness_label(harness),
         "os_version" => os_version,
         "ruby_version" => RUBY_VERSION,
         "reach_version" => Reach::VERSION,
@@ -39,6 +51,23 @@ module Reach
         "digest" => digests[0],
         "strict_digest" => digests[1]
       }
+    end
+
+    def harness_label(hint)
+      hint = hint.to_s
+      override = ENV["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"].to_s
+      if hint == "codex" || ENV["CODEX_THREAD_ID"].to_s != "" || ENV["CODEX_SANDBOX"].to_s != ""
+        return "codex-app" if ENV["CODEX_DESKTOP_APP"].to_s != "" || override.match?(/desktop/i)
+        return "codex-vscode" if ENV["CODEX_IDE_VSCODE"].to_s != "" || override.match?(/vscode/i)
+
+        return "codex-tui"
+      end
+      entry = ENV["CLAUDE_CODE_ENTRYPOINT"].to_s
+      return CLAUDE_ENTRYPOINTS.fetch(entry) { "claude-code-#{entry.gsub(/[^a-z0-9_-]/i, '')[0, 24]}" } unless entry.empty?
+      return "hermes" if hint == "hermes" || ENV["HERMES_HOME"].to_s != ""
+      return "terminal" if hint == "cli"
+
+      hint.empty? ? UNKNOWN : hint
     end
 
     def live(salt:)
