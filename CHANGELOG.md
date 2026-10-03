@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.4] - 2026-10-02
+
+### Fixed
+
+- Codex students were stuck restarting forever and never asked for their enrollment code. `Reach::CodexCache.repaired?`
+  answered true whenever a `plugin.json.agent-plugins` file existed, so every locked `reach hello` the agent ran
+  after the first repair told the student to quit and reopen Codex again. It now reports a repair only in the run
+  that renamed a file (`lib/reach/codex_cache.rb`).
+- `M-ENR-AGENT-GUIDE` gives the loop an exit: when the student has already restarted and started a new chat and
+  rEach is still locked, the agent hands them the `reach enroll` command to paste into Terminal (PowerShell on
+  Windows), where they answer the passkey, username, student ID and password questions themselves. The repair
+  message says it happens once and points to that step (`lib/reach/hello.rb`, `locales/en-US.yml`).
+
 ## [0.20.3] - 2026-10-03
 
 ### Fixed
