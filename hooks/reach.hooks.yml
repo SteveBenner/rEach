@@ -7,6 +7,6 @@ hooks:
     blocking: false
   - event: prompt_submit
     match: any
-    run: ["sh", "${PLUGIN_ROOT}/exe/reach-run", "gate", "enroll", "--harness", "claude-code"]
+    run: ["sh", "${PLUGIN_ROOT}/exe/reach-run", "gate", "enroll", "--harness", "${HARNESS}"]
     timeout_s: 60
     blocking: true
