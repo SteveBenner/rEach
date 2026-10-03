@@ -596,7 +596,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 Since 0.22.0 (wire revision 2026-10-03e, Teach 0.30.0; STD-TEACH-SUBSCRIBE) Reach checks Teach's signed W-API-REVISION probe, about every 60 seconds from its MCP server while a harness session runs and about every 15 minutes from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task), and runs one `reach sync` only when a part changed, so rebuilt packages, assignments, policy, grades, hand replies, extra credit, receipts and known issues arrive without the student asking. `reach subscribe status|tick|install|uninstall` manage it, `reach doctor` prints R-DOC-SUBSCRIBE, and the prompt hook adds one plain line (M-SUBSCRIBE-UPDATES) naming what changed. `REACH_OFFLINE=1`, `REACH_SUBSCRIBE=0` and `subscribe.background: false` switch it off. Unverified: the macOS LaunchAgent and the Windows Task Scheduler job were generated as text only and never run on those systems; the Linux unit files were written to a scratch folder with no `systemctl` call.
 
-Build ✅ · Deploy 🔵 · Blocker: Engineering (not yet released; Teach 0.30.0 must serve the route, and the operating system jobs have not run on macOS or Windows).
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.22.0, GitHub Latest; Teach 0.30.0 serves the route). The macOS and Windows operating system jobs are generated and reviewed but have not yet run on those systems.
 
 ## 3 · Course reference
 
