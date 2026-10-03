@@ -38,7 +38,12 @@ module Reach
 
     def prompt(event: {}, harness: nil)
       event = {} unless event.is_a?(Hash)
-      return Reach::Instructor.context_once(Reach::Transcript.resolve_session_id(event)) if Reach::Instructor.mode?
+      toggled = safely { Reach::Debug.toggle_from_prompt!(event["prompt"]) }
+      if Reach::Instructor.mode?
+        return Reach::Messages.text("M-DEBUG-RELAY", text: toggled) if toggled
+
+        return Reach::Instructor.context_once(Reach::Transcript.resolve_session_id(event))
+      end
 
       blocked = nil
       begin
@@ -87,10 +92,10 @@ module Reach
         witness("prompt")
       end
 
-      prompt_context(event, harness, decision, entry)
+      prompt_context(event, harness, decision, entry, toggled: toggled)
     end
 
-    def prompt_context(event, harness, decision, entry)
+    def prompt_context(event, harness, decision, entry, toggled: nil)
       session = Reach::Transcript.resolve_session_id(event)
       space = current_space
       context = []
@@ -127,6 +132,7 @@ module Reach
         context << safely { Reach::Next.anchor_text(space) }
       end
       context << safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) }
+      context << Reach::Messages.text("M-DEBUG-RELAY", text: toggled) if toggled
 
       text = context.compact.map(&:to_s).reject(&:empty?).join("\n\n")
       text.empty? ? nil : text
