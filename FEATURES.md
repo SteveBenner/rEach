@@ -397,7 +397,9 @@ Verified 2026-10-01 against `tools/fake_teach`, the stand-in for Teach's half:
 - a real Claude Code 2.1.286 session: every enrollment prompt was blocked, the agent saw none of them, and it got
   the unlock notice afterwards.
 
-Since 2026-10-01c a second computer waits for the instructor's approval and an expired handout code says so.
+Since 2026-10-01c a second computer waits for the instructor's approval and an expired handout code says so. Since
+2026-10-02e (rEach 0.18.3) a second computer is enrolled at once by default; it waits only when the course policy's
+`enrollment.device_moves` is `approve`.
 
 Since 0.16.1 a bare course id of nine or more characters (`MGMT327FA26`) is answered with the course-only message
 when Teach reports `details.course_only`. Built in 0.16.1 against wire revision 2026-10-01d and needing Teach 0.16.1;
