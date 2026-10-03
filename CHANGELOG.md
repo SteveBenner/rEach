@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.5] - 2026-10-03
+
+### Fixed
+
+- A Codex student who had enrolled and synced was never asked for their student ID: the session start told the agent
+  "rEach asks for their student ID when they next type; wait for them", but only a course folder's own prompt hook
+  (`.codex/hooks.json`, `reach gate prompt`) ran the sign-in, and Codex runs a project hook only after the student
+  trusts it, so in a new course folder nothing asked and `reach login status` stayed not signed in. The plugin's
+  prompt hook (`reach gate enroll`, already trusted at install) now runs the sign-in once enrollment is done: in
+  Codex in every folder, and in Claude Code outside the course folders (`STD-SIGNIN-PLUGIN-HOOK`).
+  `Reach::Login.claim` keys a Codex prompt on its `turn_id` under a per-session lock, so when both hooks run only the
+  first judges the ID and answers; the other passes that turn silently and captures nothing. The prompt after the
+  yes carries the signed-in context from the plugin hook as well. `hooks/codex.json` is unchanged byte for byte so
+  Codex keeps trusting it.
+- `tools/platform_smoke/run.rb` `hook_prompt_open` now signs in through the Codex plugin hook (ask, confirm, yes, the
+  same turn twice, the signed-in context) before checking that the gate is open.
+
 ## [0.21.4] - 2026-10-03
 
 ### Fixed

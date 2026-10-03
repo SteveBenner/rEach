@@ -59,27 +59,22 @@ module Reach
       decision = nil
       unless blocked
         begin
-          decision = Reach::Login.evaluate(event: event, harness: harness) if Reach::Login.required?
+          decision = Reach::Login.claim(event: event, harness: harness) if Reach::Login.required?
         rescue StandardError
           decision = { "action" => "block", "message" => Reach::Messages.text("M-LOGIN-NEEDED"), "note" => nil, "failed" => true }
         end
       end
+      elsewhere = decision == :elsewhere
+      decision = nil if elsewhere
       login_block = decision && decision["action"] == "block"
 
       locked = !blocked.nil? && Reach::EnrollmentLock::MESSAGES.value?(blocked.message_id)
-      entry = locked || blocked || login_block ? nil : live_prompt(event)
-
-      if decision && !decision["failed"]
-        begin
-          Reach::Login.commit!(decision, event: event, harness: harness)
-        rescue StandardError
-          nil
-        end
-      end
+      entry = locked || blocked || login_block || elsewhere ? nil : live_prompt(event)
 
       blocked = Reach::GateBlocked.new(blocked.message_id, "#{blocked.message}\n\n#{toggled}") if blocked && toggled
       raise blocked if blocked
       raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, toggled].compact.join("\n\n")) if login_block
+      return nil if elsewhere
 
       witness("prompt")
       context = prompt_context(event, harness, decision, entry, toggled: toggled)

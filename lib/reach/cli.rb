@@ -908,8 +908,11 @@ module Reach
           raise Reach::GateBlocked.new("M-PERSONA-LOCKED", text)
         end
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
+        signed_in = nil
+        decision, signed_in = enroll_login(event, harness_id) if decision.nil? && !hermes
         if decision.nil?
-          notice = Reach::EnrollFlow.consume_notice
+          notice = [Reach::EnrollFlow.consume_notice, signed_in].compact.join("\n\n")
+          notice = nil if notice.empty?
           if Reach::Instructor.mode?
             session = Reach::Session.resolve_session_id(event)
             notice = [notice, Reach::Instructor.context_once(session)].compact.join("\n\n")
@@ -935,7 +938,37 @@ module Reach
           puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: message)}\n\n#{guide}")
           return 0
         end
-        raise Reach::GateBlocked.new("M-ENR", message)
+        raise Reach::GateBlocked.new(decision["id"] || "M-ENR", message)
+      end
+
+      def enroll_login(event, harness_id)
+        return nil if Reach::Instructor.mode? || !Reach::Login.required?
+
+        codex = !event["turn_id"].to_s.empty?
+        unless codex
+          cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
+          return nil if Reach::Workspace.space_for(cwd)
+        end
+        harness_id = "codex" if codex
+        result = begin
+          Reach::Login.claim(event: event, harness: harness_id)
+        rescue StandardError
+          { "action" => "block", "message" => Reach::Messages.text("M-LOGIN-NEEDED") }
+        end
+        return [{ "id" => "M-LOGIN", "message" => result["message"].to_s }, nil] if result.is_a?(Hash) && result["action"] == "block"
+        return nil unless result.is_a?(Hash)
+
+        session = Reach::Session.resolve_session_id(event)
+        context = []
+        if Reach::Login.just_confirmed?(session)
+          context << Reach::Gate.signed_in_context(harness_id, session)
+          Reach::Gate.after_answer { Reach::Login.clear_just_confirmed(session) }
+        end
+        context << result["context"]
+        text = context.compact.join("\n\n")
+        [nil, text.empty? ? nil : text]
+      rescue StandardError
+        nil
       end
 
       def hermes_hook?(harness, event)
