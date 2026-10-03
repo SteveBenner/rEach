@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.20.2
+version: 0.20.3
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -127,6 +127,8 @@ standards:
     text: "Since 0.18.1 the agent updates rEach only through reach update run --apply and never searches GitHub, its releases or tags, or downloads, unzips or copies a rEach archive itself (persona section Updating rEach, M-AGENT-UPDATE in reach hello's context, INSTALL.md). Every tagged rEach release since 0.18.1 also has a GitHub release marked Latest, so GitHub's releases page names a rEach version rather than a runtime kit."
   - id: STD-CLI-VERSION
     text: "Since 0.18.1 reach version, reach --version and reach -V print reach <VERSION> and exit 0, and work before enrollment."
+  - id: STD-QUALIFY-UNCOVERED
+    text: "Since 0.20.3, a qualification that stops on QF-UNCOVERED carries next (M-QUALIFY-UNCOVERED in text and JSON): write one scenario under qualify/features per uncovered graded name with the slice tag, then qualify again; never raise a hand for it. reach-help forbids hands for QF-UNCOVERED, QF-CHECK, QF-LOCAL-FAIL and QF-VACUOUS."
   - id: STD-MODULES-PENDING
     text: "Since 0.20.2, while a student has no modules, reach next says to choose them (M-NEXT-CHOOSE, or M-NEXT-CHOOSE-OPEN when the choice has no closing time) or to wait for the instructor to assign them (M-NEXT-WAIT-MODULES, in student-choice and instructor modes alike), never that nothing is released."
   - id: STD-STUDENT-MESSAGES
