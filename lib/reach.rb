@@ -98,6 +98,8 @@ require_relative "reach/part"
 require_relative "reach/next"
 require_relative "reach/support"
 require_relative "reach/hands"
+require_relative "reach/capsule"
+require_relative "reach/issues"
 require_relative "reach/ladder"
 require_relative "reach/qualify"
 

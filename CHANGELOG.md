@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-10-03
+
+### Added
+
+- rEach reports its own technical problems to the instructors (`STD-ISSUES`, wire revision 2026-10-03c, `W-ISSUE-1`
+  to `W-ISSUE-8`). Every fault rEach hides from the student now carries a signature (`fault_id` on the fault event).
+  A fault that stops enrollment, sign-in, sync, qualify or submit is reported at its first occurrence, any other at
+  its third within 24 hours: one report per signature per rEach version, at most 3 a day and 10 waiting, decided by a
+  fixed table with no model. The report is a hand with trigger `issue`, originator `reach` and the sealed bundle
+  `reach.issue/v1` (the fault's place, class and frames, the versions and platform, and a capsule of runtime facts);
+  it holds no error message, prompt, code, profile or typed identity. A detached `reach issues flush --background`
+  builds and sends it, so no hook or tool call waits. rEach sends it only to a Teach whose wire contract matches its
+  own; until then nothing is raised and fault events flow as before.
+- An unsent issue report waits in the outbox and is retried from the Stop hook, `reach sync` and `reach issues flush`
+  with full-jitter backoff (60 seconds doubling to 6 hours). The backoff applies to issue reports only. One process at
+  a time sends (`state/issues.flush.lock`), so two flushes that start together never send one report twice.
+- The student is told once that rEach noticed a problem with itself and reported it (`M-ISSUE-REPORTED`), and once
+  when the fix is in the version they run (`M-ISSUE-FIXED`). Seal, ledger and integrity faults are reported and never
+  mentioned.
+- A `technical_issue`, `setup_issue` or `access_issue` hand raised by the agent carries the same capsule and
+  `signature_hint`, the signature of the newest fault in the 10 minutes before it.
+- `reach issues` (instructor persona or debug mode) lists the registry; `reach issues flush` sends what is waiting.
+  `reach doctor` reports `R-DOC-ISSUES` while a report is waiting. `config.yml` gains `issues`; the course policy's
+  `limits.issues` can only tighten it; `REACH_ISSUES_DISABLE=1` turns it off.
+- `tools/fake_teach` accepts trigger `issue`, opens technical and issue bundles into `hands.jsonl`, and serves
+  `issue_state` and `fix_version` from `issues.json`.
+
+### Fixed
+
+- `reach sync` stopped checking for hand replies at the first hand Teach no longer held ("could not check for hand
+  replies (no such hand)"), so replies to every later hand were never fetched. A hand answered with 404 is now dropped
+  from the open list and the check goes on.
 ## [0.21.7] - 2026-10-03
 
 ### Fixed
