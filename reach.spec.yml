@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.7
+version: 0.21.8
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -548,6 +548,11 @@ harness_integration:
       Enforced by Codex's sandbox (writable roots) and re-checked by Reach at submit time (any change outside the
       owned files blocks the submission).
     mcp: The Reach MCP bridge registered in the workspace configuration.
+    sandbox_outside_course_folders: >-
+      Codex applies a course folder's .codex/config.toml only when the student trusts that folder; elsewhere its own
+      sandbox blocks the network and the Reach home for every shell command. Since 0.21.8 (STD-CODEX-SANDBOX) Reach
+      says so in plain words (M-SANDBOX-AGENT, M-SANDBOX-STUDENT) instead of reporting a lost connection or a hiccup,
+      and the agent reaches debug mode and the health check through reach_debug and reach_doctor.
     limits_stated_honestly: >-
       Codex now has PreToolUse hooks; file writes arrive as apply_patch with the patch text, and reach gate write reads
       the patch's file headers. Codex runs a project's .codex/hooks.json and the plugin's hooks only after the student
@@ -1024,6 +1029,14 @@ mcp_bridge:
     description: >-
       Since 0.19.0 (STD-GRADE-VIEW), the points Teach has recorded for the student per assignment and in total, or the
       plain message that grades are not available yet, or the last answer with its as_of when Teach cannot be reached
+  - name: reach_debug
+    description: >-
+      Since 0.21.8 (STD-CODEX-SANDBOX), debug mode through the bridge: action on (optional minutes), off or status, with
+      the same messages as reach debug; works before enrollment like reach debug
+  - name: reach_doctor
+    description: >-
+      Since 0.21.8 (STD-CODEX-SANDBOX), the reach doctor health check through the bridge, which Codex runs outside its
+      sandbox; works before enrollment like reach doctor
   - name: reach_storage
     description: >-
       Since 0.18.0, how much space rEach's memory uses (action status, the default), or compact the saved course memory
@@ -1665,7 +1678,7 @@ debug_mode:
   wire: W-API-DEBUG, W-API-STATUS classification and debug, W-DBG-EVENT, W-DBG-KINDS, W-DBG-SCRUB, W-DBG-RENDER
   switch: >-
     On while a persona is active (reason persona), else while debug/switch.json says on and its until has not passed
-    (reason local, set by reach debug on), else while the cached status.debug.requested is true and its until has not
+    (reason local, set by reach debug on or, since 0.21.8, the reach_debug tool), else while the cached status.debug.requested is true and its until has not
     passed (reason remote).
   files: >-
     <home>/debug/ (0700): spool.jsonl, state.json, switch.json, sent-<date>.jsonl, rejected-<date>.jsonl and two lock

@@ -206,6 +206,12 @@ module Reach
         error.detail = "#{method.to_s.upcase} #{path} offline_flag: REACH_OFFLINE=1"
         raise error
       end
+      if Reach::Sandbox.network_blocked?
+        error = Reach::Offline.new(Reach::Sandbox.agent_text)
+        error.cause_name = "codex_sandbox"
+        error.detail = "#{method.to_s.upcase} #{path} codex_sandbox: CODEX_SANDBOX_NETWORK_DISABLED=1"
+        raise error
+      end
       if self.class.breaker.open?
         error = Reach::Offline.new(Reach::Messages.text("M-TEACH-LINK-LOST"))
         error.cause_name = "breaker_open"
