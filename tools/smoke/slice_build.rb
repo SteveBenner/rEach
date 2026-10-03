@@ -32,6 +32,7 @@ module SliceBuild
 
   class Interrupted < Smoke::Abort; end
   class UsageLimit < Interrupted; end
+  AGENT_MEMORY = ENV.fetch("SMOKE_SLICE_AGENT_MEMORY", "4g")
   USAGE_LIMIT = /hit your (?:weekly |daily |session |usage )?limit|usage limit reached|limit .{0,20}resets \d/i
 
   $interrupted = false
@@ -504,6 +505,14 @@ module SliceBuild
       raise Smoke::Abort, "dry run failed for #{target["module"]}: #{problems.join("; ")}" unless problems.empty?
     end
 
+    def agent_session(target, record, workspace, dir, args)
+      docker = Smoke::Docker.args(name: "reach-slice-#{@id}-#{target["module"]}-agent-#{SecureRandom.hex(3)}", home: record["home"], workdir: workspace[:container])
+      memory = docker.index("--memory")
+      docker[memory + 1] = AGENT_MEMORY if memory
+      Smoke::Session.new(label: "#{target["module"]}-agent", docker_args: docker, claude_args: args, token: @token,
+                         log_path: File.join(dir, "session-0.jsonl"))
+    end
+
     def agent_args
       ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--model", AGENT_MODEL,
        "--max-budget-usd", SESSION_BUDGET_USD, "--plugin-dir", "/plugin", "--tools", "Read", "Glob", "Grep", "Skill", "Edit", "Write",
@@ -537,6 +546,7 @@ module SliceBuild
       transcript = []
       session = nil
       actor = nil
+      earlier_turns = []
       begin
         workspace = enroll_and_sync(phase, target, record)
         problems = workspace_problems(workspace, target)
@@ -545,11 +555,7 @@ module SliceBuild
         persona = format(@prompt, persona: CONFIG["student"]["persona"].gsub("{student_id}", target["student"]), goals: CONFIG["student"]["goals"])
         dir = record["dir"]
         FileUtils.mkdir_p(File.join(dir, "student-home"))
-        session = Smoke::Session.new(
-          label: "#{target["module"]}-agent",
-          docker_args: Smoke::Docker.args(name: "reach-slice-#{@id}-#{target["module"]}-agent", home: record["home"], workdir: workspace[:container]),
-          claude_args: agent_args, token: @token, log_path: File.join(dir, "session-0.jsonl")
-        )
+        session = agent_session(target, record, workspace, dir, agent_args)
         actor = Smoke::Session.new(
           label: "#{target["module"]}-student",
           docker_args: Smoke::Docker.args(name: "reach-slice-#{@id}-#{target["module"]}-student", home: File.join(dir, "student-home"), workdir: Smoke::CONTAINER_HOME, plugin: false),
@@ -565,7 +571,19 @@ module SliceBuild
             ended = "module timeout #{MODULE_TIMEOUT_S}s"
             break
           end
-          turn = session.say(message, timeout_s: [TURN_TIMEOUT_S, remaining.ceil].min)
+          begin
+            turn = session.say(message, timeout_s: [TURN_TIMEOUT_S, remaining.ceil].min)
+          rescue Smoke::Abort => e
+            raise unless e.message.include?("claude exited") && !record["agent_resumed"]
+
+            reason = e.message.lines.grep(/panic|crashed|Killed|signal/).first.to_s.strip
+            record["agent_resumed"] = reason.empty? ? "claude exited" : reason[0, 160]
+            earlier_turns.concat(session.turns)
+            puts "   [#{target["module"]}] agent claude exited; resuming once with --continue"
+            session.close
+            session = agent_session(target, record, workspace, dir, agent_args + ["--continue"])
+            turn = session.say(message, timeout_s: [TURN_TIMEOUT_S, (deadline - Time.now).ceil].min)
+          end
           usage_limit!(turn, "agent")
           spend_add(agent_cost, turn)
           record["agent_turns"] += 1
@@ -606,12 +624,12 @@ module SliceBuild
       ensure
         session&.close
         actor&.close
-        record["turns_log"] = session ? session.turns.map { |t| { "student" => t["student"], "agent" => reply_of(t), "cost" => t["cost"] } } : []
+        record["turns_log"] = session ? (earlier_turns + session.turns).map { |t| { "student" => t["student"], "agent" => reply_of(t), "cost" => t["cost"] } } : []
         record["agent_cost"] = agent_cost.total.round(4)
         record["student_cost"] = student_cost.total.round(4)
         record["cost"] = (agent_cost.total + student_cost.total).round(4)
         record["agent_replies_tail"] = transcript.last(3).map { |t| t["agent"] }
-        record["guard_refusals"] = guard_refusals(session)
+        record["guard_refusals"] = guard_refusals(session, earlier_turns)
         record["minutes"] = ((Time.now - started) / 60.0).round(2)
         record["wall_seconds"] = (Time.now - started).round(1)
         File.write(File.join(record["dir"], "transcript.md"), render_transcript(transcript)) if File.directory?(record["dir"])
@@ -630,10 +648,10 @@ module SliceBuild
       @spend.add(tracker.add(turn["cost"]))
     end
 
-    def guard_refusals(session)
+    def guard_refusals(session, earlier_turns = [])
       return [] unless session
 
-      session.turns.flat_map do |turn|
+      (earlier_turns + session.turns).flat_map do |turn|
         turn["tool_results"].select { |r| r["text"].to_s.include?(GUARD_MARKER) }.map { |r| r["text"].gsub(/\s+/, " ")[0, 200] }
       end
     end
@@ -819,6 +837,7 @@ module SliceBuild
         lines << "Outcome: #{m["outcome"]}#{m["reason"] ? " - #{m["reason"]}" : ""}"
         lines << "Turns: agent #{m["agent_turns"].inspect}, student #{m["student_turns"].inspect}; wall #{m["minutes"].inspect} min; agent cost $#{m["agent_cost"].inspect}, student cost $#{m["student_cost"].inspect}"
         lines << "Guarded-write refusals: #{Array(m["guard_refusals"]).length}"
+        lines << "Agent resumed once after: #{m["agent_resumed"]}" if m["agent_resumed"]
         Array(m["guard_refusals"]).first(3).each { |g| lines << "  - #{g}" }
         lines << "Qualify attempts: #{Array(m["qualifications"]).map { |q| "##{q["attempt"]} #{q["status"]}#{q["passed"].nil? ? "" : q["passed"] ? " pass" : " fail"}#{Array(q["failed_scenarios"]).empty? ? "" : " (#{q["failed_scenarios"].join("; ")})"}" }.join(", ")}"
         lines << "Ladder: #{m["ladder"].to_a.map(&:to_json).join("; ")}"
