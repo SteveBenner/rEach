@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.7] - 2026-10-03
+
+### Fixed
+
+- The harness Reach reports at enrollment (the fingerprint's descriptive harness, which Teach's console shows) now
+  names the app: `claude-code-tui`, `claude-cowork`, `claude-desktop`, `claude-code-vscode`, `claude-code-headless`,
+  `claude-agent-sdk`, `codex-tui`, `codex-app`, `codex-vscode`, `hermes`, or `terminal` for `reach enroll` typed in a
+  plain terminal (`Reach::Fingerprint.harness_label`, from CLAUDE_CODE_ENTRYPOINT, CODEX_THREAD_ID, CODEX_DESKTOP_APP,
+  CODEX_IDE_VSCODE and HERMES_HOME). Before, every `reach enroll` reported `cli` and Cowork reported `claude-code`.
+  The fingerprint digests are unchanged, so no device move follows; installs enrolled earlier keep their old label.
+
 ## [0.21.6] - 2026-10-03
 
 ### Fixed
