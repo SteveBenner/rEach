@@ -25,6 +25,7 @@ module Reach
         "runtime" => Reach::CryptoProbe.facts,
         "kit" => kit,
         "environment" => environment,
+        "sandbox" => sandbox,
         "self_test" => {
           "gcm" => Reach::CryptoProbe.gcm_self_test, "envelope_gcm" => envelope_gcm_test, "rsa" => Reach::CryptoProbe.rsa_self_test
         },
@@ -41,6 +42,15 @@ module Reach
       { "ok" => opened == plaintext, "path" => Reach::GCM.native_aad? ? "openssl" : "ruby" }
     rescue StandardError => e
       { "ok" => false, "path" => Reach::GCM.native_aad? ? "openssl" : "ruby", "error" => "#{e.class.name}: #{e.message}" }
+    end
+
+    def sandbox
+      {
+        "active" => Reach::Sandbox.active?, "network_blocked" => Reach::Sandbox.network_blocked?,
+        "home_writable" => Reach::Sandbox.active? ? Reach::Sandbox.home_writable? : nil
+      }
+    rescue StandardError => e
+      { "active" => false, "error" => e.message }
     end
 
     def kit

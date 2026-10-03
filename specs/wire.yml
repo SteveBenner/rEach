@@ -699,11 +699,11 @@ routes:
       debug: >-
         Since 2026-10-02a. {requested: boolean, until: "W-CONV-3 timestamp or null", by: "instructor id or null"}: an
         instructor's remote request that this install run debug mode (W-API-DEBUG). Always requested true for a test
-        student. Absent from an older Teach, which Reach reads as requested false. Since 2026-10-03d requested is
+        student. Absent from an older Teach, which Reach reads as requested false. Since 2026-10-03e requested is
         also true, with by "live" and until the session's end time, while the install's student has an open live
         session (W-LIVE-6).
       live: >-
-        Since 2026-10-03d. {session_id, state: "requested | offered | open", started_by: "student | instructor"} for
+        Since 2026-10-03e. {session_id, state: "requested | offered | open", started_by: "student | instructor"} for
         the install's live session that is not closed (W-LIVE-1), or null. Absent from an older Teach and from a Teach
         with live sessions switched off, which Reach reads as null.
   - id: W-API-PACKAGE
@@ -1084,7 +1084,7 @@ routes:
       404 not_found: "live sessions are switched off on this Teach"
       409 conflict: "details.reason live_capacity: three live sessions are already open on this Teach"
     notes: >-
-      Since revision 2026-10-03d. Asks the instructors for a live session. The session starts as requested and opens
+      Since revision 2026-10-03e. Asks the instructors for a live session. The session starts as requested and opens
       when an instructor approves it. When the install already has a session that is not closed, Teach answers that
       session: an offered one opens, because the student has now agreed. A Teach older than this revision answers 404.
   - id: W-API-LIVE-POLL
@@ -1099,7 +1099,7 @@ routes:
       poll_s: "the wait Teach asks for before the next poll: 3 while open, 10 otherwise"
       disabled: "true only when live sessions are switched off on this Teach"
     notes: >-
-      Since revision 2026-10-03d. The first poll of an open session marks the student's side attached (W-LIVE-4).
+      Since revision 2026-10-03e. The first poll of an open session marks the student's side attached (W-LIVE-4).
   - id: W-API-LIVE-CONSENT
     method: POST
     path: /api/v1/live/:id/consent
@@ -1113,7 +1113,7 @@ routes:
       404 not_found: "no such session of this install"
       409 conflict: "details.reason not_offered: the session is not waiting for the student's answer; live_capacity as W-API-LIVE"
     notes: >-
-      Since revision 2026-10-03d. The student's answer to an instructor's offer. Yes opens the session; no closes it
+      Since revision 2026-10-03e. The student's answer to an instructor's offer. Yes opens the session; no closes it
       with end_reason declined_by_student. A repeated yes on an open session answers the session.
   - id: W-API-LIVE-MESSAGE
     method: POST
@@ -1131,7 +1131,7 @@ routes:
       404 not_found: "no such session of this install"
       409 conflict: "details.reason not_open, co_debug_off (an agent message in a session without co-debug), message_cap or message_rate (W-LIVE-7)"
     notes: >-
-      Since revision 2026-10-03d. A repeat with the same Idempotency-Key, and a second result for one action, answer
+      Since revision 2026-10-03e. A repeat with the same Idempotency-Key, and a second result for one action, answer
       the stored message.
   - id: W-API-LIVE-END
     method: POST
@@ -1139,13 +1139,24 @@ routes:
     auth: install
     response_200: {session: W-LIVE-SESSION}
     notes: >-
-      Since revision 2026-10-03d. The student ends the session, or withdraws a request, at any time and without a
+      Since revision 2026-10-03e. The student ends the session, or withdraws a request, at any time and without a
       reason. Ending a closed session answers it unchanged.
   - id: W-API-HEALTH
     method: GET
     path: /api/v1/health
     auth: none
     response_200: {status: "ok | degraded", database: boolean, blob_store: boolean}
+  - id: W-API-KNOWN-ISSUES
+    since: 2026-10-03d
+    method: GET
+    path: /api/v1/known-issues
+    auth: none (rate limited per IP, shared with W-API-ENROLL)
+    request_headers: If-None-Match with the revision Reach last cached, optional
+    response_200:
+      revision: "lowercase hex SHA-256 of the canonical JSON of issues (W-KI-1); also sent as the ETag header"
+      issues: "[known issue (W-KI-1)], every entry not retired, ordered by id"
+    response_304: when If-None-Match equals the current revision; no body
+    reach_use: W-KI-3. Carries no student, install or course data, so it is served before enrollment.
 submissions:
   W-SUB-1:
     name: resubmission
@@ -1381,7 +1392,7 @@ live:
   W-LIVE-1:
     name: live session
     rule: >-
-      Since revision 2026-10-03d. A live session connects one rEach install with the instructors for a bounded time,
+      Since revision 2026-10-03e. A live session connects one rEach install with the instructors for a bounded time,
       to find out together why something does not work. It is requested by the student (W-API-LIVE) or offered by an
       instructor, and it opens only when both have agreed: the student by a captured yes (W-LIVE-2), an instructor in
       Teach. Its states are requested (the student asked, an instructor has not answered), offered (an instructor
@@ -1545,7 +1556,7 @@ reach_client_safety:
   W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
   W-SAFE-13: {name: enrollment, rule: "since 2026-10-01b: only the enrollment prompt hook and reach enroll call W-API-ENROLL-PREVIEW and W-API-ENROLL, never in quick mode: connect 5 s, read 10 s, no retries, at most one preview per typed code and one enroll per yes; the local lockout (W-ENR-7) stops calls entirely while it lasts; X-Reach-Fingerprint is sent only on GET /api/v1/status"}
   W-SAFE-9: {name: transcripts, rule: "retired 2026-10-03b (W-TRN-0)"}
-  W-SAFE-14: {name: live sessions, rule: "since 2026-10-03d: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
+  W-SAFE-14: {name: live sessions, rule: "since 2026-10-03e: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
 transcripts:
   W-TRN-0:
     name: no capture
@@ -2067,3 +2078,44 @@ extra_credit:
       refused entries that Teach does not know. Teach shows every code and its entry on the console's Extra credit page
       and on the student's page. A debug event about extra credit carries entry_id, state and outcome, never the code
       or the answer (W-DBG-SCRUB).
+known_issues:
+  since: 2026-10-03d
+  W-KI-1:
+    name: known issue entry
+    rule: >-
+      {id, title, symptom, detector, applies, steps}. id matches ^[a-z0-9][a-z0-9-]{1,47}$; title is at most 120
+      characters; symptom (what the student or agent sees, for the agent) is at most 600; detector is null or a name
+      matching ^[a-z_]{1,40}$; applies is {os: [macos | windows | linux], harness: [harness label or family], reach_min:
+      version or null, reach_max: version or null}, where an empty list means any; steps is a list of at most 12
+      {os: [...], harness: [...], text} with text (plain words for the student, at most 1500 characters) and the same
+      empty-means-any lists. A harness label is one Reach's fingerprint reports (claude-code-tui, claude-cowork,
+      claude-desktop, claude-code-vscode, claude-code-headless, claude-agent-sdk, codex-tui, codex-app, codex-vscode,
+      hermes, terminal); a family (claude, codex) matches every label that starts with it and a hyphen. The canonical
+      JSON for the revision is JSON.generate of the issues list with keys in the order above and no extra whitespace.
+  W-KI-2:
+    name: matching
+    rule: >-
+      An entry matches an install when its os list is empty or holds the install's operating system, its harness list
+      is empty or holds the install's label or that label's family, and the install's Reach version is at or above
+      reach_min and at or below reach_max where they are set. For a matching entry the steps shown are the first step
+      set whose os and harness lists match the same way; an entry with no matching step set is shown with its symptom
+      only. When Reach knows only the install's harness family (claude or codex), every label in that family matches.
+      Reach takes the harness from its fingerprint's environment markers, then from the name of the process that
+      started it (an MCP server under Codex is started by codex and may not see Codex's variables), then from the label
+      the last hook recorded in hooks_seen.json; with none of them it matches only entries whose harness list is empty.
+  W-KI-3:
+    name: what Reach does with them
+    rule: >-
+      Reach fetches the list without signing (no install key is needed), sends If-None-Match with its cached revision,
+      and keeps the answer in known_issues.json (0600) under the Reach root state directory; a 304 only refreshes the
+      fetched time. It fetches from reach sync, from a detached refresh the session start hook spawns when the cache is
+      older than one hour, and inline (the quick client) from reach_hello and reach_known_issues when the cache is
+      older than one hour. A failed fetch keeps the cache, never shows the student an error and leaves the connection state (link.json) alone. The agent's session
+      context names each matching entry in one line, marks one whose detector Reach sees firing as detected, and points
+      to reach_known_issues for the full steps.
+  W-KI-4:
+    name: detectors
+    rule: >-
+      Reach implements codex_sandbox (Reach::Sandbox.blocked?, STD-CODEX-SANDBOX) and hooks_not_running (an MCP call
+      on a Codex harness when no Reach hook has run on this computer for 15 minutes). A detector name Reach does not
+      implement is never detected; its entry is still listed.

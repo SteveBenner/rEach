@@ -162,7 +162,7 @@ six- or seven-digit IDs and an optional trailing username letter, matching live 
 is a password the student chooses twice (at least 8 characters) and is told to write down; the hook hides it from
 the agent, Hermes students finish in a terminal, and Teach keeps only its scrypt hash. Since 0.18.2 `reach setup`
 and `update/apply.rb` write `teach.url` to `~/.reach/state/teach.json`, read after `REACH_TEACH_URL` and `config.yml`,
-so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`.
+so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`. Since 0.21.11 `Reach::Runtime::TEACH_URL` builds the same URL in as the last resort, and a terminal enroll that cannot reach Teach names the URL and the network cause instead of saying the work is saved. Since 0.21.13 enrollment requests leave the Teach connection state alone, so that message is the only line; verified against live Teach from a scratch home (one line on failure, no `link.json` written, no reconnect line after a successful preview).
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -383,6 +383,8 @@ install --from DIR` installs from a folder of release files so a classroom can s
 
 Build ✅ · Deploy 🔵 · runtime-4.0.7-r3 published and pinned; installed from the release by the platform smoke on Linux x86_64, macOS arm64, macOS x86_64 and Windows x86_64 GitHub runners; no student machine yet, and Linux arm64 is relocation-checked only
 
+Before 0.21.11 the macOS kits could not make a verified HTTPS request: their OpenSSL looks for CA certificates only under the build machine's `/opt/homebrew/Cellar/rv-portable-openssl` path, and since 0.21.3 every command on macOS's Ruby 2.6 runs under the kit, so a Mac student with the kit could not enroll, sync or update (field report 2026-10-03, Antigravity on macOS). Since 0.21.11 `exe/reach` points `SSL_CERT_FILE` at the kit's own `libexec/cert.pem` (`STD-CA-ROOTS`). Verified on Linux x86_64 against live Teach with a copy of the kit given the macOS kit's `cert.pem` and every system CA path hidden: without the fix `certificate verify failed`, with it Teach answered the enrollment preview. Not yet run on a Mac.
+
 ### 2.26 · Microbrain records
 
 Since 0.15.0 every note, tip, attempt, receipt and qualification is first an rcorpus.spool/v1 line in `<rplugin state>/reach/brain-spool/`, written on any Ruby, and is admitted into Reach's own corpus (private tier, `tiers.split`) as soon as rplugin and rcorpus load. The ledger never depends on the corpus. Verified 2026-10-01 in scratch homes: without the SDK, a note, a receipt and a qualification landed as spool lines and `recent` returned them; with the SDK and a minted corpus, the same writes were admitted into `kv.private.jsonl` and `rcorpus check` reported 0; a corpus-fallback file migrated once and a rerun added nothing; with the corpus unwritable, the qualification still reached the ledger and the failure was logged. The live `~/.corpora/reach` (empty) was given the five kinds and `tiers.split`, and `rplugin corpus verify` reports 0.
@@ -482,7 +484,26 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 
 Since 0.16.25 (wire revision 2026-10-02b, `STD-TEACH-LINK`) a student never sees a raw error, backtrace, hook error or hook timeout from rEach. `Reach::Link` tracks the Teach connection in `link.json` and tells the student once per outage that the connection was lost and their work is saved (`M-TEACH-LINK-LOST`), and once when it is back (`M-TEACH-LINK-BACK`): a hook `systemMessage` on Claude Code and Codex, a relay line on Hermes, stderr at the terminal. Every hook runs in a guard that keeps its allow or block outcome, shows at most one plain hiccup every 15 minutes, and gives the network a deadline inside the hook timeout. MCP tools and terminal commands answer in plain words. Every hidden error becomes a `fault` event and every connection change a `link` event, and both are sent to Teach even with debug mode off (reason `fault`, no message text) for `teach debug show --kind fault`. Verified 2026-10-02 against a real scratch Teach 0.17.3: the assignment-one smoke with link and crash journeys passed 51 steps (Teach stopped and restarted, notices once each, injected crashes in Claude Code, Hermes, terminal, MCP and load paths with no raw text, faults and link events stored at Teach as `student`), and a silent server held the 25 s tool deadline. Not verified: a live harness session showing the notices.
 
+Since 0.21.8 (`STD-CODEX-SANDBOX`) a command Codex runs in its own sandbox (outside a trusted course folder: no
+network, no writes to `~/.reach`) is not an outage: `Reach::Sandbox` recognizes it, `Reach::Client` makes no request,
+and the command says M-SANDBOX-AGENT (with M-SANDBOX-STUDENT for the student) instead of M-TEACH-LINK-LOST or
+M-REACH-HICCUP-CLI; `reach update` and `reach doctor` say so too. The MCP tools `reach_debug` and `reach_doctor` give
+the agent debug mode and the health check outside the sandbox, and since 0.21.12 `reach_update` (status, run) gives it the
+updater: run starts `reach update run --apply --force` detached. Verified with the real `codex sandbox` runner on Linux;
+not yet seen on a student's macOS Codex. `reach_update` was driven over stdio in a scratch home on 2026-10-03: status
+named the version, run started the detached updater and the next status showed its check.
+
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
+
+### 2.30e · Known issues for the agent
+
+Since 0.21.9 (`STD-KNOWN-ISSUES`, W-API-KNOWN-ISSUES) rEach fetches Teach's known issues without signing, caches them,
+names the matching ones for this operating system, harness and version in every session context, flags detected ones
+(`codex_sandbox`, `hooks_not_running`) and gives the steps through `reach_known_issues` and `reach known-issues`.
+Verified against a scratch Teach 0.27.1 (200, then 304 on revalidation), over MCP (hooks_not_running detected with no
+hook run), and inside the real `codex sandbox` runner (the sandbox entry detected from the cache with no request).
+
+Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.27.1 is live with both entries; students update to 0.21.9 on their own).
 
 ### 2.31 · Opening a course folder
 
@@ -635,7 +656,7 @@ by the student and the end by the instructor; a locked-out sign-in got the quest
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
 
-Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03d.
+Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03e.
 
 ## 3 · Course reference
 
@@ -838,7 +859,7 @@ The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 26 tools beyond `re
 `reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, and since 0.14.3 `reach_support`, `reach_part`,
 `reach_transfer_request`, `reach_modules` and `reach_next`, and since 0.16.15 `reach_remember`, `reach_recall` and
-`reach_memory_forget` (2.29) — each a thin wrapper the agent calls instead of shelling out to
+`reach_memory_forget` (2.29), and since 0.21.12 `reach_update` (2.30) — each a thin wrapper the agent calls instead of shelling out to
 the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
 returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
 tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.
@@ -1012,7 +1033,15 @@ bridge, `rplugin install --dry-run`. Unverified: `rplugin install reach` has not
 (a conflicting `~/.claude/skills/design-taste-frontend` and the id/directory-name mismatch block it), and on a developer
 machine it links the persona into every session (TODO.md).
 
-Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine).
+Since 0.21.12 the Codex MCP server starts on Windows and after the cache repair: the root `mcp.json` runs `ruby` (not
+`sh`, which Windows lacks) and `.codex-plugin/plugin.json` runs `ruby exe/reach mcp` with `"cwd": "."`, because Codex
+0.160 does not expand `${PLUGIN_ROOT}` there. Verified in a scratch `CODEX_HOME` with Codex 0.160.0: before and after the
+repair Codex launched a command that started the real server (36 tools, `reach_update` among them), and the root launch
+set the root manifest aside. Not yet seen on a Windows machine. Since 0.21.14 the generated files come from the sources again: `hooks/reach.hooks.yml` gives Codex its `ruby` hooks through
+`run_by_harness` and `reach.rplugin.yml` gives `.mcp.json` its `sh exe/reach-run` through `by_harness` (rplugin 1.6.5), and
+`rplugin package --check` reports 0 stale files; the shipped hook command text did not change.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine; no Windows Codex run).
 
 ## 11 · Planned
 

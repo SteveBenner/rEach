@@ -1,8 +1,8 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.21.7
-rplugin: ">= 1.2.0"
+version: 0.22.0
+rplugin: ">= 1.6.5"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
   required: [secrets, state, events]
@@ -32,7 +32,11 @@ contents:
     - { path: specs/app.yml }
   hooks: hooks/reach.hooks.yml
   mcp:
-    - { id: reach, command: ruby, args: ["${PLUGIN_ROOT}/exe/reach", "mcp"] }
+    - id: reach
+      command: ruby
+      args: ["${PLUGIN_ROOT}/exe/reach", "mcp"]
+      by_harness:
+        claude-code: { command: sh, args: ["${PLUGIN_ROOT}/exe/reach-run", "mcp"] }
   docs:
     - { path: docs/student-guide.md }
     - { path: docs/INSTALLATION-AND-SETUP-GUIDE.docx }

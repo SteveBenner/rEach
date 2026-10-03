@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -46,6 +46,10 @@ module Reach
         warn issue_notice if issue_notice
         code
       rescue StandardError, ScriptError => e
+        if Reach::Sandbox.blocking_error?(e)
+          warn Reach::Sandbox.agent_text
+          return 1
+        end
         Reach::Debug.fault(e, "command:#{command_label(argv)}", "M-REACH-HICCUP-CLI")
         warn Reach::Messages.text("M-REACH-HICCUP-CLI")
         1
@@ -175,6 +179,8 @@ module Reach
       end
 
       def failure_text(error, name = nil)
+        return Reach::Sandbox.agent_text if Reach::Sandbox.blocking_error?(error)
+
         if Reach::Link.masked?(error)
           Reach::Debug.fault(error, "command:#{name || @command_name || "?"}", "M-REACH-HICCUP-CLI")
         end
@@ -306,6 +312,8 @@ module Reach
           cmd_issues(args)
         when "live"
           cmd_live(args)
+        when "known-issues"
+          cmd_known_issues(args)
         when "grade"
           cmd_grade(args)
         when "extra-credit"
@@ -456,6 +464,10 @@ module Reach
         end
         install = Reach::Enroll.generate_and_register(code, teach_url)
         finish_enroll(install)
+      rescue Reach::NetworkError => e
+        Reach::Debug.note(e)
+        warn Reach::Messages.text("M-ENR-CLI-OFFLINE", url: teach_url, detail: e.detail || e.cause_name)
+        1
       end
 
       def enroll_with_identity(options, teach_url)
@@ -664,6 +676,7 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
         @gate_decision = "allow"
@@ -1327,6 +1340,7 @@ module Reach
         if report
           offline, args = parse_bare_flag(args, "offline")
           options, _remaining = parse_flags(args, [:format])
+          puts Reach::Sandbox.agent_text if options[:format] != "json" && Reach::Sandbox.blocked?
           data = Reach::Diagnose.report(network: !offline)
           if options[:format] == "json"
             puts JSON.pretty_generate(data)
@@ -1335,6 +1349,7 @@ module Reach
           end
           return 0
         end
+        puts Reach::Sandbox.agent_text if Reach::Sandbox.blocked?
         install_chrome, _rest = parse_bare_flag(args, "install-chromium")
         if install_chrome
           if Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(only: "chrome") } == :busy
@@ -1566,17 +1581,18 @@ module Reach
 
       def check_net
         return [] if ENV["REACH_OFFLINE"] == "1"
-        return [] unless Reach::Enroll.current
-
-        Reach::Client.anonymous(Reach::Enroll.current["teach_url"], quick: true).get("/api/v1/health")
+        url = Reach::Enroll.current ? Reach::Enroll.current["teach_url"] : Reach::Runtime.default_teach_url
+        Reach::Client.anonymous(url, quick: true, link: false).get("/api/v1/health")
         cached = Reach::Sync.cached_status
         if cached && cached["server_time"] && cached["fetched_at"]
           skew = (Time.parse(cached["server_time"].to_s).to_f - Time.parse(cached["fetched_at"].to_s).to_f).abs rescue nil
           return ["R-DOC-NET: the course server's clock is more than 300 s from this computer's - check both clocks"] if skew && skew > 300
         end
         []
-      rescue StandardError
-        ["R-DOC-NET: Teach could not be reached - check the connection or the computer's clock"]
+      rescue Reach::NetworkError => e
+        ["R-DOC-NET: Teach at #{url} could not be reached (#{e.detail || e.cause_name}) - check the connection or the computer's clock"]
+      rescue StandardError => e
+        ["R-DOC-NET: Teach at #{url} could not be reached (#{e.class.name}) - check the connection or the computer's clock"]
       end
 
       def check_issues
@@ -1697,12 +1713,38 @@ module Reach
           Reach::Hello.background(session: options[:session], cwd: Dir.pwd)
           return 0
         end
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil))) if (options[:format] || "hook") == "hook"
         puts Reach::Hello.run(
           harness: options[:harness],
           source: options[:source],
           format: options[:format] || "hook",
           cwd: Dir.pwd
         )
+        0
+      end
+
+      def cmd_known_issues(args)
+        refresh, args = parse_bare_flag(args, "refresh")
+        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
+        if refresh
+          Reach::KnownIssues.fetch!(quick: true)
+          return 0
+        end
+
+        Reach::KnownIssues.refresh_if_stale!(quick: true)
+        issues = Reach::KnownIssues.matching
+        if json
+          puts JSON.generate("issues" => issues)
+        elsif issues.empty?
+          puts Reach::Messages.text("M-KNOWN-ISSUES-NONE")
+        else
+          issues.each_with_index do |issue, index|
+            puts "" if index.positive?
+            puts issue["detected"] ? Reach::Messages.text("M-KNOWN-ISSUE-DETECTED", title: issue["title"]) : issue["title"]
+            puts "  #{issue['symptom']}"
+            puts "  #{issue['steps']}" if issue["steps"]
+          end
+        end
         0
       end
 
@@ -1778,6 +1820,10 @@ module Reach
           end
           0
         when "check"
+          if Reach::Sandbox.blocked?
+            warn Reach::Sandbox.agent_text
+            return 1
+          end
           result = Reach::Update.with_lock { Reach::Update.check(Reach::Update.load_manifest) }
           if result == :locked
             puts "reach: an update is already running"
@@ -1797,6 +1843,10 @@ module Reach
           if background
             Reach::Update.spawn_background(apply: apply)
             return 0
+          end
+          if Reach::Sandbox.blocked?
+            warn Reach::Sandbox.agent_text
+            return 1
           end
           result = Reach::Update.run(apply: apply, force: force || STDIN.tty?, check: !scheduled)
           if json
@@ -2233,6 +2283,7 @@ module Reach
         end
         options, remaining = parse_flags(args, [:harness])
         final, _remaining = parse_bare_flag(remaining, "final")
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
         event = read_stdin_json
         if hermes_hook?(options[:harness], event)
           event = normalize_hermes_event(event)

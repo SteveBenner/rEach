@@ -11,7 +11,7 @@ module Reach
     end
 
     def digest
-      @digest ||= OpenSSL::Digest::SHA256.hexdigest(File.read(path))
+      @digest ||= OpenSSL::Digest::SHA256.hexdigest(File.binread(path).gsub("\r\n", "\n"))
     end
   end
 end
