@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.1] - 2026-10-03
+
+### Removed
+
+- Transcripts, entirely (wire revision 2026-10-03b, `W-TRN-0`, byte for byte with Teach 0.22.1): rEach captures no
+  conversation, ever. No prompt, reply, reasoning, action or code entry is written to disk or sent, in any folder or
+  harness. Gone: `lib/reach/transcript.rb`, `transcript_ingest.rb`, `transcript_export.rb`, the transcript spool and
+  its limits, the PostToolUse transcript hook, the transcript flush from Stop, SessionEnd, `reach sync` and
+  `reach submit`, `reach transcripts export`, the `reach_transcripts` MCP tool, the export at course end, the
+  `transcripts:` config section, `M-TRANSCRIPT-NOTICE`, `G-TRANSCRIPT-NOTICE` and the export messages.
+
+### Changed
+
+- The microbrain still learns from everything the student types: `Reach::Brain.capture_prompt` takes each
+  gate-allowed prompt, in any folder (slice, root, extracurricular or outside every course folder), as a private
+  source when it arrives. Blocked prompts (login, enrollment, passwords) never enter it, prompts that look like a
+  secret or hold the student's own id are skipped, and `brain.capture_min_chars` defaults to 1. AI replies are not
+  ingested. It stays on the computer and is never sent.
+- Own part (`W-PART-2`): the prompt hook keeps only the latest qualifying prompt in a slice or the workspace root in
+  `~/.reach/state/part/pending.json`; `reach part record` takes it and deletes the file. Answers carry no
+  `session_id` or `seq`.
+- Attempt ladder: only the time of the student's last slice prompt is kept; hand bundles send
+  `student_last_request` as null. Consent reads the live prompt; the ledger's prompt witness has no fields.
+- Stop and SessionEnd run `reach hook stop [--final]` (debug block and flush, link notice). `reach transcript
+  turn|code|flush|status` stay as hidden aliases for older hook files. `Reach::Session` holds the session id and
+  harness helpers.
+- On the first rEach command after updating, `Reach::RetiredCapture` deletes `~/.reach/transcripts` and every
+  persona's, plus the transcript flush state, once (marker `state/transcripts-retired.json`). Memory is kept.
+- The persona, skills, locales, setup guide, README, FEATURES.md, `docs/DESIGN-DECISIONS.md` ("No transcripts are
+  captured from the user, ever") and both specs say no conversation is recorded or sent.
+
 ## [0.21.0] - 2026-10-03
 
 ### Added
