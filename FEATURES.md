@@ -29,9 +29,9 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 1 | 1% |
+| 🟢 Live | 3 | 3% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 76 | 85% |
+| 🔵 Built, not enabled | 74 | 83% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -622,7 +622,7 @@ steps skipped). Not verified: any Teach, because no released Teach accepts trigg
 Hermes; the full flow on Ruby 2.6, where only the syntax and the signature were checked; `tools/smoke` with real
 harness sessions.
 
-Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03c, and until one does rEach raises no issue hand and only its fault events flow.
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 accepts the issue hand). No report from a real student install has been seen yet.
 
 ### 2.41 · Live sessions
 
@@ -662,7 +662,7 @@ by the student and the end by the instructor; a locked-out sign-in got the quest
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
 
-Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03f.
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
 
 ## 3 · Course reference
 
