@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.2
+version: 0.21.3
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1196,10 +1196,12 @@ cli:
     synopsis: reach directive <OPCODE> | --list
     purpose: The full text of one directive, public from directives/ or course-private from the vault
   - name: doctor
-    synopsis: reach doctor
+    synopsis: reach doctor [--install-chromium] | reach doctor --report [--offline] [--format json]
     purpose: >-
       Checks Ruby, gems, Chromium, harness configuration, keys, packages and connectivity, one line per problem
-      with its fix
+      with its fix. With --report it prints every diagnostic fact instead (STD-CRYPTO-FALLBACK): Ruby, SSL library,
+      kit, environment, crypto self-tests under every Ruby it finds, and each package opened stage by stage, never a
+      secret
     checks: >-
       R-DOC-RUBY, R-DOC-SHIM, R-DOC-HARNESS, R-DOC-ENROLL, R-DOC-KEYS, R-DOC-GUARD, R-DOC-WS, R-DOC-CHROME, R-DOC-GEMS,
       R-DOC-NET (reachable, and clocks within five minutes), R-DOC-OUTBOX, R-DOC-OUTDATED, R-DOC-WIRE (Teach's

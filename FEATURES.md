@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.21.2 |
+| **Registry version** | 0.21.3 |
 | **Last audited** | 2026-10-02 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 87 catalogued |
+| **Feature count** | 88 catalogued |
 
 ## How to read this registry
 
@@ -795,6 +795,22 @@ probe keeps the harness's own stderr out of doctor's output (Codex warns that it
 whenever it runs inside its own sandbox). Verified 2026-10-01 inside `codex sandbox` (codex-cli 0.159.3) on a
 fresh home (0.16.8: exit 1, R-DOC-ENROLL and the Codex warning; 0.16.9: exit 0, the `enrollment:` line, empty
 stderr), under Ruby 2.6.10, and against a revoked and a damaged `install.yml` (both still R-DOC-ENROLL, exit 1).
+
+Build ✅ · Deploy 🔵 · Blocker: -.
+
+### 7.2 · Diagnostic report and kit Ruby fallback
+
+Since 0.21.3 `reach doctor --report [--offline] [--format json]` prints every fact a field failure needs and no
+secret: the running Ruby, its SSL library and whether native GCM works, the runtime kit, the home and Reach home,
+the harness and sandbox variables, crypto self-tests, the same GCM test under every other Ruby on the computer, and
+each package opened stage by stage from the stored copy and from Teach, with the network cause of a failed fetch.
+On a Ruby whose LibreSSL cannot use GCM additional authenticated data (macOS's Ruby 2.6.10), every command runs
+again under the kit Ruby when the kit is installed, or starts the kit install and carries on with the pure-Ruby GCM
+of 0.20.6; `REACH_KIT_FALLBACK=0` turns it off. Debug session and sync events carry the same facts and the scrubbed
+sync warning texts. Verified in GitHub Actions platform run 37100202414 before the rebase onto 0.21.2: 17 of 17
+steps on macOS arm64 and Intel (system Ruby 2.6.10, LibreSSL 3.3.6), where `reach doctor --report` inside
+`codex sandbox` (Codex CLI 0.160.0) moved to the kit Ruby 4.0.7 (OpenSSL 3.6.2) and opened the stored guardrails
+package, and green on Linux and both Windows legs.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
