@@ -111,7 +111,8 @@ module Reach
         Dir.glob(File.join(workspace, FEATURES_DIR, "**", "*.feature")).sort.each do |path|
           feature_tags = []
           pending = []
-          File.foreach(path) do |line|
+          File.foreach(path, encoding: Encoding::UTF_8) do |raw|
+            line = raw.scrub
             stripped = line.strip
             if stripped.start_with?("@")
               pending.concat(stripped.split(/\s+/))

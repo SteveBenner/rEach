@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.21.5
+version: 0.21.6
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -727,7 +727,7 @@ qualification:
     owned path, so it never carries an answer.
   steps:
   - check - reach check; only findings in the slice's own files count.
-  - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand.
+  - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale.
   - >-
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
