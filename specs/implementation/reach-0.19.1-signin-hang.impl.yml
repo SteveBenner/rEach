@@ -1,0 +1,57 @@
+schema: rstack.impl/v1
+name: reach-0.19.1-signin-hang
+recorded: '2026-10-02'
+author: primary
+kind: bug
+versions:
+  reach: 0.19.1
+spec: specs/app.yml STD-HOOK-RESPONSIVE (new), with STD-TRANSCRIPT, STD-COURSE-CORPUS, STD-ENROLL-LOCKDOWN unchanged
+symptom: >-
+  A student on macOS Codex enrolls and signs in, then the agent appears to wait forever "while signing in". Live Teach
+  shows student 1009359 enrolled 12 times in 33 minutes; the 0.17.1 installs never made one request to Teach after
+  enrolling and no transcript or fault event ever arrived.
+suspected_causes:
+  - The prompt after the sign-in "yes" runs Reach::Hello.context_text (full session start - maybe_refresh_status over
+    the network, CourseCorpus.ingest_if_changed under a blocking Brain.with_lock, update, storage, import, late retry)
+    synchronously inside the prompt hook (lib/reach/gate.rb prompt_context). Codex's workspace UserPromptSubmit hook
+    (lib/reach/harness.rb codex_hooks_content) has a 10 s timeout.
+  - Reach::Login.consume_just_confirmed removes the marker before that context is computed and written, so a killed
+    hook loses it; the agent keeps the session-start instruction M-LOGIN-NEEDED ("wait for them") and waits forever.
+  - Unbounded File::LOCK_EX waits on hook paths - brain.rb with_lock, brain_spool.rb, transcript.rb (390, 410, 684, 694),
+    client.rb rate bucket, gate.rb:374, imports.rb, ledger.rb, limits.rb, link.rb, debug.rb, late_work.rb,
+    transcript_export.rb, transcript_ingest.rb. A detached process holding one (or stuck) stalls every hook.
+rules:
+  - Reproduce first, then fix, then show the reproduction no longer hangs. No code comments (Part Q). No tests in the repo (Part S); scratch scripts live in your scratchpad.
+  - Ruby 2.6.10 floor, stdlib only (docker ruby:2.6.10 for ruby -wc on every changed file and require lib/reach.rb).
+  - Never touch the real ~/.reach, ~/.codex, ~/Downloads, ~/.corpora or live Teach. Use a scratch HOME (and CODEX_HOME if you drive codex) and tools/fake_teach, which may gain a delay switch (e.g. FAKE_TEACH_DELAY_S) to simulate a slow Teach.
+  - Do not commit, tag, bump versions, or edit VERSION, CHANGELOG.md, FEATURES.md, README.md, TODO.md or specs/*.yml. The primary does release work.
+  - Do not change behavior beyond STD-HOOK-RESPONSIVE. No new features.
+slices:
+  - id: reach
+    worker: coding-worker-high
+    repo: /home/sven/github/foss/rEach
+    owns_paths:
+      - lib/reach/locks.rb (new - Reach::Locks.exclusive(path, wait_s:) polling LOCK_NB until a deadline, returning :busy)
+      - lib/reach/gate.rb, lib/reach/hello.rb, lib/reach/login.rb, lib/reach/cli.rb (hook output paths and reach hello --background)
+      - lib/reach/brain.rb, lib/reach/brain_spool.rb, lib/reach/course_corpus.rb, lib/reach/transcript.rb, lib/reach/client.rb, lib/reach/imports.rb, lib/reach/ledger.rb, lib/reach/limits.rb, lib/reach/link.rb, lib/reach/debug.rb, lib/reach/late_work.rb, lib/reach/transcript_export.rb, lib/reach/transcript_ingest.rb (lock calls on hook paths only)
+      - lib/reach/harness.rb (Codex workspace hook timeouts - UserPromptSubmit 60, SessionStart 10 to match hooks/codex.json)
+      - lib/reach.rb (require)
+      - locales/en-US.yml (append M-LOGIN-DONE-AGENT)
+      - config.yml (append hooks.lock_wait_s 2)
+      - reach.spec.yml (hooks section and login section text; not the version line)
+      - tools/fake_teach/server.rb and README (delay switch only)
+    work:
+      - Post-sign-in prompt - when just_confirmed is present, the prompt hook adds M-LOGIN-DONE-AGENT ("The student has signed in as {name}. Course work can begin; greet them and continue.") plus the local-only parts of the session context (no maybe_refresh_status, no CourseCorpus ingest, no Update/Storage/Import work that can block), and spawns one detached `reach hello --background` that runs the full session start (status refresh, course ingest, update check, storage and import session start, late retry) and stores the resulting context; the next prompt carries that stored context once.
+      - SessionStart (`reach hello` as a hook) does the same split - local context at once, the network and lock-contended steps in the one detached background run - so session start never blocks either.
+      - consume_just_confirmed becomes peek plus a remove that runs only after the hook's JSON answer is written and flushed; a hook killed before that leaves the marker for the next prompt.
+      - Every lock on a hook path goes through Reach::Locks.exclusive with hooks.lock_wait_s (2 s). On :busy - transcript capture appends the entry to a pending spool file (per process, 0600) that the next lock holder merges in seq order, so no prompt, reply or code entry is lost or reordered; the rate bucket treats busy as no token (the request is queued, never sent from a hook anyway); course ingest, imports, ledger witness, link and debug steps are skipped for that event and retried by the next background run. Non-hook CLI paths may keep blocking waits.
+      - Codex workspace hooks - UserPromptSubmit timeout 60 and SessionStart 10, the same limits as hooks/codex.json; existing installs pick it up when Reach rewrites the workspace hooks (as it already does on sync/update).
+    acceptance:
+      - Reproduce before the fix in a scratch HOME with tools/fake_teach delaying every response by 30 s (or a held brain.lock from another process) - the post-sign-in `reach gate prompt --harness codex` exceeds 10 s; report the measured time.
+      - After the fix, with the same delay and with brain.lock held by a sleeping process - the ID prompt, the yes prompt and the next prompt each return in under 2 s; the next prompt's context contains M-LOGIN-DONE-AGENT; one detached hello runs; the prompt after it carries the stored session context once.
+      - Kill the post-sign-in hook process right after it starts (timeout 0.2 s) - the following prompt still carries M-LOGIN-DONE-AGENT.
+      - Transcript lock held by another process during several prompts - every prompt entry ends up in the session file in seq order after the holder releases (count and order checked), none lost.
+      - SessionStart `reach hello` with the delayed Teach returns in under 2 s.
+      - Codex workspace hooks written by Reach carry UserPromptSubmit timeout 60.
+      - Optionally, if codex-cli is installed locally, drive one real `codex exec` (scratch CODEX_HOME) through enroll-free sign-in on an enrolled scratch install; report what you saw or why it was not possible.
+      - Ruby 2.6.10 parse and load; tools/smoke/assignment_one.rb passes (unset TEACH_DATABASE_URL; --run-dir in scratch); tools/platform_smoke/run.rb needs a commit, so skip it and say so.

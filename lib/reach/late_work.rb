@@ -157,6 +157,7 @@ module Reach
       return nil unless workspace && active?(workspace)
 
       count = bump_prompt_count("#{session_id}|#{File.basename(workspace)}")
+      return nil unless count.is_a?(Integer)
       return nil unless count == 1 || ((count - 1) % notice_every).zero?
 
       notice_text(workspace)
@@ -191,8 +192,7 @@ module Reach
     def with_state(name)
       path = state_file(name)
       FileUtils.mkdir_p(File.dirname(path))
-      File.open("#{path}.lock", File::RDWR | File::CREAT, 0o600) do |lock|
-        lock.flock(File::LOCK_EX)
+      Reach::Locks.exclusive("#{path}.lock") do |_lock|
         state = read_json(path)
         before = JSON.generate(state)
         result = yield(state)

@@ -207,7 +207,15 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-LOGIN-NEEDED")
     end
 
-    def consume_just_confirmed(session_id)
+    def just_confirmed?(session_id)
+      data = read_json(File.join(state_dir, "just_confirmed.json"))
+      ids = data.is_a?(Hash) ? Array(data["session_ids"]) : []
+      ids.include?(session_id)
+    rescue StandardError
+      false
+    end
+
+    def clear_just_confirmed(session_id)
       path = File.join(state_dir, "just_confirmed.json")
       data = read_json(path)
       ids = data.is_a?(Hash) ? Array(data["session_ids"]) : []

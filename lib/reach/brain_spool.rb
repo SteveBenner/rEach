@@ -100,7 +100,8 @@ module Reach
       3.times do
         done = false
         File.open(path, File::WRONLY | File::APPEND | File::CREAT, 0o600) do |file|
-          file.flock(File::LOCK_EX)
+          raise Reach::Locks::Busy, "brain spool is busy" unless Reach::Locks.acquire(file, path)
+
           current = File.stat(path) rescue nil
           next unless current && current.ino == file.stat.ino
 

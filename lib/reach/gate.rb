@@ -97,14 +97,20 @@ module Reach
       greeted = false
 
       if decision
-        if safely { Reach::Login.consume_just_confirmed(session) }
-          context << safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup") }
+        if safely { Reach::Login.just_confirmed?(session) }
+          context << signed_in_context(harness, session)
+          after_answer { Reach::Login.clear_just_confirmed(session) }
           greeted = true
         end
         context << decision["context"] if decision["context"]
       end
+      stored = safely { Reach::Hello.stored_context(session) }
+      if stored
+        context << stored
+        after_answer { Reach::Hello.clear_stored_context(session) }
+      end
       context.concat(Array(safely { Reach::Update.prompt_notices(session) }))
-      context.concat(Array(safely { Reach::Storage.prompt_notices(session, greeted: greeted) }))
+      context.concat(Array(safely { storage_notices(session, greeted) }))
       context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
       context << safely { Reach::Debug.remote_notice(session) }
       context << safely { Reach::LateWork.prompt_notice(session) }
@@ -124,6 +130,33 @@ module Reach
 
       text = context.compact.map(&:to_s).reject(&:empty?).join("\n\n")
       text.empty? ? nil : text
+    end
+
+    def signed_in_context(harness, session)
+      student = safely { Reach::Login.student } || {}
+      name = student["display_name"].to_s.empty? ? "the enrolled student" : student["display_name"]
+      parts = [Reach::Messages.text("M-LOGIN-DONE-AGENT", name: name)]
+      parts << safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup", session: session) }
+      parts.compact.join("\n\n")
+    end
+
+    def storage_notices(session, greeted)
+      return [] if Reach::Locks.bounded? && !Reach::Locks.free?(Reach::Paths.storage_lock_file("state"))
+
+      Reach::Storage.prompt_notices(session, greeted: greeted)
+    end
+
+    def after_answer(&block)
+      @after_answer ||= []
+      @after_answer << block
+      nil
+    end
+
+    def run_after_answer
+      pending = @after_answer || []
+      @after_answer = []
+      pending.each { |callback| safely(&callback) }
+      nil
     end
 
     def safely
@@ -370,8 +403,7 @@ module Reach
         nil
       end
       path = File.join(Reach::Paths.sandbox_state_dir, "#{session}.json")
-      File.open(path, File::RDWR | File::CREAT, 0o600) do |file|
-        file.flock(File::LOCK_EX)
+      Reach::Locks.exclusive(path) do |file|
         state = begin
           JSON.parse(file.read)
         rescue StandardError

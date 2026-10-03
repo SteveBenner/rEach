@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] - 2026-10-02
+
+### Fixed
+
+- A student on macOS Codex who had just signed in could be left with an agent that waited forever for them to sign in
+  (`STD-HOOK-RESPONSIVE`). The prompt after the sign-in ran the whole session start inside Codex's prompt hook (10 s
+  limit in a course folder): the status refresh and the course reference ingest under a lock that waited without
+  limit. The "just signed in" marker was used up before that context was written, so a hook Codex killed lost it and
+  the agent kept its session-start instruction to wait. Measured before: 24 s with the brain lock held, killed at
+  10 s with the marker gone; after: 0.17 s. The prompt after a sign-in now carries `M-LOGIN-DONE-AGENT` and the
+  local part of the session context, one detached `reach hello --background` does the rest and the next prompt
+  carries its result, and the marker is removed only after the hook has written its answer
+  (`lib/reach/gate.rb`, `lib/reach/hello.rb`, `lib/reach/login.rb`, `lib/reach/cli.rb`).
+- Session start (`reach hello` as a hook) does the same split, so it never waits on Teach or a lock (0.15 s with a
+  30 s Teach delay and a held lock).
+- Every file lock on a hook path waits at most `hooks.lock_wait_s` (2 s) in total (`Reach::Locks`,
+  `lib/reach/locks.rb`). A prompt whose transcript lock is busy goes to a pending file that the next holder merges in
+  order, so nothing is lost; other busy steps are skipped for that event. Storage's state lock is bounded too.
+- rEach's Codex course-folder prompt hook now has a 60 s limit, the same as the plugin's.
+
 ## [0.19.0] - 2026-10-02
 
 ### Added

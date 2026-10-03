@@ -131,8 +131,7 @@ module Reach
       FileUtils.mkdir_p(Reach::Paths.transcripts_archive_dir)
       FileUtils.chmod(0o700, Reach::Paths.transcripts_archive_dir)
       freed = nil
-      File.open(path, File::RDWR) do |file|
-        file.flock(File::LOCK_EX)
+      Reach::Locks.exclusive(path, mode: File::RDWR) do |file|
         state = Reach::Transcript.parse_json_file(Reach::Transcript.state_path(session))
         return nil unless state.is_a?(Hash) && state["acked_seq"].to_i >= state["last_seq"].to_i
 

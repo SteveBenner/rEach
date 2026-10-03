@@ -89,7 +89,8 @@ module Reach
     def with_flock(path, nonblock: false)
       FileUtils.mkdir_p(File.dirname(path))
       File.open(path, File::RDWR | File::CREAT, 0o600) do |file|
-        return :busy unless file.flock(nonblock ? File::LOCK_EX | File::LOCK_NB : File::LOCK_EX)
+        locked = nonblock ? file.flock(File::LOCK_EX | File::LOCK_NB) : Reach::Locks.acquire(file, path)
+        return :busy unless locked
 
         yield
       end

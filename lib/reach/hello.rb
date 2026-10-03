@@ -1,7 +1,11 @@
 require "json"
+require "fileutils"
+require "timeout"
 
 module Reach
   module Hello
+    CONTEXT_KEEP = 20
+    BACKGROUND_LIMIT_S = 300
     MINIMAL_CONTEXT = "rEach session context (from reach hello)\n" \
                        "- You are rEach, the student's academic assistant. Load the reach-assistant skill.".freeze
 
@@ -21,21 +25,155 @@ module Reach
       harness_id = resolve_harness(harness)
       Reach::Debug.begin_hook(event, harness_id)
       Reach::Debug.session(harness_id, source)
-      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event)
+      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook")
 
       emit(format, context, banner, greeting_id, greeting_text)
     rescue StandardError
       emit(format, MINIMAL_CONTEXT, nil, nil, nil)
     end
 
-    def context_text(harness:, cwd:, source: "startup", event: nil)
+    def context_text(harness:, cwd:, source: "startup", event: nil, session: nil)
       harness_id = resolve_harness(harness)
-      session_parts(harness_id, "text", source, cwd, event).last
+      session_parts(harness_id, "text", source, cwd, event, local: true, session: session).last
     rescue StandardError
       MINIMAL_CONTEXT
     end
 
-    def session_parts(harness_id, format, source, cwd, event = nil)
+    def background(session: nil, cwd: Dir.pwd)
+      Reach::Locks.bound!
+      ensure_hello_dir
+      Reach::Locks.exclusive(background_lock_path, wait_s: 0) do
+        Timeout.timeout(BACKGROUND_LIMIT_S) { run_background(session, cwd) }
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def run_background(session, cwd)
+      return nil if Reach::EnrollmentLock.state["locked"]
+
+      maybe_refresh_status
+      workspace = find_workspace(cwd)
+      Reach::Locks.refill!
+      safe_late_retry
+      Reach::Locks.refill!
+      notice = safe_transcript_notice
+      Reach::Locks.refill!
+      Reach::CourseCorpus.ingest_if_changed(admit: false)
+      Reach::Locks.refill!
+      storage = Reach::Locks.free?(Reach::Paths.storage_lock_file("state")) ? safe_storage_context : nil
+      Reach::Locks.refill!
+      store_context(session, refreshed_context(workspace, notice, storage))
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def refreshed_context(workspace, notice, storage)
+      lines = ["rEach session context, refreshed in the background (the student needs no new greeting)"]
+      lines << course_line
+      late = safe_late_line(workspace)
+      lines << late if late
+      lines << "- #{Reach::TranscriptExport.agent_notice(notice)}" if notice
+      lines << "- #{storage}" if storage
+      lines.join("\n")
+    end
+
+    def hello_dir
+      File.join(Reach::Paths.state_dir, "hello")
+    end
+
+    def ensure_hello_dir
+      FileUtils.mkdir_p(hello_dir)
+      File.chmod(0o700, hello_dir)
+    rescue NotImplementedError, Errno::ENOENT, Errno::EPERM
+      nil
+    end
+
+    def context_path
+      File.join(hello_dir, "context.json")
+    end
+
+    def background_lock_path
+      File.join(hello_dir, "background.lock")
+    end
+
+    def spawn_background(session)
+      return nil unless defined?(Reach::Storage)
+
+      ensure_hello_dir
+      return nil unless Reach::Locks.free?(background_lock_path)
+
+      Reach::Storage.spawn_detached(["hello", "--background", "--session", session.to_s])
+    rescue StandardError
+      nil
+    end
+
+    def read_context_store
+      return { "sessions" => {}, "order" => [] } unless File.file?(context_path)
+
+      data = JSON.parse(File.read(context_path))
+      data = {} unless data.is_a?(Hash)
+      data["sessions"] = {} unless data["sessions"].is_a?(Hash)
+      data["order"] = [] unless data["order"].is_a?(Array)
+      data
+    rescue StandardError
+      { "sessions" => {}, "order" => [] }
+    end
+
+    def write_context_store(data)
+      ensure_hello_dir
+      tmp = "#{context_path}.tmp.#{Process.pid}.#{rand(1_000_000)}"
+      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(data)) }
+      File.rename(tmp, context_path)
+    end
+
+    def store_context(session, text)
+      return nil if session.to_s.empty? || text.to_s.empty?
+
+      ensure_hello_dir
+      Reach::Locks.exclusive("#{context_path}.lock") do
+        data = read_context_store
+        sessions = data["sessions"]
+        key = session.to_s
+        sessions[key] = { "text" => text, "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
+        order = data["order"] - [key] + [key]
+        while order.length > CONTEXT_KEEP
+          sessions.delete(order.shift)
+        end
+        write_context_store("sessions" => sessions, "order" => order)
+      end
+      nil
+    end
+
+    def stored_context(session)
+      return nil if session.to_s.empty?
+
+      entry = read_context_store["sessions"][session.to_s]
+      text = entry.is_a?(Hash) ? entry["text"].to_s : ""
+      text.empty? ? nil : text
+    rescue StandardError
+      nil
+    end
+
+    def clear_stored_context(session)
+      return nil if session.to_s.empty?
+
+      Reach::Locks.exclusive("#{context_path}.lock") do
+        data = read_context_store
+        next unless data["sessions"].key?(session.to_s)
+
+        data["sessions"].delete(session.to_s)
+        data["order"] -= [session.to_s]
+        write_context_store(data)
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil)
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         message = Reach::EnrollFlow.next_message(lock)
@@ -46,11 +184,12 @@ module Reach
         return [nil, "#{message}\n\n#{notice}", "#{message}\n\n#{notice}", context]
       end
 
-      maybe_refresh_status
+      maybe_refresh_status unless local
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
-      safe_late_retry
-      transcript_notice = safe_transcript_notice
+      safe_late_retry unless local
+      transcript_notice = local ? nil : safe_transcript_notice
+      spawn_background(session || Reach::Transcript.resolve_session_id(event)) if local
 
       session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Transcript.resolve_session_id(event) : nil
 
@@ -72,8 +211,8 @@ module Reach
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-MEMORY-NOTICE")}"
         Reach::Brain.memory_notice_shown!
       end
-      Reach::CourseCorpus.ingest_if_changed(admit: false)
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, transcript_notice: transcript_notice)
+      Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, transcript_notice: transcript_notice, local: local)
       [greeting_id, greeting_text, banner, context]
     end
 
@@ -336,7 +475,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, transcript_notice: nil)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, transcript_notice: nil, local: false)
       lines = []
       lines << "rEach session context (from reach hello)"
       lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
@@ -361,7 +500,7 @@ module Reach
       lines << memory if memory
       question = safe_course_question
       lines << course_question_line(question) if question
-      storage = safe_storage_context
+      storage = local ? nil : safe_storage_context
       lines << "- #{storage}" if storage
 
       text = lines.join("\n")

@@ -29,10 +29,7 @@ module Reach
     def with_ingest_lock(session_id)
       FileUtils.mkdir_p(Reach::Paths.transcripts_dir)
       lock_path = File.join(Reach::Paths.transcripts_dir, "#{session_id}.ingest.lock")
-      File.open(lock_path, File::RDWR | File::CREAT, 0o600) do |lock_file|
-        lock_file.flock(File::LOCK_EX)
-        yield
-      end
+      Reach::Locks.exclusive(lock_path) { yield }
     end
 
     def perform_ingest(session_id:, transcript_path:, harness:, space:)
@@ -79,9 +76,7 @@ module Reach
       end
 
       seen_uuids = seen_uuids.last(SEEN_UUID_LIMIT)
-      Reach::Transcript.update_state(session_id) do |fresh|
-        fresh.merge("transcript_path" => transcript_path, "transcript_offset" => running_offset, "seen_uuids" => seen_uuids)
-      end
+      Reach::Transcript.merge_state(session_id, "transcript_path" => transcript_path, "transcript_offset" => running_offset, "seen_uuids" => seen_uuids)
       nil
     end
 

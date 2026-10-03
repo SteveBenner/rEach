@@ -109,3 +109,5 @@ late_work:
   notice_every: 10
 transcripts:
   auto_export: true
+hooks:
+  lock_wait_s: 2

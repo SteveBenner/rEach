@@ -177,10 +177,7 @@ module Reach
 
     def locked(path = lock_file)
       ensure_dir
-      File.open(path, File::RDWR | File::CREAT, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        yield
-      end
+      Reach::Locks.exclusive(path) { yield }
     end
 
     def load_state

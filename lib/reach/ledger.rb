@@ -50,8 +50,7 @@ module Reach
       file = path(workspace)
       FileUtils.mkdir_p(File.dirname(file))
       record = nil
-      File.open(file, "a+") do |f|
-        f.flock(File::LOCK_EX)
+      held = Reach::Locks.exclusive(file, mode: File::RDWR | File::CREAT | File::APPEND, perm: 0o666) do |f|
         last = read_head(workspace, f)
         ledger_key, version = key
         record = { "n" => last["n"].to_i + 1, "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "kind" => kind.to_s }
@@ -64,6 +63,8 @@ module Reach
         f.flush
         write_head(workspace, record)
       end
+      return nil if held == :busy
+
       split_if_large(workspace)
       Reach::Sidecar.update_head(File.basename(workspace), record["tag"], record["n"])
       record

@@ -21,6 +21,7 @@ It binds 127.0.0.1 only. State lives under `--home` (default a fresh temporary d
 
 - `POST /api/v1/hands` and `GET /api/v1/hands/:id` (since rEach 0.19.0, W-HAND-TYPES) verify the install signature, honour Idempotency-Key and record each hand (student, cutout, slice, trigger, originator, summary) in `hands.jsonl` under `--home`. Every trigger of specs/wire.yml is accepted; `FAKE_TEACH_HANDS_LEGACY=1` accepts only attempt_gate, attempt_ladder, student_request, check_gate and wellbeing and answers 400 invalid_request to the rest, like a Teach that predates revision 2026-10-02e; `FAKE_TEACH_HANDS_DISABLE=1` answers 403 hands_disabled. The reply is always state open with no reply.
 - `GET /api/v1/grades` (since rEach 0.19.0, W-API-GRADES) answers from `grades.json` under `--home`, read on every request: `{"mode": "404"}` answers 404 not_found, `{"mode": "disabled"}` answers 403 grades_disabled, and `{"grades": [{"student_id", "assignment", "points", "points_possible", "recorded_at"}]}` answers the rows of the asking install's student (a row without student_id is for everyone) with their total; no file or no rows answers available false.
+- `FAKE_TEACH_DELAY_S` (seconds, fractions allowed) delays every response by that long before it is routed, to act as a slow Teach.
 - `FAKE_TEACH_WIRE_SHA` overrides the advertised `wire_contract_sha256`, to act as a Teach on another wire revision.
 - Every request is appended to `requests.jsonl` under `--home` (method, path, status, time); no body, header or key is logged.
 

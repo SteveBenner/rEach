@@ -381,63 +381,183 @@ module Reach
       end
     end
 
+    def now_iso
+      Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end
+
+    def locked_session(session_id)
+      ensure_transcripts_dir!
+      Reach::Locks.exclusive(entries_path(session_id), mode: File::RDWR | File::CREAT | File::APPEND) do |file|
+        state = drain_pending(session_id, file, read_state(session_id))
+        yield file, state
+      end
+    end
+
+    def append_drafts(file, session_id, drafts, seq)
+      entries = []
+      drafts.each do |draft|
+        seq += 1
+        entry = { "seq" => seq, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft)
+        entry["at"] ||= now_iso
+        entries << entry
+        file.write(JSON.generate(entry) + "\n")
+      end
+      [entries, seq]
+    end
+
     def record_batch(session_id, drafts)
       return [] if drafts.empty?
 
-      ensure_transcripts_dir!
-      entries = []
-      File.open(entries_path(session_id), File::RDWR | File::CREAT | File::APPEND, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        state = read_state(session_id)
-        seq = state["last_seq"].to_i
-        drafts.each do |draft|
-          seq += 1
-          entry = { "seq" => seq, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft)
-          entry["at"] ||= Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-          entries << entry
-          file.write(JSON.generate(entry) + "\n")
-        end
+      stamped = drafts.map { |draft| draft.merge("at" => draft["at"] || now_iso) }
+      held = locked_session(session_id) do |file, state|
+        entries, seq = append_drafts(file, session_id, stamped, state["last_seq"].to_i)
         file.flush
-        write_state(session_id, state.merge("last_seq" => seq, "updated_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        write_state(session_id, state.merge("last_seq" => seq, "updated_at" => now_iso))
+        entries
       end
-      entries
+      return held unless held == :busy
+
+      queue_pending(session_id, "op" => "batch", "drafts" => stamped)
+      stamped.map { |draft| { "seq" => nil, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft) }
     end
 
     def record_reply_with_code(session_id, harness:, cutout_id:, slice:, space:, at:, raw_text:, category:, scope:, category_root:)
-      ensure_transcripts_dir!
+      params = {
+        "harness" => harness, "cutout_id" => cutout_id, "slice" => slice, "space" => space, "at" => at,
+        "raw_text" => raw_text, "category" => category, "scope" => scope, "category_root" => category_root
+      }
+      held = locked_session(session_id) do |file, state|
+        entries, seq = append_reply(file, session_id, params, state["last_seq"].to_i)
+        file.flush
+        write_state(session_id, state.merge("last_seq" => seq, "updated_at" => now_iso))
+        entries
+      end
+      return held unless held == :busy
+
+      queue_pending(session_id, "op" => "reply", "params" => params)
+      []
+    end
+
+    def append_reply(file, session_id, params, seq)
       entries = []
-      File.open(entries_path(session_id), File::RDWR | File::CREAT | File::APPEND, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        state = read_state(session_id)
-        seq = state["last_seq"].to_i
-        reply_seq = seq + 1
+      reply_seq = seq + 1
+      student_id = enrolled_student_id
 
-        plain_text, blocks = split_reply(raw_text, reply_seq: reply_seq, category_root: category_root)
-        reply_entry = {
-          "seq" => reply_seq, "session_id" => session_id, "at" => at, "harness" => harness.to_s,
-          "cutout_id" => cutout_id, "slice" => slice, "space" => space, "kind" => "reply",
-          "student_id" => enrolled_student_id
-        }.merge(text_fields(plain_text))
-        file.write(JSON.generate(reply_entry) + "\n")
-        entries << reply_entry
-        seq = reply_seq
+      plain_text, blocks = split_reply(params["raw_text"], reply_seq: reply_seq, category_root: params["category_root"])
+      reply_entry = {
+        "seq" => reply_seq, "session_id" => session_id, "at" => params["at"], "harness" => params["harness"].to_s,
+        "cutout_id" => params["cutout_id"], "slice" => params["slice"], "space" => params["space"], "kind" => "reply",
+        "student_id" => student_id
+      }.merge(text_fields(plain_text))
+      file.write(JSON.generate(reply_entry) + "\n")
+      entries << reply_entry
+      seq = reply_seq
 
-        blocks.each do |block|
-          seq += 1
-          code_entry = {
-            "seq" => seq, "session_id" => session_id, "at" => at, "harness" => harness.to_s,
-            "cutout_id" => cutout_id, "slice" => slice, "space" => space, "kind" => "code",
-            "category" => category, "scope" => scope, "path" => block["path"], "origin" => "chat_snippet",
-            "deleted" => false, "binary" => false, "reply_seq" => reply_seq, "student_id" => enrolled_student_id
-          }.merge(code_text_fields(block["text"]))
-          file.write(JSON.generate(code_entry) + "\n")
-          entries << code_entry
+      blocks.each do |block|
+        seq += 1
+        code_entry = {
+          "seq" => seq, "session_id" => session_id, "at" => params["at"], "harness" => params["harness"].to_s,
+          "cutout_id" => params["cutout_id"], "slice" => params["slice"], "space" => params["space"], "kind" => "code",
+          "category" => params["category"], "scope" => params["scope"], "path" => block["path"], "origin" => "chat_snippet",
+          "deleted" => false, "binary" => false, "reply_seq" => reply_seq, "student_id" => student_id
+        }.merge(code_text_fields(block["text"]))
+        file.write(JSON.generate(code_entry) + "\n")
+        entries << code_entry
+      end
+      [entries, seq]
+    end
+
+    def pending_file(session_id)
+      File.join(Reach::Paths.transcripts_dir, "#{session_id}.pending-#{Process.pid}.q")
+    end
+
+    def queue_pending(session_id, item)
+      ensure_transcripts_dir!
+      @pending_n = @pending_n.to_i + 1
+      line = "#{JSON.generate(item.merge('queued_at' => Time.now.to_f, 'pid' => Process.pid, 'n' => @pending_n))}\n"
+      path = pending_file(session_id)
+      4.times do
+        written = false
+        File.open(path, File::WRONLY | File::CREAT | File::APPEND, 0o600) do |handle|
+          next unless Reach::Locks.acquire(handle, nil, 1.0)
+
+          current = File.stat(path) rescue nil
+          next unless current && current.ino == handle.stat.ino
+
+          handle.write(line)
+          handle.flush
+          written = true
+        end
+        return true if written
+      end
+      File.open(path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |handle| handle.write(line) }
+      true
+    end
+
+    def claim_pending(session_id)
+      claims = []
+      Dir.glob(File.join(Reach::Paths.transcripts_dir, "#{session_id}.pending-*.q")).sort.each do |path|
+        handle = File.open(path, File::RDWR)
+        unless handle.flock(File::LOCK_EX | File::LOCK_NB)
+          handle.close
+          next
         end
 
-        file.flush
-        write_state(session_id, state.merge("last_seq" => seq, "updated_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        items = handle.read.to_s.each_line.map do |line|
+          parsed = begin
+            JSON.parse(line)
+          rescue StandardError
+            nil
+          end
+          parsed.is_a?(Hash) ? parsed : nil
+        end.compact
+        claims << { handle: handle, path: path, items: items }
+      rescue Errno::ENOENT
+        next
       end
-      entries
+      claims
+    end
+
+    def drain_pending(session_id, file, state)
+      claims = claim_pending(session_id)
+      return state if claims.empty?
+
+      items = claims.flat_map { |claim| claim[:items] }.sort_by { |item| [item["queued_at"].to_f, item["pid"].to_i, item["n"].to_i] }
+      seq = state["last_seq"].to_i
+      merged = state
+      items.each do |item|
+        case item["op"]
+        when "batch"
+          _entries, seq = append_drafts(file, session_id, Array(item["drafts"]), seq)
+        when "reply"
+          _entries, seq = append_reply(file, session_id, item["params"].is_a?(Hash) ? item["params"] : {}, seq)
+        when "state"
+          merged = merged.merge(item["set"]) if item["set"].is_a?(Hash)
+        when "ack"
+          merged = merged.merge("acked_seq" => [[merged["acked_seq"].to_i, item["acked_seq"].to_i].max, seq].min)
+        end
+      end
+      file.flush
+      merged = merged.merge("last_seq" => seq, "updated_at" => now_iso)
+      write_state(session_id, merged)
+      claims.each do |claim|
+        claim[:handle].close if Reach::Runtime.windows?
+        File.delete(claim[:path]) rescue nil
+      end
+      merged
+    ensure
+      (claims || []).each { |claim| claim[:handle].close rescue nil }
+    end
+
+    def drain_all_pending
+      dir = Reach::Paths.transcripts_dir
+      return nil unless Dir.exist?(dir)
+
+      sessions = Dir.glob(File.join(dir, "*.pending-*.q")).map { |path| File.basename(path).sub(/\.pending-\d+\.q\z/, "") }.uniq
+      sessions.each { |session_id| locked_session(session_id) { |_file, _state| nil } }
+      nil
+    rescue StandardError
+      nil
     end
 
     def text_fields(text)
@@ -528,6 +648,7 @@ module Reach
           end
 
           write_flush_state("last_attempt_at" => Time.now.utc.to_f)
+          drain_all_pending
           result = run_flush(install, quick: quick)
         ensure
           lock_file.flock(File::LOCK_UN)
@@ -678,24 +799,27 @@ module Reach
     end
 
     def update_state(session_id)
-      ensure_transcripts_dir!
       updated = nil
-      File.open(entries_path(session_id), File::RDWR | File::CREAT | File::APPEND, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        fresh = read_state(session_id)
+      held = locked_session(session_id) do |_file, fresh|
         updated = yield(fresh)
         write_state(session_id, updated)
       end
-      updated
+      held == :busy ? :busy : updated
+    end
+
+    def merge_state(session_id, fields)
+      held = update_state(session_id) { |fresh| fresh.merge(fields) }
+      queue_pending(session_id, "op" => "state", "set" => fields) if held == :busy
+      held
     end
 
     def update_acked(session_id, acked_seq)
-      File.open(entries_path(session_id), File::RDWR | File::CREAT | File::APPEND, 0o600) do |file|
-        file.flock(File::LOCK_EX)
-        state = read_state(session_id)
+      held = locked_session(session_id) do |_file, state|
         acked = [[state["acked_seq"].to_i, acked_seq.to_i].max, state["last_seq"].to_i].min
         write_state(session_id, state.merge("acked_seq" => acked))
       end
+      queue_pending(session_id, "op" => "ack", "acked_seq" => acked_seq.to_i) if held == :busy
+      held
     end
 
     def parse_json_file(path)

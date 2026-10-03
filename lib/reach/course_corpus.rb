@@ -25,9 +25,11 @@ module Reach
       return { "state" => "disabled", "courses" => 0, "files" => 0, "sources" => 0, "tombstoned" => 0 } unless Reach::Brain.enabled?
 
       report = nil
-      Reach::Brain.with_lock do
+      held = Reach::Brain.with_lock do
         report = ingest_locked(force)
       end
+      return { "state" => "busy", "courses" => 0, "files" => 0, "sources" => 0, "tombstoned" => 0 } if held == :busy
+
       if report["state"] == "ingested"
         Reach::Corpus.new(Reach.ports).admit_if_due(force: true) if admit
         Reach::Brain.log("brain.course_ingested", "courses" => report["courses"], "files" => report["files"], "sources" => report["sources"], "tombstoned" => report["tombstoned"], "state" => report["state"])
