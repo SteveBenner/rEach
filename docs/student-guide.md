@@ -14,12 +14,12 @@ and sends it in when you are ready.
    open your course with `~/.reach/bin/reach work --harness hermes`
    (setup shows the exact command for your computer).
 2. Enroll right away: rEach does nothing else until you do. Type anything in
-   the chat and rEach asks you, one at a time, for the enrollment code your
+   the chat and rEach asks you, one at a time, for the course passkey your
    instructor shared in class (it looks like `MGMT327-K7QX-94TD`; dashes,
    spaces and capitals don't matter), your La Sierra username (your university
    email, like `jsmi123@lasierra.edu`) and your student ID. Your AI
    partner never sees what you type here. You can also run
-   `reach enroll --course-code CODE --username USER --student-id ID` in a
+   `reach enroll --course-passkey PASSKEY --username USER --student-id ID` in a
    terminal. Type `start over` at any point to begin again.
 3. rEach introduces itself and asks a few questions. Answer as many or as few
    as you like; you can always finish later.

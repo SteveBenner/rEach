@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-10-02
+
+### Added
+
+- `reach version`, `reach --version` and `reach -V` print `reach <VERSION>` and exit 0, before enrollment too
+  (`STD-CLI-VERSION`, `lib/reach/cli.rb`). `version` was already on the unlocked list but answered "unknown command".
+- "How you talk with the student" in the persona (`skills/reach-assistant/SKILL.md`, mirrored in `agents/reach.md`,
+  `STD-PLAIN-TALK`): in every session and folder the agent treats the student as a new computer user, never brings up
+  commands or how rEach works unless asked for exactly that, describes student-only steps as what to click, and goes
+  faster or deeper only on evidence (profile coding experience "quite a bit", a remembered finding, or the student's
+  own request), recorded with `reach remember`. `M-AGENT-TALK` carries the rule in `reach hello`'s context, the
+  locked context and the sign-in context; `rules/reach.md` points to it.
+- "Updating rEach" in the persona and `M-AGENT-UPDATE` in `reach hello`'s context (`STD-AGENT-UPDATE`): the agent
+  updates only with `reach update run --apply` and never searches GitHub, its releases or tags, or downloads an
+  archive itself. `INSTALL.md` says the same for an installing agent and that the "Reach runtime" releases are Ruby
+  kits. A rEach agent had called GitHub's web index "noisy" while hunting for a tagged ZIP: the releases page listed
+  only runtime kits, with `runtime-4.0.7-r3` marked Latest, and no rEach version had a release.
+
+### Changed
+
+- The class-wide enrollment secret is called the course passkey everywhere a student or agent reads it
+  (`STD-COURSE-PASSKEY`): 18 messages and the not-enrolled greeting (`locales/`), `reach help`, the persona, `README.md`,
+  `docs/student-guide.md` and `docs/INSTALLATION-AND-SETUP-GUIDE.docx`. `reach enroll --course-passkey` is the flag;
+  `--course-code` still works, unlisted. The wire contract keeps `course_code`, `course_code_unknown` and
+  `course_code_expired`, so `specs/wire.yml` and its digest are unchanged and Teach needs no release.
+
 ## [0.18.0] - 2026-10-02
 
 ### Added

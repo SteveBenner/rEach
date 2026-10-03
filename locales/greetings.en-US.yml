@@ -7,7 +7,7 @@ greetings:
   G-FIRST-RUN: "Hi, I'm rEach, your academic assistant! Since I don't know anything about you yet, let's start with a brief interview. It takes about five minutes, and you can skip any question. What I save about you stays on this computer: I use it to explain things in ways that suit you, and it never affects your grade.\n\nFirst question: what would you like me to call you?"
   G-RESUME: "Welcome back, {name}! We didn't finish getting to know each other last time. Want to pick up where we left off, or jump straight into your work?"
   G-RESUME-NONAME: "Welcome back! We didn't finish getting to know each other last time. Want to pick up where we left off, or jump straight into your work?"
-  G-NOT-ENROLLED: "Hi {name}, rEach here. I'm not connected to your course yet. Paste the enrollment code your instructor gave you and I'll set everything up."
+  G-NOT-ENROLLED: "Hi {name}, rEach here. I'm not connected to your course yet. Paste the course passkey your instructor gave you and I'll set everything up."
   G-RETURNING: "Welcome back, {name}! {assignment} is due {due}, and your {slice} work is {state}. What would you like to work on?"
   G-RETURNING-MANY: "Welcome back, {name}! {assignment} is due {due}. Your work: {slices}. What would you like to work on?"
   G-RETURNING-PLAIN: "Welcome back, {name}! What would you like to work on?"
