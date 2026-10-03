@@ -22,7 +22,7 @@ module SliceBuild
   TEACH_SRC = File.expand_path(ENV.fetch("SMOKE_SLICE_TEACH_SRC", "~/bitbucket/paterasai/teach"))
   GROKIT_SRC = File.expand_path(ENV.fetch("SMOKE_SLICE_GROKIT_SRC", "~/bitbucket/paterasai/grokit"))
   TEACH_REF = ENV.fetch("SMOKE_SLICE_TEACH_REF", "origin/main")
-  GROKIT_TAG = ENV.fetch("SMOKE_SLICE_GROKIT_TAG", "v0.9.1")
+  GROKIT_TAG = ENV.fetch("SMOKE_SLICE_GROKIT_TAG", "v0.10.0")
   DOVETAIL_ROOT = File.expand_path(ENV.fetch("SMOKE_SLICE_DOVETAIL_ROOT", "~/github/foss/dovetail"))
   TEACH_BUNDLE = File.expand_path(ENV.fetch("SMOKE_SLICE_TEACH_BUNDLE", "~/bitbucket/paterasai/teach/vendor/bundle"))
   RUBY4_BIN = File.expand_path(ENV.fetch("SMOKE_RUBY4_BIN", "~/.rubies/ruby-4.0.6/bin"))
