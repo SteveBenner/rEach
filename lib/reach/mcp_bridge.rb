@@ -337,6 +337,7 @@ module Reach
       def serve(input: STDIN, output: STDOUT)
         input.binmode if input.respond_to?(:binmode)
         output.binmode if output.respond_to?(:binmode)
+        Reach::Subscribe.start_session_thread
         loop do
           line = input.gets
           break if line.nil?

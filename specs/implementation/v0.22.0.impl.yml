@@ -1,0 +1,136 @@
+schema: rstack.blueprint/v1
+task: reach-0.22.0-teach-subscription
+intent: >
+  Sven asked on 2026-10-03 for Reach to subscribe to Teach so updates (rebuilt packages, new assignments, policy,
+  grades, hand replies, extra credit, receipts, known issues) arrive automatically instead of only on reach sync or
+  the six-hourly session-start refresh. A student's computer is behind NAT and Teach's Puma cannot hold an open
+  connection per student, so he chose "poll plus an OS background job": Reach checks Teach's cheap signed probe
+  W-API-REVISION about every 60 s while a harness session runs (from its MCP server), and about every 15 minutes from
+  a user-level operating system job, and runs one sync only when something changed. The wire text (W-API-REVISION,
+  W-SAFE-14) is already written into specs/wire.yml in this worktree; Teach 0.30.0 serves the route (built in
+  parallel in ~/bitbucket/paterasai/.teach-wt/revision-route). Where this file is silent, stop and report instead of
+  choosing.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repository: ~/github/foss/.reach-wt/subscribe (git worktree of rEach on branch subscribe, from origin/main, Reach 0.21.14)
+
+read_first:
+  - AGENTS.md (every Part, especially B, Q, S and the student-facing rules), CHANGELOG.md (top entries), PRIVACY.md, INSTALL.md, docs/student-guide.md
+  - specs/wire.yml (W-API-REVISION and W-SAFE-14, both new and final; W-SAFE-1 to W-SAFE-13, W-API-STATUS, W-KI-3), reach.spec.yml (STD-HOOK-RESPONSIVE, STD-TEACH-LINK, the session-start, prompt hook, MCP and update sections), specs/app.yml, locales/en-US.yml (the message catalog)
+  - lib/reach/client.rb (signing, quick and normal modes, bucket, breaker, request log), link.rb, sync.rb, hello.rb (background, maybe_refresh_status), gate.rb (prompt, prompt_context), mcp_bridge.rb (serve), storage.rb (spawn_detached), locks.rb, runtime.rb (shim_path, ruby_path, load_config, windows?), update.rb (interval, jitter, backoff, spawn_background: the closest existing pattern), known_issues.rb (ETag handling), enroll.rb (where enrollment completes and where revoked is marked), cli.rb (UNLOCKED_COMMANDS, doctor, command dispatch), os_info.rb
+
+constraints:
+  - No comments in any file (only frozen_string_literal magic comments and shebangs survive). No attribution. No new tests (Part S); verification runs from scratch scripts outside the repository, never committed.
+  - Delete nothing outside your scratch directory; never rm -r, git clean, find -delete or dropdb. Run no git write; the primary commits.
+  - Never touch Sven's real Reach state (~/.reach, ~/reach-work), his real systemd user units, LaunchAgents, crontab or the live Teach (port 7400, ~/.teach, database "teach"). Every run uses REACH_HOME and REACH_WORKSPACE_ROOT under ~/.cache/claude-tmp/reach-subscribe (never /tmp), and a unit-file directory override for the systemd check (below). Unset TEACH_DATABASE_URL.
+  - Ruby 2.6.10 compatibility for everything the plugin carries (check with ruby:2.6.10-slim as other releases do). The plugin runs on macOS, Windows and Linux.
+  - specs/wire.yml is final: do not edit it; it must stay byte identical with ~/bitbucket/paterasai/.teach-wt/revision-route/specs/wire.yml.
+  - STD-HOOK-RESPONSIVE: no hook waits on the network or on another process; the prompt hook only reads a file. Nothing new writes to the MCP server's stdout except protocol messages.
+  - Students never see raw errors (STD-TEACH-LINK); every failure in this feature is silent to the student and recorded through Reach::Debug.fault.
+  - American English. Student-facing words follow AGENTS.md's plain-language rules.
+
+design:
+  module: >-
+    New lib/reach/subscribe.rb, Reach::Subscribe. State in state/subscribe.json under the Reach home (0600, written
+    under a file lock like the other state files): revision, parts, checked_at, next_due_at, failures, unsupported_until,
+    last_sync_at, notices. Settings from config.yml section subscribe: {background: true, session_interval_s: 60,
+    background_interval_s: 900}, read through Reach::Runtime.load_config with those defaults. Kill switches:
+    REACH_OFFLINE=1 and REACH_SUBSCRIBE=0 make every entry point a no-op.
+  tick: >-
+    Reach::Subscribe.tick(source:) where source is session or background, run as `reach subscribe tick --source
+    <source>` in a process of its own. It returns at once when a kill switch is set, when no install is enrolled or the
+    install is revoked, when another tick holds a non-blocking lock state/subscribe.lock, when the last check was under
+    50 s ago, when unsupported_until or a backoff's next_due_at is ahead. Otherwise one GET /api/v1/revision through
+    Reach::Client in normal mode with retries disabled (one attempt), sending If-None-Match with the stored quoted
+    revision. 304, or 200 with the stored revision: record checked_at only. 200 with a new revision: run Reach::Sync.run
+    in this process under the sync lock (below); on success store revision and parts and append one notice per changed
+    part (see notices), reset failures; when the sync lock is held or the sync raises, keep the old revision and parts
+    so the next tick retries. 404: unsupported_until = now + 21600. 403 revoked or not_enrolled: mark revoked as sync
+    does and uninstall the operating system job. Any other failure: failures += 1, next_due_at = now + min(60 * 2^(failures-1), 3600).
+    The first successful check after install (no stored revision) runs a sync too.
+  sync_lock: >-
+    Reach::Sync.run takes an exclusive lock state/sync.lock through Reach::Locks for its whole run, waiting up to 120 s
+    for interactive callers (CLI reach sync, the reach_sync MCP tool, persona) so a background sync never runs beside a
+    student's; the subscription tick takes it non-blocking. Hooks never call Sync.run, so STD-HOOK-RESPONSIVE is
+    unaffected; confirm that in the report.
+  session_polling: >-
+    When reach mcp starts serving, it starts one daemon thread that sleeps session_interval_s plus a random 0-15 s,
+    then, only when Subscribe.due? (a pure file read of subscribe.json: not under the 50 s gap, not backing off, not
+    unsupported, kill switches off, enrolled), spawns `subscribe tick --source session` through
+    Reach::Storage.spawn_detached, and repeats until the server exits. The thread rescues everything, never writes to
+    stdout or stderr, and never blocks a tool call.
+  background_job: >-
+    Reach::Subscribe.install!, uninstall! and installed? manage one user-level job that runs `<ruby> <shim> subscribe
+    tick --source background` every background_interval_s, where <shim> is Reach::Runtime.shim_path (stable across
+    plugin updates) and <ruby> is Reach::Runtime.ruby_path. All three are idempotent: install! writes files only when
+    their content differs and calls the operating system tool only when something changed. Per platform:
+    Linux: ~/.config/systemd/user/reach-subscribe.service (Type=oneshot, Nice=10, the command) and reach-subscribe.timer
+    (OnBootSec=2min, OnUnitActiveSec=<interval>s, RandomizedDelaySec=120), then systemctl --user daemon-reload and
+    enable --now reach-subscribe.timer; when systemctl --user is not usable, record unsupported and install nothing (no
+    cron). The unit directory is REACH_SYSTEMD_USER_DIR when set (for scratch checks), else ~/.config/systemd/user, and
+    with REACH_SYSTEMD_USER_DIR set no systemctl command runs.
+    macOS: ~/Library/LaunchAgents/reach.subscribe.plist (Label reach.subscribe, ProgramArguments the command,
+    StartInterval <interval>, RunAtLoad false, ProcessType Background, LowPriorityIO true, standard out and error to
+    /dev/null), loaded with launchctl bootstrap gui/<uid> and, when that fails, launchctl load -w; uninstall with
+    bootout or unload -w and removing the plist.
+    Windows: schtasks /Create /F /SC MINUTE /MO <interval/60> /TN "rEach\Update check" for the current user with no
+    stored password, whose command must not open a console window: rubyw.exe beside ruby.exe when it exists, otherwise
+    wscript.exe //B //Nologo running a launcher ~/.reach/bin/reach-subscribe.vbs that Reach writes, which runs the ruby
+    command hidden (WshShell.Run with window style 0, not waiting). Uninstall with schtasks /Delete /F /TN and removing
+    the launcher.
+    Every operating system call has a timeout of 10 s, never prompts, and a failure is recorded in subscribe.json and
+    Reach::Debug.fault, never raised to the student.
+  when_installed: >-
+    Subscribe.ensure! installs the job when the install is enrolled, not revoked, settings background is true and no
+    kill switch is set, and uninstalls it otherwise. It runs from the detached hello --background process (never in a
+    hook itself), right after a successful enrollment (also detached), and after reach update applies a new version. It
+    does nothing when nothing changed.
+  cli: >-
+    reach subscribe status [--format text|json] (settings, job installed or not and where, checked_at, next due, last
+    sync, failures, unsupported_until); reach subscribe tick --source session|background; reach subscribe install;
+    reach subscribe uninstall. subscribe joins UNLOCKED_COMMANDS. reach doctor gains one informational line
+    R-DOC-SUBSCRIBE (job installed or why not; last check) that never counts as a failure.
+  notices: >-
+    Parts map to notice kinds: status course_update, grades grade, hands hand_reply, extra_credit extra_credit,
+    receipts receipt; known_issues adds no notice. Notices are stored unannounced with their time, deduplicated by kind.
+    The UserPromptSubmit gate, after its existing work and only by reading subscribe.json under the bounded lock wait,
+    adds one line from a new catalog message M-SUBSCRIBE-UPDATES in locales/en-US.yml naming the kinds in plain words
+    (for example "rEach picked up new course updates since your last message: a grade was posted and an instructor
+    answered your raised hand. Tell the student in plain words if it helps their work."), then marks them announced.
+    The line tells the agent; the agent words it for the student per AGENTS.md. A notice older than 7 days is dropped
+    unannounced.
+  docs_and_version: >-
+    reach.spec.yml gains STD-TEACH-SUBSCRIBE (everything above) and updates the session-start and MCP sections where
+    they describe refreshes. specs/app.yml records the feature. PRIVACY.md and INSTALL.md say in plain words that Reach
+    checks the course server for updates every few minutes while open and about every 15 minutes in the background,
+    sends only its signed check (no files, no conversation), how to turn the background check off (config.yml
+    subscribe.background false, or reach subscribe uninstall) and that uninstalling Reach should run reach subscribe
+    uninstall first. docs/student-guide.md gets one plain sentence. FEATURES.md row (Build shipped; Release "not yet
+    released"). CHANGELOG entry dated 2026-10-03 naming wire revision 2026-10-03e and Teach 0.30.0. Version 0.22.0
+    everywhere Reach records its version (VERSION, specs/app.yml, reach.spec.yml, plugin manifests the release tooling
+    stamps; follow how 0.21.14 bumped).
+
+owns_paths:
+  - lib/reach/subscribe.rb (new), lib/reach/sync.rb (the lock only), lib/reach/mcp_bridge.rb (the polling thread only), lib/reach/gate.rb (the notice line only), lib/reach/hello.rb and lib/reach/enroll.rb and lib/reach/update.rb (the ensure! calls only), lib/reach/cli.rb (the subscribe command, UNLOCKED_COMMANDS, the doctor line), the file that requires Reach's modules, locales/en-US.yml (the new message)
+  - reach.spec.yml, specs/app.yml, PRIVACY.md, INSTALL.md, docs/student-guide.md, FEATURES.md, CHANGELOG.md, VERSION and every version location
+
+acceptance:
+  - ruby -c on every changed Ruby file with the host Ruby and in ruby:2.6.10-slim; cmp of the two wire.yml copies is silent.
+  - >-
+    Against a scratch Teach started from ~/bitbucket/paterasai/.teach-wt/revision-route once that worktree's Teach
+    0.30.0 boots (wait for it; if it is not ready, verify the rest with a scratch WEBrick stub on a free port that signs
+    nothing but answers W-API-REVISION's 200, 304 and 404 shapes, and say so), with a course, a released assignment and
+    one student provisioned with bin/teach as ~/github/foss/rEach/tools/smoke/assignment_one.rb does, and a scratch
+    Reach home enrolled against it: reach subscribe tick --source session does one GET /api/v1/revision and one sync
+    the first time; an immediate second tick does nothing (50 s gap, visible in requests.jsonl); after the gap a tick
+    gets 304 and does no sync; after recording points for the student with bin/teach a tick syncs, stores the new
+    parts and adds a grade notice; the next run of the prompt hook (reach gate with a UserPromptSubmit event on stdin)
+    prints the M-SUBSCRIBE-UPDATES line once and the run after it does not; REACH_SUBSCRIBE=0 and REACH_OFFLINE=1
+    ticks make no request; a 404 from the stub sets unsupported_until six hours ahead.
+  - The MCP server started with a scratch home and session_interval_s set low in config.yml spawns ticks on schedule while answering initialize and tools/list on stdin normally; its stdout carries only protocol messages.
+  - A tick started while a reach sync holds state/sync.lock exits without syncing and leaves revision and parts unchanged.
+  - With REACH_SYSTEMD_USER_DIR set to a scratch directory, reach subscribe install writes both unit files with the right command and interval and runs no systemctl; a second install changes nothing (same mtimes); uninstall removes them; reach subscribe status and reach doctor show the state. The macOS plist and the Windows schtasks command line and .vbs launcher are shown in the report as generated strings (print them from a scratch script calling the builder methods), not executed.
+  - reach subscribe status --format json parses and holds every field named in cli.
+
+report:
+  - Commands per acceptance item with trimmed output, the generated plist, unit files, schtasks command and .vbs, every file changed, and anything here that did not fit the code.

@@ -55,6 +55,7 @@ module Reach
       return nil if Reach::EnrollmentLock.state["locked"]
 
       maybe_refresh_status
+      Reach::Subscribe.ensure!
       workspace = find_workspace(cwd)
       Reach::Locks.refill!
       safe_late_retry
