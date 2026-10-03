@@ -162,7 +162,7 @@ six- or seven-digit IDs and an optional trailing username letter, matching live 
 is a password the student chooses twice (at least 8 characters) and is told to write down; the hook hides it from
 the agent, Hermes students finish in a terminal, and Teach keeps only its scrypt hash. Since 0.18.2 `reach setup`
 and `update/apply.rb` write `teach.url` to `~/.reach/state/teach.json`, read after `REACH_TEACH_URL` and `config.yml`,
-so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`. Since 0.21.11 `Reach::Runtime::TEACH_URL` builds the same URL in as the last resort, and a terminal enroll that cannot reach Teach names the URL and the network cause instead of saying the work is saved.
+so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`. Since 0.21.11 `Reach::Runtime::TEACH_URL` builds the same URL in as the last resort, and a terminal enroll that cannot reach Teach names the URL and the network cause instead of saying the work is saved. Since 0.21.13 enrollment requests leave the Teach connection state alone, so that message is the only line; verified against live Teach from a scratch home (one line on failure, no `link.json` written, no reconnect line after a successful preview).
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

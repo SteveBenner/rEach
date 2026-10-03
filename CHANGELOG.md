@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.13] - 2026-10-03
+
+### Fixed
+
+- A failed `reach enroll` in a terminal printed its own message (`M-ENR-CLI-OFFLINE`) and then "rEach lost its
+  connection to your course server... Your work is saved", which is false before enrollment, and a later successful
+  enrollment request added "rEach is connected to your course server again". Enrollment requests (preview, enroll,
+  the instructor persona enroll and the v1 code enroll) now leave the Teach connection state alone
+  (`Reach::Client.anonymous(..., link: false)` in `lib/reach/enroll.rb`), so each enrollment path says only its own
+  message (`STD-TEACH-LINK`).
+
+### Changed
+
+- `STD-TEACH-URL` notes that its no-URL clause has been unreachable since 0.21.11 built the Teach URL in.
+
 ## [0.21.12] - 2026-10-03
 
 ### Fixed
