@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-10-04
+
+### Added
+- De-identified transcripts (`STD-TRANSCRIPT-DEIDENTIFY`, wire revision 2026-10-04a, `W-TRN-6`). Before a recorded
+  conversation is sent, rEach takes the student's identity out: `lib/reach/deidentify.rb` keeps one random pseudonym
+  per install, replaces the identifiers rEach knows (name, email, username, student ID, computer account, home folder,
+  computer name) in every entry with placeholders such as `[[student-name]]`, and encrypts the index that links the
+  pseudonym and the placeholders back to the student to the course's re-identification key. Only the holder of that
+  key can re-identify a transcript.
+- A prompt entry carries `source_digest`, the digest of the prompt as typed, so the own-part check still matches.
+
+### Changed
+- `POST /api/v1/transcripts` requires `pseudonym` and `identity`. rEach sends nothing until the course status hands
+  out the key (`reach transcript flush` reports `stopped (identity_key)`), and keeps its queue.
+- `PRIVACY.md`, the student guide and the privacy figure say what de-identification does and does not do: the course
+  server holds the key and can reveal whose conversation it is, it authenticates each upload, and a name rEach does
+  not know stays in the text.
+- The spool on the student's computer and `reach transcripts export` are unchanged: the student's own copy stays as
+  typed.
+
 ## [0.25.1] - 2026-10-04
 
 ### Fixed

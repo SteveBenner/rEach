@@ -72,7 +72,9 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
   or in instructor mode, and recording never reaches back before a session's first recorded prompt. The microbrain is
   separate: it stays on the student's computer and is never sent. Students learn this from the docs, the privacy
   policy and their AI partner's answer when they ask; there is no in-session notice. The student can export their own
-  copy (`reach transcripts export`). Transcripts were removed in Reach 0.21.1 and restored in 0.25.0.
+  copy (`reach transcripts export`). Transcripts were removed in Reach 0.21.1 and restored in 0.25.0. Since 0.26.0 they leave the computer
+  de-identified: a random pseudonym, placeholders for the identifiers rEach knows, and an identity index only the
+  holder of the course's key can open.
 - **What reaches Teach** (10-01, revised 10-02 and 10-03). rEach does not capture the student's local workspace material, all
   the more because students are encouraged to import their personal contexts. Only these go to the instructors:
   - completed work and assignment material (the slice's owned files and submissions);

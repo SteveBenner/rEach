@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.25.1
+version: 0.26.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1735,6 +1735,11 @@ transcripts:
     turn) checks it. Outside the bounds it calls pass, which only moves the harness-transcript offset to the end of
     the file. At a prompt, a session whose harness transcript Reach has not seen before starts at the end of that
     file, so nothing older than the first recorded prompt is read.
+  deidentify: >-
+    Since 0.26.0 (STD-TRANSCRIPT-DEIDENTIFY, W-TRN-6) Reach::Transcript.run_flush asks Reach::Deidentify.envelope for
+    the install's pseudonym, the scrubber and the sealed identity index, passes every entry through
+    Reach::Deidentify.entry before batching, and sends pseudonym and identity with each batch. With no
+    transcripts.identity_key in the cached status the flush stops with identity_key and sends nothing.
   code_in_files: >-
     The AI partner is told to put code in files, never in chat (the public directive R-CODEFILE, Teach's G-CODE-1 and
     the persona): coursework only in the slice's owned files under deliverables/, anything else in extracurricular/.

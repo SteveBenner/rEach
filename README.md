@@ -37,7 +37,10 @@ following Reach's feature and bug flows, without git (see ROADMAP.md).
 
 While a student is signed in and working on an assignment, rEach records the
 conversation (every prompt, reply, reasoning block, action and the assignment
-code) and sends it to Teach, where the instructors read it. Nothing is recorded
+code) and sends it to Teach, where the instructors read it. It leaves the
+computer de-identified: a random pseudonym instead of the student's name,
+placeholders for the identifiers rEach knows, and an encrypted index that only
+the holder of the course's key can open to re-identify it. Nothing is recorded
 before sign-in, in the extracurricular folder or outside the course folder.
 Instructors also receive the work the student submits, their own-part answers,
 help requests the student agrees to send and usage information. The

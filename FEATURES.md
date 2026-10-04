@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.25.1 |
+| **Registry version** | 0.26.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -285,8 +285,13 @@ mode) nothing is written or sent, and a session's recording never reads what the
 first recorded prompt. The feature existed from 0.8.0 to 0.20.x, was torn down in 0.21.1 and restored in 0.25.0 with
 these bounds; rEach no longer deletes `~/.reach/transcripts`. Verified 2026-10-03 on a scratch course: 15 entries of
 every kind arrived, and an unsigned session and an extracurricular session recorded nothing. Not verified: a real
-Claude Code, Codex or Hermes session on a student computer.
-Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-03 as v0.25.0, GitHub Latest; Teach 0.38.0 accepts the entries). No real student session has been recorded yet.
+Claude Code, Codex or Hermes session on a student computer. Since 0.26.0 (`STD-TRANSCRIPT-DEIDENTIFY`, wire revision
+2026-10-04a) a transcript leaves the computer de-identified: a random pseudonym per install, placeholders for the
+identifiers rEach knows, and an identity index encrypted to the course's re-identification key, which only its holder
+can open. Verified 2026-10-04 on a scratch course: a signed-in session whose prompt, reply, reasoning, action and code
+held the student's name, ID, username and home folder arrived with none of them in any stored file, the own-part
+lookup still matched, and an older client was told to update and kept its queue.
+Build ✅ Shipped · Deploy 🔵 Built, not released
 
 ### 2.13 · Slice API reference
 

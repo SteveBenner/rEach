@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-03'
+recorded: '2026-10-04'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -677,7 +677,9 @@ routes:
       transcripts: >-
         Since protocol 1 revision 2026-09-29c. {kinds: [entry kinds W-API-TRANSCRIPT accepts], max_text_bytes: 131072}.
         Absent from an older Teach, which Reach reads as kinds [prompt]. From 2026-10-03b to 2026-10-03h the block only
-        made an older Reach drop its queue; since 2026-10-03i it again states what Teach accepts.
+        made an older Reach drop its queue; since 2026-10-03i it again states what Teach accepts. Since 2026-10-04a
+        it also carries identity_key: {key_id, pem}, the RSA public key Reach seals the identity index to (W-TRN-6);
+        a Reach that sees no identity_key sends no transcript and keeps its queue.
       modules: >-
         Since protocol 1 revision 2026-09-30b. The student's current signed module record (W-MOD-1), or null when the
         course is student_choice and the student has not chosen yet. For an instructor-mode course Teach issues the
@@ -1008,6 +1010,8 @@ routes:
       Idempotency-Key: >-
         Required. SHA-256 (W-CONV-4) of "<install_id>\n<session_id>\n<first seq>\n<last seq>" for the entries sent.
     request:
+      pseudonym: {type: string, pattern: "^anon_[0-9a-f]{32}$", note: "since 2026-10-04a (W-TRN-6): the install's random pseudonym; required, a request without it is refused 400 reach_outdated"}
+      identity: {type: object, note: "since 2026-10-04a (W-TRN-6): the sealed identity index {schema, key_id, wrapped_key, nonce, ciphertext, tag}; required"}
       session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
       harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes only to a Teach whose advertised wire_contract_sha256 equals its own, and unknown otherwise"}
       cutout_id: {type: [string, "null"], maxBytes: 128}
@@ -1027,6 +1031,7 @@ routes:
             bytes: integer, the UTF-8 byte size of the whole prompt
             truncated: boolean, true when text holds only the first 131072 bytes
             digest: {type: [string, "null"], note: "W-CONV-4 of the whole prompt's UTF-8 bytes; null when text is null"}
+            source_digest: {type: [string, "null"], note: "since 2026-10-04a: W-CONV-4 of the prompt as typed, before W-TRN-6 replaced identifiers; the digest W-PART-3 compares"}
             gate: {enum: [allowed, blocked]}
             note: {type: [string, "null"], maxBytes: 200}
           reply:
@@ -1737,10 +1742,33 @@ transcripts:
   W-TRN-5:
     name: the course record
     rule: >-
-      Since 2026-09-29c. Teach keeps every entry it accepts in that student's course record, per session and in seq
+      Since 2026-09-29c. Teach keeps every entry it accepts in that student's course record (since 2026-10-04a under
+      the pseudonym of W-TRN-6), per session and in seq
       order, with the latest version and the history of each code path, and shows it to instructors only. Teach
       refuses a code path that would leave its category root or cross a symlink. How Teach stores the record is
       private.
+  W-TRN-6:
+    name: de-identification
+    rule: >-
+      Since 2026-10-04a a transcript leaves the student's computer de-identified. Reach keeps one random pseudonym
+      per install ("anon_" and 32 lowercase hex characters) and sends it with every W-API-TRANSCRIPT request in
+      place of anything that names the student. Before sending, Reach replaces every occurrence of the identifiers
+      it knows in each entry's text, summary and note (matched without regard to case, at word boundaries, longest
+      first; each at least 3 characters): the student's display name ([[student-name]]) and each word of it
+      ([[student-name-1]], [[student-name-2]], ...), the enrollment username ([[student-email]]) and its part before
+      "@" ([[student-username]]), the student id ([[student-id]]), the computer account name
+      ([[computer-account]]), the home folder path ([[home-folder]]) and the computer name ([[computer-name]]).
+      bytes and digest then describe the text as sent; a prompt also carries source_digest. The spool on the
+      student's computer and the student's own export stay as typed. The identity index is the canonical JSON
+      (W-CONV-1) of {install_id, placeholders: {placeholder: value}, student_id}, encrypted with AES-256-GCM under a
+      fresh key, with the canonical JSON of {key_id, pseudonym, schema: "reach.identity/v1"} as additional data; the
+      key is wrapped with RSA-OAEP to the public key W-API-STATUS hands out as transcripts.identity_key. identity is
+      {schema, key_id, wrapped_key, nonce, ciphertext, tag}, the last four in standard base64. Whoever holds the
+      matching private key can re-identify a transcript; nobody else can. Teach opens the index at receipt only to
+      check that it names the install that signed the request (400 invalid_request otherwise; 409 conflict when
+      key_id is not its current key, which Reach treats as stop and retries after the next status), and keeps the
+      transcript under the pseudonym. Teach still authenticates the request, so it knows the sender while it
+      handles it. Placeholders cover only identifiers Reach knows: a nickname or another person's name stays.
 qualification:
   W-QUAL-1:
     name: what a qualification proves
@@ -1990,7 +2018,8 @@ alignment:
     name: Teach's check of the part
     rule: >-
       For each answer Teach looks for the transcript entry with the same session_id and seq in the student's
-      subcorpus: part_verified is true when every answer's entry exists, is a prompt, and has the same digest; false
+      subcorpus (since 2026-10-04a found through the key holder's owner tag, W-TRN-6, and compared by the entry's
+      source_digest): part_verified is true when every answer's entry exists, is a prompt, and has the same digest; false
       when any entry exists with a different digest or kind; pending when some entry has not arrived yet (Teach
       re-checks pending submissions when later transcripts arrive and when an instructor shows the submission);
       unverifiable when an entry falls inside a transcript gap Reach reported, or is still missing 7 days after the

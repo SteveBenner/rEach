@@ -59,6 +59,7 @@ require_relative "reach/guardrails"
 require_relative "reach/workspace"
 require_relative "reach/sync"
 require_relative "reach/session"
+require_relative "reach/deidentify"
 require_relative "reach/transcript"
 require_relative "reach/transcript_ingest"
 

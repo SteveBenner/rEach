@@ -4,7 +4,7 @@ module Figures
   NEVER = ["Anything said before sign-in", "The extracurricular folder", "Chats outside the course folder", "The student ID typed at sign-in", "Prompts the gate blocks"].freeze
   STAYS = ["The interview profile", "Private memory of how the student works", "The extracurricular folder", "The install's private key", "Unsealed course materials", "ZIP copies and signed receipts"].freeze
   LEAVES = [
-    ["Assignment conversations", "signed in, on an assignment: all of it"],
+    ["Assignment conversations", "all of it, without the student's name"],
     ["Enrollment details", "and a scrambled computer fingerprint"],
     ["Submitted files", "only after the student says yes"],
     ["Own-part answers", "the questions only the student can answer"],

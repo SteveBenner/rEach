@@ -24,7 +24,7 @@ module Reach
     CAPTURE_SPACES = %w[slice root].freeze
     DEFAULT_SUPPORTED_KINDS = %w[prompt].freeze
     KIND_FIELDS = {
-      "prompt" => %w[text bytes truncated digest gate note],
+      "prompt" => %w[text bytes truncated digest source_digest gate note],
       "reply" => %w[text bytes truncated digest note],
       "reasoning" => %w[text bytes truncated digest note],
       "action" => %w[tool summary note],
@@ -865,6 +865,11 @@ module Reach
       stopped = nil
       max_requests = quick ? QUICK_MAX_REQUESTS : FULL_MAX_REQUESTS
       supported = supported_kinds
+      envelope = Reach::Deidentify.envelope(install, Reach::Sync.cached_status)
+      if envelope.nil?
+        log_transcript_event("flush", "quick" => quick, "sent" => 0, "requests" => 0, "stopped" => "identity_key")
+        return { "sent" => 0, "requests" => 0, "stopped" => "identity_key" }
+      end
 
       pending_sessions(quick).each do |session_id|
         break if stopped
@@ -874,21 +879,21 @@ module Reach
         last = state["last_seq"].to_i
         next if acked >= last
 
-        remaining = read_entries_after(session_id, acked)
+        remaining = read_entries_after(session_id, acked).map { |entry| Reach::Deidentify.entry(entry, envelope["scrubber"]) }
         next if remaining.empty?
 
         sendable, held_count = split_supported_prefix(remaining, supported)
         log_transcript_event("unsupported_kind", "session_id" => session_id) if held_count.positive?
         next if sendable.empty?
 
-        batches(session_id, sendable).each do |batch|
+        batches(session_id, sendable, envelope).each do |batch|
           if requests >= max_requests
             stopped = "request_budget"
             break
           end
 
           requests += 1
-          outcome = send_batch(install, session_id: session_id, batch: batch, quick: quick)
+          outcome = send_batch(install, session_id: session_id, batch: batch, quick: quick, envelope: envelope)
           case outcome[:result]
           when :sent
             update_acked(session_id, [outcome[:last_seq].to_i, batch.last["seq"]].min)
@@ -944,7 +949,7 @@ module Reach
       lines.sort_by { |entry| entry["seq"].to_i }
     end
 
-    def batches(session_id, entries)
+    def batches(session_id, entries, envelope)
       result = []
       current = []
       entries.each do |entry|
@@ -954,7 +959,7 @@ module Reach
           next
         end
 
-        if candidate.length > MAX_BATCH_ENTRIES || batch_bytesize(session_id, candidate) > MAX_BATCH_BYTES
+        if candidate.length > MAX_BATCH_ENTRIES || batch_bytesize(session_id, candidate, envelope) > MAX_BATCH_BYTES
           result << current
           current = [entry]
         else
@@ -965,10 +970,10 @@ module Reach
       result
     end
 
-    def batch_bytesize(session_id, entries)
+    def batch_bytesize(session_id, entries, envelope)
       last_entry = entries.last
       harness = wire_harness(last_entry["harness"])
-      JSON.generate(batch_body(session_id, harness, last_entry["cutout_id"], last_entry["slice"], entries)).bytesize
+      JSON.generate(batch_body(session_id, harness, last_entry["cutout_id"], last_entry["slice"], entries, envelope)).bytesize
     end
 
     def wire_harness(value)
@@ -981,10 +986,10 @@ module Reach
       "unknown"
     end
 
-    def send_batch(install, session_id:, batch:, quick:)
+    def send_batch(install, session_id:, batch:, quick:, envelope:)
       last_entry = batch.last
       harness = wire_harness(last_entry["harness"])
-      body = batch_body(session_id, harness, last_entry["cutout_id"], last_entry["slice"], batch)
+      body = batch_body(session_id, harness, last_entry["cutout_id"], last_entry["slice"], batch, envelope)
       first_seq = batch.first["seq"]
       last_seq = batch.last["seq"]
       key = Reach::Crypto.digest_hex("#{install['install_id']}\n#{session_id}\n#{first_seq}\n#{last_seq}")
@@ -1022,8 +1027,10 @@ module Reach
       log_transcript_event("flush_rejected", "session_id" => session_id, "code" => code)
     end
 
-    def batch_body(session_id, harness, cutout_id, slice, entries)
+    def batch_body(session_id, harness, cutout_id, slice, entries, envelope)
       {
+        "pseudonym" => envelope["pseudonym"],
+        "identity" => envelope["identity"],
         "session_id" => session_id,
         "harness" => harness,
         "cutout_id" => cutout_id,
