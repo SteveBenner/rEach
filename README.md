@@ -205,7 +205,7 @@ instructor data. The persona keeps its own rEach home under `~/.reach/personas/`
 which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
 
 Debug mode is always on for a test student, and otherwise only on request: `reach debug on [--for MINUTES]` and
-`reach debug off` on the computer, or `teach debug on --student ID` from Teach, in which case the student is told. It
+`reach debug off` on the computer, or an instructor switches it on from Teach, in which case the student is told. It
 records what rEach did (hooks, gate decisions, requests to Teach, sync, check, qualify, submit, errors), never prompt
 or file text, codes, passwords or keys, sends it to Teach, and shows it at the end of each turn: an ASCII table in a
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
@@ -277,7 +277,7 @@ context on Hermes, a line on stderr from a command). `REACH_OFFLINE=1` is delibe
 error rEach hides behind a plain message (shown at most once every 15 minutes in a hook) is recorded as a `fault` event,
 and each change of connection as a `link` event. Both are sent to Teach even while debug mode is off, with the failing
 location, exception class and a few plugin-relative frames but no error message, file or prompt text; instructors read
-them with `teach debug show --kind fault`. The state lives in `link.json` under the rEach home, and `config.yml`
+them in Teach. The state lives in `link.json` under the rEach home, and `config.yml`
 `link.hiccup_quiet_minutes` and `link.fault_max_per_hour` set the quiet period and the hourly cap.
 
 ## Course reference

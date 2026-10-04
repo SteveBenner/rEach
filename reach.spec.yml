@@ -881,7 +881,7 @@ course_alignment:
     workspace, stays on the course, and is pointed to help at once in a crisis. The directive prose is private and
     encrypted (Teach directives PACE, OWNPART, COACH, SANDBOX, FOCUS, WHOAMI and rules G-PACE-1 ... G-IDENT-1); what
     can be enforced deterministically is enforced by Reach's hooks, not by the agent. Design record:
-    docs/course-alignment-design.md; build record: specs/implementation/v0.12.0.impl.yml.
+    docs/course-alignment-design.md; build record: the v0.12.0 blueprint, kept privately.
   policy: >-
     Reach::Policy reads the course policy (login, limits, support, student_part, module_selection) from the verified
     guardrails package's course.yml (W-POL-1). A package from an older Teach yields the defaults, with the student's
@@ -2474,7 +2474,7 @@ persona:
   name: rEach
   source: >-
     skills/reach-assistant/SKILL.md and agents/reach.md carry the same body (reach doctor's R-DOC-PERSONA compares
-    them); the files are the source, first written from specs/implementation/v0.2.0.impl.yml verbatim.persona_body.
+    them); the files are the source, first written from the v0.2.0 blueprint (kept privately) verbatim.persona_body.
     The greetings live in locales/greetings.en-US.yml.
   voice: Warm, curious and brief, in plain words; the course rules come first and the student leads creative choices.
   introduction:

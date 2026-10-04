@@ -298,8 +298,8 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.14 · Hookless-harness provenance
 
 The submission seal carries `hooked` and a harness that falls back to `REACH_HARNESS`; Antigravity's rules file sets
-it. Teach notes a hookless submission as unwitnessed instead of flagging it for review, behind
-`<Teach setting>` (default `note`). `hooked` is self-reported from the student's ledger, so it is a
+it. Teach notes a hookless submission as unwitnessed instead of flagging it for review, by a
+course server setting (default: note). `hooked` is self-reported from the student's ledger, so it is a
 signal, not a guarantee.
 
 Build ✅ · Deploy 🔵 · Blocker: -
@@ -450,7 +450,7 @@ x64 legs run on self-hosted VMs on SVEN-F1L1 (`tools/platform_smoke/windows-runn
 
 Since 0.20.5 every leg opens real `teach.package/v1` envelopes, which no leg did before (fake_teach listed no packages
 and `R-DOC-GUARD` was an expected doctor finding, so a student's Mac could fail to decrypt its guardrails package while
-CI stayed green). `package_known_answer` opens a guardrails envelope sealed by Teach's own `Teach`
+CI stayed green). `package_known_answer` opens a guardrails envelope sealed by Teach itself
 (`tools/platform_smoke/fixtures/known-answer/`, throwaway test keys), and `sync_packages` has fake_teach seal guardrails
 and workspace packages for the enrolled install, checks both are stored and revalidated with 304, and doctor must no
 longer report `R-DOC-GUARD`. The smoke now keeps its workspace under the scratch root (`REACH_WORKSPACE_ROOT`).
@@ -477,7 +477,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed and the instru
 
 ### 2.30c · Debug mode
 
-Since 0.16.23 rEach records scrubbed metadata events (W-DBG-KINDS; never prompt or file text, codes, passwords or keys) under `debug/` in the rEach home, always for a persona and otherwise after `reach debug on [--for MINUTES]` or an instructor's `teach debug on`, which the student is told about. It sends them to Teach (`W-API-DEBUG`), keeps them queued on any failure, and shows each turn's events as a hook `systemMessage`: an ASCII table on terminal surfaces, a Markdown table on desktop and IDE surfaces, with `debug.render` as the override; Hermes has no user-visible hook channel, so `reach debug show` is the way there. Verified 2026-10-02: with debug off every hook output and file listing is identical to 0.16.22's (117-line diff); against the real scratch Teach a persona's 29 events of 8 kinds were stored as classification instructor and both table formats rendered; against a stub, the scrub, local and remote switches, the once-per-session notice and the offline queue. Not verified: a live harness rendering the block.
+Since 0.16.23 rEach records scrubbed metadata events (W-DBG-KINDS; never prompt or file text, codes, passwords or keys) under `debug/` in the rEach home, always for a persona and otherwise after `reach debug on [--for MINUTES]` or when an instructor switches it on from Teach, which the student is told about. It sends them to Teach (`W-API-DEBUG`), keeps them queued on any failure, and shows each turn's events as a hook `systemMessage`: an ASCII table on terminal surfaces, a Markdown table on desktop and IDE surfaces, with `debug.render` as the override; Hermes has no user-visible hook channel, so `reach debug show` is the way there. Verified 2026-10-02: with debug off every hook output and file listing is identical to 0.16.22's (117-line diff); against the real scratch Teach a persona's 29 events of 8 kinds were stored as classification instructor and both table formats rendered; against a stub, the scrub, local and remote switches, the once-per-session notice and the offline queue. Not verified: a live harness rendering the block.
 
 Since 0.20.1 the person can say "enable debug mode" or "turn debug on" (and "turn debug off") to their AI partner instead of running a command; rEach switches it from the prompt hook, even before enrollment or while locked, and the agent relays the confirmation word for word. The session event then carries operating-system detail (`Reach::OsInfo`: distro or macOS or Windows version and build, kernel, arch, WSL, container, CPU, memory, disk, locale, timezone, shell, terminal, desktop, tool versions; never a hostname, username or path). Verified 2026-10-03 on a scratch home: the phrases switch it on and off, sentences that only mention debug change nothing, the confirmation shows locked and unlocked, and the spooled session event carried 33 OS fields (46 in all). Not verified: the macOS, Windows and WSL probes.
 
@@ -485,7 +485,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 
 ### 2.30d · Teach connection safety
 
-Since 0.16.25 (wire revision 2026-10-02b, `STD-TEACH-LINK`) a student never sees a raw error, backtrace, hook error or hook timeout from rEach. `Reach::Link` tracks the Teach connection in `link.json` and tells the student once per outage that the connection was lost and their work is saved (`M-TEACH-LINK-LOST`), and once when it is back (`M-TEACH-LINK-BACK`): a hook `systemMessage` on Claude Code and Codex, a relay line on Hermes, stderr at the terminal. Every hook runs in a guard that keeps its allow or block outcome, shows at most one plain hiccup every 15 minutes, and gives the network a deadline inside the hook timeout. MCP tools and terminal commands answer in plain words. Every hidden error becomes a `fault` event and every connection change a `link` event, and both are sent to Teach even with debug mode off (reason `fault`, no message text) for `teach debug show --kind fault`. Verified 2026-10-02 against a real scratch Teach 0.17.3: the assignment-one smoke with link and crash journeys passed 51 steps (Teach stopped and restarted, notices once each, injected crashes in Claude Code, Hermes, terminal, MCP and load paths with no raw text, faults and link events stored at Teach as `student`), and a silent server held the 25 s tool deadline. Not verified: a live harness session showing the notices.
+Since 0.16.25 (wire revision 2026-10-02b, `STD-TEACH-LINK`) a student never sees a raw error, backtrace, hook error or hook timeout from rEach. `Reach::Link` tracks the Teach connection in `link.json` and tells the student once per outage that the connection was lost and their work is saved (`M-TEACH-LINK-LOST`), and once when it is back (`M-TEACH-LINK-BACK`): a hook `systemMessage` on Claude Code and Codex, a relay line on Hermes, stderr at the terminal. Every hook runs in a guard that keeps its allow or block outcome, shows at most one plain hiccup every 15 minutes, and gives the network a deadline inside the hook timeout. MCP tools and terminal commands answer in plain words. Every hidden error becomes a `fault` event and every connection change a `link` event, and both are sent to Teach even with debug mode off (reason `fault`, no message text), where instructors read them. Verified 2026-10-02 against a real scratch Teach 0.17.3: the assignment-one smoke with link and crash journeys passed 51 steps (Teach stopped and restarted, notices once each, injected crashes in Claude Code, Hermes, terminal, MCP and load paths with no raw text, faults and link events stored at Teach as `student`), and a silent server held the 25 s tool deadline. Not verified: a live harness session showing the notices.
 
 Since 0.21.8 (`STD-CODEX-SANDBOX`) a command Codex runs in its own sandbox (outside a trusted course folder: no
 network, no writes to `~/.reach`) is not an outage: `Reach::Sandbox` recognizes it, `Reach::Client` makes no request,

@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the Blackboard upload after submitting, and calls rEach by one name. `docs/DESIGN-DECISIONS.md` lists four
   enrollment inputs and the course passkey, and no longer ties the one-folder move to 0.17.0. American spelling in
   `README.md` and `docs/smoke-assignment-1.md`.
+- The rest of the tree follows (`STD-TEACH-OPAQUE`, now covering `AGENTS.md`, `CHANGELOG.md`, `FEATURES.md`,
+  `TODO.md`, `specs/app.yml` and `specs/implementation/`). Fourteen lines that named a Teach command, class or
+  environment variable now say what Teach does. Seventeen build blueprints that directed work on Teach left
+  `specs/implementation/` for the private superproject; `specs/implementation/README.md` lists them. `specs/wire.yml`,
+  `reach.spec.yml`, `lib/` and `tools/` are unchanged: they are the protocol, the program and its test tooling.
 
 ## [0.23.1] - 2026-10-03
 
@@ -532,7 +537,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fault event (`support:wellbeing`, `support:flush`), never reported as told or queued, and does not arm the
   hour-long repeat guard (`lib/reach/hands.rb`, `lib/reach/support.rb`, `STD-WELLBEING-DELIVERED`). Works against
   the live Teach without a wire change.
-- `tools/smoke/assignment_one.rb` ran Teach with `<Teach setting>=1`, so it never exercised a hand. It now runs
+- `tools/smoke/assignment_one.rb` ran Teach with hands switched off, so it never exercised a hand. It now runs
   with hand-raises on and adds `hand-raise-cli`, `hand-raise-mcp` (`reach_raise_hand`, type `concept_question`),
   `hand-wellbeing-outside-folder` and `hands-on-teach`, which checks all three hands on Teach (40 PASS).
 
@@ -690,7 +695,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `tools/smoke/assignment_one.rb` links the smoke course to its reference (`<Teach command>`), which Teach
+- `tools/smoke/assignment_one.rb` links the smoke course to its reference, which Teach
   0.18.2 requires before it delivers any reference, and accepts the one 0600 brain-spool copy of course text that
   0.17.1 keeps (`STD-COURSE-CORPUS`); against Teach 0.18.4 it passes 36 checks again.
 
@@ -1334,7 +1339,7 @@ All four were reported by a peer session's full slice-build smoke on Reach 0.14.
   QF-PRACTICE, which points at `qualify/kit/practice/README.md`, and the record carries `practice_readme`
   (`lib/reach/qualify.rb`). `directives/qualify.md` tells the agent to read that README before writing a panel slice's
   local scenarios.
-- `tools/smoke/assignment_one.rb` packs the smoke's reference blob for Teach (`<Teach setting>`) and no longer
+- `tools/smoke/assignment_one.rb` packs the smoke's reference blob for Teach and no longer
   points Reach at it, so the reference steps prove delivery through the guardrails package.
 
 ## [0.14.4] - 2026-10-01
@@ -1386,7 +1391,7 @@ All four were reported by a peer session's full slice-build smoke on Reach 0.14.
 ### Fixed
 
 - `tools/smoke/assignment_one.rb` and `tools/smoke/run.rb` create their own `reach_smoke_<run>` PostgreSQL database
-  for Teach (0.14.0 and later) and drop it afterwards, so a `<Teach setting>` inherited from the shell can never
+  for Teach (0.14.0 and later) and drop it afterwards, so a Teach database setting inherited from the shell can never
   point a smoke run at a live Teach database.
 - The A1 qualify fixture uses Grokit 0.8.0's graded name "A zero value is returned as ok, not treated as missing"; the
   transport smoke failed coverage without it. `course-gate` signs in first, as every course session must since 0.12.0.
