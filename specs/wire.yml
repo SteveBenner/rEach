@@ -978,6 +978,30 @@ routes:
       2026-10-02b a batch may carry reason fault: Reach sends its fault and link events (W-DBG-FAULT) even while
       debug mode is off, and Teach stores them like any other event. A Teach older than 2026-10-02b answers 400
       to reason fault and Reach keeps those events in its rejected file.
+  - id: W-API-PROGRESS
+    method: POST
+    path: /api/v1/progress
+    auth: install
+    request:
+      checkpoints: {type: array, minItems: 1, maxItems: 64, note: "objects {id, at}: id a checkpoint id of at most 64 bytes, at the W-CONV-3 time Reach first reached it"}
+    response_200:
+      accepted: "integer, the checkpoints Teach recorded for the first time"
+      ignored: "integer, the checkpoints whose id Teach does not take from Reach"
+    errors:
+      400 invalid_request: "a malformed body, an entry with other keys, or a time that is not W-CONV-3"
+      429 rate_limited: "too many requests from this install"
+    notes: >-
+      Since revision 2026-10-03h. Reach reports the first time a student reached a checkpoint only Reach can see:
+      enroll.code (the course passkey was accepted), enroll.identity (the student confirmed their email and student
+      ID), setup.signin (the first confirmed sign-in) and <assignment>.started (the first prompt inside a workspace
+      of that assignment). It sends ids and times only, never typed text, and only after enrollment, signed like any
+      other request: the two enrollment checkpoints are kept on the student's computer until the install exists.
+      Reach queues a report in its outbox and never blocks a hook on the network. Teach keeps the first report of
+      each checkpoint per student and ignores a repeat, an id it does not know and an id it records itself
+      (enroll.password, enroll.registered, setup.modules, <assignment>.qualified, <assignment>.submitted), sets a
+      time more than 300 seconds in the future to its own clock, and answers 200 with accepted 0 while
+      TEACH_PROGRESS_DISABLE=1. REACH_PROGRESS=0 stops Reach recording and sending. A Teach older than this
+      revision answers 404 and Reach drops the report.
   - id: W-API-TRANSCRIPT
     method: POST
     path: /api/v1/transcripts

@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.23.0 |
+| **Registry version** | 0.24.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 89 catalogued |
+| **Feature count** | 90 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 81 | 91% |
+| ✅ Shipped | 82 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 3 | 3% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 74 | 83% |
+| 🔵 Built, not enabled | 75 | 83% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -666,6 +666,23 @@ did not; nothing was written to the microbrain. Not verified there: a real harne
 student who becomes blocked while a watcher is still running.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
+
+### 2.42 · Progress checkpoints
+
+Since 0.24.0 rEach tells Teach the first time a student reaches a checkpoint only rEach can see (`STD-PROGRESS`, wire
+`W-API-PROGRESS`): the course passkey accepted, email and student ID confirmed, the first confirmed sign-in, and the
+first prompt inside a workspace of each assignment. `Reach::Progress` keeps the ids and times in
+`state/progress.json`, queues one signed report in the outbox once the student is enrolled, and `reach sync` sends it.
+It sends ids and times only, never typed text, and makes no network call from a hook. `REACH_PROGRESS=0` turns it off.
+Teach shows the result as the Progress column of its Students page.
+
+Verified 2026-10-03 on Linux, Ruby 4.0.6, against a scratch Teach 0.35.0: `reach enroll` and the chat enrollment each
+recorded the two enrollment checkpoints locally, queued them when registration succeeded and Teach stored them with
+the install; a sign-in mark went out on the next `reach sync` and emptied the outbox; a repeat, an unknown id and an
+id Teach records itself were not stored; a time in the future was stored as Teach's own time. Not verified: macOS and
+Windows; a real harness session for the sign-in and assignment-started marks, which were driven through the library.
+
+Build ✅ · Deploy 🔵 Built, not enabled (0.24.0 not yet released).
 
 ## 3 · Course reference
 

@@ -5,13 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.24.0] - 2026-10-03
 
 ### Added
 
+- Progress checkpoints (`STD-PROGRESS`, wire revision 2026-10-03h, `W-API-PROGRESS`, Teach 0.35.0). rEach records the
+  first time a student reaches a checkpoint only rEach can see and reports it to Teach, which shows it as the Progress
+  column of the instructors' Students page: the course passkey accepted (`enroll.code`), email and student ID
+  confirmed (`enroll.identity`), the first confirmed sign-in (`setup.signin`) and the first prompt inside a workspace
+  of each assignment (`<assignment>.started`). `Reach::Progress` (`lib/reach/progress.rb`) keeps them in
+  `state/progress.json`; once the student is enrolled it queues one signed report in the outbox and `reach sync` sends
+  it. A report holds ids and times only, never typed text, and no hook waits on the network. `REACH_PROGRESS=0` turns
+  it off. `PRIVACY.md` names it.
+
 - Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a
   jointed, wired one; `docs/assets/reach-banner.svg` is the full picture and now opens `README.md`. No plugin code
-  changed, so the version stays 0.23.1.
+  changed.
 - System figures (`STD-FIGURES`). `docs/assets/figures/` holds ten figures of rEach and Teach together, each in a
   light and a dark variant: the system at a glance, trust boundaries, the enrollment handshake, the work lifecycle,
   the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong together, and

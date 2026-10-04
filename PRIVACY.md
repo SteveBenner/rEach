@@ -15,6 +15,7 @@ rEach downloads itself and its updates from its public GitHub repository, so Git
 - Your answers to the questions in each assignment that only you can answer.
 - When your AI assistant asks your instructors for help: a short summary with your recent changes.
 - A scrambled fingerprint of your computer and computer account, never your files or passwords, so your course server can tell that your enrollment is used on the computer it was made on.
+- Where you are in the course: the time you first passed each step of enrolling, first signed in, and first started each assignment. Only the step and its time, never anything you typed.
 - When rEach hits an error: a short report of where it happened, with no files, typed text or replies. While debug mode is on, these reports can include message text.
 
 rEach also asks your course server whether anything changed (new course materials, grades, replies to your questions, receipts). It does this every few minutes while your AI assistant is open and about every 15 minutes in the background, even when no assistant is open. Each check sends only rEach's signed check from your computer: no files and nothing from your conversations. If the answer is that something changed, rEach then fetches it the same way `reach sync` does. To turn the background check off, set `subscribe.background` to `false` in rEach's `config.yml` or run `reach subscribe uninstall`. `REACH_SUBSCRIBE=0` turns off every check.

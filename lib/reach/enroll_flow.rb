@@ -136,6 +136,7 @@ module Reach
         "updated_at" => iso(Time.now.utc)
       )
       write_flow(next_flow)
+      Reach::Progress.mark("enroll.code")
       ask_username(next_flow)
     end
 
@@ -184,6 +185,7 @@ module Reach
 
     def step_confirm(flow, text, now, harness)
       if Reach::Login.yes?(text)
+        Reach::Progress.mark("enroll.identity")
         if harness.to_s == "hermes"
           Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("enroll"))
         else
@@ -298,6 +300,7 @@ module Reach
       end
 
       FileUtils.rm_f(Reach::Paths.enroll_flow_file)
+      Reach::Progress.enrolled!(install["student_id"])
       spawn_sync
       first_name = install["display_name"].to_s.split(/\s+/).first || "there"
       Reach::Messages.text(

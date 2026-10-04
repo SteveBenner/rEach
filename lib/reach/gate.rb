@@ -79,6 +79,7 @@ module Reach
       return nil if elsewhere
 
       witness("prompt")
+      safely { Reach::Progress.assignment_started(current_workspace_path) }
       context = prompt_context(event, harness, decision, entry, toggled: toggled)
       learn_prompt(entry) if entry
       context

@@ -229,6 +229,11 @@ is told once that it was reported and that nothing is needed from them, and once
 version. `reach issues` lists what was seen and reported (test student or debug mode), `reach issues flush` sends
 what is waiting, and `REACH_ISSUES_DISABLE=1` or `issues.enabled: false` in `config.yml` turns it off.
 
+Since 0.24.0 rEach also tells the course server where a student stands: the time they first passed each step of
+enrolling, first signed in and first started each assignment. It sends the step and its time only, queued with the
+rest of rEach's outbox and sent on `reach sync`, and the instructors see it as a progress bar per student.
+`REACH_PROGRESS=0` turns it off.
+
 ### Submitting
 
 Since 0.17.0, once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.

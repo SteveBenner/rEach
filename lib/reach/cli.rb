@@ -486,6 +486,7 @@ module Reach
           warn Reach::EnrollFlow.refusal_text(e)
           return 1
         end
+        Reach::Progress.mark("enroll.code")
         course = preview["course"]
         rules = Reach::Identity.rules(preview["identity"])
         asked = Reach::Messages.text(
@@ -503,6 +504,7 @@ module Reach
           warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])
           return 1
         end
+        Reach::Progress.mark("enroll.identity")
         password = interactive ? ask_password : read_password_stdin(options)
         return 1 unless password
 
@@ -527,6 +529,7 @@ module Reach
           warn(e.code == "enrollment_refused" ? Reach::Messages.text("M-ENR-REFUSED", course_id: course["id"]) : Reach::EnrollFlow.refusal_text(e))
           return 1
         end
+        Reach::Progress.enrolled!(install["student_id"])
         finish_enroll(install)
       end
 

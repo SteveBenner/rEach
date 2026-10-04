@@ -95,6 +95,8 @@ module Reach
               results << handled
             elsif entry["kind"] == "integrity"
               results << { "state" => "sent", "event_id" => body["event_id"] }
+            elsif entry["kind"] == "progress"
+              results << { "state" => "sent", "accepted" => body["accepted"] }
             else
               Reach::Hands.track(body["hand_id"], slice: entry["slice"], hand_ref: entry["hand_ref"], originator: entry.dig("body", "originator") || "student")
               results << { "hand_id" => body["hand_id"], "state" => body["state"] }

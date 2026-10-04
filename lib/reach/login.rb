@@ -189,6 +189,7 @@ module Reach
       if decision["confirmed_now"]
         clear_failures
         add_just_confirmed(sid)
+        Reach::Progress.mark("setup.signin")
       end
       Array(decision["events"]).each { |kind, detail| queue_event(sid, kind, detail) }
       if decision["crisis"] && !confirmed_state?(state.is_a?(Hash) ? state : {}, Time.now.utc)
