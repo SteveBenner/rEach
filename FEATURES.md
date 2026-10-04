@@ -291,7 +291,7 @@ identifiers rEach knows, and an identity index encrypted to the course's re-iden
 can open. Verified 2026-10-04 on a scratch course: a signed-in session whose prompt, reply, reasoning, action and code
 held the student's name, ID, username and home folder arrived with none of them in any stored file, the own-part
 lookup still matched, and an older client was told to update and kept its queue.
-Build ✅ Shipped · Deploy 🔵 Built, not released
+Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-04 as v0.26.0, GitHub Latest; Teach 0.39.0 hands out the key and accepts the entries). No real student session has been recorded yet.
 
 ### 2.13 · Slice API reference
 
