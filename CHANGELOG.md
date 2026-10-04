@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.2] - 2026-10-04
+
+### Fixed
+- Figure 02, *Trust boundaries*, and `docs/architecture.md` still said rEach records none of the conversation.
+  Since 0.25.0 it records signed-in assignment work, as `PRIVACY.md` and figures 06, 07 and 10 say. The note now
+  reads "rEach records only signed-in assignment work" (`tools/figures/figures/02_trust.rb`, both SVG variants).
+  Documentation only; nothing in the plugin's behavior changes.
+
 ## [0.26.1] - 2026-10-04
 
 ### Fixed

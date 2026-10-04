@@ -174,7 +174,7 @@
 <text x="692" y="1027.4" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
 <text x="720" y="1028" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="650" fill="#111823" text-anchor="start">The conversation</text>
 <text x="720" y="1051" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">Goes to the student&#39;s AI provider, as any chat does. rEach records</text>
-<text x="720" y="1070" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">none of it and sends none of it.</text>
+<text x="720" y="1070" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">only signed-in assignment work.</text>
 <circle cx="1288" cy="1022" r="15" fill="#465264"/>
 <text x="1288" y="1027.4" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">6</text>
 <text x="1316" y="1028" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="650" fill="#111823" text-anchor="start">Updates</text>

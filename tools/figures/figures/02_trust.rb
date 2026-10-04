@@ -46,7 +46,7 @@ module Figures
       [:teach, "Sealed, signed packages", "AES-256-GCM, with the key wrapped for this one install. Verified before a single byte is unpacked."],
       [:reach, "Sealed submissions", "Owned files and a manifest, sealed to the course server's key, and only after the student says yes."],
       [:teach, "Signed receipts", "Proof of what arrived and when. rEach verifies each receipt before it tells the student anything."],
-      [:soft, "The conversation", "Goes to the student's AI provider, as any chat does. rEach records none of it and sends none of it."],
+      [:soft, "The conversation", "Goes to the student's AI provider, as any chat does. rEach records only signed-in assignment work."],
       [:soft, "Updates", "rEach comes from public GitHub releases. The runtime kit is verified against a manifest pinned in rEach."]
     ]
     notes.each_with_index do |(tone, head, body), i|

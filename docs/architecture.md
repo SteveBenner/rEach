@@ -31,7 +31,7 @@ The student owns the business behavior and writes no code. The agent does all th
   <img src="assets/figures/02-trust-boundaries-light.svg" alt="Four zones and six numbered crossings between the student's computer, Teach, the AI provider and GitHub." width="100%">
 </picture>
 
-Everything between the computer and the course server is signed, sealed or both (`specs/wire.yml`: request signatures, sealed envelopes, signed receipts). The conversation goes to the student's AI provider as any chat does; rEach records none of it. Updates come from this repository's public releases.
+Everything between the computer and the course server is signed, sealed or both (`specs/wire.yml`: request signatures, sealed envelopes, signed receipts). The conversation goes to the student's AI provider as any chat does; rEach records only signed-in assignment work and sends that to the course server without the student's name (`PRIVACY.md`). Updates come from this repository's public releases.
 
 4K PNG: [light](https://github.com/SteveBenner/rEach/releases/download/figures-1/02-trust-boundaries-light.png) · [dark](https://github.com/SteveBenner/rEach/releases/download/figures-1/02-trust-boundaries-dark.png)
 
