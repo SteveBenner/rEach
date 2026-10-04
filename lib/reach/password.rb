@@ -49,6 +49,22 @@ module Reach
       File.join(Reach::Login.state_dir, "verifier.json")
     end
 
+    def renewed_file
+      File.join(Reach::Login.state_dir, "renewed.json")
+    end
+
+    def renewal_due?
+      !File.file?(renewed_file)
+    rescue StandardError
+      false
+    end
+
+    def renewed!
+      Reach::Login.write_json(renewed_file, "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    rescue StandardError
+      nil
+    end
+
     def derive(password, salt, iterations)
       OpenSSL::PKCS5.pbkdf2_hmac(password, salt, iterations, LENGTH, OpenSSL::Digest::SHA256.new).unpack1("H*")
     end
@@ -62,6 +78,7 @@ module Reach
         "schema" => SCHEMA, "student_id" => install["student_id"], "install_id" => install["install_id"],
         "salt" => salt, "iterations" => ITERATIONS, "digest" => derive(password, salt, ITERATIONS)
       )
+      renewed!
     rescue StandardError
       nil
     end

@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.1] - 2026-10-04
+
+### Fixed
+
+- The password step kept students out of rEach, so every password was reset (Teach 0.46.1). At the first sign-in
+  after this update rEach apologizes for the inconvenience and asks the student to choose a new password, typed
+  twice, then signs them in (`M-LOGIN-RENEW`, `Reach::Login.evaluate_confirm`, `Reach::Password.renewal_due?`). The
+  old password is not asked for. A student who enrolls again is told that a password chosen before October 5, 2026
+  was reset (`M-ENR-ASK-PASSWORD`). A password forgotten later is still reset through the instructor.
+
 ## [0.32.0] - 2026-10-04
 
 ### Added

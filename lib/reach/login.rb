@@ -12,7 +12,7 @@ module Reach
     CRISIS_CONTEXT = "The student may be in crisis: run reach support now and relay it word for word.".freeze
     SCHEMA = "reach.login/v1".freeze
     FAILURES_SCHEMA = "reach.login-failures/v1".freeze
-    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json].freeze
+    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json].freeze
     PASSWORD_STATES = %w[awaiting_password awaiting_new_password awaiting_new_password_again].freeze
     ID_SPLIT = /[^A-Za-z0-9_-]+/
 
@@ -113,6 +113,15 @@ module Reach
         if Reach::Password.required?
           next_state = state.merge("state" => "awaiting_password", "updated_at" => iso(now))
           return password_terminal(next_state, persist: true) if harness.to_s == "hermes"
+
+          if Reach::Password.renewal_due?
+            allowed = Reach::Password.reset_allowed
+            Reach::Password.renewed! if allowed == :not_allowed
+          end
+          if allowed == :allowed
+            renew_state = state.merge("state" => "awaiting_new_password", "updated_at" => iso(now))
+            return decision("block", Reach::Messages.text("M-LOGIN-RENEW"), "login", nil, renew_state, persist: true)
+          end
 
           return decision("block", Reach::Messages.text("M-LOGIN-ASK-PASSWORD"), "login", nil, next_state, persist: true)
         end
