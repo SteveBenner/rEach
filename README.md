@@ -1,5 +1,9 @@
 # reach
 
+<p align="center">
+  <img src="docs/assets/reach-banner.svg" alt="rEach: a human hand reaches an outstretched finger toward the outstretched finger of a white cybernetic hand" width="100%">
+</p>
+
 > **AI agents:** read [`AGENTS.md`](AGENTS.md) first. Asked to install rEach from
 > this repository's link? Follow [`INSTALL.md`](INSTALL.md).
 
@@ -82,6 +86,9 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
+
+Antigravity runs no hooks, so rEach cannot ask for enrollment details in its chat: a locked Antigravity session has the
+agent walk the student through `reach enroll` in a terminal window instead (`STD-NOHOOK-ENROLL`).
 
 ### Updates
 

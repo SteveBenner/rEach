@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a
+  jointed, wired one; `docs/assets/reach-banner.svg` is the full picture and now opens `README.md`. No plugin code
+  changed, so the version stays 0.23.1.
 - rEach sets Codex up by itself (`STD-CODEX-SETUP`, `Reach::CodexSetup`). After the student's yes it writes the sandbox
   settings rEach needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`): mode workspace (the
   default outside Windows) sets `sandbox_mode = "workspace-write"`, network access and the reach-work folder as a
@@ -69,6 +72,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The new home alone does not open the Codex sandbox; the Codex setup above does, after the student's yes. Codex hook
   trust is unrelated. On Windows the project's top-level
   `.codex` is read-only inside the sandbox.
+
+## [0.23.1] - 2026-10-03
+
+### Fixed
+
+- Antigravity students could not enroll (`STD-NOHOOK-ENROLL`). Antigravity runs no hooks, so rEach's enrollment
+  questions never appeared, and the locked guidance sent the agent through hook approvals and restarts before it
+  mentioned the terminal. `reach hello` now recognizes a hookless session (`--harness antigravity`, which
+  `rules/reach.md` passes, or no harness detectable at all) and tells the agent to walk the student through
+  `reach enroll` in a terminal window straight away (`lib/reach/hello.rb`, `M-ENR-NOHOOK-STUDENT`,
+  `M-ENR-AGENT-NOHOOK-CONTEXT`, `M-ENR-AGENT-NOHOOK-GUIDE`).
+- On Windows the enrollment command rEach gives for the terminal now starts with `&`, so PowerShell runs it.
+- `docs/INSTALLATION-AND-SETUP-GUIDE.docx` says that in Antigravity you enroll in a terminal window.
 
 ## [0.23.0] - 2026-10-03
 

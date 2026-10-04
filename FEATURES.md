@@ -30,9 +30,9 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 1 | 1% |
+| 🟢 Live | 3 | 3% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 78 | 86% |
+| 🔵 Built, not enabled | 76 | 84% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -623,7 +623,7 @@ steps skipped). Not verified: any Teach, because no released Teach accepts trigg
 Hermes; the full flow on Ruby 2.6, where only the syntax and the signature were checked; `tools/smoke` with real
 harness sessions.
 
-Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03c, and until one does rEach raises no issue hand and only its fault events flow.
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 accepts the issue hand). No report from a real student install has been seen yet.
 
 ### 2.41 · Live sessions
 
@@ -663,7 +663,7 @@ by the student and the end by the instructor; a locked-out sign-in got the quest
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
 
-Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03f.
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
 
 ### 2.42 · Home inside the reach-work folder
 
@@ -1049,6 +1049,10 @@ Google's agent app and CLI (replaced Gemini CLI in 2026); reads `plugin.json` (A
 none; since 0.9.0 it runs `REACH_HARNESS=antigravity reach submit`, so Teach notes its submissions as unwitnessed
 (2.14). `agy` is not installed on the development machine, so `reach setup --harness antigravity` and the
 plugin-directory link are untested.
+Since 0.23.1 (`STD-NOHOOK-ENROLL`) a locked Antigravity session is told to walk the student through `reach enroll`
+in a terminal window at once, because rEach cannot ask for enrollment details in an app without hooks; a student
+reported being sent to their instructor instead (2026-10-03). Exercised with `reach hello` in a scratch home on
+Linux only.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run; `agy` not installed here).
 
