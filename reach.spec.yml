@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.31.0
+version: 0.32.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1781,7 +1781,7 @@ transcripts:
     submission that needs the student's own part, through the shared client (limiter, bounded retries, timeouts).
     A Teach that answers 403 or 404 stops the sending and Reach keeps every entry.
   stream: >-
-    Since RV_TBD (STD-TRANSCRIPT-STREAM, W-TRN-7). Reach::Transcript.stream is the background sender: under
+    Since 0.32.0 (STD-TRANSCRIPT-STREAM, W-TRN-7). Reach::Transcript.stream is the background sender: under
     state/transcript-stream.lock, when state/transcript-stream.json shows the last run at least send_interval_s ago
     (Reach::Transcript.send_interval_s reads transcripts.send_interval_s from the cached status, default 600, clamped
     to 60..86400), it calls ingest_open_sessions and then flush in normal mode. reach transcript stream [--force] runs
