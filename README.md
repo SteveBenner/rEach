@@ -236,7 +236,7 @@ words instead of reporting a lost connection, and the agent turns debug mode on 
 through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox. Since 0.21.12 the `reach_update` tool
 updates rEach the same way.
 
-Unreleased, rEach also fixes the cause: after the student says yes, it changes the student's own Codex settings
+rEach also fixes the cause: after the student says yes, it changes the student's own Codex settings
 (`$CODEX_HOME/config.toml`) so Codex's commands may use the internet and write inside the reach-work folder, and marks
 that folder as trusted (mode `workspace`; on Windows mode `full` turns Codex's sandbox off instead). It saves a copy of
 the old settings beside the file first, changes nothing else, and refuses rather than guess when the file holds

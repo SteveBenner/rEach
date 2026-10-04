@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.29.0
+version: 0.30.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -561,7 +561,7 @@ harness_integration:
       and the agent reaches debug mode and the health check through reach_debug and reach_doctor. Since 0.28.2
       M-SANDBOX-STUDENT names the course folder by its path on this computer (Reach::Paths.workspace_root, with the
       computer's own path separator) and says it holds deliverables and extracurricular, so the student opens that
-      folder itself. Unreleased
+      folder itself. Since 0.30.0
       (codex_setup, STD-CODEX-SETUP): after the student's yes Reach writes the sandbox settings it needs into the
       student's own user-level Codex configuration, which every Codex chat on the computer uses.
     limits_stated_honestly: >-
@@ -1056,11 +1056,11 @@ mcp_bridge:
     description: >-
       Since 0.21.9 (STD-KNOWN-ISSUES), the known issues from Teach that match this computer's operating system, harness
       and Reach version, each with its symptom, whether its detector fires and the steps for this system and harness;
-      works before enrollment. Unreleased (STD-CODEX-SETUP): each entry carries remedy, null or the tool call that
+      works before enrollment. Since 0.30.0 (STD-CODEX-SETUP): each entry carries remedy, null or the tool call that
       fixes it, and the text names that call (M-KNOWN-ISSUE-REMEDY)
   - name: reach_setup
     description: >-
-      Unreleased (STD-CODEX-SETUP), sets Codex up so rEach's commands work in its sandbox: action status (the default)
+      Since 0.30.0 (STD-CODEX-SETUP), sets Codex up so rEach's commands work in its sandbox: action status (the default)
       answers text, satisfied, mode_wanted and the last probe; probe runs the sandboxed probe and answers text,
       network, home_writable and available; configure (optional mode workspace or full) answers rEach's own question
       with relay_verbatim true, or the outcome text; works before enrollment
@@ -1108,7 +1108,7 @@ cli:
   - name: codex
     synopsis: reach codex status|probe [--format text|json] | configure [--mode workspace|full] | off
     purpose: >-
-      Unreleased (STD-CODEX-SETUP), works before enrollment as an unlocked command. status prints the doctor's codex
+      Since 0.30.0 (STD-CODEX-SETUP), works before enrollment as an unlocked command. status prints the doctor's codex
       line (JSON: CodexSetup.status); probe runs the sandboxed probe; configure asks the student on a terminal and
       applies on their yes, or without a terminal returns rEach's question for the agent (consent kind codex_setup);
       off records the withdrawal, stops the reapply and changes nothing in Codex's file. The hidden probe-child is what
@@ -1886,8 +1886,8 @@ live_sessions:
     sent only after the student saw its exact text and typed yes (consent live_send over the text's SHA-256, kept
     local); one waits at a time. Agent messages only in a co_debug session. Actions are a fixed table:
     doctor (reach doctor --report), status, sync, update_check (reach update check), update (reach update run),
-    cache_repair (Reach::CodexCache.repair), resend (reach issues flush and reach debug flush), and unreleased
-    (wire revision 2026-10-03g, STD-CODEX-SETUP) codex_configure (Reach::CodexSetup.apply! with via live, in process)
+    cache_repair (Reach::CodexCache.repair), resend (reach issues flush and reach debug flush), and since 0.30.0
+    (wire revision 2026-10-04g, STD-CODEX-SETUP) codex_configure (Reach::CodexSetup.apply! with via live, in process)
     and sandbox_probe (Reach::CodexSetup.probe!, in process). 60 s and 16000 bytes per action, 2000 bytes per message.
   runner: >-
     reach live run --background, detached, one per install (runner.lock): sends the pending request or consent,
@@ -2720,7 +2720,7 @@ late_work:
     with trigger late_submission (Reach::Receipts.store). Once per assignment and type ever; the next session start retries
     an unsent one; a 403 hands_disabled or a 400 gives it up quietly, as do five failed tries. No hook waits on the network.
 home_in_workspace:
-  since: unreleased
+  since: 0.30.0
   standard: STD-HOME-IN-WORKSPACE
   layout: >-
     rEach's own files live in <workspace_base>/.reach-home (workspace_base is $REACH_WORKSPACE_ROOT or ~/reach-work),
@@ -2762,13 +2762,13 @@ home_in_workspace:
     install awaiting its relocation and a completed one are reported without a finding.
   not_fixed: >-
     This layout alone does not open the Codex sandbox: by default it still blocks the network and writes outside the
-    chat's folder. Unreleased, STD-CODEX-SETUP (codex_setup) writes network access, the reach-work folder as a
+    chat's folder. Since 0.30.0 STD-CODEX-SETUP (codex_setup) writes network access, the reach-work folder as a
     writable root and its trust into the student's own Codex configuration after their yes. Codex hook trust is
     unrelated to this layout. On Windows the project's top-level .codex is read-only inside the sandbox.
 codex_setup:
-  since: unreleased
+  since: 0.30.0
   standard: STD-CODEX-SETUP
-  wire: W-LIVE-5 (codex_configure, sandbox_probe) and W-KI-1 (remedy), revision 2026-10-03g
+  wire: W-LIVE-5 (codex_configure, sandbox_probe) and W-KI-1 (remedy), revision 2026-10-04g
   library: >-
     lib/reach/codex_setup.rb (Reach::CodexSetup: status, apply!, configure_terminal, ask_chat, follow_up!, withdraw!,
     heal!, probe!, probe_child, doctor_line, doctor_problems, and the line editor Reach::CodexSetup::Editor). It is the

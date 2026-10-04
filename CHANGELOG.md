@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.30.0] - 2026-10-04
 
 ### Added
 
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file's own `sandbox_mode` with `-c` (Codex 0.160.0's `codex sandbox` does not read that key from the file, while a
   chat does), and records whether it reached the course server and rEach's folder. Before enrollment the tool answers
   `M-CODEX-SETUP-SIGN-IN`, because a chat yes is captured only for a signed-in student.
-- Live actions `codex_configure` and `sandbox_probe` (wire revision 2026-10-03g, W-LIVE-5), asked of the student like
+- Live actions `codex_configure` and `sandbox_probe` (wire revision 2026-10-04g, W-LIVE-5), asked of the student like
   every other action. Known issues carry `remedy` (W-KI-1); rEach maps it to the tool call that fixes the issue and names
   it to the agent (`M-KNOWN-ISSUE-REMEDY`), and runs nothing by itself.
 - `reach doctor` prints a `codex:` line, runs the probe first when it can, and reports `R-DOC-CODEX` when Codex's
@@ -69,6 +69,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The new home alone does not open the Codex sandbox; the Codex setup above does, after the student's yes. Codex hook
   trust is unrelated. On Windows the project's top-level
   `.codex` is read-only inside the sandbox.
+- On Windows only mode full opens Codex's sandbox for rEach. Measured on windows-2025 x64 and windows-11-arm with Codex
+  0.160.0 (`tools/sandbox_probe/codex_setup_probe.rb`): in mode workspace the sandbox still refuses rEach's folder and
+  the internet, with the home inside the chat's folder; in mode full a sandboxed `reach sync` exits 0. The same run
+  relocated an install enrolled with 0.28.2 with every file identical and the legacy folder untouched.
+
 ## [0.29.0] - 2026-10-04
 
 ### Added

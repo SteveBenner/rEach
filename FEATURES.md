@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.29.0 |
+| **Registry version** | 0.30.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -730,7 +730,7 @@ Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.24.0, GitHub Latest; Te
 
 ### 2.43 · Home inside the reach-work folder
 
-On branch `in-workspace` (`STD-HOME-IN-WORKSPACE`, unreleased) rEach keeps its own files in `~/reach-work/.reach-home`
+Since 0.30.0 (`STD-HOME-IN-WORKSPACE`) rEach keeps its own files in `~/reach-work/.reach-home`
 instead of `~/.reach`, and an existing install is relocated by copy, hash verification and rename, leaving the legacy
 folder untouched apart from `RELOCATED.json`. Every kind of space refuses the home, a root-kind session judges writes by
 target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Verified 2026-10-03 against a scratch Teach
@@ -740,14 +740,18 @@ destination, an instructor persona, the gate in root, slice and extracurricular 
 Ruby 2.6.10. Not fixed by this layout alone: Codex's default sandbox still blocks the network and writes outside the
 chat's folder; since 2.44 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
 network and write in the reach-work folder. Codex hook trust is unrelated; on Windows the project's top-level `.codex`
-is read-only in the sandbox. Not verified: the Windows sandbox itself, `scripts/reach-install.ps1`
-(no PowerShell available), macOS.
+is read-only in the sandbox. Verified 2026-10-04 on GitHub runners (windows-2025 x64, windows-11-arm, macos-15,
+ubuntu-24.04; `tools/sandbox_probe/codex_setup_probe.rb`): an install enrolled with 0.28.2 was relocated with 28 of 28
+files identical in the new home, the legacy folder changed only by `RELOCATED.json`, and `reach status` still named
+the student. Measured there too: on Windows the new home alone opens nothing (Codex's sandbox still refuses rEach's
+folder with the home inside the chat's folder). Not verified: an update of a real install with its Claude Code and
+Codex plugin copies on Windows or macOS, and `scripts/reach-install.ps1`.
 
-Build ✅ (branch in-workspace) · Deploy 🔵 (not released) · Blocker: Human (Windows sandbox probe, release).
+Build ✅ · Deploy 🔵 · Blocker: Human (no student has updated yet; plugin-copy update unverified on Windows and macOS).
 
 ### 2.44 · rEach sets Codex up
 
-On branch `in-workspace` (`STD-CODEX-SETUP`, unreleased, wire revision 2026-10-03g) rEach writes the sandbox settings
+Since 0.30.0 (`STD-CODEX-SETUP`, wire revision 2026-10-04g) rEach writes the sandbox settings
 it needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`) after the student's yes: on a terminal
 (`reach codex configure`), in a chat (`reach_setup` configure, the yes captured by the prompt hook) or through the
 `codex_configure` live action. Mode workspace (the default outside Windows) turns on network access and makes the
@@ -774,11 +778,15 @@ same one-line command starts next. Verified with a terminal answering yes and no
 terminal and with no Codex. `tools/fake_teach` serves `GET /api/v1/known-issues` from `known_issues.json` with
 `remedy` in the W-KI-1 key order, the revision as ETag and 304; rEach fetched from it and from a scratch Teach on
 branch `codex-setup` and mapped the remedies to tool calls. fake_teach has no live-session routes; the live actions
-were run against the scratch Teach. Not verified: Windows, macOS, `scripts/reach-install.ps1`
-(no PowerShell), the Codex desktop app and IDE extension, and a real Codex chat reaching the course server.
+were run against the scratch Teach. Verified 2026-10-04 with Codex 0.160.0's real `codex sandbox` on GitHub runners
+(`tools/sandbox_probe/codex_setup_probe.rb`, workflow `codex-setup-probe`): on windows-2025 x64 and windows-11-arm,
+before the setup and in mode workspace the sandbox refused rEach's folder and the internet and a sandboxed `reach sync`
+exited 1; in mode full (the Windows default) the course server, the internet and rEach's folder were reachable and
+`reach sync` exited 0. On macos-15 mode workspace was enough. The ubuntu-24.04 runner cannot start Codex's sandbox
+(bwrap is refused there); mode workspace passed on a Linux desktop. Not verified: `scripts/reach-install.ps1`, the
+Codex desktop app and IDE extension, and a student's real Codex chat reaching the course server.
 
-Build ✅ (branch in-workspace, Linux only) · Deploy 🔵 (not released) · Blocker: Human (Windows and macOS runs,
-release).
+Build ✅ · Deploy 🔵 · Blocker: Human (no student's Codex has run the setup yet).
 
 ## 3 · Course reference
 
