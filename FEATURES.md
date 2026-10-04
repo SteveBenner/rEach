@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.26.2 |
+| **Registry version** | 0.27.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -674,6 +674,22 @@ offer accepted and one refused, a note shown word for word, a check answered yes
 by the student and the end by the instructor; a locked-out sign-in got the question, the ordinary sign-in question
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
+
+Since 0.27.0 (`STD-LIVE-DIAGNOSIS`, wire `W-LIVE-10`) a computer that holds the instructor unlock can start a
+diagnosis session, for working out a rEach problem on that computer directly between the two assistants:
+`reach instructor diagnose [--course ID]`, or the `reach_live` tool with action `diagnose`. rEach asks the person at
+the computer one question that says what the yes covers. On their typed yes the session opens at once; the
+assistant there and the instructor's assistant write to each other without a question per message, and rEach runs
+the fixed checks the instructor's side requests without asking again. On a computer that is not enrolled rEach
+first makes a blank test student. The assistant still asks before it runs any other command or changes anything,
+and it never sends a password, key, token or instructor code. The unlock code stays on the computer until
+`reach instructor lock` removes it.
+
+Verified 2026-10-04 on Linux, Ruby 4.0, against a scratch course server: the refusal without an unlock; a test
+student made on an unenrolled computer and the session opened on the yes; the same on an enrolled install; two
+assistant messages sent with no question; a requested check run with no question and its result returned; a
+revoked code refused; the session ended by typing. Not verified: a session between two real assistants, and any run
+on Windows or macOS.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
 

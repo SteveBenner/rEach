@@ -1172,11 +1172,12 @@ routes:
     request:
       hand_id: {type: string, required: false, note: "a hand of this student the session is about, or null"}
       consent: W-CONSENT-1 record of the student's yes to the live session question (W-LIVE-2)
+      diagnosis: {type: object, required: false, note: "since 2026-10-04c (W-LIVE-10): {code: the instructor unlock code stored on this install}; asks for a diagnosis session, and hand_id is then absent"}
     response_200: {session: W-LIVE-SESSION}
     errors:
-      400 invalid_request: "a consent outside W-LIVE-2, or a hand_id that is not a hand of this student"
+      400 invalid_request: "a consent outside W-LIVE-2 or W-LIVE-10, a hand_id that is not a hand of this student, or a diagnosis that is not {code: string}"
       404 not_found: "live sessions are switched off on this Teach"
-      409 conflict: "details.reason live_capacity: three live sessions are already open on this Teach"
+      409 conflict: "details.reason live_capacity: three live sessions are already open on this Teach; details.reason diagnosis_refused: the instructor code is malformed, signed by a key this Teach does not pin, or revoked (W-LIVE-10)"
     notes: >-
       Since revision 2026-10-03f. Asks the instructors for a live session. The session starts as requested and opens
       when an instructor approves it. When the install already has a session that is not closed, Teach answers that
@@ -1519,9 +1520,9 @@ live:
       and a Teach has at most three open at once.
   W-LIVE-SESSION:
     shape: >-
-      {id: "live_" + 20 hex, state, started_by: "student | instructor", hand_id: "string or null", requested_at,
+      {id: "live_" + 20 hex, state, started_by: "student | instructor | diagnosis", hand_id: "string or null", requested_at,
       opened_at, expires_at, closed_at, end_reason: "null, or one of ended_by_student, ended_by_instructor,
-      declined_by_student, declined_by_instructor, expired, unanswered, superseded", co_debug: boolean,
+      declined_by_student, declined_by_instructor, expired, unanswered, superseded", co_debug: boolean, diagnosis: "boolean, since 2026-10-04c: true when started_by is diagnosis (W-LIVE-10)",
       student_attached: boolean, instructor_attached: boolean, connected: boolean}; every time is a W-CONV-3
       timestamp or null.
   W-LIVE-MESSAGE:
@@ -1608,6 +1609,23 @@ live:
       never sends a prompt, a reply, code or a file, never changes a gate, an attempt ladder, a grade or a
       submission, and never accepts consent. A fault from the seal, the witness ledger or the integrity checks is
       recorded as outside a session and no action shows it.
+  W-LIVE-10:
+    name: a diagnosis session
+    rule: >-
+      Since 2026-10-04c. A diagnosis session is a live session an instructor starts on the computer itself to work
+      out with the instructor's assistant why rEach does not work there. Reach offers it only while the install holds
+      a valid instructor unlock code, on an install that is enrolled or on one that is not; an install that is not
+      enrolled first becomes a blank test student through W-API-ENROLL-INSTRUCTOR. Reach asks the person at the
+      computer once (consent kind live_session, subject {"live": "diagnosis"}) and on their typed yes sends
+      W-API-LIVE with that consent and diagnosis {code}. Teach verifies the code as it does for
+      W-API-ENROLL-INSTRUCTOR and answers 409 diagnosis_refused when it does not verify. On a valid code the session
+      opens at once, with no instructor approval, started_by diagnosis, co_debug true and diagnosis true; a session
+      of that install still waiting is closed as superseded first, and an open one is answered as it is. Teach
+      records live.diagnose in its audit log with the code id and the key id, never the code. For the length of a
+      diagnosis session the one yes at its start stands for the questions of W-LIVE-5 and W-LIVE-7: Reach runs an
+      action of the fixed table when it is asked for and sends the agent's messages and notes without asking again.
+      Every other rule of a live session holds: the fixed action table, the limits, debug mode for its length,
+      W-LIVE-9, and the right of either side to end it.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.26.2
+version: 0.27.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1252,7 +1252,7 @@ cli:
     synopsis: reach lock
     purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
   - name: instructor
-    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | exit
+    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit
     purpose: >-
       Since 0.16.17, instructor unlock (STD-INSTRUCTOR-UNLOCK), and it runs while Reach is locked. keygen writes a new
       RSA 3072 private key (0600, parent directory 0700, never overwriting) and prints its key id and the YAML entry for
@@ -1843,8 +1843,15 @@ issue_reports:
   doctor: R-DOC-ISSUES while an issue report waits in the outbox.
 live_sessions:
   standard: STD-LIVE (specs/app.yml); wire W-LIVE-1 to W-LIVE-9 and W-API-LIVE routes, revision 2026-10-03f. Since 0.23.0.
+  diagnosis: >-
+    STD-LIVE-DIAGNOSIS, wire W-LIVE-10, revision 2026-10-04c, since 0.27.0. Reach::Live.diagnose! (reach instructor
+    diagnose, reach_live action diagnose) needs a valid instructor unlock on the install, starts a blank test
+    student when the install is not enrolled, and asks one question (M-LIVE-DIAG-ASK, consent live_session with
+    subject {"live": "diagnosis"}). On the yes the runner posts the request with the stored code and Teach opens the
+    session at once. While a session with diagnosis true is open, send! posts at once with no live_send question and
+    a requested action from the fixed table is run with no live_action question.
   library: >-
-    lib/reach/live.rb (Reach::Live: ask!, follow_up!, prompt_notices, status, send!, wait, end!, run!, note_status).
+    lib/reach/live.rb (Reach::Live: ask!, diagnose!, follow_up!, prompt_notices, status, send!, wait, end!, run!, note_status).
     Reach::Consent hands the kinds live_session, live_action and live_send to it; Reach::Gate adds its notices to the
     prompt context; Reach::Sync passes the status answer's live field to note_status.
   state: >-

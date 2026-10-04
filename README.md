@@ -209,6 +209,13 @@ instructor data. The persona keeps its own rEach home under `~/.reach/personas/`
 `~/reach-work/personas/`, applies to every harness session on the computer, and ends with `reach instructor exit`,
 which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
 
+Since 0.27.0 an unlocked install can start a diagnosis session, to work out a rEach problem on that computer together
+with the instructor's assistant: `reach instructor diagnose [--course ID]`, or ask the assistant to start one. rEach
+asks one question; on your typed yes the session opens at once, the two assistants write to each other, and rEach
+runs the checks the instructor's side requests without asking again. On a computer that is not enrolled rEach makes
+a blank test student first. The unlock code stays on that computer until `reach instructor lock` removes it, so run
+that when you are done on a computer that is not yours.
+
 Debug mode is always on for a test student, and otherwise only on request: `reach debug on [--for MINUTES]` and
 `reach debug off` on the computer, or an instructor switches it on from Teach, in which case the student is told. It
 records what rEach did (hooks, gate decisions, requests to Teach, sync, check, qualify, submit, errors), never prompt

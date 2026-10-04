@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-10-04
+
+### Added
+- Diagnosis sessions (`STD-LIVE-DIAGNOSIS`, wire revision 2026-10-04c, `W-LIVE-10`). On a computer that holds the
+  instructor unlock, `reach instructor diagnose [--course ID]` or the `reach_live` tool with action `diagnose` starts
+  a live session for working out a rEach problem between the assistant there and the instructor's assistant. rEach
+  asks one question; on the typed yes the session opens at once, the two assistants write to each other without a
+  question per message, and rEach runs the fixed checks the instructor's side requests without asking again. A
+  computer that is not enrolled gets a blank test student first. Needs a course server that knows wire revision
+  2026-10-04c.
+
 ## [0.26.2] - 2026-10-04
 
 ### Fixed
