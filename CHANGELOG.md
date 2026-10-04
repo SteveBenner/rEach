@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a
+  jointed, wired one; `docs/assets/reach-banner.svg` is the full picture and now opens `README.md`. No plugin code
+  changed, so the version stays 0.23.1.
+
 ## [0.23.1] - 2026-10-03
 
 ### Fixed
