@@ -44,11 +44,11 @@ jobs:
           persist-credentials: false
           path: new
 
-      - name: Check out 0.28.2
+      - name: Check out 0.29.0
         timeout-minutes: 5
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: v0.28.2
+          ref: v0.29.0
           submodules: false
           persist-credentials: false
           path: old
