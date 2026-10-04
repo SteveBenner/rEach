@@ -761,12 +761,18 @@ module AssignmentOne
       out, status = hook_prompt("my id is #{STUDENT_ID}")
       raise Fail, "the id was not confirmed by name: #{out}" if status.success? || !out.include?("Synthetic Student One")
       out, status = hook_prompt("Yes!")
-      raise Fail, "yes did not sign in: #{out}" if status.success? || !out.include?("signed in")
+      raise Fail, "yes did not ask for the password: #{out}" if status.success? || !out.include?("password")
+      out, status = reach("gate", "write", chdir: @workspace, stdin: write_event)
+      raise Fail, "an owned write was allowed before the password" if status.success?
+      out, status = hook_prompt("not-my-password")
+      raise Fail, "a wrong password was not refused: #{out}" if status.success? || !out.include?("isn't your rEach password")
+      out, status = hook_prompt(STUDENT_PASSWORD)
+      raise Fail, "the password did not sign in: #{out}" if status.success? || !out.include?("signed in")
 
       login = reach!("login", "status", chdir: @workspace)
       raise Fail, "login status does not show an active sign-in: #{login}" unless login.include?("yes")
 
-      "write refused before sign-in; ask, wrong id, confirm by name, yes -> signed in"
+      "write refused before sign-in; ask, wrong id, confirm by name, yes, wrong password, password -> signed in"
     end
 
     def submit_refused_without_part

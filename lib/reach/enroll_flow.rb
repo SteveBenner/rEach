@@ -280,6 +280,10 @@ module Reach
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
           return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
         end
+        if e.code == "password_wrong"
+          write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+          return Reach::Messages.text("M-ENR-PASSWORD-WRONG")
+        end
         if e.code == "device_move_pending"
           write_flow(flow.merge("state" => "awaiting_move", "updated_at" => iso(now)))
           return Reach::Messages.text("M-ENR-MOVE-PENDING")

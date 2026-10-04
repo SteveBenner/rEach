@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-10-04
+
+### Added
+- Sign-in asks for the password (`STD-SIGNIN-PASSWORD`, wire revision 2026-10-04c, `W-ID-5`). The password a student
+  chose at enrollment was sent to the course server once and never asked for again; signing in took the student ID and
+  a yes. Now the prompt hook asks for the password after the yes and keeps the session unconfirmed, and every gate
+  closed, until it is right (`lib/reach/login.rb`, `lib/reach/password.rb`). rEach checks it against a salted
+  PBKDF2-HMAC-SHA256 verifier in `~/.reach/state/login/verifier.json` (0600), written at enrollment; a computer
+  enrolled before this release asks the course server once and keeps the verifier from then on. Without a verifier and
+  without the server the sign-in waits. A wrong password counts toward the sign-in lockout.
+- Forgotten passwords are reset, never looked up. `forgot password` at the password question asks the course server
+  whether an instructor allowed a reset for this student; if so rEach asks for a new password twice and sets it, and
+  otherwise it tells the student to ask their instructor. `reach login password` and `reach login reset` do the same in
+  a terminal with typing hidden, which is where Hermes sends the student because it cannot hide a prompt from the AI.
+- The course policy's `login.password: false` switches the password step off.
+
+### Changed
+- Enrolling again takes the password the student already has. A different one is refused (`M-ENR-PASSWORD-WRONG`)
+  unless an instructor allowed a reset, in which case the password typed becomes the new one. Before, any re-enrollment
+  replaced the password.
+- `PRIVACY.md`, `README.md`, `docs/student-guide.md` and the assistant's rules say what happens to the password.
+
 ## [0.26.2] - 2026-10-04
 
 ### Fixed

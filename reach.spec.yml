@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.26.2
+version: 0.27.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -895,7 +895,8 @@ course_alignment:
     - It asks for the student ID (M-LOGIN-ASK), then "Am I speaking with <name>?" (M-LOGIN-CONFIRM), and waits for a yes. It blocks every step's prompt, so the agent never sees the ID or the answer.
     - Three wrong IDs in 15 minutes lock the session for 15 minutes and report login_failed; a no reports identity_denied and ends course work for the session.
     - Until the session is signed in, the write, shell and read gates refuse everything with M-LOGIN-NEEDED, except reach support. Submit, qualify, part record, modules choose and transfer request need a sign-in within max_hours (12).
-    - State lives in ~/.reach/state/login/. Commands - reach login status.
+    - Since 0.27.0 (W-ID-5) the yes is followed by the password the student chose at enrollment (M-LOGIN-ASK-PASSWORD); the session is confirmed only when it matches the local verifier (~/.reach/state/login/verifier.json, a salted PBKDF2 digest) or, with no verifier, the course server. A wrong password counts toward the lockout. forgot password starts a reset, which works only after an instructor allowed one, and then asks for a new password twice. Hermes is sent to a terminal instead.
+    - State lives in ~/.reach/state/login/. Commands - reach login status, reach login password (type the password in a terminal, typing hidden), reach login reset (choose a new password in a terminal once an instructor allowed a reset).
     - Since 0.19.1 the first prompt the agent sees after the yes carries M-LOGIN-DONE-AGENT (the student's name and that course work can begin) with the session start's local parts, replacing the session start's "wait for them" (M-LOGIN-NEEDED); the just-signed-in marker is removed only after the hook has written and flushed that answer, so a hook the harness kills delivers it on the next prompt.
     - Hermes cannot block a prompt, so its agent sees the typed ID; Antigravity has no hooks and no sign-in.
     - Since 0.21.5 (STD-SIGNIN-PLUGIN-HOOK) the plugin's own prompt hook (reach gate enroll, from hooks/hooks.json and hooks/codex.json) also signs the student in once enrollment is done, in every folder, because Codex runs a hook only after the student trusts it and every course folder's .codex/hooks.json starts out untrusted. When the plugin hook and a course folder's prompt hook both run for one prompt, the first to claim it under ~/.reach/state/login/prompt.lock evaluates the sign-in and records the prompt's digest; the other passes that prompt with no answer and captures nothing.

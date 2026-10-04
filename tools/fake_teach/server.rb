@@ -475,6 +475,7 @@ module FakeTeach
         s["username"] == body["username"] && s["student_id"] == body["student_id"]
       end
       raise Failure.new(403, "enrollment_refused", "enrollment was refused") unless entry
+      password_enroll!(entry["student_id"], password)
 
       install_id = "ins_#{SecureRandom.hex(10)}"
       issued = Time.now.utc
@@ -524,6 +525,69 @@ module FakeTeach
         "display_name" => entry["display_name"],
         "enrollment_stamp" => stamp
       }
+    end
+
+    def password_digest(password)
+      Reach::Crypto.digest_hex("fake-teach-password\n#{password}")
+    end
+
+    def password_resets
+      path = File.join(@home, "password_resets.json")
+      list = File.file?(path) ? JSON.parse(File.read(path)) : []
+      list.is_a?(Array) ? list : []
+    rescue JSON::ParserError
+      []
+    end
+
+    def password_store!(student_id, password)
+      @mutex.synchronize { (@passwords ||= {})[student_id] = password_digest(password) }
+      path = File.join(@home, "password_resets.json")
+      File.write(path, JSON.generate(password_resets - [student_id])) if File.file?(path)
+    end
+
+    def password_enroll!(student_id, password)
+      held = (@passwords ||= {})[student_id]
+      if held && held != password_digest(password) && !password_resets.include?(student_id)
+        raise Failure.new(403, "password_wrong", "that is not this student's password")
+      end
+
+      password_store!(student_id, password)
+    end
+
+    def password_verify(req, body)
+      install = authenticate!(req, body)
+      password = parse_body(body)["password"]
+      held = (@passwords ||= {})[install["student_id"]]
+      raise Failure.new(409, "password_not_set", "this student has not chosen a password") unless held
+      raise Failure.new(403, "password_wrong", "that is not this student's password") unless password.is_a?(String) && held == password_digest(password)
+
+      { "verified" => true }
+    end
+
+    def password_reset_state(req, body)
+      install = authenticate!(req, body)
+      { "allowed" => password_resets.include?(install["student_id"]), "password_set" => (@passwords ||= {}).key?(install["student_id"]) }
+    end
+
+    def password_reset(req, body)
+      install = authenticate!(req, body)
+      password = parse_body(body)["password"]
+      unless password.is_a?(String) && password.length >= 8 && password.length <= 256
+        raise Failure.new(400, "password_required", "choose a password of 8 to 256 characters")
+      end
+      unless password_resets.include?(install["student_id"])
+        raise Failure.new(403, "password_reset_not_allowed", "no password reset is allowed for this student right now")
+      end
+
+      password_store!(install["student_id"], password)
+      { "password_set_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
+    end
+
+    def parse_body(body)
+      data = JSON.parse(body.to_s)
+      data.is_a?(Hash) ? data : {}
+    rescue JSON::ParserError
+      raise Failure.new(400, "invalid_request", "body is not valid JSON")
     end
 
     def authenticate!(req, body)
@@ -668,6 +732,12 @@ module FakeTeach
         @store.hand_state(req, body, Regexp.last_match(1))
       elsif method == "GET" && path == "/api/v1/grades"
         @store.grades(req, body)
+      elsif method == "POST" && path == "/api/v1/password/verify"
+        @store.password_verify(req, body)
+      elsif method == "GET" && path == "/api/v1/password/reset"
+        @store.password_reset_state(req, body)
+      elsif method == "POST" && path == "/api/v1/password/reset"
+        @store.password_reset(req, body)
       else
         raise Failure.new(404, "not_found", "no such route")
       end

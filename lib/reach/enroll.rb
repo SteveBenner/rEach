@@ -120,6 +120,7 @@ module Reach
       Reach::Fingerprint.clear_cache!
       Reach::EnrollmentLock.clear_moved!
       clear_pending
+      Reach::Password.store!(password, current)
       write_notice(body)
       announce_sidecar(current)
       Reach::Subscribe.spawn_ensure

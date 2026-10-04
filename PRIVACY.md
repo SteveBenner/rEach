@@ -11,6 +11,7 @@ rEach downloads itself and its updates from its public GitHub repository, so Git
 ## What rEach sends to your course server
 
 - Your enrollment details: the course passkey your instructor gave you, a security key rEach creates on your computer, and the rEach version, operating system and Ruby version.
+- Your rEach password: when you enroll, when you choose a new one, and once more if this computer has not checked it before. Your course server keeps only a one-way scrambled form of it that cannot be turned back into the password, so nobody, your instructors included, can read or look it up. If you forget it, your instructor can allow you to choose a new one; that step is logged, without the password.
 - Your submitted assignment files, and only when you say yes to submitting.
 - Your answers to the questions in each assignment that only you can answer.
 - Your assignment conversations. While you are signed in and working on an assignment in your course folder, rEach records what you type, your AI assistant's replies, reasoning and actions, and the code it writes for the assignment, and sends them to your course server, where your instructors can read them. Before anything is sent, rEach takes your identity out: the conversation travels and is stored under a random label instead of your name, and the identifiers rEach knows (your name, email, username, student ID, your computer account, home folder and computer name) are replaced in the text by placeholders such as `[[student-name]]`. The list that links the label and the placeholders back to you is encrypted on your computer so that only the holder of your course's key can open it. This is de-identification, not anonymity: your course server holds that key, so your instructors can reveal whose conversation it is, and each reveal is logged; your course server also knows which computer an upload came from while it receives it; and a name rEach does not know, such as a nickname or a teammate's name, stays in the text. A copy stays on your computer; ask rEach to export your conversations, or run `reach transcripts export`, to save it as a ZIP in your Downloads folder.
@@ -29,6 +30,7 @@ rEach also asks your course server whether anything changed (new course material
 
 ## What stays on your computer
 
+- A one-way scrambled check value for your rEach password, so rEach can check it when you sign in without sending it. The password itself is never stored, recorded in a conversation or shown to your AI assistant.
 - Your profile: the answers you give rEach in its short interview. It is shared with your instructors only if you say yes when rEach asks them for help. Say "forget my profile" to delete it.
 - What rEach learns about how you like to work, from what you type. Ask rEach "what do you know about me?" to see it, or ask it to forget.
 - A copy of each submission, saved in your Downloads folder, and your submission receipts.

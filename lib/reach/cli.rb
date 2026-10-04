@@ -380,6 +380,8 @@ module Reach
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
             login status                         whether this session is signed in
+            login password                       type your password here, hidden, to finish signing in
+            login reset                          choose a new password, once your instructor allowed a reset
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
@@ -521,6 +523,10 @@ module Reach
             warn failure_text(e, "enroll")
             return 1
           end
+          if e.code == "password_wrong"
+            warn Reach::Messages.text("M-ENR-PASSWORD-WRONG-TERMINAL")
+            return 1
+          end
           if e.code == "device_move_pending"
             warn Reach::Messages.text("M-ENR-MOVE-PENDING")
             return 3
@@ -542,9 +548,9 @@ module Reach
         line && line.strip
       end
 
-      def ask_password
+      def ask_password(ask = "M-ENR-ASK-PASSWORD", again_text = "M-ENR-ASK-PASSWORD-AGAIN", mismatch = "M-ENR-PASSWORD-MISMATCH")
         loop do
-          puts Reach::Messages.text("M-ENR-ASK-PASSWORD")
+          puts Reach::Messages.text(ask)
           password = read_hidden
           return nil if password.nil?
 
@@ -552,12 +558,12 @@ module Reach
             puts Reach::Messages.text("M-ENR-PASSWORD-SHORT")
             next
           end
-          puts Reach::Messages.text("M-ENR-ASK-PASSWORD-AGAIN")
+          puts Reach::Messages.text(again_text)
           again = read_hidden
           return nil if again.nil?
           return password if again == password
 
-          puts Reach::Messages.text("M-ENR-PASSWORD-MISMATCH")
+          puts Reach::Messages.text(mismatch)
         end
       end
 
@@ -2485,8 +2491,11 @@ module Reach
 
       def cmd_login(args)
         sub = args.shift
+        return login_password if sub == "password"
+        return login_reset if sub == "reset"
+
         unless sub == "status"
-          warn "usage: reach login status"
+          warn "usage: reach login status | password | reset"
           return 1
         end
         latest = Reach::Login.last_session_state
@@ -2494,6 +2503,38 @@ module Reach
         puts "Most recent session: #{recent ? 'signed in' : 'not signed in'}"
         puts "Any active sign-in: #{Reach::Login.any_active? ? 'yes' : 'no'}"
         0
+      end
+
+      def login_password
+        unless STDIN.tty?
+          warn "reach: login password needs a terminal"
+          return 1
+        end
+        puts Reach::Messages.text("M-LOGIN-ASK-PASSWORD-TERMINAL")
+        password = read_hidden
+        return 1 if password.nil?
+
+        ok, text = Reach::Login.terminal_password(password)
+        ok ? puts(text) : warn(text)
+        ok ? 0 : 1
+      end
+
+      def login_reset
+        unless STDIN.tty?
+          warn "reach: login reset needs a terminal"
+          return 1
+        end
+        state, text = Reach::Login.terminal_reset
+        unless state == :allowed
+          warn text
+          return 1
+        end
+        password = ask_password("M-LOGIN-RESET-NEW-TERMINAL", "M-LOGIN-RESET-AGAIN", "M-LOGIN-RESET-MISMATCH")
+        return 1 unless password
+
+        ok, text = Reach::Login.terminal_new_password(password)
+        ok ? puts(text) : warn(text)
+        ok ? 0 : 1
       end
 
       def cmd_reference(args)

@@ -20,7 +20,13 @@ choose a password (at least 8 characters, typed twice, to write down), so the
 agent never sees any of it. Teach checks them against its roster and returns a signed
 enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
-Teach 0.17.0 implements its half and keeps only the password's scrypt hash; `tools/fake_teach` is a local stand-in for wire revision 2026-10-01e.
+Teach keeps only a one-way hash of the password; `tools/fake_teach` is a local stand-in for the enrollment and password parts of the wire.
+
+Since 0.27.0 that password is also the last step of every sign-in: after the
+student ID and the yes, rEach's prompt hook asks for it and keeps every gate
+closed until it is right. Nobody can look a password up. A student who forgot
+it types `forgot password`, and once their instructor has allowed a reset they
+choose a new one (`specs/wire.yml`, W-ID-5).
 
 rEach then introduces itself and runs a short intake
 interview, saved on the student's computer only. It enrolls with Teach, receives

@@ -3,7 +3,7 @@ module Reach
     SECTIONS = %w[login limits support student_part module_selection enrollment].freeze
 
     DEFAULTS = {
-      "login" => { "required" => true, "max_hours" => 12, "lockout_failures" => 3, "lockout_minutes" => 15 },
+      "login" => { "required" => true, "password" => true, "max_hours" => 12, "lockout_failures" => 3, "lockout_minutes" => 15 },
       "limits" => {
         "corpus_max_bytes" => 52_428_800,
         "transcript_spool_max_bytes" => 209_715_200,

@@ -18,7 +18,8 @@ and sends it in when you are ready.
    instructor shared in class (it looks like `BUS101-K7QX-94TD`; dashes,
    spaces and capitals don't matter), your school username (your university
    email, like `jsmi123@school.example`) and your student ID, and last to choose
-   a password (at least 8 characters, typed twice; write it down). Your AI
+   a password (at least 8 characters, typed twice; write it down, you will
+   type it every time you sign in). Your AI
    partner never sees what you type here. You can also run
    `reach enroll --course-passkey PASSKEY --username USER --student-id ID` in a
    terminal; in Antigravity your AI partner walks you through that terminal
@@ -29,7 +30,7 @@ and sends it in when you are ready.
 
 ## Every day
 
-- Each time you start, rEach asks for your student ID and then "Am I speaking with <your name>?". Type yes and you're signed in. If you're not the student this computer is enrolled for, rEach won't do course work.
+- Each time you start, rEach asks for your student ID and then "Am I speaking with <your name>?". Type yes, then type your rEach password, and you're signed in. Your AI partner never sees the password. Nobody can look it up for you, not even your instructor: if you forget it, type `forgot password`, ask your instructor to allow a password reset, then type `forgot password` again and choose a new one. If you're not the student this computer is enrolled for, rEach won't do course work.
 - `reach next` tells you your next step. Your AI partner uses it too when you're not sure where to start.
 - Each assignment has a few questions only you can answer, about your business and your decisions. Your AI partner asks them one at a time; answer in your own words. rEach sends your answers with your work, and won't submit until they're all answered (`reach part` shows which).
 - rEach only works inside your course folders. To share a file for the course, drag it into the chat or paste its text; rEach copies it into the folder's `materials/`. Share only what the course needs.

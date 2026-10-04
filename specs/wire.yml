@@ -559,7 +559,7 @@ routes:
       username: {type: string, required: false, note: "shape v2 only: the student's institutional username, normalized by W-ENR-3"}
       student_id: {type: string, required: false, note: "shape v2 only: the student's institutional id, normalized by W-ENR-3"}
       fingerprint: {type: object, required: false, note: "shape v2 only: the W-ENR-4 fingerprint document"}
-      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it"}
+      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it. Since revision 2026-10-04c it is the student's existing password when one is already set (W-ID-5)"}
       public_key_pem: {type: string, maxLength: 4096}
       reach_version: {type: string}
       platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
@@ -583,6 +583,7 @@ routes:
       409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the course policy's enrollment.device_moves is approve (W-ENR-8)"
       403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
       400 password_required: "shape v2, since 2026-10-01e: password is missing, not a string, shorter than 8 or longer than 256 characters; checked before the course code is looked up, and the message tells an older Reach to update and enroll again"
+      403 password_wrong: "shape v2, since 2026-10-04c: the student already has a password, no reset is allowed and password does not match it (W-ID-5); checked after the roster match and before any device move, so nothing is stored; 5 within 15 minutes for one student answer 429 until the window passes"
       429 rate_limited: "too many attempts"
     notes: >-
       Spelled /api/v1/enroll since protocol 1 revision 2026-09-29c. Since the same revision Teach compares reach_version
@@ -897,6 +898,48 @@ routes:
     notes: >-
       Teach never says whether an unknown code exists for another student. A redemption is final: the student cannot
       change the answer, and an instructor who wants a new answer mints a new code.
+  - id: W-API-PASSWORD-VERIFY
+    method: POST
+    path: /api/v1/password/verify
+    auth: install
+    since: 2026-10-04c
+    request:
+      password: {type: string, minLength: 8, maxLength: 256, note: "what the student typed at sign-in, trimmed (W-ID-5)"}
+    response_200:
+      verified: "true"
+      password_set_at: W-CONV-3 timestamp of when the password was set
+    errors:
+      403: password_wrong when it does not match the stored hash
+      409: password_not_set when the install's student has no password (enrolled before 2026-10-01e); Reach then signs the student in without one
+      429: rate_limited after 5 wrong passwords for one student within 15 minutes, counted together with enrollment's
+    notes: >-
+      Teach compares against its scrypt hash and stores nothing. The password is never logged, audited or returned;
+      a wrong one is audited as an event without it. Reach calls this only when it holds no local verifier (W-ID-5).
+  - id: W-API-PASSWORD-RESET-STATE
+    method: GET
+    path: /api/v1/password/reset
+    auth: install
+    since: 2026-10-04c
+    response_200:
+      allowed: boolean, whether an instructor has allowed this student to choose a new password and the allowance has not run out or been used
+      expires_at: W-CONV-3 timestamp or null
+      password_set: boolean
+  - id: W-API-PASSWORD-RESET
+    method: POST
+    path: /api/v1/password/reset
+    auth: install
+    since: 2026-10-04c
+    request:
+      password: {type: string, minLength: 8, maxLength: 256, note: "the new password the student chose, typed twice, trimmed"}
+    response_200:
+      password_set_at: W-CONV-3 timestamp
+    errors:
+      400: password_required when it is missing or not 8 to 256 characters
+      403: password_reset_not_allowed when no allowance is open for the student
+    notes: >-
+      Replaces the stored hash and uses up the allowance in one transaction. An instructor opens an allowance for one
+      student, for 24 hours, and may cancel it; opening, cancelling and using it are each audited. There is no way to
+      read a password back: recovery is always a new password.
   - id: W-API-EXTRA-CREDIT-LIST
     method: GET
     path: /api/v1/extra-credit
@@ -1895,7 +1938,7 @@ alignment:
       policy file (TEACH_COURSE_POLICY, default <TEACH_HOME>/course_policy.yml) merged over teach.spec.yml
       course_model defaults. Reach reads it from the verified guardrails package only.
     keys:
-      login: "{required: boolean (default true), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
+      login: "{required: boolean (default true), password: boolean (default true, since 2026-10-04c: sign-in also asks for the password, W-ID-5), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
       enrollment: >-
         since 2026-10-01b: {require_stamp: boolean (default false), fingerprint_match: binding | strict (default
         binding)}; since 2026-10-01c also device_moves: approve | auto (default approve; default auto since
@@ -1927,7 +1970,7 @@ alignment:
       awaiting_id -> (a prompt whose trimmed text contains the enrolled student id as a whole token, compared
       case-insensitively, moves to awaiting_confirm and the hook blocks with M-LOGIN-CONFIRM naming the student's
       display_name) -> (a yes-word prompt: confirmed, blocked with M-LOGIN-OK; a no-word prompt: denied, blocked with
-      M-LOGIN-DENIED; anything else: blocked with M-LOGIN-CONFIRM again). A prompt without the id in awaiting_id is a
+      M-LOGIN-DENIED; anything else: blocked with M-LOGIN-CONFIRM again). Since revision 2026-10-04c the yes leads to the password step of W-ID-5 before the session is confirmed. A prompt without the id in awaiting_id is a
       failure (M-LOGIN-WRONG); lockout_failures failures within lockout_minutes lock the session out for
       lockout_minutes (M-LOGIN-LOCKED). A denied session stays denied. Every login step prompt is blocked, so the
       agent never sees the id or the answer; before 2026-10-03b each was still captured to the transcript with gate
@@ -1938,6 +1981,37 @@ alignment:
       Claude Code and Codex block prompts, so the login is enforced. Hermes cannot block a prompt; its hook injects
       the login message as context and the gates still refuse tool calls until confirmed, but the agent sees what the
       student typed. Antigravity has no hooks and no login.
+  W-ID-5:
+    name: sign-in password
+    rule: >-
+      Since revision 2026-10-04c. When the policy's login.password is not false and the install was enrolled with
+      shape v2, a yes in awaiting_confirm does not confirm the session: it moves to awaiting_password and the hook
+      blocks with M-LOGIN-ASK-PASSWORD. The next prompt, trimmed, is the password. Reach checks it against a local
+      verifier at ~/.reach/state/login/verifier.json (0600): {schema "reach.login-verifier/v1", student_id,
+      install_id, salt, iterations, digest}, where digest is PBKDF2-HMAC-SHA256 of the password over the salt with
+      600000 iterations, 32 bytes, hex. Reach writes the verifier when an enrollment, a W-API-PASSWORD-VERIFY or a
+      W-API-PASSWORD-RESET succeeds, and uses it only for the student and install it names. With no verifier Reach
+      asks W-API-PASSWORD-VERIFY once (5 s connect, 10 s read, no retry); when Teach cannot be reached the hook blocks
+      with M-LOGIN-PASSWORD-OFFLINE and the session stays in awaiting_password, so removing the verifier never signs
+      anyone in. A match confirms the session (M-LOGIN-OK), as does 409 password_not_set. A wrong password is a
+      failure like a wrong id (M-LOGIN-PASSWORD-WRONG) and counts toward the same lockout. The password is never
+      written to disk, a transcript, the microbrain, a debug event or a log; every prompt of these steps is blocked,
+      so the agent never sees it.
+      A forgot-password prompt (after W-ID-4 normalizing: forgot, forgot password, forgot my password, i forgot, i
+      forgot it, i forgot my password, reset, reset password, reset my password) in awaiting_password asks
+      W-API-PASSWORD-RESET-STATE. Not allowed: M-LOGIN-RESET-ASK, which tells the student to ask their instructor.
+      Allowed: awaiting_new_password (M-LOGIN-RESET-NEW) -> awaiting_new_password_again (M-LOGIN-RESET-AGAIN), under
+      the W-ENR-7 rules for length, the salted digest held between the two prompts and a mismatch; cancel, go back
+      or back returns to awaiting_password. The matching second entry posts W-API-PASSWORD-RESET, writes the verifier
+      and confirms the session (M-LOGIN-RESET-OK). Nobody, Teach and the instructors included, can read a password
+      back; a student who forgot it always chooses a new one.
+      Enrollment: since the same revision W-API-ENROLL requires the existing password when the student already has
+      one, and sets a new one only for a student who has none or for whom a reset is allowed.
+    harnesses: >-
+      Hermes cannot block a prompt, so it is never asked for a password in chat: in the password states its hook
+      injects M-LOGIN-PASSWORD-TERMINAL, which sends the student to a terminal. reach login password reads the
+      password with typing hidden and confirms every session waiting in awaiting_password; reach login reset runs the
+      reset the same way. Both work for any harness.
   W-ID-2:
     name: identity tags
     rule: >-
@@ -2249,7 +2323,7 @@ enrollment:
       whatever install_key says, because every enrollment generates a new install key. Different digest: a
       device move. With the course policy's enrollment.device_moves auto (the default since revision 2026-10-02e),
       Teach enrolls the new install and revokes the old one, so a student who sets their password is enrolled with
-      no instructor step. With approve (an instructor's opt-in; the default before 2026-10-02e), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
+      no instructor step; since revision 2026-10-04c that is the password they already chose (W-ID-5). With approve (an instructor's opt-in; the default before 2026-10-02e), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
       student_id, course_id, fingerprint digest and descriptive components, harness, platform, requested_at} and
       answers 409 device_move_pending; a repeat of the same request (same student and digest) answers the same move.
       An instructor approves or denies the move with a reason. After approval the same request enrolls the new install
