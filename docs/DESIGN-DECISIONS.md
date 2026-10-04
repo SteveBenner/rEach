@@ -123,7 +123,7 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
   writes outside the chat's folder, so it runs outside the sandbox once. If the agent cannot ask for that (Codex on
   Windows), it tells the student to switch the chat's permissions to Full access and ask again. It never improvises
   another folder or workaround, and never asks the student to paste commands.
-- **One rEach folder** (10-01, planned). Codex on Windows lets a sandboxed command write only inside the
+- **One rEach folder** (10-01, planned for 0.17.0; replaced 10-03 by the decision "Inside reach-work", below). Codex on Windows lets a sandboxed command write only inside the
   chat's folder and the temp folder, so everything rEach keeps (its program, state, keys, runtime kit and the course
   folders) moves into one rEach folder the student works in. The aim is that after the install the student can switch
   Codex back to its default permissions; the release that ships it has to prove that on Windows, including network access for
@@ -131,6 +131,23 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 - **Migration loses nothing** (10-01). Moving an existing install into the rEach folder must have zero chance of losing
   student data: copy and verify before anything is removed, keep the old location until the new one is proven, and
   resume or roll back cleanly if interrupted.
+- **Inside reach-work, not a new folder** (10-03, replacing the ~/rEach decision of 10-01). rEach's own files move to
+  `~/reach-work/.reach-home`; the workspace stays where it is, so a student has one folder to open in the harness and no
+  second one to find. The home is refused in every kind of space (reads, writes, listings, searches, redirects, cds)
+  and pruned from every walk of the student's work, so the student's agent cannot read keys or the stamp and a
+  submission never carries the home. A root-kind session judges writes by their target slice and asks which slice when
+  it cannot choose. Existing installs relocate by copy, hash verification and rename; the legacy folder is left exactly
+  as it was apart from `RELOCATED.json`, because losing student data has no acceptable odds.
+- **What this does not fix** (10-03). The layout alone does not open the Codex sandbox, which by default blocks the
+  network and writes outside the chat's folder; the decision below does. Codex hook trust is unrelated to the layout.
+  On Windows the project's top-level `.codex` is read-only inside the sandbox. None of these was measured on Windows or
+  macOS.
+- **rEach edits the student's own Codex settings** (10-03, branch only). A project-level `.codex/config.toml` changed
+  nothing in Codex 0.160.0, and the user-level `$CODEX_HOME/config.toml` did, so rEach writes the few sandbox keys it
+  needs there, from outside the sandbox and only after the student's yes, keeps a backup beside the file and puts the
+  keys back when they were removed. It refuses rather than guess, because a second definition of a key stops Codex
+  from starting. Windows defaults to turning the sandbox off, because the workspace keys were never measured there and
+  writable roots are reported unreliable on Windows. rEach never writes Codex hook trust.
 
 ## Updates and releases
 

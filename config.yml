@@ -121,5 +121,10 @@ late_work:
 hooks:
   lock_wait_s: 2
   require: true
+codex:
+  setup: true
+  sandbox: auto
+  heal: true
+  probe_timeout_s: 20
 transcripts:
   auto_export: true

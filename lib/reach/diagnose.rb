@@ -26,6 +26,7 @@ module Reach
         "kit" => kit,
         "environment" => environment,
         "sandbox" => sandbox,
+        "codex" => codex,
         "self_test" => {
           "gcm" => Reach::CryptoProbe.gcm_self_test, "envelope_gcm" => envelope_gcm_test, "rsa" => Reach::CryptoProbe.rsa_self_test
         },
@@ -51,6 +52,12 @@ module Reach
       }
     rescue StandardError => e
       { "active" => false, "error" => e.message }
+    end
+
+    def codex
+      Reach::CodexSetup.status
+    rescue StandardError => e
+      { "error" => e.message }
     end
 
     def kit

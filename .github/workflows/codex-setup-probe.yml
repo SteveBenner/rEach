@@ -1,0 +1,74 @@
+name: codex-setup-probe
+
+on:
+  push:
+    branches:
+      - in-workspace
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-setup-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: codex setup ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            ruby: '4.0'
+          - runner: windows-11-arm
+            ruby: '4.0'
+          - runner: macos-15
+            ruby: '4.0'
+          - runner: ubuntu-24.04
+            ruby: '4.0'
+    steps:
+      - name: Keep LF line endings
+        timeout-minutes: 2
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Check out
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: false
+          persist-credentials: false
+          path: new
+
+      - name: Check out 0.30.0
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: v0.30.0
+          submodules: false
+          persist-credentials: false
+          path: old
+
+      - name: Set up Ruby
+        timeout-minutes: 10
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler: none
+
+      - name: Install Codex CLI and webrick
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          npm install -g @openai/codex@0.160.0
+          codex --version
+          gem install --no-document webrick
+
+      - name: Probe Codex setup
+        timeout-minutes: 15
+        shell: bash
+        run: ruby new/tools/sandbox_probe/codex_setup_probe.rb old

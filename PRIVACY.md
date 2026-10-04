@@ -37,6 +37,10 @@ rEach also asks your course server whether anything changed (new course material
 - What rEach learns about how you like to work, from what you type. Ask rEach "what do you know about me?" to see it, or ask it to forget.
 - A copy of each submission, saved in your Downloads folder, and your submission receipts.
 
+## Codex's settings
+
+If you use Codex, rEach asks before it changes Codex's own settings file on your computer (`config.toml` in Codex's folder), so Codex's commands can use the internet and save inside your reach-work folder. It changes only those settings, saves a copy of your old settings beside the file first, and never sends the file anywhere. If you say no, nothing changes. `reach codex off` stops rEach putting its settings back.
+
 ## Your AI provider
 
 Like any chat, what you type to your AI assistant goes to the AI provider you use (for example OpenAI for Codex), under that provider's own privacy policy.

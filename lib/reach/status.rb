@@ -4,6 +4,7 @@ module Reach
       def summary
         lines = []
         lines << header_line
+        lines << Reach::Relocation.folder_line
         lines << assignment_line
         lines << signed_in_line
         lines << modules_line

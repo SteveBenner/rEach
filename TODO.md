@@ -173,6 +173,17 @@
 - [x] `corpus/course-reference/` (BUS 101 and BUS 201) is a one-time hand-vetted copy from the instructor's AIvoryTower course stores, made 2026-09-28. It does not stay in sync with the instructor's evolving syllabus, glossary or assignments. Build a live-update mechanism (re-running the same vetted copy from AIvoryTower, or a future instructor-upload path) so this directory tracks the real course material instead of going stale. Deferred; not started. Moved to Teach in 0.14.5: Reach carries no course material.
 - [x] Whatever sync mechanism gets built must carry forward the same hard exclusion by hand: instructor-only material (answer keys, instructor keys, grading rubrics with solutions, or anything else marked as an instructor/answer-key artifact) must never land in `corpus/course-reference/`, no matter how the sync pulls its source. Moved to Teach in 0.14.5: Reach carries no course material.
 
+## Home inside reach-work (branch in-workspace)
+
+- [ ] Run the Windows sandbox probe: with the project opened at `~/reach-work`, measure that writes inside `.reach-home` succeed, whether the network opens, that the install and relocation run under Full access, and whether the top-level `.codex` is read-only. Nothing about the Windows sandbox is proven.
+- [ ] Measure whether the Codex sandbox allows the network on macOS and Linux with an allow rule; until then enroll, sync, updates and the subscription check need Full access.
+- [ ] `scripts/reach-install.ps1` is changed but was never run (no PowerShell here); run it on Windows.
+- [ ] Verify the relocation on macOS (case-insensitive filesystem path handling in `Paths.realish` is untested there).
+- [x] `lib/reach/late_work.rb` (`prompt_notice`) and `lib/reach/submit.rb` (`default_archive_assignment`) still use the cwd-based `current_workspace_path`; move them to `Gate.focus_workspace` so a root-kind session behaves like the rest.
+- [ ] `docs/INSTALLATION-AND-SETUP-GUIDE.docx` still describes `~/.reach`; rebuild both copies of the guide.
+- [ ] No receipt was in the relocation fixture (no grader available); check that receipts and acks survive a relocation.
+- [ ] `state/enroll/fingerprint_cache.json` keeps the legacy path inside its key after a relocation; it is recomputed and harmless, but is reported in `legacy_path_hits`.
+
 ## Housekeeping
 
 - [ ] Decide the licence (currently `undecided` in `reach.spec.yml`) before any public release; `exe/reach` and `lib/reach.rb` already carry an MIT SPDX line from 0.1.0.

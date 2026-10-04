@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.30.0 |
+| **Registry version** | 0.31.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 91 catalogued |
+| **Feature count** | 93 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 83 | 91% |
+| ✅ Shipped | 85 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 5 | 5% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 74 | 81% |
+| 🔵 Built, not enabled | 76 | 82% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -751,6 +751,66 @@ again after the next sync; a server without the routes answered 404 and rEach pa
 passed 40 steps with 2 skipped. Not verified: macOS and Windows, Ruby 2.6, and a real harness session.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-04 as v0.30.0, GitHub Latest; Teach 0.44.0 serves the routes). No announcement has been sent to a real student yet. · Blocker: -.
+
+### 2.44 · Home inside the reach-work folder
+
+Since 0.31.0 (`STD-HOME-IN-WORKSPACE`) rEach keeps its own files in `~/reach-work/.reach-home`
+instead of `~/.reach`, and an existing install is relocated by copy, hash verification and rename, leaving the legacy
+folder untouched apart from `RELOCATED.json`. Every kind of space refuses the home, a root-kind session judges writes by
+target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Verified 2026-10-03 against a scratch Teach
+(0.31.1) with real claude and codex CLIs: fresh install, relocation of a populated legacy install (legacy hash list
+unchanged, new home identical, enrollment kept, outbox sent afterwards), two kill -9 interruptions, an occupied
+destination, an instructor persona, the gate in root, slice and extracurricular kinds, harness source repoints and
+Ruby 2.6.10. Not fixed by this layout alone: Codex's default sandbox still blocks the network and writes outside the
+chat's folder; since 2.45 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
+network and write in the reach-work folder. Codex hook trust is unrelated; on Windows the project's top-level `.codex`
+is read-only in the sandbox. Verified 2026-10-04 on GitHub runners (windows-2025 x64, windows-11-arm, macos-15,
+ubuntu-24.04; `tools/sandbox_probe/codex_setup_probe.rb`): an install enrolled with 0.28.2 was relocated with 28 of 28
+files identical in the new home, the legacy folder changed only by `RELOCATED.json`, and `reach status` still named
+the student. Measured there too: on Windows the new home alone opens nothing (Codex's sandbox still refuses rEach's
+folder with the home inside the chat's folder). Not verified: an update of a real install with its Claude Code and
+Codex plugin copies on Windows or macOS, and `scripts/reach-install.ps1`.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (no student has updated yet; plugin-copy update unverified on Windows and macOS).
+
+### 2.45 · rEach sets Codex up
+
+Since 0.31.0 (`STD-CODEX-SETUP`, wire revision 2026-10-04h) rEach writes the sandbox settings
+it needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`) after the student's yes: on a terminal
+(`reach codex configure`), in a chat (`reach_setup` configure, the yes captured by the prompt hook) or through the
+`codex_configure` live action. Mode workspace (the default outside Windows) turns on network access and makes the
+reach-work folder writable; mode full (the default on Windows) turns Codex's sandbox off; both mark the folder trusted.
+A line editor changes only those lines, keeps a backup beside the file, refuses rather than guess, and is undone when
+`codex features list` rejects only the new file. `reach codex probe`, `reach_setup` probe and the `sandbox_probe` live
+action test the sandbox; `reach doctor` shows a `codex:` line and `R-DOC-CODEX`; `reach mcp` and the background tick put
+the settings back at most every 6 hours while the yes stands; `reach codex off` stops that. Known issues carry a remedy
+that rEach names to the agent. Verified 2026-10-03 on Linux with Codex 0.160.0 in scratch homes: the editor on 19 file
+shapes in both modes (byte-exact outside the edited lines, backups equal to the originals, a second apply writing
+nothing, every refusal leaving the file alone), the terminal yes and no on a pseudo-terminal, the chat yes and no
+through the real MCP server and prompt hook, the hooks-off answer, the busy lock, the reapply from `reach mcp` and the
+background tick (and none without a yes, after a withdrawal or within 6 hours), both live actions against a scratch
+Teach on the `codex-setup` branch, the known-issue remedies and Ruby 2.6.10. A Codex chat follows the new settings
+(`codex debug prompt-input` shows workspace-write, network enabled and the reach-work writable root). `codex
+sandbox` does not read the file's top-level `sandbox_mode`, so the probe passes the file's own value with `-c`; with
+that, the probe reported blocked before and ok after configure in both modes, and `reach doctor` printed settings ok
+with internet ok and folder ok. The probe's internet check is one plain request from inside the sandbox (5 s limits,
+no retry), with the token taken by the parent outside it, so a blocked rEach folder no longer reads as a blocked
+internet (a sandbox with the internet open and the folder closed reported only the folder). `scripts/reach-install`
+runs `reach codex configure` right after it installs, when Codex is present and a person can answer (the terminal, or
+`/dev/tty` when only the input is piped), and prints the command otherwise; it runs before `reach setup`, which the
+same one-line command starts next. Verified with a terminal answering yes and no, with the input piped, with no
+terminal and with no Codex. `tools/fake_teach` serves `GET /api/v1/known-issues` from `known_issues.json` with
+`remedy` in the W-KI-1 key order, the revision as ETag and 304; rEach fetched from it and from a scratch Teach on
+branch `codex-setup` and mapped the remedies to tool calls. fake_teach has no live-session routes; the live actions
+were run against the scratch Teach. Verified 2026-10-04 with Codex 0.160.0's real `codex sandbox` on GitHub runners
+(`tools/sandbox_probe/codex_setup_probe.rb`, workflow `codex-setup-probe`): on windows-2025 x64 and windows-11-arm,
+before the setup and in mode workspace the sandbox refused rEach's folder and the internet and a sandboxed `reach sync`
+exited 1; in mode full (the Windows default) the course server, the internet and rEach's folder were reachable and
+`reach sync` exited 0. On macos-15 mode workspace was enough. The ubuntu-24.04 runner cannot start Codex's sandbox
+(bwrap is refused there); mode workspace passed on a Linux desktop. Not verified: `scripts/reach-install.ps1`, the
+Codex desktop app and IDE extension, and a student's real Codex chat reaching the course server.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (no student's Codex has run the setup yet).
 
 ## 3 · Course reference
 

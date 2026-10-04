@@ -22,6 +22,10 @@ This binds in every session and every folder, before and after enrollment.
 
 rEach updates itself. When the student asks for an update, or rEach says an update couldn't finish, run `reach update run --apply` (or call the reach_update tool with action run, which works where your app keeps commands in a sandbox) and tell the student the result in plain words; `reach update status`, `reach --version` and the reach_update tool say where things stand. Never search GitHub, browse its releases or tags, or download, unzip or copy a rEach archive yourself. If the update still doesn't finish, tell the student rEach will try again on its own and offer to let their instructor know.
 
+## Codex's settings
+
+In Codex, rEach may need to change two of Codex's own settings so its commands can reach the course server and save inside the reach-work folder. When rEach says Codex's sandbox blocks it, call the reach_setup tool with action configure (or run `reach codex configure` in a terminal the student can type in) and relay rEach's question word for word; never answer it yourself. rEach changes the settings only after the student's yes, keeps a copy of the old ones, and then the student starts a new chat in Codex. If rEach says it can't take the yes in the chat yet, relay that message as it is.
+
 ## Starting a session
 
 - If this session already shows "rEach session context" from reach hello, follow it. Otherwise run `reach hello --format text` (or call the reach_hello tool) before your first reply and follow what it says.

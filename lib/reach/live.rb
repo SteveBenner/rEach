@@ -23,7 +23,7 @@ module Reach
       "update" => [%w[update run]],
       "resend" => [%w[issues flush], %w[debug flush]]
     }.freeze
-    ACTIONS = (COMMANDS.keys + %w[cache_repair]).freeze
+    ACTIONS = (COMMANDS.keys + %w[cache_repair codex_configure sandbox_probe]).freeze
     ACTION_TEXT = {
       "doctor" => "run rEach's self-check (reach doctor)",
       "status" => "look at rEach's status (reach status)",
@@ -31,7 +31,9 @@ module Reach
       "update_check" => "check for a rEach update",
       "update" => "start a rEach update",
       "cache_repair" => "repair the Codex plugin cache",
-      "resend" => "send again what rEach has waiting to be sent"
+      "resend" => "send again what rEach has waiting to be sent",
+      "codex_configure" => "change Codex's settings so rEach can use the internet and its folder (rEach keeps a copy of the old settings)",
+      "sandbox_probe" => "test whether Codex's sandbox lets rEach reach the course server and its folder"
     }.freeze
     ACTION_TIMEOUT_S = 60
     MAX_RESULT_BYTES = 16_000
@@ -832,6 +834,14 @@ module Reach
       if name == "cache_repair"
         count = Reach::CodexCache.repair
         return [true, "Repaired #{count} Codex plugin cache folder#{count == 1 ? '' : 's'}."]
+      end
+      if name == "codex_configure"
+        result = Reach::CodexSetup.apply!(via: "live")
+        return [result["ok"] == true, [result["text"], Reach::CodexSetup.doctor_line].join("\n")]
+      end
+      if name == "sandbox_probe"
+        result = Reach::CodexSetup.probe!
+        return [result["available"] == true, result["text"]]
       end
 
       parts = COMMANDS.fetch(name).map do |args|

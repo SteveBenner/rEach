@@ -11,6 +11,15 @@ module Reach
     SESSION_SOURCES = %w[startup resume clear].freeze
     FAMILIES = %w[claude codex].freeze
     PROCESS_FAMILIES = { "codex" => "codex", "claude" => "claude" }.freeze
+    REMEDIES = {
+      "codex_configure" => ["reach_setup", { "action" => "configure" }],
+      "sandbox_probe" => ["reach_setup", { "action" => "probe" }],
+      "doctor" => ["reach_doctor", {}],
+      "status" => ["reach_status", {}],
+      "sync" => ["reach_sync", {}],
+      "update_check" => ["reach_update", { "action" => "status" }],
+      "update" => ["reach_update", { "action" => "run" }]
+    }.freeze
 
     module_function
 
@@ -282,9 +291,30 @@ module Reach
           "title" => entry["title"],
           "symptom" => entry["symptom"],
           "detected" => detected?(entry, env, mcp: mcp),
+          "remedy" => remedy_for(entry["remedy"]),
           "steps" => steps_for(entry, env)
         }
       end
+    end
+
+    def remedy_for(name)
+      found = REMEDIES[name.to_s]
+      return nil unless found
+
+      { "id" => name.to_s, "tool" => found[0], "arguments" => found[1].dup }
+    end
+
+    def remedy_call(remedy)
+      arguments = remedy["arguments"].map { |key, value| "#{key} #{value}" }
+      arguments.empty? ? remedy["tool"] : "#{remedy['tool']} with #{arguments.join(', ')}"
+    end
+
+    def remedy_lines(found)
+      Array(found).select { |item| item.is_a?(Hash) && item["remedy"].is_a?(Hash) }.map do |item|
+        Reach::Messages.text("M-KNOWN-ISSUE-REMEDY", title: item["title"], call: remedy_call(item["remedy"]))
+      end
+    rescue StandardError
+      []
     end
 
     def context_lines(mcp: false)
@@ -295,7 +325,7 @@ module Reach
       found.each do |item|
         lines << Reach::Messages.text("M-KNOWN-ISSUE-DETECTED", title: item["title"]) if item["detected"]
       end
-      lines
+      lines.concat(remedy_lines(found))
     rescue StandardError
       []
     end

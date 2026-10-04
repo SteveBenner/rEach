@@ -22,7 +22,11 @@ module Reach
         cwd = event["cwd"] if event["cwd"]
       end
 
-      Reach::RuntimeAuto.start
+      if Reach::Relocation.due?
+        Reach::Relocation.start
+      else
+        Reach::RuntimeAuto.start
+      end
       hookless = hookless?(harness, format, mcp)
       harness_id = resolve_harness(harness == "antigravity" ? nil : harness)
       Reach::Debug.begin_hook(event, harness_id)

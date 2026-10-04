@@ -88,6 +88,7 @@ module FakeTeach
   end
 
   Reply = Struct.new(:status, :body, :etag)
+  KNOWN_ISSUE_KEYS = %w[id title symptom detector remedy applies steps].freeze
 
   class Store
     PACKAGE_KINDS = %w[guardrails workspace].freeze
@@ -248,6 +249,21 @@ module FakeTeach
       path = File.join(@home, "issues.json")
       extra = row["trigger"] == "issue" && File.file?(path) ? JSON.parse(File.read(path)) : {}
       { "state" => extra["state"] || "open", "reply" => extra["reply"] }.merge(extra.select { |name, _| %w[issue_state fix_version].include?(name) })
+    end
+
+    def known_issues(req)
+      path = File.join(@home, "known_issues.json")
+      listed = File.file?(path) ? JSON.parse(File.read(path)) : []
+      raise Failure.new(500, "internal", "known_issues.json must hold a list") unless listed.is_a?(Array)
+
+      issues = listed.select { |entry| entry.is_a?(Hash) }.sort_by { |entry| entry["id"].to_s }.map do |entry|
+        KNOWN_ISSUE_KEYS.each_with_object({}) { |key, memo| memo[key] = entry[key] }
+      end
+      revision = OpenSSL::Digest::SHA256.hexdigest(Reach::Crypto.canonical_json(issues))
+      etag = "\"#{revision}\""
+      return Reply.new(304, "", etag) if req["If-None-Match"] == etag
+
+      Reply.new(200, JSON.generate("revision" => revision, "issues" => issues), etag)
     end
 
     def grades(req, body)
@@ -730,6 +746,9 @@ module FakeTeach
         @store.raise_hand(req, body)
       elsif method == "GET" && path =~ %r{\A/api/v1/hands/([A-Za-z0-9_]+)\z}
         @store.hand_state(req, body, Regexp.last_match(1))
+      elsif method == "GET" && path == "/api/v1/known-issues"
+        @store.rate_limit!(req.peeraddr[3])
+        @store.known_issues(req)
       elsif method == "GET" && path == "/api/v1/grades"
         @store.grades(req, body)
       elsif method == "POST" && path == "/api/v1/password/verify"

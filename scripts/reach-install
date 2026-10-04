@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "fileutils"
+require "json"
 require "net/http"
 require "zlib"
 require "optparse"
@@ -29,7 +30,9 @@ module ReachInstall
         reach_root = stage(url: options[:url], temp: temp, archive: options[:archive], revision: options[:revision])
         install(reach_root, destination)
       end
+      record_destination(destination)
       puts "rEach installed at #{destination}"
+      codex_step(destination)
       0
     rescue StandardError => e
       warn "reach-install: #{e.message}"
@@ -59,9 +62,81 @@ module ReachInstall
 
     private
 
+    def default_destination
+      home_value = ENV["REACH_HOME"].to_s
+      return File.join(File.expand_path(home_value), "plugin") unless home_value.empty?
+
+      workspace_value = ENV["REACH_WORKSPACE_ROOT"].to_s
+      workspace = File.expand_path(workspace_value.empty? ? "~/reach-work" : workspace_value)
+      legacy = File.expand_path("~/.reach")
+      return File.join(legacy, "plugin") if legacy_active?(workspace, legacy)
+
+      File.join(workspace, ".reach-home", "plugin")
+    end
+
+    def legacy_active?(workspace, legacy)
+      pointer = File.join(workspace, ".reach-home", "state", "relocation.json")
+      if File.file?(pointer)
+        data = begin
+          JSON.parse(File.read(pointer))
+        rescue StandardError
+          nil
+        end
+        return false if data.is_a?(Hash) && data["phase"] == "completed"
+      end
+      File.file?(File.join(legacy, "install.yml")) || File.directory?(File.join(legacy, "plugin"))
+    end
+
+    def record_destination(destination)
+      directory = File.dirname(File.expand_path(__FILE__))
+      return unless File.basename(directory) == "bootstrap"
+
+      File.write(File.join(directory, "last-install.txt"), "#{destination}\n")
+    rescue StandardError
+      nil
+    end
+
+    def codex_step(destination)
+      return if ENV["REACH_CODEX_SETUP"] == "0"
+      return unless codex_present?
+
+      exe = File.join(destination, "exe", "reach")
+      terminal = answer_terminal
+      if terminal
+        begin
+          system(RbConfig.ruby, exe, "codex", "configure", in: terminal)
+        ensure
+          terminal.close unless terminal.equal?($stdin)
+        end
+      else
+        puts "rEach install: to let rEach set up Codex, run this in a terminal: \"#{RbConfig.ruby}\" \"#{exe}\" codex configure"
+      end
+    rescue StandardError
+      nil
+    end
+
+    def answer_terminal
+      return $stdin if $stdin.tty?
+      return nil if Gem.win_platform? || !$stdout.tty?
+
+      File.open("/dev/tty", "r")
+    rescue StandardError
+      nil
+    end
+
+    def codex_present?
+      home = ENV["CODEX_HOME"].to_s.empty? ? File.join(Dir.home, ".codex") : ENV["CODEX_HOME"]
+      return true if File.directory?(home)
+
+      names = Gem.win_platform? ? %w[codex.exe codex.cmd codex.bat codex] : %w[codex]
+      ENV["PATH"].to_s.split(File::PATH_SEPARATOR).any? do |dir|
+        names.any? { |name| File.file?(File.join(dir, name)) && File.executable?(File.join(dir, name)) }
+      end
+    end
+
     def parse(argv)
       options = {
-        destination: File.expand_path("~/.reach/plugin"),
+        destination: default_destination,
         url: "https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip"
       }
       OptionParser.new do |parser|

@@ -24,6 +24,8 @@ module Reach
     PATH_INPUT_KEYS = %w[file_path notebook_path path directory dir root].freeze
     OUTSIDE_ALLOWED = %w[/dev/null /dev/stdout /dev/stderr].freeze
     OUTSIDE_REFUSAL_LIMIT = 3
+    RECURSIVE_READ_TOOLS = %w[Glob Grep LS list_files search_files list_directory].freeze
+    RELOCATION_EXEMPT_ARGS = %w[status doctor relocate].freeze
 
     module_function
 
@@ -152,7 +154,8 @@ module Reach
       end
       context.concat(Array(safely { Reach::Live.prompt_notices(session) }))
       if space
-        imports = safely { Reach::Imports.observe(text: event["prompt"], space_path: space["path"]) }
+        import_path = space["kind"] == "root" ? safely { focus_workspace } : space["path"]
+        imports = import_path ? safely { Reach::Imports.observe(text: event["prompt"], space_path: import_path) } : nil
         context.concat(Array(imports))
         context << safely { Reach::Next.anchor_text(space) }
       end
@@ -223,6 +226,12 @@ module Reach
       nil
     end
 
+    def witness_in(workspace, kind, fields)
+      Reach::Ledger.append(workspace, kind, fields) if workspace
+    rescue StandardError
+      nil
+    end
+
     PATCH_PREFIXES = ["*** Add File: ", "*** Update File: ", "*** Delete File: ", "*** Move to: "].freeze
 
     def write(path: nil, patch: nil, event: nil, harness: nil)
@@ -231,10 +240,11 @@ module Reach
       check_enrolled!
       require_login!(event)
       Reach::Update.hold!
+      Reach::Relocation.hold!
       space = current_space
       kind = space && space["kind"]
 
-      raise_blocked!("M-WRITE-ROOT") if kind == "root"
+      return write_from_root(path: path, patch: patch) if kind == "root"
 
       if kind == "extracurricular"
         root = space["path"]
@@ -281,6 +291,56 @@ module Reach
       )
     end
 
+    def write_from_root(path:, patch:)
+      base = File.realpath(Dir.pwd)
+      raw = patch ? patch_targets(patch) : [path.to_s]
+      targets = raw.map { |entry| root_target(File.expand_path(entry, base)) }
+
+      spaces = targets.map { |target| target_space(target) }
+      slices = spaces.select { |space| space && space["kind"] == "slice" }.map { |space| space["path"] }.uniq
+      raise_blocked!("M-WRITE-ROOT") if slices.length > 1
+
+      targets.each_with_index do |target, index|
+        raise_blocked!("M-WRITE-OUTSIDE", owned_files: outside_owned_text) if Reach::Paths.inside_home?(target)
+
+        space = spaces[index]
+        kind = space && space["kind"]
+        case kind
+        when "slice"
+          workspace = space["path"]
+          owned = owned_absolute_paths(workspace)
+          allowed = owned.any? { |candidate| same_path?(candidate, target) } || qualify_target?(workspace, target)
+          raise_blocked!("M-WRITE-OUTSIDE", owned_files: owned_files_display(workspace)) unless allowed
+        when "extracurricular"
+          raise_blocked!("M-WRITE-OUTSIDE-EXTRA") unless within?(target, space["path"])
+        when "root"
+          raise_blocked!("M-WRITE-ROOT")
+        else
+          raise_blocked!("M-WRITE-OUTSIDE", owned_files: outside_owned_text)
+        end
+      end
+
+      slices.each do |workspace|
+        check_ladder!(workspace)
+        check_time_and_module!(workspace)
+      end
+      nil
+    end
+
+    def outside_owned_text
+      "your slice's files under deliverables/"
+    end
+
+    def root_target(expanded)
+      File.join(Reach::Paths.realish(File.dirname(expanded)), File.basename(expanded))
+    end
+
+    def target_space(target)
+      return nil if Reach::Paths.inside_home?(target)
+
+      Reach::Workspace.space_for_target(target)
+    end
+
     def qualify_target?(workspace, target)
       return false unless workspace
 
@@ -313,6 +373,7 @@ module Reach
       check_enrolled!
       require_login!(event)
       Reach::Update.hold!
+      Reach::Relocation.hold! unless relocation_exempt?(text)
       raise_blocked!("M-SHELL-BLOCKED") if subshell_or_substitution?(text)
 
       space = current_space
@@ -320,10 +381,7 @@ module Reach
       state = { cwd: hook_cwd(event) }
 
       if kind == "root"
-        split_segments(text).each do |segment|
-          check_outside_segment!(segment, state, event)
-          check_root_segment!(segment)
-        end
+        shell_from_root(text, state, event)
         return nil
       end
 
@@ -337,6 +395,39 @@ module Reach
 
       witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
+    end
+
+    def shell_from_root(text, state, event)
+      split_segments(text).each do |segment|
+        here = Reach::Workspace.space_for(state[:cwd])
+        here_kind = here && here["kind"]
+        check_outside_segment!(segment, state, event)
+
+        case here_kind
+        when "slice"
+          workspace = here["path"]
+          check_segment!(segment, workspace, shell_owned_test("slice", workspace), "slice")
+          witness_in(workspace, "shell", { "command_digest" => Reach::Crypto.digest_hex(segment), "head" => segment[0, 200] })
+        when "extracurricular"
+          workspace = here["path"]
+          check_segment!(segment, workspace, shell_owned_test("extracurricular", workspace), "extracurricular")
+        else
+          check_root_segment!(segment)
+        end
+      end
+    end
+
+    def relocation_exempt?(text)
+      segments = split_segments(text)
+      return false if segments.empty?
+
+      segments.all? do |segment|
+        tokens = Shellwords.split(segment)
+        index = shim_index(tokens)
+        index && RELOCATION_EXEMPT_ARGS.include?(tokens[index + 1])
+      end
+    rescue ArgumentError
+      false
     end
 
     def read(event: {}, harness: nil)
@@ -360,7 +451,14 @@ module Reach
       read_paths(tool, input, base).each do |candidate|
         raise_outside!(event, tool) if outside_path?(candidate, base)
       end
+      check_recursive_read!(input, base) if RECURSIVE_READ_TOOLS.include?(tool)
       nil
+    end
+
+    def check_recursive_read!(input, base)
+      given = PATH_INPUT_KEYS.map { |key| input[key] }.find { |value| value.is_a?(String) && !value.empty? }
+      resolved = given ? real_resolve(given, base) : base
+      raise_blocked!("M-GATE-OUTSIDE") if resolved.nil? || Reach::Paths.ancestor_of_home?(resolved)
     end
 
     def read_paths(tool, input, base)
@@ -416,7 +514,7 @@ module Reach
 
       root = Reach::Paths.workspace_root
       root_real = File.exist?(root) ? File.realpath(root) : File.expand_path(root)
-      return true if within?(resolved, Reach::Paths.root)
+      return true if Reach::Paths.inside_home?(resolved)
 
       !within?(resolved, root_real)
     end
@@ -510,7 +608,7 @@ module Reach
     def shim_index(tokens)
       return nil if tokens.nil? || tokens.empty?
 
-      shims = [File.expand_path(Reach::Runtime.shim_path), File.expand_path("~/.reach/bin/reach")]
+      shims = [File.expand_path(Reach::Runtime.shim_path), File.expand_path(File.join(Reach::Paths.legacy_home, "bin", "reach"))]
       return 0 if tokens[0] == "reach" || shims.include?(File.expand_path(tokens[0].to_s))
       return 1 if File.basename(tokens[0].to_s) =~ /\Aruby[0-9.]*\z/ && tokens[1] && shims.include?(File.expand_path(tokens[1].to_s))
 
@@ -545,6 +643,7 @@ module Reach
 
       base = state[:cwd]
       (args + redirects).each { |token| check_outside_token!(token, base, event) }
+      check_search_exposes_home!(plain, base)
 
       if %w[cd pushd].include?(command) && !index
         target = args.first
@@ -588,11 +687,64 @@ module Reach
       return if value.empty?
 
       raise_outside!(event, "shell") if value =~ %r{(\A|[/=:])\$\{?[A-Za-z_]}
-      return unless path_like?(value) || value == ".."
+      unless path_like?(value) || value == ".."
+        raise_outside!(event, "shell") if Reach::Paths.inside_home?(File.expand_path(value, base)) || glob_reaches_home?(value, base)
+        return
+      end
       return if OUTSIDE_ALLOWED.include?(value)
       return if shim_index([value]) == 0 && value != "reach"
 
       raise_outside!(event, "shell") if outside_path?(value, base)
+      raise_outside!(event, "shell") if glob_reaches_home?(value, base)
+    end
+
+    def glob_reaches_home?(value, base)
+      return false unless value =~ /[*?\[{]/
+
+      Dir.glob(value, base: base).any? { |match| Reach::Paths.inside_home?(File.join(base, match)) }
+    rescue StandardError
+      false
+    end
+
+    def recursive_search?(tokens)
+      flags = tokens[1..-1].to_a.select { |token| token.start_with?("-") }
+      case tokens[0]
+      when "rg", "find"
+        true
+      when "grep", "diff"
+        flags.any? { |flag| flag =~ /\A--(dereference-)?recursive\z/ || flag =~ /\A-[A-Za-z]*[rR][A-Za-z]*\z/ }
+      when "ls"
+        flags.any? { |flag| flag == "--recursive" || flag =~ /\A-[A-Za-z]*R[A-Za-z]*\z/ }
+      else
+        false
+      end
+    end
+
+    def search_operands(tokens)
+      rest = tokens[1..-1].to_a
+      if tokens[0] == "find"
+        rest.take_while { |token| !token.start_with?("-") && token != "(" && token != "!" }
+      else
+        operands = rest.reject { |token| token.start_with?("-") }
+        pattern_flag = rest.any? { |token| token =~ /\A-[A-Za-z]*[ef]\z/ || token.start_with?("--regexp", "--file") }
+        operands = operands.drop(1) if %w[grep rg].include?(tokens[0]) && !pattern_flag
+        operands
+      end
+    end
+
+    def search_bases(tokens, cwd)
+      operands = search_operands(tokens)
+      operands.empty? ? [cwd] : operands.map { |token| real_resolve(token, cwd) }
+    end
+
+    def check_search_exposes_home!(tokens, cwd)
+      return unless recursive_search?(tokens)
+
+      search_bases(tokens, cwd).each do |resolved|
+        next if resolved.nil?
+
+        raise_blocked!("M-SHELL-BLOCKED") if Reach::Paths.ancestor_of_home?(resolved)
+      end
     end
 
     def shell_owned_test(kind, workspace)
@@ -615,9 +767,26 @@ module Reach
 
       cmd = tokens[0]
       raise_blocked!("M-GATE-NOGIT") if cmd == "git"
-      return if cmd.nil? || cmd == "reach" || readonly_command?(tokens)
+      return if cmd.nil?
+
+      raise_blocked!("M-SHELL-BLOCKED") if root_output_redirect?(tokens)
+      return if cmd == "reach"
+      return if %w[cd pushd].include?(cmd) && tokens.length == 2
+      return if readonly_command?(tokens)
 
       raise_blocked!("M-SHELL-BLOCKED")
+    end
+
+    def root_output_redirect?(tokens)
+      tokens.each_with_index.any? do |token, index|
+        next false if token =~ /\A\d*>&\d+\z/
+
+        match = token.match(/\A\d*(?:&>>?|>>?)(.*)\z/m)
+        next false unless match
+
+        target = match[1].to_s.empty? ? tokens[index + 1].to_s : match[1]
+        !OUTSIDE_ALLOWED.include?(target)
+      end
     end
 
     def check_enrolled!
@@ -680,6 +849,42 @@ module Reach
       Reach::Workspace.space_for(cwd)
     rescue StandardError
       nil
+    end
+
+    def focus_workspace(target: nil)
+      here = current_workspace_path
+      return here if here
+
+      space = current_space
+      return nil unless space && space["kind"] == "root"
+
+      if target && !target.to_s.empty?
+        found = Reach::Workspace.space_for_target(File.expand_path(target.to_s))
+        return found["path"] if found && found["kind"] == "slice"
+      end
+
+      slices = Reach::Workspace.current_slices
+      slices.length == 1 ? slices.first : nil
+    rescue StandardError
+      nil
+    end
+
+    def root_kind?
+      space = current_space
+      space && space["kind"] == "root" ? true : false
+    end
+
+    def pick_slice_text
+      Reach::Messages.text("M-PICK-SLICE", choices: pick_slice_choices)
+    end
+
+    def raise_pick_slice!
+      raise_blocked!("M-PICK-SLICE", choices: pick_slice_choices)
+    end
+
+    def pick_slice_choices
+      root = File.expand_path(Reach::Paths.workspace_root)
+      Reach::Workspace.current_slices.map { |path| "cd #{path.sub("#{root}#{File::SEPARATOR}", "")}" }.join(", or ")
     end
 
     def owned_absolute_paths(workspace)
@@ -815,7 +1020,7 @@ module Reach
       cmd = plain_tokens[0]
       return if cmd.nil?
 
-      check_vault_or_keys_reads!(plain_tokens, workspace)
+      check_vault_or_keys_reads!(plain_tokens + redirect_targets, workspace)
       raise_blocked!("M-GATE-NOGIT") if cmd == "git" && kind != "extracurricular"
       raise_blocked!("M-GATE-NOCODETOOL") if kind != "extracurricular" && inline_code?(plain_tokens)
 
@@ -857,6 +1062,9 @@ module Reach
 
         resolved = resolve_arg(tok, workspace)
         raise_blocked!("M-SHELL-BLOCKED") if within?(resolved, Reach::Paths.vault_dir) || within?(resolved, Reach::Paths.keys_dir)
+        next if shim_index([tok]) == 0 && tok != "reach"
+
+        raise_blocked!("M-SHELL-BLOCKED") if Reach::Paths.inside_home?(resolved)
       end
     end
 

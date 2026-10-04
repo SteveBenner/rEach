@@ -145,6 +145,8 @@ module Reach
     def tick(source: "background")
       return { "skipped" => "disabled" } if disabled?
 
+      Reach::CodexSetup.heal! if source == "background"
+
       install = Reach::Enroll.current
       return { "skipped" => "not_enrolled" } unless install.is_a?(Hash)
       return { "skipped" => "revoked" } if install["revoked"]

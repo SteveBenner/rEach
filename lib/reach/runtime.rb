@@ -65,13 +65,30 @@ module Reach
       dir = File.dirname(shim_path)
       FileUtils.mkdir_p(dir)
       write_if_different(shim_path, shim_content)
-      write_if_different(shim_root_path, "#{root}\n") if shim_root_replaceable?
+      target = shim_root_target
+      write_if_different(shim_root_path, "#{target}\n") if target
       begin
         File.chmod(0o755, shim_path)
       rescue NotImplementedError, Errno::ENOENT
         nil
       end
       nil
+    rescue StandardError
+      nil
+    end
+
+    def shim_root_target
+      return (shim_root_replaceable? ? root : nil) if Reach::Paths.legacy_active?
+
+      recorded = File.file?(shim_root_path) ? File.read(shim_root_path).strip : ""
+      stale = !recorded.empty? && in_legacy_home?(recorded)
+      if in_legacy_home?(root)
+        managed = File.join(Reach::Paths.root, "plugin")
+        return managed if (stale || recorded.empty?) && File.file?(File.join(managed, "exe", "reach"))
+
+        return nil
+      end
+      stale || shim_root_replaceable? ? root : nil
     rescue StandardError
       nil
     end
@@ -86,6 +103,12 @@ module Reach
       Gem::Version.new(File.read(version_file).strip) <= Gem::Version.new(Reach::VERSION)
     rescue StandardError
       true
+    end
+
+    def in_legacy_home?(path)
+      Reach::Paths.path_within?(Reach::Paths.realish(path), Reach::Paths.realish(Reach::Paths.legacy_home))
+    rescue StandardError
+      false
     end
 
     def write_if_different(path, content)

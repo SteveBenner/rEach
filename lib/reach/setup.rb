@@ -23,8 +23,10 @@ module Reach
       results = candidates.map { |id| run_harness(id, resolved_source) }
       results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, Antigravity, or Hermes, then run setup again." } if results.empty?
       ok = results.any? { |entry| entry[:ok] }
+      relocation = relocate_after_install
       exit_code = ok ? 0 : 1
 
+      host_steps = ok ? host_step_lines(results) : []
       next_greeting = ok ? next_greeting_text : nil
       runtime_note = runtime_section(runtime)
       exit_code = 1 if runtime_note[:failed]
@@ -34,12 +36,14 @@ module Reach
           "harnesses" => results.map { |entry| { "id" => entry[:id], "ok" => entry[:ok], "message" => entry[:message] } },
           "next" => next_greeting,
           "instructions" => (ok ? instructions_line : nil),
+          "host_steps" => host_steps,
           "exit" => exit_code
         }
+        payload["relocation"] = relocation[:line] if relocation
         payload["runtime"] = runtime_note[:json] if runtime_note[:json]
         [JSON.generate(payload), exit_code]
       else
-        output = text_output(results, next_greeting)
+        output = text_output(results, next_greeting, relocation, host_steps)
         output = "#{output}\n\n#{runtime_note[:text]}" if runtime_note[:text]
         [output, exit_code]
       end
@@ -87,7 +91,7 @@ module Reach
 
       case platform
       when "macos"
-        "Run setup with the built-in Ruby: /usr/bin/ruby ~/.reach/plugin/exe/reach setup"
+        "Run setup with the built-in Ruby: /usr/bin/ruby #{File.join(Reach::Runtime.root, "exe", "reach")} setup"
       when "windows"
         "Install Ruby 4.0 from https://rubyinstaller.org for this user only, then run setup again."
       else
@@ -158,7 +162,12 @@ module Reach
         return { id: "codex", ok: false, message: "Codex app: add this repository as a plugin marketplace, then add rEach from the Plugins directory." }
       end
 
-      _add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
+      add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
+      if !add_status && "#{add_out}#{add_err}".include?(Reach::HarnessSource::CONFLICT)
+        replaced = Reach::HarnessSource.replace_codex_source(source)
+        add_status = replaced == "ok"
+        add_err = replaced.sub(/\Afailed: /, "")
+      end
       unless add_status
         return { id: "codex", ok: false, message: "Codex: marketplace add failed: #{add_err}" }
       end
@@ -169,7 +178,7 @@ module Reach
       end
 
       Reach::CodexCache.repair
-      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's two hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks)." }
+      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's two hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks). rEach will also ask to change two Codex settings so its commands can use the internet and its folder inside Codex; after that change, start a new chat in Codex." }
     end
 
     def run_antigravity(_source)
@@ -295,8 +304,26 @@ module Reach
       "Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `#{Reach::Runtime.hook_command("hello", "--format", "text")}` and follow what it prints."
     end
 
-    def text_output(results, next_greeting)
+    def relocate_after_install
+      return nil unless Reach::Paths.legacy_active?
+
+      Reach::Relocation.run(trigger: "setup")
+    rescue StandardError => e
+      { phase: "failed", line: "rEach could not move its files into your reach-work folder (#{e.message}). Nothing was changed; your files are safe where they are." }
+    end
+
+    def host_step_lines(results)
+      steps = []
+      if results.any? { |entry| entry[:id] == "codex" && entry[:ok] }
+        steps << "In Codex, open the reach-work folder in your home folder as the chat's folder (#{Reach::Paths.workspace_base})."
+        steps << "rEach will ask to change two Codex settings so its commands can use the internet and the reach-work folder inside Codex. Answer yes, then start a new chat in Codex so the change takes effect."
+      end
+      steps
+    end
+
+    def text_output(results, next_greeting, relocation = nil, host_steps = [])
       lines = results.map { |entry| entry[:message] }
+      lines << relocation[:line] if relocation && relocation[:line]
       return lines.join("\n") unless results.any? { |entry| entry[:ok] }
 
       lines << ""
@@ -307,6 +334,11 @@ module Reach
       lines << next_greeting
       lines << ""
       lines << instructions_line
+      unless host_steps.empty?
+        lines << ""
+        lines << "Host steps for the student, after the lines above:"
+        host_steps.each { |step| lines << step }
+      end
       lines.join("\n")
     end
   end

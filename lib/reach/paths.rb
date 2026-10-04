@@ -1,20 +1,135 @@
 require "fileutils"
 require "json"
+require "rbconfig"
 
 module Reach
   module Paths
     module_function
 
     PERSONA_ID = /\A[0-9a-f]{8}\z/.freeze
-
-    def root
-      value = ENV["REACH_HOME"].to_s
-      File.expand_path(value.empty? ? "~/.reach" : value)
-    end
+    NEW_HOME_NAME = ".reach-home".freeze
+    RESOLUTION_TTL_S = 2
 
     def workspace_base
       value = ENV["REACH_WORKSPACE_ROOT"].to_s
       File.expand_path(value.empty? ? "~/reach-work" : value)
+    end
+
+    def legacy_home
+      File.expand_path("~/.reach")
+    end
+
+    def new_home
+      File.join(workspace_base, NEW_HOME_NAME)
+    end
+
+    def relocation_pointer_file
+      File.join(new_home, "state", "relocation.json")
+    end
+
+    def root
+      value = ENV["REACH_HOME"].to_s
+      return File.expand_path(value) unless value.empty?
+
+      resolution[:root]
+    end
+
+    def legacy_active?
+      return false unless ENV["REACH_HOME"].to_s.empty?
+
+      resolution[:mode] == :legacy
+    end
+
+    def relocation_completed?
+      pointer = relocation_pointer_file
+      return false unless File.file?(pointer)
+
+      data = JSON.parse(File.read(pointer))
+      data.is_a?(Hash) && data["phase"] == "completed"
+    rescue StandardError
+      false
+    end
+
+    def legacy_present?
+      legacy = legacy_home
+      File.file?(File.join(legacy, "install.yml")) || File.directory?(File.join(legacy, "plugin"))
+    rescue StandardError
+      false
+    end
+
+    def resolution
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      key = [workspace_base, legacy_home]
+      cache = @resolution_cache
+      return cache[:value] if cache && cache[:key] == key && now - cache[:at] < RESOLUTION_TTL_S
+
+      value = if relocation_completed?
+                { mode: :new, root: new_home }
+              elsif legacy_present?
+                { mode: :legacy, root: legacy_home }
+              else
+                { mode: :new, root: new_home }
+              end
+      @resolution_cache = { value: value, key: key, at: now }
+      value
+    end
+
+    def forget_resolution!
+      @resolution_cache = nil
+      nil
+    end
+
+    def realish(path)
+      expanded = File.expand_path(path.to_s)
+      return File.realpath(expanded) if File.exist?(expanded)
+
+      rest = []
+      current = expanded
+      until File.exist?(current) || current == File.dirname(current)
+        rest.unshift(File.basename(current))
+        current = File.dirname(current)
+      end
+      real = File.exist?(current) ? File.realpath(current) : current
+      File.join(real, *rest)
+    rescue SystemCallError, ArgumentError
+      File.expand_path(path.to_s)
+    end
+
+    def case_insensitive_fs?
+      RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|darwin/i ? true : false
+    end
+
+    def path_within?(path, base)
+      return false if path.nil? || base.nil?
+
+      left = case_insensitive_fs? ? path.downcase : path
+      right = case_insensitive_fs? ? base.downcase : base
+      left == right || left.start_with?("#{right}#{File::SEPARATOR}")
+    end
+
+    def home_name?(name)
+      text = name.to_s
+      text = text.downcase if case_insensitive_fs?
+      text.start_with?(NEW_HOME_NAME)
+    end
+
+    def home_dirs
+      [root, new_home].map { |dir| realish(dir) }.uniq
+    end
+
+    def ancestor_of_home?(resolved)
+      home_dirs.any? { |dir| path_within?(dir, resolved) }
+    end
+
+    def inside_home?(path)
+      target = realish(path)
+      return true if home_dirs.any? { |dir| path_within?(target, dir) }
+
+      base = realish(workspace_base)
+      return false unless path_within?(target, base)
+
+      relative = target[base.length..-1].to_s.sub(%r{\A[/\\]+}, "")
+      home_name?(relative.split(%r{[/\\]}).first)
     end
 
     def persona_pointer_file
@@ -38,6 +153,17 @@ module Reach
       @persona_memo = nil
     end
 
+    def with_persona(id)
+      previous = @persona_override
+      memo = @persona_memo
+      @persona_override = id ? id : :none
+      @persona_memo = nil
+      yield
+    ensure
+      @persona_override = previous
+      @persona_memo = memo
+    end
+
     def persona_record
       return nil if @persona_override
       return @persona_memo[:record] if @persona_memo && @persona_memo[:root] == root
@@ -53,7 +179,7 @@ module Reach
     end
 
     def persona_id
-      return @persona_override if @persona_override
+      return (@persona_override == :none ? nil : @persona_override) if @persona_override
 
       record = persona_record
       record ? record["id"] : nil
