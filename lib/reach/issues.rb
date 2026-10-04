@@ -322,7 +322,7 @@ module Reach
 
     def write_entry(install, key, entry, pending)
       course = install["course"].is_a?(Hash) ? install["course"]["id"] : nil
-      tar_bytes = Reach::Tarball.write("bundle.json" => JSON.generate(bundle(key, entry, pending)))
+      tar_bytes = Reach::Tarball.write("bundle.json" => JSON.generate(Reach::Utf8.clean(bundle(key, entry, pending))))
       envelope = Reach::Hands.seal_bundle(install, { "course" => course, "assignment" => nil }, tar_bytes)
       body = {
         "cutout_id" => nil, "slice" => nil, "trigger" => TRIGGER, "originator" => "reach",

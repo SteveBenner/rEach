@@ -533,7 +533,7 @@ module Reach
       emit(
         "sync",
         "state" => summary["state"], "packages" => packages, "workspaces" => Array(summary["workspaces"]).length,
-        "outbox_sent" => summary["outbox_sent"],
+        "outbox_sent" => summary["outbox_sent"], "transcript_sent" => summary["transcript_sent"],
         "warnings" => Array(summary["warnings"]).length, "warning_texts" => Array(summary["warnings"]).map(&:to_s),
         "duration_ms" => elapsed_ms(started)
       )

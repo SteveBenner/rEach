@@ -17,16 +17,20 @@ and sends it in when you are ready.
    the chat and rEach asks you, one at a time, for the course passkey your
    instructor shared in class (it looks like `BUS101-K7QX-94TD`; dashes,
    spaces and capitals don't matter), your school username (your university
-   email, like `jsmi123@school.example`) and your student ID. Your AI
+   email, like `jsmi123@school.example`) and your student ID, and last to choose
+   a password (at least 8 characters, typed twice; write it down, you will
+   type it every time you sign in). Your AI
    partner never sees what you type here. You can also run
    `reach enroll --course-passkey PASSKEY --username USER --student-id ID` in a
-   terminal. Type `start over` at any point to begin again.
+   terminal; in Antigravity your AI partner walks you through that terminal
+   step, because rEach cannot ask in its chat. Type `start over` at any point
+   to begin again.
 3. rEach introduces itself and asks a few questions. Answer as many or as few
    as you like; you can always finish later.
 
 ## Every day
 
-- Each time you start, rEach asks for your student ID and then "Am I speaking with <your name>?". Type yes and you're signed in. If you're not the student this computer is enrolled for, rEach won't do course work.
+- Each time you start, rEach asks for your student ID and then "Am I speaking with <your name>?". Type yes, then type your rEach password, and you're signed in. Your AI partner never sees the password. Nobody can look it up for you, not even your instructor: if you forget it, type `forgot password`, ask your instructor to allow a password reset, then type `forgot password` again and choose a new one. If you're not the student this computer is enrolled for, rEach won't do course work.
 - `reach next` tells you your next step. Your AI partner uses it too when you're not sure where to start.
 - Each assignment has a few questions only you can answer, about your business and your decisions. Your AI partner asks them one at a time; answer in your own words. rEach sends your answers with your work, and won't submit until they're all answered (`reach part` shows which).
 - rEach only works inside your course folders. To share a file for the course, drag it into the chat or paste its text; rEach copies it into the folder's `materials/`. Share only what the course needs.
@@ -35,7 +39,7 @@ and sends it in when you are ready.
 - rEach checks your course server for news (grades, replies, new materials) every few minutes while you work and about every 15 minutes in the background, and tells you what it found; `reach subscribe uninstall` turns the background check off.
 - `reach status` shows your enrollment, your slices, whether each one has passed its checks, and any receipts.
 - Your AI partner writes and checks all the code. Before anything is submitted it proves the work against checks of its own and the instructors' checks on the course server; you only talk about what the business needs.
-- When a part passes its checks, your AI partner will tell you that you can ask it to submit. rEach asks you first and sends your work in only when you say yes. Right after, it saves a copy of all your work for the assignment in your Downloads folder as a ZIP named with the course, the assignment and the date and time. You can submit again as many times as you like until the due time; the last one you send counts. After the due time, a part that is already submitted can't be submitted again.
+- When a part passes its checks, your AI partner will tell you that you can ask it to submit. rEach asks you first and sends your work in only when you say yes. Right after, it saves a copy of all your work for the assignment in your Downloads folder as a ZIP named with the course, the assignment and the date and time. Upload that ZIP to Blackboard too: that is what earns credit. You can submit again as many times as you like until the due time; the last one you send counts. After the due time, a part that is already submitted can't be submitted again.
 - `reach submit` sends your work in. You will see the receipt number as soon as it arrives. rEach keeps every receipt on your computer, confirms each one back to the course server with a signed receipt of its own, and `reach sync` fetches any receipt your computer is missing, so you and your instructors hold matching copies.
 - If your AI partner needs a second try, it tells you. After three tries it asks your instructors for help on its own, tells you, and keeps trying only if you say yes. After ten tries it stops until your instructors reply.
 
@@ -46,7 +50,7 @@ Everything lives in the `reach-work` folder in your home folder (`~/reach-work`)
 - `deliverables/<course>/<assignment>/<cutout>-<slice>/` holds each slice you are assigned. Code for an assignment goes only in your slice's own files here. `reach work` opens a slice.
 - `extracurricular/` is your own code folder, for anything you want to build that is not an assignment. It is never graded or submitted. `reach work --extracurricular` opens it.
 
-Your AI partner puts code in files in one of these folders, not in the chat. Nothing you and your AI partner say is recorded or sent, in either folder; the files in `extracurricular/` stay on your computer (see Privacy below).
+Your AI partner puts code in files in one of these folders, not in the chat. While you are signed in and working on an assignment, what you and your AI partner say is recorded for your instructors, without your name on it (see Privacy below); nothing said in `extracurricular/` is recorded, and its files stay on your computer (see Privacy below).
 
 ## Choosing a model in Hermes
 
@@ -77,4 +81,6 @@ course server, unless you say yes when rEach asks the instructors for help.
 
 ## Privacy
 
-Reach sends your submitted slice files, your enrollment details, your own-part answers and, when your AI partner asks for help, a short summary with your recent changes to the course server. No conversation is recorded or sent: not what you type, not your AI partner's replies, reasoning or actions, in any folder. To keep your enrollment yours, Reach also sends a scrambled fingerprint of this computer and computer account (never your files or passwords), which your course server checks; if your rEach is copied to another computer or account, it locks until you enroll there. Reach does not send other files on your computer, or anything else outside your course folders. What rEach learns about you, in its interview and from what you type, is saved on this computer only; the interview profile is shared with your instructors only if you agree to add it when asking for help, and reach profile forget deletes it. When rEach hits an error it sends your course server a short report of where it happened. The report holds no files, typed text or replies. Like any chat, what you type to rEach goes to the AI provider you use.
+rEach sends your submitted slice files, your enrollment details, your own-part answers and, when your AI partner asks for help, a short summary with your recent changes to the course server. While you are signed in and working on an assignment, rEach also records the conversation (what you type, and your AI partner's replies, reasoning, actions and assignment code) and sends it to the course server, where your instructors can read it. It is sent under a random label, with your name, email, student ID and computer details replaced by placeholders; your instructors can reveal whose conversation it is, and each reveal is logged. Nothing is recorded before you sign in, in your extracurricular folder or outside your course folder. Ask rEach to export your conversations to save your own copy as a ZIP in Downloads. To keep your enrollment yours, rEach also sends a scrambled fingerprint of this computer and computer account (never your files or passwords), which your course server checks; if your rEach is copied to another computer or account, it locks until you enroll there. rEach does not send other files on your computer, or anything else outside your course folders. What rEach learns about you, in its interview and from what you type, is saved on this computer only; the interview profile is shared with your instructors only if you agree to add it when asking for help, and `reach profile forget` deletes it. When rEach hits an error it sends your course server a short report of where it happened. The report holds no files, typed text or replies. Like any chat, what you type to rEach goes to the AI provider you use.
+
+The same thing as a picture: [the privacy map](architecture.md#7-the-privacy-map), one of ten figures in [`architecture.md`](architecture.md) that show how rEach and your course server fit together.

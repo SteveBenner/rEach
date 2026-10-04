@@ -614,22 +614,22 @@ RUBY
 
     def hook_prompt_open_step
       session = "platform-smoke-codex"
-      [["t1", "hello", "student ID"], ["t2", STUDENT_ID, STUDENT_NAME], ["t3", "yes", "signed in"]].each do |turn, prompt, expected|
+      [["t1", "hello", "student ID"], ["t2", STUDENT_ID, STUDENT_NAME], ["t3", "yes", "password"], ["t4", "not-the-password", "isn't your rEach password"], ["t5", TEST_PASSWORD, "signed in"]].each do |turn, prompt, expected|
         code, out, err = codex_turn(session, turn, prompt)
         return [:fail, "codex #{turn}: expected a block naming #{expected.inspect}, got exit #{code.inspect}: #{tail(out, err)}"] unless blocked?(code, out, err) && err.include?(expected)
       end
-      code, out, err = codex_turn(session, "t3", "yes")
-      return [:fail, "codex t3 answered twice: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0 && err.strip.empty?
+      code, out, err = codex_turn(session, "t5", TEST_PASSWORD)
+      return [:fail, "codex t5 answered twice: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0 && err.strip.empty?
 
-      code, out, err = codex_turn(session, "t4", "hello")
-      return [:fail, "codex t4: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
-      return [:fail, "codex t4 lacks the signed-in context: #{tail(out, err)}"] unless out.include?(STUDENT_NAME)
+      code, out, err = codex_turn(session, "t6", "hello")
+      return [:fail, "codex t6: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+      return [:fail, "codex t6 lacks the signed-in context: #{tail(out, err)}"] unless out.include?(STUDENT_NAME)
 
       code, out, err = run_hook(@prompt_command, JSON.generate(JSON.parse(prompt_payload).merge("session_id" => session)))
       return [:fail, "exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
       return [:fail, "still blocked: #{tail(out, err)}"] if blocked?(code, out, err)
 
-      [:pass, "signed in through the plugin hook (ask, confirm, yes once per turn, signed-in context), gate open"]
+      [:pass, "signed in through the plugin hook (ask, confirm, yes, wrong password, password once per turn, signed-in context), gate open"]
     end
 
     def status_step

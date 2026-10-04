@@ -308,7 +308,7 @@ module Reach
         local = Array(qualification["findings"]).map do |finding|
           [finding["code"], finding["name"], finding["step"], finding["detail"]].compact.map(&:to_s).reject(&:empty?).join(" | ")
         end
-        output = { "local" => local, "agent" => remote["agent"], "stub" => remote["stub"], "hidden" => remote["hidden"] }
+        output = Reach::Utf8.clean({ "local" => local, "agent" => remote["agent"], "stub" => remote["stub"], "hidden" => remote["hidden"] })
         return output if JSON.generate(output).bytesize <= OUTPUT_LIMIT
 
         { "local" => local.first(50).map { |line| cut(line, 500) }, "agent" => nil, "stub" => nil, "hidden" => nil }
@@ -324,6 +324,7 @@ module Reach
       end
 
       def fit(bundle)
+        bundle = Reach::Utf8.clean(bundle)
         return bundle if JSON.generate(bundle).bytesize <= BUNDLE_LIMIT
 
         bundle["last_output"] = nil

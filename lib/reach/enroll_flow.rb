@@ -136,6 +136,7 @@ module Reach
         "updated_at" => iso(Time.now.utc)
       )
       write_flow(next_flow)
+      Reach::Progress.mark("enroll.code")
       ask_username(next_flow)
     end
 
@@ -184,6 +185,7 @@ module Reach
 
     def step_confirm(flow, text, now, harness)
       if Reach::Login.yes?(text)
+        Reach::Progress.mark("enroll.identity")
         if harness.to_s == "hermes"
           Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("enroll"))
         else
@@ -278,6 +280,10 @@ module Reach
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
           return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
         end
+        if e.code == "password_wrong"
+          write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+          return Reach::Messages.text("M-ENR-PASSWORD-WRONG")
+        end
         if e.code == "device_move_pending"
           write_flow(flow.merge("state" => "awaiting_move", "updated_at" => iso(now)))
           return Reach::Messages.text("M-ENR-MOVE-PENDING")
@@ -298,6 +304,7 @@ module Reach
       end
 
       FileUtils.rm_f(Reach::Paths.enroll_flow_file)
+      Reach::Progress.enrolled!(install["student_id"])
       spawn_sync
       first_name = install["display_name"].to_s.split(/\s+/).first || "there"
       Reach::Messages.text(

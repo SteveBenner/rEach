@@ -59,7 +59,10 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-PART-UNKNOWN", id: question_id) unless question
 
         entry = latest_prompt(assignment)
-        raise Reach::Refused, Reach::Messages.text("M-PART-NO-ANSWER") unless entry
+        unless entry
+          quiet = Reach::KnownIssues.prompt_hook_quiet?(WINDOW_S)
+          raise Reach::Refused, Reach::Messages.text(quiet ? "M-PART-NO-HOOK" : "M-PART-NO-ANSWER")
+        end
 
         text = entry["text"]
         words = word_count(text)
@@ -70,6 +73,8 @@ module Reach
           "question_id" => question["id"],
           "text" => text,
           "words" => words,
+          "session_id" => entry["session_id"],
+          "seq" => entry["seq"],
           "digest" => entry["digest"] || Reach::Crypto.digest_hex(text),
           "recorded_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
           "student_id" => student_id
@@ -78,11 +83,14 @@ module Reach
         state["answers"][question["id"]] = answer
         write_state(assignment, meta["course"], state)
         FileUtils.rm_f(pending_path)
-        Reach::Ledger.append(workspace, "part", "question_id" => question["id"], "digest" => answer["digest"])
+        Reach::Ledger.append(
+          workspace, "part",
+          "question_id" => question["id"], "digest" => answer["digest"], "seq" => answer["seq"], "session_id" => answer["session_id"]
+        )
         answer
       end
 
-      def observe_prompt(space, text)
+      def observe_prompt(space, text, recorded = nil)
         return nil unless space.is_a?(Hash) && %w[slice root].include?(space["kind"])
         return nil unless text.is_a?(String) && !text.strip.empty?
         return nil if Reach::Consent.yes?(text) || Reach::Consent.no?(text)
@@ -92,7 +100,8 @@ module Reach
 
         meta = space["kind"] == "slice" ? Reach::Workspace.metadata(space["path"]) : {}
         record = {
-          "text" => text, "words" => words, "digest" => Digest::SHA256.hexdigest(text),
+          "text" => text, "words" => words, "digest" => (recorded && recorded["digest"]) || Digest::SHA256.hexdigest(text),
+          "session_id" => recorded && recorded["session_id"], "seq" => recorded && recorded["seq"],
           "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "space" => space["kind"],
           "cutout_id" => meta["cutout_id"], "slice" => meta["slice"], "student_id" => student_id
         }

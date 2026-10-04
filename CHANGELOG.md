@@ -9,9 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a
-  jointed, wired one; `docs/assets/reach-banner.svg` is the full picture and now opens `README.md`. No plugin code
-  changed, so the version stays 0.23.1.
 - rEach sets Codex up by itself (`STD-CODEX-SETUP`, `Reach::CodexSetup`). After the student's yes it writes the sandbox
   settings rEach needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`): mode workspace (the
   default outside Windows) sets `sandbox_mode = "workspace-write"`, network access and the reach-work folder as a
@@ -72,6 +69,182 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The new home alone does not open the Codex sandbox; the Codex setup above does, after the student's yes. Codex hook
   trust is unrelated. On Windows the project's top-level
   `.codex` is read-only inside the sandbox.
+
+## [0.28.2] - 2026-10-04
+
+### Fixed
+- A student whose Codex ran rEach in its sandbox was told to "start a new chat from your course folder" with no
+  word on where that folder is. A Windows student found only `deliverables` and `extracurricular` in `reach-work`
+  and was told they had no course folder. `M-SANDBOX-STUDENT` now gives the folder's path on this computer and says
+  it is the folder that holds `deliverables` and `extracurricular` (`Reach::Sandbox.course_folder`,
+  `locales/en-US.yml`).
+
+## [0.28.1] - 2026-10-04
+
+### Fixed
+- An own-part answer could not be recorded in an app that was not running rEach's prompt hook, and rEach blamed
+  the student: `reach part record` said it could not find a recent answer and asked them to answer again, which
+  could never work. It now says the answer never reached rEach because the prompt hook is not running
+  (`M-PART-NO-HOOK`) and sends the assistant to the known issue's steps (`lib/reach/part.rb`).
+- The `hooks_not_running` detector took a session-start hook as proof that hooks run, so a Codex that ran only that
+  hook was never detected. `hooks_seen.json` now keeps the time of the last prompt, tool or stop hook, and the
+  detector reads that (`lib/reach/known_issues.rb`, wire revision 2026-10-04e).
+
+## [0.28.0] - 2026-10-04
+
+### Added
+- Sign-in asks for the password (`STD-SIGNIN-PASSWORD`, wire revision 2026-10-04d, `W-ID-5`). The password a student
+  chose at enrollment was sent to the course server once and never asked for again; signing in took the student ID and
+  a yes. Now the prompt hook asks for the password after the yes and keeps the session unconfirmed, and every gate
+  closed, until it is right (`lib/reach/login.rb`, `lib/reach/password.rb`). rEach checks it against a salted
+  PBKDF2-HMAC-SHA256 verifier in `~/.reach/state/login/verifier.json` (0600), written at enrollment; a computer
+  enrolled before this release asks the course server once and keeps the verifier from then on. Without a verifier and
+  without the server the sign-in waits. A wrong password counts toward the sign-in lockout.
+- Forgotten passwords are reset, never looked up. `forgot password` at the password question asks the course server
+  whether an instructor allowed a reset for this student; if so rEach asks for a new password twice and sets it, and
+  otherwise it tells the student to ask their instructor. `reach login password` and `reach login reset` do the same in
+  a terminal with typing hidden, which is where Hermes sends the student because it cannot hide a prompt from the AI.
+- The course policy's `login.password: false` switches the password step off.
+
+### Changed
+- Enrolling again takes the password the student already has. A different one is refused (`M-ENR-PASSWORD-WRONG`)
+  unless an instructor allowed a reset, in which case the password typed becomes the new one. Before, any re-enrollment
+  replaced the password.
+- `PRIVACY.md`, `README.md`, `docs/student-guide.md` and the assistant's rules say what happens to the password.
+
+## [0.27.0] - 2026-10-04
+
+### Added
+- Diagnosis sessions (`STD-LIVE-DIAGNOSIS`, wire revision 2026-10-04c, `W-LIVE-10`). On a computer that holds the
+  instructor unlock, `reach instructor diagnose [--course ID]` or the `reach_live` tool with action `diagnose` starts
+  a live session for working out a rEach problem between the assistant there and the instructor's assistant. rEach
+  asks one question; on the typed yes the session opens at once, the two assistants write to each other without a
+  question per message, and rEach runs the fixed checks the instructor's side requests without asking again. A
+  computer that is not enrolled gets a blank test student first. Needs a course server that knows wire revision
+  2026-10-04c.
+
+## [0.26.2] - 2026-10-04
+
+### Fixed
+- Figure 02, *Trust boundaries*, and `docs/architecture.md` still said rEach records none of the conversation.
+  Since 0.25.0 it records signed-in assignment work, as `PRIVACY.md` and figures 06, 07 and 10 say. The note now
+  reads "rEach records only signed-in assignment work" (`tools/figures/figures/02_trust.rb`, both SVG variants).
+  Documentation only; nothing in the plugin's behavior changes.
+
+## [0.26.1] - 2026-10-04
+
+### Fixed
+- Re-identifying a transcript lost data (`STD-TRANSCRIPT-DEIDENTIFY`, wire revision 2026-10-04b, `W-TRN-6`). A
+  placeholder was restored to the roster spelling, so `will` came back as `Will` and a home folder typed with other
+  slashes came back in one spelling; a string the student typed that looked like a placeholder was replaced; and text
+  that outgrew its limit after replacement was cut. Each entry now carries `restore`, an encrypted record of the exact
+  strings its placeholders stand for and of any text that no longer fit, under a per-install key that travels inside
+  the sealed identity index (`lib/reach/deidentify.rb`). The key holder gets back the text exactly as recorded.
+
+## [0.26.0] - 2026-10-04
+
+### Added
+- De-identified transcripts (`STD-TRANSCRIPT-DEIDENTIFY`, wire revision 2026-10-04a, `W-TRN-6`). Before a recorded
+  conversation is sent, rEach takes the student's identity out: `lib/reach/deidentify.rb` keeps one random pseudonym
+  per install, replaces the identifiers rEach knows (name, email, username, student ID, computer account, home folder,
+  computer name) in every entry with placeholders such as `[[student-name]]`, and encrypts the index that links the
+  pseudonym and the placeholders back to the student to the course's re-identification key. Only the holder of that
+  key can re-identify a transcript.
+- A prompt entry carries `source_digest`, the digest of the prompt as typed, so the own-part check still matches.
+
+### Changed
+- `POST /api/v1/transcripts` requires `pseudonym` and `identity`. rEach sends nothing until the course status hands
+  out the key (`reach transcript flush` reports `stopped (identity_key)`), and keeps its queue.
+- `PRIVACY.md`, the student guide and the privacy figure say what de-identification does and does not do: the course
+  server holds the key and can reveal whose conversation it is, it authenticates each upload, and a name rEach does
+  not know stays in the text.
+- The spool on the student's computer and `reach transcripts export` are unchanged: the student's own copy stays as
+  typed.
+
+## [0.25.1] - 2026-10-04
+
+### Fixed
+
+- Raising a hand no longer fails when rEach is started with no locale and a file in the slice holds a non-ASCII
+  character (`STD-UTF8-BUNDLE`). Claude Desktop on macOS starts the MCP server with no locale, so Ruby read the
+  slice's files as US-ASCII and `reach_raise_hand` stopped with `JSON::GeneratorError` in `Reach::Hands.fit` before the
+  hand was queued; a student could neither raise a hand nor report a problem (2026-10-04). rEach now reads text as
+  UTF-8 in every locale (`Encoding.default_external` in `lib/reach.rb`), and `Reach::Utf8.clean` tags every string of a
+  hand bundle and an issue bundle as UTF-8 and replaces invalid bytes before the JSON is written.
+
+## [0.25.0] - 2026-10-03
+
+### Added
+
+- Signed-in assignment work is recorded again (`STD-TRANSCRIPT`, wire revision 2026-10-03i, `W-TRN-0` to `W-TRN-5`,
+  Teach 0.38.0). While a session is signed in, the course has a current assignment and the session runs in a slice or
+  the course folder root, rEach records every allowed prompt, the AI's replies, reasoning and actions, and the
+  assignment code (code blocks in replies, each AI write, a turn-end scan of the slice's owned files) in
+  `~/.reach/transcripts/` and sends it to `POST /api/v1/transcripts` at turn end, on `reach sync` and before a
+  submission. Instructors read it in Teach. Restored: `lib/reach/transcript.rb`, `transcript_ingest.rb`, the
+  PostToolUse hook `reach transcript code`, `reach transcript flush|status`, the transcript line of `reach status`,
+  the spool cap in `reach sync` and the `transcript` debug events.
+- The bounds (`Reach::Transcript.capturing?`): nothing is written or sent before sign-in, with no current assignment,
+  in the extracurricular folder, outside the course folder or in instructor mode. Outside the bounds rEach only moves
+  its place in the harness's own transcript forward, and a session's recording never reads what that transcript held
+  before the session's first recorded prompt. A prompt the gate or the sign-in blocks is not recorded.
+- Transcript export (`STD-TRANSCRIPT-EXPORT`): `reach transcripts export`, the `reach_transcripts` tool and the one
+  automatic export after the course ends (`transcripts.auto_export`, default on) save the student's own recorded
+  conversations as a ZIP in Downloads.
+- An own-part answer again names the recorded prompt it came from (`session_id`, `seq`), or null when the prompt was
+  not recorded, so Teach can check it (`W-PART-3`).
+
+### Changed
+
+- `PRIVACY.md`, `README.md`, `docs/student-guide.md`, `docs/DESIGN-DECISIONS.md`, `docs/architecture.md`, the persona
+  and the extracurricular rules now say what is recorded and when. There is no in-session notice. Figures 6, 7 and 10
+  are redrawn to match.
+- `reach hook stop` records the turn and sends it before its debug flush.
+
+### Removed
+
+- The one-time purge of `~/.reach/transcripts` (`Reach::RetiredCapture`). rEach no longer deletes local transcripts.
+
+## [0.24.0] - 2026-10-03
+
+### Added
+
+- Progress checkpoints (`STD-PROGRESS`, wire revision 2026-10-03h, `W-API-PROGRESS`, Teach 0.35.0). rEach records the
+  first time a student reaches a checkpoint only rEach can see and reports it to Teach, which shows it as the Progress
+  column of the instructors' Students page: the course passkey accepted (`enroll.code`), email and student ID
+  confirmed (`enroll.identity`), the first confirmed sign-in (`setup.signin`) and the first prompt inside a workspace
+  of each assignment (`<assignment>.started`). `Reach::Progress` (`lib/reach/progress.rb`) keeps them in
+  `state/progress.json`; once the student is enrolled `reach sync` sends the unsent ones in one signed request. A report holds ids and times only, never typed text, and no hook waits on the network. `REACH_PROGRESS=0` turns
+  it off. `PRIVACY.md` names it.
+
+- Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a
+  jointed, wired one; `docs/assets/reach-banner.svg` is the full picture and now opens `README.md`. No plugin code
+  changed.
+- System figures (`STD-FIGURES`). `docs/assets/figures/` holds ten figures of rEach and Teach together, each in a
+  light and a dark variant: the system at a glance, trust boundaries, the enrollment handshake, the work lifecycle,
+  the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong together, and
+  a poster. `docs/architecture.md` presents them and follows the reader's color scheme; `README.md` gains a "How it
+  fits together" section with figure 1. Teach is drawn as a frosted block that names what it guarantees and never
+  how. `tools/figures/build.rb` draws them from `tools/figures/figures/*.rb`, and `--png` renders 4K PNGs with
+  headless Chrome; the PNGs are not committed and are published as assets of the `figures-1` pre-release.
+- `docs/deploy-and-test.md`: a fixture walkthrough against `tools/fake_teach` (enroll, sync, status, doctor, two
+  refusals), the platform smoke and the agent smoke, and the rEach side of deploying for a real course. Every
+  command and output in it was run first.
+
+### Changed
+
+- Public docs no longer name Teach's internals (`STD-TEACH-OPAQUE`). `docs/course-alignment-design.md` and
+  `docs/smoke-assignment-1.md` described Teach by class, table, column, environment variable and command; they now
+  say what Teach does. Earlier commits still hold the old text.
+- `docs/student-guide.md` now mentions the password chosen at enrollment, the terminal enrollment in Antigravity
+  and the Blackboard upload after submitting, and calls rEach by one name. `docs/DESIGN-DECISIONS.md` lists four
+  enrollment inputs and the course passkey, and no longer ties the one-folder move to 0.17.0. American spelling in
+  `README.md` and `docs/smoke-assignment-1.md`.
+- The rest of the tree follows (`STD-TEACH-OPAQUE`, now covering `AGENTS.md`, `CHANGELOG.md`, `FEATURES.md`,
+  `TODO.md`, `specs/app.yml` and `specs/implementation/`). Fourteen lines that named a Teach command, class or
+  environment variable now say what Teach does. Seventeen build blueprints that directed work on Teach left
+  `specs/implementation/` for the private superproject; `specs/implementation/README.md` lists them. `specs/wire.yml`,
+  `reach.spec.yml`, `lib/` and `tools/` are unchanged: they are the protocol, the program and its test tooling.
 
 ## [0.23.1] - 2026-10-03
 
@@ -564,7 +737,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fault event (`support:wellbeing`, `support:flush`), never reported as told or queued, and does not arm the
   hour-long repeat guard (`lib/reach/hands.rb`, `lib/reach/support.rb`, `STD-WELLBEING-DELIVERED`). Works against
   the live Teach without a wire change.
-- `tools/smoke/assignment_one.rb` ran Teach with `<Teach setting>=1`, so it never exercised a hand. It now runs
+- `tools/smoke/assignment_one.rb` ran Teach with hands switched off, so it never exercised a hand. It now runs
   with hand-raises on and adds `hand-raise-cli`, `hand-raise-mcp` (`reach_raise_hand`, type `concept_question`),
   `hand-wellbeing-outside-folder` and `hands-on-teach`, which checks all three hands on Teach (40 PASS).
 
@@ -722,7 +895,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `tools/smoke/assignment_one.rb` links the smoke course to its reference (`<Teach command>`), which Teach
+- `tools/smoke/assignment_one.rb` links the smoke course to its reference, which Teach
   0.18.2 requires before it delivers any reference, and accepts the one 0600 brain-spool copy of course text that
   0.17.1 keeps (`STD-COURSE-CORPUS`); against Teach 0.18.4 it passes 36 checks again.
 
@@ -1366,7 +1539,7 @@ All four were reported by a peer session's full slice-build smoke on Reach 0.14.
   QF-PRACTICE, which points at `qualify/kit/practice/README.md`, and the record carries `practice_readme`
   (`lib/reach/qualify.rb`). `directives/qualify.md` tells the agent to read that README before writing a panel slice's
   local scenarios.
-- `tools/smoke/assignment_one.rb` packs the smoke's reference blob for Teach (`<Teach setting>`) and no longer
+- `tools/smoke/assignment_one.rb` packs the smoke's reference blob for Teach and no longer
   points Reach at it, so the reference steps prove delivery through the guardrails package.
 
 ## [0.14.4] - 2026-10-01
@@ -1418,7 +1591,7 @@ All four were reported by a peer session's full slice-build smoke on Reach 0.14.
 ### Fixed
 
 - `tools/smoke/assignment_one.rb` and `tools/smoke/run.rb` create their own `reach_smoke_<run>` PostgreSQL database
-  for Teach (0.14.0 and later) and drop it afterwards, so a `<Teach setting>` inherited from the shell can never
+  for Teach (0.14.0 and later) and drop it afterwards, so a Teach database setting inherited from the shell can never
   point a smoke run at a live Teach database.
 - The A1 qualify fixture uses Grokit 0.8.0's graded name "A zero value is returned as ok, not treated as missing"; the
   transport smoke failed coverage without it. `course-gate` signs in first, as every course session must since 0.12.0.

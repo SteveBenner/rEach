@@ -125,3 +125,5 @@ codex:
   sandbox: auto
   heal: true
   probe_timeout_s: 20
+transcripts:
+  auto_export: true

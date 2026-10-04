@@ -7,6 +7,7 @@ module Reach
   module KnownIssues
     STALE_S = 3600
     HOOKS_QUIET_S = 900
+    WORK_KEYS = %w[work_at prompt_at].freeze
     FAMILIES = %w[claude codex].freeze
     PROCESS_FAMILIES = { "codex" => "codex", "claude" => "claude" }.freeze
     REMEDIES = {
@@ -210,13 +211,22 @@ module Reach
       step && step["text"]
     end
 
-    def hooks_stale?
+    def hook_quiet?(key, limit)
       seen = read_json(hooks_seen_file)
-      return true unless seen
+      value = seen ? seen[key].to_s : ""
+      return true if value.empty?
 
-      Time.now - Time.parse(seen["at"].to_s) > HOOKS_QUIET_S
+      Time.now - Time.parse(value) > limit
     rescue StandardError
       true
+    end
+
+    def hooks_stale?
+      hook_quiet?("work_at", HOOKS_QUIET_S)
+    end
+
+    def prompt_hook_quiet?(limit)
+      hook_quiet?("prompt_at", limit)
     end
 
     def detected?(entry, env = environment, mcp: false)
@@ -282,8 +292,13 @@ module Reach
       []
     end
 
-    def record_hook!(harness_label)
-      write_json(hooks_seen_file, "at" => now_s, "label" => harness_label.to_s)
+    def record_hook!(harness_label, kind = "work")
+      seen = read_json(hooks_seen_file) || {}
+      data = { "at" => now_s, "label" => harness_label.to_s }
+      WORK_KEYS.each { |key| data[key] = seen[key] if seen[key].is_a?(String) }
+      data["work_at"] = data["at"] unless kind == "session"
+      data["prompt_at"] = data["at"] if kind == "prompt"
+      write_json(hooks_seen_file, data)
       nil
     rescue StandardError
       nil

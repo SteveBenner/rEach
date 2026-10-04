@@ -322,6 +322,18 @@ module Reach
       File.join(logs_dir, "workspace.jsonl")
     end
 
+    def transcript_log
+      File.join(logs_dir, "transcript.jsonl")
+    end
+
+    def transcripts_archive_dir
+      File.join(transcripts_dir, "archive")
+    end
+
+    def transcript_spaces_dir
+      File.join(transcripts_dir, "spaces")
+    end
+
     def login_state_dir
       File.join(state_dir, "login")
     end

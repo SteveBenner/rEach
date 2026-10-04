@@ -185,6 +185,7 @@ module Reach
           return [nil, message, message, hookless_context(mcp: mcp)]
         end
         message = Reach::EnrollFlow.next_message(lock)
+        safe_transcript_export
         return [nil, message, message, locked_context(format, mcp: mcp)]
       end
 
@@ -192,6 +193,7 @@ module Reach
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
       safe_late_retry unless local
+      safe_transcript_export unless local
       spawn_background(session || Reach::Session.resolve_session_id(event)) if local
 
       session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil
@@ -214,6 +216,13 @@ module Reach
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
       context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp)
       [greeting_id, greeting_text, banner, context]
+    end
+
+    def safe_transcript_export
+      Reach::TranscriptExport.spawn_auto_if_due
+      nil
+    rescue StandardError
+      nil
     end
 
     def safe_late_retry

@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.23.0 |
+| **Registry version** | 0.28.2 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 91 catalogued |
+| **Feature count** | 92 catalogued |
 
 ## How to read this registry
 
@@ -23,16 +23,15 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 82 | 90% |
-| 🟡 Partial | 1 | 1% |
+| ✅ Shipped | 84 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 3 | 3% |
+| 🟢 Live | 4 | 4% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 76 | 84% |
+| 🔵 Built, not enabled | 76 | 83% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -130,8 +129,11 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no student computer on those platfor
 
 `README.md`, `INSTALL.md` (the installing agent's script), `docs/student-guide.md` (what a student reads, including
 the model guidance for Hermes), `docs/smoke-assignment-1.md` (the manual passes), `docs/DESIGN-DECISIONS.md` (the
-standing product decisions, latest form only), `docs/course-alignment-design.md` and `ROADMAP.md`
-(Reach 2.0 version control). `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is catalogued at 1.5. The student guide's
+standing product decisions, latest form only), `docs/course-alignment-design.md`, `ROADMAP.md`
+(Reach 2.0 version control), `docs/architecture.md` (ten figures of rEach and Teach together, light and dark, drawn
+by `tools/figures/build.rb` into `docs/assets/figures/`; Teach appears only as a frosted block that names outcomes,
+`STD-FIGURES`) and `docs/deploy-and-test.md` (the fixture walkthrough and the two smoke runs, every command run
+first). The public docs name no Teach class, table, setting or command (`STD-TEACH-OPAQUE`). `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is catalogued at 1.5. The student guide's
 Privacy and Course folders wording was written before 0.16.12 and has not been re-audited against it.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (prose is not checked against the code).
@@ -248,7 +250,9 @@ Since 0.11.0 the bundle is `reach.hand/v2`: originator (agent or student), the t
 file and scenario file in full and the last qualification's output. Since 0.14.4 a hand Teach refuses says why
 (M-HAND-REFUSED with Teach's reason, from the CLI and the reach_raise_hand tool) and a hand that could not reach Teach
 says it was saved for later (M-HAND-QUEUED); verified 2026-10-01 against a scratch Teach with hand-raises disabled,
-enabled and stopped.
+enabled and stopped. Since 0.25.1 (`STD-UTF8-BUNDLE`) the bundle is built as UTF-8 in every locale: an app that starts
+rEach with no locale (Claude Desktop on macOS) made `reach_raise_hand` fail on the first non-ASCII character in an
+owned file; a student reported it on 2026-10-04. Exercised with a C locale on Linux only.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
@@ -269,19 +273,27 @@ top (M-GATE-NOGIT); the extracurricular folder is the student's own. Git support
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.12 · Course record (transcript capture, torn down)
+### 2.12 · Course record (transcript capture)
 
-Torn down 2026-10-03 (wire revision 2026-10-03b, `STD-TRANSCRIPT`). Until 0.20.x Reach captured the student's prompts,
-the AI's replies, reasoning, actions and every version of every owned file, spooled them in `~/.reach/transcripts/` and
-sent them to `POST /api/v1/transcripts`. None of that exists now: no prompt, reply, reasoning, action or code entry is
-written to disk or sent, in any folder or harness, and Teach keeps no transcript or subcorpus. The Stop and SessionEnd
-hooks run `reach hook stop [--final] --harness H` (debug flush, link notice, debug block); `reach transcript turn`,
-`code`, `flush` and `status` stay only as hidden aliases for old hook files. The first rEach command after updating
-deletes `~/.reach/transcripts` and each persona's copy (`Reach::RetiredCapture`, marker
-`~/.reach/state/transcripts-retired.json`); brain sources are kept. Not re-verified here: the teardown has not been
-run on a student computer.
-
-Build ⛔ · Deploy ⚫ · Blocker: -
+Since 0.25.0 (wire revision 2026-10-03i, `STD-TRANSCRIPT`) rEach records the conversation while a student is signed in
+and working on an assignment: the session is signed in, the course has a current assignment, and the session runs in a
+slice or the course folder root. Inside those bounds it records every prompt, the AI's replies, reasoning and actions,
+and the assignment code (code blocks in replies, each AI write, and a turn-end scan of the slice's owned files), spools
+them in `~/.reach/transcripts/` and sends them to `POST /api/v1/transcripts` at turn end, on `reach sync` and before a
+submission. Outside the bounds (before sign-in, in the extracurricular folder, outside the course folder, in instructor
+mode) nothing is written or sent, and a session's recording never reads what the harness transcript held before its
+first recorded prompt. The feature existed from 0.8.0 to 0.20.x, was torn down in 0.21.1 and restored in 0.25.0 with
+these bounds; rEach no longer deletes `~/.reach/transcripts`. Verified 2026-10-03 on a scratch course: 15 entries of
+every kind arrived, and an unsigned session and an extracurricular session recorded nothing. Not verified: a real
+Claude Code, Codex or Hermes session on a student computer. Since 0.26.0 (`STD-TRANSCRIPT-DEIDENTIFY`, wire revision
+2026-10-04a) a transcript leaves the computer de-identified: a random pseudonym per install, placeholders for the
+identifiers rEach knows, and an identity index encrypted to the course's re-identification key, which only its holder
+can open. Verified 2026-10-04 on a scratch course: a signed-in session whose prompt, reply, reasoning, action and code
+held the student's name, ID, username and home folder arrived with none of them in any stored file, the own-part
+lookup still matched, and an older client was told to update and kept its queue. Since 0.26.1 (wire revision
+2026-10-04b) re-identification is exact: each entry carries an encrypted record of the strings its placeholders
+replaced and of any text that no longer fit, so the key holder gets back the text as recorded, capitals included.
+Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-04 as v0.26.0, exact restore in v0.26.1, GitHub Latest; Teach 0.40.1 hands out the key and accepts the entries). No real student session has been recorded yet.
 
 ### 2.13 · Slice API reference
 
@@ -296,8 +308,8 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.14 · Hookless-harness provenance
 
 The submission seal carries `hooked` and a harness that falls back to `REACH_HARNESS`; Antigravity's rules file sets
-it. Teach notes a hookless submission as unwitnessed instead of flagging it for review, behind
-`<Teach setting>` (default `note`). `hooked` is self-reported from the student's ledger, so it is a
+it. Teach notes a hookless submission as unwitnessed instead of flagging it for review, by a
+course server setting (default: note). `hooked` is self-reported from the student's ledger, so it is a
 signal, not a guarantee.
 
 Build ✅ · Deploy 🔵 · Blocker: -
@@ -330,6 +342,8 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.17 · Sign-in every session
 
 Since 0.12.0 the prompt hook asks for the student ID, then "Am I speaking with <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Wrong IDs lock the session after three tries; a no ends course work for the session; both reach Teach as integrity events. The A1 smoke signs in this way before any write. Re-verified 2026-10-01 against a scratch Teach: every gate refused before sign-in, the ID stayed out of the greeting, another student's ID was refused, offline sign-in worked, three wrong tries locked the install for a minute, and Teach recorded login_failed and identity_denied.
+
+Since 0.28.0 (`STD-SIGNIN-PASSWORD`, wire revision 2026-10-04d) the yes is followed by the password the student chose at enrollment, and the session is signed in only when it is right; the check is the prompt hook's, not an instruction to the agent. `forgot password` starts a reset that works once an instructor allowed one. Verified 2026-10-04 on a scratch Teach: the A1 smoke (40 pass, 2 skip) signs in with a wrong and then the right password; a write stayed refused until the password; with the verifier deleted the server was asked, and with the server stopped the sign-in waited; three wrong passwords locked the session; the reset set a new password and the old one stopped working on the computer, at the server and at a second enrollment; Hermes was sent to `reach login password`; no password appeared in the database dump, the server log or any rEach file. 🔵 until a student signs in this way on a hosted Teach.
 
 Since 0.21.5 the plugin's own prompt hook signs the student in too (`STD-SIGNIN-PLUGIN-HOOK`): in Codex in every folder, keyed on Codex's `turn_id` so that when a course folder's hook also runs, only one of them judges the prompt; in Claude Code outside the course folders. Before, the sign-in lived only in each course folder's `.codex/hooks.json`, which Codex never runs until the student trusts it, so a Codex student on Windows (hand 2026-10-03, Reach 0.21.1) was told to wait for a question nothing asked. Verified by the platform smoke on Linux (15 passed): ask, confirm, yes, a second hook on the same turn silent, the signed-in context on the next turn, then the gate open. Not verified: a live Codex session on Windows.
 
@@ -373,7 +387,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.24 · Local size limits
 
-Since 0.12.0 `reach sync` kept the transcript spool under the course's caps (removed with the spool 2026-10-03), and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
+Since 0.12.0 `reach sync` kept the transcript spool under the course's caps (removed with the spool 2026-10-03, restored in 0.25.0), and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -448,7 +462,7 @@ x64 legs run on self-hosted VMs on SVEN-F1L1 (`tools/platform_smoke/windows-runn
 
 Since 0.20.5 every leg opens real `teach.package/v1` envelopes, which no leg did before (fake_teach listed no packages
 and `R-DOC-GUARD` was an expected doctor finding, so a student's Mac could fail to decrypt its guardrails package while
-CI stayed green). `package_known_answer` opens a guardrails envelope sealed by Teach's own `Teach`
+CI stayed green). `package_known_answer` opens a guardrails envelope sealed by Teach itself
 (`tools/platform_smoke/fixtures/known-answer/`, throwaway test keys), and `sync_packages` has fake_teach seal guardrails
 and workspace packages for the enrolled install, checks both are stored and revalidated with 304, and doctor must no
 longer report `R-DOC-GUARD`. The smoke now keeps its workspace under the scratch root (`REACH_WORKSPACE_ROOT`).
@@ -475,7 +489,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed and the instru
 
 ### 2.30c · Debug mode
 
-Since 0.16.23 rEach records scrubbed metadata events (W-DBG-KINDS; never prompt or file text, codes, passwords or keys) under `debug/` in the rEach home, always for a persona and otherwise after `reach debug on [--for MINUTES]` or an instructor's `teach debug on`, which the student is told about. It sends them to Teach (`W-API-DEBUG`), keeps them queued on any failure, and shows each turn's events as a hook `systemMessage`: an ASCII table on terminal surfaces, a Markdown table on desktop and IDE surfaces, with `debug.render` as the override; Hermes has no user-visible hook channel, so `reach debug show` is the way there. Verified 2026-10-02: with debug off every hook output and file listing is identical to 0.16.22's (117-line diff); against the real scratch Teach a persona's 29 events of 8 kinds were stored as classification instructor and both table formats rendered; against a stub, the scrub, local and remote switches, the once-per-session notice and the offline queue. Not verified: a live harness rendering the block.
+Since 0.16.23 rEach records scrubbed metadata events (W-DBG-KINDS; never prompt or file text, codes, passwords or keys) under `debug/` in the rEach home, always for a persona and otherwise after `reach debug on [--for MINUTES]` or when an instructor switches it on from Teach, which the student is told about. It sends them to Teach (`W-API-DEBUG`), keeps them queued on any failure, and shows each turn's events as a hook `systemMessage`: an ASCII table on terminal surfaces, a Markdown table on desktop and IDE surfaces, with `debug.render` as the override; Hermes has no user-visible hook channel, so `reach debug show` is the way there. Verified 2026-10-02: with debug off every hook output and file listing is identical to 0.16.22's (117-line diff); against the real scratch Teach a persona's 29 events of 8 kinds were stored as classification instructor and both table formats rendered; against a stub, the scrub, local and remote switches, the once-per-session notice and the offline queue. Not verified: a live harness rendering the block.
 
 Since 0.20.1 the person can say "enable debug mode" or "turn debug on" (and "turn debug off") to their AI partner instead of running a command; rEach switches it from the prompt hook, even before enrollment or while locked, and the agent relays the confirmation word for word. The session event then carries operating-system detail (`Reach::OsInfo`: distro or macOS or Windows version and build, kernel, arch, WSL, container, CPU, memory, disk, locale, timezone, shell, terminal, desktop, tool versions; never a hostname, username or path). Verified 2026-10-03 on a scratch home: the phrases switch it on and off, sentences that only mention debug change nothing, the confirmation shows locked and unlocked, and the spooled session event carried 33 OS fields (46 in all). Not verified: the macOS, Windows and WSL probes.
 
@@ -483,7 +497,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 
 ### 2.30d · Teach connection safety
 
-Since 0.16.25 (wire revision 2026-10-02b, `STD-TEACH-LINK`) a student never sees a raw error, backtrace, hook error or hook timeout from rEach. `Reach::Link` tracks the Teach connection in `link.json` and tells the student once per outage that the connection was lost and their work is saved (`M-TEACH-LINK-LOST`), and once when it is back (`M-TEACH-LINK-BACK`): a hook `systemMessage` on Claude Code and Codex, a relay line on Hermes, stderr at the terminal. Every hook runs in a guard that keeps its allow or block outcome, shows at most one plain hiccup every 15 minutes, and gives the network a deadline inside the hook timeout. MCP tools and terminal commands answer in plain words. Every hidden error becomes a `fault` event and every connection change a `link` event, and both are sent to Teach even with debug mode off (reason `fault`, no message text) for `teach debug show --kind fault`. Verified 2026-10-02 against a real scratch Teach 0.17.3: the assignment-one smoke with link and crash journeys passed 51 steps (Teach stopped and restarted, notices once each, injected crashes in Claude Code, Hermes, terminal, MCP and load paths with no raw text, faults and link events stored at Teach as `student`), and a silent server held the 25 s tool deadline. Not verified: a live harness session showing the notices.
+Since 0.16.25 (wire revision 2026-10-02b, `STD-TEACH-LINK`) a student never sees a raw error, backtrace, hook error or hook timeout from rEach. `Reach::Link` tracks the Teach connection in `link.json` and tells the student once per outage that the connection was lost and their work is saved (`M-TEACH-LINK-LOST`), and once when it is back (`M-TEACH-LINK-BACK`): a hook `systemMessage` on Claude Code and Codex, a relay line on Hermes, stderr at the terminal. Every hook runs in a guard that keeps its allow or block outcome, shows at most one plain hiccup every 15 minutes, and gives the network a deadline inside the hook timeout. MCP tools and terminal commands answer in plain words. Every hidden error becomes a `fault` event and every connection change a `link` event, and both are sent to Teach even with debug mode off (reason `fault`, no message text), where instructors read them. Verified 2026-10-02 against a real scratch Teach 0.17.3: the assignment-one smoke with link and crash journeys passed 51 steps (Teach stopped and restarted, notices once each, injected crashes in Claude Code, Hermes, terminal, MCP and load paths with no raw text, faults and link events stored at Teach as `student`), and a silent server held the 25 s tool deadline. Not verified: a live harness session showing the notices.
 
 Since 0.21.8 (`STD-CODEX-SANDBOX`) a command Codex runs in its own sandbox (outside a trusted course folder: no
 network, no writes to `~/.reach`) is not an outage: `Reach::Sandbox` recognizes it, `Reach::Client` makes no request,
@@ -493,6 +507,9 @@ the agent debug mode and the health check outside the sandbox, and since 0.21.12
 updater: run starts `reach update run --apply --force` detached. Verified with the real `codex sandbox` runner on Linux;
 not yet seen on a student's macOS Codex. `reach_update` was driven over stdio in a scratch home on 2026-10-03: status
 named the version, run started the detached updater and the next status showed its check.
+Since 0.28.2 M-SANDBOX-STUDENT names the course folder by its path on this computer and says it is the folder holding
+`deliverables` and `extracurricular`; a Windows Codex student had been told they had no course folder (2026-10-04).
+Verified on Linux in a scratch home with `CODEX_SANDBOX_NETWORK_DISABLED=1`; the Windows path separator was not run.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 
@@ -501,6 +518,11 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 Since 0.21.9 (`STD-KNOWN-ISSUES`, W-API-KNOWN-ISSUES) rEach fetches Teach's known issues without signing, caches them,
 names the matching ones for this operating system, harness and version in every session context, flags detected ones
 (`codex_sandbox`, `hooks_not_running`) and gives the steps through `reach_known_issues` and `reach known-issues`.
+Since 0.28.1 `hooks_not_running` no longer takes a session-start hook as proof that hooks run, and
+`reach part record` says so when the prompt hook is silent (`M-PART-NO-HOOK`) instead of asking the student to
+answer again. Verified 2026-10-04 on Linux against a scratch home with the real hook commands: prompt hook silent
+for 40 minutes with a fresh session-start hook (refused with the new message, detector on), prompt hook running
+with a short prompt (the old message), prompt hook running with an answer (recorded). Not run on macOS or in Codex.
 Verified against a scratch Teach 0.27.1 (200, then 304 on revalidation), over MCP (hooks_not_running detected with no
 hook run), and inside the real `codex sandbox` runner (the sandbox entry detected from the cache with no request).
 
@@ -663,9 +685,42 @@ by the student and the end by the instructor; a locked-out sign-in got the quest
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
 
+Since 0.27.0 (`STD-LIVE-DIAGNOSIS`, wire `W-LIVE-10`) a computer that holds the instructor unlock can start a
+diagnosis session, for working out a rEach problem on that computer directly between the two assistants:
+`reach instructor diagnose [--course ID]`, or the `reach_live` tool with action `diagnose`. rEach asks the person at
+the computer one question that says what the yes covers. On their typed yes the session opens at once; the
+assistant there and the instructor's assistant write to each other without a question per message, and rEach runs
+the fixed checks the instructor's side requests without asking again. On a computer that is not enrolled rEach
+first makes a blank test student. The assistant still asks before it runs any other command or changes anything,
+and it never sends a password, key, token or instructor code. The unlock code stays on the computer until
+`reach instructor lock` removes it.
+
+Verified 2026-10-04 on Linux, Ruby 4.0, against a scratch course server: the refusal without an unlock; a test
+student made on an unenrolled computer and the session opened on the yes; the same on an enrolled install; two
+assistant messages sent with no question; a requested check run with no question and its result returned; a
+revoked code refused; the session ended by typing. Not verified: a session between two real assistants, and any run
+on Windows or macOS.
+
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
 
-### 2.42 · Home inside the reach-work folder
+### 2.42 · Progress checkpoints
+
+Since 0.24.0 rEach tells Teach the first time a student reaches a checkpoint only rEach can see (`STD-PROGRESS`, wire
+`W-API-PROGRESS`): the course passkey accepted, email and student ID confirmed, the first confirmed sign-in, and the
+first prompt inside a workspace of each assignment. `Reach::Progress` keeps the ids and times in
+`state/progress.json`, and `reach sync` sends the unsent ones in one signed request once the student is enrolled.
+It sends ids and times only, never typed text, and makes no network call from a hook. `REACH_PROGRESS=0` turns it off.
+Teach shows the result as the Progress column of its Students page.
+
+Verified 2026-10-03 on Linux, Ruby 4.0.6, against a scratch Teach 0.35.0: `reach enroll` and the chat enrollment each
+recorded the two enrollment checkpoints locally, sent them with the sync that follows registration and Teach stored
+them with the install; a sign-in mark went out on the next `reach sync` and left the outbox empty; a repeat, an unknown id and an
+id Teach records itself were not stored; a time in the future was stored as Teach's own time. Not verified: macOS and
+Windows; a real harness session for the sign-in and assignment-started marks, which were driven through the library.
+
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.24.0, GitHub Latest; Teach 0.35.0 serves the route). No report from a real student install has been seen yet.
+
+### 2.43 · Home inside the reach-work folder
 
 On branch `in-workspace` (`STD-HOME-IN-WORKSPACE`, unreleased) rEach keeps its own files in `~/reach-work/.reach-home`
 instead of `~/.reach`, and an existing install is relocated by copy, hash verification and rename, leaving the legacy
@@ -675,14 +730,14 @@ target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Ve
 unchanged, new home identical, enrollment kept, outbox sent afterwards), two kill -9 interruptions, an occupied
 destination, an instructor persona, the gate in root, slice and extracurricular kinds, harness source repoints and
 Ruby 2.6.10. Not fixed by this layout alone: Codex's default sandbox still blocks the network and writes outside the
-chat's folder; since 2.43 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
+chat's folder; since 2.44 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
 network and write in the reach-work folder. Codex hook trust is unrelated; on Windows the project's top-level `.codex`
 is read-only in the sandbox. Not verified: the Windows sandbox itself, `scripts/reach-install.ps1`
 (no PowerShell available), macOS.
 
 Build ✅ (branch in-workspace) · Deploy 🔵 (not released) · Blocker: Human (Windows sandbox probe, release).
 
-### 2.43 · rEach sets Codex up
+### 2.44 · rEach sets Codex up
 
 On branch `in-workspace` (`STD-CODEX-SETUP`, unreleased, wire revision 2026-10-03g) rEach writes the sandbox settings
 it needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`) after the student's yes: on a terminal
@@ -782,13 +837,13 @@ were built but not run on macOS or Windows.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
 
-### 3.6 · Transcript export (torn down)
+### 3.6 · Transcript export
 
-Torn down 2026-10-03 (`STD-TRANSCRIPT-EXPORT`, retired). Added in 0.19.0 to export the student's recorded conversations;
-with no conversation recorded there is nothing to export, so `reach transcripts export`, the `reach_transcripts` tool and
-the automatic export at course end are removed.
-
-Build ⛔ · Deploy ⚫ · Blocker: -
+Restored in 0.25.0 (`STD-TRANSCRIPT-EXPORT`). `reach transcripts export` and the `reach_transcripts` tool save the
+student's own recorded conversations as a ZIP in Downloads, grouped by assignment and slice, and the first session
+after the course ends exports once in the background (`transcripts.auto_export`, default on). Verified 2026-10-03 on a
+scratch course: one session of 15 entries exported.
+Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-03 as v0.25.0, GitHub Latest; Teach 0.38.0 accepts the entries). No real student session has been recorded yet.
 
 ### 3.7 · Late work
 

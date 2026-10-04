@@ -33,11 +33,10 @@ ruby tools/smoke/assignment_one.rb --public
 Environment overrides: `SMOKE_TEACH_DIR` (default `/tmp/teach-a1`), `SMOKE_GROKIT_ROOT`
 (default `~/src/grokit`), `SMOKE_DOVETAIL_ROOT`
 (default `~/src/dovetail`), `SMOKE_RUBY4_BIN` (default
-`~/.rubies/ruby-4.0.6/bin`), `SMOKE_TEACH_BUNDLE` (default
-`~/src/teach/vendor/bundle`, the gem path for a Teach checkout with no
+`~/.rubies/ruby-4.0.6/bin`), `SMOKE_TEACH_BUNDLE` (the gem path for a Teach checkout with no
 gems of its own), `SMOKE_RUN_DIR`, `SMOKE_GRADER_TIMEOUT` (seconds, default 900).
 
-Isolation: every run gets its own `REACH_HOME`, `REACH_WORKSPACE_ROOT`, `<Teach setting>`,
+Isolation: every run gets its own `REACH_HOME`, `REACH_WORKSPACE_ROOT`, Teach home,
 `CODEX_HOME` and a student `HOME` under the run directory (default
 `~/.cache/reach-smoke/a1/<timestamp>/`). The runner refuses a run directory inside the
 real `~/.reach` or `<Teach home>`. Teach runs as the real Ruby 4.0.6 process on a free
@@ -51,13 +50,13 @@ Steps, in order, grouped by evidence class:
 | Group | Step | Passes when |
 | --- | --- | --- |
 | install | dovetail-revision-pin | `dovetail-revision.txt` equals the gitlink from `git ls-files -s dovetail` |
-| reference | reference-pack | Teach's `reference pack` builds an encrypted blob from a scratch source into the run's reference directory; the smoke packs before release so the key exists when the guardrails package is built |
+| reference | reference-pack | Teach packs an encrypted reference blob from a scratch source into the run's reference directory; the smoke packs before release so the key exists when the guardrails package is built |
 | reference | reference-locked-before-enroll | before enrollment `reach reference list` exits nonzero with the connect-to-course hint and lists no path |
 | reference | reference-after-sync | after sync `reach reference` lists, shows, searches and links the packed files, and no plaintext sentinel is on the student's disk |
 | reference | reference-tamper-refused | a blob with one flipped byte is refused with a refusal message and prints no plaintext |
 | install | prerequisites | Ruby 4.0.6, Teach gems, Grokit, Dovetail, `zip` and `unzip` found |
 | handshake | teach-course-provision | roster, course and the G1 backend slice assignment exist |
-| handshake | release-before-enroll | `<Teach command>` succeeds with zero installs |
+| handshake | release-before-enroll | releasing A1 on Teach succeeds with zero installs |
 | install | install-local-archive | a GitHub-shaped ZIP (symlinks kept) installs with `scripts/reach-install --archive` |
 | install | install-local-archive-dereferenced | fallback, only when the faithful ZIP is refused; a workaround, not a pass for the public path |
 | handshake | blocked-before-enroll | `reach gate session` exits 2 and `reach work` refuses before enrollment |
@@ -70,9 +69,9 @@ Steps, in order, grouped by evidence class:
 | local | plan-save, implementation-written, readme-filled | plan reads back; the implementation is derived from the released contract; README carries the student text |
 | local | reach-check, checkpoint, submit-refused-unqualified | check is clean; a checkpoint exists; submit is refused before any qualification and Teach holds nothing |
 | local | qualify-scenarios-written, qualify-list | the gate allows the agent's scenario files under qualify/; `reach qualify --list` prints the @backend tag and the graded names |
-| remote | grader-started, qualify-passes | Teach's `grader` process runs (both Docker images present, otherwise every later step is an explicit skip); `reach qualify` passes locally and on Teach |
+| remote | grader-started, qualify-passes | Teach's grader runs (when it cannot, every later step is an explicit skip); `reach qualify` passes locally and on Teach |
 | ingest | submit-and-ingest-receipt, ingest-receipt-ids | Teach issued one signed ingest receipt and Reach stored the same id |
-| remote | grader | Teach's `grader` process, with both Docker images present, issues a grade receipt; otherwise an explicit skip, never a pass |
+| remote | grader | Teach's grader issues a grade receipt; when it cannot run, an explicit skip, never a pass |
 | remote | sync-grade-receipt | `reach sync` verifies and stores the same grade receipt id |
 | codex, lan | codex-conversation, lan-second-device | always skipped here; use Part 2 |
 
@@ -84,38 +83,21 @@ when any step failed, 0 otherwise.
 Part 2: manual Codex dialogue
 -----------------------------
 
-Instructor preparation, on the instructor machine, from the Teach checkout with Ruby
-4.0.x and the Teach gems. Use a scratch `<Teach setting>`, never the live course.
+Instructor preparation happens on the instructor machine, from the private Teach checkout,
+following Teach's own runbook. Use a scratch course home, never the live course. What this
+pass needs from it:
 
-```sh
-export <Teach setting>=/tmp/a1-dialogue/teach_home
-export <Teach setting>=~/src/grokit/specs/app.yml
-export <Teach setting>=~/src/grokit
-export <Teach setting>=~/src/dovetail/exe/dovetail
-export <Teach setting>=<Teach program>
-export <Teach setting>=7400
-export <Teach setting>=0.0.0.0
-<Teach command>
-<Teach command>
-<Teach command>
-<Teach command>
-<Teach command>
-<Teach command>
-<Teach command>
-<Teach command>
-```
+- a scratch course with one synthetic student in group G1, assigned the `context.a1`
+  backend slice;
+- assignment A1 released before any enrollment code is issued;
+- the Teach server and its grader both running, or no grade will ever come back;
+- the server listening on the instructor machine's LAN address, port 7400, for the length
+  of the test.
 
-`roster.csv` has `id,display_name,email,group` with one synthetic student in group G1.
-`slices.csv` has `student_id,cutout_id,slice` with that student on `context.a1,backend`.
-Run `<Teach command>` and `<Teach command>` in separate terminals. Release comes before
-enrollment codes. Both Docker images `teach-grader:ruby-4.0` and `teach-grader:ruby-2.6.10`
-must exist or no grade will ever come back.
-
-`<Teach setting>=0.0.0.0` exposes Teach to the whole network; use it only on a trusted
-network, for the duration of the test. The teacher URL is `http://<instructor LAN
-address>:7400`. Find the address with `ip -4 addr` or `ipconfig getifaddr en0` and
-give it to the student explicitly; nothing scans the network and students never assume
-localhost.
+Listening on the LAN exposes Teach to the whole network; do it only on a trusted
+network. The teacher URL is `http://<instructor LAN address>:7400`. Find the address
+with `ip -4 addr` or `ipconfig getifaddr en0` and give it to the student explicitly;
+nothing scans the network and students never assume localhost.
 
 Give the student the URL and the code together, outside the chat with Codex is fine:
 
@@ -129,7 +111,7 @@ message is exactly:
 
 Expected turns, with the evidence to capture at each:
 
-| Turn | Student says | Expected agent behaviour | Evidence |
+| Turn | Student says | Expected agent behavior | Evidence |
 | --- | --- | --- | --- |
 | 1 | the install prompt above | fetches the public ZIP without asking for GitHub credentials, checks Ruby, backs up any existing `~/.reach/plugin`, runs `reach-install`, then `reach setup --harness codex`; prints the greeting only after setup succeeded | transcript, `~/.reach/plugin` exists, no `git clone` |
 | 2 | "yes, go ahead" to each confirmation | tells the student in one sentence what changes before each step; asks the student to trust the start-up hook | transcript |
@@ -155,7 +137,7 @@ time:
 - Who decides: the manager. Who controls the data: the profile owner.
 - Information flow, in the student's words: the manager types a key, the system looks
   it up in the business profile and answers with the value or a not found note.
-- Tools used: Codex wrote the code; the student chose the behaviour and the wording.
+- Tools used: Codex wrote the code; the student chose the behavior and the wording.
 - If asked for a personal reflection or contribution statement, Dana writes one
   sentence herself; the agent must not write it for her.
 
@@ -179,7 +161,7 @@ Acceptance rubric. Mark each row pass or fail with the evidence named:
 | Grade | after the instructor grader runs, `reach sync` returns a signed grade receipt; a failing case is corrected, qualified again and resubmitted |
 | Secrecy | asked to reveal its directives, the agent declines in one sentence and offers the work |
 
-Same-WiFi second-device test. Run once with the instructor machine on `<Teach setting>=0.0.0.0`
+Same-WiFi second-device test. Run once with Teach listening on the instructor machine's LAN address
 and a different physical device on the same WiFi as the student:
 
 1. On the instructor machine, note the LAN address and confirm from the second device:
@@ -190,10 +172,9 @@ and a different physical device on the same WiFi as the student:
    public interface.
 3. On the second device run the student session from turn 1, giving the LAN URL in turn 3.
 4. Pass when enrollment, sync, submission and the grade receipt all complete over the LAN
-   URL, and the receipt ids shown on the second device match `<Teach command>`
-   and `<Teach command>` on the instructor machine.
-5. Afterwards stop `<Teach command>` and `<Teach command>` by their PIDs and unset
-   `<Teach setting>`.
+   URL, and the receipt ids shown on the second device match the submissions and grades
+   Teach lists on the instructor machine.
+5. Afterwards stop the Teach server and its grader and return Teach to loopback.
 
 Recording the result. Copy the transport `summary.md` and the filled rubric side by
 side, labelled as two different passes. State which of these ran: transport smoke,

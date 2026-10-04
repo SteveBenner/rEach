@@ -20,7 +20,13 @@ choose a password (at least 8 characters, typed twice, to write down), so the
 agent never sees any of it. Teach checks them against its roster and returns a signed
 enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
-Teach 0.17.0 implements its half and keeps only the password's scrypt hash; `tools/fake_teach` is a local stand-in for wire revision 2026-10-01e.
+Teach keeps only a one-way hash of the password; `tools/fake_teach` is a local stand-in for the enrollment and password parts of the wire.
+
+Since 0.28.0 that password is also the last step of every sign-in: after the
+student ID and the yes, rEach's prompt hook asks for it and keeps every gate
+closed until it is right. Nobody can look a password up. A student who forgot
+it types `forgot password`, and once their instructor has allowed a reset they
+choose a new one (`specs/wire.yml`, W-ID-5).
 
 rEach then introduces itself and runs a short intake
 interview, saved on the student's computer only. It enrolls with Teach, receives
@@ -32,13 +38,18 @@ the slice with scenarios of its own before anything is submitted (`reach qualify
 those scenarios here where they can run, then an ungraded run on Teach that also
 runs the instructors' hidden checks), submits work and waits for Teach's receipt,
 and raises a hand to the instructors on its own after three failed tries. The
-student deals only with the business behaviour; the agent does all the coding,
+student deals only with the business behavior; the agent does all the coding,
 following Reach's feature and bug flows, without git (see ROADMAP.md).
 
-No conversation is recorded or sent, in any folder or harness: no prompt, reply,
-reasoning, action or code entry is written to disk or sent, and Teach keeps no
-transcript. Instructors receive only the work the student submits, their own-part
-answers, help requests the student agrees to send and usage information. The
+While a student is signed in and working on an assignment, rEach records the
+conversation (every prompt, reply, reasoning block, action and the assignment
+code) and sends it to Teach, where the instructors read it. It leaves the
+computer de-identified: a random pseudonym instead of the student's name,
+placeholders for the identifiers rEach knows, and an encrypted index that only
+the holder of the course's key can open to re-identify it. Nothing is recorded
+before sign-in, in the extracurricular folder or outside the course folder.
+Instructors also receive the work the student submits, their own-part answers,
+help requests the student agrees to send and usage information. The
 course folder is `~/reach-work`, and rEach keeps its own files (keys, vault, state, the plugin) in
 `~/reach-work/.reach-home` inside it, which the agent can never read or write: assignment code lives only in
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
@@ -48,6 +59,23 @@ computer. The agent puts code in files, never in chat. The Stop and SessionEnd
 hooks run `reach hook stop`, which only flushes debug events and shows the link
 notice and the debug block. The first rEach command after updating deletes any
 transcripts an older version saved in the `transcripts/` folder of rEach's own files.
+
+## How it fits together
+
+rEach is half of a system; Teach, the instructors' private course server, is the other half. On its own rEach is a
+careful assistant with nobody to answer to. Teach is what makes its promises checkable: a roster, signed rules,
+hidden checks, signed receipts and instructors who answer.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/figures/01-system-at-a-glance-dark.svg">
+  <img src="docs/assets/figures/01-system-at-a-glance-light.svg" alt="A student steers their own AI agent. rEach wraps the agent on the student's computer and talks over a signed wire to Teach, the private course server the instructors run." width="100%">
+</picture>
+
+[`docs/architecture.md`](docs/architecture.md) has ten figures: trust boundaries, the enrollment handshake, the work
+lifecycle, the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong
+together, and a poster. Teach is private, so each one shows what it guarantees and never how.
+[`docs/deploy-and-test.md`](docs/deploy-and-test.md) has worked examples for running and testing rEach without a
+course server.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -188,8 +216,15 @@ instructor data. The persona keeps its own rEach home under `~/reach-work/.reach
 `~/reach-work/personas/`, applies to every harness session on the computer, and ends with `reach instructor exit`,
 which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
 
+Since 0.27.0 an unlocked install can start a diagnosis session, to work out a rEach problem on that computer together
+with the instructor's assistant: `reach instructor diagnose [--course ID]`, or ask the assistant to start one. rEach
+asks one question; on your typed yes the session opens at once, the two assistants write to each other, and rEach
+runs the checks the instructor's side requests without asking again. On a computer that is not enrolled rEach makes
+a blank test student first. The unlock code stays on that computer until `reach instructor lock` removes it, so run
+that when you are done on a computer that is not yours.
+
 Debug mode is always on for a test student, and otherwise only on request: `reach debug on [--for MINUTES]` and
-`reach debug off` on the computer, or `teach debug on --student ID` from Teach, in which case the student is told. It
+`reach debug off` on the computer, or an instructor switches it on from Teach, in which case the student is told. It
 records what rEach did (hooks, gate decisions, requests to Teach, sync, check, qualify, submit, errors), never prompt
 or file text, codes, passwords or keys, sends it to Teach, and shows it at the end of each turn: an ASCII table in a
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
@@ -221,6 +256,10 @@ qualify or submit is reported the first time it happens, any other the third tim
 is told once that it was reported and that nothing is needed from them, and once more when the fix reaches their
 version. `reach issues` lists what was seen and reported (test student or debug mode), `reach issues flush` sends
 what is waiting, and `REACH_ISSUES_DISABLE=1` or `issues.enabled: false` in `config.yml` turns it off.
+
+Since 0.24.0 rEach also tells the course server where a student stands: the time they first passed each step of
+enrolling, first signed in and first started each assignment. It sends the step and its time only, on `reach sync`, and the instructors see it as a progress bar per student.
+`REACH_PROGRESS=0` turns it off.
 
 ### Submitting
 
@@ -266,7 +305,7 @@ context on Hermes, a line on stderr from a command). `REACH_OFFLINE=1` is delibe
 error rEach hides behind a plain message (shown at most once every 15 minutes in a hook) is recorded as a `fault` event,
 and each change of connection as a `link` event. Both are sent to Teach even while debug mode is off, with the failing
 location, exception class and a few plugin-relative frames but no error message, file or prompt text; instructors read
-them with `teach debug show --kind fault`. The state lives in `link.json` under the rEach home, and `config.yml`
+them in Teach. The state lives in `link.json` under the rEach home, and `config.yml`
 `link.hiccup_quiet_minutes` and `link.fault_max_per_hour` set the quiet period and the hourly cap.
 
 ## Course reference
@@ -306,4 +345,13 @@ against the fixture Teach on Linux, macOS and Windows, with no agent and no secr
 
 ```
 ruby tools/platform_smoke/run.rb
+```
+
+## Figures
+
+`tools/figures/build.rb` draws the figures in `docs/assets/figures/`, light and dark, from one description each;
+`--png` also renders 4K PNGs with headless Chrome. See [`tools/figures/README.md`](tools/figures/README.md).
+
+```
+ruby tools/figures/build.rb
 ```

@@ -27,6 +27,7 @@ module Reach
           return pending
         end
 
+        flush_transcript(meta["assignment"])
         manifest = build_manifest(workspace, meta)
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
@@ -299,6 +300,16 @@ module Reach
         return if open_questions.empty?
 
         raise Reach::Refused, Reach::Messages.text("M-SUBMIT-NO-PART", missing: open_questions.map { |question| question["question"] }.join("; "))
+      end
+
+      def flush_transcript(assignment)
+        return unless Reach::Part.required?(assignment)
+
+        begin
+          Reach::Transcript.flush(quick: false)
+        rescue Reach::Offline, Reach::NetworkError
+          nil
+        end
       end
 
       def submission_entries(manifest, workspace, tail, qualification, assignment)

@@ -73,6 +73,7 @@ module Reach
 
       locked = !blocked.nil? && Reach::EnrollmentLock::MESSAGES.value?(blocked.message_id)
       entry = locked || blocked || login_block || elsewhere ? nil : live_prompt(event)
+      recorded = entry ? record_prompt(event, harness) : nil
 
       live = blocked || (login_block && decision["stuck"]) ? safely { Reach::Live.blocked_prompt(event) } : nil
       blocked = Reach::GateBlocked.new(blocked.message_id, [blocked.message, live, toggled].compact.join("\n\n")) if blocked && (toggled || live)
@@ -80,10 +81,22 @@ module Reach
       raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, live, toggled].compact.join("\n\n")) if login_block
       return nil if elsewhere
 
-      witness("prompt")
+      if recorded
+        witness("prompt", "session" => recorded["session_id"], "seq" => recorded["seq"], "digest" => recorded["digest"])
+      else
+        witness("prompt")
+      end
+      safely { Reach::Progress.assignment_started(current_workspace_path) }
       context = prompt_context(event, harness, decision, entry, toggled: toggled)
-      learn_prompt(entry) if entry
+      learn_prompt(entry, recorded) if entry
       context
+    end
+
+    def record_prompt(event, harness)
+      captured = Reach::Transcript.capture(event, harness: Reach::Session.resolve_harness(harness), gate: "allowed")
+      captured.is_a?(Hash) && captured["seq"].is_a?(Integer) ? captured : nil
+    rescue StandardError
+      nil
     end
 
     def live_prompt(event)
@@ -96,11 +109,11 @@ module Reach
       nil
     end
 
-    def learn_prompt(entry)
+    def learn_prompt(entry, recorded = nil)
       space = current_space
       kind = space ? space["kind"] : "outside"
       safely { Reach::Brain.capture_prompt(session_id: entry["session_id"], space: kind, text: entry["text"]) }
-      safely { Reach::Part.observe_prompt(space, entry["text"]) }
+      safely { Reach::Part.observe_prompt(space, entry["text"], recorded) }
       return unless kind == "slice" && !entry["text"].to_s.strip.empty?
 
       safely { Reach::Ladder.note_prompt(space["path"]) }
@@ -130,6 +143,8 @@ module Reach
       context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
       context << safely { Reach::Debug.remote_notice(session) }
       context << safely { Reach::LateWork.prompt_notice(session) }
+      transcripts = safely { Reach::TranscriptExport.pending_notice! }
+      context << Reach::TranscriptExport.agent_notice(transcripts) if transcripts
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed
         done = safely { Reach::Consent.follow_up!(observed) }

@@ -126,7 +126,7 @@
 
 - [x] Specify and ship the slice API: the generic surface a student's behaviour and panel program against. Shipped in 0.9.0 as a generated reference (Grokit 0.3.0 `bin/slice-api`, Teach 0.9.0 writes `api/README.md` and `api/slice-api.json`, wire revision 2026-09-29b). The "one slice per week" wording did not match the Grokit module guide, which sets A1 to A4 per module; the course keeps that cadence.
 - [x] `reach check` defers CK-PANEL's S-* rules to Dovetail's checker whenever it ran on a signed shape, and runs them itself otherwise (0.9.0).
-- [x] Antigravity submissions: decided and shipped in 0.9.0. The seal carries `hooked` and the harness (Antigravity runs `REACH_HARNESS=antigravity reach submit`); Teach notes a hookless submission as unwitnessed instead of flagging it for review, behind `<Teach setting>` (default `note`).
+- [x] Antigravity submissions: decided and shipped in 0.9.0. The seal carries `hooked` and the harness (Antigravity runs `REACH_HARNESS=antigravity reach submit`); Teach notes a hookless submission as unwitnessed instead of flagging it for review, by a course server setting (default: note).
 
 ## Before a class uses it
 
