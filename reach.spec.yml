@@ -2770,7 +2770,10 @@ codex_setup:
     configure and a reach codex configure without a terminal ask through Reach::Consent (kind codex_setup, subject the
     mode and the SHA-256 of the current file, kept on the computer); the prompt hook captures the typed answer and its
     follow-up applies on a yes or records the no (M-CODEX-SETUP-DECLINED). In the MCP server on Codex, while
-    KnownIssues.hooks_stale? holds, no yes can be captured, so it answers M-CODEX-SETUP-TERMINAL and asks nothing.
+    KnownIssues.hooks_stale? holds, no yes can be captured, so it answers M-CODEX-SETUP-TERMINAL and asks nothing. Before enrollment
+    the MCP tool answers M-CODEX-SETUP-SIGN-IN and asks nothing, because a chat yes is captured only for a signed-in
+    student; the terminal command works before enrollment. A withdrawal with no backup on disk answers
+    M-CODEX-SETUP-OFF-DONE-NEW, and the outcome text sent to Teach from a live action names the backup by file name only.
     live: the student's yes to the codex_configure live action. Inside the sandbox, where Codex's home is not
     writable, every writing entry point answers M-SANDBOX-AGENT. reach codex off records the withdrawal.
   heal: >-
@@ -2781,9 +2784,14 @@ codex_setup:
   probe: >-
     CodexSetup.probe! runs codex sandbox [-c sandbox_mode="<the settings file's own top-level value, when it is one
     of read-only, workspace-write or danger-full-access>"] -- <ruby> <exe/reach> codex probe-child from the reach-work
-    folder with the configured limit, so the test runs under the mode a chat would use; the child prints one JSON line {flag, network (one anonymous GET /api/v1/health through
-    Reach::Client, quick, quiet and without link tracking, answered below 500), home_writable
-    (Reach::Sandbox.probe_home)}. A timeout, a non-zero exit or unreadable output is available false with the reason.
+    folder with the configured limit, so the test runs under the mode a chat would use; the child prints one JSON line {flag, network (false without a request when
+    CODEX_SANDBOX_NETWORK_DISABLED is 1, null when REACH_OFFLINE is 1, else one anonymous GET /api/v1/health with 5
+    second limits and no retry, answered below 500), home_writable (Reach::Sandbox.probe_home)}. The child does not
+    use Reach::Client, whose token bucket lives in the Reach home and would read a blocked folder as a blocked
+    network; the parent takes one token from that bucket (quick) before it starts the child, and answers available
+    false when rEach is pacing its requests. scripts/reach-install runs reach codex configure right after it installs
+    when Codex is present and a person can answer (stdin a terminal, or /dev/tty when stdout is a terminal), and
+    prints the command otherwise. A timeout, a non-zero exit or unreadable output is available false with the reason.
   doctor: >-
     reach doctor prints codex: <not found | setup off | settings ok (workspace|full) | settings not applied>; sandbox
     <last probe: internet ok|blocked, folder ok|blocked, age | not tested>, runs the probe first when Codex and its
