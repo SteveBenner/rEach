@@ -178,7 +178,7 @@ module Reach
       end
 
       Reach::CodexCache.repair
-      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's two hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks)." }
+      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's two hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks). rEach will also ask to change two Codex settings so its commands can use the internet and its folder inside Codex; after that change, start a new chat in Codex." }
     end
 
     def run_antigravity(_source)
@@ -316,6 +316,7 @@ module Reach
       steps = []
       if results.any? { |entry| entry[:id] == "codex" && entry[:ok] }
         steps << "In Codex, open the reach-work folder in your home folder as the chat's folder (#{Reach::Paths.workspace_base})."
+        steps << "rEach will ask to change two Codex settings so its commands can use the internet and the reach-work folder inside Codex. Answer yes, then start a new chat in Codex so the change takes effect."
       end
       steps
     end

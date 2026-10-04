@@ -120,3 +120,8 @@ late_work:
   notice_every: 10
 hooks:
   lock_wait_s: 2
+codex:
+  setup: true
+  sandbox: auto
+  heal: true
+  probe_timeout_s: 20

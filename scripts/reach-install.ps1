@@ -335,6 +335,15 @@ try {
     if ($LASTEXITCODE -ne 0) {
         Stop-Install 'reach setup failed.'
     }
+    $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
+    if ((Get-Command codex -ErrorAction SilentlyContinue) -or (Test-Path -LiteralPath $codexHome)) {
+        $reachExe = Join-Path $Destination 'exe\reach'
+        if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+            & $ruby $reachExe codex configure
+        } else {
+            Write-Plain ('rEach install: to let rEach set up Codex, run this in a terminal: "' + $ruby + '" "' + $reachExe + '" codex configure')
+        }
+    }
     exit 0
 } catch {
     Stop-Install $_.Exception.Message

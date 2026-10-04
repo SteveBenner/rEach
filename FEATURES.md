@@ -12,7 +12,7 @@ agent harness.
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 90 catalogued |
+| **Feature count** | 91 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,8 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 82 | 91% |
+| ✅ Shipped | 82 | 90% |
+| 🟡 Partial | 1 | 1% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +32,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 77 | 86% |
+| 🔵 Built, not enabled | 78 | 86% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -673,12 +674,41 @@ target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Ve
 (0.31.1) with real claude and codex CLIs: fresh install, relocation of a populated legacy install (legacy hash list
 unchanged, new home identical, enrollment kept, outbox sent afterwards), two kill -9 interruptions, an occupied
 destination, an instructor persona, the gate in root, slice and extracurricular kinds, harness source repoints and
-Ruby 2.6.10. Not fixed: the Codex sandbox still blocks the network, so enroll, sync, updates and the subscription check
-need Full access or an allow rule until measured otherwise; Codex hook trust is unrelated; on Windows the project's
-top-level `.codex` is read-only in the sandbox. Not verified: the Windows sandbox itself, `scripts/reach-install.ps1`
+Ruby 2.6.10. Not fixed by this layout alone: Codex's default sandbox still blocks the network and writes outside the
+chat's folder; since 2.43 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
+network and write in the reach-work folder. Codex hook trust is unrelated; on Windows the project's top-level `.codex`
+is read-only in the sandbox. Not verified: the Windows sandbox itself, `scripts/reach-install.ps1`
 (no PowerShell available), macOS.
 
 Build ✅ (branch in-workspace) · Deploy 🔵 (not released) · Blocker: Human (Windows sandbox probe, release).
+
+### 2.43 · rEach sets Codex up
+
+On branch `in-workspace` (`STD-CODEX-SETUP`, unreleased, wire revision 2026-10-03g) rEach writes the sandbox settings
+it needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`) after the student's yes: on a terminal
+(`reach codex configure`), in a chat (`reach_setup` configure, the yes captured by the prompt hook) or through the
+`codex_configure` live action. Mode workspace (the default outside Windows) turns on network access and makes the
+reach-work folder writable; mode full (the default on Windows) turns Codex's sandbox off; both mark the folder trusted.
+A line editor changes only those lines, keeps a backup beside the file, refuses rather than guess, and is undone when
+`codex features list` rejects only the new file. `reach codex probe`, `reach_setup` probe and the `sandbox_probe` live
+action test the sandbox; `reach doctor` shows a `codex:` line and `R-DOC-CODEX`; `reach mcp` and the background tick put
+the settings back at most every 6 hours while the yes stands; `reach codex off` stops that. Known issues carry a remedy
+that rEach names to the agent. Verified 2026-10-03 on Linux with Codex 0.160.0 in scratch homes: the editor on 19 file
+shapes in both modes (byte-exact outside the edited lines, backups equal to the originals, a second apply writing
+nothing, every refusal leaving the file alone), the terminal yes and no on a pseudo-terminal, the chat yes and no
+through the real MCP server and prompt hook, the hooks-off answer, the busy lock, the reapply from `reach mcp` and the
+background tick (and none without a yes, after a withdrawal or within 6 hours), both live actions against a scratch
+Teach on the `codex-setup` branch, the known-issue remedies and Ruby 2.6.10. A Codex chat follows the new settings
+(`codex debug prompt-input` shows workspace-write, network enabled and the reach-work writable root). `codex
+sandbox` does not read the file's top-level `sandbox_mode`, so the probe passes the file's own value with `-c`; with
+that, the probe reported blocked before and ok after configure in both modes, and `reach doctor` printed settings ok
+with internet ok and folder ok. Not built: the step in `scripts/reach-install`, which runs no setup (INSTALL.md and
+setup's own message carry the step instead), and nothing in `tools/fake_teach`, which has no live or known-issue
+routes. Not verified: Windows, macOS, `scripts/reach-install.ps1`
+(no PowerShell), the Codex desktop app and IDE extension, and a real Codex chat reaching the course server.
+
+Build ✅ (branch in-workspace, Linux only) · Deploy 🔵 (not released) · Blocker: Human (Windows and macOS runs,
+release).
 
 ## 3 · Course reference
 

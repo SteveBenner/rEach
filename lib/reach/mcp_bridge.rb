@@ -319,6 +319,17 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_setup",
+        "description" => "Sets Codex up so rEach's commands work in its sandbox: action status (the default) says whether Codex's settings hold what rEach needs, probe tests what a command inside Codex's sandbox can reach, and configure asks the student rEach's own question before anything changes; relay that question word for word and never answer it yourself; works before enrollment",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[status configure probe] },
+            "mode" => { "type" => "string", "enum" => %w[workspace full] }
+          }
+        }
+      },
+      {
         "name" => "reach_storage",
         "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
         "inputSchema" => {
@@ -342,7 +353,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update reach_setup].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -552,6 +563,8 @@ module Reach
           step.merge("relay_verbatim" => true)
         when "reach_known_issues"
           known_issues_tool
+        when "reach_setup"
+          setup_tool(arguments)
         when "reach_storage"
           storage_tool(arguments)
         when "reach_debug"
@@ -647,7 +660,30 @@ module Reach
       def known_issues_tool
         Reach::KnownIssues.refresh_if_stale!(quick: true)
         issues = Reach::KnownIssues.matching(mcp: true)
-        { "issues" => issues, "text" => issues.empty? ? Reach::Messages.text("M-KNOWN-ISSUES-NONE") : nil }
+        remedies = Reach::KnownIssues.remedy_lines(issues)
+        text = if issues.empty?
+                 Reach::Messages.text("M-KNOWN-ISSUES-NONE")
+               elsif !remedies.empty?
+                 remedies.join("\n")
+               end
+        { "issues" => issues, "text" => text }
+      end
+
+      def setup_tool(arguments)
+        case arguments["action"].to_s
+        when "", "status"
+          info = Reach::CodexSetup.status
+          { "text" => Reach::CodexSetup.doctor_line(info), "satisfied" => info["satisfied"], "mode_wanted" => info["mode_wanted"], "probe" => info["probe"] }
+        when "probe"
+          found = Reach::CodexSetup.probe!
+          { "text" => found["text"], "network" => found["network"], "home_writable" => found["home_writable"], "available" => found["available"] }
+        when "configure"
+          result = Reach::CodexSetup.ask_chat(mode: arguments["mode"], mcp: true)
+          payload = { "text" => result["text"], "state" => result["state"] }
+          result.key?("question") ? payload.merge("question" => result["question"], "relay_verbatim" => true) : payload
+        else
+          raise Reach::Error, "reach: unknown setup action"
+        end
       end
 
       def update_tool(arguments)

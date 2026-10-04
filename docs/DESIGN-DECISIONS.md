@@ -128,10 +128,16 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   submission never carries the home. A root-kind session judges writes by their target slice and asks which slice when
   it cannot choose. Existing installs relocate by copy, hash verification and rename; the legacy folder is left exactly
   as it was apart from `RELOCATED.json`, because losing student data has no acceptable odds.
-- **What this does not fix** (10-03). The Codex sandbox still blocks the network, so enroll, sync, updates and the
-  subscription check need Full access or an allow rule until measured otherwise. Codex hook trust is unrelated to the
-  layout. On Windows the project's top-level `.codex` is read-only inside the sandbox. None of these was measured on
-  Windows or macOS.
+- **What this does not fix** (10-03). The layout alone does not open the Codex sandbox, which by default blocks the
+  network and writes outside the chat's folder; the decision below does. Codex hook trust is unrelated to the layout.
+  On Windows the project's top-level `.codex` is read-only inside the sandbox. None of these was measured on Windows or
+  macOS.
+- **rEach edits the student's own Codex settings** (10-03, branch only). A project-level `.codex/config.toml` changed
+  nothing in Codex 0.160.0, and the user-level `$CODEX_HOME/config.toml` did, so rEach writes the few sandbox keys it
+  needs there, from outside the sandbox and only after the student's yes, keeps a backup beside the file and puts the
+  keys back when they were removed. It refuses rather than guess, because a second definition of a key stops Codex
+  from starting. Windows defaults to turning the sandbox off, because the workspace keys were never measured there and
+  writable roots are reported unreliable on Windows. rEach never writes Codex hook trust.
 
 ## Updates and releases
 

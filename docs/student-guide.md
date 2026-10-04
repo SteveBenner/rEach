@@ -41,7 +41,7 @@ and sends it in when you are ready.
 
 ## Your course folders
 
-Everything lives in the `reach-work` folder in your home folder (`~/reach-work`), and rEach keeps its own files in a hidden folder inside it called `.reach-home`. In Codex, open the `reach-work` folder as the chat's folder. rEach's own files in `.reach-home` are not for you or your AI partner to open or change:
+Everything lives in the `reach-work` folder in your home folder (`~/reach-work`), and rEach keeps its own files in a hidden folder inside it called `.reach-home`. In Codex, open the `reach-work` folder as the chat's folder. rEach then asks once to change two of Codex's settings so it can reach your course server and save your work from Codex; it saves a copy of your old settings first. Say yes, then start a new chat. rEach's own files in `.reach-home` are not for you or your AI partner to open or change:
 
 - `deliverables/<course>/<assignment>/<cutout>-<slice>/` holds each slice you are assigned. Code for an assignment goes only in your slice's own files here. `reach work` opens a slice.
 - `extracurricular/` is your own code folder, for anything you want to build that is not an assignment. It is never graded or submitted. `reach work --extracurricular` opens it.

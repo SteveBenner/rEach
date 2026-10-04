@@ -1,0 +1,212 @@
+schema: rstack.blueprint/v1
+task: reach-codex-setup
+intent: >
+  Sven asked on 2026-10-03 to automate, as far as packaged scripts and MCP actions allow, everything a student needs
+  for rEach to work inside Codex. Measured the same day with Codex 0.160.0 on Linux (codex sandbox): a command in the
+  default workspace-write sandbox has no network and cannot write outside the chat folder; the same command with
+  sandbox_workspace_write.network_access = true and a writable root in the USER-level config ($CODEX_HOME/config.toml)
+  has both; sandbox_mode = "danger-full-access" has both; a project-level .codex/config.toml (the file
+  Harness.configure_codex writes today) changed nothing, trusted or not. So rEach itself writes the needed keys into
+  the student's user-level Codex config, from outside the sandbox, after the student's yes, keeps a backup, proves the
+  result with a sandboxed probe, reapplies it when it was removed, and lets an instructor or a Teach known issue
+  trigger the same fixed actions. rEach never writes Codex hook trust. This is branch work only: nothing is released,
+  merged, version-bumped or deployed. Where this file is silent, stop and report instead of choosing.
+harness: claude-code
+worker: { model: opus, effort: high, definition: coding-worker-high }
+repositories:
+  reach: ~/github/foss/.reach-wt/in-workspace (git worktree of rEach, branch in-workspace, Reach 0.23.0 plus the home-in-workspace commit 03dda66)
+  teach: ~/bitbucket/paterasai/.teach-wt/codex-setup (git worktree of Teach, branch codex-setup, from origin/main at Teach 0.32.0)
+
+read_first:
+  reach:
+    - AGENTS.md, CHANGELOG.md (Unreleased and 0.21.8 to 0.23.0), FEATURES.md section 2.42, INSTALL.md, PRIVACY.md, docs/DESIGN-DECISIONS.md, specs/implementation/in-workspace.impl.yml (its constraints still bind)
+    - "lib/reach/sandbox.rb, codex_cache.rb, harness_source.rb (codex_home, from_config), harness.rb (configure_codex, codex_config_toml), setup.rb (run_codex and the NEXT text), paths.rb (root, workspace_base, root_state_dir)"
+    - "lib/reach/consent.rb (KINDS, ask!, capture, follow_up!, agent_context, take!) and one full consumer of it, storage.rb compaction (ask, follow up, replay)"
+    - "lib/reach/live.rb (COMMANDS, ACTIONS, ACTION_TEXT, action_question, settle_actions, the cache_repair branch), known_issues.rb, subscribe.rb (the tick), locks.rb, debug.rb (how a typed or brain event and a fault are emitted)"
+    - "lib/reach/mcp_bridge.rb (a tool definition, UNLOCKED_TOOLS, the dispatch case, known_issues_tool, doctor_tool), lib/reach/cli.rb (dispatch, cmd_doctor and its check_ methods, cmd_mcp, cmd_setup)"
+    - "scripts/reach-install, scripts/reach-install.ps1, config.yml, locales/en-US.yml (M-SANDBOX-*, M-STORAGE-COMPACT-ASK as a consent question), tools/fake_teach/server.rb, reach.spec.yml (STD-CODEX-SANDBOX, STD-HOME-IN-WORKSPACE, the consent standard), specs/wire.yml (W-LIVE-5, W-KI-1 to W-KI-3; already at revision 2026-10-03g, do not edit)"
+  teach:
+    - AGENTS.md, CHANGELOG.md (0.30.0 to 0.32.0), FEATURES.md (live sessions, known issues), teach.spec.yml (the same two features)
+    - "lib/teach/live_rules.rb, lib/teach/live.rb, lib/teach/live_desk.rb, lib/teach/live_cli.rb, lib/teach/standby/live_mcp_server.rb, lib/teach/known_issues.rb, lib/teach/db (schema and migrations for known_issues), lib/teach/web (the console Live and Issues pages and the known-issues route), lib/teach/wire.rb"
+
+constraints:
+  - No comments in any file (only magic comments and shebangs survive). No attribution anywhere. No tests, spec files, fixtures for tests or fault-injection switches in product code; verification runs from scratch scripts outside both repositories and is reported, not committed.
+  - Run no git write (no add, commit, stash, checkout, reset, worktree, push). The primary stages, commits and pushes. Do not bump VERSION or any manifest version in either repository; each CHANGELOG gets an Unreleased entry.
+  - "Never touch Sven's real ~/.codex, ~/.reach, ~/reach-work, ~/.claude, systemd user units, Task Scheduler or launchd jobs, or the live Teach (port 7400, database teach, https://sven-f1l1.tail062fd2.ts.net). Every run sets HOME, CODEX_HOME, REACH_HOME, REACH_WORKSPACE_ROOT and REACH_TEACH_URL to scratch values; REACH_TEACH_URL must point at your own fake or scratch Teach because rEach's built-in default is the live server and reach sync calls it for known issues. The shell's TEACH_DATABASE_URL is the LIVE database: unset it in every command. Unset XDG_RUNTIME_DIR and DBUS_SESSION_BUS_ADDRESS so no user timer is installed."
+  - Delete nothing outside your own scratch directory; never rm -r, git clean, find -delete, dropdb of a database you did not create. Scratch lives under ~/.cache/claude-tmp/codex-setup-<slice>/ (create it; /tmp is RAM and is always writable in the Codex sandbox, so it cannot stand in for a home folder in a probe).
+  - Ruby 2.6.10 compatibility for Reach's lib/, exe/, scripts/ and update/. No new gems, no TOML library. macOS, Windows and Linux code paths; only Linux can be run here, so say exactly what was not run.
+  - American English. No em or en dashes in any text a student or agent reads. Student-facing words are plain; agent-facing text may name tools.
+  - specs/wire.yml is already edited by the primary to revision 2026-10-03g and is byte-identical in both worktrees. Neither worker edits it. If its text does not fit what you must build, stop and report.
+  - Do not refactor, rename or tidy code this blueprint does not name. Do not add capability beyond it.
+
+design:
+  toggles:
+    file: reach config.yml, new top-level section codex (also readable through the course policy only to turn setup off, never on)
+    keys:
+      setup: "true. false, or REACH_CODEX_SETUP=0, makes every entry point answer M-CODEX-SETUP-OFF and change nothing; heal and the doctor problem line are off too."
+      sandbox: "auto. One of auto, workspace, full. auto means full on Windows and workspace elsewhere, because neither workspace key has been measured on Windows and writable_roots is reported unreliable there (openai/codex#23552)."
+      heal: "true. false stops the automatic reapply."
+      probe_timeout_s: "20. Clamped to 5..60."
+  module: "Reach::CodexSetup in lib/reach/codex_setup.rb, required from lib/reach.rb. module_function style like KnownIssues. It is the only code that writes $CODEX_HOME/config.toml for sandbox keys."
+  paths:
+    codex_home: Reach::CodexCache.codex_home (CODEX_HOME, else ~/.codex)
+    config: <codex_home>/config.toml
+    state: "<Paths.root_state_dir>/codex_setup.json, written tmp plus rename, mode 0600: {consent: {answer: yes|no|withdrawn, at, via: terminal|chat|live}, mode, applied_at, backup, config_sha256, healed_at, probe: {at, available, network, home_writable, reason, codex_version}}"
+    lock: <Paths.root_state_dir>/codex_setup.lock through Reach::Locks.exclusive with a 5 second wait; busy answers M-CODEX-SETUP-BUSY and changes nothing
+    workspace: "Reach::Paths.workspace_base, absolute, the one writable root and the one trusted project. Never Paths.root (it is inside workspace_base on this branch)."
+  wanted:
+    workspace: "top-level sandbox_mode = \"workspace-write\"; table [sandbox_workspace_write] with network_access = true and writable_roots holding the workspace path; table [projects.\"<workspace>\"] with trust_level = \"trusted\"."
+    full: "top-level sandbox_mode = \"danger-full-access\"; table [projects.\"<workspace>\"] with trust_level = \"trusted\". [sandbox_workspace_write] is left as found."
+    never: "approval_policy, model, features, hooks, hook trust state, marketplaces, mcp_servers and every other key are never written. An existing sandbox_mode = \"danger-full-access\" is never narrowed: in mode workspace it counts as satisfied for the sandbox part and only the trust table is ensured."
+  status:
+    returns: "{codex_present, codex_cli, config_path, config_exists, sandbox_mode, network_access, workspace_writable, trusted, mode_wanted, satisfied, consent, applied_at, backup, probe}"
+    codex_present: "the codex command is on PATH or codex_home exists"
+    satisfied: "the parsed file already holds everything wanted for mode_wanted (or a wider sandbox_mode as above)"
+  editor:
+    rule: >-
+      A line-based edit that changes only the lines it must. Read the file as binary-safe UTF-8 text; keep its line
+      ending style (CRLF or LF, the first line ending found; LF for a new file) and every byte it does not edit; keep a
+      final newline. The top-level region is every line before the first line matching /\A\s*\[/. Table bodies run from
+      their header to the next header or the end.
+    sandbox_mode: replace the value of an existing top-level sandbox_mode line, else insert the line after the last non-blank top-level line (at the top of a file that starts with a table).
+    table_keys: in an existing table replace the key's line, else add the line after the table's last non-blank line; append a missing table at the end of the file after one blank line.
+    writable_roots: "absent: add writable_roots = [\"<workspace>\"]. Present as one single-line array of strings: add the workspace when no element is the same path (compare expanded paths, case-insensitively on Windows and macOS). Any other form: refuse."
+    strings: "Write TOML basic strings with \\\\ and \\\" escaped (a Windows path becomes \"C:\\\\Users\\\\x\\\\reach-work\"). Recognize an existing projects header for the same path written with a basic or a literal ('...') quoted key."
+    refuse: >-
+      Refuse, change nothing and answer M-CODEX-SETUP-UNSAFE with a short reason when: the file is not valid UTF-8;
+      sandbox_mode, sandbox_workspace_write or the workspace's projects entry is defined in a form the editor does not
+      read (dotted keys such as sandbox_workspace_write.network_access = ..., an inline table, a multi-line array, a
+      duplicate table header, a duplicate key); or the result, read back through the same reader, is not satisfied.
+      Writing a second definition of a key makes the file invalid TOML and stops Codex from starting, so when in doubt
+      refuse.
+    write: "Under the lock: when the file exists and the new content differs, first copy it to <config>.reach-backup-<UTC yyyymmddThhmmssZ> (same directory, same mode, never overwritten, never deleted or pruned); write the new content to a temp file in the same directory and rename it over the config, keeping the old mode (0600 for a new file); create codex_home when it is missing only if the codex command is on PATH."
+    validate: "When the codex command is on PATH, after the write run one no-model codex command that loads the configuration (find one; codex features list is a candidate) with a 15 second limit. If it exits non-zero and exited zero on the backup content, put the backup content back the same atomic way and answer M-CODEX-SETUP-UNSAFE with reason codex rejected the file. Report which command you chose and what it proves."
+    idempotent: A second apply on a satisfied file writes nothing, makes no backup and answers M-CODEX-SETUP-ALREADY.
+  consent:
+    rule: "The config is written only after the student's own yes. Three sources count, and each is recorded in state.consent with its via."
+    terminal: "reach codex configure on a TTY prints M-CODEX-SETUP-ASK and reads one line from the terminal; Consent.yes? accepts, anything else is a no. The installer scripts run exactly this command attached to the terminal."
+    chat: "New Consent kind codex_setup (add to Consent::KINDS; it never leaves the computer). reach_setup configure and a non-TTY reach codex configure call Consent.ask!(kind: \"codex_setup\", subject: {\"codex\" => mode, \"config\" => sha256 of the current file or \"none\"}, message_id: \"M-CODEX-SETUP-ASK\", fields: {changes: ...}) and return the question for the agent to relay word for word; the captured yes runs the apply through Consent's existing follow-up path exactly as storage compaction does, and the agent context then carries the outcome text. A captured no records answer no and answers M-CODEX-SETUP-DECLINED."
+    hooks_off: "In the MCP server, when Codex is the harness and KnownIssues.hooks_stale? is true, no yes can be captured: answer M-CODEX-SETUP-TERMINAL (with the command reach codex configure) and ask nothing."
+    live: "The student's captured yes to the live action question for codex_configure (W-LIVE-5) is the yes; via live."
+    sandboxed: "When Reach::Sandbox.active? and the Codex home is not writable, every writing entry point answers M-SANDBOX-AGENT and changes nothing."
+    withdraw: "reach codex off records consent withdrawn, stops healing, edits nothing in Codex's file and prints M-CODEX-SETUP-OFF-DONE with the newest backup path."
+  heal:
+    rule: "CodexSetup.heal! reapplies only when codex.setup and codex.heal are on, state.consent.answer is yes, Codex is present, the file is not satisfied, the process is not sandboxed, and state.healed_at is absent or older than 6 hours. It uses the same editor, backup, validation and lock, records healed_at, emits one debug event and never raises."
+    callers: "CLI cmd_mcp right after Reach::CodexCache.repair; the subscription tick when its source is background. Nowhere else, and never from a hook."
+  probe:
+    rule: >-
+      CodexSetup.probe! answers what a sandboxed Codex command can really do. It needs the codex command on PATH (else
+      available false, reason codex command not found) and must not run inside the sandbox (reason already inside the
+      sandbox). It runs, with cwd = the workspace when that folder exists (else Dir.pwd) and the configured time limit:
+      codex sandbox -- <Runtime.ruby_path> <exe/reach> codex probe-child. The child prints one JSON line:
+      {flag: CODEX_SANDBOX_NETWORK_DISABLED is 1, network: one quick anonymous GET /api/v1/health on the install's
+      Teach URL (else Runtime.default_teach_url) answered below 500, home_writable: Reach::Sandbox.probe_home}. The
+      child goes through Reach::Client (quick, link false, quiet), which already makes no request when the sandbox
+      flag is set, so the probe costs at most one request, honors REACH_OFFLINE=1 (network reported null, reason
+      offline flag) and uses the existing token bucket. The parent stores the result with its time and the codex
+      version in state.probe. A timeout, a non-zero exit or unparseable output is available false with the reason.
+      If codex sandbox does not accept this form on the installed Codex, report it; do not guess flags per platform.
+  cli:
+    verb: "reach codex <status|configure|probe|off> plus the hidden reach codex probe-child. configure takes --mode workspace|full (default from config). status and probe take --format json. Exit 0 when the action did what it says or nothing was needed, 1 otherwise."
+    doctor: >-
+      reach doctor prints one informational line, never a finding: "codex: <not found | setup off | settings ok
+      (workspace|full) | settings not applied>; sandbox <last probe: internet ok|blocked, folder ok|blocked, <age> | not
+      tested>". It adds the problem line "R-DOC-CODEX: Codex's settings no longer hold what rEach set - run reach codex
+      configure" when consent is yes and the file is not satisfied, and "R-DOC-CODEX: Codex's sandbox blocks rEach
+      (internet <ok|blocked>, folder <ok|blocked>) - run reach codex configure" when the newest probe is under 24
+      hours old and blocked. Plain reach doctor runs the probe first when Codex is present, the codex command exists,
+      the process is not sandboxed and REACH_OFFLINE is not 1; reach doctor --report never runs it and gains a codex
+      section holding CodexSetup.status.
+  mcp:
+    tool: "reach_setup, in UNLOCKED_TOOLS (it works before enrollment). Arguments: action (status, the default; configure; probe), mode (workspace or full, optional). Description for the agent: sets Codex up so rEach's commands work in its sandbox; configure asks the student rEach's own question, relay it word for word and never answer it yourself."
+    results: "status: {text, satisfied, mode_wanted, probe}. probe: {text, network, home_writable, available}. configure: the question with relay_verbatim true, or the outcome text."
+  live:
+    reach: "Live::ACTIONS gains codex_configure and sandbox_probe, run in process like cache_repair (no shell). ACTION_TEXT as in messages. codex_configure applies with via live and answers the outcome text plus the status line; sandbox_probe answers the probe text."
+    teach: "Teach::LiveRules::ACTIONS and the standby live MCP server's ACTIONS gain the two names, with result labels, tool-schema enum and descriptions extended the same way every other action is. Every place that validates, lists, labels or renders an action name follows the constant or gains the two names."
+  known_issues:
+    wire: "W-KI-1 entries carry remedy, null or a W-LIVE-5 action name, after detector in the canonical key order."
+    teach: "known_issues gains a nullable remedy column (a migration in Teach's existing migration style, applied only to scratch databases here); ENTRY_KEYS is id title symptom detector remedy applies steps; validation accepts null or a name in LiveRules::ACTIONS; every INSERT, UPDATE, SELECT, import, export, CLI listing and the revision digest carry it; an entry stored before the migration reads as remedy null."
+    reach: >-
+      KnownIssues.matching adds remedy to each returned entry: null, or {id, tool, arguments} from a fixed table
+      (codex_configure: reach_setup {action: configure}; sandbox_probe: reach_setup {action: probe}; doctor:
+      reach_doctor {}; status: reach_status {}; sync: reach_sync {}; update_check: reach_update {action: status};
+      update: reach_update {action: run}). A name outside the table, cache_repair and resend give null. context_lines
+      and the reach_known_issues tool say, for an entry with a remedy, that rEach can fix it and name the tool call.
+      Reach runs nothing by itself because of a remedy.
+  sandbox_text: "Reach::Sandbox.agent_text and every caller keep working; only the two message texts change (messages)."
+  setup_text: "Setup.run_codex's success message and the Codex part of the NEXT block say that rEach will ask to change two Codex settings and that a new chat is needed afterwards. scripts/reach-install runs reach codex configure after setup when Codex is present and a terminal is available (read the answer from /dev/tty when stdin is a pipe); with no terminal it prints the command. scripts/reach-install.ps1 does the same with Read-Host; it cannot be run here, so keep it small and say it was not run."
+  observability: "Every apply, decline, withdrawal, heal, refusal and probe emits one rEach debug event through the existing generic event path (no new wire kind): event codex_setup.<applied|already|declined|withdrawn|healed|refused|probed>, with mode, via, reason and the probe booleans, never a path under the student's home beyond the file name. Unexpected errors go through Reach::Debug.fault with place codex_setup:<step>."
+  fake_teach: "tools/fake_teach accepts the two action names wherever it lists actions and serves remedy on known issues from its issues file."
+
+messages:
+  M-CODEX-SETUP-ASK: "rEach needs to change Codex's settings on this computer so it can reach your course server and save your work. {changes} rEach saves a copy of your current settings first. This applies to all your Codex chats on this computer, not only your course. Type yes to let rEach make this change, or no to leave Codex as it is."
+  M-CODEX-SETUP-CHANGES-WORKSPACE: "It will let Codex's commands use the internet, let them write inside your reach-work folder, and mark that folder as trusted."
+  M-CODEX-SETUP-CHANGES-FULL: "It will turn off Codex's sandbox, so Codex's commands can use the internet and write anywhere your account can, and it will mark your reach-work folder as trusted."
+  M-CODEX-SETUP-DONE: "Codex is set up for rEach. A copy of your old settings is at {backup}. Start a new chat in Codex so the change takes effect."
+  M-CODEX-SETUP-DONE-NEW: "Codex is set up for rEach. Start a new chat in Codex so the change takes effect."
+  M-CODEX-SETUP-ALREADY: "Codex is already set up for rEach. Nothing was changed."
+  M-CODEX-SETUP-DECLINED: "rEach left Codex's settings as they are. Some rEach steps may not finish inside Codex until this changes. You can ask for it again at any time."
+  M-CODEX-SETUP-TERMINAL: "rEach can't take your yes in this chat yet, because Codex has not turned on rEach's hooks. Open a terminal, run this, and answer its question: {command} Then start a new chat in Codex."
+  M-CODEX-SETUP-UNSAFE: "rEach did not change Codex's settings, because it could not do so safely ({reason}). Nothing was changed. Please tell your instructor."
+  M-CODEX-SETUP-NO-CODEX: "rEach did not find Codex on this computer, so there is nothing to set up."
+  M-CODEX-SETUP-OFF: "Setting up Codex is turned off for rEach on this computer, so nothing was changed."
+  M-CODEX-SETUP-OFF-DONE: "rEach will no longer put its Codex settings back. Codex's settings were not changed. Your settings from before rEach's change are at {backup}."
+  M-CODEX-SETUP-BUSY: "rEach is already changing Codex's settings. Try again in a moment."
+  M-CODEX-PROBE-OK: "Codex's sandbox lets rEach reach your course server and save to its folder."
+  M-CODEX-PROBE-BLOCKED: "Codex's sandbox still blocks rEach: {what}. To fix it, call reach_setup with action configure and relay rEach's question to the student."
+  M-CODEX-PROBE-WHAT-NETWORK: "the internet"
+  M-CODEX-PROBE-WHAT-HOME: "rEach's folder"
+  M-CODEX-PROBE-WHAT-BOTH: "the internet and rEach's folder"
+  M-CODEX-PROBE-UNAVAILABLE: "rEach could not test Codex's sandbox on this computer ({reason})."
+  M-SANDBOX-AGENT: "Codex ran this rEach command inside its sandbox, which blocks the internet and rEach's folder on this computer, so it could not finish. The course server is fine. Use rEach's reach_ tools instead (for example reach_update, reach_debug, reach_doctor and reach_sync), because Codex runs them outside its sandbox. To fix it for good, call reach_setup with action configure and relay rEach's question to the student word for word. If no tool does what you need, tell the student: {student}"
+  M-SANDBOX-STUDENT: "Your AI app is running rEach in a locked-down mode that keeps it offline, so this step couldn't finish. Nothing is wrong with your course. rEach can fix this by changing Codex's settings: ask your assistant to set up Codex for rEach, answer its question, and then start a new chat."
+  live_action_text:
+    codex_configure: "change Codex's settings so rEach can use the internet and its folder (rEach keeps a copy of the old settings)"
+    sandbox_probe: "test whether Codex's sandbox lets rEach reach the course server and its folder"
+  teach_result_labels:
+    codex_configure: "changed Codex's settings for rEach"
+    sandbox_probe: "tested Codex's sandbox"
+
+slices:
+  - id: r_reach
+    repository: reach
+    owns_paths:
+      - lib/reach/codex_setup.rb (new)
+      - lib/reach.rb, lib/reach/cli.rb, lib/reach/mcp_bridge.rb, lib/reach/live.rb, lib/reach/known_issues.rb, lib/reach/consent.rb, lib/reach/subscribe.rb, lib/reach/setup.rb, lib/reach/diagnose.rb
+      - locales/en-US.yml, config.yml, scripts/reach-install, scripts/reach-install.ps1, tools/fake_teach/**
+      - reach.spec.yml, specs/app.yml, CHANGELOG.md, FEATURES.md, README.md, INSTALL.md, PRIVACY.md, TODO.md, docs/student-guide.md, docs/DESIGN-DECISIONS.md, rules/reach.md, skills/reach-help/**, agents/reach.md and skills/reach-assistant/SKILL.md (their bodies must stay identical; reach doctor checks R-DOC-PERSONA)
+    do:
+      - Build Reach::CodexSetup (status, apply, heal, probe, the editor, state, messages) exactly as design says.
+      - Add the reach codex verb, the doctor line, problem line and report section, the reach_setup tool, the two live actions, the known-issue remedy mapping, the Consent kind, the two heal callers, the setup and installer steps, the config section and every message.
+      - "Documents: reach.spec.yml gains the standard STD-CODEX-SETUP (the rule, the toggles, the consent sources, what is never written, the measured facts and what is unverified) and STD-CODEX-SANDBOX points to it; specs/app.yml lists the feature; CHANGELOG.md Unreleased gains Added and Changed entries; FEATURES.md gains a section after 2.42 with an honest Build and Deploy line and section 2.42's 'Not fixed' sentence is corrected to say what this feature now does about the sandbox; README.md, INSTALL.md, PRIVACY.md (rEach edits Codex's own settings file, after a yes, and keeps a backup), docs/student-guide.md, docs/DESIGN-DECISIONS.md and the persona pair say the same in plain words. TODO.md: mark existing items this completes; add nothing."
+    verify_for_real:
+      - "Editor matrix against scratch CODEX_HOME files, each compared byte for byte outside the edited lines: no file; empty file; a real-shaped file with model, [projects.*], [mcp_servers.*] and [marketplaces.*] tables; sandbox_mode read-only; sandbox_mode danger-full-access with mode workspace; an existing [sandbox_workspace_write] with exclude_tmpdir_env_var and a one-line writable_roots; CRLF line endings; a file starting with a table; a path with spaces; each refuse case. Show the backup equals the original and that a second apply writes nothing."
+      - "Effect, with the real Codex 0.160.0: in a scratch CODEX_HOME and a scratch home under ~/.cache/claude-tmp, reach codex probe before (network blocked, folder blocked), reach codex configure answered yes on a pseudo-terminal, reach codex probe after (both ok), for mode workspace and for mode full; then a no; then off; then heal after removing the keys by hand, and heal doing nothing without a recorded yes, after a withdrawal and within the 6 hour gap."
+      - "Chat consent: drive the real hook path the way storage compaction's consent is driven (ask through reach_setup over the MCP stdio server, a yes through the prompt hook, the follow-up applying) and the hooks-off answer. Live actions and known-issue remedy against tools/fake_teach. reach doctor and reach doctor --report output in each state. The installer script end to end in a scratch HOME with and without a terminal."
+      - "ruby -c under Ruby 2.6.10 for every changed Ruby file if a 2.6 interpreter or the ruby:2.6.10-slim image is available; say so if not. rplugin check reach if it can run without touching the real home; say so if not. reach doctor's R-DOC-PERSONA, R-DOC-DIRECTIVES and R-DOC-VERSION stay clean."
+  - id: t_teach
+    repository: teach
+    owns_paths:
+      - lib/teach/live_rules.rb, lib/teach/live.rb, lib/teach/live_desk.rb, lib/teach/live_cli.rb, lib/teach/standby/live_mcp_server.rb, lib/teach/known_issues.rb, lib/teach/db/** (the migration and schema), the known-issues and live parts of lib/teach/web/** and lib/teach/cli.rb
+      - teach.spec.yml, CHANGELOG.md, FEATURES.md, README.md, TODO.md
+    do:
+      - Add the two live actions and the known-issue remedy exactly as design.live.teach and design.known_issues.teach say.
+      - "Console: an instructor must be able to request the two new actions wherever the other seven can be requested, and to see and set a known issue's remedy wherever its detector can be seen and set. Where a view iterates the action constant nothing changes. Where a view or form names fields one by one, add the new control by copying the neighboring control's markup and classes exactly (the remedy control is the themed select the console already uses, listing none plus the action names); add no CSS, no raw native control the console does not already use, and check the page in all three themes (apple-noir, apple-austere, tronwave) with headless screenshots kept in scratch. If that cannot be done without new styling, stop and report."
+      - "Documents: teach.spec.yml, CHANGELOG.md Unreleased, FEATURES.md with an honest Build and Deploy line (built on branch codex-setup, not deployed), README.md if it lists the actions or the known-issue fields. TODO.md: mark existing items only."
+    verify_for_real:
+      - "A scratch PostgreSQL database you create and name teach_codex_setup_scratch, and a scratch Teach on a port other than 7400; ~/.cache/claude-tmp/reach-in-workspace/teach_ctl.sh shows how an earlier session did it (read it, copy what you need into your own scratch, do not run it in place). Run the migration there, import a known issue with and without remedy, show the served /api/v1/known-issues body and that its revision equals the SHA-256 of the canonical JSON with remedy in key order, show a rejected unknown remedy, and show an entry that predates the migration reading as null."
+      - "Request each new action in a live session against a Reach that does not know them (the main rEach checkout at ~/github/foss/rEach, read-only, run with scratch HOME and REACH_TEACH_URL) and show Teach records the fixed refusal; Teach::Wire.digest equals the SHA-256 of specs/wire.yml as shipped in this worktree."
+      - bin/teach doctor (or the repository's own check command) clean on the scratch instance.
+
+acceptance:
+  - A student's Codex config is never changed without a recorded yes, never left invalid, never changed outside the named keys, and the original is always recoverable from the backup beside it.
+  - On Linux with Codex 0.160.0 the probe reports blocked before and ok after configure, in both modes.
+  - Every entry point (terminal, installer, MCP tool, live action, heal) goes through the one editor and the one lock.
+  - Nothing in either repository writes or reads Codex hook trust.
+  - Both specs/wire.yml copies are untouched by the workers and still byte-identical.
+
+report:
+  - What was built, file by file, and anything in this blueprint you could not build as written, with the reason.
+  - Every verification run as command, what it showed, and where the evidence is kept in scratch.
+  - A plain list of what was NOT verified (Windows, macOS, PowerShell, the Codex desktop app honoring config.toml, anything else).
+  - Anything you saw that contradicts this blueprint's measured facts.

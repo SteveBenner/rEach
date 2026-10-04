@@ -168,7 +168,7 @@
 - [ ] Measure whether the Codex sandbox allows the network on macOS and Linux with an allow rule; until then enroll, sync, updates and the subscription check need Full access.
 - [ ] `scripts/reach-install.ps1` is changed but was never run (no PowerShell here); run it on Windows.
 - [ ] Verify the relocation on macOS (case-insensitive filesystem path handling in `Paths.realish` is untested there).
-- [ ] `lib/reach/late_work.rb` (`prompt_notice`) and `lib/reach/submit.rb` (`default_archive_assignment`) still use the cwd-based `current_workspace_path`; move them to `Gate.focus_workspace` so a root-kind session behaves like the rest.
+- [x] `lib/reach/late_work.rb` (`prompt_notice`) and `lib/reach/submit.rb` (`default_archive_assignment`) still use the cwd-based `current_workspace_path`; move them to `Gate.focus_workspace` so a root-kind session behaves like the rest.
 - [ ] `docs/INSTALLATION-AND-SETUP-GUIDE.docx` still describes `~/.reach`; rebuild both copies of the guide.
 - [ ] No receipt was in the relocation fixture (no grader available); check that receipts and acks survive a relocation.
 - [ ] `state/enroll/fingerprint_cache.json` keeps the legacy path inside its key after a relocation; it is recomputed and harmless, but is reported in `legacy_path_hits`.

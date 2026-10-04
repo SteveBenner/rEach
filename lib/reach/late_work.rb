@@ -153,7 +153,7 @@ module Reach
     end
 
     def prompt_notice(session_id)
-      workspace = Reach::Gate.current_workspace_path
+      workspace = Reach::Gate.focus_workspace
       return nil unless workspace && active?(workspace)
 
       count = bump_prompt_count("#{session_id}|#{File.basename(workspace)}")

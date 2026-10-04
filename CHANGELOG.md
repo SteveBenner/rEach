@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- rEach sets Codex up by itself (`STD-CODEX-SETUP`, `Reach::CodexSetup`). After the student's yes it writes the sandbox
+  settings rEach needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`): mode workspace (the
+  default outside Windows) sets `sandbox_mode = "workspace-write"`, network access and the reach-work folder as a
+  writable root; mode full (the default on Windows) sets `danger-full-access`; both mark the reach-work folder trusted.
+  A line editor changes only those lines, keeps a backup beside the file (`config.toml.reach-backup-<time>`), writes
+  atomically, refuses rather than guess (`M-CODEX-SETUP-UNSAFE`) and puts the old file back when `codex features list`
+  rejects only the new one. It never writes approval policy, model, features, hooks, hook trust, marketplaces or MCP
+  servers.
+- `reach codex status|probe|configure|off` and the MCP tool `reach_setup` (status, probe, configure; works before
+  enrollment). configure asks on a terminal, or returns rEach's question for the agent and applies on the student's
+  captured yes (consent kind `codex_setup`, kept on the computer); on Codex with rEach's hooks not running it answers
+  `M-CODEX-SETUP-TERMINAL` instead. probe runs `reach codex probe-child` inside `codex sandbox`, passing the settings
+  file's own `sandbox_mode` with `-c` (Codex 0.160.0's `codex sandbox` does not read that key from the file, while a
+  chat does), and records whether it reached the course server and rEach's folder. Before enrollment the tool answers
+  `M-CODEX-SETUP-SIGN-IN`, because a chat yes is captured only for a signed-in student.
+- Live actions `codex_configure` and `sandbox_probe` (wire revision 2026-10-03g, W-LIVE-5), asked of the student like
+  every other action. Known issues carry `remedy` (W-KI-1); rEach maps it to the tool call that fixes the issue and names
+  it to the agent (`M-KNOWN-ISSUE-REMEDY`), and runs nothing by itself.
+- `reach doctor` prints a `codex:` line, runs the probe first when it can, and reports `R-DOC-CODEX` when Codex's
+  settings no longer hold what rEach set or the last probe was blocked; `reach doctor --report` gains a `codex` section.
+  `reach mcp` and the background subscription tick put the settings back at most every 6 hours while the student's yes
+  stands. `config.yml` gains `codex` (setup, sandbox, heal, probe_timeout_s); `REACH_CODEX_SETUP=0` turns it off.
+- The Windows installer runs `reach codex configure` after setup when Codex is present and a terminal is available, and
+  prints the command otherwise.
+
 ### Changed
 
 - rEach keeps its own files in `~/reach-work/.reach-home` instead of `~/.reach` (`STD-HOME-IN-WORKSPACE`), so a harness
@@ -28,11 +55,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The installers, `exe/reach-run`, INSTALL.md, the README, the student guide and the rules say reach-work and
   `.reach-home`. The Codex setup step asks the student to open the reach-work folder as the chat's folder.
 
+- `M-SANDBOX-AGENT` tells the agent to call `reach_setup` with action configure, and `M-SANDBOX-STUDENT` tells the
+  student rEach can fix the sandbox by changing Codex's settings. `reach setup`'s Codex message and host steps say rEach
+  will ask to change two Codex settings and that a new chat is needed afterwards.
+- From the reach-work folder itself (root kind), the late-work notice and the default assignment of `reach submit
+  archive` follow `Gate.focus_workspace` like the other commands, so one current slice is found without a `cd`.
+
 ### Not fixed
 
-- The Codex sandbox still blocks the network, so enroll, sync, updates and the subscription check need Full access or an
-  allow rule until measured otherwise. Codex hook trust is unrelated. On Windows the project's top-level `.codex` is
-  read-only inside the sandbox.
+- The new home alone does not open the Codex sandbox; the Codex setup above does, after the student's yes. Codex hook
+  trust is unrelated. On Windows the project's top-level
+  `.codex` is read-only inside the sandbox.
 
 ## [0.23.0] - 2026-10-03
 
