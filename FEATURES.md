@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.31.0 |
+| **Registry version** | 0.32.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -296,6 +296,24 @@ lookup still matched, and an older client was told to update and kept its queue.
 2026-10-04b) re-identification is exact: each entry carries an encrypted record of the strings its placeholders
 replaced and of any text that no longer fit, so the key holder gets back the text as recorded, capitals included.
 Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-04 as v0.26.0, exact restore in v0.26.1, GitHub Latest; Teach 0.40.1 hands out the key and accepts the entries). No real student session has been recorded yet.
+
+### 2.46 · Transcript stream
+Since 0.32.0 (`STD-TRANSCRIPT-STREAM`, wire revision 2026-10-04i, W-TRN-7) the course record of 2.12 is whole and is
+sent in the background, inside the same bounds. A background sender runs at the interval the course sets in Teach
+(`transcripts.send_interval_s`, 600 s by default, never under 60 s): rEach's MCP server starts it from an open session
+and the operating system job runs it too, so nothing waits for a turn end or a submission. Each run reads the harness
+transcript and, on Claude Code, each subagent transcript from where rEach last stopped. What a tool returned to the AI
+is recorded as an output entry, and a long prompt, reply, reasoning block, action input or tool output is split across
+entries with `part` instead of cut. `reach transcript stream [--force]` runs it by hand, and the student's own export
+shows tool output. Verified 2026-10-04 on a scratch course against Teach 0.46.0: with no hook running after the
+prompts, one run from another folder sent 17 entries of every kind; a 180013-byte prompt and a 306000-byte command
+output rejoined exactly; a second run inside the interval sent nothing; a course policy change to 60 s arrived by sync,
+held a run at 45 s and let one through at 61 s; a prompt and reply in the extracurricular folder were neither recorded
+nor sent, also after the session returned to its slice; a real `reach mcp` server sent a mid-turn reply by itself
+within 90 s; and the full assignment smoke kept its 40 passes and 2 skips. Not verified: a real Claude Code, Codex or
+Hermes session on a student computer, and the macOS and Windows background jobs. Hermes records no tool output, and
+code entries still stop at 131072 bytes of text.
+Build ✅ · Deploy 🟢 Live (released 2026-10-04 as v0.32.0, GitHub Latest; Teach 0.46.0 sets the interval). No transcript has arrived from a student yet.
 
 ### 2.13 · Slice API reference
 

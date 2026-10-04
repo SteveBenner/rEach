@@ -12,7 +12,7 @@ module Reach
   module Deidentify
     SCHEMA = "reach.identity/v1"
     TEXT_FIELDS = %w[text summary note].freeze
-    DIGEST_KINDS = %w[prompt reply reasoning code].freeze
+    DIGEST_KINDS = %w[prompt reply reasoning output code].freeze
     MIN_LENGTH = 3
     MAX_VALUE_BYTES = 1024
     TOKEN = /\[\[[a-z0-9-]{1,40}\]\]/.freeze
@@ -195,13 +195,15 @@ module Reach
       TEXT_FIELDS.each do |field|
         next unless entry[field].is_a?(String)
 
-        scrubbed = scrub(entry[field], scrubber, FIELD_LIMITS.fetch(field))
+        limit = FIELD_LIMITS.fetch(field)
+        limit = FIELD_LIMITS.fetch("text") if field == "summary" && entry[field].bytesize > limit
+        scrubbed = scrub(entry[field], scrubber, limit)
         result[field] = scrubbed["text"]
         next if scrubbed["originals"].empty? && scrubbed["tail"].nil?
 
         record[field] = { "o" => scrubbed["originals"], "t" => scrubbed["tail"] }
       end
-      result["source_digest"] = entry["digest"] if entry["kind"] == "prompt"
+      result["source_digest"] = entry["whole_digest"] || entry["digest"] if entry["kind"] == "prompt"
       result["restore"] = record.empty? ? nil : seal_restore(record, envelope["restore_key"], envelope["pseudonym"], session_id, entry["seq"])
       original = entry["text"]
       return result unless DIGEST_KINDS.include?(entry["kind"].to_s) && original.is_a?(String) && result["text"] != original

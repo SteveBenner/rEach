@@ -6,10 +6,11 @@ module Reach
   module TranscriptIngest
     MAX_ENTRIES_PER_INGEST = 2000
     SEEN_UUID_LIMIT = 2000
+    TOOL_NAME_LIMIT = 500
 
     module_function
 
-    def ingest(session_id:, transcript_path:, harness:, space:)
+    def ingest(session_id:, transcript_path:, harness:, space:, workspace: nil)
       return nil if transcript_path.nil? || transcript_path.to_s.empty?
 
       unless File.file?(transcript_path)
@@ -18,7 +19,7 @@ module Reach
       end
 
       with_ingest_lock(session_id) do
-        perform_ingest(session_id: session_id, transcript_path: transcript_path, harness: harness, space: space)
+        perform_ingest(session_id: session_id, transcript_path: transcript_path, harness: harness, space: space, workspace: workspace)
       end
       nil
     rescue StandardError => e
@@ -30,7 +31,10 @@ module Reach
       return nil unless File.file?(transcript_path)
 
       with_ingest_lock(session_id) do
-        Reach::Transcript.merge_state(session_id, "transcript_path" => transcript_path, "transcript_offset" => File.size(transcript_path))
+        fields = { "transcript_path" => transcript_path, "transcript_offset" => File.size(transcript_path), "subagent_offsets" => subagent_sizes(transcript_path) }
+        context = Reach::Transcript.read_state(session_id)["context"]
+        fields["context"] = context.merge("capture" => false) if context.is_a?(Hash)
+        Reach::Transcript.merge_state(session_id, fields)
       end
       nil
     rescue StandardError
@@ -43,52 +47,85 @@ module Reach
       Reach::Locks.exclusive(lock_path) { yield }
     end
 
-    def perform_ingest(session_id:, transcript_path:, harness:, space:)
+    def subagent_files(transcript_path)
+      dir = File.join(File.dirname(transcript_path), File.basename(transcript_path, ".jsonl"), "subagents")
+      Dir.glob(File.join(dir, "agent-*.jsonl")).sort
+    rescue StandardError
+      []
+    end
+
+    def subagent_sizes(transcript_path)
+      subagent_files(transcript_path).each_with_object({}) { |path, sizes| sizes[File.basename(path)] = File.size(path) }
+    rescue StandardError
+      {}
+    end
+
+    def perform_ingest(session_id:, transcript_path:, harness:, space:, workspace:)
       state = Reach::Transcript.read_state(session_id)
-      offset = state["transcript_path"] == transcript_path ? state["transcript_offset"].to_i : 0
+      same = state["transcript_path"] == transcript_path
+      offset = same ? state["transcript_offset"].to_i : 0
       seen_uuids = Array(state["seen_uuids"])
+      tool_names = state["tool_names"].is_a?(Hash) ? state["tool_names"].dup : {}
+      subagent_offsets = same && state["subagent_offsets"].is_a?(Hash) ? state["subagent_offsets"].dup : {}
 
       if File.size(transcript_path) < offset
         offset = 0
         Reach::Transcript.log_transcript_event("transcript_restarted", "session_id" => session_id)
       end
 
-      workspace = space.to_s == "slice" ? safe_current_workspace : nil
+      workspace = nil unless space.to_s == "slice"
       meta = workspace ? safe_metadata(workspace) : {}
       cutout_id = meta["cutout_id"]
       slice = meta["slice"]
-      assignment = meta["assignment"]
-      category, scope, category_root = category_info(space, assignment, cutout_id, slice, workspace)
-      base = Reach::Transcript.space_base(space.to_s, workspace)
+      category, scope, category_root = category_info(space, meta["assignment"], cutout_id, slice, workspace)
+      ctx = {
+        session_id: session_id, harness: harness, cutout_id: cutout_id, slice: slice, space: space,
+        category: category, scope: scope, category_root: category_root,
+        base: Reach::Transcript.space_base(space.to_s, workspace), seen_uuids: seen_uuids, tool_names: tool_names
+      }
 
-      records = read_line_records(transcript_path, offset)
-      running_offset = offset
-      processed_total = 0
+      budget = MAX_ENTRIES_PER_INGEST
+      running_offset, used = ingest_file(transcript_path, offset, ctx, budget, subagent: false)
+      budget -= used
 
-      records.each do |raw_line, byte_len|
-        break if processed_total >= MAX_ENTRIES_PER_INGEST
+      if harness.to_s == "claude-code"
+        subagent_files(transcript_path).each do |path|
+          break if budget <= 0
 
-        parsed = safe_json(raw_line)
-        unless parsed
-          running_offset += byte_len
-          next
+          name = File.basename(path)
+          start = subagent_offsets[name].to_i
+          start = 0 if File.size(path) < start
+          subagent_offsets[name], used = ingest_file(path, start, ctx, budget, subagent: true)
+          budget -= used
         end
-
-        processed = case harness.to_s
-                    when "claude-code"
-                      ingest_claude_line(session_id, parsed, seen_uuids, harness: harness, cutout_id: cutout_id, slice: slice, space: space, category: category, scope: scope, category_root: category_root, base: base)
-                    when "codex"
-                      ingest_codex_line(session_id, parsed, harness: harness, cutout_id: cutout_id, slice: slice, space: space, category: category, scope: scope, category_root: category_root, base: base)
-                    else
-                      0
-                    end
-        processed_total += processed
-        running_offset += byte_len
       end
 
-      seen_uuids = seen_uuids.last(SEEN_UUID_LIMIT)
-      Reach::Transcript.merge_state(session_id, "transcript_path" => transcript_path, "transcript_offset" => running_offset, "seen_uuids" => seen_uuids)
+      Reach::Transcript.merge_state(
+        session_id,
+        "transcript_path" => transcript_path, "transcript_offset" => running_offset,
+        "seen_uuids" => seen_uuids.last(SEEN_UUID_LIMIT), "tool_names" => tool_names.to_a.last(TOOL_NAME_LIMIT).to_h,
+        "subagent_offsets" => subagent_offsets
+      )
       nil
+    end
+
+    def ingest_file(path, offset, ctx, budget, subagent:)
+      running_offset = offset
+      processed_total = 0
+      read_line_records(path, offset).each do |raw_line, byte_len|
+        break if processed_total >= budget
+
+        parsed = safe_json(raw_line)
+        if parsed
+          processed_total += case ctx[:harness].to_s
+                             when "claude-code" then ingest_claude_line(parsed, ctx, subagent: subagent)
+                             when "codex" then ingest_codex_line(parsed, ctx)
+                             else 0
+                             end
+        end
+        running_offset += byte_len
+      end
+      [running_offset, processed_total]
     end
 
     def read_line_records(path, offset)
@@ -107,44 +144,56 @@ module Reach
       records
     end
 
-    def ingest_claude_line(session_id, parsed, seen_uuids, harness:, cutout_id:, slice:, space:, category:, scope:, category_root:, base:)
-      return 0 unless parsed.is_a?(Hash) && parsed["type"] == "assistant"
+    def ingest_claude_line(parsed, ctx, subagent: false)
+      return 0 unless parsed.is_a?(Hash) && %w[assistant user].include?(parsed["type"])
 
       uuid = parsed["uuid"]
-      return 0 if uuid && seen_uuids.include?(uuid)
+      return 0 if uuid && ctx[:seen_uuids].include?(uuid)
 
-      message = parsed["message"] || {}
-      content = Array(message["content"])
+      message = parsed["message"].is_a?(Hash) ? parsed["message"] : {}
+      content = message["content"]
+      return 0 unless content.is_a?(Array)
+
       at = normalized_at(parsed["timestamp"])
-      note_subagent = parsed["isSidechain"] == true
-
+      note_subagent = subagent || parsed["isSidechain"] == true
       processed = 0
       content.each do |block|
         next unless block.is_a?(Hash)
 
+        if parsed["type"] == "user"
+          next unless block["type"] == "tool_result"
+
+          notes = [note_subagent ? "subagent" : nil, block["is_error"] == true ? "error" : nil].compact
+          record_output(ctx, ctx[:tool_names][block["tool_use_id"].to_s], output_text(block["content"]), notes.empty? ? nil : notes.join(", "), at)
+          processed += 1
+          next
+        end
+
         case block["type"]
         when "text"
           Reach::Transcript.record_reply_with_code(
-            session_id, harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at,
-            raw_text: block["text"], category: category, scope: scope, category_root: category_root
+            ctx[:session_id], harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at,
+            raw_text: block["text"], category: ctx[:category], scope: ctx[:scope], category_root: ctx[:category_root],
+            note: note_subagent ? "subagent" : nil
           )
           processed += 1
         when "thinking", "redacted_thinking"
-          record_reasoning(session_id, block["thinking"], harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at)
+          record_reasoning(ctx[:session_id], block["thinking"], harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at)
           processed += 1
         when "tool_use"
-          record_action(session_id, block["name"], block["input"] || {}, note_subagent, harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at, base: base)
+          ctx[:tool_names][block["id"].to_s] = block["name"].to_s unless block["id"].to_s.empty?
+          record_action(ctx[:session_id], block["name"], block["input"] || {}, note_subagent, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at, base: ctx[:base])
           processed += 1
         end
       end
-      seen_uuids << uuid if uuid
+      ctx[:seen_uuids] << uuid if uuid
       processed
     end
 
-    def ingest_codex_line(session_id, parsed, harness:, cutout_id:, slice:, space:, category:, scope:, category_root:, base:)
+    def ingest_codex_line(parsed, ctx)
       return 0 unless parsed.is_a?(Hash) && parsed["type"] == "response_item"
 
-      payload = parsed["payload"] || {}
+      payload = parsed["payload"].is_a?(Hash) ? parsed["payload"] : {}
       at = normalized_at(parsed["timestamp"] || payload["timestamp"])
       processed = 0
 
@@ -156,35 +205,85 @@ module Reach
           next unless block.is_a?(Hash) && block["type"] == "output_text"
 
           Reach::Transcript.record_reply_with_code(
-            session_id, harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at,
-            raw_text: block["text"], category: category, scope: scope, category_root: category_root
+            ctx[:session_id], harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at,
+            raw_text: block["text"], category: ctx[:category], scope: ctx[:scope], category_root: ctx[:category_root]
           )
           processed += 1
         end
       when "reasoning"
         summaries = Array(payload["summary"]).map { |item| item.is_a?(Hash) ? item["text"] : item }.compact
         text = summaries.empty? ? nil : summaries.join("\n\n")
-        record_reasoning(session_id, text, harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at)
+        record_reasoning(ctx[:session_id], text, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at)
         processed += 1
       when "function_call", "custom_tool_call"
         tool = (payload["name"] || payload["tool"] || payload["type"]).to_s
+        ctx[:tool_names][payload["call_id"].to_s] = tool unless payload["call_id"].to_s.empty?
         input = parse_maybe_json(payload["arguments"] || payload["input"])
-        record_action(session_id, tool, input, false, harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at, base: base)
+        record_action(ctx[:session_id], tool, input, false, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at, base: ctx[:base])
+        processed += 1
+      when "function_call_output", "custom_tool_call_output"
+        record_output(ctx, ctx[:tool_names][payload["call_id"].to_s], output_text(payload["output"]), nil, at)
         processed += 1
       end
       processed
     end
 
+    def output_text(value)
+      case value
+      when nil then ""
+      when String
+        parsed = value.start_with?("{") ? safe_json(value) : nil
+        parsed.is_a?(Hash) && parsed["output"].is_a?(String) ? parsed["output"] : value
+      when Array
+        value.map { |block| output_block_text(block) }.join("\n")
+      when Hash
+        value["output"].is_a?(String) ? value["output"] : JSON.generate(value)
+      else
+        value.to_s
+      end
+    end
+
+    def output_block_text(block)
+      return block.to_s unless block.is_a?(Hash)
+      return block["text"].to_s if block["text"].is_a?(String)
+      return "[#{block['type']}]" if %w[image input_image].include?(block["type"])
+
+      JSON.generate(block)
+    end
+
+    def tool_label(tool_name)
+      tool = Reach::Transcript.truncate_to_bytes(tool_name.to_s.dup.force_encoding("UTF-8").scrub(""), 64)
+      tool.empty? ? "unknown" : tool
+    end
+
+    def draft(ctx_fields, kind, at, fields)
+      { "kind" => kind, "at" => at }.merge(ctx_fields).merge(fields)
+    end
+
+    def record_output(ctx, tool_name, text, note, at)
+      common = { "harness" => ctx[:harness].to_s, "cutout_id" => ctx[:cutout_id], "slice" => ctx[:slice], "space" => ctx[:space] }
+      tool = tool_label(tool_name)
+      drafts = Reach::Transcript.text_parts(text).map { |fields| draft(common, "output", at, fields.merge("tool" => tool, "note" => note)) }
+      Reach::Transcript.record_batch(ctx[:session_id], drafts)
+    end
+
     def record_reasoning(session_id, text, harness:, cutout_id:, slice:, space:, at:)
+      common = { "harness" => harness.to_s, "cutout_id" => cutout_id, "slice" => slice, "space" => space }
       readable = text.is_a?(String) && !text.strip.empty?
-      fields = readable ? Reach::Transcript.text_fields(text) : { "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => "reasoning not readable" }
-      Reach::Transcript.record(session_id, kind: "reasoning", harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at, fields: fields)
+      parts = readable ? Reach::Transcript.text_parts(text) : [{ "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => "reasoning not readable" }]
+      Reach::Transcript.record_batch(session_id, parts.map { |fields| draft(common, "reasoning", at, fields) })
     end
 
     def record_action(session_id, tool_name, input, note_subagent, harness:, cutout_id:, slice:, space:, at:, base:)
-      tool = tool_name.to_s.byteslice(0, 64)
-      fields = { "tool" => tool, "summary" => action_summary(tool, input, base), "note" => note_subagent ? "subagent" : nil }
-      Reach::Transcript.record(session_id, kind: "action", harness: harness, cutout_id: cutout_id, slice: slice, space: space, at: at, fields: fields)
+      common = { "harness" => harness.to_s, "cutout_id" => cutout_id, "slice" => slice, "space" => space }
+      tool = tool_label(tool_name)
+      pieces = Reach::Transcript.split_bytes(action_summary(tool, input, base))
+      drafts = pieces.each_with_index.map do |piece, index|
+        fields = { "tool" => tool, "summary" => piece, "note" => note_subagent ? "subagent" : nil }
+        fields["part"] = [index + 1, pieces.length] if pieces.length > 1
+        draft(common, "action", at, fields)
+      end
+      Reach::Transcript.record_batch(session_id, drafts)
     end
 
     def action_summary(tool, input, base)
@@ -199,7 +298,7 @@ module Reach
              else
                "#{tool} #{JSON.generate(input)}"
              end
-      text.to_s.byteslice(0, 2000).to_s
+      text.to_s.dup.force_encoding("UTF-8").scrub("�")
     end
 
     def write_paths(input)

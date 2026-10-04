@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.0] - 2026-10-04
+
+### Added
+
+- Transcripts are sent in the background (`STD-TRANSCRIPT-STREAM`, wire revision 2026-10-04i, W-TRN-7).
+  `Reach::Transcript.stream` runs every `transcripts.send_interval_s` of the course status (set in Teach; 600 s when
+  absent, never under 60 s, at most once per interval across every rEach process): it reads each recorded session's
+  harness transcript from where rEach last stopped, scans the slice's owned files and sends everything queued in
+  normal mode. The MCP server starts it from an open session (`Reach::Transcript.start_stream_thread`), the operating
+  system job runs it after its update check, at the shorter of its own interval and the course's
+  (`Reach::Subscribe.settings`), and `reach transcript stream [--force]` runs it by hand. No hook waits on it and
+  `REACH_OFFLINE=1` stops it. The capture bounds of `STD-TRANSCRIPT` are unchanged.
+- Tool output is recorded: what each tool returned to the AI becomes an `output` entry (Claude Code tool results,
+  Codex call outputs), named by the call it answers, with the note `error` when the harness marks it as one
+  (`lib/reach/transcript_ingest.rb`). On Claude Code rEach also reads each subagent transcript
+  (`<session>/subagents/agent-*.jsonl`) and marks its entries `subagent`.
+- Nothing is cut to fit: a prompt, reply, reasoning block, action input or tool output over 120000 bytes is recorded
+  as consecutive entries with `part` [n, of] (`Reach::Transcript.text_parts`). Entries with `part`, long action inputs
+  and `output` entries wait in the queue until the course server's status lists them.
+- The student's own export shows tool output (`M-TX-HEAD-OUTPUT`).
+
+### Changed
+
+- An action entry holds the whole tool input instead of its first 2000 bytes.
+- Each recording hook stores the session's harness, space and slice workspace in the session state, so the background
+  sender needs no working directory.
+
+### Fixed
+
+- A session that left the capture bounds and came back could have what the harness transcript gained in between read
+  into the record at the next hook. The first hook back inside the bounds now moves past it
+  (`Reach::Transcript.ingest_event`).
+
 ## [0.31.0] - 2026-10-04
 
 ### Added
