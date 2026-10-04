@@ -702,9 +702,16 @@ Teach on the `codex-setup` branch, the known-issue remedies and Ruby 2.6.10. A C
 (`codex debug prompt-input` shows workspace-write, network enabled and the reach-work writable root). `codex
 sandbox` does not read the file's top-level `sandbox_mode`, so the probe passes the file's own value with `-c`; with
 that, the probe reported blocked before and ok after configure in both modes, and `reach doctor` printed settings ok
-with internet ok and folder ok. Not built: the step in `scripts/reach-install`, which runs no setup (INSTALL.md and
-setup's own message carry the step instead), and nothing in `tools/fake_teach`, which has no live or known-issue
-routes. Not verified: Windows, macOS, `scripts/reach-install.ps1`
+with internet ok and folder ok. The probe's internet check is one plain request from inside the sandbox (5 s limits,
+no retry), with the token taken by the parent outside it, so a blocked rEach folder no longer reads as a blocked
+internet (a sandbox with the internet open and the folder closed reported only the folder). `scripts/reach-install`
+runs `reach codex configure` right after it installs, when Codex is present and a person can answer (the terminal, or
+`/dev/tty` when only the input is piped), and prints the command otherwise; it runs before `reach setup`, which the
+same one-line command starts next. Verified with a terminal answering yes and no, with the input piped, with no
+terminal and with no Codex. `tools/fake_teach` serves `GET /api/v1/known-issues` from `known_issues.json` with
+`remedy` in the W-KI-1 key order, the revision as ETag and 304; rEach fetched from it and from a scratch Teach on
+branch `codex-setup` and mapped the remedies to tool calls. fake_teach has no live-session routes; the live actions
+were run against the scratch Teach. Not verified: Windows, macOS, `scripts/reach-install.ps1`
 (no PowerShell), the Codex desktop app and IDE extension, and a real Codex chat reaching the course server.
 
 Build ✅ (branch in-workspace, Linux only) · Deploy 🔵 (not released) · Blocker: Human (Windows and macOS runs,

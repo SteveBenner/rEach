@@ -10,6 +10,7 @@ module Reach
   module CodexSetup
     KIND = "codex_setup".freeze
     MODES = %w[workspace full].freeze
+    PROBE_HTTP_TIMEOUT_S = 5
     SANDBOX_MODES = %w[read-only workspace-write danger-full-access].freeze
     SANDBOX_CHOICES = %w[auto workspace full].freeze
     DEFAULTS = { "setup" => true, "sandbox" => "auto", "heal" => true, "probe_timeout_s" => 20 }.freeze
@@ -986,10 +987,14 @@ module Reach
     end
 
     def network_ok?
-      client = Reach::Client.new(base_url: teach_url, install_id: nil, install_private_key: nil, quick: true, quiet: true, link: false)
-      client.get("/api/v1/health").status < 500
-    rescue Reach::RemoteRefused => e
-      e.respond_to?(:status) && e.status.to_i.positive? && e.status.to_i < 500
+      return false if ENV["CODEX_SANDBOX_NETWORK_DISABLED"].to_s == "1"
+
+      uri = URI.parse("#{teach_url.to_s.sub(%r{/+\z}, "")}/api/v1/health")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == "https"
+      http.open_timeout = PROBE_HTTP_TIMEOUT_S
+      http.read_timeout = PROBE_HTTP_TIMEOUT_S
+      http.request_get(uri.request_uri).code.to_i < 500
     rescue StandardError
       false
     end
@@ -998,6 +1003,14 @@ module Reach
       cli = codex_cli
       return finish_probe(probe_record(false, reason: "codex command not found"), store: true) unless cli
       return finish_probe(probe_record(false, reason: "already inside the sandbox"), store: false) if Reach::Sandbox.active?
+
+      unless ENV["REACH_OFFLINE"].to_s == "1"
+        begin
+          Reach::TokenBucket.acquire!(quick: true)
+        rescue Reach::Error
+          return finish_probe(probe_record(false, reason: "rEach is pacing its requests, try again in a minute"), store: false)
+        end
+      end
 
       cwd = File.directory?(workspace) ? workspace : Dir.pwd
       argv = [cli, "sandbox"] + probe_mode_args + ["--", Reach::Runtime.ruby_path, Reach::Runtime.exe_path, "codex", "probe-child"]

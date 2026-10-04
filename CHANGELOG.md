@@ -31,8 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   settings no longer hold what rEach set or the last probe was blocked; `reach doctor --report` gains a `codex` section.
   `reach mcp` and the background subscription tick put the settings back at most every 6 hours while the student's yes
   stands. `config.yml` gains `codex` (setup, sandbox, heal, probe_timeout_s); `REACH_CODEX_SETUP=0` turns it off.
-- The Windows installer runs `reach codex configure` after setup when Codex is present and a terminal is available, and
-  prints the command otherwise.
+- The installers run `reach codex configure` when Codex is present and a person can answer, and print the command
+  otherwise: `scripts/reach-install.ps1` after setup, `scripts/reach-install` right after it installs (the terminal, or
+  `/dev/tty` when only its input is piped; never when its output is not a terminal, so an agent's run only prints).
+- `tools/fake_teach` serves `GET /api/v1/known-issues` from `known_issues.json` under `--home` (W-KI-1 key order with
+  `remedy`, revision as ETag, 304).
 
 ### Changed
 

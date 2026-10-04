@@ -32,6 +32,7 @@ module ReachInstall
       end
       record_destination(destination)
       puts "rEach installed at #{destination}"
+      codex_step(destination)
       0
     rescue StandardError => e
       warn "reach-install: #{e.message}"
@@ -93,6 +94,44 @@ module ReachInstall
       File.write(File.join(directory, "last-install.txt"), "#{destination}\n")
     rescue StandardError
       nil
+    end
+
+    def codex_step(destination)
+      return if ENV["REACH_CODEX_SETUP"] == "0"
+      return unless codex_present?
+
+      exe = File.join(destination, "exe", "reach")
+      terminal = answer_terminal
+      if terminal
+        begin
+          system(RbConfig.ruby, exe, "codex", "configure", in: terminal)
+        ensure
+          terminal.close unless terminal.equal?($stdin)
+        end
+      else
+        puts "rEach install: to let rEach set up Codex, run this in a terminal: \"#{RbConfig.ruby}\" \"#{exe}\" codex configure"
+      end
+    rescue StandardError
+      nil
+    end
+
+    def answer_terminal
+      return $stdin if $stdin.tty?
+      return nil if Gem.win_platform? || !$stdout.tty?
+
+      File.open("/dev/tty", "r")
+    rescue StandardError
+      nil
+    end
+
+    def codex_present?
+      home = ENV["CODEX_HOME"].to_s.empty? ? File.join(Dir.home, ".codex") : ENV["CODEX_HOME"]
+      return true if File.directory?(home)
+
+      names = Gem.win_platform? ? %w[codex.exe codex.cmd codex.bat codex] : %w[codex]
+      ENV["PATH"].to_s.split(File::PATH_SEPARATOR).any? do |dir|
+        names.any? { |name| File.file?(File.join(dir, name)) && File.executable?(File.join(dir, name)) }
+      end
     end
 
     def parse(argv)
