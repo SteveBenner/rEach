@@ -12,6 +12,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a
   jointed, wired one; `docs/assets/reach-banner.svg` is the full picture and now opens `README.md`. No plugin code
   changed, so the version stays 0.23.1.
+- System figures (`STD-FIGURES`). `docs/assets/figures/` holds ten figures of rEach and Teach together, each in a
+  light and a dark variant: the system at a glance, trust boundaries, the enrollment handshake, the work lifecycle,
+  the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong together, and
+  a poster. `docs/architecture.md` presents them and follows the reader's color scheme; `README.md` gains a "How it
+  fits together" section with figure 1. Teach is drawn as a frosted block that names what it guarantees and never
+  how. `tools/figures/build.rb` draws them from `tools/figures/figures/*.rb`, and `--png` renders 4K PNGs with
+  headless Chrome; the PNGs are not committed and are published as assets of the `figures-1` pre-release.
+- `docs/deploy-and-test.md`: a fixture walkthrough against `tools/fake_teach` (enroll, sync, status, doctor, two
+  refusals), the platform smoke and the agent smoke, and the rEach side of deploying for a real course. Every
+  command and output in it was run first.
+
+### Changed
+
+- Public docs no longer name Teach's internals (`STD-TEACH-OPAQUE`). `docs/course-alignment-design.md` and
+  `docs/smoke-assignment-1.md` described Teach by class, table, column, environment variable and command; they now
+  say what Teach does. Earlier commits still hold the old text.
+- `docs/student-guide.md` now mentions the password chosen at enrollment, the terminal enrollment in Antigravity
+  and the Blackboard upload after submitting, and calls rEach by one name. `docs/DESIGN-DECISIONS.md` lists four
+  enrollment inputs and the course passkey, and no longer ties the one-folder move to 0.17.0. American spelling in
+  `README.md` and `docs/smoke-assignment-1.md`.
 
 ## [0.23.1] - 2026-10-03
 

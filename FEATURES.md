@@ -129,8 +129,11 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no student computer on those platfor
 
 `README.md`, `INSTALL.md` (the installing agent's script), `docs/student-guide.md` (what a student reads, including
 the model guidance for Hermes), `docs/smoke-assignment-1.md` (the manual passes), `docs/DESIGN-DECISIONS.md` (the
-standing product decisions, latest form only), `docs/course-alignment-design.md` and `ROADMAP.md`
-(Reach 2.0 version control). `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is catalogued at 1.5. The student guide's
+standing product decisions, latest form only), `docs/course-alignment-design.md`, `ROADMAP.md`
+(Reach 2.0 version control), `docs/architecture.md` (ten figures of rEach and Teach together, light and dark, drawn
+by `tools/figures/build.rb` into `docs/assets/figures/`; Teach appears only as a frosted block that names outcomes,
+`STD-FIGURES`) and `docs/deploy-and-test.md` (the fixture walkthrough and the two smoke runs, every command run
+first). The public docs name no Teach class, table, setting or command (`STD-TEACH-OPAQUE`). `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is catalogued at 1.5. The student guide's
 Privacy and Course folders wording was written before 0.16.12 and has not been re-audited against it.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (prose is not checked against the code).

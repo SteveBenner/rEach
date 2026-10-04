@@ -32,7 +32,7 @@ the slice with scenarios of its own before anything is submitted (`reach qualify
 those scenarios here where they can run, then an ungraded run on Teach that also
 runs the instructors' hidden checks), submits work and waits for Teach's receipt,
 and raises a hand to the instructors on its own after three failed tries. The
-student deals only with the business behaviour; the agent does all the coding,
+student deals only with the business behavior; the agent does all the coding,
 following Reach's feature and bug flows, without git (see ROADMAP.md).
 
 No conversation is recorded or sent, in any folder or harness: no prompt, reply,
@@ -47,6 +47,23 @@ computer. The agent puts code in files, never in chat. The Stop and SessionEnd
 hooks run `reach hook stop`, which only flushes debug events and shows the link
 notice and the debug block. The first rEach command after updating deletes any
 transcripts an older version saved in `~/.reach/transcripts/`.
+
+## How it fits together
+
+rEach is half of a system; Teach, the instructors' private course server, is the other half. On its own rEach is a
+careful assistant with nobody to answer to. Teach is what makes its promises checkable: a roster, signed rules,
+hidden checks, signed receipts and instructors who answer.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/figures/01-system-at-a-glance-dark.svg">
+  <img src="docs/assets/figures/01-system-at-a-glance-light.svg" alt="A student steers their own AI agent. rEach wraps the agent on the student's computer and talks over a signed wire to Teach, the private course server the instructors run." width="100%">
+</picture>
+
+[`docs/architecture.md`](docs/architecture.md) has ten figures: trust boundaries, the enrollment handshake, the work
+lifecycle, the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong
+together, and a poster. Teach is private, so each one shows what it guarantees and never how.
+[`docs/deploy-and-test.md`](docs/deploy-and-test.md) has worked examples for running and testing rEach without a
+course server.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -296,4 +313,13 @@ against the fixture Teach on Linux, macOS and Windows, with no agent and no secr
 
 ```
 ruby tools/platform_smoke/run.rb
+```
+
+## Figures
+
+`tools/figures/build.rb` draws the figures in `docs/assets/figures/`, light and dark, from one description each;
+`--png` also renders 4K PNGs with headless Chrome. See [`tools/figures/README.md`](tools/figures/README.md).
+
+```
+ruby tools/figures/build.rb
 ```
