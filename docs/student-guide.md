@@ -11,7 +11,7 @@ and sends it in when you are ready.
 1. Paste this repository's link into your AI app and ask it to install rEach.
    Cowork users: add it under Customize › Plugins › Add › Add marketplace
    instead. Hermes users: rEach sets up its own Hermes profile, so always
-   open your course with `~/.reach/bin/reach work --harness hermes`
+   open your course with `~/reach-work/.reach-home/bin/reach work --harness hermes`
    (setup shows the exact command for your computer).
 2. Enroll right away: rEach does nothing else until you do. Type anything in
    the chat and rEach asks you, one at a time, for the course passkey your
@@ -41,7 +41,7 @@ and sends it in when you are ready.
 
 ## Your course folders
 
-Everything lives in `~/reach-work`:
+Everything lives in the `reach-work` folder in your home folder (`~/reach-work`), and rEach keeps its own files in a hidden folder inside it called `.reach-home`. In Codex, open the `reach-work` folder as the chat's folder. rEach's own files in `.reach-home` are not for you or your AI partner to open or change:
 
 - `deliverables/<course>/<assignment>/<cutout>-<slice>/` holds each slice you are assigned. Code for an assignment goes only in your slice's own files here. `reach work` opens a slice.
 - `extracurricular/` is your own code folder, for anything you want to build that is not an assignment. It is never graded or submitted. `reach work --extracurricular` opens it.

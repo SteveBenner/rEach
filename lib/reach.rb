@@ -108,6 +108,8 @@ require_relative "reach/ladder"
 require_relative "reach/qualify"
 
 require_relative "reach/update"
+require_relative "reach/harness_source"
+require_relative "reach/relocation"
 require_relative "reach/subscribe"
 require_relative "reach/harness"
 require_relative "reach/hello"

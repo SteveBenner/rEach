@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- rEach keeps its own files in `~/reach-work/.reach-home` instead of `~/.reach` (`STD-HOME-IN-WORKSPACE`), so a harness
+  that may write only inside the chat's folder can reach them. `Reach::Paths.root` resolves `$REACH_HOME`, a completed
+  relocation record, the legacy `~/.reach` while it still holds an install, then the new home.
+- An existing install relocates itself (session start, the end of `reach setup`, or `reach relocate`): the legacy home
+  is copied to `.reach-home.relocating` with a SHA-256 journal, verified in rounds, checked for unchanged enrollment and
+  switched in by rename; a kill at any point resumes. The legacy folder is never deleted, truncated, renamed or
+  overwritten; its only change is `RELOCATED.json`. Harness configs, the Claude and Codex plugin sources
+  (`Reach::HarnessSource`, also repointed by `update/apply.rb`) and the subscription job follow the move.
+- Every kind of space refuses reads, writes, listings, searches, redirects and cds into the home and recursive searches
+  from an ancestor of it; the student-work walks (slices, layout migration, the submission copy) prune it. A root-kind
+  session judges writes and commands by their target slice and asks which slice (`M-PICK-SLICE`) when it cannot choose;
+  writes wait while a relocation runs (`M-RELOCATING`). The root space gains the check hook. `reach doctor` reports
+  `R-DOC-RELOCATION`.
+- After a relocation the launcher's plugin pointer (`bin/root`) never names the plugin copy left in the legacy home: a
+  command run from that copy points it at the new home's plugin instead, and any other copy replaces a pointer that
+  still names the legacy one. `reach relocate` with an unknown argument prints its usage and moves nothing.
+- The installers, `exe/reach-run`, INSTALL.md, the README, the student guide and the rules say reach-work and
+  `.reach-home`. The Codex setup step asks the student to open the reach-work folder as the chat's folder.
+
+### Not fixed
+
+- The Codex sandbox still blocks the network, so enroll, sync, updates and the subscription check need Full access or an
+  allow rule until measured otherwise. Codex hook trust is unrelated. On Windows the project's top-level `.codex` is
+  read-only inside the sandbox.
+
 ## [0.23.0] - 2026-10-03
 
 ### Added

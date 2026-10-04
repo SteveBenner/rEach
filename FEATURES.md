@@ -12,7 +12,7 @@ agent harness.
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 89 catalogued |
+| **Feature count** | 90 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 81 | 91% |
+| ✅ Shipped | 82 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 1 | 1% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 76 | 85% |
+| 🔵 Built, not enabled | 77 | 86% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -663,6 +663,22 @@ did not; nothing was written to the microbrain. Not verified there: a real harne
 student who becomes blocked while a watcher is still running.
 
 Build ✅ · Deploy 🔵 · Blocker: no released Teach carries wire revision 2026-10-03f.
+
+### 2.42 · Home inside the reach-work folder
+
+On branch `in-workspace` (`STD-HOME-IN-WORKSPACE`, unreleased) rEach keeps its own files in `~/reach-work/.reach-home`
+instead of `~/.reach`, and an existing install is relocated by copy, hash verification and rename, leaving the legacy
+folder untouched apart from `RELOCATED.json`. Every kind of space refuses the home, a root-kind session judges writes by
+target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Verified 2026-10-03 against a scratch Teach
+(0.31.1) with real claude and codex CLIs: fresh install, relocation of a populated legacy install (legacy hash list
+unchanged, new home identical, enrollment kept, outbox sent afterwards), two kill -9 interruptions, an occupied
+destination, an instructor persona, the gate in root, slice and extracurricular kinds, harness source repoints and
+Ruby 2.6.10. Not fixed: the Codex sandbox still blocks the network, so enroll, sync, updates and the subscription check
+need Full access or an allow rule until measured otherwise; Codex hook trust is unrelated; on Windows the project's
+top-level `.codex` is read-only in the sandbox. Not verified: the Windows sandbox itself, `scripts/reach-install.ps1`
+(no PowerShell available), macOS.
+
+Build ✅ (branch in-workspace) · Deploy 🔵 (not released) · Blocker: Human (Windows sandbox probe, release).
 
 ## 3 · Course reference
 

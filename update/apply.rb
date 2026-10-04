@@ -87,6 +87,75 @@ def refresh_harness(executable, steps)
   "ok"
 end
 
+def run_step_output(command)
+  Timeout.timeout(HARNESS_TIMEOUT_S) do
+    out, err, status = Open3.capture3(*command)
+    return [status.success?, "#{out}#{err}"]
+  end
+rescue Timeout::Error
+  [false, "timed out"]
+rescue StandardError => e
+  [false, e.message]
+end
+
+def first_output_line(text)
+  lines = text.to_s.lines.map(&:strip).reject(&:empty?)
+  lines.reject { |line| line.start_with?("WARNING") }.first || lines.first || "no output"
+end
+
+def codex_registered_source
+  value = ENV["CODEX_HOME"].to_s
+  config = File.join(File.expand_path(value.empty? ? "~/.codex" : value), "config.toml")
+  return nil unless File.file?(config)
+
+  inside = false
+  File.foreach(config) do |line|
+    stripped = line.strip
+    if stripped.start_with?("[")
+      inside = stripped == "[marketplaces.reach]"
+      next
+    end
+    next unless inside
+
+    match = stripped.match(/\Asource\s*=\s*"(.*)"\z/)
+    return match[1].gsub('\\"', '"').gsub("\\\\", "\\") if match
+  end
+  nil
+rescue StandardError
+  nil
+end
+
+def repoint_claude(source)
+  path = on_path("claude")
+  return "absent" unless path
+
+  ok, output = run_step_output([path, "plugin", "marketplace", "add", source])
+  ok ? "ok" : "failed: #{first_output_line(output)}"
+end
+
+def repoint_codex(source)
+  path = on_path("codex")
+  return "absent" unless path
+
+  ok, output = run_step_output([path, "plugin", "marketplace", "add", source])
+  return "ok" if ok
+  return "failed: #{first_output_line(output)}" unless output.include?("already added from a different source")
+
+  old_source = codex_registered_source
+  ok, output = run_step_output([path, "plugin", "marketplace", "remove", "reach"])
+  return "failed: #{first_output_line(output)}" unless ok
+
+  ok, output = run_step_output([path, "plugin", "marketplace", "add", source])
+  return "ok" if ok
+
+  reason = first_output_line(output)
+  if old_source && File.directory?(old_source)
+    restored, = run_step_output([path, "plugin", "marketplace", "add", old_source])
+    return "failed: #{reason} (previous source #{restored ? 'restored' : 'could not be restored'})"
+  end
+  "failed: #{reason}"
+end
+
 manifest = read_manifest(manifest_file)
 resuming = options[:resume] || %w[swapped refreshed].include?(manifest["phase"])
 
@@ -152,6 +221,10 @@ end
 
 results = manifest["harness_results"]
 results = {} unless results.is_a?(Hash)
+sources = {}
+sources["claude-code"] = repoint_claude(destination)
+sources["codex"] = repoint_codex(destination)
+manifest["harness_sources"] = sources
 results["claude-code"] = refresh_harness("claude", [%w[plugin marketplace update reach], %w[plugin update reach@reach --scope user]])
 codex_path = on_path("codex")
 run_step([codex_path, "plugin", "marketplace", "upgrade", "reach"]) if codex_path

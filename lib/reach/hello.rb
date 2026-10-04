@@ -21,7 +21,11 @@ module Reach
         cwd = event["cwd"] if event["cwd"]
       end
 
-      Reach::RuntimeAuto.start
+      if Reach::Relocation.due?
+        Reach::Relocation.start
+      else
+        Reach::RuntimeAuto.start
+      end
       harness_id = resolve_harness(harness)
       Reach::Debug.begin_hook(event, harness_id)
       Reach::Debug.session(harness_id, source)

@@ -35,14 +35,15 @@ No conversation is recorded or sent, in any folder or harness: no prompt, reply,
 reasoning, action or code entry is written to disk or sent, and Teach keeps no
 transcript. Instructors receive only the work the student submits, their own-part
 answers, help requests the student agrees to send and usage information. The
-course folder is `~/reach-work`: assignment code lives only in
+course folder is `~/reach-work`, and rEach keeps its own files (keys, vault, state, the plugin) in
+`~/reach-work/.reach-home` inside it, which the agent can never read or write: assignment code lives only in
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
 student wants to build goes in `extracurricular/` (`reach work
 --extracurricular`), which is never graded and never leaves the student's
 computer. The agent puts code in files, never in chat. The Stop and SessionEnd
 hooks run `reach hook stop`, which only flushes debug events and shows the link
 notice and the debug block. The first rEach command after updating deletes any
-transcripts an older version saved in `~/.reach/transcripts/`.
+transcripts an older version saved in the `transcripts/` folder of rEach's own files.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -62,7 +63,7 @@ Local qualification runs the course's Cucumber suite, which needs Ruby 4 gems an
 installs Reach's runtime kit in the background when it is missing or is not the one Reach pins (`config.yml` `runtime.auto_install`), and `reach
 runtime install` does the same by hand. It fetches Reach's runtime kit for this computer: Ruby 4.0.7 with the gems prebuilt and Chrome for Testing
 154.0.8037.92, the same versions Teach grades with, verified against a manifest pinned in Reach and kept in
-`~/.reach/runtime/`. Reach itself keeps running on the student's own Ruby when there is one; otherwise on the kit's. [rplugin](https://bitbucket.org/paterasai/rplugin) is
+`~/reach-work/.reach-home/runtime/`. Reach itself keeps running on the student's own Ruby when there is one; otherwise on the kit's. [rplugin](https://bitbucket.org/paterasai/rplugin) is
 optional: Reach uses its ports when it is installed and runs standalone otherwise.
 
 ## Install
@@ -76,18 +77,18 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
 | Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
 | Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
-| Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/.reach/bin/reach work --harness hermes` (setup prints the exact command) |
-| Any of the above | install the public GitHub archive to `~/.reach/plugin`, then `ruby ~/.reach/plugin/exe/reach setup` |
+| Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/reach-work/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
+| Any of the above | install the public GitHub archive to `~/reach-work/.reach-home/plugin` (to `~/.reach/plugin` on a computer that already has an older install, which setup then moves), then run `exe/reach setup` from the path the installer prints |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
 
 ### Updates
 
-An install at `~/.reach/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
+An install at `~/reach-work/.reach-home/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
 when a session starts and once an hour while you work, downloads it in the background, and installs it
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
-`~/.reach/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
+`~/reach-work/.reach-home/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
 things stand and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
 is never updated.
 
@@ -176,7 +177,7 @@ Since 0.16.23 an unlocked install can also run as a test student, to go through 
 `reach instructor dummy [--course ID]` starts a blank test student and `reach instructor as <username> [--course ID]`
 a test copy of that roster student, with their group, slices, modules, submissions and receipts as of now. Teach makes
 the test student; nothing you do reaches the real student's record, and everything you send is filed on Teach as
-instructor data. The persona keeps its own rEach home under `~/.reach/personas/` and its own folders under
+instructor data. The persona keeps its own rEach home under `~/reach-work/.reach-home/personas/` and its own folders under
 `~/reach-work/personas/`, applies to every harness session on the computer, and ends with `reach instructor exit`,
 which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
 
