@@ -1000,6 +1000,9 @@ Since 0.23.1 (`STD-NOHOOK-ENROLL`) a locked Antigravity session is told to walk 
 in a terminal window at once, because rEach cannot ask for enrollment details in an app without hooks; a student
 reported being sent to their instructor instead (2026-10-03). Exercised with `reach hello` in a scratch home on
 Linux only.
+Unreleased, branch `enroll-window` (`STD-ENROLL-WINDOW`): `reach enroll --window` opens a small rEach window for the
+enrollment details, tried before the terminal. Built; exercised only with a stand-in zenity against the fake Teach.
+No real window has been shown on any system.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run; `agy` not installed here).
 

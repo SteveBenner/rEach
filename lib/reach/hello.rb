@@ -264,7 +264,7 @@ module Reach
     end
 
     def hookless_context(mcp: false)
-      guide = Reach::Messages.text("M-ENR-AGENT-NOHOOK-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"))
+      guide = Reach::Messages.text("M-ENR-AGENT-NOHOOK-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"), window_command: Reach::Runtime.hook_command("enroll", "--window"))
       ["#{Reach::Messages.text("M-ENR-AGENT-NOHOOK-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
     end
 

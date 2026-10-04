@@ -1153,7 +1153,7 @@ cli:
       and always exits 0. reach transcript turn, code, flush and status remain as hidden aliases for hook files written
       by older versions: turn runs reach hook stop, the others do nothing and exit 0 (STD-TRANSCRIPT)
   - name: enroll
-    synopsis: reach enroll [--course-passkey PASSKEY --username USER --student-id ID [--password-stdin] | <code>]
+    synopsis: reach enroll [--window | --course-passkey PASSKEY --username USER --student-id ID [--password-stdin] | <code>]
     purpose: >-
       The course server is config.yml teach.url (https://sven-f1l1.tail062fd2.ts.net since 0.16.19, the course's Teach behind Tailscale
       Funnel); the student is never asked for it. Since 0.16.20 --teach-url is an unlisted operator override (the

@@ -334,7 +334,7 @@ module Reach
           usage: reach <command> [options]
 
           commands:
-            enroll [--course-passkey P --username U --student-id I --password-stdin]   enroll with your course passkey, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
+            enroll [--window | --course-passkey P --username U --student-id I --password-stdin]   enroll with your course passkey, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
             enroll <code>                        enroll with a per-student code
             version                              print this rEach's version (also --version, -V)
             sync                                 fetch new packages and refresh workspaces
@@ -448,6 +448,7 @@ module Reach
 
       def cmd_enroll(args)
         password_stdin, args = parse_bare_flag(args, "password-stdin")
+        window, args = parse_bare_flag(args, "window")
         options, remaining = parse_flags(args, [:teach_url, :course_passkey, :course_code, :username, :student_id])
         options[:course_code] = options.delete(:course_passkey) || options[:course_code]
         options[:password_stdin] = password_stdin
@@ -457,6 +458,8 @@ module Reach
           warn "reach: this copy of rEach has no course server configured; run reach update, then try again"
           return 1
         end
+        return enroll_with_window(teach_url) if window
+
         if options[:course_code] || (code.nil? && STDIN.tty?)
           return enroll_with_identity(options, teach_url)
         end
@@ -528,6 +531,69 @@ module Reach
           return 1
         end
         finish_enroll(install)
+      end
+
+      def enroll_with_window(teach_url)
+        unless Reach::EnrollWindow.available?
+          warn Reach::Messages.text("M-ENR-WINDOW-UNAVAILABLE")
+          return 4
+        end
+
+        notice = nil
+        values = {}
+        5.times do
+          values = Reach::EnrollWindow.collect(notice: notice, defaults: values)
+          if values.nil?
+            warn Reach::Messages.text("M-ENR-WINDOW-CANCELLED")
+            return 1
+          end
+          notice, install, stop = window_attempt(values, teach_url)
+          if install
+            Reach::EnrollWindow.inform(Reach::Messages.text("M-ENR-WINDOW-DONE", course: install["course"] && install["course"]["title"]))
+            return finish_enroll(install)
+          end
+          next unless stop
+
+          Reach::EnrollWindow.inform(notice)
+          warn notice
+          return stop
+        end
+        warn Reach::Messages.text("M-ENR-WINDOW-TRIES")
+        1
+      end
+
+      def window_attempt(values, teach_url)
+        parsed = Reach::Identity.parse_course_code(values["code"])
+        return [Reach::Messages.text("M-ENR-CODE-FORMAT"), nil, nil] unless parsed
+
+        begin
+          preview = Reach::Enroll.preview(parsed["code"], teach_url)
+        rescue Reach::RemoteRefused => e
+          return [Reach::EnrollFlow.refusal_text(e), nil, nil]
+        end
+        course = preview["course"]
+        rules = Reach::Identity.rules(preview["identity"])
+        username = Reach::Identity.normalize_username(values["username"], rules)
+        return [Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: rules["institution_name"], domain: rules["username_domain"]), nil, nil] unless username
+
+        student_id = Reach::Identity.normalize_student_id(values["student_id"], rules)
+        return [Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"]), nil, nil] unless student_id
+
+        password = values["password"].to_s
+        return [Reach::Messages.text("M-ENR-PASSWORD-SHORT"), nil, nil] unless password.length >= 8 && password.length <= 256
+        return [Reach::Messages.text("M-ENR-PASSWORD-MISMATCH"), nil, nil] unless values["password_again"].to_s == password
+
+        install = Reach::Enroll.register_v2(
+          course_code: parsed["code"], username: username, student_id: student_id,
+          teach_url: teach_url, harness: "cli", enrolled_via: "cli", password: password
+        )
+        [nil, install, nil]
+      rescue Reach::RemoteRefused => e
+        return [Reach::Messages.text("M-ENR-MOVE-PENDING"), nil, 3] if e.code == "device_move_pending"
+        return [Reach::Messages.text("M-ENR-MOVE-DENIED", reason: Reach::EnrollFlow.denial_reason(e)), nil, 1] if e.code == "device_move_denied"
+        return [failure_text(e, "enroll"), nil, nil] if e.code == "password_required"
+
+        [e.code == "enrollment_refused" ? Reach::Messages.text("M-ENR-REFUSED", course_id: course["id"]) : Reach::EnrollFlow.refusal_text(e), nil, nil]
       end
 
       def read_hidden
