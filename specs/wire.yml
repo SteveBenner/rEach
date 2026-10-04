@@ -1012,6 +1012,7 @@ routes:
     request:
       pseudonym: {type: string, pattern: "^anon_[0-9a-f]{32}$", note: "since 2026-10-04a (W-TRN-6): the install's random pseudonym; required, a request without it is refused 400 reach_outdated"}
       identity: {type: object, note: "since 2026-10-04a (W-TRN-6): the sealed identity index {schema, key_id, wrapped_key, nonce, ciphertext, tag}; required"}
+      restore: {note: "since 2026-10-04b, on every entry of every kind: string or null, the sealed exact-restore record of W-TRN-6, at most 400000 bytes"}
       session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
       harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes only to a Teach whose advertised wire_contract_sha256 equals its own, and unknown otherwise"}
       cutout_id: {type: [string, "null"], maxBytes: 128}
@@ -1769,6 +1770,18 @@ transcripts:
       key_id is not its current key, which Reach treats as stop and retries after the next status), and keeps the
       transcript under the pseudonym. Teach still authenticates the request, so it knows the sender while it
       handles it. Placeholders cover only identifiers Reach knows: a nickname or another person's name stays.
+      Since 2026-10-04b re-identification is exact. The identity index also carries restore_key (64 lowercase hex
+      characters, one random AES-256 key per install, kept beside the pseudonym), and every entry carries restore:
+      null when nothing in it was replaced, else standard base64 of nonce (12 bytes), tag (16 bytes) and ciphertext
+      of AES-256-GCM under restore_key with the canonical JSON of {pseudonym, seq, session_id} as additional data.
+      The plaintext is JSON {field: {o: [the exact string each placeholder stands for, in order], t: the original
+      text that no longer fit after the replacement, or null}} for the fields text, summary and note. A string the
+      student typed that already looks like a placeholder is listed in o as itself, so every placeholder-shaped
+      token in a sent field has one entry in o. Restoring a field replaces its tokens in order with o and appends t,
+      which yields the text exactly as recorded. A field never exceeds its limit after replacement (text 131072
+      bytes, summary 2000, note 200): Reach cuts it at a boundary outside a placeholder, moves the rest to t and, for
+      text, sets truncated. Teach accepts an entry without restore from a Reach of 2026-10-04a and restores it from
+      the placeholder values, which loses the typed spelling.
 qualification:
   W-QUAL-1:
     name: what a qualification proves

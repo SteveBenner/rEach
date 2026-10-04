@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.1] - 2026-10-04
+
+### Fixed
+- Re-identifying a transcript lost data (`STD-TRANSCRIPT-DEIDENTIFY`, wire revision 2026-10-04b, `W-TRN-6`). A
+  placeholder was restored to the roster spelling, so `will` came back as `Will` and a home folder typed with other
+  slashes came back in one spelling; a string the student typed that looked like a placeholder was replaced; and text
+  that outgrew its limit after replacement was cut. Each entry now carries `restore`, an encrypted record of the exact
+  strings its placeholders stand for and of any text that no longer fit, under a per-install key that travels inside
+  the sealed identity index (`lib/reach/deidentify.rb`). The key holder gets back the text exactly as recorded.
+
 ## [0.26.0] - 2026-10-04
 
 ### Added

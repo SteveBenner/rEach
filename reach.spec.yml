@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.26.0
+version: 0.26.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1739,7 +1739,8 @@ transcripts:
     Since 0.26.0 (STD-TRANSCRIPT-DEIDENTIFY, W-TRN-6) Reach::Transcript.run_flush asks Reach::Deidentify.envelope for
     the install's pseudonym, the scrubber and the sealed identity index, passes every entry through
     Reach::Deidentify.entry before batching, and sends pseudonym and identity with each batch. With no
-    transcripts.identity_key in the cached status the flush stops with identity_key and sends nothing.
+    transcripts.identity_key in the cached status the flush stops with identity_key and sends nothing. Since 0.26.1
+    each entry also carries restore (Reach::Deidentify.seal_restore), so a re-identified transcript is exact.
   code_in_files: >-
     The AI partner is told to put code in files, never in chat (the public directive R-CODEFILE, Teach's G-CODE-1 and
     the persona): coursework only in the slice's owned files under deliverables/, anything else in extracurricular/.

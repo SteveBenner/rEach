@@ -4,6 +4,7 @@ require "base64"
 require "etc"
 require "fileutils"
 require "json"
+require "openssl"
 require "securerandom"
 require "socket"
 
@@ -14,6 +15,8 @@ module Reach
     DIGEST_KINDS = %w[prompt reply reasoning code].freeze
     MIN_LENGTH = 3
     MAX_VALUE_BYTES = 1024
+    TOKEN = /\[\[[a-z0-9-]{1,40}\]\]/.freeze
+    FIELD_LIMITS = { "text" => 131_072, "summary" => 2000, "note" => 200 }.freeze
     WORD = /[\p{L}\p{N}]/.freeze
 
     module_function
@@ -22,23 +25,31 @@ module Reach
       File.join(Reach::Paths.state_dir, "pseudonym.json")
     end
 
-    def pseudonym(install)
+    def state(install)
       path = pseudonym_path
       stored = begin
         JSON.parse(File.read(path))
       rescue StandardError
         nil
       end
-      if stored.is_a?(Hash) && stored["install_id"] == install["install_id"] && stored["pseudonym"].to_s.match?(/\Aanon_[0-9a-f]{32}\z/)
-        return stored["pseudonym"]
+      if stored.is_a?(Hash) && stored["install_id"] == install["install_id"] &&
+         stored["pseudonym"].to_s.match?(/\Aanon_[0-9a-f]{32}\z/) && stored["restore_key"].to_s.match?(/\A[0-9a-f]{64}\z/)
+        return stored
       end
 
-      value = "anon_#{SecureRandom.hex(16)}"
+      kept = stored.is_a?(Hash) && stored["install_id"] == install["install_id"] && stored["pseudonym"].to_s.match?(/\Aanon_[0-9a-f]{32}\z/)
+      fresh = {
+        "install_id" => install["install_id"],
+        "pseudonym" => kept ? stored["pseudonym"] : "anon_#{SecureRandom.hex(16)}",
+        "restore_key" => SecureRandom.hex(Reach::Crypto::AES_KEY_BYTES)
+      }
       FileUtils.mkdir_p(File.dirname(path))
-      File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |file|
-        file.write(JSON.generate("install_id" => install["install_id"], "pseudonym" => value))
-      end
-      value
+      File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(fresh)) }
+      fresh
+    end
+
+    def pseudonym(install)
+      state(install)["pseudonym"]
     end
 
     def identity_key(status)
@@ -108,8 +119,8 @@ module Reach
         end
       end
       forms = lookup.keys.sort_by { |form| [-form.length, form] }
-      { "regexp" => forms.empty? ? nil : Regexp.new(forms.map { |form| pattern(form) }.join("|"), Regexp::IGNORECASE),
-        "lookup" => lookup, "placeholders" => placeholders }
+      parts = ["(?<token>(?-i:#{TOKEN.source}))"] + forms.map { |form| pattern(form) }
+      { "regexp" => Regexp.new(parts.join("|"), Regexp::IGNORECASE), "lookup" => lookup, "placeholders" => placeholders }
     end
 
     def pattern(form)
@@ -118,41 +129,102 @@ module Reach
       "#{head}#{Regexp.escape(form)}#{tail}"
     end
 
-    def scrub(text, scrubber)
-      regexp = scrubber["regexp"]
-      return text if regexp.nil? || !text.is_a?(String)
-
-      text.gsub(regexp) { |found| scrubber["lookup"].fetch(found.downcase, found) }
+    def segments(text, scrubber)
+      out = []
+      position = 0
+      text.scan(scrubber["regexp"]) do
+        found = Regexp.last_match
+        out << [text[position...found.begin(0)], nil] if found.begin(0) > position
+        shown = found[:token] ? found[0] : scrubber["lookup"].fetch(found[0].downcase, found[0])
+        out << [shown, found[0]]
+        position = found.end(0)
+      end
+      out << [text[position..], nil] if position < text.length
+      out
     end
 
-    def entry(entry, scrubber)
+    def scrub(text, scrubber, limit)
+      pieces = segments(text, scrubber)
+      kept = +""
+      originals = []
+      tail = nil
+      pieces.each_with_index do |(shown, original), index|
+        room = limit - kept.bytesize
+        if shown.bytesize <= room
+          kept << shown
+          originals << original if original
+          next
+        end
+
+        rest = pieces[(index + 1)..].map { |piece, source| source || piece }.join
+        if original
+          tail = original + rest
+        else
+          head = Reach::Transcript.truncate_to_bytes(shown, room)
+          kept << head
+          tail = shown[head.length..] + rest
+        end
+        break
+      end
+      { "text" => kept, "originals" => originals, "tail" => tail }
+    end
+
+    def seal_restore(record, restore_key, pseudonym, session_id, seq)
+      aad = Reach::Crypto.canonical_json("pseudonym" => pseudonym, "seq" => seq, "session_id" => session_id)
+      key = [restore_key].pack("H*")
+      nonce = SecureRandom.random_bytes(Reach::Crypto::AES_IV_BYTES)
+      plaintext = JSON.generate(record)
+      if Reach::GCM.native_aad?
+        cipher = OpenSSL::Cipher.new(Reach::Crypto::GCM_CIPHER)
+        cipher.encrypt
+        cipher.key = key
+        cipher.iv = nonce
+        cipher.auth_data = aad
+        ciphertext = cipher.update(plaintext) + cipher.final
+        tag = cipher.auth_tag
+      else
+        ciphertext, tag = Reach::GCM.encrypt(key: key, nonce: nonce, plaintext: plaintext, aad: aad)
+      end
+      Base64.strict_encode64(nonce + tag + ciphertext)
+    end
+
+    def entry(entry, envelope, session_id)
+      scrubber = envelope["scrubber"]
       result = entry.dup
-      original = entry["text"]
-      TEXT_FIELDS.each { |field| result[field] = scrub(entry[field], scrubber) if entry[field].is_a?(String) }
+      record = {}
+      TEXT_FIELDS.each do |field|
+        next unless entry[field].is_a?(String)
+
+        scrubbed = scrub(entry[field], scrubber, FIELD_LIMITS.fetch(field))
+        result[field] = scrubbed["text"]
+        next if scrubbed["originals"].empty? && scrubbed["tail"].nil?
+
+        record[field] = { "o" => scrubbed["originals"], "t" => scrubbed["tail"] }
+      end
       result["source_digest"] = entry["digest"] if entry["kind"] == "prompt"
+      result["restore"] = record.empty? ? nil : seal_restore(record, envelope["restore_key"], envelope["pseudonym"], session_id, entry["seq"])
+      original = entry["text"]
       return result unless DIGEST_KINDS.include?(entry["kind"].to_s) && original.is_a?(String) && result["text"] != original
 
       text = result["text"]
-      full = text.bytesize
+      tail = record["text"] && record["text"]["t"]
       if entry["truncated"] == true
-        text = Reach::Transcript.truncate_to_bytes(text, Reach::Transcript::MAX_TEXT_BYTES) if full > Reach::Transcript::MAX_TEXT_BYTES
-        result["text"] = text
         result["bytes"] = [entry["bytes"].to_i, text.bytesize].max
-      elsif full > Reach::Transcript::MAX_TEXT_BYTES
-        result["text"] = Reach::Transcript.truncate_to_bytes(text, Reach::Transcript::MAX_TEXT_BYTES)
+      elsif tail
         result["truncated"] = true
-        result["bytes"] = full
+        result["bytes"] = text.bytesize + tail.bytesize
         result["digest"] = Reach::Crypto.digest_hex(text)
       else
-        result["bytes"] = full
+        result["bytes"] = text.bytesize
         result["digest"] = Reach::Crypto.digest_hex(text)
       end
       result
     end
 
-    def seal(install, key, pseudonym, placeholders)
+    def seal(install, key, pseudonym, placeholders, restore_key)
       plaintext = Reach::Crypto.canonical_json(
-        "install_id" => install["install_id"], "placeholders" => placeholders, "student_id" => install["student_id"]
+        "install_id" => install["install_id"], "placeholders" => placeholders, "restore_key" => restore_key,
+        "student_id" => install["student_id"]
       )
       aad = Reach::Crypto.canonical_json("schema" => SCHEMA, "key_id" => key["key_id"], "pseudonym" => pseudonym)
       sealed = Reach::Crypto.encrypt_gcm(plaintext, aad: aad)
@@ -169,8 +241,10 @@ module Reach
       return nil if key.nil?
 
       rules = scrubber(install, status)
-      name = pseudonym(install)
-      { "pseudonym" => name, "identity" => seal(install, key, name, rules["placeholders"]), "scrubber" => rules }
+      stored = state(install)
+      name = stored["pseudonym"]
+      { "pseudonym" => name, "identity" => seal(install, key, name, rules["placeholders"], stored["restore_key"]),
+        "restore_key" => stored["restore_key"], "scrubber" => rules }
     end
   end
 end

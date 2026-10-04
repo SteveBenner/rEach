@@ -24,11 +24,11 @@ module Reach
     CAPTURE_SPACES = %w[slice root].freeze
     DEFAULT_SUPPORTED_KINDS = %w[prompt].freeze
     KIND_FIELDS = {
-      "prompt" => %w[text bytes truncated digest source_digest gate note],
-      "reply" => %w[text bytes truncated digest note],
-      "reasoning" => %w[text bytes truncated digest note],
-      "action" => %w[tool summary note],
-      "code" => %w[category scope path origin deleted binary text bytes truncated digest note reply_seq]
+      "prompt" => %w[text bytes truncated digest source_digest gate note restore],
+      "reply" => %w[text bytes truncated digest note restore],
+      "reasoning" => %w[text bytes truncated digest note restore],
+      "action" => %w[tool summary note restore],
+      "code" => %w[category scope path origin deleted binary text bytes truncated digest note reply_seq restore]
     }.freeze
     CODE_EXT = {
       "ruby" => "rb", "rb" => "rb", "python" => "py", "py" => "py", "javascript" => "js", "js" => "js",
@@ -879,7 +879,7 @@ module Reach
         last = state["last_seq"].to_i
         next if acked >= last
 
-        remaining = read_entries_after(session_id, acked).map { |entry| Reach::Deidentify.entry(entry, envelope["scrubber"]) }
+        remaining = read_entries_after(session_id, acked).map { |entry| Reach::Deidentify.entry(entry, envelope, session_id) }
         next if remaining.empty?
 
         sendable, held_count = split_supported_prefix(remaining, supported)
