@@ -2,7 +2,8 @@
 
 The standing decisions behind rEach, as the product owner gave them. Only the latest form of each decision is kept;
 when one is revised, its entry is rewritten rather than appended. Dates are 2026. Where a decision constrains Teach,
-Grokit or Dovetail, it is listed here only for its effect on rEach.
+Grokit or Dovetail, it is listed here only for its effect on rEach. The system these decisions produced is drawn in
+[`architecture.md`](architecture.md).
 
 ## Purpose and how rEach talks to students
 
@@ -48,9 +49,10 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
 ## Enrollment and identity
 
 - **Enrollment is fail-closed** (10-01). After installing, the student must enroll; until then rEach refuses all input.
-- **Three inputs** (10-01): the course code handed out in class or on Blackboard, the La Sierra email, and the
-  7-digit La Sierra ID. Teach owns the roster they are checked against.
-- **A course code links to exactly one course** (10-01), is class-wide, expires when the course ends, and is
+- **Four inputs** (10-01, revised 10-02): the class-wide course passkey handed out in class or on Blackboard, the
+  La Sierra email, the La Sierra student ID, and a password the student chooses (at least 8 characters, typed
+  twice). Teach owns the roster they are checked against and keeps only a hash of the password.
+- **A course passkey links to exactly one course** (10-01), is class-wide, expires when the course ends, and is
   normalized loosely ("mgmt-327" and "mgmt 327" both resolve).
 - **Instructor unlock** (10-01, Reach 0.16.17). An instructor can lift the enrollment lock on one install with a
   signed code: a private key the instructor keeps outside the repository, its public key pinned in `config.yml`, and
@@ -113,10 +115,10 @@ Grokit or Dovetail, it is listed here only for its effect on rEach.
   writes outside the chat's folder, so it runs outside the sandbox once. If the agent cannot ask for that (Codex on
   Windows), it tells the student to switch the chat's permissions to Full access and ask again. It never improvises
   another folder or workaround, and never asks the student to paste commands.
-- **One rEach folder** (10-01, planned for 0.17.0). Codex on Windows lets a sandboxed command write only inside the
+- **One rEach folder** (10-01, planned). Codex on Windows lets a sandboxed command write only inside the
   chat's folder and the temp folder, so everything rEach keeps (its program, state, keys, runtime kit and the course
   folders) moves into one rEach folder the student works in. The aim is that after the install the student can switch
-  Codex back to its default permissions; 0.17.0 has to prove that on Windows, including network access for
+  Codex back to its default permissions; the release that ships it has to prove that on Windows, including network access for
   enrollment and submission.
 - **Migration loses nothing** (10-01). Moving an existing install into the rEach folder must have zero chance of losing
   student data: copy and verify before anything is removed, keep the old location until the new one is proven, and

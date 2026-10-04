@@ -1,5 +1,7 @@
 # Course alignment: directives, identity, modules, sandbox (design record)
 
+A design record, kept as written except where it named Teach's internals: Teach is private, so its side is described here by what it does, not by how it is built. For the system as it stands today, see [`architecture.md`](architecture.md).
+
 Status: shipped in Reach 0.12.0 and Teach 0.12.0 (2026-09-30). Written first as TMP.md, before implementation.
 Superseded in part on 2026-10-02 (wire revision 2026-10-03b): no transcript, spool or subcorpus exists any more, and an own-part
 answer is the student's latest long enough prompt, kept in ~/.reach/state/part/pending.json until reach part record takes it; it carries
@@ -14,10 +16,10 @@ end -> Reach 0.12.0 + Teach 0.12.0, wire protocol 1 revision 2026-09-30b.
 
 ## 0. Where things live today (facts the design builds on)
 
-- Private, encrypted directives: Teach `directives/*.md` (tier private, aliases N-Z; N-T are taken by
+- Private, encrypted directives: kept on the course server (tier private, aliases N-Z; N-T are taken by
   SLICE, CRAFT, FUSE, LANG, OPAQUE, PORTS, SEAL, so U-Z = 6 free). Delivered in the guardrails package,
   bodies fetched per request through W-API-DIRECTIVE, never on the student's disk.
-- Numbered course rules: `Teach::Packages::GuardrailContent` G-* rules (scope slice | extracurricular |
+- Numbered course rules: the course server's G-* rules (scope slice | extracurricular |
   everywhere), rendered into each workspace's AGENTS.md/CLAUDE.md/GEMINI.md.
 - Public engineering directives: Reach `directives/*.md` (aliases A-M).
 - Enforcement points in Reach: hooks per space (SessionStart `gate session`, UserPromptSubmit `gate prompt`,
@@ -25,15 +27,15 @@ end -> Reach 0.12.0 + Teach 0.12.0, wire protocol 1 revision 2026-09-30b.
   Claude Code, Codex and Hermes are hooked; Antigravity is not.
 - Identity today: an enrollment code binds an install (RSA key) to one student id; `GET /api/v1/status`
   returns `student {id, display_name, group}`. There is no per-session login.
-- Modules today: Teach `slice_assignments (student_id, cutout_id, slice, assignment)`; cutout ids are
-  `<module>.a<n>[s<k>]`; `groups(id, module)`. Instructors assign; students never choose.
+- Modules today: Teach assigns each student a slice per assignment and each group a module; cutout ids are
+  `<module>.a<n>[s<k>]`. Instructors assign; students never choose.
 - Time gating today: Teach releases per assignment; G-SCOPE-3 and the SLICE directive say "only the current
   assignment". Submissions after the due time get 403 deadline_passed.
 - Student's own work today: skills ask for "business choices ... and their contribution account" and say
   "never invent personal reflection"; nothing checks it deterministically.
 - extracurricular/: the student's own code folder, "help freely", captured to the course record (G-EXTRA-1/2).
 - Corpus: Reach's corpus port (notes, tips, attempts, receipts, qualifications); transcript spool
-  `~/.reach/transcripts/`; Teach subcorpus capped by TEACH_SUBCORPUS_MAX_BYTES (1 GiB). No local caps.
+  `~/.reach/transcripts/`; Teach's per-student record has a size cap. No local caps.
 
 ## 1. Requirements (from the OPML), numbered
 
@@ -59,8 +61,8 @@ end -> Reach 0.12.0 + Teach 0.12.0, wire protocol 1 revision 2026-09-30b.
 
 ## 2. Design: directive prose (encrypted, Teach private tier)
 
-Six new private directives fill aliases U-Z exactly. Each body is instructor text in Teach `directives/`,
-served per request, never on disk.
+Six new private directives fill aliases U-Z exactly. Each body is instructor text kept on the course server,
+served per request, never on the student's disk.
 
 | Alias | Opcode | Rule (<= 88 chars) | when | enforce | Covers |
 |---|---|---|---|---|---|
@@ -111,12 +113,12 @@ confirmation heartbeat in each transcript entry (`login` field: session-scoped c
 
 ### 3.2 Modules: assignment, 781 choice and lock (R13-R15) — Teach owns, Reach consumes
 
-Teach course setting `module_selection: instructor | student_choice` (327 = instructor, 781 = student_choice),
-with `module_choice: {count: 2, options: [module ids], opens_at, closes_at, capacity_per_module: null}`.
+The course policy carries `module_selection: instructor | student_choice` (327 = instructor, 781 = student_choice)
+and, for a student choice, how many modules, the options, the window and an optional capacity per module.
 
-Teach table `module_assignments (id, student_id, modules_json, source instructor|student_choice|transfer,
-reason, version, issued_at, supersedes, signature)`: every record is signed by Teach's key like a receipt
-(`teach.module-assignment/v1`). The newest record is the student's current pair.
+Teach keeps each student's module assignment as a record signed by its key, like a receipt
+(`teach.module-assignment/v1`), with its source (instructor, student choice or transfer). The newest record is
+the student's current pair.
 
 Routes (wire revision 2026-09-30b):
 - `GET /api/v1/modules` -> {selection: instructor|student_choice, options, count, window {opens_at,
@@ -136,10 +138,10 @@ Reach:
 - Workspaces are provisioned only for the current pair; the gate refuses writes in a slice whose module is
   not in the current signed record.
 
-Teach instructor verbs: `teach modules show --student S`, `teach modules assign --student S --modules a,b
---reason "..."` (writes a new signed record, source instructor, supersedes the old), `teach modules export`.
-Reassignment moves future slice assignments (unreleased assignments) to the new pair; released ones stay
-unless `--include-current`. Past submissions and grades are never touched.
+Instructors can view, assign and export module assignments on Teach. An assignment writes a new signed record
+(source instructor) that supersedes the old. Reassignment moves future, unreleased slice assignments to the new
+pair; released ones stay unless the instructor includes the current assignment. Past submissions and grades are
+never touched.
 
 ### 3.3 Transfer requests (R16) — Reach asks, Teach decides
 
@@ -148,8 +150,8 @@ unless `--include-current`. Past submissions and grades are never touched.
   `POST /api/v1/transfers` {modules, note, confirmation {session, seq, digest}} -> {transfer_id, state pending}.
 - One open request per student (409 otherwise). `GET /api/v1/transfers/:id` -> {state pending|approved|denied,
   reply, module_record when approved}. Reach polls on sync at most every 60 s while pending (like hands).
-- Teach: `teach transfers list [--state pending]`, `teach transfers approve <id> [--reply ...]` (issues a
-  new signed module record, source transfer), `teach transfers deny <id> --reply ...`. Admin API mirrors them.
+- Teach: instructors see the pending requests and approve one (which issues a new signed module record, source
+  transfer) or deny it, each with a reply.
 - Until approved nothing changes; the agent keeps the student on the current modules (G-IDENT-1).
 
 ### 3.4 Time gating (R1) — Reach gate, Teach data
@@ -161,7 +163,7 @@ unless `--include-current`. Past submissions and grades are never touched.
 
 ### 3.5 The student's own part (R2) — Teach defines, Reach enforces, Teach verifies
 
-- Teach course config per assignment: `student_part: [{id, question, min_words}]`, from the course's
+- The course defines the student's part per assignment (questions, each with an id and a minimum length), from the course's
   assignment text (A1: the professional use case, the users, the baseline, the human decision, and what the
   student decided; A2-A4 and Final likewise). Shipped in the workspace package as `part.yml`.
 - Capture (DECISION D3): the agent asks a question; the student answers in chat; the prompt hook has the
@@ -171,9 +173,8 @@ unless `--include-current`. Past submissions and grades are never touched.
 - `reach part` shows which questions are answered. The README's "Your part" section is regenerated from the
   recorded answers (verbatim, quoted).
 - Submit refuses until every question for the assignment has an answer (M-SUBMIT-NO-PART). The submission
-  carries `part.json` with each answer's {session, seq, digest}; Teach checks each digest against the
-  student's subcorpus transcript and marks the submission `part_verified: true|false|pending` for
-  instructors (never a grade change by itself).
+  carries `part.json` with each answer's {session, seq, digest}; Teach checks each answer and marks the
+  submission's part as verified, not verified or pending for instructors (never a grade change by itself).
 
 ### 3.6 Sandbox and imports (R4)
 
@@ -216,12 +217,12 @@ Teach advertises `limits` in status (defaults in brackets); Reach enforces them 
 
 | Setting | Where | Default |
 |---|---|---|
-| TEACH_LOGIN_REQUIRED | Teach env -> status `login.required` | 1 |
+| sign-in required | course server setting -> status `login.required` | on |
 | login.max_hours | Teach status | 12 |
-| module_selection / module_choice | Teach course config | instructor |
-| TEACH_TRANSFERS_DISABLE | Teach env (403) | off |
-| student_part per assignment | Teach course config | from the course's assignment text |
-| TEACH_PART_REQUIRED | Teach env -> status `part.required` | 1 |
+| module_selection and the choice options | course policy | instructor |
+| transfers switched off | course server setting (403) | off |
+| student part per assignment | course policy | from the course's assignment text |
+| own part required | course server setting -> status `part.required` | on |
 | limits.* | Teach status | see 3.7 |
 | REACH_READ_GATE | Reach env, for debugging only; Teach can force it on | on |
 
@@ -244,7 +245,7 @@ Ranked by likelihood x impact; complexity is the build cost to close it.
 | 3 | Student uses an unhooked harness (Antigravity) or a plain chat app to bypass login, sandbox and part capture | High | High | Low | Seal already records `hooked`; Teach flags unhooked submissions; part answers without captured prompts cannot exist, so submit is blocked anyway |
 | 4 | Student claims reassignment that never happened (social engineering the agent) | Medium | Medium | Low | G-IDENT-1 + transfer request; nothing changes without Teach approval |
 | 5 | 781 student picks modules, then regrets it | High | Medium | Low | Locked; the only path is a transfer request the instructor decides |
-| 6 | Reassignment mid-assignment: half-done slice in the old module | Medium | High | Medium | Old workspace kept read-only under deliverables/; instructor chooses `--include-current`; due time extension is an instructor decision recorded with the transfer |
+| 6 | Reassignment mid-assignment: half-done slice in the old module | Medium | High | Medium | Old workspace kept read-only under deliverables/; instructor chooses whether to include the current assignment; due time extension is an instructor decision recorded with the transfer |
 | 7 | Late work: student returns after the due date wanting to finish | High | Medium | Low | Gate follows Teach late_policy; directive says tell them plainly and point to the instructor |
 | 8 | Student in distress / crisis in chat | Low | Very high | Low | G-FOCUS-2 referral (D4); Teach can see it in the transcript; decide whether Reach raises a hand automatically |
 | 9 | Student asks the agent for help with another course's homework | High | Low | Low | FOCUS decline + redirect |
@@ -252,7 +253,7 @@ Ranked by likelihood x impact; complexity is the build cost to close it.
 | 11 | Student drops huge or sensitive files (tax forms, IDs) | Medium | Medium | Low | Allow list + size cap; directive says ask before importing anything personal |
 | 12 | Clock skew / time zone: gate thinks an assignment is not yet released | Medium | Medium | Low | Gate uses Teach server_time offset from the last status, not the local clock |
 | 13 | Offline student: cannot log in against Teach, cannot sync modules | Medium | Medium | Low | Login is local (enrolled id + stored name); module record cached and signed; transfer/selection queue in the outbox |
-| 14 | Student never chooses modules in 781 before the window closes | Medium | Medium | Low | Teach lists unselected students; instructor assigns (`teach modules assign`) |
+| 14 | Student never chooses modules in 781 before the window closes | Medium | Medium | Low | Teach lists unselected students; the instructor assigns |
 | 15 | Capacity: too many 781 students choose the same module | Low | Medium | Low | Optional capacity_per_module; 409 when full with the remaining options |
 | 16 | Instructor reassigns while the student is mid-session | Low | Medium | Low | Next sync or next prompt (status check) refreshes; gate refuses writes in the old slice with a plain message |
 | 17 | Student's name changed / preferred name differs from roster | Medium | Low | Low | Confirmation uses Teach display_name; instructor edits the roster |
@@ -275,7 +276,7 @@ Ranked by likelihood x impact; complexity is the build cost to close it.
   call 911 now." It is a fixed Reach message, M-SUPPORT, printed by `reach support` (the agent runs it and relays
   the text verbatim, never paraphrasing): "If this is an emergency, call 911 now. You can call or text 988, the
   Suicide & Crisis Lifeline, any time, day or night. <course support line from Teach status support.text>". The
-  course support line comes from Teach (TEACH_SUPPORT_TEXT, default "Your university's counseling service can
+  course support line comes from a course server setting (default "Your university's counseling service can
   also help."). `reach support` itself raises the wellbeing hand (queued in the outbox when offline) and
   then appends "Your instructor has been told you may need support." or "...will be told as soon as this computer
   is back online.", so the sentence is always true. The agent does not raise the hand separately.
@@ -291,9 +292,8 @@ Ranked by likelihood x impact; complexity is the build cost to close it.
 
 ## 8. Build split (four Sonnet workers, disjoint paths)
 
-- W1 Teach: course config (module_selection, module_choice, student_part, limits, login), tables
-  module_assignments + transfer_requests, signed module records, routes, CLI verbs (modules, transfers),
-  status fields, integrity kinds, part verification on ingest, six private directives + G-rules.
+- W1 Teach: the server half of this design: the course policy, signed module records, transfer requests, the new
+  routes and status fields, the integrity kinds, and the six private directives and G-rules.
 - W2 Reach identity + modules + transfers: login state machine in the prompt/session hooks, redaction,
   lockout, `reach modules`, `reach transfer`, module-aware provisioning and gate, status/hello integration.
 - W3 Reach sandbox + limits + time gate: read gate (+ harness matchers for Claude Code, Codex, Hermes),
@@ -305,8 +305,8 @@ Ranked by likelihood x impact; complexity is the build cost to close it.
 ## 9. Progress (update as it moves)
 
 - 2026-09-30 ~01:30 PDT: decisions D1-D5 + D4b taken; wire revision 2026-09-30b written in both repos (alignment
-  section, new routes, W-SUP-3 crisis net); six private directives written (teach/directives pace, ownpart, coach,
-  sandbox, focus, whoami); student_part questions A1-A4 and policy_defaults in teach.spec.yml; all messages in
+  section, new routes, W-SUP-3 crisis net); six private directives written on the course server (pace, ownpart, coach,
+  sandbox, focus, whoami); the student-part questions for A1-A4 and the policy defaults recorded in Teach's spec; all messages in
   locales/en-US.yml; G-LOGIN greeting; blueprint specs/implementation/v0.12.0.impl.yml. Four Sonnet workers
   launched (W1-teach, W2-identity, W3-sandbox, W4-part). Nothing committed yet.
 - Next: review worker reports and diffs, integrate, drive the end-to-end journeys in the blueprint's
@@ -314,7 +314,7 @@ Ranked by likelihood x impact; complexity is the build cost to close it.
 - 2026-09-30 ~01:50 PDT: all four slices built and integrated. Fixed in integration: the crisis hand now leaves
   within seconds through a detached quick flush; Teach builds the guardrails package before release and before a
   student has slices; the prompt gate lets a student sign in while a module choice is open; reassignment pairs
-  modules per assignment from the slices' actual modules; wellbeing hands pass TEACH_HANDS_DISABLE; the Hermes
+  modules per assignment from the slices' actual modules; wellbeing hands go through even when hands are switched off on the course server; the Hermes
   first-turn context is withheld on a blocked prompt. Verified: the A1 smoke (36 steps, now with sign-in and the
   student's part), a crisis before sign-in, the read and shell gates, drag-and-drop import, a transfer request with
   approval, a student_choice selection with lock, and an instructor reassignment. Shipped as Reach 0.12.0 and
