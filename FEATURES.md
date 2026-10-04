@@ -996,6 +996,10 @@ Google's agent app and CLI (replaced Gemini CLI in 2026); reads `plugin.json` (A
 none; since 0.9.0 it runs `REACH_HARNESS=antigravity reach submit`, so Teach notes its submissions as unwitnessed
 (2.14). `agy` is not installed on the development machine, so `reach setup --harness antigravity` and the
 plugin-directory link are untested.
+Since 0.23.1 (`STD-NOHOOK-ENROLL`) a locked Antigravity session is told to walk the student through `reach enroll`
+in a terminal window at once, because rEach cannot ask for enrollment details in an app without hooks; a student
+reported being sent to their instructor instead (2026-10-03). Exercised with `reach hello` in a scratch home on
+Linux only.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run; `agy` not installed here).
 

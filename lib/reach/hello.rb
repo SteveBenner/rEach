@@ -22,11 +22,12 @@ module Reach
       end
 
       Reach::RuntimeAuto.start
-      harness_id = resolve_harness(harness)
+      hookless = hookless?(harness, format, mcp)
+      harness_id = resolve_harness(harness == "antigravity" ? nil : harness)
       Reach::Debug.begin_hook(event, harness_id)
       Reach::Debug.session(harness_id, source)
       Reach::KnownIssues.refresh_if_stale!(quick: true) if mcp
-      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook", mcp: mcp)
+      greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook", mcp: mcp, hookless: hookless)
 
       emit(format, context, banner, greeting_id, greeting_text)
     rescue StandardError
@@ -172,9 +173,13 @@ module Reach
       nil
     end
 
-    def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil, mcp: false)
+    def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil, mcp: false, hookless: false)
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
+        if hookless && lock["reason"] != "course_ended"
+          message = Reach::Messages.text("M-ENR-NOHOOK-STUDENT")
+          return [nil, message, message, hookless_context(mcp: mcp)]
+        end
         message = Reach::EnrollFlow.next_message(lock)
         return [nil, message, message, locked_context(format, mcp: mcp)]
       end
@@ -244,8 +249,27 @@ module Reach
       []
     end
 
+    def hookless?(harness, format, mcp)
+      return false if format.to_s == "hook" || mcp
+      return true if harness == "antigravity"
+
+      resolve_harness(harness) == "unknown" && Reach::KnownIssues.harness.nil?
+    rescue StandardError
+      false
+    end
+
+    def terminal_command(*args)
+      command = Reach::Runtime.hook_command(*args)
+      Reach::Runtime.windows? ? "& #{command}" : command
+    end
+
+    def hookless_context(mcp: false)
+      guide = Reach::Messages.text("M-ENR-AGENT-NOHOOK-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"))
+      ["#{Reach::Messages.text("M-ENR-AGENT-NOHOOK-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
+    end
+
     def locked_context(format = "hook", mcp: false)
-      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: Reach::Runtime.hook_command("enroll"))
+      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"))
       text = ["#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
       return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
 
