@@ -191,11 +191,17 @@ module Reach
 
       root_real = File.expand_path(root)
       extracurricular_real = File.expand_path(Reach::Paths.extracurricular_root)
+      pruned = (Reach::Paths.home_dirs + [File.expand_path(Reach::Paths.root), Reach::Paths.legacy_home]).uniq
       slices = []
 
       Find.find(root_real) do |path|
         next if path == root_real
         next unless File.directory?(path)
+
+        if pruned.include?(path) || (File.dirname(path) == root_real && Reach::Paths.home_name?(File.basename(path)))
+          Find.prune
+          next
+        end
 
         if File.file?(File.join(path, MARKER_DIR, MARKER_FILE))
           slices << path
@@ -263,6 +269,7 @@ module Reach
       return nil if path.nil?
 
       resolved = File.exist?(path) ? File.realpath(path) : File.expand_path(path.to_s)
+      return nil if Reach::Paths.inside_home?(resolved)
 
       slice = current_slices.find { |workspace_path| within_path?(resolved, workspace_path) }
       return { "kind" => "slice", "path" => slice } if slice
@@ -276,6 +283,12 @@ module Reach
       nil
     rescue StandardError
       nil
+    end
+
+    def space_for_target(absolute)
+      return nil if absolute.nil?
+
+      space_for(Reach::Paths.realish(absolute))
     end
 
     def within_path?(resolved, root)

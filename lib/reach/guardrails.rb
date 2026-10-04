@@ -126,7 +126,7 @@ module Reach
     end
 
     def current_workspace
-      Reach::Gate.current_workspace_path
+      Reach::Gate.focus_workspace
     rescue StandardError
       nil
     end

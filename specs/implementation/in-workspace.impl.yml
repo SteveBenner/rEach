@@ -1,0 +1,115 @@
+schema: rstack.blueprint/v1
+task: reach-in-workspace-home
+intent: >
+  Sven asked on 2026-10-03 for a branch on which rEach lives inside the student's workspace instead of the home
+  folder, because a sandboxed agent (Codex, on Windows above all) lets a command write only inside the folder the chat
+  was opened in and %TEMP%, so every write to ~/.reach is blocked. He chose the layout "inside ~/reach-work": the
+  workspace folder keeps its name and place, rEach's own files move from ~/.reach to ~/reach-work/.reach-home, and the
+  student opens ~/reach-work itself (the top) as the chat's folder. Existing installs move automatically with ZERO
+  chance of losing student data. This is a port of the 0.17.0 one-folder design (branch one-folder, worktree
+  ~/github/foss/.rEach-wt/one-folder, blueprint specs/implementation/v0.17.0.impl.yml there, built on Reach 0.16.16)
+  onto Reach 0.22.0, with one difference: the workspace does not move, only the home does. This is a branch only:
+  nothing is released, merged or version-bumped. Where this file is silent, stop and report instead of choosing.
+harness: claude-code
+worker: { model: sonnet, effort: medium, definition: coding-worker }
+repository: ~/github/foss/.reach-wt/in-workspace (git worktree of rEach on branch in-workspace, from origin/main, Reach 0.22.0)
+
+read_first:
+  - AGENTS.md (every Part), CHANGELOG.md (0.17.0 to 0.22.0 headlines), INSTALL.md, PRIVACY.md, docs/DESIGN-DECISIONS.md, docs/student-guide.md, reach.spec.yml (paths, gate, spaces, update, subscription, persona sections), specs/app.yml
+  - "The source being ported, read-only: ~/github/foss/.rEach-wt/one-folder: specs/implementation/v0.17.0.impl.yml (the whole file, including addendum_harness_source), lib/reach/relocation.rb, lib/reach/harness_source.rb if present, and `git diff $(git merge-base HEAD origin/main) HEAD` there for paths.rb, gate.rb, workspace.rb, setup.rb, hello.rb, status.rb, cli.rb, update/apply.rb, bin/reach-install, locales/en-US.yml, reach.spec.yml. Port its logic; do not copy code that names things main no longer has (transcripts were retired in 0.21.x: W-TRN-0)."
+  - "On this branch: lib/reach/paths.rb (root, home, workspace_base, workspace_root, personas), workspace.rb (space_for, current_slices, provision_extracurricular!, migrate_layout!), gate.rb (write, shell, read, current_space, current_workspace_path, outside_path?, the shim list near line 496), harness.rb (configure_all, configure_codex writable_roots), runtime.rb (shim), update.rb and update/apply.rb, setup.rb, hello.rb, subscribe.rb (the OS job command uses the shim path), storage.rb, archive.rb, sidecar.rb, brain_spool.rb, enroll.rb, enrollment_lock.rb, fingerprint.rb, persona.rb, scripts/reach-install and scripts/reach-install.ps1"
+
+constraints:
+  - No comments in any file (only magic comments and shebangs survive). No attribution. No tests, spec files or fault-injection switches in product code (Part S); verification runs from scratch scripts outside the repository.
+  - Run no git write; the primary commits. Do not bump VERSION or any manifest version; CHANGELOG gets an "Unreleased" entry.
+  - "Never touch Sven's real ~/.reach, ~/reach-work, harness homes (~/.claude, ~/.codex, ~/.gemini, ~/.hermes), systemd user units or the live Teach (port 7400, database teach). Every run sets HOME (and USERPROFILE where Windows paths are built) to a scratch directory under ~/.cache/claude-tmp/reach-in-workspace (never /tmp), plus CLAUDE_CONFIG_DIR and CODEX_HOME inside it, REACH_SYSTEMD_USER_DIR for the subscription job, and REACH_TEACH_URL pointing at the scratch Teach. Unset TEACH_DATABASE_URL (the shell value is the LIVE database)."
+  - Delete nothing outside your scratch directory; never rm -r, git clean, find -delete or dropdb. In product code the relocation deletes NOTHING it did not create in the same run.
+  - Ruby 2.6.10 compatibility for lib/, exe/, scripts/ and update/ (ruby -c in ruby:2.6.10-slim, and one relocation run there). No new gems. macOS, Windows and Linux.
+  - American English. No em or en dashes in any text a student or agent reads. Student-facing words follow AGENTS.md.
+  - specs/wire.yml does not change.
+
+layout:
+  workspace: "Unchanged. Paths.workspace_base = $REACH_WORKSPACE_ROOT, else ~/reach-work; workspace_root and the persona workspace derive from it as today."
+  legacy_home: "Paths.legacy_home = ~/.reach (File.expand_path), used only by resolution and the relocation."
+  new_home: "<workspace_base>/.reach-home. Named .reach-home, never .reach (.reach is the slice marker directory, and Windows and macOS names are case-insensitive)."
+  root_resolution: >-
+    Paths.root, in order, memoized per process for at most 2 seconds: (1) $REACH_HOME set: that, legacy logic off.
+    (2) <workspace_base>/.reach-home/state/relocation.json exists with phase completed: the new home. (3) ~/.reach
+    exists and holds install.yml or plugin/: the legacy home is active and a relocation is due. (4) otherwise the new
+    home (a fresh install never creates ~/.reach). Paths.home, the persona homes (<root>/personas/<id>) and every
+    other helper keep deriving from root as today. Paths.inside_home?(absolute) is realpath-based and case-insensitive
+    where Gate.case_insensitive_fs? says so.
+  inside_home: "Everything ~/.reach holds today moves as one tree: plugin/, bin/, state/, keys/, vault/, packages/, runtime/, gems/, chromium/, receipts/, outbox/, logs/, checkpoints/, personas/, profile, install.yml, stamp.json, fingerprint.json, .backup/, and anything else found there."
+  unchanged: >-
+    The sidecar seal stays at its OS location so it survives a deleted workspace; its write failures stay silent and
+    doctor keeps R-DOC-SEAL. The brain spool stays where brain_spool.rb puts it. Harness plugin installs stay
+    harness-owned. Report whether a write to either location fails loudly anywhere when the location is not writable.
+  ensure_home: Paths.ensure_home! keeps chmod 0700 on home, keys and vault only, and never chmods the workspace folder.
+
+slices:
+  - id: s1_paths_and_install
+    do:
+      - Paths as in layout. Replace the literal ~/.reach in gate.rb's shim list (both the current shim and Paths.legacy_home/bin/reach are recognized) and in setup.rb's macOS hint (use Runtime.root).
+      - "scripts/reach-install and scripts/reach-install.ps1: the default destination is <new home>/plugin, except when the legacy home is active (resolution step 3), where it installs to ~/.reach/plugin exactly as today so the relocation carries it later. The installer prints the destination and writes it to <dirname of the bootstrap file>/last-install.txt. Keep the .backup behavior; delete nothing."
+      - "INSTALL.md: both one-line commands bootstrap under ~/reach-work/.reach-home/bootstrap and call setup through the path in last-install.txt, still one command per platform, still correct for a student who already has ~/.reach. Add one sentence: in Codex the student opens the reach-work folder in their home folder as the chat's folder. The update line uses the reach shim, not a literal ~/.reach path."
+      - "rules/, docs/student-guide.md, PRIVACY.md, README.md: every statement that rEach's files are in ~/.reach or 'your home folder' says they are in the reach-work folder (in .reach-home), in plain words."
+      - "Setup: after the harnesses install, when a relocation is due run it (s3) in the foreground before printing NEXT, with its one-line outcome; add the Codex host step after the NEXT block's word-for-word text: open the reach-work folder in your home folder as the chat's folder (<path>)."
+  - id: s3_relocation
+    do:
+      - >-
+        Port Reach::Relocation (lib/reach/relocation.rb on one-folder) with this change of scope: it copies ONLY the
+        legacy home to <workspace_base>/.reach-home.relocating and renames it to .reach-home at the switch; the
+        workspace's files are never copied or moved. Keep everything else of the one-folder relocation section as
+        written there: the lock (with M-RELOCATING held through Gate.write, Gate.shell except reach status, doctor and
+        relocate, and submit), refusing while an update is installing, staged or swapping, the journal with SHA-256
+        per file, resume after a kill, the verify rounds, the manifest, the side-effect-free enrollment comparison
+        before and after (never EnrollmentLock.reason_for_state, mark_moved!, a stamp drop or any queued integrity
+        event), the never list, the failure rules, ~/.reach/RELOCATED.json as the only write into the legacy home, and
+        the legacy home left exactly as it was.
+      - "Preflight: <workspace_base> may exist; <workspace_base>/.reach-home must be absent, and .reach-home.relocating absent or an unfinished relocation of this run family (resumed). Anything else there: phase failed, reason destination_occupied, nothing changed. Free space on the workspace's filesystem at least the legacy home's bytes plus 200 MB, else no_space. When the legacy home and the workspace are on different filesystems the copy still works (the staged tree is inside the workspace, so the final rename is same-filesystem)."
+      - >-
+        Switch, inside the staged tree before it goes live: bin/root names the new plugin path; state/update.json is
+        rewritten only when its phase is completed; any other absolute legacy-home path stored in state files is found
+        (grep the staged state for the legacy home's path and report every hit) and rewritten or reported. After the
+        rename: Harness.configure_all for the workspace root, the extracurricular folder, every slice and every persona
+        workspace so their hook and MCP commands name the new shim; the harness source repoint and refresh of the
+        one-folder addendum (Reach::HarnessSource, setup's Codex "already added from a different source" path,
+        update/apply.rb's inline repoint, results recorded under harness_sources); Antigravity and Hermes links and
+        hooks re-registered with the new shim; Reach::Subscribe.ensure! so the operating system job runs the new shim
+        (and the old job definition naming the legacy shim is replaced, never left beside it); a line in
+        <home>/logs/relocation.jsonl.
+      - "Personas: persona homes live under <root>/personas and move with the tree; the pointer file and each persona's own stamp, keys and state are verified by the same manifest. A relocation never switches or records a persona."
+      - "hello: when a relocation is due, start it detached exactly as the one-folder branch does (lock, interval), never in a hook's foreground. cli: reach relocate [--format text|json]; doctor R-DOC-RELOCATION (none-needed, pending, in-progress, completed <date>, failed <reason>; a finding only when it failed for an enrolled install); reach status names the folder in use."
+  - id: s2_target_spaces
+    rule: >-
+      When the session's working folder is inside a slice or the extracurricular folder, behavior stays exactly as on
+      main. Only when it is the workspace root (kind root) does the target-path logic apply. A cwd outside every space
+      keeps main's behavior.
+    do:
+      - Port the one-folder s2_target_path_spaces slice (Workspace.space_for_target, Gate.write, Gate.shell and Gate.read judging by target in root kind, Gate.focus_workspace and its callers, M-PICK-SLICE, the root space's PostToolUse reach check hook) onto main's gate, leaving out everything about transcripts (retired).
+      - "The home is now inside the workspace root, so in EVERY kind: any read, write, listing, search, redirect or cd whose target resolves inside Paths.home (or a persona home) is refused the way vault and keys reads are refused today, except through reach's own commands; Workspace.current_slices, Workspace.migrate_layout!, Archive (the submission copy and any export of the student's work), Storage's measurement of the student's work and every other walk of the workspace prune .reach-home (and .reach-home.relocating and .reach-home.failed-*), while Storage still measures the home as rEach's own storage. space_for returns nil for a path inside the home."
+      - "Harness: the root, extracurricular and slice Codex configs keep sandbox_mode workspace-write, network_access true and writable_roots naming the home; the root space's Claude and Codex files gain the hooks a root-kind session needs."
+  - id: docs
+    do:
+      - "reach.spec.yml and specs/app.yml: a standard STD-HOME-IN-WORKSPACE (layout, resolution, relocation, the home refused in every kind, target spaces, M-PICK-SLICE, M-RELOCATING, R-DOC-RELOCATION); docs/DESIGN-DECISIONS.md records the decision of 2026-10-03 (inside ~/reach-work, replacing the ~/rEach decision of 2026-10-01) and what it does not fix (below); FEATURES.md row (Build shipped on branch in-workspace; Deploy not released); CHANGELOG Unreleased; TODO.md items for what stays unproven."
+      - "State plainly in DESIGN-DECISIONS and FEATURES what this does not fix: the Codex sandbox still blocks the network, so enroll, sync, updates and the subscription check need Full access or an allow rule until measured otherwise; Codex hook trust is unrelated; on Windows the project's top-level .codex is read-only inside the sandbox."
+
+verification:
+  setup: >-
+    A scratch Teach from ~/bitbucket/paterasai/.teach-wt/revision-route (read-only, Teach 0.30.0) with its own database
+    reach_inws_scratch and a free port such as 7495, one course, one released assignment, one student with a slice,
+    provisioned as ~/github/foss/rEach/tools/smoke/assignment_one.rb does. Stop it when done.
+  checks:
+    - "V1 fresh install: HOME=<scratch>/fresh. Install from a local archive or a hand copy of this tree to the default destination; enroll and sync against the scratch Teach. Show the plugin at <HOME>/reach-work/.reach-home/plugin, Paths.root there, nothing created at <HOME>/.reach, and reach status and doctor clean."
+    - "V2 relocate a populated legacy install: HOME=<scratch>/legacy. Build the legacy state with Reach main (git archive of origin/main into scratch, run with that HOME): enrolled, synced, a slice with owned files edited, a checkpoint, a queued outbox item, a receipt if the flow allows, extracurricular files including a symlink, a 0-byte file and one file over 5 MB placed in the legacy home's logs, and the subscription job installed. Record SHA-256 of every file under ~/.reach and ~/reach-work. Run this branch's reach relocate. Show: phase completed; every legacy file unchanged (hash list diff empty); every file present in .reach-home with the same hash, by an independent find and sha256sum diff; every workspace file unchanged except the harness config files, whose diff is shown; reach status enrolled with no moved record, no dropped stamp and no fingerprint mismatch queued; hook and MCP commands in the root's and the slice's harness files name the new shim; the subscription unit names the new shim; the queued outbox item is sent by the next reach sync from the new home; reach update status works."
+    - "V3 interrupted: the V2 fixture plus a 300 MB file; kill -9 during copying and once during verifying; rerun; it resumes and V2's hash checks pass."
+    - "V4 occupied destination: a student file at <HOME>/reach-work/.reach-home/x.txt before relocating: phase failed, destination_occupied, nothing written, legacy still active, still enrolled."
+    - "V5 gate, cwd = <HOME>/reach-work, hooks called as Codex calls them (hook JSON on stdin): write to the slice's owned file allowed; to a non-owned slice file refused; to reach-work/notes.md refused M-WRITE-ROOT; into .reach-home refused; a patch spanning two slices refused; cat .reach-home/keys/install.pem refused; grep -r x . refused; cd into the slice and reach qualify allowed; reach qualify from the root with one current slice runs on it and with two prints M-PICK-SLICE; read of .reach-home/stamp.json refused. With cwd inside the slice and inside extracurricular, the same reads and writes into .reach-home are refused and a sample of ordinary calls behaves exactly as main (compare against main's code on the same inputs)."
+    - "V6 nothing leaks: a submission archive and the student's work copy built after V2 contain no path under .reach-home; Workspace.current_slices is unchanged by the home's presence; storage measure reports the home as rEach's storage, not the student's work."
+    - "V7 personas: with one instructor persona created on the legacy install, relocation completes, the persona still switches and its status is enrolled."
+    - "V8 harness sources: the one-folder addendum's V9 to V12 with scratch CLAUDE_CONFIG_DIR and CODEX_HOME (real claude and codex CLIs when on PATH, else logging fakes; say which)."
+    - "V9 Ruby 2.6: ruby -c on every changed file and V2 once in ruby:2.6.10-slim."
+  not_run_here: "The Windows sandbox itself (the windows-sandbox-probe workflow) is the primary's to run; list what it should measure."
+
+report:
+  - Every file changed, each verification with commands and trimmed output, every absolute legacy path found in state files and what was done with it, everything not done or not verified and why, and anything here that did not fit the code.

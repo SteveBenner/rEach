@@ -2657,6 +2657,51 @@ late_work:
     a detached reach hand late --assignment A (trigger late_work); a verified ingest receipt with late true does the same
     with trigger late_submission (Reach::Receipts.store). Once per assignment and type ever; the next session start retries
     an unsent one; a 403 hands_disabled or a 400 gives it up quietly, as do five failed tries. No hook waits on the network.
+home_in_workspace:
+  since: unreleased
+  standard: STD-HOME-IN-WORKSPACE
+  layout: >-
+    rEach's own files live in <workspace_base>/.reach-home (workspace_base is $REACH_WORKSPACE_ROOT or ~/reach-work),
+    never in ~/.reach for a new install. The workspace stays where it is. A persona keeps its home at
+    <home>/personas/<id> and its workspace at <workspace_base>/personas/<id>.
+  resolution: >-
+    Reach::Paths.root, memoized for at most 2 seconds: (1) $REACH_HOME set: that directory, legacy logic off; (2)
+    <workspace_base>/.reach-home/state/relocation.json exists with phase completed: the new home; (3) ~/.reach holds
+    install.yml or plugin/: the legacy home is active and a relocation is due; (4) otherwise the new home.
+  relocation: >-
+    Reach::Relocation copies the legacy home to <workspace_base>/.reach-home.relocating with a journal (SHA-256 per
+    file, resumable after a kill), verifies in rounds, compares enrollment before and after (key, fingerprint and stamp
+    of the root and of every persona; the comparison has no side effect and never marks the install moved or queues an
+    integrity event), switches by renaming the staged directory to .reach-home, rewrites the staged copies of bin/root,
+    the update manifest and last-install.txt, then rewrites every harness config in the root, extracurricular and slice
+    spaces, repoints the Claude and Codex marketplaces at the new plugin (Reach::HarnessSource; Codex removes and adds
+    the marketplace on its "already added from a different source" conflict and restores the old source when the add
+    fails) and refreshes the subscription job. It starts detached at session start (Reach::Hello), runs in the
+    foreground at the end of reach setup, and runs on request as reach relocate [--format json]. Nothing under the legacy
+    home is ever deleted, truncated, renamed or overwritten; the only write there is RELOCATED.json. The lock
+    (.reach-home.relocation.lock) and the auto-start state (.reach-home.relocation-auto.json) are files beside the home in
+    the workspace base. A destination that holds anything other than a bootstrap/ folder, or a staged directory that is
+    not rEach's, fails with destination_occupied and writes nothing.
+  home_refused: >-
+    In every kind of space, a read, write, listing, search, redirect or cd whose target resolves inside the home (or a
+    persona home, .reach-home.relocating, .reach-home.failed-* or .reach-home.pre-*), and a recursive search or listing
+    whose base is an ancestor of the home, is refused the way vault and keys reads are; reach's own commands through the
+    shim are the only way in. Workspace.current_slices, Workspace.migrate_layout!, Archive and the student-work walks
+    prune the home; Reach::Workspace.space_for returns nil inside it; storage measure counts it as rEach's own storage.
+  target_spaces: >-
+    Reach::Workspace.space_for_target judges a write or a shell command by its target, so a root-kind session (cwd
+    <workspace_base>) may write an owned file of one slice and a command that cds into a slice runs as that slice.
+    Reach::Gate.focus_workspace picks the one current slice when the cwd is the root; with two or more it refuses with
+    M-PICK-SLICE ("Which slice? Run this from inside one: {choices}"). The root space carries the check PostToolUse hook
+    for Claude and Codex. While a relocation runs, Reach::Relocation.hold! makes writes, shell calls and submit refuse
+    with M-RELOCATING.
+  doctor: >-
+    R-DOC-RELOCATION reports a failed relocation (with its reason) as a finding only for an enrolled install; a legacy
+    install awaiting its relocation and a completed one are reported without a finding.
+  not_fixed: >-
+    The Codex sandbox still blocks the network, so enroll, sync, updates and the subscription check need Full access or
+    an allow rule until measured otherwise. Codex hook trust is unrelated to this layout. On Windows the project's
+    top-level .codex is read-only inside the sandbox.
 grade_view:
   since: 0.19.0
   standard: STD-GRADE-VIEW

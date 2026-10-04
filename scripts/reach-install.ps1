@@ -23,11 +23,33 @@ function Stop-Install([string]$Text) {
     exit 1
 }
 
+function Get-WorkspaceBase {
+    if ($env:REACH_WORKSPACE_ROOT) {
+        return $env:REACH_WORKSPACE_ROOT
+    }
+    return (Join-Path $env:USERPROFILE 'reach-work')
+}
+
 function Get-ReachHome {
     if ($env:REACH_HOME) {
         return $env:REACH_HOME
     }
-    return (Join-Path $env:USERPROFILE '.reach')
+    $newHome = Join-Path (Get-WorkspaceBase) '.reach-home'
+    $pointer = Join-Path $newHome 'state\relocation.json'
+    if (Test-Path -LiteralPath $pointer) {
+        try {
+            $data = [IO.File]::ReadAllText($pointer) | ConvertFrom-Json
+            if ($data.phase -eq 'completed') {
+                return $newHome
+            }
+        } catch {
+        }
+    }
+    $legacy = Join-Path $env:USERPROFILE '.reach'
+    if ((Test-Path -LiteralPath (Join-Path $legacy 'install.yml')) -or (Test-Path -LiteralPath (Join-Path $legacy 'plugin') -PathType Container)) {
+        return $legacy
+    }
+    return $newHome
 }
 
 function Test-RubyOk([string]$Path) {
@@ -290,7 +312,7 @@ try {
     if (-not $Destination) {
         $Destination = Join-Path $reachHome 'plugin'
     }
-    $bootstrapDir = Join-Path $reachHome 'bootstrap'
+    $bootstrapDir = Join-Path (Join-Path (Get-WorkspaceBase) '.reach-home') 'bootstrap'
 
     $ruby = Get-PathRuby
     if (-not $ruby) {

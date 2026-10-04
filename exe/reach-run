@@ -11,7 +11,19 @@ case $0 in
   *) self_dir=. ;;
 esac
 PLUGIN_ROOT=$(cd "$self_dir/.." 2>/dev/null && pwd) || exit 1
-REACH_HOME=${REACH_HOME:-$HOME/.reach}
+resolve_home() {
+  [ -n "${REACH_HOME:-}" ] && return 0
+  workspace=${REACH_WORKSPACE_ROOT:-$HOME/reach-work}
+  new_home=$workspace/.reach-home
+  if [ -f "$new_home/state/relocation.json" ] && grep -q '"phase" *: *"completed"' "$new_home/state/relocation.json" 2>/dev/null; then
+    REACH_HOME=$new_home
+  elif [ -f "$HOME/.reach/install.yml" ] || [ -d "$HOME/.reach/plugin" ]; then
+    REACH_HOME=$HOME/.reach
+  else
+    REACH_HOME=$new_home
+  fi
+}
+resolve_home
 LOCKDIR=$REACH_HOME/state/bootstrap.lock
 FAILED_FILE=$REACH_HOME/state/bootstrap-failed
 BACKOFF_S=600
