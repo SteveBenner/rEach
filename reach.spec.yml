@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.24.0
+version: 0.25.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -360,8 +360,12 @@ library:
     role: Verifies and stores receipts; announces them
   - name: Reach::Hands
     role: Builds context bundles and raises hands; delivers replies
-  - name: Reach::RetiredCapture
-    role: The one-time purge of the retired transcript spool, ~/.reach/personas/*/transcripts and the transcript-flush state, marked by ~/.reach/state/transcripts-retired.json (STD-TRANSCRIPT)
+  - name: Reach::Transcript
+    role: Records signed-in assignment work (prompts, AI output, code) in ~/.reach/transcripts and sends it to Teach; capturing? holds the bounds (STD-TRANSCRIPT)
+  - name: Reach::TranscriptIngest
+    role: Reads the harness's own session transcript from where it last stopped (replies, reasoning, actions); skip moves that place forward without recording
+  - name: Reach::TranscriptExport
+    role: Saves the student's own recorded conversations as a ZIP in Downloads; the one automatic export at course end (STD-TRANSCRIPT-EXPORT)
   - name: Reach::LateWork
     role: Late-work detection, notices and the once-per-assignment late_work and late_submission hands; since 0.19.0 (STD-LATE-WORK)
   - name: Reach::Grades
@@ -1652,14 +1656,15 @@ privacy_and_integrity:
     Enrollment (code, public key, platform, versions; since 0.16.0 also the course code, the institutional username
     and student ID, and the W-ENR-4 fingerprint, whose computer, account and hostname values are salted SHA-256
     hashes), the live fingerprint digest on every status request, submissions (owned files and manifest), hand bundles, status
-    counts, and own-part answers (the student's typed words, nothing else of any conversation). No prompt, reply,
-    reasoning, action or code entry is sent, and Teach keeps no transcript (STD-TRANSCRIPT). Nothing else.
+    counts, own-part answers, and since 0.25.0 the recorded conversation of signed-in assignment work: prompts, replies,
+    reasoning, actions and assignment code (STD-TRANSCRIPT). Nothing else.
   never_sent: >-
-    Every conversation, in any folder, files outside the course folders, the corpus, the microbrain, and the interview
+    Every conversation outside signed-in assignment work (before sign-in, in the extracurricular folder, outside the
+    course folders), files outside the course folders, the corpus, the microbrain, and the interview
     profile file (except inside a hand bundle the student agreed to add it to).
   provider_note: >-
-    What the student types to rEach goes to their AI provider, as any chat does; no conversation is recorded by Reach or
-    sent to the instructors. Reach keeps the profile file and the microbrain on this computer and never sends them to
+    What the student types to rEach goes to their AI provider, as any chat does; Reach records and sends the
+    conversation only for signed-in assignment work (STD-TRANSCRIPT). Reach keeps the profile file and the microbrain on this computer and never sends them to
     Teach. rEach's greeting says so ("What I save about you stays on this computer").
   integrity: Reach cannot make a student's work pass; it can only show them early what the official grading will
     check.
@@ -1690,7 +1695,7 @@ extracurricular:
   purpose: >-
     A student who wants to write code of their own, outside any assignment, can: it goes in extracurricular/, a
     personal folder in their course workspace. It is never graded or submitted, and since 0.16.12 its files never leave
-    the student's computer: nothing said there is recorded or sent either.
+    the student's computer: nothing said there is recorded or sent either, whether or not the student is signed in.
   folder: >-
     ~/reach-work/extracurricular/, created at enrollment and at every sync, marked by .reach-space.json {"schema":
     "reach.space/v1", "kind": "extracurricular", "course"}, with read-only AGENTS.md, CLAUDE.md and GEMINI.md and the
@@ -1714,39 +1719,51 @@ extracurricular:
     Coursework does not belong here: code for an assignment goes only in that slice's owned files under
     deliverables/, and never write or move coursework into this folder.
   - >-
-    Files in this folder stay on the student's computer and are never sent to the instructors. No conversation is
-    recorded or sent from here or from any other folder. Say so if the student asks.
+    Files in this folder stay on the student's computer and are never sent to the instructors. Nothing said
+    in this folder is recorded or sent. Only signed-in assignment work is recorded for the instructors. Say so if the student asks.
   - Do not reach the network from here; use rEach's own commands for anything the course server provides.
 transcripts:
+  since: 0.25.0
+  standard: STD-TRANSCRIPT
   purpose: >-
-    Retired 2026-10-02 (wire revision 2026-10-03b, STD-TRANSCRIPT). No transcript is captured: no prompt, reply,
-    reasoning, action or code entry is written to disk or sent, in any folder or harness, and Teach keeps no transcript
-    or subcorpus. Instructors receive submitted work, own-part answers, help requests the student agrees to send and
-    usage metadata.
+    Restored in 0.25.0 (wire revision 2026-10-03i) after the 0.21.1 teardown. Reach records the conversation while a
+    student is signed in and working on an assignment, and sends it to Teach for the instructors.
+  bounds: >-
+    Reach::Transcript.capturing?(session) is true only when the install is enrolled and not revoked, instructor mode
+    is off, the session runs in a slice workspace or the workspace root, the session is signed in when the course
+    requires sign-in, and the cached status names a current assignment. Every recording entry point (capture, code,
+    turn) checks it. Outside the bounds it calls pass, which only moves the harness-transcript offset to the end of
+    the file. At a prompt, a session whose harness transcript Reach has not seen before starts at the end of that
+    file, so nothing older than the first recorded prompt is read.
   code_in_files: >-
     The AI partner is told to put code in files, never in chat (the public directive R-CODEFILE, Teach's G-CODE-1 and
     the persona): coursework only in the slice's owned files under deliverables/, anything else in extracurricular/.
   hooks: >-
-    The Stop and SessionEnd hooks run reach hook stop [--final] --harness H (debug flush, link notice, debug block).
-    The PostToolUse transcript hook is gone. reach transcript turn, code, flush and status remain as hidden aliases for
-    old hook files: turn runs reach hook stop, the others do nothing and exit 0.
+    The prompt hook records each gate-allowed prompt. PostToolUse runs reach transcript code --harness H (AI writes).
+    Stop and SessionEnd run reach hook stop [--final] --harness H, which records the turn (replies, reasoning,
+    actions, the scan of owned files), sends in quick mode, then does its debug flush and notices. reach transcript
+    turn is an alias of reach hook stop; reach transcript flush sends everything and reach transcript status counts.
+  delivery: >-
+    Entries are sent at turn end (quick: at most 3 requests, at most once every 60 s), on reach sync and before a
+    submission that needs the student's own part, through the shared client (limiter, bounded retries, timeouts).
+    A Teach that answers 403 or 404 stops the sending and Reach keeps every entry.
   own_part: >-
-    The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the workspace root that has at least
+    The prompt hook keeps the latest gate-allowed prompt typed in a slice or the workspace root that has at least
     the smallest min_words of any policy question and is not a consent yes or no, in ~/.reach/state/part/pending.json
-    (0600). reach part record takes it (at most 30 minutes old, at least that question's min_words), stores the answer
-    without session_id or seq, and deletes the pending file (W-PART-2).
+    (0600), with the session_id, seq and digest of its recorded entry, or null when it was not recorded. reach part
+    record takes it (at most 30 minutes old, at least that question's min_words) and deletes the pending file
+    (W-PART-2); Teach checks the answer against the recorded entry (W-PART-3).
   ladder: >-
     Only the time of the student's last slice prompt is kept, in ~/.reach/state/ladder/<slice>.prompt.json; hand bundles
     carry student_last_request null (W-QUAL-6, W-PKG-6).
   consent: >-
     Consent reads the live prompt in memory, with seq null (W-CONSENT-1).
-  purge: >-
-    Reach::RetiredCapture.purge_once! runs on the first rEach command after updating. It deletes ~/.reach/transcripts
-    and each ~/.reach/personas/*/transcripts with FileUtils, plus state/transcript-flush.json and its lock, then
-    writes ~/.reach/state/transcripts-retired.json so it runs once. Brain sources are not purged.
+  limits: >-
+    reach sync keeps the spool under the course's transcript_spool_max_bytes (default 209715200) by archiving fully
+    acknowledged sessions to ~/.reach/transcripts/archive as .jsonl.gz.
   disclosure: >-
-    The persona's answer when a student asks what is shared (no conversation is recorded or sent), and the privacy
-    notice.
+    No in-session notice. docs/student-guide.md, PRIVACY.md and the persona's answer when a student asks what is
+    shared state what is recorded and when.
 debug_mode:
   since: 0.16.23
   standard: STD-DEBUG-MODE
@@ -2460,13 +2477,15 @@ status_example: |
   Course rules: v3 (verified)   Connection: online
 privacy_notice:
   shown: >-
-    In full in docs/student-guide.md. It says plainly that no conversation is recorded or sent.
+    In full in docs/student-guide.md. It says plainly that signed-in assignment work is recorded for the instructors and nothing else said is.
   text: >-
     Reach sends your submitted slice files, your enrollment details, your own-part answers and, when your AI partner
     asks for help, a short summary with your recent changes to the course server. To keep your enrollment yours, it also
     sends a scrambled fingerprint of this computer and computer account (never your files or passwords), which your
-    course server checks. No conversation is recorded or sent: not what you type, not your AI partner's replies,
-    reasoning, actions or code, in any folder. What rEach learns about you in its interview and from what you type is
+    course server checks. While you are signed in and working on an assignment, rEach also records the conversation
+    (what you type, and your AI partner's replies, reasoning, actions and assignment code) and sends it to the course
+    server, where your instructors can read it. Nothing is recorded before you sign in, in your extracurricular folder
+    or outside your course folder. What rEach learns about you in its interview and from what you type is
     saved on this computer only; the interview profile is shared with your instructors only if you agree to add it when
     asking for help, and reach profile forget deletes it. Like any chat, what you type to rEach goes to the AI provider
     you use.
@@ -2493,9 +2512,9 @@ persona:
       and rEach introduces itself in its first reply.
     memory_notice: >-
       G-MEMORY-NOTICE closes the greeting: the private memory stays on this computer and is never sent to the
-      instructors. When a student asks what rEach shares, the persona answers that no conversation is recorded or
-      sent; only submitted work, own-part answers, help requests the student agrees to and usage information reach the
-      instructors; the profile file and the memory stay on this computer.
+      instructors. When a student asks what rEach shares, the persona answers that signed-in assignment work is recorded
+      and sent to the instructors and nothing else said is; submitted work, own-part answers, help requests the student
+      agrees to and usage information also reach the instructors; the profile file and the memory stay on this computer.
     code_in_files: >-
       The persona puts code in files, never in chat: coursework in the slice's owned files, anything else in the
       student's extracurricular folder, and offers reach work --extracurricular when the student wants to build
@@ -2637,10 +2656,9 @@ import:
 transcript_export:
   since: 0.19.0
   standard: STD-TRANSCRIPT-EXPORT
-  retired: >-
-    Retired 2026-10-02 (wire revision 2026-10-03b): no conversation is recorded, so there is nothing to export.
-    Reach::TranscriptExport, reach transcripts export, the reach_transcripts tool, transcripts.auto_export and the
-    messages M-TRANSCRIPTS-* and M-TX-* are removed.
+  restored: >-
+    Removed in 0.21.1 and restored in 0.25.0: Reach::TranscriptExport, reach transcripts export, the reach_transcripts
+    tool, transcripts.auto_export (default true) and the messages M-TRANSCRIPTS-* and M-TX-*.
 late_work:
   since: 0.19.0
   standard: STD-LATE-WORK

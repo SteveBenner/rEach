@@ -1,27 +1,28 @@
 # frozen_string_literal: true
 
 module Figures
-  NEVER = ["What the student types", "What the agent replies", "The agent's reasoning", "The actions it takes", "Code shown in chat"].freeze
+  NEVER = ["Anything said before sign-in", "The extracurricular folder", "Chats outside the course folder", "The student ID typed at sign-in", "Prompts the gate blocks"].freeze
   STAYS = ["The interview profile", "Private memory of how the student works", "The extracurricular folder", "The install's private key", "Unsealed course materials", "ZIP copies and signed receipts"].freeze
   LEAVES = [
+    ["Assignment conversations", "signed in, on an assignment: all of it"],
     ["Enrollment details", "and a scrambled computer fingerprint"],
     ["Submitted files", "only after the student says yes"],
     ["Own-part answers", "the questions only the student can answer"],
     ["Help requests", "a summary the student agrees to send"],
-    ["\"Anything new?\" checks", "no files, nothing from the conversation"],
+    ["\"Anything new?\" checks", "no files, no conversation text"],
     ["Fault reports", "where it failed, never what was typed"]
   ].freeze
 
   def self.privacy_columns(f)
     f.card(116, 318, 330, 520, tone: :stop, icon: :eye_off, title: "Never recorded")
     f.bullets(140, 410, NEVER, tone: :stop, gap: 42, size: 17, fill: :ink)
-    f.para(140, 640, "Not written to disk. Not sent anywhere by rEach. In any folder, in any AI app.", 30, size: 15, fill: :soft, lh: 22)
+    f.para(140, 640, "Not written to disk. Not sent anywhere by rEach. Recording runs only for signed-in assignment work.", 30, size: 15, fill: :soft, lh: 22)
     f.card(468, 318, 360, 520, tone: :student, icon: :lock, title: "Stays on this computer")
     f.bullets(492, 410, STAYS, tone: :student, gap: 42, size: 16, fill: :ink)
     f.para(492, 690, "The student can see it, export it and erase it. The profile is shared only inside a help request the student agrees to.", 34, size: 15, fill: :soft, lh: 22)
     f.card(850, 318, 380, 520, tone: :reach, icon: :doc, title: "Leaves, to the course server")
     LEAVES.each_with_index do |(head, sub), i|
-      y = 404 + i * 70
+      y = 398 + i * 61
       f.icon(:check, 884, y + 2, 18, :reach, sw: 2.2)
       f.text(904, y + 7, head, size: 17, weight: 650)
       f.text(904, y + 29, sub, size: 14, fill: :soft)
@@ -30,8 +31,8 @@ module Figures
 
   figure("07-privacy-map",
          title: "rEach and Teach: the privacy map",
-         desc: "Three columns on the student's computer: what is never recorded, what stays on the computer and what leaves for the course server. Teach receives only the third column and keeps no transcript.") do |f|
-    f.header("07", "The privacy map", "What is never recorded, what never leaves and the short list of what the course server receives.")
+         desc: "Three columns on the student's computer: what is never recorded, what stays on the computer and what leaves for the course server. Teach receives only the third column, which includes the conversation of signed-in assignment work.") do |f|
+    f.header("07", "The privacy map", "What is never recorded, what never leaves and the list of what the course server receives.")
 
     f.boundary(80, 268, 1186, 610, "The student's computer", tone: :student)
     privacy_columns(f)
@@ -40,7 +41,7 @@ module Figures
               ["Submitted work", "what the student said yes to", :doc],
               ["Enrollment record", "a roster match, a fingerprint", :person],
               ["Help requests", "a summary and recent changes", :hand],
-              ["No transcript", "no conversation ever arrives", :eye_off],
+              ["Assignment conversations", "signed-in assignment work only", :doc],
               ["Run by the instructors", "they control what it keeps", :board]
             ])
     f.arrow([[1230, 578], [1340, 578]], tone: :reach, sw: 4)

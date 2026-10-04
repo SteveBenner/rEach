@@ -83,10 +83,10 @@ Each cell says whether a party owns or decides, has a limited role, has no acces
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/figures/07-privacy-map-dark.svg">
-  <img src="assets/figures/07-privacy-map-light.svg" alt="What is never recorded, what stays on the computer and what leaves for the course server." width="100%">
+  <img src="assets/figures/07-privacy-map-light.svg" alt="What is recorded and when, what stays on the computer and what leaves for the course server." width="100%">
 </picture>
 
-The picture of [`PRIVACY.md`](../PRIVACY.md). No conversation is recorded or sent. The profile, the private memory, the extracurricular folder and the install key stay on the computer. Teach receives enrollment details, submitted work after a yes, own-part answers, agreed help requests, change checks and fault locations.
+The picture of [`PRIVACY.md`](../PRIVACY.md). Signed-in assignment work is recorded and sent to Teach; nothing else said is. The profile, the private memory, the extracurricular folder and the install key stay on the computer. Teach receives enrollment details, submitted work after a yes, own-part answers, agreed help requests, change checks and fault locations.
 
 4K PNG: [light](https://github.com/SteveBenner/rEach/releases/download/figures-1/07-privacy-map-light.png) · [dark](https://github.com/SteveBenner/rEach/releases/download/figures-1/07-privacy-map-dark.png)
 

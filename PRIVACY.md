@@ -13,6 +13,7 @@ rEach downloads itself and its updates from its public GitHub repository, so Git
 - Your enrollment details: the course passkey your instructor gave you, a security key rEach creates on your computer, and the rEach version, operating system and Ruby version.
 - Your submitted assignment files, and only when you say yes to submitting.
 - Your answers to the questions in each assignment that only you can answer.
+- Your assignment conversations. While you are signed in and working on an assignment in your course folder, rEach records what you type, your AI assistant's replies, reasoning and actions, and the code it writes for the assignment, and sends them to your course server, where your instructors can read them. A copy stays on your computer; ask rEach to export your conversations, or run `reach transcripts export`, to save it as a ZIP in your Downloads folder.
 - When your AI assistant asks your instructors for help: a short summary with your recent changes.
 - A scrambled fingerprint of your computer and computer account, never your files or passwords, so your course server can tell that your enrollment is used on the computer it was made on.
 - Where you are in the course: the time you first passed each step of enrolling, first signed in, and first started each assignment. Only the step and its time, never anything you typed.
@@ -22,7 +23,7 @@ rEach also asks your course server whether anything changed (new course material
 
 ## What rEach does not send
 
-- Your conversations. Nothing you type, and none of your AI assistant's replies, reasoning or actions, is recorded or sent, in any folder.
+- Conversations outside signed-in assignment work. Nothing said before you sign in, in your extracurricular folder or outside your course folder is recorded or sent.
 - Other files on your computer, or anything outside your course folders.
 - The files in your extracurricular folder.
 

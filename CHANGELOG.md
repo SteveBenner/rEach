@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-10-03
+
+### Added
+
+- Signed-in assignment work is recorded again (`STD-TRANSCRIPT`, wire revision 2026-10-03i, `W-TRN-0` to `W-TRN-5`,
+  Teach 0.38.0). While a session is signed in, the course has a current assignment and the session runs in a slice or
+  the course folder root, rEach records every allowed prompt, the AI's replies, reasoning and actions, and the
+  assignment code (code blocks in replies, each AI write, a turn-end scan of the slice's owned files) in
+  `~/.reach/transcripts/` and sends it to `POST /api/v1/transcripts` at turn end, on `reach sync` and before a
+  submission. Instructors read it in Teach. Restored: `lib/reach/transcript.rb`, `transcript_ingest.rb`, the
+  PostToolUse hook `reach transcript code`, `reach transcript flush|status`, the transcript line of `reach status`,
+  the spool cap in `reach sync` and the `transcript` debug events.
+- The bounds (`Reach::Transcript.capturing?`): nothing is written or sent before sign-in, with no current assignment,
+  in the extracurricular folder, outside the course folder or in instructor mode. Outside the bounds rEach only moves
+  its place in the harness's own transcript forward, and a session's recording never reads what that transcript held
+  before the session's first recorded prompt. A prompt the gate or the sign-in blocks is not recorded.
+- Transcript export (`STD-TRANSCRIPT-EXPORT`): `reach transcripts export`, the `reach_transcripts` tool and the one
+  automatic export after the course ends (`transcripts.auto_export`, default on) save the student's own recorded
+  conversations as a ZIP in Downloads.
+- An own-part answer again names the recorded prompt it came from (`session_id`, `seq`), or null when the prompt was
+  not recorded, so Teach can check it (`W-PART-3`).
+
+### Changed
+
+- `PRIVACY.md`, `README.md`, `docs/student-guide.md`, `docs/DESIGN-DECISIONS.md`, `docs/architecture.md`, the persona
+  and the extracurricular rules now say what is recorded and when. There is no in-session notice. Figures 6, 7 and 10
+  are redrawn to match.
+- `reach hook stop` records the turn and sends it before its debug flush.
+
+### Removed
+
+- The one-time purge of `~/.reach/transcripts` (`Reach::RetiredCapture`). rEach no longer deletes local transcripts.
+
 ## [0.24.0] - 2026-10-03
 
 ### Added

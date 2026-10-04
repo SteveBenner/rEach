@@ -12,7 +12,7 @@ module Figures
 
   figure("10-system-poster", width: 2880, height: 1920,
                              title: "rEach and Teach: the whole system on one sheet",
-                             desc: "A poster combining the system at a glance, the seven guardrail layers, the seven-stage work lifecycle, six reasons the two halves belong together and the privacy split between what is never recorded, what stays and what leaves.") do |f|
+                             desc: "A poster combining the system at a glance, the seven guardrail layers, the seven-stage work lifecycle, six reasons the two halves belong together and the privacy split between what is recorded only on assignments, what stays and what leaves.") do |f|
     f.text(80, 104, "SYSTEM POSTER", size: 18, weight: 700, fill: :reach, mono: true, spacing: 4)
     f.text(80, 190, "One course, two halves, one closed loop", size: 76, weight: 650)
     f.text(80, 244, "The student steers. Their own AI agent builds, fenced in by rEach. Teach, the private course server, decides what counts.", size: 27, fill: :soft)
@@ -61,9 +61,9 @@ module Figures
     end
 
     [
-      [:stop, :eye_off, "Never recorded", "What the student types, what the agent replies, its reasoning and its actions. Not on disk, not sent."],
+      [:stop, :eye_off, "Recorded only on assignments", "Nothing said before sign-in, in the extracurricular folder or outside the course folder is recorded."],
       [:student, :lock, "Stays on the computer", "The interview profile, private memory, the extracurricular folder, the install's private key."],
-      [:reach, :doc, "Leaves, to the course server only", "Enrollment details, submitted work after a yes, own-part answers, agreed help requests, fault locations."]
+      [:reach, :doc, "Leaves, to the course server only", "Signed-in assignment conversations, submitted work after a yes, own-part answers, agreed help requests."]
     ].each_with_index do |(tone, ico, head, body), i|
       x = 80 + i * 916
       f.card(x, 1648, 888, 132, tone: tone, icon: ico, title: head)

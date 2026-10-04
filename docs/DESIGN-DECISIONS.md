@@ -65,18 +65,20 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 
 ## Data capture and privacy
 
-- **No transcripts are captured from the user, ever** (10-02). rEach keeps no transcript of any conversation: no
-  record of the student's prompts, the AI's replies, reasoning or actions, or the code it writes, in any folder or
-  harness, on the student's computer or on Teach. The prompt hook reads each prompt only as it arrives, for the gate, the login,
-  the crisis check, a consent yes or no, the student's own-part answer and the local microbrain, and keeps nothing
-  else. The microbrain is not a transcript: it stays on the student's computer and is never sent. The transcript
-  feature was torn down in Reach 0.21.1 and Teach 0.22.1: the transcripts already collected were backed up and then
-  deleted from Teach, and each student's local transcript folder is deleted when rEach updates.
-- **What reaches Teach** (10-01, revised 10-02). rEach does not capture the student's local workspace material, all
+- **Signed-in assignment work is recorded** (10-03, replacing the 10-02 teardown). While a session is signed in, the
+  course has a current assignment and the session runs in a slice or the course folder root, rEach records every
+  prompt, the AI's replies, reasoning and actions, and the assignment code, and sends them to Teach, where the
+  instructors read them. Nothing is recorded before sign-in, in the extracurricular folder, outside the course folder
+  or in instructor mode, and recording never reaches back before a session's first recorded prompt. The microbrain is
+  separate: it stays on the student's computer and is never sent. Students learn this from the docs, the privacy
+  policy and their AI partner's answer when they ask; there is no in-session notice. The student can export their own
+  copy (`reach transcripts export`). Transcripts were removed in Reach 0.21.1 and restored in 0.25.0.
+- **What reaches Teach** (10-01, revised 10-02 and 10-03). rEach does not capture the student's local workspace material, all
   the more because students are encouraged to import their personal contexts. Only these go to the instructors:
   - completed work and assignment material (the slice's owned files and submissions);
   - material the student explicitly approves or names to be sent, including their own-part answers;
   - metadata, analytics and usage data.
+  - the recorded conversation of signed-in assignment work (10-03; see above).
 - **Extracurricular files stay on the student's computer** (10-01, Reach 0.16.12). They are never scanned, mirrored
   or sent. Teach's rule G-EXTRA-2 and rEach's own notices say so.
 - **Analytics are tied to the enrollment** (10-01). Usage analytics are identified by the enrolled student ID (see

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.24.0 |
+| **Registry version** | 0.25.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -271,19 +271,20 @@ top (M-GATE-NOGIT); the extracurricular folder is the student's own. Git support
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
-### 2.12 · Course record (transcript capture, torn down)
+### 2.12 · Course record (transcript capture)
 
-Torn down 2026-10-03 (wire revision 2026-10-03b, `STD-TRANSCRIPT`). Until 0.20.x Reach captured the student's prompts,
-the AI's replies, reasoning, actions and every version of every owned file, spooled them in `~/.reach/transcripts/` and
-sent them to `POST /api/v1/transcripts`. None of that exists now: no prompt, reply, reasoning, action or code entry is
-written to disk or sent, in any folder or harness, and Teach keeps no transcript or subcorpus. The Stop and SessionEnd
-hooks run `reach hook stop [--final] --harness H` (debug flush, link notice, debug block); `reach transcript turn`,
-`code`, `flush` and `status` stay only as hidden aliases for old hook files. The first rEach command after updating
-deletes `~/.reach/transcripts` and each persona's copy (`Reach::RetiredCapture`, marker
-`~/.reach/state/transcripts-retired.json`); brain sources are kept. Not re-verified here: the teardown has not been
-run on a student computer.
-
-Build ⛔ · Deploy ⚫ · Blocker: -
+Since 0.25.0 (wire revision 2026-10-03i, `STD-TRANSCRIPT`) rEach records the conversation while a student is signed in
+and working on an assignment: the session is signed in, the course has a current assignment, and the session runs in a
+slice or the course folder root. Inside those bounds it records every prompt, the AI's replies, reasoning and actions,
+and the assignment code (code blocks in replies, each AI write, and a turn-end scan of the slice's owned files), spools
+them in `~/.reach/transcripts/` and sends them to `POST /api/v1/transcripts` at turn end, on `reach sync` and before a
+submission. Outside the bounds (before sign-in, in the extracurricular folder, outside the course folder, in instructor
+mode) nothing is written or sent, and a session's recording never reads what the harness transcript held before its
+first recorded prompt. The feature existed from 0.8.0 to 0.20.x, was torn down in 0.21.1 and restored in 0.25.0 with
+these bounds; rEach no longer deletes `~/.reach/transcripts`. Verified 2026-10-03 on a scratch course: 15 entries of
+every kind arrived, and an unsigned session and an extracurricular session recorded nothing. Not verified: a real
+Claude Code, Codex or Hermes session on a student computer.
+Build ✅ Shipped · Deploy 🔵 Built, not released
 
 ### 2.13 · Slice API reference
 
@@ -375,7 +376,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.24 · Local size limits
 
-Since 0.12.0 `reach sync` kept the transcript spool under the course's caps (removed with the spool 2026-10-03), and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
+Since 0.12.0 `reach sync` kept the transcript spool under the course's caps (removed with the spool 2026-10-03, restored in 0.25.0), and `reach doctor` reports the sizes. Since 0.15.0 the corpus spool waiting for admission is measured and reported but never pruned, because admission depends on every line. Re-verified 2026-10-01: the caps come from vault/guardrails/course.yml and doctor printed R-DOC-LIMITS.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -749,13 +750,13 @@ were built but not run on macOS or Windows.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (students receive it on their next auto-update).
 
-### 3.6 · Transcript export (torn down)
+### 3.6 · Transcript export
 
-Torn down 2026-10-03 (`STD-TRANSCRIPT-EXPORT`, retired). Added in 0.19.0 to export the student's recorded conversations;
-with no conversation recorded there is nothing to export, so `reach transcripts export`, the `reach_transcripts` tool and
-the automatic export at course end are removed.
-
-Build ⛔ · Deploy ⚫ · Blocker: -
+Restored in 0.25.0 (`STD-TRANSCRIPT-EXPORT`). `reach transcripts export` and the `reach_transcripts` tool save the
+student's own recorded conversations as a ZIP in Downloads, grouped by assignment and slice, and the first session
+after the course ends exports once in the background (`transcripts.auto_export`, default on). Verified 2026-10-03 on a
+scratch course: one session of 15 entries exported.
+Build ✅ Shipped · Deploy 🔵 Built, not released
 
 ### 3.7 · Late work
 

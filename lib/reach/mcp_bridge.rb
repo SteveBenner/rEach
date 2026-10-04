@@ -319,6 +319,14 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_transcripts",
+        "description" => "Save a ZIP of the student's saved conversations (prompts, replies, reasoning, actions and code, by assignment and part) to their Downloads folder (action export, the default). It works after the course has ended; the ZIP stays on this computer",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => { "action" => { "type" => "string", "enum" => %w[export] } }
+        }
+      },
+      {
         "name" => "reach_storage",
         "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted",
         "inputSchema" => {
@@ -342,7 +350,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update reach_transcripts].freeze
     TOOL_BUDGET_S = 25
 
     class << self
@@ -560,6 +568,8 @@ module Reach
           doctor_tool
         when "reach_update"
           update_tool(arguments)
+        when "reach_transcripts"
+          transcripts_tool(arguments)
         when "reach_grade"
           Reach::Grades.fetch
         when "reach_extra_credit"
@@ -580,6 +590,14 @@ module Reach
       def archive_tool(arguments)
         result = Reach::Submit.archive_again(assignment: arguments["assignment"])
         result.merge("message" => result["text"])
+      end
+
+      def transcripts_tool(arguments)
+        action = arguments["action"].to_s
+        raise Reach::Error, "reach: unknown transcripts action" unless action.empty? || action == "export"
+
+        result = Reach::TranscriptExport.write!
+        result.merge("message" => Reach::TranscriptExport.result_text(result))
       end
 
       def import_tool(arguments)

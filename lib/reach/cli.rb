@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "transcripts"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -27,7 +27,6 @@ module Reach
         code = nil
         failure = nil
         begin
-          Reach::RetiredCapture.purge_once!
           code = hook_invocation?(argv) ? run_hook(argv) : run_terminal(argv)
         rescue StandardError, ScriptError => e
           failure = e
@@ -308,6 +307,8 @@ module Reach
           cmd_memory(args)
         when "storage"
           cmd_storage(args)
+        when "transcripts"
+          cmd_transcripts(args)
         when "issues"
           cmd_issues(args)
         when "live"
@@ -350,6 +351,7 @@ module Reach
             hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other)
             grade [--format text|json]           the points recorded for the student in Teach
             extra-credit CODE ANSWER... | extra-credit CODE --answer TEXT | extra-credit list [--format text|json]   turn in an extra-credit answer, or list what was turned in
+            transcripts export [--format text|json]   save a ZIP of the student's recorded assignment conversations to Downloads (works after the course has ended)
             watch [--slice ...]                  polling shape-check backstop for Codex
             doctor [--install-chromium]          check the local install, one line per problem
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
@@ -374,6 +376,7 @@ module Reach
             directive <OPCODE> | --list          a directive's full text
             reference list|show <path>|search <words>|links|ingest [--force]   the course reference material
             hook stop [--final] --harness H
+            transcript code --harness H | flush | status [--format text|json]
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
             login status                         whether this session is signed in
@@ -622,6 +625,7 @@ module Reach
           puts "Kept your changes: #{Array(kept).join(", ")}" if kept && !Array(kept).empty?
         end
         puts "Sent #{summary["outbox_sent"]} queued item(s)." if summary["outbox_sent"].to_i > 0
+        puts "Recorded for your instructors: sent #{Reach::Transcript.entries_label(summary["transcript_sent"])}." if summary["transcript_sent"].to_i > 0
         Array(summary["grades"]).each { |text| puts text }
         if summary["transfer"]
           puts summary["transfer"]
@@ -960,6 +964,10 @@ module Reach
         end
 
         message = decision["message"]
+        if Reach::EnrollmentLock.state["reason"] == "course_ended"
+          notice = Reach::TranscriptExport.pending_notice!
+          message = "#{message}\n\n#{notice}" if notice
+        end
         if hermes
           guide = Reach::Messages.text("M-ENR-HERMES-GUIDE", command: Reach::Runtime.hook_command("guide"))
           puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: message)}\n\n#{guide}")
@@ -1139,6 +1147,25 @@ module Reach
         result = Reach::Submit.archive_again(assignment: options[:assignment])
         puts result["text"]
         result["archive"]["state"] == "saved" ? 0 : 1
+      end
+
+      def cmd_transcripts(args)
+        sub = args.shift
+        unless sub == "export"
+          warn "usage: reach transcripts export [--format text|json]"
+          return 1
+        end
+        auto, args = parse_bare_flag(args, "auto")
+        options, _remaining = parse_flags(args, [:format])
+        result = Reach::TranscriptExport.write!(auto: auto)
+        text = Reach::TranscriptExport.result_text(result)
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(result.merge("text" => text))
+        else
+          puts text
+          puts result["path"] if result["state"] == "saved"
+        end
+        result["state"] == "failed" ? 1 : 0
       end
 
       def cmd_grade(args)
@@ -2333,6 +2360,7 @@ module Reach
         end
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
+        Reach::Transcript.turn(event: event, harness: options[:harness], quick: true, final: final)
         Reach::Debug.hook(final ? "SessionEnd" : "Stop", "allow", nil, started)
         shown = final ? nil : Reach::Debug.turn_message(event, options[:harness])
         Reach::Debug.flush(quick: true)
@@ -2346,11 +2374,44 @@ module Reach
 
       def cmd_transcript(args)
         sub = args.shift
-        return 0 unless sub == "turn"
+        case sub
+        when "turn"
+          final, remaining = parse_bare_flag(args, "final")
+          _quick, remaining = parse_bare_flag(remaining, "quick")
+          cmd_hook(["stop"] + remaining + (final ? ["--final"] : []))
+        when "code"
+          options, _remaining = parse_flags(args, [:harness])
+          event = read_stdin_json
+          if hermes_hook?(options[:harness], event)
+            event = normalize_hermes_event(event)
+            return 0 unless event
 
-        final, remaining = parse_bare_flag(args, "final")
-        _quick, remaining = parse_bare_flag(remaining, "quick")
-        cmd_hook(["stop"] + remaining + (final ? ["--final"] : []))
+            options = options.merge(harness: "hermes")
+          end
+          Reach::Debug.begin_hook(event, options[:harness])
+          Reach::Transcript.code(event: event, harness: options[:harness])
+          0
+        when "flush"
+          result = Reach::Transcript.flush(quick: false)
+          Reach::Debug.flush
+          if result["stopped"]
+            puts "Recorded for your instructors: sent #{Reach::Transcript.entries_label(result["sent"])}; stopped (#{result["stopped"]})."
+          else
+            puts "Recorded for your instructors: sent #{Reach::Transcript.entries_label(result["sent"])}."
+          end
+          0
+        when "status"
+          options, _remaining = parse_flags(args, [:format])
+          if options[:format].to_s == "json"
+            puts JSON.generate(Reach::Transcript.counts)
+          else
+            puts(Reach::Status.transcript_line || "Recorded for your instructors: 0 entries sent")
+          end
+          0
+        else
+          warn "usage: reach transcript code --harness H | flush | status [--format text|json]"
+          1
+        end
       end
 
       def cmd_modules(args)

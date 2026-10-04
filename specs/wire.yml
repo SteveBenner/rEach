@@ -445,16 +445,15 @@ packages:
       part.json: >-
         Since protocol 1 revision 2026-09-30b. The student's own part for the submission's assignment (W-PART-2):
         {"schema": "reach.part/v1", assignment, student_id, answers: [{question_id, text, words, session_id, seq,
-        digest, recorded_at}]}; since 2026-10-03b an answer carries no session_id or seq, and Teach ignores both when
-        an older Reach sends them. Required when the course policy's student_part.required is true and the assignment
+        digest, recorded_at}]}; since 2026-10-03i session_id and seq name the recorded prompt (W-TRN-0) and are null
+        when the prompt was not recorded; from 2026-10-03b to 2026-10-03h an answer carried neither. Required when the course policy's student_part.required is true and the assignment
         has questions; Teach answers 400 invalid_request "the student's part is missing" otherwise.
     teach_checks:
       - manifest.cutout_id, manifest.slice and manifest.assignment equal the request body's cutout_id, slice and assignment.
       - Every files/ entry's path (without the files/ prefix) is in manifest.owned_files, and its digest equals manifest.digests for that path.
       - Every other entry is manifest.json, ledger.jsonl, part.json (since 2026-09-30b) or under evidence/; since 2026-09-29d any other entry rejects the submission.
       - >-
-        From 2026-09-30b to 2026-10-02f part.json was checked by W-PART-3; since 2026-10-03b it is stored as sent and
-        never checked against a transcript.
+        part.json is checked by W-PART-3 (not from 2026-10-03b to 2026-10-03h, when it was stored as sent).
       - When the course spec is available, manifest.owned_files equals the W-PKG-2 owned_file_split for that cutout and slice.
       - A failed check rejects the submission with code invalid_request and reason "the package does not match the slice".
       - >-
@@ -677,9 +676,8 @@ routes:
       wire_contract_sha256: string
       transcripts: >-
         Since protocol 1 revision 2026-09-29c. {kinds: [entry kinds W-API-TRANSCRIPT accepts], max_text_bytes: 131072}.
-        Absent from an older Teach, which Reach reads as kinds [prompt]. Since 2026-10-03b a Teach answers {kinds:
-        [prompt, reply, reasoning, action, code], max_text_bytes: 131072} only so that an older Reach sends, and so
-        drops, every queued kind (W-API-TRANSCRIPT); a Reach of this revision ignores it.
+        Absent from an older Teach, which Reach reads as kinds [prompt]. From 2026-10-03b to 2026-10-03h the block only
+        made an older Reach drop its queue; since 2026-10-03i it again states what Teach accepts.
       modules: >-
         Since protocol 1 revision 2026-09-30b. The student's current signed module record (W-MOD-1), or null when the
         course is student_choice and the student has not chosen yet. For an instructor-mode course Teach issues the
@@ -1006,21 +1004,87 @@ routes:
     method: POST
     path: /api/v1/transcripts
     auth: install
-    retired: 2026-10-03b
+    request_headers:
+      Idempotency-Key: >-
+        Required. SHA-256 (W-CONV-4) of "<install_id>\n<session_id>\n<first seq>\n<last seq>" for the entries sent.
+    request:
+      session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
+      harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes only to a Teach whose advertised wire_contract_sha256 equals its own, and unknown otherwise"}
+      cutout_id: {type: [string, "null"], maxBytes: 128}
+      slice: {type: [string, "null"], enum: [backend, panel, verification, null]}
+      entries:
+        type: array
+        minItems: 1
+        maxItems: 200
+        items:
+          common: >-
+            seq (integer, 1 or more, strictly ascending within the array across every kind), at (W-CONV-3 timestamp
+            of the capture, or of the harness transcript entry for reply, reasoning and action), kind. Each entry
+            carries exactly the keys its kind lists, no others.
+          kind: {enum: [prompt, reply, reasoning, action, code], note: "reply, reasoning, action and code since 2026-09-29c"}
+          prompt:
+            text: {type: [string, "null"], maxBytes: 131072, note: "null when the hook carried no prompt"}
+            bytes: integer, the UTF-8 byte size of the whole prompt
+            truncated: boolean, true when text holds only the first 131072 bytes
+            digest: {type: [string, "null"], note: "W-CONV-4 of the whole prompt's UTF-8 bytes; null when text is null"}
+            gate: {enum: [allowed, blocked]}
+            note: {type: [string, "null"], maxBytes: 200}
+          reply:
+            text: "{type: [string, null], maxBytes: 131072}: one block of the AI's visible text, code blocks replaced by pointer lines (W-TRN-3)"
+            bytes: integer
+            truncated: boolean
+            digest: "W-CONV-4 of the whole text as recorded (after code splitting); null when text is null"
+            note: {type: [string, "null"], maxBytes: 200}
+          reasoning:
+            text: "{type: [string, null], maxBytes: 131072}: the model's reasoning where the harness stores it readably; null otherwise"
+            bytes: integer
+            truncated: boolean
+            digest: {type: [string, "null"]}
+            note: {type: [string, "null"], maxBytes: 200, note: "'reasoning not readable' when text is null"}
+          action:
+            tool: {type: string, minBytes: 1, maxBytes: 64}
+            summary: {type: string, maxBytes: 2000, note: "the command, path, pattern or input the tool ran with"}
+            note: {type: [string, "null"], maxBytes: 200, note: "'subagent' for a subagent's call"}
+          code:
+            category: {enum: [assignment, extracurricular]}
+            scope: "{assignment, cutout_id, slice} (strings of 1 to 128 bytes, slice backend, panel or verification) for assignment; null for extracurricular"
+            path: >-
+              POSIX path relative to the slice workspace or the extracurricular folder, at most 512 bytes, 1 to 32
+              segments, none empty, "." or "..", no leading "/", no backslash or control character. A chat snippet's
+              path is snippets/<seq, at least 4 digits>-<n>.<extension>.
+            origin: {enum: [ai_write, scan, chat_snippet]}
+            deleted: boolean, true when a scan found the file gone (text null, bytes 0, digest null)
+            binary: boolean, true when the file's first 8192 bytes hold a NUL byte (text null, digest of the file)
+            text: {type: [string, "null"], maxBytes: 131072}
+            bytes: integer, the file's whole size
+            truncated: boolean
+            digest: {type: [string, "null"]}
+            note: {type: [string, "null"], maxBytes: 200}
+            reply_seq: {type: [integer, "null"], note: "the reply a chat snippet was split from; required for chat_snippet"}
     response_200:
-      session_id: string, as sent
-      accepted: 0
-      duplicates: integer, the number of entries in the request
-      last_seq: integer, the highest seq in the request, 0 when none carries an integer seq
-      gaps: "[]"
+      session_id: string
+      accepted: integer, entries appended by this request
+      duplicates: integer, entries whose seq Teach already held
+      last_seq: integer, the highest seq Teach holds for the session
+      gaps: "[[from, to]] seq ranges this request found missing, possibly empty"
     notes: >-
-      Retired in protocol 1 revision 2026-10-03b: no conversation is ever captured from the student (W-TRN-0). A Reach
-      of this revision never calls the route. A Teach of this revision answers an older Reach with the 200 above and
-      stores, logs and journals nothing of the body, so the older Reach marks its queue acknowledged and stops
-      sending it. Revisions 2026-09-29 to 2026-10-02f carried prompts, replies, reasoning, actions and code here.
+      Retired from 2026-10-03b to 2026-10-03h and restored in revision 2026-10-03i inside the bounds of W-TRN-0.
+      Since protocol 1 revision 2026-09-29. Reach captures every prompt the student submits in a course workspace
+      through the harness's prompt hook (W-TRN-1), including prompts the gate blocks, and sends them with this route.
+      Teach appends each new entry to the student's transcript for that session and never
+      rewrites one. seq is Reach's per-session counter from 1; an entry whose seq is at or below Teach's last_seq is a
+      duplicate and is skipped, which makes a repeated request harmless whatever its Idempotency-Key; an entry more
+      than one above last_seq records the missing range as a gap in the transcript. Teach checks digest against text
+      when truncated is false and answers 400 invalid_request when they differ. A Teach that predates the route answers
+      404 not_found, and one whose operator switched transcripts off answers 403 forbidden; Reach keeps every entry
+      queued in both cases and sends it later. Since revision 2026-09-29c the route also carries the AI's side of the
+      session and the code it writes (W-TRN-3, W-TRN-4): Teach keeps every kind in the student's course record (W-TRN-5),
+      and Reach sends only the kinds GET /api/v1/status lists (W-TRN-2).
     errors:
-      400 invalid_request: the body is not a JSON object with a session_id string and an entries array
-      413 too_large: the body is over 1 MiB
+      400 invalid_request: a field outside the schema, entries out of order, a digest that does not match its text, or an unsafe code path
+      403 forbidden: transcripts are switched off on this Teach
+      413 too_large: the body is over 1 MiB, or storing it would take the student's course record over its limit
+      429 rate_limited: over 120 requests per hour per install
   - id: W-API-MODULES
     method: GET
     path: /api/v1/modules
@@ -1301,7 +1365,7 @@ debug:
     - check (finding counts by rule id, files checked)
     - qualify (scenario counts passed, failed, pending; attempt; ladder step; local or teach)
     - submit (outcome, receipt id, late)
-    - transcript (entries queued, sent, failed; not emitted since 2026-10-03b, still accepted)
+    - transcript (entries queued, sent, failed)
     - brain (captures, recalls, refusals)
     - update (phase, outcome, versions)
     - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
@@ -1604,25 +1668,79 @@ reach_client_safety:
   W-SAFE-11: {name: receipt acknowledgments, rule: "since 2026-09-30: no polling; one POST in normal mode right after a receipt is stored by reach submit or a grade poll, and reach sync sends at most 20 pending acknowledgments and reads at most 5 pages of W-API-RECEIPTS; a network failure, 403 or 404 keeps the acknowledgment pending"}
   W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
   W-SAFE-13: {name: enrollment, rule: "since 2026-10-01b: only the enrollment prompt hook and reach enroll call W-API-ENROLL-PREVIEW and W-API-ENROLL, never in quick mode: connect 5 s, read 10 s, no retries, at most one preview per typed code and one enroll per yes; the local lockout (W-ENR-7) stops calls entirely while it lasts; X-Reach-Fingerprint is sent only on GET /api/v1/status"}
-  W-SAFE-9: {name: transcripts, rule: "retired 2026-10-03b (W-TRN-0)"}
+  W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
   W-SAFE-14: {name: subscription, rule: "since 2026-10-03e: Reach checks W-API-REVISION in normal mode with one attempt and no retries, through the shared token bucket and circuit breaker, from its MCP server about every 60 s (plus up to 15 s of jitter) while a harness session runs and from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task for the current user) about every 900 s, and never more than once per 50 s across every Reach process on the machine; a 304 or an unchanged revision only records the check; a changed part runs one reach sync in that detached process, at most one at a time, and stores the new parts only after the sync completes; a 404 waits six hours; a failure backs off exponentially from 60 s to one hour; REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 stops every check, and a revoked install removes the operating system job"}
   W-SAFE-15: {name: live sessions, rule: "since 2026-10-03f: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
 transcripts:
   W-TRN-0:
-    name: no capture
+    name: capture bounds
     rule: >-
-      Since revision 2026-10-03b Reach captures no conversation, ever: no prompt, reply, reasoning, action or code
-      entry is written to disk or sent, in any folder or harness, and Teach keeps no transcript and no subcorpus. The
-      prompt hook still reads each prompt as it arrives for the gate, the login, the crisis check (W-SUP-3), consent
-      (W-CONSENT-1), the pending own-part answer (W-PART-2) and the local microbrain, which ingests every
-      gate-allowed prompt, in any folder, as a private source kept only on the student's computer and never sent; it
-      keeps nothing else of it. A Reach of this revision
-      deletes ~/.reach/transcripts, and every persona's, the first time it runs.
-  W-TRN-1: {name: capture, retired: 2026-10-03b}
-  W-TRN-2: {name: delivery, retired: 2026-10-03b}
-  W-TRN-3: {name: AI output, retired: 2026-10-03b}
-  W-TRN-4: {name: code, retired: 2026-10-03b}
-  W-TRN-5: {name: subcorpus, retired: 2026-10-03b}
+      Since revision 2026-10-03i Reach records a conversation again, and only inside these bounds: the session is
+      signed in (when the course requires sign-in), the cached W-API-STATUS names a current assignment, and the
+      session runs in a slice workspace or the workspace root. Inside the bounds every prompt, reply, reasoning
+      block, action and code entry is recorded and sent (W-TRN-1 to W-TRN-5); the bounds override any wider scope
+      those rules state. Outside them (before sign-in, with no current assignment, in the extracurricular folder,
+      outside the course folders, in instructor mode) nothing is written or sent: Reach only moves its place in the
+      harness's own transcript forward, so nothing said outside the bounds is read later. A session's recording
+      starts at its first recorded prompt and never reads what the harness transcript held before it. A prompt the
+      gate or the sign-in blocks is not recorded. The local microbrain is separate: it still ingests every
+      gate-allowed prompt as a private source that is never sent. From 2026-10-03b to 2026-10-03h nothing was
+      captured, and a Reach of those revisions deleted ~/.reach/transcripts once; a Reach of this revision deletes
+      nothing.
+  W-TRN-1:
+    name: capture
+    rule: >-
+      Reach's prompt hook (UserPromptSubmit on Claude Code and Codex) runs in every course workspace. Before anything
+      else it appends the prompt to ~/.reach/transcripts/<session_id>.jsonl (0600, directory 0700) with the next seq
+      for that session and gate allowed or blocked by the gate's own verdict; an allowed prompt is also witnessed in the
+      slice ledger as a prompt record {session, seq, digest}. A hook payload without a prompt is still recorded, with text null and a
+      note. A prompt larger than 131072 bytes keeps its first 131072 bytes, cut on a character boundary, with truncated
+      true; bytes and digest describe the whole prompt. Harnesses with no prompt hook (Antigravity) and conversations
+      outside course folders are not captured. Since 2026-09-29c the course folders are every slice workspace under
+      <workspace root>/deliverables/, the student's <workspace root>/extracurricular/ folder and the workspace root
+      itself, each with its own hooks, and every spooled entry records its space (slice, extracurricular or root).
+  W-TRN-2:
+    name: delivery
+    rule: >-
+      Entries are sent oldest session first, in seq order, through W-API-TRANSCRIPT. Reach records the last_seq Teach
+      returns as acknowledged and never sends an acknowledged entry again. The entries of a request Teach refuses with
+      invalid_request or too_large are copied to ~/.reach/transcripts/<session_id>.rejected.jsonl and counted as
+      acknowledged, so a malformed request cannot block the queue; every other refusal and every network failure
+      leaves the queue as it was. Since 2026-09-29c Reach sends, per session, only the longest run of unacknowledged
+      entries whose kinds GET /api/v1/status lists under transcripts.kinds ([prompt] when absent); the session waits at
+      the first entry of another kind until Teach accepts it, and the other sessions go on.
+  W-TRN-3:
+    name: AI output
+    rule: >-
+      Since 2026-09-29c. At every PostToolUse write hook and at the end of every turn (Stop, and SessionEnd on Claude
+      Code), Reach reads the harness's own session transcript (the hook payload's transcript_path) from where it last
+      stopped and records, in file order, each block of the AI's visible text as a reply, each reasoning block as
+      reasoning (text null with a note when the harness stores it unreadably), and each tool call as an action. Before
+      a reply is recorded, every fenced code block in it is replaced by the line
+      "[code <reply seq>.<n> -> <category root>/snippets/<seq, 4 digits>-<n>.<ext>]" and recorded as a code entry with
+      origin chat_snippet, category root being deliverables/<assignment>/<cutout_id>-<slice> in a slice and
+      extracurricular otherwise. Claude Code transcript entries are deduplicated by uuid; Codex rollouts by offset.
+      Since 2026-09-29e, Hermes has no transcript_path: Reach records the prompt from the pre_llm_call payload's
+      extra.user_message, the reply from the post_llm_call payload's extra.assistant_response, and each tool call as an
+      action from the post_tool_call payload's tool_name and tool_input; Hermes hook payloads carry no reasoning, so a
+      Hermes session records no reasoning entries.
+  W-TRN-4:
+    name: code
+    rule: >-
+      Since 2026-09-29c. After every AI write (PostToolUse on the write tools and apply_patch) Reach records each
+      written file inside the session's slice owned files or the extracurricular folder as a code entry with origin
+      ai_write, holding the whole file as it is after the write. At the end of every turn it compares the session's
+      space (a slice's owned files; every file in the extracurricular folder except Reach's own rules and harness
+      files and the .git, node_modules, vendor, .bundle and tmp directories) with the digests it last recorded, and
+      records each changed or new file with origin scan and each vanished file as deleted. Category assignment carries
+      the slice's scope; extracurricular carries none.
+  W-TRN-5:
+    name: the course record
+    rule: >-
+      Since 2026-09-29c. Teach keeps every entry it accepts in that student's course record, per session and in seq
+      order, with the latest version and the history of each code path, and shows it to instructors only. Teach
+      refuses a code path that would leave its category root or cross a symlink. How Teach stores the record is
+      private.
 qualification:
   W-QUAL-1:
     name: what a qualification proves
@@ -1870,10 +1988,18 @@ alignment:
       every question of the slice's assignment has an answer, then adds part.json (W-PKG-5).
   W-PART-3:
     name: Teach's check of the part
-    retired: 2026-10-03b
     rule: >-
-      Retired with the transcripts (W-TRN-0). Teach stores part.json with the submission and shows the answers to
-      instructors; it no longer compares them with a transcript, and part_verified and part_suspect are gone.
+      For each answer Teach looks for the transcript entry with the same session_id and seq in the student's
+      subcorpus: part_verified is true when every answer's entry exists, is a prompt, and has the same digest; false
+      when any entry exists with a different digest or kind; pending when some entry has not arrived yet (Teach
+      re-checks pending submissions when later transcripts arrive and when an instructor shows the submission);
+      unverifiable when an entry falls inside a transcript gap Reach reported, or is still missing 7 days after the
+      submission was received (re-checked the same way, so a late entry still turns it true or false).
+      part_suspect lists the question ids whose answer shares at least 60% of its word 5-grams with any reply entry
+      of the same student in the 24 hours before recorded_at; answers under 5 words are never suspect. Both are
+      shown to instructors only and never reject or grade anything.
+      Since 2026-10-03i an answer whose session_id or seq is absent or null (sent by a Reach of 2026-10-03b to
+      2026-10-03h, or typed outside the bounds of W-TRN-0) is unverifiable and never refused for that.
   W-SBX-1:
     name: read gate
     rule: >-

@@ -35,10 +35,12 @@ and raises a hand to the instructors on its own after three failed tries. The
 student deals only with the business behavior; the agent does all the coding,
 following Reach's feature and bug flows, without git (see ROADMAP.md).
 
-No conversation is recorded or sent, in any folder or harness: no prompt, reply,
-reasoning, action or code entry is written to disk or sent, and Teach keeps no
-transcript. Instructors receive only the work the student submits, their own-part
-answers, help requests the student agrees to send and usage information. The
+While a student is signed in and working on an assignment, rEach records the
+conversation (every prompt, reply, reasoning block, action and the assignment
+code) and sends it to Teach, where the instructors read it. Nothing is recorded
+before sign-in, in the extracurricular folder or outside the course folder.
+Instructors also receive the work the student submits, their own-part answers,
+help requests the student agrees to send and usage information. The
 course folder is `~/reach-work`: assignment code lives only in
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
 student wants to build goes in `extracurricular/` (`reach work

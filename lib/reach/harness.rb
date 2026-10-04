@@ -152,6 +152,7 @@ module Reach
         post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if space_kind == "slice"
 
         stop_hooks = []
+        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("transcript", "code", "--harness", "claude-code"), 15)
         stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "claude-code"), 30)
         stop_hooks << wake_entry(h("live", "watch", "--harness", "claude-code")) if claude_wake?
 
@@ -251,6 +252,7 @@ module Reach
         post_tool_use << hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60) if space_kind == "slice"
 
         stop_hooks = []
+        post_tool_use << hook_entry("apply_patch|Write|Edit", h("transcript", "code", "--harness", "codex"), 15)
         stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "codex"), 30)
 
         {
@@ -293,6 +295,7 @@ module Reach
             hermes_hook_entry(h("gate", "shell", "--harness", "hermes"), 10, matcher: HERMES_HOOK_SHELL_MATCHER, fail_closed: true),
             hermes_hook_entry(h("gate", "read", "--harness", "hermes"), 10, matcher: HERMES_HOOK_READ_MATCHER, fail_closed: true)
           ],
+          "post_tool_call" => [hermes_hook_entry(h("transcript", "code", "--harness", "hermes"), 15)],
           "post_llm_call" => [hermes_hook_entry(h("hook", "stop", "--harness", "hermes"), 30)],
           "on_session_end" => [hermes_hook_entry(h("hook", "stop", "--final", "--harness", "hermes"), 30)],
           "pre_verify" => [hermes_hook_entry(h("check", "--format", "hermes"), 60)]

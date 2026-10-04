@@ -153,12 +153,15 @@
 <circle cx="786" cy="803" r="11" fill="#047857"/>
 <path transform="translate(779.13 796.13) scale(0.5729)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#ffffff" stroke-width="4.54" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="808" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#111823" text-anchor="start">takes part</text>
-<circle cx="1058" cy="803" r="11" fill="none" stroke="#8490a1" stroke-width="2"/>
-<text x="1080" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#8490a1" text-anchor="start">records nothing</text>
-<circle cx="1330" cy="803" r="11" fill="none" stroke="#8490a1" stroke-width="2"/>
-<text x="1352" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#8490a1" text-anchor="start">receives nothing</text>
-<circle cx="1602" cy="803" r="11" fill="none" stroke="#8490a1" stroke-width="2"/>
-<text x="1624" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#8490a1" text-anchor="start">see nothing</text>
+<circle cx="1058" cy="803" r="11" fill="#b45309" fill-opacity="0.18" stroke="#b45309" stroke-width="2"/>
+<path d="M1058 792A11 11 0 0 0 1058 814Z" fill="#b45309"/>
+<text x="1080" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#111823" text-anchor="start">records assignment work</text>
+<circle cx="1330" cy="803" r="11" fill="#b45309" fill-opacity="0.18" stroke="#b45309" stroke-width="2"/>
+<path d="M1330 792A11 11 0 0 0 1330 814Z" fill="#b45309"/>
+<text x="1352" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#111823" text-anchor="start">keeps assignment work</text>
+<circle cx="1602" cy="803" r="11" fill="#b45309" fill-opacity="0.18" stroke="#b45309" stroke-width="2"/>
+<path d="M1602 792A11 11 0 0 0 1602 814Z" fill="#b45309"/>
+<text x="1624" y="808" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#111823" text-anchor="start">read assignment work</text>
 <line x1="80" y1="840" x2="1840" y2="840" stroke="#d3dae4" stroke-width="1" stroke-linecap="round"/>
 <text x="80" y="872" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" font-weight="650" fill="#111823" text-anchor="start">Decision to submit</text>
 <text x="80" y="894" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">what goes in, and when</text>

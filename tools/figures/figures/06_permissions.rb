@@ -23,7 +23,7 @@ module Figures
     ["Hidden checks", "what grading looks for",
      [[:none, "sees results only"], [:deny, "never sees them"], [:none, "sees results only"], [:full, "holds and runs them"], [:full, "author them"]]],
     ["The conversation", "prompts, replies, reasoning",
-     [[:full, "theirs"], [:full, "takes part"], [:none, "records nothing"], [:none, "receives nothing"], [:none, "see nothing"]]],
+     [[:full, "theirs"], [:full, "takes part"], [:part, "records assignment work"], [:part, "keeps assignment work"], [:part, "read assignment work"]]],
     ["Decision to submit", "what goes in, and when",
      [[:full, "says yes or no"], [:part, "relays the question"], [:part, "asks, enforces the yes"], [:part, "issues the receipt"], [:part, "set the due time"]]],
     ["Private memory", "what rEach learns of the student",
