@@ -694,6 +694,7 @@ module Reach
         event = read_stdin_json
         hook_kind = { "prompt" => "prompt", "enroll" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
         Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
+        Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
         @gate_decision = "allow"

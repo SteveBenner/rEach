@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-10-04
+
+### Added
+- rEach does no course work in a Codex that is not running its hooks (`STD-HOOK-GUARD`, wire revision 2026-10-04f).
+  When a Codex session started and no prompt hook has run since, or no hook has run for 15 minutes, `reach qualify`,
+  `reach submit` and `reach part record` (and their tools) refuse with `M-HOOKS-REQUIRED`, which says nothing is
+  wrong with the student's work and gives the steps to get the hooks running. The `hooks_not_running` detector now
+  reports the problem on the first tool call instead of after 15 minutes. Other apps are never refused.
+  `hooks.require: false` in `config.yml` or `REACH_HOOK_GUARD_DISABLE=1` switches the refusal off.
+
 ## [0.28.2] - 2026-10-04
 
 ### Fixed

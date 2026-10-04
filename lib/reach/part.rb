@@ -53,6 +53,7 @@ module Reach
 
       def record!(question_id, workspace:)
         Reach::Login.require_active!
+        Reach::KnownIssues.require_hooks!
         meta = Reach::Workspace.metadata(workspace)
         assignment = meta["assignment"].to_s
         question = questions(assignment).find { |item| item["id"] == question_id.to_s }
