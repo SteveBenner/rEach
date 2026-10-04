@@ -2439,5 +2439,6 @@ known_issues:
     rule: >-
       Reach implements codex_sandbox (Reach::Sandbox.blocked?, STD-CODEX-SANDBOX) and hooks_not_running (an MCP call
       on a Codex harness when no Reach hook has run on this computer for 15 minutes; since 2026-10-04e a
-      session-start hook does not count, only a prompt, tool or stop hook). A detector name Reach does not
+      session-start hook does not count, only a prompt, tool or stop hook; since 2026-10-04f it is also detected at
+      once when a session-start hook ran on Codex and no prompt hook has run since). A detector name Reach does not
       implement is never detected; its entry is still listed.

@@ -7,7 +7,8 @@ module Reach
   module KnownIssues
     STALE_S = 3600
     HOOKS_QUIET_S = 900
-    WORK_KEYS = %w[work_at prompt_at].freeze
+    WORK_KEYS = %w[work_at prompt_at session_at session_label].freeze
+    SESSION_SOURCES = %w[startup resume clear].freeze
     FAMILIES = %w[claude codex].freeze
     PROCESS_FAMILIES = { "codex" => "codex", "claude" => "claude" }.freeze
     REMEDIES = {
@@ -229,12 +230,49 @@ module Reach
       hook_quiet?("prompt_at", limit)
     end
 
+    def session_started!(harness_label, source)
+      return nil unless SESSION_SOURCES.include?(source.to_s)
+
+      seen = read_json(hooks_seen_file) || {}
+      write_json(hooks_seen_file, seen.merge("session_at" => now_s, "session_label" => harness_label.to_s))
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def guard_enabled?
+      section = Reach::Runtime.load_config["hooks"]
+      ENV["REACH_HOOK_GUARD_DISABLE"].to_s != "1" && !(section.is_a?(Hash) && section["require"] == false)
+    rescue StandardError
+      true
+    end
+
+    def prompt_hook_dead?(env = environment)
+      return false unless family_of(env["harness"]) == "codex"
+
+      seen = read_json(hooks_seen_file) || {}
+      started = seen["session_at"].to_s
+      if !started.empty? && family_of(seen["session_label"]) == "codex"
+        prompted = seen["prompt_at"].to_s
+        return true if prompted.empty? || Time.parse(prompted) < Time.parse(started)
+      end
+      hooks_stale?
+    rescue StandardError
+      false
+    end
+
+    def require_hooks!
+      return nil unless guard_enabled? && prompt_hook_dead?
+
+      raise Reach::Refused, Reach::Messages.text("M-HOOKS-REQUIRED")
+    end
+
     def detected?(entry, env = environment, mcp: false)
       case entry["detector"]
       when "codex_sandbox"
         Reach::Sandbox.blocked?
       when "hooks_not_running"
-        mcp && env["harness"].to_s != "" && family_of(env["harness"]) == "codex" && hooks_stale?
+        mcp && prompt_hook_dead?(env)
       else
         false
       end

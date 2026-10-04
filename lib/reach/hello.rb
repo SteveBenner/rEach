@@ -17,6 +17,7 @@ module Reach
       event = {}
       if !STDIN.tty? && format.to_s == "hook"
         event = read_stdin_json
+        Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(harness || resolve_harness(nil)), event["source"])
         source = event["source"] if source.nil?
         cwd = event["cwd"] if event["cwd"]
       end

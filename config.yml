@@ -120,6 +120,7 @@ late_work:
   notice_every: 10
 hooks:
   lock_wait_s: 2
+  require: true
 codex:
   setup: true
   sandbox: auto
