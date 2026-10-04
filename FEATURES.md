@@ -12,7 +12,7 @@ agent harness.
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 92 catalogued |
+| **Feature count** | 93 catalogued |
 
 ## How to read this registry
 
@@ -23,15 +23,15 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 84 | 91% |
+| ✅ Shipped | 85 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 4 | 4% |
+| 🟢 Live | 5 | 5% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 76 | 83% |
+| 🔵 Built, not enabled | 76 | 82% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -155,7 +155,9 @@ Build ✅ · Deploy 🔵 · Blocker: Human (run once on a Windows Cowork compute
 ### 2.1 · Enroll
 
 `reach enroll <code> --teach-url URL` generates keys and enrolls with Teach. Before it writes any key it verifies the
-response fields, the wire digest equality and `minimum_reach_version`. The smoke showed a second use of the same code
+response fields and `minimum_reach_version`. Since 0.29.1 a wire digest that differs from Teach's no longer refuses
+the enrollment (`reach doctor` reports it as `R-DOC-WIRE`); verified against the fake Teach with a changed digest
+(2026-10-04). The smoke showed a second use of the same code
 refused. Since 0.10.0 it posts to `/api/v1/enroll` and retries once at `/api/v1/enrol` on a 404; `reach enrol` and the
 `reach_enrol` tool still work, unlisted. A Teach 0.10.0 refuses a too-old Reach before spending the code
 (`reach_outdated`), and Reach shows why; verified through a proxy that 404s the new route. Since 0.16.19
@@ -728,7 +730,29 @@ Windows; a real harness session for the sign-in and assignment-started marks, wh
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.24.0, GitHub Latest; Teach 0.35.0 serves the route). No report from a real student install has been seen yet.
 
-### 2.43 · Home inside the reach-work folder
+### 2.43 · Announcements, due changes and material holdings
+
+Since 0.30.0 (`STD-ANNOUNCEMENTS`, `STD-DUE-CHANGE`, `STD-HOLDINGS`; wire `W-API-ANNOUNCEMENTS`,
+`W-API-ANNOUNCEMENT-RECEIPTS`, `W-API-HOLDINGS`, `W-SAFE-16`, revision 2026-10-04g) an instructor's announcement
+reaches the student through rEach. `reach sync` fetches the announcements sent to the student, their group or the
+whole course into `state/announcements.json`; the prompt hook shows each one once, word for word, at most three per
+prompt, and a detached `reach announcements flush` reports when each arrived and was shown. `reach announcements`
+and the `reach_announcements` tool list the queue by date. When the due time the course server answers for an
+assignment differs from the one rEach last saw, the student hears the earlier and the new time once. After each
+sync rEach reports the names and digests of the course material it holds, and only when they changed.
+`announcements.show: false` stops the display.
+
+Verified 2026-10-04 on Linux, Ruby 4.0.6, against a scratch course server: a course announcement and a group
+announcement arrived and another student's did not; a draft never arrived; the notice was shown once and the shown
+time reached the server after the flush; a forged receipt id was answered as unknown and not recorded; a withdrawn
+announcement left the queue at the next sync; a due time changed on the server reached rEach with no restart and was
+said once; the holdings report matched what the server serves, read older after the server repacked, and current
+again after the next sync; a server without the routes answered 404 and rEach parked the calls. The stock smoke run
+passed 40 steps with 2 skipped. Not verified: macOS and Windows, Ruby 2.6, and a real harness session.
+
+Build ✅ · Deploy 🟢 Live (released 2026-10-04 as v0.30.0, GitHub Latest; Teach 0.44.0 serves the routes). No announcement has been sent to a real student yet. · Blocker: -.
+
+### 2.44 · Home inside the reach-work folder
 
 Since 0.31.0 (`STD-HOME-IN-WORKSPACE`) rEach keeps its own files in `~/reach-work/.reach-home`
 instead of `~/.reach`, and an existing install is relocated by copy, hash verification and rename, leaving the legacy
@@ -738,7 +762,7 @@ target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Ve
 unchanged, new home identical, enrollment kept, outbox sent afterwards), two kill -9 interruptions, an occupied
 destination, an instructor persona, the gate in root, slice and extracurricular kinds, harness source repoints and
 Ruby 2.6.10. Not fixed by this layout alone: Codex's default sandbox still blocks the network and writes outside the
-chat's folder; since 2.44 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
+chat's folder; since 2.45 rEach changes the student's own Codex settings after their yes so a Codex chat may use the
 network and write in the reach-work folder. Codex hook trust is unrelated; on Windows the project's top-level `.codex`
 is read-only in the sandbox. Verified 2026-10-04 on GitHub runners (windows-2025 x64, windows-11-arm, macos-15,
 ubuntu-24.04; `tools/sandbox_probe/codex_setup_probe.rb`): an install enrolled with 0.28.2 was relocated with 28 of 28
@@ -749,7 +773,7 @@ Codex plugin copies on Windows or macOS, and `scripts/reach-install.ps1`.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student has updated yet; plugin-copy update unverified on Windows and macOS).
 
-### 2.44 · rEach sets Codex up
+### 2.45 · rEach sets Codex up
 
 Since 0.31.0 (`STD-CODEX-SETUP`, wire revision 2026-10-04h) rEach writes the sandbox settings
 it needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`) after the student's yes: on a terminal
@@ -984,12 +1008,12 @@ Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 6.1 · MCP tools beyond reference
 
-The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 26 tools beyond `reach_reference` (3.1): `reach_hello`,
+The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 27 tools beyond `reach_reference` (3.1): `reach_hello`,
 `reach_enroll`, `reach_sync`, `reach_status`, `reach_check`, `reach_shape_check`, `reach_checkpoint`, `reach_plan`,
 `reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, and since 0.14.3 `reach_support`, `reach_part`,
 `reach_transfer_request`, `reach_modules` and `reach_next`, and since 0.16.15 `reach_remember`, `reach_recall` and
-`reach_memory_forget` (2.29), and since 0.21.12 `reach_update` (2.30) — each a thin wrapper the agent calls instead of shelling out to
+`reach_memory_forget` (2.29), since 0.21.12 `reach_update` (2.30), and since 0.30.0 `reach_announcements` (2.43) — each a thin wrapper the agent calls instead of shelling out to
 the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
 returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
 tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.

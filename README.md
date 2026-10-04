@@ -283,6 +283,14 @@ the work is late, lets the instructor know once, and says when it can no longer 
 points the instructor has recorded in Teach, when there are any.  A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
 on) so the instructor sees what it is about.
 
+### Announcements and course updates
+
+Since 0.30.0 an instructor can send an announcement to the whole course, one group or one student. rEach fetches
+it on the next sync, shows it once, word for word, and keeps it in a queue the student can list by date with
+`reach announcements`. When an assignment's due time moves, rEach says so once, with the earlier and the new time.
+After each sync rEach also tells the course server which copy of the course materials it holds (names and check
+values only), so an instructor can see that an update reached every student.
+
 ### Extra credit
 
 When the instructor texts a student an extra-credit code, the student gives it to rEach with their answer, at any time:

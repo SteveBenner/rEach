@@ -1064,6 +1064,10 @@ mcp_bridge:
       answers text, satisfied, mode_wanted and the last probe; probe runs the sandboxed probe and answers text,
       network, home_writable and available; configure (optional mode workspace or full) answers rEach's own question
       with relay_verbatim true, or the outcome text; works before enrollment
+  - name: reach_announcements
+    description: >-
+      Since 0.30.0 (STD-ANNOUNCEMENTS), the announcements the instructors sent this student, newest first, each with its
+      sent time, title and text
   - name: reach_storage
     description: >-
       Since 0.18.0, how much space rEach's memory uses (action status, the default), or compact the saved course memory
@@ -1193,8 +1197,10 @@ cli:
       alias. Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and
       fingerprint, prints M-ENROLL-DONE and M-FINGERPRINT-NOTICE, then syncs; a bare <code>
-      enrolls with shape v1 as before. Generate keys, enroll with Teach, then sync. It verifies the response fields, the wire digest equality and
-      minimum_reach_version before writing any key. Since 0.10.0 the old spelling reach enrol still works as a hidden
+      enrolls with shape v1 as before. Generate keys, enroll with Teach, then sync. It verifies the response fields and
+      minimum_reach_version before writing any key. Since 0.29.1 a wire_contract_sha256 that differs from Reach's own
+      digest does not refuse the enrollment (W-COMPAT-2): Reach stores the digest Teach advertised, reach doctor reports
+      R-DOC-WIRE, and the newer wire features stay off until the digests match. Since 0.10.0 the old spelling reach enrol still works as a hidden
       alias (not listed in help), and Reach posts to /api/v1/enroll, retrying once at /api/v1/enrol on a 404 so an
       older Teach still enrolls it.
   - name: sync
@@ -1914,6 +1920,20 @@ live_sessions:
   commands: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | watch | run [--background]].
   tool: reach_live with action status, request, wait (up to 45 s, local inbox only), note, say or end.
   switches: REACH_LIVE_DISABLE=1, config.yml live.enabled false; live.wake, live.notify and live.blocked false turn off the watcher, the desktop notification and the blocked-prompt path.
+announcements:
+  standard: STD-ANNOUNCEMENTS, STD-DUE-CHANGE, STD-HOLDINGS (specs/app.yml)
+  since: 0.30.0
+  wire: W-API-ANNOUNCEMENTS, W-API-ANNOUNCEMENT-RECEIPTS, W-API-HOLDINGS, W-SAFE-16, revision 2026-10-04g
+  summary: >-
+    reach sync fetches the announcements the instructors sent this student into state/announcements.json, reports
+    which course material the install holds, and notes a due time that moved. The prompt hook shows each
+    announcement and each due change once and makes no network call; a detached reach announcements flush reports
+    the received and shown times.
+  state: state/announcements.json, state/holdings.json, state/due_changes.json (mode 0600, written atomically by Reach::StateFile)
+  commands: reach announcements [list] [--format json], reach announcements flush
+  tool: reach_announcements
+  messages: M-ANNOUNCE-NOTICE, M-ANNOUNCE-LINE, M-ANNOUNCE-NONE, M-DUE-CHANGED
+  switches: config.yml announcements.show (default true)
 student_messages:
   principle: >-
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses

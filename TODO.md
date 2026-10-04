@@ -1,5 +1,16 @@
 # TODO
 
+## Announcements and course updates (0.30.0, wire revision 2026-10-04g)
+
+- [ ] See an announcement arrive in a real harness session on macOS and Windows; only Linux with Ruby 4.0 ran,
+      through the prompt hook from a terminal.
+- [ ] `tools/fake_teach` has no announcements or holdings routes yet.
+- [ ] The installation and setup guide (both copies) and the student guide do not mention announcements.
+- [ ] Per-student and per-group due times: the status already carries one due time per install, so only the
+      course server needs to change.
+- [ ] Course facts still written into this repository (institution, time zone, LMS name, ladder limits, message
+      wording) are to come from the course server instead; audited 2026-10-04, not yet moved.
+
 ## Live sessions (0.23.0, wire revision 2026-10-03f)
 
 - [ ] Run a live session on a real macOS and a real Windows install, and on Ruby 2.6; only Linux with Ruby 3.3 ran

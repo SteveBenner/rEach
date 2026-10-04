@@ -143,6 +143,8 @@ module Reach
       context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
       context << safely { Reach::Debug.remote_notice(session) }
       context << safely { Reach::LateWork.prompt_notice(session) }
+      context.concat(Array(safely { Reach::Announcements.prompt_notices }))
+      context.concat(Array(safely { Reach::DueChanges.prompt_notices }))
       transcripts = safely { Reach::TranscriptExport.pending_notice! }
       context << Reach::TranscriptExport.agent_notice(transcripts) if transcripts
       observed = safely { Reach::Consent.observe(entry) } if entry

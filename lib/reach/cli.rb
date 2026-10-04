@@ -321,6 +321,8 @@ module Reach
           cmd_known_issues(args)
         when "codex"
           cmd_codex(args)
+        when "announcements"
+          cmd_announcements(args)
         when "subscribe"
           cmd_subscribe(args)
         when "grade"
@@ -372,6 +374,7 @@ module Reach
             runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
             subscribe status [--format text|json] | install | uninstall   the course server update check and its background job
+            announcements [--format text|json]   the instructors' announcements, newest first
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
@@ -1880,6 +1883,29 @@ module Reach
           warn "usage: reach codex status|probe [--format text|json] | configure [--mode workspace|full] | off"
           1
         end
+      end
+
+      def cmd_announcements(args)
+        sub = args.first.to_s.start_with?("--") ? "list" : (args.shift || "list")
+        options, _remaining = parse_flags(args, [:format])
+        case sub
+        when "list"
+          rows = Reach::Announcements.list
+          if options[:format] == "json"
+            puts JSON.pretty_generate("announcements" => rows)
+          else
+            puts Reach::Announcements.render(rows)
+          end
+          0
+        when "flush"
+          Reach::Announcements.flush_receipts!
+          0
+        else
+          warn "reach: unknown announcements command #{sub.inspect}"
+          1
+        end
+      rescue Reach::Offline, Reach::NetworkError
+        0
       end
 
       def cmd_subscribe(args)
