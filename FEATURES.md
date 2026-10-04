@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.29.0 |
+| **Registry version** | 0.29.1 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -155,7 +155,9 @@ Build ✅ · Deploy 🔵 · Blocker: Human (run once on a Windows Cowork compute
 ### 2.1 · Enroll
 
 `reach enroll <code> --teach-url URL` generates keys and enrolls with Teach. Before it writes any key it verifies the
-response fields, the wire digest equality and `minimum_reach_version`. The smoke showed a second use of the same code
+response fields and `minimum_reach_version`. Since 0.29.1 a wire digest that differs from Teach's no longer refuses
+the enrollment (`reach doctor` reports it as `R-DOC-WIRE`); verified against the fake Teach with a changed digest
+(2026-10-04). The smoke showed a second use of the same code
 refused. Since 0.10.0 it posts to `/api/v1/enroll` and retries once at `/api/v1/enrol` on a 404; `reach enrol` and the
 `reach_enrol` tool still work, unlisted. A Teach 0.10.0 refuses a too-old Reach before spending the code
 (`reach_outdated`), and Reach shows why; verified through a proxy that 404s the new route. Since 0.16.19

@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.1] - 2026-10-04
+
+### Fixed
+- A student whose rEach was one release behind could not enroll: every attempt ended with "This version of rEach
+  does not speak the same protocol as your course server", while Teach had already enrolled the install. Enrollment
+  refused unless Teach's wire contract digest equaled its own, so each new wire revision locked out every rEach but
+  the newest. A differing digest no longer refuses enrollment (`Reach::Enroll.verify_response!`); `reach doctor`
+  still reports it as `R-DOC-WIRE`, and `minimum_reach_version` stays the version gate. `M-ENROLL-WIRE` is removed
+  (`locales/en-US.yml`).
+
 ## [0.29.0] - 2026-10-04
 
 ### Added

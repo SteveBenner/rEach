@@ -125,7 +125,6 @@ messages:
   M-DEADLINE-24H: "{cutout} ({slice}) is due in 24 hours and hasn't been submitted yet."
   M-OFFLINE: "rEach can't reach the course server right now. You can keep working; submissions will be sent when you're back online."
   M-ENROLL-INCOMPLETE: "The course server's enrollment answer was incomplete, so rEach did not connect. Ask your instructor to check the course server."
-  M-ENROLL-WIRE: "This version of rEach does not speak the same protocol as your course server, so it did not connect. Update rEach, then try again."
   M-ENROLL-READY: "Your course workspace is ready."
   M-ENROLL-PENDING: "You are connected, but your instructor has not released any work to you yet. Run reach sync later to fetch it."
   M-CHECK-CLEAN: "No findings."
