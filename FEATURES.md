@@ -29,9 +29,9 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 3 | 3% |
+| 🟢 Live | 4 | 4% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 75 | 83% |
+| 🔵 Built, not enabled | 74 | 82% |
 | ⚫ No runtime path | 11 | 12% |
 
 ## 1 · Install
@@ -682,7 +682,7 @@ them with the install; a sign-in mark went out on the next `reach sync` and left
 id Teach records itself were not stored; a time in the future was stored as Teach's own time. Not verified: macOS and
 Windows; a real harness session for the sign-in and assignment-started marks, which were driven through the library.
 
-Build ✅ · Deploy 🔵 Built, not enabled (0.24.0 not yet released).
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.24.0, GitHub Latest; Teach 0.35.0 serves the route). No report from a real student install has been seen yet.
 
 ## 3 · Course reference
 
