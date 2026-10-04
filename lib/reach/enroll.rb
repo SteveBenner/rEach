@@ -173,7 +173,6 @@ module Reach
       complete = %w[install_id student_id encryption_key wire_contract_sha256 minimum_reach_version].all? { |field| !body[field].to_s.empty? } &&
                  (keys.is_a?(Hash) || keys.is_a?(Array)) && !keys.empty?
       raise Reach::Refused, Reach::Messages.text("M-ENROLL-INCOMPLETE") unless complete
-      raise Reach::Refused, Reach::Messages.text("M-ENROLL-WIRE") unless body["wire_contract_sha256"] == Reach::Wire.digest
 
       return unless Gem::Version.correct?(body["minimum_reach_version"].to_s)
       return unless Gem::Version.new(Reach::VERSION) < Gem::Version.new(body["minimum_reach_version"].to_s)

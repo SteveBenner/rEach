@@ -314,6 +314,11 @@ module Reach
         }
       },
       {
+        "name" => "reach_announcements",
+        "description" => "The instructors' announcements for this student, newest first, with the time each was sent. Read one to the student word for word",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_known_issues",
         "description" => "The known problems from the course server that match this computer's system and AI app, whether rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student through the steps in plain words, one at a time",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -560,6 +565,8 @@ module Reach
         when "reach_next"
           step = Reach::Next.compute
           step.merge("relay_verbatim" => true)
+        when "reach_announcements"
+          { "announcements" => Reach::Announcements.list }
         when "reach_known_issues"
           known_issues_tool
         when "reach_storage"

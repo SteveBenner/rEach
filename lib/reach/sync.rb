@@ -173,6 +173,23 @@ module Reach
           end
 
           begin
+            fetched = Reach::Announcements.fetch!
+            summary["announcements"] = fetched if fetched
+          rescue Reach::Offline, Reach::NetworkError
+            nil
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not check for announcements (#{Reach::Link.reason(e, "sync")})"
+          end
+
+          begin
+            Reach::Holdings.report!
+          rescue Reach::Offline, Reach::NetworkError
+            nil
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not tell the course server which course files this computer holds (#{Reach::Link.reason(e, "sync")})"
+          end
+
+          begin
             Reach::Limits.enforce!
           rescue StandardError => e
             summary["warnings"] << "reach: could not apply the local size limits (#{Reach::Link.reason(e, "sync")})"
@@ -196,6 +213,7 @@ module Reach
         cache = status.merge("fetched_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
         File.write(Reach::Paths.status_cache_file, JSON.generate(cache))
         Reach::Live.note_status(status)
+        Reach::DueChanges.note(status)
 
         Reach::Enroll.update!(
           "signing_public_keys" => status["signing_public_keys"],
