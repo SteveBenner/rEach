@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
 
+Encoding.default_external = Encoding::UTF_8
+
 module Reach
   VERSION = File.read(File.join(__dir__, "..", "VERSION")).strip
 
@@ -20,6 +22,7 @@ require_relative "reach/messages"
 require_relative "reach/sandbox"
 require_relative "reach/course_time"
 require_relative "reach/wire"
+require_relative "reach/utf8"
 require_relative "reach/tarball"
 require_relative "reach/crypto"
 require_relative "reach/crypto_probe"

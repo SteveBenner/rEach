@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.1] - 2026-10-04
+
+### Fixed
+
+- Raising a hand no longer fails when rEach is started with no locale and a file in the slice holds a non-ASCII
+  character (`STD-UTF8-BUNDLE`). Claude Desktop on macOS starts the MCP server with no locale, so Ruby read the
+  slice's files as US-ASCII and `reach_raise_hand` stopped with `JSON::GeneratorError` in `Reach::Hands.fit` before the
+  hand was queued; a student could neither raise a hand nor report a problem (2026-10-04). rEach now reads text as
+  UTF-8 in every locale (`Encoding.default_external` in `lib/reach.rb`), and `Reach::Utf8.clean` tags every string of a
+  hand bundle and an issue bundle as UTF-8 and replaces invalid bytes before the JSON is written.
+
 ## [0.25.0] - 2026-10-03
 
 ### Added

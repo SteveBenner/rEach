@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.25.0 |
+| **Registry version** | 0.25.1 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -250,7 +250,9 @@ Since 0.11.0 the bundle is `reach.hand/v2`: originator (agent or student), the t
 file and scenario file in full and the last qualification's output. Since 0.14.4 a hand Teach refuses says why
 (M-HAND-REFUSED with Teach's reason, from the CLI and the reach_raise_hand tool) and a hand that could not reach Teach
 says it was saved for later (M-HAND-QUEUED); verified 2026-10-01 against a scratch Teach with hand-raises disabled,
-enabled and stopped.
+enabled and stopped. Since 0.25.1 (`STD-UTF8-BUNDLE`) the bundle is built as UTF-8 in every locale: an app that starts
+rEach with no locale (Claude Desktop on macOS) made `reach_raise_hand` fail on the first non-ASCII character in an
+owned file; a student reported it on 2026-10-04. Exercised with a C locale on Linux only.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
