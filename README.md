@@ -22,7 +22,7 @@ enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
 Teach keeps only a one-way hash of the password; `tools/fake_teach` is a local stand-in for the enrollment and password parts of the wire.
 
-Since 0.27.0 that password is also the last step of every sign-in: after the
+Since 0.28.0 that password is also the last step of every sign-in: after the
 student ID and the yes, rEach's prompt hook asks for it and keeps every gate
 closed until it is right. Nobody can look a password up. A student who forgot
 it types `forgot password`, and once their instructor has allowed a reset they
@@ -214,6 +214,13 @@ the test student; nothing you do reaches the real student's record, and everythi
 instructor data. The persona keeps its own rEach home under `~/.reach/personas/` and its own folders under
 `~/reach-work/personas/`, applies to every harness session on the computer, and ends with `reach instructor exit`,
 which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
+
+Since 0.27.0 an unlocked install can start a diagnosis session, to work out a rEach problem on that computer together
+with the instructor's assistant: `reach instructor diagnose [--course ID]`, or ask the assistant to start one. rEach
+asks one question; on your typed yes the session opens at once, the two assistants write to each other, and rEach
+runs the checks the instructor's side requests without asking again. On a computer that is not enrolled rEach makes
+a blank test student first. The unlock code stays on that computer until `reach instructor lock` removes it, so run
+that when you are done on a computer that is not yours.
 
 Debug mode is always on for a test student, and otherwise only on request: `reach debug on [--for MINUTES]` and
 `reach debug off` on the computer, or an instructor switches it on from Teach, in which case the student is told. It

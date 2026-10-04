@@ -559,7 +559,7 @@ routes:
       username: {type: string, required: false, note: "shape v2 only: the student's institutional username, normalized by W-ENR-3"}
       student_id: {type: string, required: false, note: "shape v2 only: the student's institutional id, normalized by W-ENR-3"}
       fingerprint: {type: object, required: false, note: "shape v2 only: the W-ENR-4 fingerprint document"}
-      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it. Since revision 2026-10-04c it is the student's existing password when one is already set (W-ID-5)"}
+      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it. Since revision 2026-10-04d it is the student's existing password when one is already set (W-ID-5)"}
       public_key_pem: {type: string, maxLength: 4096}
       reach_version: {type: string}
       platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
@@ -583,7 +583,7 @@ routes:
       409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the course policy's enrollment.device_moves is approve (W-ENR-8)"
       403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
       400 password_required: "shape v2, since 2026-10-01e: password is missing, not a string, shorter than 8 or longer than 256 characters; checked before the course code is looked up, and the message tells an older Reach to update and enroll again"
-      403 password_wrong: "shape v2, since 2026-10-04c: the student already has a password, no reset is allowed and password does not match it (W-ID-5); checked after the roster match and before any device move, so nothing is stored; 5 within 15 minutes for one student answer 429 until the window passes"
+      403 password_wrong: "shape v2, since 2026-10-04d: the student already has a password, no reset is allowed and password does not match it (W-ID-5); checked after the roster match and before any device move, so nothing is stored; 5 within 15 minutes for one student answer 429 until the window passes"
       429 rate_limited: "too many attempts"
     notes: >-
       Spelled /api/v1/enroll since protocol 1 revision 2026-09-29c. Since the same revision Teach compares reach_version
@@ -902,7 +902,7 @@ routes:
     method: POST
     path: /api/v1/password/verify
     auth: install
-    since: 2026-10-04c
+    since: 2026-10-04d
     request:
       password: {type: string, minLength: 8, maxLength: 256, note: "what the student typed at sign-in, trimmed (W-ID-5)"}
     response_200:
@@ -919,7 +919,7 @@ routes:
     method: GET
     path: /api/v1/password/reset
     auth: install
-    since: 2026-10-04c
+    since: 2026-10-04d
     response_200:
       allowed: boolean, whether an instructor has allowed this student to choose a new password and the allowance has not run out or been used
       expires_at: W-CONV-3 timestamp or null
@@ -928,7 +928,7 @@ routes:
     method: POST
     path: /api/v1/password/reset
     auth: install
-    since: 2026-10-04c
+    since: 2026-10-04d
     request:
       password: {type: string, minLength: 8, maxLength: 256, note: "the new password the student chose, typed twice, trimmed"}
     response_200:
@@ -1215,11 +1215,12 @@ routes:
     request:
       hand_id: {type: string, required: false, note: "a hand of this student the session is about, or null"}
       consent: W-CONSENT-1 record of the student's yes to the live session question (W-LIVE-2)
+      diagnosis: {type: object, required: false, note: "since 2026-10-04c (W-LIVE-10): {code: the instructor unlock code stored on this install}; asks for a diagnosis session, and hand_id is then absent"}
     response_200: {session: W-LIVE-SESSION}
     errors:
-      400 invalid_request: "a consent outside W-LIVE-2, or a hand_id that is not a hand of this student"
+      400 invalid_request: "a consent outside W-LIVE-2 or W-LIVE-10, a hand_id that is not a hand of this student, or a diagnosis that is not {code: string}"
       404 not_found: "live sessions are switched off on this Teach"
-      409 conflict: "details.reason live_capacity: three live sessions are already open on this Teach"
+      409 conflict: "details.reason live_capacity: three live sessions are already open on this Teach; details.reason diagnosis_refused: the instructor code is malformed, signed by a key this Teach does not pin, or revoked (W-LIVE-10)"
     notes: >-
       Since revision 2026-10-03f. Asks the instructors for a live session. The session starts as requested and opens
       when an instructor approves it. When the install already has a session that is not closed, Teach answers that
@@ -1562,9 +1563,9 @@ live:
       and a Teach has at most three open at once.
   W-LIVE-SESSION:
     shape: >-
-      {id: "live_" + 20 hex, state, started_by: "student | instructor", hand_id: "string or null", requested_at,
+      {id: "live_" + 20 hex, state, started_by: "student | instructor | diagnosis", hand_id: "string or null", requested_at,
       opened_at, expires_at, closed_at, end_reason: "null, or one of ended_by_student, ended_by_instructor,
-      declined_by_student, declined_by_instructor, expired, unanswered, superseded", co_debug: boolean,
+      declined_by_student, declined_by_instructor, expired, unanswered, superseded", co_debug: boolean, diagnosis: "boolean, since 2026-10-04c: true when started_by is diagnosis (W-LIVE-10)",
       student_attached: boolean, instructor_attached: boolean, connected: boolean}; every time is a W-CONV-3
       timestamp or null.
   W-LIVE-MESSAGE:
@@ -1651,6 +1652,23 @@ live:
       never sends a prompt, a reply, code or a file, never changes a gate, an attempt ladder, a grade or a
       submission, and never accepts consent. A fault from the seal, the witness ledger or the integrity checks is
       recorded as outside a session and no action shows it.
+  W-LIVE-10:
+    name: a diagnosis session
+    rule: >-
+      Since 2026-10-04c. A diagnosis session is a live session an instructor starts on the computer itself to work
+      out with the instructor's assistant why rEach does not work there. Reach offers it only while the install holds
+      a valid instructor unlock code, on an install that is enrolled or on one that is not; an install that is not
+      enrolled first becomes a blank test student through W-API-ENROLL-INSTRUCTOR. Reach asks the person at the
+      computer once (consent kind live_session, subject {"live": "diagnosis"}) and on their typed yes sends
+      W-API-LIVE with that consent and diagnosis {code}. Teach verifies the code as it does for
+      W-API-ENROLL-INSTRUCTOR and answers 409 diagnosis_refused when it does not verify. On a valid code the session
+      opens at once, with no instructor approval, started_by diagnosis, co_debug true and diagnosis true; a session
+      of that install still waiting is closed as superseded first, and an open one is answered as it is. Teach
+      records live.diagnose in its audit log with the code id and the key id, never the code. For the length of a
+      diagnosis session the one yes at its start stands for the questions of W-LIVE-5 and W-LIVE-7: Reach runs an
+      action of the fixed table when it is asked for and sends the agent's messages and notes without asking again.
+      Every other rule of a live session holds: the fixed action table, the limits, debug mode for its length,
+      W-LIVE-9, and the right of either side to end it.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
@@ -1938,7 +1956,7 @@ alignment:
       policy file (TEACH_COURSE_POLICY, default <TEACH_HOME>/course_policy.yml) merged over teach.spec.yml
       course_model defaults. Reach reads it from the verified guardrails package only.
     keys:
-      login: "{required: boolean (default true), password: boolean (default true, since 2026-10-04c: sign-in also asks for the password, W-ID-5), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
+      login: "{required: boolean (default true), password: boolean (default true, since 2026-10-04d: sign-in also asks for the password, W-ID-5), max_hours: integer (12), lockout_failures: integer (3), lockout_minutes: integer (15)}"
       enrollment: >-
         since 2026-10-01b: {require_stamp: boolean (default false), fingerprint_match: binding | strict (default
         binding)}; since 2026-10-01c also device_moves: approve | auto (default approve; default auto since
@@ -1970,7 +1988,7 @@ alignment:
       awaiting_id -> (a prompt whose trimmed text contains the enrolled student id as a whole token, compared
       case-insensitively, moves to awaiting_confirm and the hook blocks with M-LOGIN-CONFIRM naming the student's
       display_name) -> (a yes-word prompt: confirmed, blocked with M-LOGIN-OK; a no-word prompt: denied, blocked with
-      M-LOGIN-DENIED; anything else: blocked with M-LOGIN-CONFIRM again). Since revision 2026-10-04c the yes leads to the password step of W-ID-5 before the session is confirmed. A prompt without the id in awaiting_id is a
+      M-LOGIN-DENIED; anything else: blocked with M-LOGIN-CONFIRM again). Since revision 2026-10-04d the yes leads to the password step of W-ID-5 before the session is confirmed. A prompt without the id in awaiting_id is a
       failure (M-LOGIN-WRONG); lockout_failures failures within lockout_minutes lock the session out for
       lockout_minutes (M-LOGIN-LOCKED). A denied session stays denied. Every login step prompt is blocked, so the
       agent never sees the id or the answer; before 2026-10-03b each was still captured to the transcript with gate
@@ -1984,7 +2002,7 @@ alignment:
   W-ID-5:
     name: sign-in password
     rule: >-
-      Since revision 2026-10-04c. When the policy's login.password is not false and the install was enrolled with
+      Since revision 2026-10-04d. When the policy's login.password is not false and the install was enrolled with
       shape v2, a yes in awaiting_confirm does not confirm the session: it moves to awaiting_password and the hook
       blocks with M-LOGIN-ASK-PASSWORD. The next prompt, trimmed, is the password. Reach checks it against a local
       verifier at ~/.reach/state/login/verifier.json (0600): {schema "reach.login-verifier/v1", student_id,
@@ -2323,7 +2341,7 @@ enrollment:
       whatever install_key says, because every enrollment generates a new install key. Different digest: a
       device move. With the course policy's enrollment.device_moves auto (the default since revision 2026-10-02e),
       Teach enrolls the new install and revokes the old one, so a student who sets their password is enrolled with
-      no instructor step; since revision 2026-10-04c that is the password they already chose (W-ID-5). With approve (an instructor's opt-in; the default before 2026-10-02e), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
+      no instructor step; since revision 2026-10-04d that is the password they already chose (W-ID-5). With approve (an instructor's opt-in; the default before 2026-10-02e), Teach records a pending move {move_id "mv_" + 20 lowercase hex,
       student_id, course_id, fingerprint digest and descriptive components, harness, platform, requested_at} and
       answers 409 device_move_pending; a repeat of the same request (same student and digest) answers the same move.
       An instructor approves or denies the move with a reason. After approval the same request enrolls the new install

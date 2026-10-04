@@ -357,7 +357,7 @@ module Reach
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
             debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush   debug mode: what rEach did, with no prompts, replies, code or secrets
-            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | exit   instructor unlock codes
+            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
@@ -817,6 +817,12 @@ module Reach
           0
         when "dummy", "as"
           instructor_persona(sub, args)
+        when "diagnose"
+          options, _remaining = parse_flags(args, [:course])
+          result = Reach::Live.diagnose!(course: options[:course])
+          puts result["question"] || result["message"]
+          puts result["signin"] if result["signin"]
+          0
         when "exit"
           raise Reach::Refused, Reach::Messages.text("M-PERSONA-NEEDS-UNLOCK") unless Reach::Instructor.active? || Reach::Persona.active?
 

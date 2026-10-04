@@ -12,6 +12,8 @@ module Reach
     SEND_KIND = "live_send".freeze
     KINDS = [KIND, ACTION_KIND, SEND_KIND].freeze
     REQUEST_SUBJECT = { "live" => "request" }.freeze
+    DIAGNOSIS_SUBJECT = { "live" => "diagnosis" }.freeze
+    DIAGNOSIS = "diagnosis".freeze
     LIVE_STATES = %w[requested offered open].freeze
     COMMANDS = {
       "doctor" => [%w[doctor --report]],
@@ -65,7 +67,8 @@ module Reach
     }.freeze
     REFUSALS = {
       "live_capacity" => "M-LIVE-BUSY", "not_open" => "M-LIVE-NOT-OPEN", "co_debug_off" => "M-LIVE-NO-CODEBUG",
-      "message_cap" => "M-LIVE-SLOW", "message_rate" => "M-LIVE-SLOW", "not_offered" => "M-LIVE-NOT-OPEN"
+      "message_cap" => "M-LIVE-SLOW", "message_rate" => "M-LIVE-SLOW", "not_offered" => "M-LIVE-NOT-OPEN",
+      "diagnosis_refused" => "M-LIVE-DIAG-REFUSED"
     }.freeze
 
     module_function
@@ -163,6 +166,10 @@ module Reach
       !current.nil? && current["state"] == "open"
     end
 
+    def diagnosis?(current = session)
+      !current.nil? && current["diagnosis"] == true
+    end
+
     def runner_alive?
       File.exist?(runner_lock_file) && !Reach::Locks.free?(runner_lock_file)
     end
@@ -201,6 +208,24 @@ module Reach
       hand = hand_id.to_s.empty? ? default_hand : hand_id.to_s
       question = Reach::Consent.ask!(kind: KIND, subject: REQUEST_SUBJECT, message_id: "M-LIVE-ASK", replay: { "hand_id" => hand })
       { "state" => "asking", "question" => question, "message" => Reach::Messages.text("M-LIVE-ASK-AGENT", question: question) }
+    end
+
+    def diagnose!(course: nil)
+      raise Reach::Refused, Reach::Messages.text("M-LIVE-OFF") unless enabled?
+      raise Reach::Refused, Reach::Messages.text("M-LIVE-DIAG-NEEDS-UNLOCK") unless Reach::Instructor.active?
+
+      started = install.nil? ? Reach::Persona.start!(kind: "dummy", username: nil, course_id: course) : nil
+      off!
+      current = session
+      return { "state" => current["state"], "message" => status_text(current) } if live?(current)
+      raise Reach::Refused, Reach::Messages.text("M-LIVE-ASK-BUSY") unless consent_free?(KIND)
+
+      question = Reach::Consent.ask!(kind: KIND, subject: DIAGNOSIS_SUBJECT, message_id: "M-LIVE-DIAG-ASK")
+      result = { "state" => "asking", "question" => question, "message" => Reach::Messages.text("M-LIVE-ASK-AGENT", question: question) }
+      return result unless started
+
+      signin = Reach::Messages.text("M-LIVE-DIAG-SIGNIN", student_id: started["persona"]["student_id"], workspace: started["workspace"])
+      result.merge("persona" => started["persona"], "workspace" => started["workspace"], "signin" => signin, "message" => "#{result['message']}\n\n#{signin}")
     end
 
     def wire_consent(observed)
@@ -247,6 +272,14 @@ module Reach
         update { |state| state["pending"] = { "type" => "request", "hand_id" => hand, "consent" => record, "queued_at" => stamp } }
         spawn_runner
         return Reach::Messages.text("M-LIVE-REQUESTED")
+      end
+
+      if target == DIAGNOSIS
+        return Reach::Messages.text("M-LIVE-DIAG-NO") unless answer == "yes"
+
+        update { |state| state["pending"] = { "type" => "request", "diagnosis" => true, "consent" => record, "queued_at" => stamp } }
+        spawn_runner
+        return Reach::Messages.text("M-LIVE-DIAG-REQUESTED")
       end
 
       update { |state| state["pending"] = { "type" => "consent", "id" => target, "answer" => answer, "consent" => record, "queued_at" => stamp } }
@@ -365,11 +398,11 @@ module Reach
       inbox(state["read"].to_i).select { |row| row["session_id"] == current["id"] }
     end
 
-    def shown(row)
+    def shown(row, diagnosis = false)
       case row["kind"]
       when "note" then { "from" => "instructor", "kind" => "note", "text" => row["text"], "at" => row["at"] }
       when "agent" then { "from" => "instructor_assistant", "kind" => "agent", "text" => row["text"], "at" => row["at"] }
-      when "action" then { "from" => "instructor", "kind" => "action_request", "text" => Reach::Messages.text("M-LIVE-ACTION-WANTED", what: ACTION_TEXT[row["name"].to_s] || "run something this rEach does not know"), "at" => row["at"] }
+      when "action" then { "from" => "instructor", "kind" => "action_request", "text" => Reach::Messages.text(diagnosis ? "M-LIVE-DIAG-ACTION" : "M-LIVE-ACTION-WANTED", what: ACTION_TEXT[row["name"].to_s] || "run something this rEach does not know"), "at" => row["at"] }
       else { "from" => "course_server", "kind" => "system", "text" => row["text"], "at" => row["at"] }
       end
     end
@@ -388,7 +421,7 @@ module Reach
       case current["state"]
       when "requested" then Reach::Messages.text("M-LIVE-WAITING")
       when "offered" then Reach::Messages.text("M-LIVE-OFFER-WAITING")
-      when "open" then Reach::Messages.text("M-LIVE-IS-OPEN", minutes: (left_s(current).to_i / 60.0).ceil)
+      when "open" then Reach::Messages.text(diagnosis?(current) ? "M-LIVE-DIAG-IS-OPEN" : "M-LIVE-IS-OPEN", minutes: (left_s(current).to_i / 60.0).ceil)
       else Reach::Messages.text("M-LIVE-CLOSED", reason: END_TEXT[current["end_reason"].to_s] || "it ended")
       end
     end
@@ -407,6 +440,7 @@ module Reach
       if current
         view["session_id"] = current["id"]
         view["co_debug"] = current["co_debug"] == true
+        view["diagnosis"] = diagnosis?(current)
         view["connected"] = current["connected"] == true
         view["minutes_left"] = (left_s(current).to_i / 60.0).ceil if current["state"] == "open"
       end
@@ -440,6 +474,7 @@ module Reach
       body = cut(text.to_s.strip, MAX_SEND_BYTES)
       raise Reach::Refused, Reach::Messages.text("M-LIVE-EMPTY") if body.empty?
       raise Reach::Refused, Reach::Messages.text("M-LIVE-NO-CODEBUG") if kind == "agent" && current["co_debug"] != true
+      return send_now(current, kind, body) if diagnosis?(current)
       raise Reach::Refused, Reach::Messages.text("M-LIVE-ASK-BUSY") unless consent_free?(SEND_KIND)
 
       digest = Reach::Crypto.digest_hex(body)
@@ -452,6 +487,13 @@ module Reach
       end
       spawn_runner
       { "state" => "asking", "question" => question, "message" => Reach::Messages.text("M-LIVE-ASK-AGENT", question: question) }
+    end
+
+    def send_now(current, kind, body)
+      client.post_json("/api/v1/live/#{current['id']}/messages", { "kind" => kind, "text" => body }, idempotency_key: SecureRandom.hex(16))
+      { "state" => "sent", "message" => Reach::Messages.text("M-LIVE-DIAG-SENT") }
+    rescue Reach::RemoteRefused => e
+      raise Reach::Refused, refusal_text(e)
     end
 
     def wait(seconds = WAIT_MAX_S)
@@ -472,9 +514,9 @@ module Reach
       question = action_question
       view = {
         "state" => current ? current["state"] : "none", "connected" => current ? current["connected"] == true : false,
-        "messages" => rows.map { |row| shown(row) },
-        "rules" => Reach::Messages.text("M-LIVE-RULES"),
-        "message" => Reach::Messages.text(rows.empty? ? "M-LIVE-QUIET" : "M-LIVE-READ")
+        "messages" => rows.map { |row| shown(row, diagnosis?(current)) },
+        "rules" => Reach::Messages.text(diagnosis?(current) ? "M-LIVE-DIAG-RULES" : "M-LIVE-RULES"),
+        "message" => Reach::Messages.text(rows.empty? ? "M-LIVE-QUIET" : (diagnosis?(current) ? "M-LIVE-DIAG-READ" : "M-LIVE-READ"))
       }
       return view if question.nil?
 
@@ -600,7 +642,9 @@ module Reach
           if told["open"] != id
             minutes = (left_s(current).to_i / 60.0).ceil
             opened = current["co_debug"] == true ? "M-LIVE-OPEN-AGENT-CODEBUG" : "M-LIVE-OPEN-AGENT"
-            lines << Reach::Messages.text(direct ? "M-LIVE-OPEN-STUDENT" : opened, minutes: minutes)
+            opened = "M-LIVE-DIAG-OPEN-AGENT" if diagnosis?(current)
+            student = diagnosis?(current) ? "M-LIVE-DIAG-OPEN-STUDENT" : "M-LIVE-OPEN-STUDENT"
+            lines << Reach::Messages.text(direct ? student : opened, minutes: minutes)
             changes["told_open"] = id
           end
           waiting = unread(state)
@@ -621,7 +665,7 @@ module Reach
             changes["told_action"] = asked["id"]
           end
         when "closed"
-          if told["closed"] != id && (told["open"] == id || state["offer_asked"] == id || current["started_by"] == "student")
+          if told["closed"] != id && (told["open"] == id || state["offer_asked"] == id || %w[student diagnosis].include?(current["started_by"]))
             lines << Reach::Messages.text("M-LIVE-CLOSED", reason: END_TEXT[current["end_reason"].to_s] || "it ended")
             changes["told_closed"] = id
           end
@@ -654,7 +698,10 @@ module Reach
       end
       return update { |state| state["pending"] = nil } if queued.nil? || now - queued > PENDING_MAX_S
 
-      response = if pending["type"] == "request"
+      response = if pending["type"] == "request" && pending["diagnosis"] == true
+                   code = (Reach::Instructor.stored || {})["code"].to_s
+                   api.post_json("/api/v1/live", { "consent" => pending["consent"], "diagnosis" => { "code" => code } })
+                 elsif pending["type"] == "request"
                    api.post_json("/api/v1/live", { "hand_id" => pending["hand_id"], "consent" => pending["consent"] })
                  elsif pending["type"] == "end"
                    api.post_json("/api/v1/live/#{pending['id']}/end", {})
@@ -700,7 +747,8 @@ module Reach
           asked = messages.select { |message| message["kind"] == "action" && !known.include?(message["id"]) }
           state["actions"] = Array(state["actions"]) + asked.map do |message|
             name = message["name"].to_s
-            { "id" => message["id"], "name" => name, "at" => stamp, "status" => ACTIONS.include?(name) ? "waiting" : "unknown" }
+            known_status = current["diagnosis"] == true ? "approved" : "waiting"
+            { "id" => message["id"], "name" => name, "at" => stamp, "status" => ACTIONS.include?(name) ? known_status : "unknown" }
           end
           if current["state"] == "closed"
             state["actions"] = []

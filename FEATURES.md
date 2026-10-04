@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.27.0 |
+| **Registry version** | 0.28.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -343,7 +343,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 Since 0.12.0 the prompt hook asks for the student ID, then "Am I speaking with <name>?", and waits for a yes, blocking each step so the agent never sees the ID or the answer. Wrong IDs lock the session after three tries; a no ends course work for the session; both reach Teach as integrity events. The A1 smoke signs in this way before any write. Re-verified 2026-10-01 against a scratch Teach: every gate refused before sign-in, the ID stayed out of the greeting, another student's ID was refused, offline sign-in worked, three wrong tries locked the install for a minute, and Teach recorded login_failed and identity_denied.
 
-Since 0.27.0 (`STD-SIGNIN-PASSWORD`, wire revision 2026-10-04c) the yes is followed by the password the student chose at enrollment, and the session is signed in only when it is right; the check is the prompt hook's, not an instruction to the agent. `forgot password` starts a reset that works once an instructor allowed one. Verified 2026-10-04 on a scratch Teach: the A1 smoke (40 pass, 2 skip) signs in with a wrong and then the right password; a write stayed refused until the password; with the verifier deleted the server was asked, and with the server stopped the sign-in waited; three wrong passwords locked the session; the reset set a new password and the old one stopped working on the computer, at the server and at a second enrollment; Hermes was sent to `reach login password`; no password appeared in the database dump, the server log or any rEach file. 🔵 until a student signs in this way on a hosted Teach.
+Since 0.28.0 (`STD-SIGNIN-PASSWORD`, wire revision 2026-10-04d) the yes is followed by the password the student chose at enrollment, and the session is signed in only when it is right; the check is the prompt hook's, not an instruction to the agent. `forgot password` starts a reset that works once an instructor allowed one. Verified 2026-10-04 on a scratch Teach: the A1 smoke (40 pass, 2 skip) signs in with a wrong and then the right password; a write stayed refused until the password; with the verifier deleted the server was asked, and with the server stopped the sign-in waited; three wrong passwords locked the session; the reset set a new password and the old one stopped working on the computer, at the server and at a second enrollment; Hermes was sent to `reach login password`; no password appeared in the database dump, the server log or any rEach file. 🔵 until a student signs in this way on a hosted Teach.
 
 Since 0.21.5 the plugin's own prompt hook signs the student in too (`STD-SIGNIN-PLUGIN-HOOK`): in Codex in every folder, keyed on Codex's `turn_id` so that when a course folder's hook also runs, only one of them judges the prompt; in Claude Code outside the course folders. Before, the sign-in lived only in each course folder's `.codex/hooks.json`, which Codex never runs until the student trusts it, so a Codex student on Windows (hand 2026-10-03, Reach 0.21.1) was told to wait for a question nothing asked. Verified by the platform smoke on Linux (15 passed): ask, confirm, yes, a second hook on the same turn silent, the signed-in context on the next turn, then the gate open. Not verified: a live Codex session on Windows.
 
@@ -676,6 +676,22 @@ offer accepted and one refused, a note shown word for word, a check answered yes
 by the student and the end by the instructor; a locked-out sign-in got the question, the ordinary sign-in question
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
+
+Since 0.27.0 (`STD-LIVE-DIAGNOSIS`, wire `W-LIVE-10`) a computer that holds the instructor unlock can start a
+diagnosis session, for working out a rEach problem on that computer directly between the two assistants:
+`reach instructor diagnose [--course ID]`, or the `reach_live` tool with action `diagnose`. rEach asks the person at
+the computer one question that says what the yes covers. On their typed yes the session opens at once; the
+assistant there and the instructor's assistant write to each other without a question per message, and rEach runs
+the fixed checks the instructor's side requests without asking again. On a computer that is not enrolled rEach
+first makes a blank test student. The assistant still asks before it runs any other command or changes anything,
+and it never sends a password, key, token or instructor code. The unlock code stays on the computer until
+`reach instructor lock` removes it.
+
+Verified 2026-10-04 on Linux, Ruby 4.0, against a scratch course server: the refusal without an unlock; a test
+student made on an unenrolled computer and the session opened on the yes; the same on an enrolled install; two
+assistant messages sent with no question; a requested check run with no question and its result returned; a
+revoked code refused; the session ended by typing. Not verified: a session between two real assistants, and any run
+on Windows or macOS.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
 
