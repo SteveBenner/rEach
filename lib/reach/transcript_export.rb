@@ -11,7 +11,7 @@ module Reach
     RESERVED_DIRS = %w[extracurricular unsorted raw README.md].freeze
     HEADINGS = {
       "prompt" => "M-TX-HEAD-PROMPT", "reply" => "M-TX-HEAD-REPLY", "reasoning" => "M-TX-HEAD-REASONING",
-      "action" => "M-TX-HEAD-ACTION", "code" => "M-TX-HEAD-CODE"
+      "action" => "M-TX-HEAD-ACTION", "output" => "M-TX-HEAD-OUTPUT", "code" => "M-TX-HEAD-CODE"
     }.freeze
     TEXT_KINDS = %w[prompt reply reasoning].freeze
 
@@ -223,6 +223,15 @@ module Reach
         lines << Reach::Messages.text("M-TX-ENTRY-TOOL", tool: entry["tool"]) unless entry["tool"].to_s.empty?
         lines.concat(["", entry["summary"].to_s]) unless entry["summary"].to_s.empty?
         lines.concat(["", entry["note"].to_s]) unless entry["note"].to_s.empty?
+      when "output"
+        lines << Reach::Messages.text("M-TX-ENTRY-TOOL", tool: entry["tool"]) unless entry["tool"].to_s.empty?
+        lines.concat(["", entry["note"].to_s]) unless entry["note"].to_s.empty?
+        if entry["text"].is_a?(String) && !entry["text"].empty?
+          fence = fence_for(entry["text"])
+          lines.concat(["", fence, entry["text"].chomp, fence])
+        else
+          lines.concat(["", Reach::Messages.text("M-TX-ENTRY-NO-TEXT")])
+        end
       when "code"
         lines << Reach::Messages.text("M-TX-ENTRY-FILE", path: entry["path"])
         if entry["deleted"]
@@ -253,14 +262,15 @@ module Reach
       kinds = entries.map { |entry| entry["kind"].to_s }
       {
         "prompts" => kinds.count("prompt"), "replies" => kinds.count("reply"), "reasoning" => kinds.count("reasoning"),
-        "actions" => kinds.count("action"), "code" => kinds.count("code")
+        "actions" => kinds.count("action"), "outputs" => kinds.count("output"), "code" => kinds.count("code")
       }
     end
 
     def counts_text(counts)
       Reach::Messages.text(
         "M-TX-README-COUNTS",
-        prompts: counts["prompts"], replies: counts["replies"], reasoning: counts["reasoning"], actions: counts["actions"], code: counts["code"]
+        prompts: counts["prompts"], replies: counts["replies"], reasoning: counts["reasoning"], actions: counts["actions"],
+        outputs: counts["outputs"], code: counts["code"]
       )
     end
 

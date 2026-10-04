@@ -7,6 +7,13 @@ module Reach
   module Transcript
     ROUTE = "/api/v1/transcripts"
     MAX_TEXT_BYTES = 131_072
+    PART_BYTES = 120_000
+    LEGACY_SUMMARY_BYTES = 2000
+    DEFAULT_SEND_INTERVAL_S = 600
+    MIN_SEND_INTERVAL_S = 60
+    MAX_SEND_INTERVAL_S = 86_400
+    STREAM_JITTER_S = 15
+    STREAM_SESSION_MAX_AGE_S = 172_800
     MAX_BATCH_ENTRIES = 200
     MAX_BATCH_BYTES = 900_000
     SCAN_MAX_FILES = 2000
@@ -20,7 +27,8 @@ module Reach
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     HERMES_WRITE_TOOLS = %w[write_file patch].freeze
     SLICES = %w[backend panel verification].freeze
-    KINDS = %w[prompt reply reasoning action code].freeze
+    KINDS = %w[prompt reply reasoning action output code].freeze
+    PART_KINDS = %w[prompt reply reasoning action output].freeze
     CAPTURE_SPACES = %w[slice root].freeze
     DEFAULT_SUPPORTED_KINDS = %w[prompt].freeze
     KIND_FIELDS = {
@@ -28,6 +36,7 @@ module Reach
       "reply" => %w[text bytes truncated digest note restore],
       "reasoning" => %w[text bytes truncated digest note restore],
       "action" => %w[tool summary note restore],
+      "output" => %w[tool text bytes truncated digest note restore],
       "code" => %w[category scope path origin deleted binary text bytes truncated digest note reply_seq restore]
     }.freeze
     CODE_EXT = {
@@ -40,11 +49,11 @@ module Reach
 
     module_function
 
-    def capturing?(session_id)
+    def capturing?(session_id, space = safe_space_kind)
       return false if Reach::Instructor.mode?
       return false unless Reach::Enroll.current
       return false if Reach::Enroll.revoked?
-      return false unless CAPTURE_SPACES.include?(safe_space_kind)
+      return false unless CAPTURE_SPACES.include?(space)
       return false if Reach::Login.required? && !Reach::Login.session_confirmed?(session_id)
 
       assignment = (Reach::Sync.cached_status || {})["current_assignment"]
@@ -62,53 +71,86 @@ module Reach
       nil
     end
 
+    def ingest_event(session_id, event, harness, space, workspace)
+      context = read_state(session_id)["context"]
+      return pass(event) if context.is_a?(Hash) && context["capture"] == false
+
+      Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: harness, space: space, workspace: workspace)
+    end
+
+    def remember_context(session_id, harness, space, workspace)
+      context = { "capture" => true, "harness" => harness.to_s, "space" => space, "workspace" => workspace }
+      return nil if read_state(session_id)["context"] == context
+
+      merge_state(session_id, "context" => context)
+    rescue StandardError
+      nil
+    end
+
     def capture(event, harness:, gate:, note: nil)
       session_id = resolve_session_id(event)
       return pass(event) unless capturing?(session_id)
 
       space = safe_space_kind
+      workspace = safe_current_workspace
       if space && event.is_a?(Hash) && event["transcript_path"]
         if read_state(session_id)["transcript_path"] == event["transcript_path"]
-          Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: harness, space: space)
+          ingest_event(session_id, event, harness, space, space == "slice" ? workspace : nil)
         else
           pass(event)
         end
       end
-      workspace = safe_current_workspace
       meta = workspace ? safe_metadata(workspace) : {}
       cutout_id = meta && meta["cutout_id"]
       slice = meta && meta["slice"]
       slice = nil unless SLICES.include?(slice)
 
-      record(
-        session_id,
-        kind: "prompt",
-        harness: harness,
-        cutout_id: cutout_id,
-        slice: slice,
-        space: space,
-        fields: note ? prompt_fields(event, gate: gate).merge("note" => note) : prompt_fields(event, gate: gate)
-      )
+      remember_context(session_id, harness, space, workspace)
+      drafts = prompt_parts(event, gate: gate).map do |fields|
+        { "kind" => "prompt", "harness" => harness.to_s, "cutout_id" => cutout_id, "slice" => slice, "space" => space, "at" => nil }
+          .merge(note ? fields.merge("note" => note) : fields)
+      end
+      first = record_batch(session_id, drafts).first
+      first && first["whole_digest"] ? first.merge("digest" => first["whole_digest"]) : first
     rescue StandardError => e
       log_transcript_event("capture_failed", "error" => e.class.name, "session_id" => session_id)
       nil
     end
 
-    def prompt_fields(event, gate:)
+    def prompt_parts(event, gate:)
       prompt = event.is_a?(Hash) ? event["prompt"] : nil
-      if prompt.is_a?(String)
-        scrubbed = prompt.dup.force_encoding("UTF-8").scrub("�")
-        bytes = scrubbed.bytesize
-        if bytes <= MAX_TEXT_BYTES
-          text = scrubbed
-          truncated = false
-        else
-          text = truncate_to_bytes(scrubbed, MAX_TEXT_BYTES)
-          truncated = true
-        end
-        { "text" => text, "bytes" => bytes, "truncated" => truncated, "digest" => Reach::Crypto.digest_hex(scrubbed), "gate" => gate, "note" => nil }
-      else
-        { "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "gate" => gate, "note" => "no prompt in the hook payload" }
+      unless prompt.is_a?(String)
+        return [{ "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "gate" => gate, "note" => "no prompt in the hook payload" }]
+      end
+
+      scrubbed = prompt.dup.force_encoding("UTF-8").scrub("�")
+      parts = text_parts(scrubbed).map { |fields| fields.merge("gate" => gate) }
+      return parts if parts.length == 1
+
+      whole = Reach::Crypto.digest_hex(scrubbed)
+      parts.map { |fields| fields.merge("whole_digest" => whole) }
+    end
+
+    def split_bytes(text, limit = PART_BYTES)
+      return [text] if text.bytesize <= limit
+
+      pieces = []
+      rest = text
+      until rest.empty?
+        head = truncate_to_bytes(rest, limit)
+        head = rest[0, 1] if head.empty?
+        pieces << head
+        rest = rest[head.length..]
+      end
+      pieces
+    end
+
+    def text_parts(text)
+      scrubbed = text.to_s.dup.force_encoding("UTF-8").scrub("�")
+      pieces = split_bytes(scrubbed)
+      pieces.each_with_index.map do |piece, index|
+        fields = { "text" => piece, "bytes" => piece.bytesize, "truncated" => false, "digest" => Reach::Crypto.digest_hex(piece), "note" => nil }
+        pieces.length > 1 ? fields.merge("part" => [index + 1, pieces.length]) : fields
       end
     end
 
@@ -124,9 +166,10 @@ module Reach
       space = safe_space_kind
       return nil unless space
 
-      Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: resolved_harness, space: space)
-
       workspace = space == "slice" ? safe_current_workspace : nil
+      ingest_event(session_id, event, resolved_harness, space, workspace)
+      remember_context(session_id, resolved_harness, space, workspace)
+
       base = space_base(space, workspace)
       return nil unless base
 
@@ -177,9 +220,11 @@ module Reach
           resolved_harness = resolve_harness(harness)
           space = safe_space_kind
           if space
+            workspace = space == "slice" ? safe_current_workspace : nil
             record_hermes_reply(session_id, event, space) if resolved_harness == "hermes" && !final
-            Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: event["transcript_path"], harness: resolved_harness, space: space)
-            scan_space(session_id, resolved_harness, space)
+            ingest_event(session_id, event, resolved_harness, space, workspace)
+            remember_context(session_id, resolved_harness, space, workspace)
+            scan_space(session_id, resolved_harness, space, workspace)
           end
         else
           pass(event)
@@ -210,10 +255,9 @@ module Reach
       nil
     end
 
-    def scan_space(session_id, harness, space)
+    def scan_space(session_id, harness, space, workspace)
       return unless space == "slice"
 
-      workspace = space == "slice" ? safe_current_workspace : nil
       base = space_base(space, workspace)
       return unless base && Dir.exist?(base)
 
@@ -440,10 +484,10 @@ module Reach
       stamped.map { |draft| { "seq" => nil, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft) }
     end
 
-    def record_reply_with_code(session_id, harness:, cutout_id:, slice:, space:, at:, raw_text:, category:, scope:, category_root:)
+    def record_reply_with_code(session_id, harness:, cutout_id:, slice:, space:, at:, raw_text:, category:, scope:, category_root:, note: nil)
       params = {
         "harness" => harness, "cutout_id" => cutout_id, "slice" => slice, "space" => space, "at" => at,
-        "raw_text" => raw_text, "category" => category, "scope" => scope, "category_root" => category_root
+        "raw_text" => raw_text, "category" => category, "scope" => scope, "category_root" => category_root, "note" => note
       }
       held = locked_session(session_id) do |file, state|
         entries, seq = append_reply(file, session_id, params, state["last_seq"].to_i)
@@ -463,14 +507,17 @@ module Reach
       student_id = enrolled_student_id
 
       plain_text, blocks = split_reply(params["raw_text"], reply_seq: reply_seq, category_root: params["category_root"])
-      reply_entry = {
-        "seq" => reply_seq, "session_id" => session_id, "at" => params["at"], "harness" => params["harness"].to_s,
-        "cutout_id" => params["cutout_id"], "slice" => params["slice"], "space" => params["space"], "kind" => "reply",
-        "student_id" => student_id
-      }.merge(text_fields(plain_text))
-      file.write(JSON.generate(reply_entry) + "\n")
-      entries << reply_entry
-      seq = reply_seq
+      seq = reply_seq - 1
+      text_parts(plain_text).each do |fields|
+        seq += 1
+        reply_entry = {
+          "seq" => seq, "session_id" => session_id, "at" => params["at"], "harness" => params["harness"].to_s,
+          "cutout_id" => params["cutout_id"], "slice" => params["slice"], "space" => params["space"], "kind" => "reply",
+          "student_id" => student_id
+        }.merge(fields).merge("note" => params["note"])
+        file.write(JSON.generate(reply_entry) + "\n")
+        entries << reply_entry
+      end
 
       blocks.each do |block|
         seq += 1
@@ -579,20 +626,6 @@ module Reach
       nil
     end
 
-    def text_fields(text)
-      if text.nil?
-        { "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => "reasoning not readable" }
-      else
-        scrubbed = text.dup.force_encoding("UTF-8").scrub("�")
-        bytes = scrubbed.bytesize
-        if bytes <= MAX_TEXT_BYTES
-          { "text" => scrubbed, "bytes" => bytes, "truncated" => false, "digest" => Reach::Crypto.digest_hex(scrubbed), "note" => nil }
-        else
-          { "text" => truncate_to_bytes(scrubbed, MAX_TEXT_BYTES), "bytes" => bytes, "truncated" => true, "digest" => Reach::Crypto.digest_hex(scrubbed), "note" => nil }
-        end
-      end
-    end
-
     def code_text_fields(text)
       scrubbed = text.to_s.dup.force_encoding("UTF-8").scrub("�")
       bytes = scrubbed.bytesize
@@ -642,33 +675,33 @@ module Reach
       [out.join, blocks]
     end
 
-    def flush(quick: false, final: false)
+    def flush(quick: false, final: false, quiet: false)
       install = begin
         Reach::Enroll.current
       rescue StandardError
         nil
       end
-      return stopped_result("not_enrolled", quick) unless install
-      return stopped_result("revoked", quick) if safe_revoked?
-      return stopped_result("offline", quick) if ENV["REACH_OFFLINE"] == "1"
+      return stopped_result("not_enrolled", quick, quiet) unless install
+      return stopped_result("revoked", quick, quiet) if safe_revoked?
+      return stopped_result("offline", quick, quiet) if ENV["REACH_OFFLINE"] == "1"
 
       FileUtils.mkdir_p(Reach::Paths.state_dir)
       result = nil
       File.open(Reach::Paths.flush_lock_file, File::RDWR | File::CREAT, 0o600) do |lock_file|
         unless lock_file.flock(File::LOCK_EX | File::LOCK_NB)
-          result = stopped_result("busy", quick)
+          result = stopped_result("busy", quick, quiet)
           next
         end
 
         begin
           if quick && !final && too_soon?
-            result = stopped_result("too_soon", quick)
+            result = stopped_result("too_soon", quick, quiet)
             next
           end
 
           write_flush_state("last_attempt_at" => Time.now.utc.to_f)
           drain_all_pending
-          result = run_flush(install, quick: quick)
+          result = run_flush(install, quick: quick, quiet: quiet)
         ensure
           lock_file.flock(File::LOCK_UN)
         end
@@ -679,10 +712,130 @@ module Reach
       { "sent" => 0, "requests" => 0, "stopped" => "error" }
     end
 
-    def stopped_result(reason, quick)
+    def stopped_result(reason, quick, quiet = false)
       result = { "sent" => 0, "requests" => 0, "stopped" => reason }
-      log_transcript_event("flush", "quick" => quick, "sent" => 0, "requests" => 0, "stopped" => reason)
+      log_transcript_event("flush", "quick" => quick, "sent" => 0, "requests" => 0, "stopped" => reason) unless quiet
       result
+    end
+
+    def send_interval_s
+      status = Reach::Sync.cached_status
+      value = status && status["transcripts"].is_a?(Hash) ? status["transcripts"]["send_interval_s"] : nil
+      value = DEFAULT_SEND_INTERVAL_S unless value.is_a?(Integer)
+      [[value, MIN_SEND_INTERVAL_S].max, MAX_SEND_INTERVAL_S].min
+    rescue StandardError
+      DEFAULT_SEND_INTERVAL_S
+    end
+
+    def stream_state_file
+      File.join(Reach::Paths.state_dir, "transcript-stream.json")
+    end
+
+    def stream_lock_file
+      File.join(Reach::Paths.state_dir, "transcript-stream.lock")
+    end
+
+    def stream_due?(at = Time.now.utc.to_f)
+      return false if ENV["REACH_OFFLINE"] == "1"
+      return false unless Reach::Enroll.current
+      return false if safe_revoked?
+
+      state = parse_json_file(stream_state_file)
+      last = state && state["last_stream_at"]
+      last.nil? || at - last.to_f >= send_interval_s
+    rescue StandardError
+      false
+    end
+
+    def stream(force: false)
+      FileUtils.mkdir_p(Reach::Paths.state_dir)
+      outcome = Reach::Locks.exclusive(stream_lock_file, wait_s: 0) do
+        next { "skipped" => "recent" } unless force || stream_due?
+
+        File.write(stream_state_file, JSON.generate("last_stream_at" => Time.now.utc.to_f))
+        sessions = ingest_open_sessions
+        result = flush(quick: false, quiet: true)
+        summary = { "sessions" => sessions, "sent" => result["sent"].to_i, "requests" => result["requests"].to_i, "stopped" => result["stopped"] }
+        log_transcript_event("stream", summary.merge("interval_s" => send_interval_s)) if summary["sent"].positive? || !summary["stopped"].nil?
+        summary
+      end
+      outcome == :busy ? { "skipped" => "busy" } : outcome
+    rescue StandardError => e
+      log_transcript_event("stream_failed", "error" => e.class.name)
+      { "error" => e.class.name }
+    end
+
+    def open_sessions
+      dir = Reach::Paths.transcripts_dir
+      return [] unless Dir.exist?(dir)
+
+      now = Time.now.utc
+      Dir.glob(File.join(dir, "*.state.json")).sort.map do |path|
+        state = parse_json_file(path)
+        context = state && state["context"]
+        next nil unless context.is_a?(Hash) && context["capture"] == true
+        next nil if state["transcript_path"].to_s.empty?
+
+        updated = begin
+          Time.parse(state["updated_at"].to_s)
+        rescue StandardError
+          nil
+        end
+        next nil if updated.nil? || now - updated > STREAM_SESSION_MAX_AGE_S
+
+        [File.basename(path, ".state.json"), state]
+      end.compact
+    end
+
+    def ingest_open_sessions
+      count = 0
+      open_sessions.each do |session_id, state|
+        context = state["context"]
+        space = context["space"]
+        workspace = space == "slice" ? context["workspace"] : nil
+        next if space == "slice" && (workspace.to_s.empty? || !Dir.exist?(workspace))
+        next unless capturing?(session_id, space)
+
+        Reach::TranscriptIngest.ingest(session_id: session_id, transcript_path: state["transcript_path"], harness: context["harness"], space: space, workspace: workspace)
+        scan_space(session_id, context["harness"], space, workspace)
+        count += 1
+      end
+      count
+    rescue StandardError => e
+      log_transcript_event("stream_ingest_failed", "error" => e.class.name)
+      0
+    end
+
+    def start_stream_thread
+      return nil if ENV["REACH_OFFLINE"] == "1"
+
+      Thread.new do
+        Thread.current.report_on_exception = false if Thread.current.respond_to?(:report_on_exception=)
+        loop do
+          begin
+            sleep(MIN_SEND_INTERVAL_S + rand(0..STREAM_JITTER_S))
+            Reach::Storage.spawn_detached(%w[transcript stream]) if stream_due?
+          rescue StandardError => e
+            Reach::Debug.fault(e, "transcript:thread")
+          end
+        end
+      end
+    rescue StandardError
+      nil
+    end
+
+    def parts_supported?
+      status = Reach::Sync.cached_status
+      status.is_a?(Hash) && status["transcripts"].is_a?(Hash) && status["transcripts"]["parts"] == true
+    rescue StandardError
+      false
+    end
+
+    def sendable?(entry, supported, parts)
+      return false unless supported.include?(entry["kind"].to_s)
+      return true if parts
+
+      entry["part"].nil? && !(entry["kind"] == "action" && entry["summary"].to_s.bytesize > LEGACY_SUMMARY_BYTES)
     end
 
     def supported_kinds
@@ -693,10 +846,10 @@ module Reach
       DEFAULT_SUPPORTED_KINDS
     end
 
-    def split_supported_prefix(entries, supported)
+    def split_supported_prefix(entries, supported, parts = parts_supported?)
       prefix = []
       entries.each do |entry|
-        break unless supported.include?(entry["kind"].to_s)
+        break unless sendable?(entry, supported, parts)
 
         prefix << entry
       end
@@ -859,7 +1012,7 @@ module Reach
       end
     end
 
-    def run_flush(install, quick:)
+    def run_flush(install, quick:, quiet: false)
       sent = 0
       requests = 0
       stopped = nil
@@ -867,9 +1020,11 @@ module Reach
       supported = supported_kinds
       envelope = Reach::Deidentify.envelope(install, Reach::Sync.cached_status)
       if envelope.nil?
-        log_transcript_event("flush", "quick" => quick, "sent" => 0, "requests" => 0, "stopped" => "identity_key")
+        log_transcript_event("flush", "quick" => quick, "sent" => 0, "requests" => 0, "stopped" => "identity_key") unless quiet
         return { "sent" => 0, "requests" => 0, "stopped" => "identity_key" }
       end
+      parts = parts_supported?
+      envelope = envelope.merge("parts" => parts)
 
       pending_sessions(quick).each do |session_id|
         break if stopped
@@ -882,8 +1037,8 @@ module Reach
         remaining = read_entries_after(session_id, acked).map { |entry| Reach::Deidentify.entry(entry, envelope, session_id) }
         next if remaining.empty?
 
-        sendable, held_count = split_supported_prefix(remaining, supported)
-        log_transcript_event("unsupported_kind", "session_id" => session_id) if held_count.positive?
+        sendable, held_count = split_supported_prefix(remaining, supported, parts)
+        log_transcript_event("unsupported_kind", "session_id" => session_id) if held_count.positive? && !quiet
         next if sendable.empty?
 
         batches(session_id, sendable, envelope).each do |batch|
@@ -911,7 +1066,7 @@ module Reach
         end
       end
 
-      log_transcript_event("flush", "quick" => quick, "sent" => sent, "requests" => requests, "stopped" => stopped)
+      log_transcript_event("flush", "quick" => quick, "sent" => sent, "requests" => requests, "stopped" => stopped) unless quiet
       { "sent" => sent, "requests" => requests, "stopped" => stopped }
     end
 
@@ -1035,15 +1190,16 @@ module Reach
         "harness" => harness,
         "cutout_id" => cutout_id,
         "slice" => slice,
-        "entries" => entries.map { |entry| wire_entry(entry) }
+        "entries" => entries.map { |entry| wire_entry(entry, envelope["parts"]) }
       }
     end
 
-    def wire_entry(entry)
+    def wire_entry(entry, parts = false)
       kind = entry["kind"].to_s
       fields = KIND_FIELDS[kind] || []
       wire = { "seq" => entry["seq"], "at" => entry["at"], "kind" => kind }
       fields.each { |field| wire[field] = entry[field] }
+      wire["part"] = entry["part"] if parts && PART_KINDS.include?(kind)
       wire
     end
 

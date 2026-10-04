@@ -65,10 +65,11 @@ module Reach
       section = Reach::Runtime.load_config["subscribe"]
       section = {} unless section.is_a?(Hash)
       background = section.key?("background") ? section["background"] != false : DEFAULT_SETTINGS["background"]
+      interval = [positive(section["background_interval_s"], DEFAULT_SETTINGS["background_interval_s"]), Reach::Transcript.send_interval_s].min
       {
         "background" => background,
         "session_interval_s" => [positive(section["session_interval_s"], DEFAULT_SETTINGS["session_interval_s"]), MIN_SESSION_INTERVAL_S].max,
-        "background_interval_s" => [positive(section["background_interval_s"], DEFAULT_SETTINGS["background_interval_s"]), MIN_BACKGROUND_INTERVAL_S].max
+        "background_interval_s" => [interval, MIN_BACKGROUND_INTERVAL_S].max
       }
     rescue StandardError
       DEFAULT_SETTINGS.dup

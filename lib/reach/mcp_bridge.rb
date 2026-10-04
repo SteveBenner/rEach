@@ -361,6 +361,7 @@ module Reach
         input.binmode if input.respond_to?(:binmode)
         output.binmode if output.respond_to?(:binmode)
         Reach::Subscribe.start_session_thread
+        Reach::Transcript.start_stream_thread
         loop do
           line = input.gets
           break if line.nil?

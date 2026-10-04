@@ -376,7 +376,7 @@ module Reach
             directive <OPCODE> | --list          a directive's full text
             reference list|show <path>|search <words>|links|ingest [--force]   the course reference material
             hook stop [--final] --harness H
-            transcript code --harness H | flush | status [--format text|json]
+            transcript code --harness H | flush | stream [--force] | status [--format text|json]
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
             login status                         whether this session is signed in
@@ -1811,6 +1811,7 @@ module Reach
         when "tick"
           source = Reach::Subscribe::SOURCES.include?(options[:source]) ? options[:source] : "background"
           Reach::Subscribe.tick(source: source)
+          Reach::Transcript.stream
           0
         when "install"
           Reach::Subscribe.install!
@@ -2414,6 +2415,11 @@ module Reach
             puts "Recorded for your instructors: sent #{Reach::Transcript.entries_label(result["sent"])}."
           end
           0
+        when "stream"
+          force, _remaining = parse_bare_flag(args, "force")
+          Reach::Transcript.stream(force: force)
+          Reach::Subscribe.ensure! unless Reach::Subscribe.installed?
+          0
         when "status"
           options, _remaining = parse_flags(args, [:format])
           if options[:format].to_s == "json"
@@ -2423,7 +2429,7 @@ module Reach
           end
           0
         else
-          warn "usage: reach transcript code --harness H | flush | status [--format text|json]"
+          warn "usage: reach transcript code --harness H | flush | stream [--force] | status [--format text|json]"
           1
         end
       end
