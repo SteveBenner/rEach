@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `reach enroll --window` (`STD-ENROLL-WINDOW`, branch `enroll-window`): a small rEach window collects the course
+  passkey, username, student ID and password, so a student in an app without hooks needs no terminal
+  (`lib/reach/enroll_window.rb`: Windows Forms through PowerShell, AppleScript dialogs on macOS, zenity or kdialog on
+  Linux). The locked guidance for hookless apps tries the window first and falls back to the terminal. Untested on a
+  real screen; see TODO.md.
+
 ## [0.23.1] - 2026-10-03
 
 ### Fixed

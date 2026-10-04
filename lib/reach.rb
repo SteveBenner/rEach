@@ -38,6 +38,7 @@ require_relative "reach/course_corpus"
 require_relative "reach/storage"
 require_relative "reach/json_stream"
 require_relative "reach/picker"
+require_relative "reach/enroll_window"
 require_relative "reach/export_import"
 
 require_relative "reach/runtime"
