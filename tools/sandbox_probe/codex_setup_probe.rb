@@ -1,3 +1,4 @@
+require "digest"
 require "fileutils"
 require "json"
 require "net/http"
@@ -7,6 +8,7 @@ require "tmpdir"
 
 ROOT = File.expand_path("../..", __dir__)
 REACH = File.join(ROOT, "exe", "reach")
+OLD = ARGV[0] ? File.expand_path(ARGV[0]) : nil
 PORT = Integer(ENV["PROBE_PORT"] || "7613")
 TEACH_URL = "http://127.0.0.1:#{PORT}".freeze
 COURSE_CODE = "BUS101-K7QX-94TD".freeze
@@ -34,14 +36,39 @@ def reach(*args, stdin: "")
   capture([RbConfig.ruby, REACH, *args], stdin: stdin)
 end
 
+def old_reach(*args, stdin: "")
+  capture([RbConfig.ruby, File.join(OLD, "exe", "reach"), *args], stdin: stdin, chdir: OLD)
+end
+
+def hashes(dir)
+  Dir.glob(File.join(dir, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }.each_with_object({}) do |path, table|
+    table[path[(dir.length + 1)..-1]] = Digest::SHA256.file(path).hexdigest
+  end
+end
+
 def tail(text)
   text.to_s.lines.map(&:strip).reject(&:empty?).last.to_s[0, 300]
 end
 
-def start_teach(scratch)
-  log = File.open(File.join(scratch, "fake_teach.log"), "w")
-  pid = Process.spawn(RbConfig.ruby, File.join(ROOT, "tools", "fake_teach", "server.rb"), "--port", PORT.to_s, "--home", File.join(scratch, "teach"),
-                      in: File::NULL, out: log, err: log, chdir: ROOT)
+def stop_teach(pid)
+  Process.kill(RbConfig::CONFIG["host_os"] =~ /mswin|mingw/ ? "KILL" : "TERM", pid)
+  Process.wait(pid)
+  20.times do
+    begin
+      Net::HTTP.get_response(URI("#{TEACH_URL}/api/v1/health"))
+      sleep 0.5
+    rescue StandardError
+      break
+    end
+  end
+rescue StandardError
+  nil
+end
+
+def start_teach(scratch, root = ROOT)
+  log = File.open(File.join(scratch, "fake_teach.log"), "a")
+  pid = Process.spawn(RbConfig.ruby, File.join(root, "tools", "fake_teach", "server.rb"), "--port", PORT.to_s, "--home", File.join(scratch, "teach"),
+                      in: File::NULL, out: log, err: log, chdir: root)
   log.close
   40.times do
     begin
@@ -106,10 +133,41 @@ scratch = Dir.mktmpdir("reach-codex-probe")
 teach_pid = nil
 failures = []
 begin
-  teach_pid = start_teach(scratch)
-  code, out, err = reach("enroll", "--course-code", COURSE_CODE, "--username", USERNAME, "--student-id", STUDENT_ID, "--password-stdin", "--teach-url", TEACH_URL, stdin: "#{PASSWORD}\n")
-  report["enroll"] = { "exit" => code, "out" => tail(out), "err" => tail(err) }
-  failures << "enroll exited #{code.inspect}" unless code == 0
+  teach_pid = start_teach(scratch, OLD || ROOT)
+  enroll_args = ["enroll", "--course-code", COURSE_CODE, "--username", USERNAME, "--student-id", STUDENT_ID, "--password-stdin", "--teach-url", TEACH_URL]
+  if OLD
+    legacy = File.join(Dir.home, ".reach")
+    code, out, err = old_reach(*enroll_args, stdin: "#{PASSWORD}\n")
+    report["enroll"] = { "exit" => code, "out" => tail(out), "err" => tail(err), "with" => File.read(File.join(OLD, "VERSION")).strip }
+    failures << "legacy enroll exited #{code.inspect}" unless code == 0
+    code, out, err = old_reach("sync")
+    report["legacy_sync"] = { "exit" => code, "out" => tail(out), "err" => tail(err) }
+    stop_teach(teach_pid)
+    teach_pid = start_teach(scratch)
+    before = hashes(legacy)
+    code, out, err = reach("relocate", "--format", "json")
+    after = hashes(legacy)
+    moved = hashes(File.join(Dir.home, "reach-work", ".reach-home"))
+    changed = (before.keys | after.keys).reject { |key| before[key] == after[key] }
+    missing = before.keys.reject { |key| moved.key?(key) }
+    different = before.keys.select { |key| moved.key?(key) && moved[key] != before[key] }
+    report["relocate"] = {
+      "exit" => code, "out" => tail(out), "err" => tail(err), "legacy_files" => before.size, "legacy_changed" => changed,
+      "missing_in_new_home" => missing.first(20), "missing_count" => missing.size, "different_in_new_home" => different.first(20), "different_count" => different.size
+    }
+    failures << "relocate exited #{code.inspect}" unless code == 0
+    failures << "legacy home had no files" if before.empty?
+    failures << "relocation changed the legacy home: #{(changed - ["RELOCATED.json"]).first(5).join(", ")}" unless (changed - ["RELOCATED.json"]).empty?
+    failures << "#{missing.size} legacy files are missing from the new home" unless missing.empty?
+    failures << "#{different.size} files differ in the new home" unless different.empty?
+    code, out, err = reach("status")
+    report["status_after_relocate"] = { "exit" => code, "names_student" => out.include?("Maria Delgado"), "mismatch" => out.include?("fingerprint_mismatch"), "out" => tail(out), "err" => tail(err) }
+    failures << "status after relocation does not name the enrolled student" unless out.include?("Maria Delgado") && !out.include?("fingerprint_mismatch")
+  else
+    code, out, err = reach(*enroll_args, stdin: "#{PASSWORD}\n")
+    report["enroll"] = { "exit" => code, "out" => tail(out), "err" => tail(err) }
+    failures << "enroll exited #{code.inspect}" unless code == 0
+  end
   code, out, err = reach("sync")
   report["sync"] = { "exit" => code, "out" => tail(out), "err" => tail(err) }
   failures << "sync exited #{code.inspect}" unless code == 0
@@ -143,14 +201,7 @@ begin
 rescue StandardError => e
   failures << "#{e.class}: #{e.message}"
 ensure
-  if teach_pid
-    begin
-      Process.kill(RbConfig::CONFIG["host_os"] =~ /mswin|mingw/ ? "KILL" : "TERM", teach_pid)
-      Process.wait(teach_pid)
-    rescue StandardError
-      nil
-    end
-  end
+  stop_teach(teach_pid) if teach_pid
 end
 
 report["failures"] = failures
@@ -162,6 +213,7 @@ unless path.empty?
   end
   File.open(path, "a") do |file|
     file.puts "### #{report["platform"]} · Codex #{report["codex_version"]} · wanted mode #{report["mode_wanted"]}"
+    file.puts "relocation: #{report["relocate"].to_json}" if report["relocate"]
     file.puts "| settings | probe ran | course server | rEach folder | external https | write outside reach-work | sandboxed sync exit |"
     file.puts "|---|---|---|---|---|---|---|"
     rows.each { |row| file.puts row }

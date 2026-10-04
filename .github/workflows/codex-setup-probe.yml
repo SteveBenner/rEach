@@ -42,6 +42,16 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
+          path: new
+
+      - name: Check out 0.28.2
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: v0.28.2
+          submodules: false
+          persist-credentials: false
+          path: old
 
       - name: Set up Ruby
         timeout-minutes: 10
@@ -61,4 +71,4 @@ jobs:
       - name: Probe Codex setup
         timeout-minutes: 15
         shell: bash
-        run: ruby tools/sandbox_probe/codex_setup_probe.rb
+        run: ruby new/tools/sandbox_probe/codex_setup_probe.rb old
