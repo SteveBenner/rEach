@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.28.0
+version: 0.28.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -918,7 +918,7 @@ course_alignment:
     reach sync and reach transfer status poll at most every 60 s while it is pending; reach status and the session
     greeting show the answer.
   own_part:
-    - Each assignment's questions only the student can answer come from the course policy (W-PART-1). reach part lists them; reach part record <id> takes the student's latest typed prompt (at most 30 minutes old, at least min_words words, never a bare yes or no) verbatim, and stores it with its digest and no session or sequence number. The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the root that has at least the smallest min_words of any question and is not a consent yes or no, in ~/.reach/state/part/pending.json (0600); reach part record takes it, then deletes the file.
+    - Each assignment's questions only the student can answer come from the course policy (W-PART-1). reach part lists them; reach part record <id> takes the student's latest typed prompt (at most 30 minutes old, at least min_words words, never a bare yes or no; M-PART-NO-ANSWER when there is none, M-PART-NO-HOOK since 0.28.1 when the prompt hook has not run for 30 minutes) verbatim, and stores it with its digest and no session or sequence number. The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the root that has at least the smallest min_words of any question and is not a consent yes or no, in ~/.reach/state/part/pending.json (0600); reach part record takes it, then deletes the file.
     - reach submit refuses with M-SUBMIT-NO-PART until every question is answered, and sends part.json. Teach stores the answers as sent and runs no check against any conversation.
   sandbox:
     - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access.

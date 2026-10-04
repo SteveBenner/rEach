@@ -692,7 +692,8 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
-        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
+        hook_kind = { "prompt" => "prompt", "enroll" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
         @gate_decision = "allow"
@@ -1759,7 +1760,7 @@ module Reach
           Reach::Hello.background(session: options[:session], cwd: Dir.pwd)
           return 0
         end
-        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil))) if (options[:format] || "hook") == "hook"
+        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil)), "session") if (options[:format] || "hook") == "hook"
         puts Reach::Hello.run(
           harness: options[:harness],
           source: options[:source],

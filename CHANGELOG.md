@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.1] - 2026-10-04
+
+### Fixed
+- An own-part answer could not be recorded in an app that was not running rEach's prompt hook, and rEach blamed
+  the student: `reach part record` said it could not find a recent answer and asked them to answer again, which
+  could never work. It now says the answer never reached rEach because the prompt hook is not running
+  (`M-PART-NO-HOOK`) and sends the assistant to the known issue's steps (`lib/reach/part.rb`).
+- The `hooks_not_running` detector took a session-start hook as proof that hooks run, so a Codex that ran only that
+  hook was never detected. `hooks_seen.json` now keeps the time of the last prompt, tool or stop hook, and the
+  detector reads that (`lib/reach/known_issues.rb`, wire revision 2026-10-04e).
+
 ## [0.28.0] - 2026-10-04
 
 ### Added

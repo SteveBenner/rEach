@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.28.0 |
+| **Registry version** | 0.28.1 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -515,6 +515,11 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 Since 0.21.9 (`STD-KNOWN-ISSUES`, W-API-KNOWN-ISSUES) rEach fetches Teach's known issues without signing, caches them,
 names the matching ones for this operating system, harness and version in every session context, flags detected ones
 (`codex_sandbox`, `hooks_not_running`) and gives the steps through `reach_known_issues` and `reach known-issues`.
+Since 0.28.1 `hooks_not_running` no longer takes a session-start hook as proof that hooks run, and
+`reach part record` says so when the prompt hook is silent (`M-PART-NO-HOOK`) instead of asking the student to
+answer again. Verified 2026-10-04 on Linux against a scratch home with the real hook commands: prompt hook silent
+for 40 minutes with a fresh session-start hook (refused with the new message, detector on), prompt hook running
+with a short prompt (the old message), prompt hook running with an answer (recorded). Not run on macOS or in Codex.
 Verified against a scratch Teach 0.27.1 (200, then 304 on revalidation), over MCP (hooks_not_running detected with no
 hook run), and inside the real `codex sandbox` runner (the sandbox entry detected from the cache with no request).
 

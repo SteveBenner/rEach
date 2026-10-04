@@ -2115,7 +2115,10 @@ alignment:
       ~/.reach/state/part/pending-<cutout_id>-<slice>.json (0600) as {text, words, digest, at, student_id}, replacing
       the one before. reach part record <question id> takes it when it is at most 30 minutes old and has at least
       that question's min_words words, stores it verbatim as the answer at ~/.reach/state/part/<assignment>.json with
-      {question_id, text, words, digest, recorded_at, student_id}, and deletes the pending file. Before 2026-10-03b it
+      {question_id, text, words, digest, recorded_at, student_id}, and deletes the pending file. Since 2026-10-04e,
+      when no such prompt is kept and Reach's prompt hook has not run on this computer for 30 minutes, it refuses
+      with M-PART-NO-HOOK (the app is not running the hook, so the answer never reached Reach) instead of
+      M-PART-NO-ANSWER. Before 2026-10-03b it
       read the latest captured prompt (W-TRN-1) and stored its session_id and seq too. The agent never supplies the
       text. A new record for the same question replaces the old one. reach submit refuses with M-SUBMIT-NO-PART until
       every question of the slice's assignment has an answer, then adds part.json (W-PKG-5).
@@ -2427,5 +2430,6 @@ known_issues:
     name: detectors
     rule: >-
       Reach implements codex_sandbox (Reach::Sandbox.blocked?, STD-CODEX-SANDBOX) and hooks_not_running (an MCP call
-      on a Codex harness when no Reach hook has run on this computer for 15 minutes). A detector name Reach does not
+      on a Codex harness when no Reach hook has run on this computer for 15 minutes; since 2026-10-04e a
+      session-start hook does not count, only a prompt, tool or stop hook). A detector name Reach does not
       implement is never detected; its entry is still listed.

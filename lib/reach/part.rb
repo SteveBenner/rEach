@@ -59,7 +59,10 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-PART-UNKNOWN", id: question_id) unless question
 
         entry = latest_prompt(assignment)
-        raise Reach::Refused, Reach::Messages.text("M-PART-NO-ANSWER") unless entry
+        unless entry
+          quiet = Reach::KnownIssues.prompt_hook_quiet?(WINDOW_S)
+          raise Reach::Refused, Reach::Messages.text(quiet ? "M-PART-NO-HOOK" : "M-PART-NO-ANSWER")
+        end
 
         text = entry["text"]
         words = word_count(text)
