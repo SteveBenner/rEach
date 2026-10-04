@@ -194,6 +194,15 @@ words instead of reporting a lost connection, and the agent turns debug mode on 
 through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox. Since 0.21.12 the `reach_update` tool
 updates rEach the same way.
 
+Unreleased, rEach also fixes the cause: after the student says yes, it changes the student's own Codex settings
+(`$CODEX_HOME/config.toml`) so Codex's commands may use the internet and write inside the reach-work folder, and marks
+that folder as trusted (mode `workspace`; on Windows mode `full` turns Codex's sandbox off instead). It saves a copy of
+the old settings beside the file first, changes nothing else, and refuses rather than guess when the file holds
+something it does not read. The student answers on a terminal (`reach codex configure`, which the Windows installer
+runs after setup), in a chat when the agent calls the `reach_setup` tool, or during a live session. `reach codex
+status`, `reach codex probe` and `reach doctor` show where it stands, and `reach codex off` stops rEach putting the
+settings back. `codex.setup: false` in `config.yml` or `REACH_CODEX_SETUP=0` turns it off.
+
 Since 0.21.9 rEach also tells the agent about known problems the instructors have recorded in Teach for this
 computer's operating system and AI app: each session's context names the ones that match, and marks one rEach can see
 happening now, and the agent gets the student's steps from the `reach_known_issues` tool (or `reach known-issues`).

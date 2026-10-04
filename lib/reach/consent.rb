@@ -6,7 +6,7 @@ require "rbconfig"
 module Reach
   module Consent
     SCHEMA = "reach.consent/v1".freeze
-    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send].freeze
+    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
 
@@ -105,6 +105,8 @@ module Reach
       if observed["kind"] == "compaction"
         return observed["answer"] == "yes" ? Reach::Messages.text("M-STORAGE-COMPACT-YES-AGENT") : Reach::Messages.text("M-STORAGE-COMPACT-DECLINED")
       end
+
+      return Reach::CodexSetup.follow_up!(observed) if observed["kind"] == Reach::CodexSetup::KIND
 
       if observed["kind"] == "export_import"
         return observed["answer"] == "yes" ? Reach::Messages.text("M-IMPORT-YES-AGENT", path_hint: replay["path"], mode: replay["mode"]) : Reach::Messages.text("M-IMPORT-DECLINED")

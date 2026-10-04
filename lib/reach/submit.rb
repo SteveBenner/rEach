@@ -140,7 +140,7 @@ module Reach
       end
 
       def default_archive_assignment(submitted)
-        workspace = Reach::Gate.current_workspace_path
+        workspace = Reach::Gate.focus_workspace
         here = workspace ? Reach::Workspace.metadata(workspace)["assignment"].to_s : ""
         return here if submitted.include?(here)
 

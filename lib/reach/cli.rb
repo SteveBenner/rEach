@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -318,6 +318,8 @@ module Reach
           cmd_live(args)
         when "known-issues"
           cmd_known_issues(args)
+        when "codex"
+          cmd_codex(args)
         when "subscribe"
           cmd_subscribe(args)
         when "grade"
@@ -364,6 +366,7 @@ module Reach
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
             setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...] [--runtime]
+            codex status|probe [--format text|json] | configure [--mode workspace|full] | off   set Codex's own settings so rEach works in its sandbox (asks the student first), test the sandbox, or stop putting the settings back
             runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
             subscribe status [--format text|json] | install | uninstall   the course server update check and its background job
@@ -1368,6 +1371,7 @@ module Reach
           return 0
         end
         puts Reach::Sandbox.agent_text if Reach::Sandbox.blocked?
+        codex_probe
         install_chrome, _rest = parse_bare_flag(args, "install-chromium")
         if install_chrome
           if Reach::RuntimeAuto.with_lock { Reach::RuntimeKit.install!(only: "chrome") } == :busy
@@ -1396,6 +1400,8 @@ module Reach
         problems.concat(check_taste)
         problems.concat(check_sidecar)
         problems.concat(check_storage)
+        codex_status = codex_doctor_status
+        problems.concat(check_codex(codex_status))
         limit_lines = limits_report
         problems.concat(limit_lines.select { |line| line.start_with?("WARNING") })
         relocation_line = Reach::Relocation.doctor_line
@@ -1407,8 +1413,33 @@ module Reach
         puts enroll_line if enroll_line
         puts doctor_runtime_line
         puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"
+        puts codex_line(codex_status)
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
         problems.empty? ? 0 : 1
+      end
+
+      def codex_probe
+        Reach::CodexSetup.probe! if Reach::CodexSetup.doctor_probe?
+      rescue StandardError
+        nil
+      end
+
+      def codex_doctor_status
+        Reach::CodexSetup.status
+      rescue StandardError
+        nil
+      end
+
+      def check_codex(codex_status)
+        codex_status ? Reach::CodexSetup.doctor_problems(codex_status) : []
+      rescue StandardError
+        []
+      end
+
+      def codex_line(codex_status)
+        codex_status ? Reach::CodexSetup.doctor_line(codex_status) : "codex: could not be checked"
+      rescue StandardError
+        "codex: could not be checked"
       end
 
       def check_directives
@@ -1730,6 +1761,7 @@ module Reach
 
       def cmd_mcp(_args)
         Reach::CodexCache.repair
+        Reach::CodexSetup.heal!
         Reach::MCPBridge.serve
         0
       end
@@ -1774,6 +1806,36 @@ module Reach
           end
         end
         0
+      end
+
+      def cmd_codex(args)
+        sub = args.first && !args.first.start_with?("--") ? args.shift : "status"
+        options, _remaining = parse_flags(args, [:format, :mode])
+        json = options[:format] == "json"
+        case sub
+        when "status"
+          data = Reach::CodexSetup.status
+          puts json ? JSON.pretty_generate(data) : Reach::CodexSetup.doctor_line(data)
+          0
+        when "probe"
+          result = Reach::CodexSetup.probe!
+          puts json ? JSON.pretty_generate(result) : result["text"]
+          result["available"] ? 0 : 1
+        when "configure"
+          result = $stdin.tty? ? Reach::CodexSetup.configure_terminal(mode: options[:mode]) : Reach::CodexSetup.ask_chat(mode: options[:mode])
+          puts result["text"]
+          %w[applied already no_codex asked].include?(result["state"]) ? 0 : 1
+        when "off"
+          result = Reach::CodexSetup.withdraw!
+          puts result["text"]
+          result["ok"] ? 0 : 1
+        when "probe-child"
+          puts JSON.generate(Reach::CodexSetup.probe_child)
+          0
+        else
+          warn "usage: reach codex status|probe [--format text|json] | configure [--mode workspace|full] | off"
+          1
+        end
       end
 
       def cmd_subscribe(args)
