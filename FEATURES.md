@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.30.0 |
+| **Registry version** | 0.31.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -730,7 +730,7 @@ Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.24.0, GitHub Latest; Te
 
 ### 2.43 · Home inside the reach-work folder
 
-Since 0.30.0 (`STD-HOME-IN-WORKSPACE`) rEach keeps its own files in `~/reach-work/.reach-home`
+Since 0.31.0 (`STD-HOME-IN-WORKSPACE`) rEach keeps its own files in `~/reach-work/.reach-home`
 instead of `~/.reach`, and an existing install is relocated by copy, hash verification and rename, leaving the legacy
 folder untouched apart from `RELOCATED.json`. Every kind of space refuses the home, a root-kind session judges writes by
 target slice (`M-PICK-SLICE`), and `reach doctor` reports `R-DOC-RELOCATION`. Verified 2026-10-03 against a scratch Teach
@@ -751,7 +751,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no student has updated yet; plugin-c
 
 ### 2.44 · rEach sets Codex up
 
-Since 0.30.0 (`STD-CODEX-SETUP`, wire revision 2026-10-04g) rEach writes the sandbox settings
+Since 0.31.0 (`STD-CODEX-SETUP`, wire revision 2026-10-04h) rEach writes the sandbox settings
 it needs into the student's own Codex configuration (`$CODEX_HOME/config.toml`) after the student's yes: on a terminal
 (`reach codex configure`), in a chat (`reach_setup` configure, the yes captured by the prompt hook) or through the
 `codex_configure` live action. Mode workspace (the default outside Windows) turns on network access and makes the

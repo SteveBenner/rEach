@@ -1601,7 +1601,7 @@ live:
       While a session is open an instructor can have Reach run one of these, and nothing else, on the student's
       computer: doctor (reach doctor --report), status (reach status), sync (reach sync), update_check (reach update
       check), update (reach update run), cache_repair (the Codex plugin cache repair), resend (reach issues flush
-      and reach debug flush) and, since revision 2026-10-04g, codex_configure (Reach writes the sandbox settings it
+      and reach debug flush) and, since revision 2026-10-04h, codex_configure (Reach writes the sandbox settings it
       needs into the student's own Codex configuration and keeps a backup of the file) and sandbox_probe (Reach runs
       one command inside the Codex sandbox that tries the course server and Reach's own folder, and reports what the
       sandbox allowed). A Reach built against an older revision treats the two new names as names outside this list.
@@ -2402,7 +2402,7 @@ known_issues:
     rule: >-
       {id, title, symptom, detector, remedy, applies, steps}. id matches ^[a-z0-9][a-z0-9-]{1,47}$; title is at most
       120 characters; symptom (what the student or agent sees, for the agent) is at most 600; detector is null or a
-      name matching ^[a-z_]{1,40}$; remedy (since revision 2026-10-04g) is null or the name of one fixed action of
+      name matching ^[a-z_]{1,40}$; remedy (since revision 2026-10-04h) is null or the name of one fixed action of
       W-LIVE-5 that fixes the issue on the student's computer, always present in the canonical JSON, read as null by
       Reach when an older Teach sends an entry without it, and ignored by Reach when it does not know the name; a
       remedy is advice to the student's agent, which runs it only through Reach's own tool for that action and never
