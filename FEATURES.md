@@ -293,7 +293,7 @@ held the student's name, ID, username and home folder arrived with none of them 
 lookup still matched, and an older client was told to update and kept its queue. Since 0.26.1 (wire revision
 2026-10-04b) re-identification is exact: each entry carries an encrypted record of the strings its placeholders
 replaced and of any text that no longer fit, so the key holder gets back the text as recorded, capitals included.
-Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-04 as v0.26.0, GitHub Latest; Teach 0.39.0 hands out the key and accepts the entries). No real student session has been recorded yet.
+Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-04 as v0.26.0, exact restore in v0.26.1, GitHub Latest; Teach 0.40.1 hands out the key and accepts the entries). No real student session has been recorded yet.
 
 ### 2.13 · Slice API reference
 
