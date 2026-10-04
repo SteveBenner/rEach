@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-10-04
+
+### Added
+- Announcements from the instructors (`STD-ANNOUNCEMENTS`, wire revision 2026-10-04g). `reach sync` fetches the
+  announcements sent to the student, their group or the whole course into a dated queue. rEach shows each one once,
+  word for word, at the next prompt, and `reach announcements` (or the `reach_announcements` tool) lists the queue
+  by date. rEach reports when an announcement arrived and when it was shown. `announcements.show: false` in
+  `config.yml` stops the display and leaves the queue readable.
+- A due time that moved is said once (`STD-DUE-CHANGE`). When the course server answers a different due time for
+  an assignment than the one rEach last saw, the student hears the earlier and the new time at the next prompt.
+- rEach reports which copy of the course material it holds (`STD-HOLDINGS`): the names and digests of the
+  materials the course server delivered, never the student's files, so an instructor can see that an update
+  arrived.
+
 ## [0.29.1] - 2026-10-04
 
 ### Fixed

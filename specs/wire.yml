@@ -666,7 +666,7 @@ routes:
       install_id: string
       student: {id: string, display_name: string, group: "string or null"}
       course: {id: "string or null"}
-      current_assignment: "{id, due} or null"
+      current_assignment: "{id, due} or null. Since 2026-10-04g a Teach may read each assignment's due time from a per-course schedule the instructor's course tooling writes, so due can change between two answers with no Teach release; Reach compares it with the due it last saw for that assignment and tells the student once when it moved"
       slices: "[{cutout_id, slice, assignment}]"
       packages: "[{kind, version, content_digest}] for the latest package of each kind that exists"
       outstanding_receipts: "[receipt_id]"
@@ -1310,6 +1310,7 @@ routes:
         extra_credit: "W-CONV-4 digest of canonical_json of the W-API-EXTRA-CREDIT-LIST entries, or null while extra credit is switched off"
         receipts: "W-CONV-4 digest of canonical_json of the receipt_ids of every receipt of the install's student, sorted"
         known_issues: "the W-API-KNOWN-ISSUES revision"
+        announcements: "since 2026-10-04g: W-CONV-4 digest of canonical_json of [[id, sent_at]] for the install's W-API-ANNOUNCEMENTS list, or null while announcements are switched off; absent from a Teach that predates the revision"
       server_time: W-CONV-3 timestamp
     response_304: when If-None-Match equals the current revision; no body
     notes: >-
@@ -1320,6 +1321,66 @@ routes:
     reach_use: >-
       W-SAFE-14. A Teach that predates the revision answers 404, which Reach treats as no subscription available and
       checks again no sooner than six hours later.
+  - id: W-API-ANNOUNCEMENTS
+    since: 2026-10-04g
+    method: GET
+    path: /api/v1/announcements
+    auth: install
+    response_200:
+      announcements: "[{id, audience, title, body, sent_at}], newest first, at most 50: every announcement an instructor has sent and not withdrawn whose audience holds the install's student. id matches ann_ and 20 lowercase hex characters; audience is course, group or student; title is at most 160 characters and body at most 4000, both plain text; sent_at is a W-CONV-3 timestamp"
+      server_time: W-CONV-3 timestamp
+    errors:
+      503 unavailable: "announcements are switched off on this course server (TEACH_ANNOUNCEMENTS_DISABLED); retry_after_seconds 300"
+    notes: >-
+      An instructor writes an announcement in the Teach console for the whole course, one group or one student, and
+      sends it. A draft is never served, and a withdrawn announcement leaves the list. The list an install receives
+      never names another student or another group's announcement. An announcement is course information from the
+      instructor to the student; it carries no grade and changes none.
+    reach_use: >-
+      W-SAFE-16. Reach replaces its local queue with the list on reach sync, keeps the time it first received and first
+      showed each one, and shows an announcement to the student once, word for word, at the next prompt. reach
+      announcements and the reach_announcements tool list the queue by date. A Teach that predates the revision answers
+      404, which Reach treats as no announcements and asks again no sooner than six hours later.
+  - id: W-API-ANNOUNCEMENT-RECEIPTS
+    since: 2026-10-04g
+    method: POST
+    path: /api/v1/announcements/receipts
+    auth: install
+    idempotency: required
+    request:
+      receipts: "[{id, received_at, shown_at}], at most 50. id as W-API-ANNOUNCEMENTS; received_at and shown_at are W-CONV-3 timestamps and at least one is present"
+    response_200:
+      recorded: "[id] Teach recorded"
+      unknown: "[id] that are not in this install's W-API-ANNOUNCEMENTS list now; nothing is recorded for them and Reach drops them"
+    errors:
+      400 invalid_request: a receipt is malformed or the list is longer than 50
+      503 unavailable: as W-API-ANNOUNCEMENTS
+    notes: >-
+      Teach keeps, per announcement and install, the first received time and the first shown time; a later report never
+      moves either. The record says that the announcement reached the install and was put in front of the student. It
+      is not a statement that the student read or agreed to anything, and it carries no text.
+    reach_use: W-SAFE-16.
+  - id: W-API-HOLDINGS
+    since: 2026-10-04g
+    method: POST
+    path: /api/v1/holdings
+    auth: install
+    idempotency: required
+    request:
+      guardrails: "{version, content_digest} of the guardrails package the install has stored, or null. content_digest is a lowercase hex SHA-256"
+      reference: "[{name, sha256}], at most 64: the encrypted course reference blobs the install has stored, by file name and the lowercase hex SHA-256 of the stored bytes"
+    response_200:
+      recorded_at: W-CONV-3 timestamp
+      current: "boolean: the reported reference list equals the list Teach serves this install's course now"
+    errors:
+      400 invalid_request: the body is malformed
+    notes: >-
+      Tells the instructors which install holds the current copy of the course material. It carries names and digests
+      of material Teach itself delivered, never a file, a path on the student's computer or anything the student wrote.
+      Teach keeps the latest report per install.
+    reach_use: >-
+      W-SAFE-16. Sent by reach sync after the packages are stored, and only when the list differs from the one last
+      reported. A Teach that predates the revision answers 404 and Reach waits six hours.
 submissions:
   W-SUB-1:
     name: resubmission
@@ -1738,6 +1799,7 @@ reach_client_safety:
   W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
   W-SAFE-14: {name: subscription, rule: "since 2026-10-03e: Reach checks W-API-REVISION in normal mode with one attempt and no retries, through the shared token bucket and circuit breaker, from its MCP server about every 60 s (plus up to 15 s of jitter) while a harness session runs and from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task for the current user) about every 900 s, and never more than once per 50 s across every Reach process on the machine; a 304 or an unchanged revision only records the check; a changed part runs one reach sync in that detached process, at most one at a time, and stores the new parts only after the sync completes; a 404 waits six hours; a failure backs off exponentially from 60 s to one hour; REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 stops every check, and a revoked install removes the operating system job"}
   W-SAFE-15: {name: live sessions, rule: "since 2026-10-03f: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
+  W-SAFE-16: {name: announcements and holdings, rule: "since 2026-10-04g: only reach sync calls W-API-ANNOUNCEMENTS and W-API-HOLDINGS, once each per sync, through the shared token bucket and circuit breaker; W-API-HOLDINGS is skipped when the holdings equal the last report; W-API-ANNOUNCEMENT-RECEIPTS is sent by reach sync and by one detached process the prompt hook starts after it shows an announcement, at most 50 receipts per request and one request per run; the prompt hook itself makes no network call and shows at most three announcements per prompt; a 404 parks all three routes for six hours; a 503 or a network failure keeps the receipts pending; Teach allows 120 announcement requests and 30 holdings reports per install per hour; config.yml announcements.show false stops the display and leaves the queue readable"}
 transcripts:
   W-TRN-0:
     name: capture bounds
