@@ -284,7 +284,7 @@ first recorded prompt. The feature existed from 0.8.0 to 0.20.x, was torn down i
 these bounds; rEach no longer deletes `~/.reach/transcripts`. Verified 2026-10-03 on a scratch course: 15 entries of
 every kind arrived, and an unsigned session and an extracurricular session recorded nothing. Not verified: a real
 Claude Code, Codex or Hermes session on a student computer.
-Build ✅ Shipped · Deploy 🔵 Built, not released
+Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-03 as v0.25.0, GitHub Latest; Teach 0.38.0 accepts the entries). No real student session has been recorded yet.
 
 ### 2.13 · Slice API reference
 
@@ -756,7 +756,7 @@ Restored in 0.25.0 (`STD-TRANSCRIPT-EXPORT`). `reach transcripts export` and the
 student's own recorded conversations as a ZIP in Downloads, grouped by assignment and slice, and the first session
 after the course ends exports once in the background (`transcripts.auto_export`, default on). Verified 2026-10-03 on a
 scratch course: one session of 15 entries exported.
-Build ✅ Shipped · Deploy 🔵 Built, not released
+Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-03 as v0.25.0, GitHub Latest; Teach 0.38.0 accepts the entries). No real student session has been recorded yet.
 
 ### 3.7 · Late work
 
