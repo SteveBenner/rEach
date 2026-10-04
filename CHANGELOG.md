@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.1] - 2026-10-03
+
+### Fixed
+
+- Antigravity students could not enroll (`STD-NOHOOK-ENROLL`). Antigravity runs no hooks, so rEach's enrollment
+  questions never appeared, and the locked guidance sent the agent through hook approvals and restarts before it
+  mentioned the terminal. `reach hello` now recognizes a hookless session (`--harness antigravity`, which
+  `rules/reach.md` passes, or no harness detectable at all) and tells the agent to walk the student through
+  `reach enroll` in a terminal window straight away (`lib/reach/hello.rb`, `M-ENR-NOHOOK-STUDENT`,
+  `M-ENR-AGENT-NOHOOK-CONTEXT`, `M-ENR-AGENT-NOHOOK-GUIDE`).
+- On Windows the enrollment command rEach gives for the terminal now starts with `&`, so PowerShell runs it.
+- `docs/INSTALLATION-AND-SETUP-GUIDE.docx` says that in Antigravity you enroll in a terminal window.
+
 ## [0.23.0] - 2026-10-03
 
 ### Added

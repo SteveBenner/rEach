@@ -82,6 +82,9 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
 
+Antigravity runs no hooks, so rEach cannot ask for enrollment details in its chat: a locked Antigravity session has the
+agent walk the student through `reach enroll` in a terminal window instead (`STD-NOHOOK-ENROLL`).
+
 ### Updates
 
 An install at `~/.reach/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
