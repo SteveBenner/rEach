@@ -1786,11 +1786,11 @@ debug_mode:
 progress_checkpoints:
   standard: STD-PROGRESS (specs/app.yml); wire W-API-PROGRESS, revision 2026-10-03h. Since 0.24.0.
   library: >-
-    lib/reach/progress.rb (Reach::Progress: mark, enrolled!, assignment_started, queue!). Called from
+    lib/reach/progress.rb (Reach::Progress: mark, enrolled!, assignment_started, flush!). Called from
     Reach::EnrollFlow (step_code, step_confirm, register), the reach enroll command, Reach::Login.commit! and
-    Reach::Gate.prompt; Reach::Submit.retry_outbox sends outbox entries of kind progress.
+    Reach::Gate.prompt; Reach::Sync.run calls flush! after the outbox retry.
   checkpoints: enroll.code, enroll.identity, setup.signin, <assignment>.started
-  state: state/progress.json {student_id, reached {id => time}, queued [ids]}
+  state: state/progress.json {student_id, reached {id => time}, sent [ids]}
   off_switch: REACH_PROGRESS=0
 issue_reports:
   standard: STD-ISSUES (specs/app.yml); wire W-ISSUE-1 to W-ISSUE-8, revision 2026-10-03c. Since 0.23.0.

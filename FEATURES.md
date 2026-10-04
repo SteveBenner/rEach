@@ -672,13 +672,13 @@ Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Te
 Since 0.24.0 rEach tells Teach the first time a student reaches a checkpoint only rEach can see (`STD-PROGRESS`, wire
 `W-API-PROGRESS`): the course passkey accepted, email and student ID confirmed, the first confirmed sign-in, and the
 first prompt inside a workspace of each assignment. `Reach::Progress` keeps the ids and times in
-`state/progress.json`, queues one signed report in the outbox once the student is enrolled, and `reach sync` sends it.
+`state/progress.json`, and `reach sync` sends the unsent ones in one signed request once the student is enrolled.
 It sends ids and times only, never typed text, and makes no network call from a hook. `REACH_PROGRESS=0` turns it off.
 Teach shows the result as the Progress column of its Students page.
 
 Verified 2026-10-03 on Linux, Ruby 4.0.6, against a scratch Teach 0.35.0: `reach enroll` and the chat enrollment each
-recorded the two enrollment checkpoints locally, queued them when registration succeeded and Teach stored them with
-the install; a sign-in mark went out on the next `reach sync` and emptied the outbox; a repeat, an unknown id and an
+recorded the two enrollment checkpoints locally, sent them with the sync that follows registration and Teach stored
+them with the install; a sign-in mark went out on the next `reach sync` and left the outbox empty; a repeat, an unknown id and an
 id Teach records itself were not stored; a time in the future was stored as Teach's own time. Not verified: macOS and
 Windows; a real harness session for the sign-in and assignment-started marks, which were driven through the library.
 

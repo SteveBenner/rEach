@@ -40,6 +40,7 @@ module Reach
 
         results = safe_call(summary) { Reach::Submit.retry_outbox }
         Reach::Issues.flush!(quick: false)
+        Reach::Progress.flush!
         summary["outbox_sent"] = Array(results).count { |r| r["state"] == "ingested" }
 
         begin

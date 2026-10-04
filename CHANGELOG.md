@@ -14,8 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column of the instructors' Students page: the course passkey accepted (`enroll.code`), email and student ID
   confirmed (`enroll.identity`), the first confirmed sign-in (`setup.signin`) and the first prompt inside a workspace
   of each assignment (`<assignment>.started`). `Reach::Progress` (`lib/reach/progress.rb`) keeps them in
-  `state/progress.json`; once the student is enrolled it queues one signed report in the outbox and `reach sync` sends
-  it. A report holds ids and times only, never typed text, and no hook waits on the network. `REACH_PROGRESS=0` turns
+  `state/progress.json`; once the student is enrolled `reach sync` sends the unsent ones in one signed request. A report holds ids and times only, never typed text, and no hook waits on the network. `REACH_PROGRESS=0` turns
   it off. `PRIVACY.md` names it.
 
 - Logo and banner. `docs/assets/reach-logo.svg` is the rEach mark, two fingers about to touch, a human one and a

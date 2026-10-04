@@ -996,7 +996,7 @@ routes:
       ID), setup.signin (the first confirmed sign-in) and <assignment>.started (the first prompt inside a workspace
       of that assignment). It sends ids and times only, never typed text, and only after enrollment, signed like any
       other request: the two enrollment checkpoints are kept on the student's computer until the install exists.
-      Reach queues a report in its outbox and never blocks a hook on the network. Teach keeps the first report of
+      Reach keeps unsent checkpoints in its own state file and sends them on reach sync, never from a hook. Teach keeps the first report of
       each checkpoint per student and ignores a repeat, an id it does not know and an id it records itself
       (enroll.password, enroll.registered, setup.modules, <assignment>.qualified, <assignment>.submitted), sets a
       time more than 300 seconds in the future to its own clock, and answers 200 with accepted 0 while

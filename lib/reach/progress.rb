@@ -22,7 +22,7 @@ module Reach
     end
 
     def blank
-      { "student_id" => nil, "reached" => {}, "queued" => [] }
+      { "student_id" => nil, "reached" => {}, "sent" => [] }
     end
 
     def read
@@ -31,7 +31,7 @@ module Reach
       parsed = JSON.parse(File.read(file))
       return blank unless parsed.is_a?(Hash) && parsed["reached"].is_a?(Hash)
 
-      blank.merge(parsed).merge("queued" => Array(parsed["queued"]))
+      blank.merge(parsed).merge("sent" => Array(parsed["sent"]))
     rescue StandardError
       blank
     end
@@ -53,7 +53,6 @@ module Reach
 
       data["reached"][id] = at.strftime(TIME_FMT)
       write(data)
-      queue!
       id
     rescue StandardError
       nil
@@ -68,7 +67,7 @@ module Reach
         data = blank.merge("reached" => data["reached"].select { |id, _| PRE_ENROLL.include?(id) })
       end
       write(data.merge("student_id" => student_id.to_s))
-      queue!
+      student_id.to_s
     rescue StandardError
       nil
     end
@@ -84,22 +83,24 @@ module Reach
       nil
     end
 
-    def queue!
-      return nil unless Reach::Enroll.current
+    def flush!(quick: false)
+      return nil unless enabled?
+
+      install = Reach::Enroll.current
+      return nil unless install
 
       data = read
-      pending = data["reached"].reject { |id, _| data["queued"].include?(id) }.first(MAX_BATCH)
+      pending = data["reached"].reject { |id, _| data["sent"].include?(id) }.first(MAX_BATCH)
       return nil if pending.empty?
 
       body = { "checkpoints" => pending.map { |id, at| { "id" => id, "at" => at } } }
-      key = SecureRandom.uuid
-      FileUtils.mkdir_p(Reach::Paths.outbox_dir)
-      File.write(
-        File.join(Reach::Paths.outbox_dir, "#{key}.json"),
-        JSON.generate("kind" => "progress", "route" => ROUTE, "idempotency_key" => key, "body" => body)
-      )
-      write(data.merge("queued" => (data["queued"] + pending.map(&:first)).uniq))
-      body
+      begin
+        Reach::Client.for_install(install, quick: quick).post_json(ROUTE, body, idempotency_key: SecureRandom.uuid)
+      rescue Reach::RemoteRefused
+        nil
+      end
+      write(read.merge("sent" => (data["sent"] + pending.map(&:first)).uniq))
+      pending.length
     rescue StandardError
       nil
     end

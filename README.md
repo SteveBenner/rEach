@@ -230,8 +230,7 @@ version. `reach issues` lists what was seen and reported (test student or debug 
 what is waiting, and `REACH_ISSUES_DISABLE=1` or `issues.enabled: false` in `config.yml` turns it off.
 
 Since 0.24.0 rEach also tells the course server where a student stands: the time they first passed each step of
-enrolling, first signed in and first started each assignment. It sends the step and its time only, queued with the
-rest of rEach's outbox and sent on `reach sync`, and the instructors see it as a progress bar per student.
+enrolling, first signed in and first started each assignment. It sends the step and its time only, on `reach sync`, and the instructors see it as a progress bar per student.
 `REACH_PROGRESS=0` turns it off.
 
 ### Submitting
