@@ -680,7 +680,11 @@ routes:
         Absent from an older Teach, which Reach reads as kinds [prompt]. From 2026-10-03b to 2026-10-03h the block only
         made an older Reach drop its queue; since 2026-10-03i it again states what Teach accepts. Since 2026-10-04a
         it also carries identity_key: {key_id, pem}, the RSA public key Reach seals the identity index to (W-TRN-6);
-        a Reach that sees no identity_key sends no transcript and keeps its queue.
+        a Reach that sees no identity_key sends no transcript and keeps its queue. Since 2026-10-04i it also carries
+        parts: true (Teach accepts part on an entry and an action summary of up to 131072 bytes) and send_interval_s
+        (integer, 60 to 86400, 600 when the course sets none): how often Reach's background sender runs (W-TRN-7).
+        A Reach that sees no parts holds every entry that carries part, and every action whose summary is over 2000
+        bytes, as it holds an unsupported kind (W-TRN-2); one that sees no send_interval_s uses 600.
       modules: >-
         Since protocol 1 revision 2026-09-30b. The student's current signed module record (W-MOD-1), or null when the
         course is student_choice and the student has not chosen yet. For an instructor-mode course Teach issues the
@@ -1069,7 +1073,12 @@ routes:
             seq (integer, 1 or more, strictly ascending within the array across every kind), at (W-CONV-3 timestamp
             of the capture, or of the harness transcript entry for reply, reasoning and action), kind. Each entry
             carries exactly the keys its kind lists, no others.
-          kind: {enum: [prompt, reply, reasoning, action, code], note: "reply, reasoning, action and code since 2026-09-29c"}
+          kind: {enum: [prompt, reply, reasoning, action, output, code], note: "reply, reasoning, action and code since 2026-09-29c; output since 2026-10-04i"}
+          part: >-
+            Since 2026-10-04i, on every kind but code, and only sent to a Teach whose status carries
+            transcripts.parts: null, or [n, of] (integers, 2 <= of <= 10000, 1 <= n <= of) when the text was too
+            long for one entry and continues across of consecutive entries of the same kind (W-TRN-7). Teach reads
+            a missing part as null.
           prompt:
             text: {type: [string, "null"], maxBytes: 131072, note: "null when the hook carried no prompt"}
             bytes: integer, the UTF-8 byte size of the whole prompt
@@ -1092,8 +1101,15 @@ routes:
             note: {type: [string, "null"], maxBytes: 200, note: "'reasoning not readable' when text is null"}
           action:
             tool: {type: string, minBytes: 1, maxBytes: 64}
-            summary: {type: string, maxBytes: 2000, note: "the command, path, pattern or input the tool ran with"}
+            summary: {type: string, maxBytes: 131072, note: "the whole command, path, pattern or input the tool ran with; at most 2000 bytes before 2026-10-04i"}
             note: {type: [string, "null"], maxBytes: 200, note: "'subagent' for a subagent's call"}
+          output:
+            tool: {type: string, minBytes: 1, maxBytes: 64, note: "the tool whose result this is; unknown when the harness transcript does not name it"}
+            text: "{type: [string, null], maxBytes: 131072}: what the tool returned to the AI, as the harness transcript holds it"
+            bytes: integer
+            truncated: boolean
+            digest: {type: [string, "null"]}
+            note: {type: [string, "null"], maxBytes: 200, note: "'subagent', 'error' or 'subagent, error'"}
           code:
             category: {enum: [assignment, extracurricular]}
             scope: "{assignment, cutout_id, slice} (strings of 1 to 128 bytes, slice backend, panel or verification) for assignment; null for extracurricular"
@@ -1796,7 +1812,7 @@ reach_client_safety:
   W-SAFE-11: {name: receipt acknowledgments, rule: "since 2026-09-30: no polling; one POST in normal mode right after a receipt is stored by reach submit or a grade poll, and reach sync sends at most 20 pending acknowledgments and reads at most 5 pages of W-API-RECEIPTS; a network failure, 403 or 404 keeps the acknowledgment pending"}
   W-SAFE-12: {name: modules and transfers, rule: "since 2026-09-30b: GET /api/v1/modules at most once per reach sync or reach modules call; GET /api/v1/transfers/:id no more often than every 60 s and only while a request is pending; the prompt and session hooks make no network call for login, consent or imports and queue login_failed, identity_denied and outside_access events in the outbox for the next sync or turn-end flush"}
   W-SAFE-13: {name: enrollment, rule: "since 2026-10-01b: only the enrollment prompt hook and reach enroll call W-API-ENROLL-PREVIEW and W-API-ENROLL, never in quick mode: connect 5 s, read 10 s, no retries, at most one preview per typed code and one enroll per yes; the local lockout (W-ENR-7) stops calls entirely while it lasts; X-Reach-Fingerprint is sent only on GET /api/v1/status"}
-  W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued"}
+  W-SAFE-9: {name: transcripts, rule: "the prompt hook only writes the local spool and makes no network call; the turn-end hook sends in quick mode at most 3 requests and at most once every 60 s, the session-end hook sends in quick mode at most 3 requests without that spacing, and reach sync or reach transcript flush sends in normal mode at most 50 requests; each request carries at most 200 entries and 900000 bytes of JSON; a failure stops the flush and keeps every entry queued; since 2026-10-04i the background sender (W-TRN-7) sends in normal mode at most 50 requests per run and runs at most once per send_interval_s (never under 60 s) across every Reach process on the machine, never from a hook, and not at all under REACH_OFFLINE=1"}
   W-SAFE-14: {name: subscription, rule: "since 2026-10-03e: Reach checks W-API-REVISION in normal mode with one attempt and no retries, through the shared token bucket and circuit breaker, from its MCP server about every 60 s (plus up to 15 s of jitter) while a harness session runs and from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task for the current user) about every 900 s, and never more than once per 50 s across every Reach process on the machine; a 304 or an unchanged revision only records the check; a changed part runs one reach sync in that detached process, at most one at a time, and stores the new parts only after the sync completes; a 404 waits six hours; a failure backs off exponentially from 60 s to one hour; REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 stops every check, and a revoked install removes the operating system job"}
   W-SAFE-15: {name: live sessions, rule: "since 2026-10-03f: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
   W-SAFE-16: {name: announcements and holdings, rule: "since 2026-10-04g: only reach sync calls W-API-ANNOUNCEMENTS and W-API-HOLDINGS, once each per sync, through the shared token bucket and circuit breaker; W-API-HOLDINGS is skipped when the holdings equal the last report; W-API-ANNOUNCEMENT-RECEIPTS is sent by reach sync and by one detached process the prompt hook starts after it shows an announcement, at most 50 receipts per request and one request per run; the prompt hook itself makes no network call and shows at most three announcements per prompt; a 404 parks all three routes for six hours; a 503 or a network failure keeps the receipts pending; Teach allows 120 announcement requests and 30 holdings reports per install per hour; config.yml announcements.show false stops the display and leaves the queue readable"}
@@ -1853,6 +1869,13 @@ transcripts:
       extra.user_message, the reply from the post_llm_call payload's extra.assistant_response, and each tool call as an
       action from the post_tool_call payload's tool_name and tool_input; Hermes hook payloads carry no reasoning, so a
       Hermes session records no reasoning entries.
+      Since 2026-10-04i the same reading also records what each tool returned as an output entry (a tool_result
+      block of a Claude Code user line; a function_call_output or custom_tool_call_output item of a Codex rollout),
+      naming the tool by the call it answers, with note error when the harness marks the result as one; an action's
+      summary holds the whole input. On Claude Code Reach also reads each subagent transcript beside the session's own
+      (<session>/subagents/agent-*.jsonl), from its start when the file appears during a recorded session, and records
+      its replies, reasoning, actions and outputs with note subagent. Hermes hook payloads carry no tool result, so a
+      Hermes session records no output entries.
   W-TRN-4:
     name: code
     rule: >-
@@ -1863,6 +1886,26 @@ transcripts:
       files and the .git, node_modules, vendor, .bundle and tmp directories) with the digests it last recorded, and
       records each changed or new file with origin scan and each vanished file as deleted. Category assignment carries
       the slice's scope; extracurricular carries none.
+  W-TRN-7:
+    name: background sending and whole text
+    rule: >-
+      Since 2026-10-04i. Reach no longer waits for a hook to read and send. A background sender runs every
+      send_interval_s seconds (W-API-STATUS transcripts.send_interval_s, set by the course; 600 when absent, never
+      under 60): Reach's MCP server checks about once a minute while a harness session is open, and the operating
+      system job of W-SAFE-14 runs it as well, at the shorter of its own interval and send_interval_s, so a session
+      that ended without its end hook is still sent. One run reads, for every session recorded in the last 48 hours
+      whose latest hook found it inside the bounds of W-TRN-0 and that still meets them (enrolled, not revoked,
+      signed in, a current assignment), the harness transcript and its subagent transcripts from where Reach last
+      stopped, compares the slice's owned files as at a turn end (W-TRN-4), and then sends everything queued in
+      normal mode (W-TRN-2, W-SAFE-9). Each hook stores the session's harness, space and slice workspace for this; a
+      hook that finds the session outside the bounds switches the background reading off for it, and the next hook
+      that finds it inside again first moves past everything the harness transcript gained meanwhile, so nothing
+      said outside the bounds is read later. Nothing is cut to fit: a prompt, reply, reasoning block, action input
+      or tool output of more than 120000 bytes is recorded as consecutive entries of at most 120000 bytes each,
+      split on character boundaries, each with part [n, of] and with bytes and digest of its own text; every part
+      of a split prompt carries the source_digest of the whole prompt, and the ledger witnesses the first part's
+      seq with that digest. truncated stays true only where W-TRN-6 made a text grow past 131072 bytes (restore
+      holds the rest) and on code entries, whose text still stops at 131072 bytes.
   W-TRN-5:
     name: the course record
     rule: >-

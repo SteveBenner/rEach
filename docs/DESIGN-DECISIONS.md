@@ -65,6 +65,10 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 
 ## Data capture and privacy
 
+- **The record is whole and sent in the background** (10-04). Inside the same bounds as below, rEach also records
+  what each tool returned to the AI and each subagent's work, splits a long text across entries instead of cutting it,
+  and sends on a timer the course sets in Teach (600 s by default) from the open session and the background job, so
+  instructors do not wait for a turn end or a submission. The bounds themselves did not move.
 - **Signed-in assignment work is recorded** (10-03, replacing the 10-02 teardown). While a session is signed in, the
   course has a current assignment and the session runs in a slice or the course folder root, rEach records every
   prompt, the AI's replies, reasoning and actions, and the assignment code, and sends them to Teach, where the

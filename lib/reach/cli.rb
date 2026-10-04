@@ -1838,6 +1838,7 @@ module Reach
           source = Reach::Subscribe::SOURCES.include?(options[:source]) ? options[:source] : "background"
           Reach::Subscribe.tick(source: source)
           Reach::Transcript.stream
+          Reach::Subscribe.ensure! unless Reach::Subscribe.installed?
           0
         when "install"
           Reach::Subscribe.install!

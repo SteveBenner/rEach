@@ -1763,6 +1763,20 @@ transcripts:
     Entries are sent at turn end (quick: at most 3 requests, at most once every 60 s), on reach sync and before a
     submission that needs the student's own part, through the shared client (limiter, bounded retries, timeouts).
     A Teach that answers 403 or 404 stops the sending and Reach keeps every entry.
+  stream: >-
+    Since RV_TBD (STD-TRANSCRIPT-STREAM, W-TRN-7). Reach::Transcript.stream is the background sender: under
+    state/transcript-stream.lock, when state/transcript-stream.json shows the last run at least send_interval_s ago
+    (Reach::Transcript.send_interval_s reads transcripts.send_interval_s from the cached status, default 600, clamped
+    to 60..86400), it calls ingest_open_sessions and then flush in normal mode. reach transcript stream [--force] runs
+    it; Reach::Transcript.start_stream_thread (started by the MCP server) spawns it detached when due, and reach
+    subscribe tick calls it after the revision check. Reach::Subscribe.settings caps background_interval_s at
+    send_interval_s, so the operating system job is reinstalled at the course's interval. remember_context stores
+    {capture, harness, space, workspace} in the session state at every recording hook; TranscriptIngest.skip sets
+    capture false and moves every offset to the end; ingest_event skips instead of reading when capture was false.
+    TranscriptIngest reads tool results as output entries, keeps the last 500 tool call ids to name them, and reads
+    <session>/subagents/agent-*.jsonl with one offset per file. Reach::Transcript.text_parts and split_bytes split
+    text over PART_BYTES (120000) into entries with part; wire_entry sends part only when the status has
+    transcripts.parts, and sendable? holds part entries and action summaries over 2000 bytes otherwise.
   own_part: >-
     The prompt hook keeps the latest gate-allowed prompt typed in a slice or the workspace root that has at least
     the smallest min_words of any policy question and is not a consent yes or no, in ~/.reach/state/part/pending.json
