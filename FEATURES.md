@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.28.1 |
+| **Registry version** | 0.28.2 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -507,6 +507,9 @@ the agent debug mode and the health check outside the sandbox, and since 0.21.12
 updater: run starts `reach update run --apply --force` detached. Verified with the real `codex sandbox` runner on Linux;
 not yet seen on a student's macOS Codex. `reach_update` was driven over stdio in a scratch home on 2026-10-03: status
 named the version, run started the detached updater and the next status showed its check.
+Since 0.28.2 M-SANDBOX-STUDENT names the course folder by its path on this computer and says it is the folder holding
+`deliverables` and `extracurricular`; a Windows Codex student had been told they had no course folder (2026-10-04).
+Verified on Linux in a scratch home with `CODEX_SANDBOX_NETWORK_DISABLED=1`; the Windows path separator was not run.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 

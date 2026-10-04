@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.28.1
+version: 0.28.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -558,7 +558,10 @@ harness_integration:
       Codex applies a course folder's .codex/config.toml only when the student trusts that folder; elsewhere its own
       sandbox blocks the network and the Reach home for every shell command. Since 0.21.8 (STD-CODEX-SANDBOX) Reach
       says so in plain words (M-SANDBOX-AGENT, M-SANDBOX-STUDENT) instead of reporting a lost connection or a hiccup,
-      and the agent reaches debug mode and the health check through reach_debug and reach_doctor.
+      and the agent reaches debug mode and the health check through reach_debug and reach_doctor. Since 0.28.2
+      M-SANDBOX-STUDENT names the course folder by its path on this computer (Reach::Paths.workspace_root, with the
+      computer's own path separator) and says it holds deliverables and extracurricular, so the student opens that
+      folder itself.
     limits_stated_honestly: >-
       Codex now has PreToolUse hooks; file writes arrive as apply_patch with the patch text, and reach gate write reads
       the patch's file headers. Codex runs a project's .codex/hooks.json and the plugin's hooks only after the student

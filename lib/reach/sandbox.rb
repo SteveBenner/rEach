@@ -33,7 +33,12 @@ module Reach
     end
 
     def agent_text
-      Reach::Messages.text("M-SANDBOX-AGENT", student: Reach::Messages.text("M-SANDBOX-STUDENT"))
+      Reach::Messages.text("M-SANDBOX-AGENT", student: Reach::Messages.text("M-SANDBOX-STUDENT", folder: course_folder))
+    end
+
+    def course_folder
+      path = Reach::Paths.workspace_root
+      File::ALT_SEPARATOR ? path.tr(File::SEPARATOR, File::ALT_SEPARATOR) : path
     end
 
     def reset!
