@@ -277,6 +277,22 @@ module Reach
       false
     end
 
+    def signin_hook_dead?(env = environment)
+      return false unless family_of(env["harness"]) == "codex"
+
+      ran = (read_json(enroll_seen_file) || {})["at"].to_s
+      return true if ran.empty?
+
+      seen = read_json(hooks_seen_file) || {}
+      started = seen["session_at"].to_s
+      if !started.empty? && family_of(seen["session_label"]) == "codex"
+        return Time.parse(ran) < Time.parse(started)
+      end
+      enroll_hook_quiet?(HOOKS_QUIET_S)
+    rescue StandardError
+      false
+    end
+
     def require_hooks!
       return nil unless guard_enabled? && prompt_hook_dead?
 
@@ -289,6 +305,8 @@ module Reach
         Reach::Sandbox.blocked?
       when "hooks_not_running"
         mcp && prompt_hook_dead?(env)
+      when "signin_hook_not_running"
+        mcp && signin_hook_dead?(env)
       else
         false
       end
@@ -326,7 +344,7 @@ module Reach
     end
 
     def remedy_lines(found)
-      Array(found).select { |item| item.is_a?(Hash) && item["remedy"].is_a?(Hash) }.map do |item|
+      Array(found).select { |item| item.is_a?(Hash) && item["detected"] && item["remedy"].is_a?(Hash) }.map do |item|
         Reach::Messages.text("M-KNOWN-ISSUE-REMEDY", title: item["title"], call: remedy_call(item["remedy"]))
       end
     rescue StandardError

@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-04'
+recorded: '2026-10-05'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -2563,5 +2563,8 @@ known_issues:
       Reach implements codex_sandbox (Reach::Sandbox.blocked?, STD-CODEX-SANDBOX) and hooks_not_running (an MCP call
       on a Codex harness when no Reach hook has run on this computer for 15 minutes; since 2026-10-04e a
       session-start hook does not count, only a prompt, tool or stop hook; since 2026-10-04f it is also detected at
-      once when a session-start hook ran on Codex and no prompt hook has run since). A detector name Reach does not
+      once when a session-start hook ran on Codex and no prompt hook has run since). Since 2026-10-05a Reach also
+      implements signin_hook_not_running (an MCP call on a Codex harness when the plugin's own prompt hook, gate
+      enroll, has not run since the latest Codex session start, or never ran, or with no session start recorded has
+      not run for 15 minutes); hooks_not_running reads only the course-folder hooks. A detector name Reach does not
       implement is never detected; its entry is still listed.

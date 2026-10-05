@@ -1042,7 +1042,7 @@ mcp_bridge:
   - name: reach_modules
     description: Show the student's modules or options, or choose them; returns Reach's lock-in question until the student's captured yes
   - name: reach_next
-    description: The deterministic next step for the student, in business terms
+    description: The deterministic next step for the student, in business terms; since 0.34.5 (STD-SIGNIN-HOOK-SILENT) it says M-NEXT-LOGIN-NO-HOOK instead of asking for the student ID when Codex is not running rEach's sign-in hook
   - name: reach_remember
     description: Keep one durable finding about the student or their work (category, claim, evidence, optional supersedes and, since 0.18.0, origin import:JOB/CONVERSATION); returns saved, reinforced or held
   - name: reach_recall

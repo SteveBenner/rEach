@@ -241,6 +241,7 @@ messages:
   M-SUPPORT-QUEUED: "Your instructor will be told you may need support as soon as this computer is back online."
   M-SUPPORT-RECENT: "Your instructor was already told in the last hour."
   M-NEXT-LOGIN: "Sign in: type your student ID."
+  M-NEXT-LOGIN-NO-HOOK: "rEach can't sign you in yet, because Codex isn't running rEach's sign-in step on this computer. Please don't type your student ID or password in this chat. Quit Codex completely and open it again. If Codex shows a notice about hooks to review or trust, open it and allow rEach's hooks. Then start a new chat and say hi. If rEach still doesn't ask you to sign in, tell your instructor."
   M-NEXT-ENROLL: "Connect rEach to your course with the course passkey from your instructor."
   M-NEXT-CHOOSE: "Choose your {count} modules for the course before {closes}."
   M-NEXT-CHOOSE-OPEN: "Choose your {count} modules for the course."

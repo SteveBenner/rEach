@@ -3,9 +3,13 @@ require "time"
 module Reach
   module Next
     class << self
-      def compute
+      def compute(mcp: false)
         return result("M-NEXT-ENROLL") unless Reach::Enroll.current
-        return result("M-NEXT-LOGIN") if Reach::Login.required? && !Reach::Login.any_active?
+        if Reach::Login.required? && !Reach::Login.any_active?
+          return result("M-NEXT-LOGIN-NO-HOOK") if mcp && Reach::KnownIssues.signin_hook_dead?
+
+          return result("M-NEXT-LOGIN")
+        end
 
         status = Reach::Sync.cached_status || {}
         selection = status["module_selection"].is_a?(Hash) ? status["module_selection"] : {}

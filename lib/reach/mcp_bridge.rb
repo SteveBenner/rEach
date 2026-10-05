@@ -578,7 +578,7 @@ module Reach
         when "reach_memory_forget"
           forget_tool(arguments)
         when "reach_next"
-          step = Reach::Next.compute
+          step = Reach::Next.compute(mcp: true)
           step.merge("relay_verbatim" => true)
         when "reach_announcements"
           { "announcements" => Reach::Announcements.list }
