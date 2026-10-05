@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - A rEach tool could stop answering in the middle of a chat, on macOS and on Windows, after rEach updated itself or
-  the harness refreshed its copy of the plugin (issue `iss_a21b0970be2cbd119569`, `Errno::ENOENT` in `mcp:loop`,
+  the harness refreshed its copy of the plugin (`Errno::ENOENT` in `mcp:loop`,
   still reported on 0.35.17). The tool bridge (`reach mcp`) stays open for the whole chat, and `Reach::Messages`
   read `locales/en-US.yml` only when the first message was needed, from the plugin folder the bridge was started
   from. Once that folder had been moved or removed the read raised `Errno::ENOENT`, both rescue paths in
