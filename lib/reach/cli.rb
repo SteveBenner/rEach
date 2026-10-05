@@ -134,7 +134,7 @@ module Reach
           code = Reach::Client.with_deadline(hook_budget(argv)) { dispatch_hook(argv) }
         rescue Reach::GateBlocked => e
           Reach::Debug.note(e)
-          warn e.message
+          warn e.message unless cowork_prompt_hook?(argv)
           code = 2
         rescue StandardError, ScriptError => e
           failure = e
@@ -142,6 +142,11 @@ module Reach
           $stdout = original
         end
         printed = buffer.string
+        if code == 2 && !failure && cowork_prompt_hook?(argv)
+          printed = "#{code_tab_payload(@gate_event)}\n"
+          code = 0
+          Reach::Debug.emit("gate", "check" => argv[1].to_s, "outcome" => "context", "message_id" => "M-COWORK-CODE-TAB")
+        end
         unless printed.empty?
           original.write(printed)
           original.flush
@@ -185,6 +190,15 @@ module Reach
         0
       rescue StandardError
         closed ? 2 : 0
+      end
+
+      def cowork_prompt_hook?(argv)
+        return false unless argv.first == "gate" && CODE_TAB_SUBS.include?(argv[1].to_s)
+        return false if hook_hermes?(argv)
+
+        CODE_TAB_HARNESSES.include?(Reach::Fingerprint.harness_label(hook_harness_flag(argv)))
+      rescue StandardError
+        false
       end
 
       def dispatch_hook(argv)
@@ -723,6 +737,7 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
+        @gate_event = event
         hook_kind = { "prompt" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
         if sub == "enroll"
           label = Reach::Fingerprint.harness_label(options[:harness])

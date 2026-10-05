@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.7] - 2026-10-05
+
+### Fixed
+
+- In Claude Cowork on Windows the plugin installed, and then every message the student sent got no answer: Claude
+  thought for a moment and the turn ended. Cowork shows a prompt that a hook blocks as an empty turn, and rEach's
+  Cowork check (0.33.3) missed two ways of reaching a block. It knew only the entry points `local-agent` and
+  `remote_cowork`; Claude Code 2.1.289 also names `local_agent`, `remote_cowork_trigger`, `claude-coworker` and
+  `claude-coworker-terminal`, and under those rEach blocked the prompt with its enrollment question
+  (`Reach::Fingerprint::COWORK_ENTRYPOINT` in `lib/reach/fingerprint.rb`). And a block raised anywhere outside that
+  check still exited 2. In Cowork the prompt hooks (`gate enroll`, `gate prompt`) now never exit 2: a block there
+  becomes the Code tab message, exit 0 (`Reach::CLI.cowork_prompt_hook?` and `run_hook` in `lib/reach/cli.rb`,
+  STD-COWORK-CODE-TAB). A prompt that matches the crisis check still gets the support message. Every other app is
+  unchanged.
+- Not verified: a real Cowork session on Windows. Which of the two paths the Windows computer took is not known; no
+  Cowork install has ever reported to Teach. The hook was run under each entry point before and after the change,
+  and with the first check switched off.
+
 ## [0.35.6] - 2026-10-05
 
 ### Fixed

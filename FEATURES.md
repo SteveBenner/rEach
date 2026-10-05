@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.6 |
+| **Registry version** | 0.35.7 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1195,6 +1195,13 @@ Since 0.33.3 rEach does not enroll or sign in from Cowork: an unenrolled or sign
 message sending the student to the Claude app's Code tab (`M-COWORK-CODE-TAB`), because Cowork showed rEach's
 blocked prompt as "Claude's response came back empty". Checked with the hook run under
 `CLAUDE_CODE_ENTRYPOINT=local-agent` and real Claude turns; never run in Cowork itself.
+
+Since 0.35.7 the hook knows every Cowork entry point Claude Code 2.1.289 names (`local_agent`, `remote_cowork_trigger`,
+`claude-coworker` and `claude-coworker-terminal` as well), and a Cowork prompt hook that would still block answers
+with the same Code tab message and exit 0, because on Windows every Cowork message ended in an empty turn. Checked by
+running the hook under each entry point before and after, and with the first check switched off; never run in Cowork
+itself.
+Build ✅ · Deploy 🔵 · Blocker: Human (send one message in Cowork on a Windows computer with rEach installed).
 
 Claude desktop, plugin added from Customize > Plugins; the reason the executable lives at `exe/reach` rather than a
 top-level `bin/` (Cowork refuses a plugin that carries one).

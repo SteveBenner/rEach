@@ -24,6 +24,7 @@ module Reach
       "sdk-py" => "claude-agent-sdk",
       "remote" => "claude-code-web"
     }.freeze
+    COWORK_ENTRYPOINT = /\A(?:local[-_]agent|remote_cowork|claude-coworker)/.freeze
     READER_TIMEOUT_S = 3
     UNKNOWN = "unknown".freeze
 
@@ -63,6 +64,7 @@ module Reach
         return "codex-tui"
       end
       entry = ENV["CLAUDE_CODE_ENTRYPOINT"].to_s
+      return "claude-cowork" if entry.match?(COWORK_ENTRYPOINT)
       return CLAUDE_ENTRYPOINTS.fetch(entry) { "claude-code-#{entry.gsub(/[^a-z0-9_-]/i, '')[0, 24]}" } unless entry.empty?
       return "hermes" if hint == "hermes" || ENV["HERMES_HOME"].to_s != ""
       return "terminal" if hint == "cli"
