@@ -447,7 +447,7 @@ module Reach
         "command" => name.match?(/\A[a-z-]{1,24}\z/) ? name : "?", "sub" => sub, "flags" => flags,
         "exit" => exit_value, "duration_ms" => elapsed_ms(started), "error" => raised ? raised.class.name : nil
       )
-      error(raised, "command") if raised && !raised.is_a?(Reach::Error)
+      error(raised, "command") if raised && !raised.is_a?(Reach::Error) && !raised.is_a?(SignalException)
     rescue StandardError
       nil
     end

@@ -570,7 +570,7 @@ module Reach
     def install!
       plan = job_plan
       signature = plan_signature(plan)
-      if plan["needs_manager"] && !run_os(%w[systemctl --user show-environment]).first
+      if plan["needs_manager"] && !run_os(*%w[systemctl --user show-environment]).first
         record_job("installed" => false, "platform" => platform, "error" => "systemd user manager unavailable")
         return :unsupported
       end

@@ -476,6 +476,10 @@ module Reach
           error(id, -32000, e.message)
         end
       rescue StandardError, ScriptError => e
+        if e.is_a?(KeyError) && e.receiver.equal?(arguments)
+          return error(id, -32602, "reach: #{tool_label(name)} needs the argument #{e.key.to_s.inspect}")
+        end
+
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
         error(id, -32000, Reach::Messages.text("M-REACH-HICCUP-TOOL"))
       end

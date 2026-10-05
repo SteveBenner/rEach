@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.32.1
+version: 0.32.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -980,6 +980,10 @@ mcp_bridge:
   subscription: >-
     Since 0.22.0 serving starts one daemon thread that spawns a detached reach subscribe tick --source session about every
     60 seconds (STD-TEACH-SUBSCRIBE, subscription); it never writes to stdout or stderr and never blocks a tool call.
+  missing_arguments: >-
+    Since 0.32.2 a tools/call that leaves out an argument the tool requires is answered with JSON-RPC error -32602
+    naming the tool and the argument, and records no fault. Before it the agent got M-REACH-HICCUP-TOOL and Teach
+    received a KeyError fault.
   tools:
   - name: reach_status
     description: The student's enrollment, current assignment, slices, package versions and outstanding receipts
@@ -1356,7 +1360,8 @@ subscription:
     Reach::Subscribe.install!, uninstall! and installed? manage one idempotent job running <ruby> <shim> subscribe tick
     --source background every background_interval_s. Linux: reach-subscribe.service and reach-subscribe.timer in
     ~/.config/systemd/user (REACH_SYSTEMD_USER_DIR overrides the folder and suppresses every systemctl call), enabled
-    with systemctl --user enable --now; with no usable systemctl --user nothing is installed. macOS:
+    with systemctl --user enable --now; with no usable systemctl --user nothing is installed (before 0.32.2 the check
+    for it could not run, so no Linux job was ever installed). macOS:
     ~/Library/LaunchAgents/reach.subscribe.plist loaded with launchctl bootstrap gui/<uid> or launchctl load -w.
     Windows: schtasks task rEach\Update check for the current user, run through rubyw.exe or, when absent, wscript.exe
     on ~/.reach/bin/reach-subscribe.vbs. Every operating system call times out at 10 s and never prompts; a failure is

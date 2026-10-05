@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.2] - 2026-10-04
+
+### Fixed
+
+- On Linux the background update check was never installed. `Reach::Subscribe.install!` passed its
+  `systemctl --user show-environment` check to `run_os` as one array, `Process.spawn` raised `ArgumentError`, and
+  every install was recorded as "systemd user manager unavailable" with a `subscribe:os` fault sent to Teach.
+- An MCP tool called without an argument it requires answered `M-REACH-HICCUP-TOOL` and sent Teach a `KeyError`
+  fault (`mcp:reach_reference`, `mcp:reach_remember`). `Reach::MCPBridge.call_tool` now answers JSON-RPC error
+  -32602 naming the tool and the missing argument, and records no fault.
+- Stopping `reach mcp` with a signal (how a harness ends the server) recorded a debug `error` event for
+  `SignalException`. `Reach::Debug.command` no longer records one; the `command` event still names the signal.
+
 ## [0.32.1] - 2026-10-04
 
 ### Fixed
