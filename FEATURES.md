@@ -525,9 +525,10 @@ yet run in a real harness session. The 0.35.13 pass was verified the same way: n
 the revoked, stamp-invalid, moved and course-ended locks lifted for that chat only, revocation and key removal voiding
 the pass, the command-line argument refused, and a non-enrolled install unchanged. 0.35.13 was never released; its
 pass ships in 0.35.14, which signs each pass with an HMAC keyed from the install key and ignores a pass that is
-unsigned, edited, dated ahead or longer than a sign-in. 0.35.14 also removes a code that 0.35.12 stored on an enrolled
-install at the next session start, and neither that removal nor `reach instructor lock` keeps the code in its backup.
-Checked in scratch homes before commit: forged passes refused, a stored code removed, `lock` keeping no code, and a
+unsigned, edited, dated ahead or longer than a sign-in. The seal stops other programs and accidents, not the student
+at that computer, who can read the install key. 0.35.14 also removes a code that 0.35.12 stored on an enrolled
+install at the next session start, and neither that removal nor `reach instructor lock` keeps the code in its backup. A backup made by `lock` under 0.35.12 still holds the code until 0.35.15.
+Checked in scratch homes before commit: hand-edited passes refused, a stored code removed, `lock` keeping no code, and a
 non-enrolled install unchanged; not yet run in a real harness session.
 
 Build ✅ · Deploy 🔵 · Blocker: Human. Since 0.16.18 the instructor key `343572ebf748c69d` is pinned in `config.yml`, so codes minted from it unlock installs on 0.16.18 or later; no instructor has yet unlocked a real harness session with one.
