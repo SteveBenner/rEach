@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `STD-ENROLL-LOCKDOWN` now says what happens to a bare course id that is shaped like a passkey with no separator
-  (`BUS201FA26`): it is sent to Teach, which answers `course_only`, and the student sees
+  (`BUS101AFA26K7QX`): it is sent to Teach, which answers `course_only`, and the student sees
   M-ENR-CODE-COURSE-ONLY. Checked against live Teach; no code change.
 
 ## [0.35.19] - 2026-10-05

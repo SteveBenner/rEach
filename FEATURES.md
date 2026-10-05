@@ -1307,7 +1307,7 @@ parsing no longer sends chat sentences; the request log redacts the passkey; con
 `work_at` comes only from course-folder work hooks; the submission ZIP leaves out read-only kit files and uses the
 Windows Downloads known folder; the runtime kit matches a lock in LF or CRLF form; `update run --apply` refreshes a
 plugin-cache install through the harness CLI. Verified on Linux with scratch homes, fake harness CLIs and the
-fixture Teach. Sven confirmed it working in real Codex Desktop on Windows on 2026-10-05 (0.35.19); the Claude Code
+fixture Teach. The maintainer confirmed it working in real Codex Desktop on Windows on 2026-10-05 (0.35.19); the Claude Code
 app's marketplace box is still untested. Since 0.35.20 `CODEX_CLI_PATH` is used only when it names `codex` or
 `codex.exe`, and `tools/release_stable.rb` moves `stable` to a Latest release (fast-forward only).
 
