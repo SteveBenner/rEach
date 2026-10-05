@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.33.4
+version: 0.33.5
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -169,6 +169,8 @@ standards:
     text: "Since 0.18.1 reach version, reach --version and reach -V print reach <VERSION> and exit 0, and work before enrollment."
   - id: STD-QUALIFY-UTF8
     text: "Since 0.21.6 reach qualify reads the agent's feature files as UTF-8 whatever the computer's locale, replacing invalid bytes, so a scenario that names a non-ASCII value (for example a Japanese label) cannot crash the coverage step with Encoding::CompatibilityError under a C or POSIX locale."
+  - id: STD-KIT-CLEAN-ENV
+    text: "Since 0.33.5 every launch of the runtime kit's Ruby (the qualify gem install and bundle check, the cucumber run, the GCM re-exec and doctor's kit probe) goes through Reach::RuntimeKit.clean_env, which unsets RUBYOPT, RUBYLIB, GEM_HOME, GEM_PATH, GEM_SPEC_CACHE, RUBYGEMS_GEMDEPS and every inherited BUNDLE_ and BUNDLER_ variable before the launch's own settings apply. A student whose own Ruby exports these (a Ruby 3.3.8 under ~/.local/usr exported RUBYLIB at its 3.3 standard library) otherwise made the kit Ruby 4.0.7 load the wrong rubygems at start and exit with \"ruby lib version (3.3.8) doesn't match executable version (4.0.7)\", so reach qualify could never run while reach runtime install's ruby -v smoke still passed. LD_LIBRARY_PATH and DYLD_ variables are left alone: the kit Ruby is statically linked to libruby and Chrome may need them. Launches of a Ruby already on the computer keep the student's environment."
   - id: STD-QUALIFY-REMOTE-BUDGET
     text: "Since 0.21.2 the Teach half of reach qualify (the upload and the polls for its result) runs under its own 20-second deadline that starts after the local steps, so an MCP reach_qualify call whose local steps outlast the 25-second tool budget still reaches Teach, and the whole call stays inside Codex's 60-second tool timeout. A poll that runs out leaves the qualification pending with its id, and the next reach qualify of the same files resumes it. A Reach deadline running out is told as M-TEACH-DEADLINE and does not mark the Teach connection lost."
   - id: STD-QUALIFY-UNCOVERED

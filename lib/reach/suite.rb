@@ -78,6 +78,7 @@ module Reach
         env = { "BUNDLE_GEMFILE" => env_gemfile, "BUNDLE_PATH" => Reach::Paths.gems_dir }
         command = runtime ? [ruby_exe, File.join(ruby_bin, "bundle"), "install", "--quiet"] : ["bundle", "install", "--quiet"]
         env["PATH"] = "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" if ruby_bin
+        env = Reach::RuntimeKit.clean_env(env) if runtime
         stdout, stderr, status = Open3.capture3(env, *command, chdir: env_dir)
         unless status.success?
           hint = if runtime
@@ -103,8 +104,8 @@ module Reach
       end
 
       def profile_ready?(ruby_exe, ruby_bin, profile)
-        env = { "BUNDLE_GEMFILE" => profile["gemfile"], "BUNDLE_PATH" => profile["dir"], "BUNDLE_FROZEN" => "true",
-                "PATH" => "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}" }
+        env = Reach::RuntimeKit.clean_env("BUNDLE_GEMFILE" => profile["gemfile"], "BUNDLE_PATH" => profile["dir"], "BUNDLE_FROZEN" => "true",
+                                          "PATH" => "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}")
         _stdout, _stderr, status = Timeout.timeout(60) do
           Open3.capture3(env, ruby_exe, File.join(ruby_bin, "bundle"), "check", chdir: profile["dir"])
         end
@@ -153,6 +154,7 @@ module Reach
         env["REACH_CHROME"] = chrome if chrome
         env["CUPRITE_NO_SANDBOX"] = "1" if sandbox_blocked?(chrome)
         env.merge!(extra_env)
+        env = Reach::RuntimeKit.clean_env(env) if ruby_exe && ruby_bin
         args = ruby_exe && ruby_bin ? [ruby_exe, File.join(ruby_bin, "bundle"), "exec", "cucumber", "--format", "json"] : ["bundle", "exec", "cucumber", "--format", "json"]
         Array(tags).each { |tag| args += ["--tags", tag] }
 

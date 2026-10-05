@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.5] - 2026-10-05
+
+### Fixed
+
+- `reach qualify` could never run on a computer whose own Ruby exports `RUBYLIB`, `RUBYOPT`, `GEM_HOME`, `GEM_PATH`
+  or Bundler settings. A student's Ruby 3.3.8 under `~/.local/usr` exported `RUBYLIB` at its 3.3 standard library, so
+  the runtime kit's Ruby 4.0.7 loaded the wrong rubygems at start and exited with "ruby lib version (3.3.8) doesn't
+  match executable version (4.0.7)"; the assignment could not be qualified or submitted, while `reach runtime install`
+  (whose smoke is `ruby -v`) and `reach doctor` (which cleared only some of the variables) both looked healthy. Every
+  launch of the kit Ruby now goes through `Reach::RuntimeKit.clean_env` (`lib/reach/runtime_kit.rb`), which unsets
+  those variables and every inherited `BUNDLE_`/`BUNDLER_` variable: the gem install and bundle check and the cucumber
+  run in `lib/reach/suite.rb`, the GCM re-exec in `lib/reach/crypto_probe.rb` and doctor's kit probe in
+  `lib/reach/diagnose.rb` (STD-KIT-CLEAN-ENV). A Ruby already on the computer keeps the student's environment.
+
 ## [0.33.4] - 2026-10-04
 
 ### Fixed

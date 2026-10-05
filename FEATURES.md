@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.33.4 |
+| **Registry version** | 0.33.5 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -241,7 +241,11 @@ carries `practice_readme`; checked on 2026-10-01 with one such row and one ordin
 QF-LOCAL-FAIL. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
 qualify whose local steps outlast the 25-second tool budget still reaches Teach; verified on 2026-10-03 in the slice-build
 smoke (run 20261002_215550, context.a4s2, on the same change over 0.20.5), where both qualifications reached the scratch
-Teach and finished, against none in the run before.
+Teach and finished, against none in the run before. Since 0.33.5 (`STD-KIT-CLEAN-ENV`) every launch of the kit Ruby unsets
+the computer's own Ruby and Bundler variables (`RUBYLIB`, `RUBYOPT`, `GEM_*`, `BUNDLE_*`): a student's Ruby 3.3.8
+exported `RUBYLIB`, so the kit Ruby 4.0.7 died at start and qualify never ran; reported on 2026-10-05. Checked on
+Linux with those variables set: `Reach::Suite.install_gems` and `cucumber` on a Grokit kit fail with the student's
+error on 0.33.4 and run (exit 0) on 0.33.5; the student's own machine and macOS/Windows not yet run.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

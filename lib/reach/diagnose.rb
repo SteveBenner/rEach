@@ -125,13 +125,14 @@ module Reach
         if label == "running"
           entry.merge("gcm_ok" => Reach::CryptoProbe.gcm_self_test["ok"])
         else
-          entry.merge(probe(exe, lib))
+          entry.merge(probe(exe, lib, kit: label == "kit"))
         end
       end
     end
 
-    def probe(exe, lib)
+    def probe(exe, lib, kit: false)
       env = { "REACH_KIT_FALLBACK" => "0", "RUBYOPT" => nil, "GEM_HOME" => nil, "GEM_PATH" => nil }
+      env = Reach::RuntimeKit.clean_env(env) if kit
       out, err, status = run_with_timeout(env, [exe, "-I", lib, "-e", PROBE_SCRIPT])
       return { "error" => "exited #{status.inspect}: #{err.to_s.lines.last.to_s.strip[0, 300]}" } unless status == 0
 

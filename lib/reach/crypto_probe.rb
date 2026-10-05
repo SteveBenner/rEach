@@ -132,7 +132,7 @@ module Reach
       end
 
       Reach::Debug.emit_always("fault", fault_fields(result, "kit_reexec"))
-      env = { REEXEC_ENV => "1" }
+      env = Reach::RuntimeKit.clean_env(REEXEC_ENV => "1")
       exec(env, kit, exe, *argv)
     rescue SystemCallError, NotImplementedError
       nil

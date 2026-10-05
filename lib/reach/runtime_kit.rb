@@ -28,8 +28,18 @@ module Reach
       doctor_chrome: "R-DOC-CHROME: no usable Chrome was found - run reach runtime install",
       installed: "Reach runtime %{runtime_id} installed: Ruby %{ruby}, Chrome %{chrome}, %{profiles} gem profile(s)"
     }.freeze
+    INHERITED_RUBY_ENV = %w[RUBYOPT RUBYLIB GEM_HOME GEM_PATH GEM_SPEC_CACHE RUBYGEMS_GEMDEPS].freeze
+    INHERITED_RUBY_ENV_PREFIXES = %w[BUNDLE_ BUNDLER_].freeze
 
     module_function
+
+    def clean_env(overlay = {})
+      cleared = INHERITED_RUBY_ENV.to_h { |name| [name, nil] }
+      ENV.each_key do |name|
+        cleared[name] = nil if INHERITED_RUBY_ENV_PREFIXES.any? { |prefix| name.start_with?(prefix) }
+      end
+      cleared.merge(overlay)
+    end
 
     def copy(key, values = {})
       COPY.fetch(key) % values
