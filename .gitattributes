@@ -1,0 +1,8 @@
+/.githooks export-ignore
+/.github export-ignore
+/tools export-ignore
+/specs/implementation export-ignore
+/docs/smoke-assignment-1.md export-ignore
+/docs/deploy-and-test.md export-ignore
+/docs/assets/figures/08-deployment-topology-light.svg export-ignore
+/docs/assets/figures/08-deployment-topology-dark.svg export-ignore

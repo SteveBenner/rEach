@@ -12,6 +12,6 @@ echo "       mkdir -p ~/.config/reach-security-audit"
 echo "       umask 077; printf '%s' '<token>' > ~/.config/reach-security-audit/token"
 echo "       chmod 600 ~/.config/reach-security-audit/token"
 echo "     or export REACH_SECURITY_AUDIT_TOKEN. The file must be mode 0600 or it is refused."
-echo "  3. Point TEACH_URL at Teach if it is not http://127.0.0.1:7400."
+echo "  3. The gate reaches Teach at config.yml teach.url; export TEACH_URL to use another address."
 echo
 echo "Skip once with REACH_SECURITY_AUDIT=0 git push. Settings are managed in the Teach console under Ops."

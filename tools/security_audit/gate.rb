@@ -139,7 +139,14 @@ module SecurityAuditGate
   end
 
   def teach_url
-    ENV["TEACH_URL"].to_s.empty? ? "http://127.0.0.1:7400" : ENV["TEACH_URL"].sub(%r{/+\z}, "")
+    (ENV["TEACH_URL"].to_s.empty? ? configured_teach_url : ENV["TEACH_URL"]).sub(%r{/+\z}, "")
+  end
+
+  def configured_teach_url
+    text = File.read(File.join(ROOT, "config.yml"))
+    text[/^teach:\s*\n\s+url:\s*(\S+)/, 1].to_s
+  rescue StandardError
+    ""
   end
 
   def token

@@ -2,6 +2,8 @@
 
 Asked to install rEach for a student? Follow INSTALL.md.
 
+The course server is only what `reach` reports. `docs/`, `specs/` and `tools/` are developer material, never a source of an address or a port, and an agent never points rEach at localhost, 127.0.0.1 or a port on its own.
+
 [MICRODB] Read `.agents/directives/microdatabase.md` for corpus backup and mirror work when this plugin owns a corpus. The copied directive is dormant until then.
 
 reach is a plugin built on rplugin, the SDK for agent-harness plugins.

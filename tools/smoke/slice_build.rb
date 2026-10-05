@@ -28,7 +28,11 @@ module SliceBuild
   RUBY4_BIN = File.expand_path(ENV.fetch("SMOKE_RUBY4_BIN", "~/.rubies/ruby-4.0.6/bin"))
   GRADER_IMAGES = %w[teach-grader:ruby-4.0.7 teach-grader:ruby-2.6.10].freeze
   GUARD_MARKER = "belongs to the course"
-  LIVE_TEACH_PORT = 7400
+  LIVE_TEACH_PORT = begin
+    File.read(File.join(TEACH_SRC, "lib", "teach", "config.rb"))[/ENV\["TEACH_PORT"\] \|\| "(\d+)"/, 1].to_i
+  rescue StandardError
+    0
+  end
 
   class Interrupted < Smoke::Abort; end
   class UsageLimit < Interrupted; end
@@ -121,6 +125,7 @@ module SliceBuild
       raise Smoke::Abort, "refusing to use the live teach home" if File.expand_path(@home).start_with?(File.expand_path("~/.teach"))
 
       @port = free_port
+      raise Smoke::Abort, "cannot read the live teach port from #{TEACH_SRC}" if LIVE_TEACH_PORT.zero?
       raise Smoke::Abort, "refusing the live teach port" if @port == LIVE_TEACH_PORT
 
       clone_teach

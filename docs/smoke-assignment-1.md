@@ -91,17 +91,17 @@ pass needs from it:
   backend slice;
 - assignment A1 released before any enrollment code is issued;
 - the Teach server and its grader both running, or no grade will ever come back;
-- the server listening on the instructor machine's LAN address, port 7400, for the length
-  of the test.
+- the server listening on the instructor machine's LAN address, on the port the instructor
+  chose, for the length of the test.
 
 Listening on the LAN exposes Teach to the whole network; do it only on a trusted
-network. The teacher URL is `http://<instructor LAN address>:7400`. Find the address
+network. The teacher URL is `http://<instructor LAN address>:<port>`. Find the address
 with `ip -4 addr` or `ipconfig getifaddr en0` and give it to the student explicitly;
 nothing scans the network and students never assume localhost.
 
 Give the student the URL and the code together, outside the chat with Codex is fine:
 
-> Course server: `http://192.168.1.20:7400`, your code: `<code from codes.csv>`.
+> Course server: `http://<instructor LAN address>:<port>`, your code: `<code from codes.csv>`.
 
 Student session, in a fresh Codex session on a machine with no rEach installed. Use
 a scratch account or an empty `CODEX_HOME` if it is the same machine. The first
@@ -165,7 +165,7 @@ Same-WiFi second-device test. Run once with Teach listening on the instructor ma
 and a different physical device on the same WiFi as the student:
 
 1. On the instructor machine, note the LAN address and confirm from the second device:
-   `curl -sS http://<lan address>:7400/api/v1/health` (or any GET the server answers)
+   `curl -sS http://<lan address>:<port>/api/v1/health` (or any GET the server answers)
    returns an HTTP response, not a timeout.
 2. If it times out, check the instructor machine's firewall and that both devices are on
    the same network, not a guest or client-isolated one; do not change the bind to a
