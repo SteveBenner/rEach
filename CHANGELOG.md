@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.11] - 2026-10-05
+
+### Fixed
+
+- A student or developer who forgot the rEach password stayed stuck in the sign-in loop and then the lockout, even
+  after pasting a valid instructor code. On an enrolled install the code was stored but did nothing, though
+  `M-INSTRUCTOR-UNLOCKED` said rEach no longer blocked prompts. A code typed during a password step could even count
+  as a wrong password. Now a valid code typed at any prompt, in any state, is never judged as an answer and never
+  counted. On an enrolled install it signs that chat in as the enrolled student (`M-INSTRUCTOR-SIGNED-IN`) and clears
+  the sign-in failures, the sign-in lockout and the enrollment lockout. A new chat signs in as usual. When the plugin
+  hook and a course-folder hook both see the code, exactly one answers. `instructor.signed_in` is logged with the code
+  id, never the code (`STD-INSTRUCTOR-UNLOCK`).
+- New `reach instructor unlock [CODE]` does the same from a terminal, reading the code hidden when none is given. It
+  signs in the chat waiting for sign-in, so it works when no hook runs. A code typed at `reach login password` is
+  handled the same way.
+- An instructor's "Allow password reset" in Teach could not help a locked-out student, because the lockout answered
+  first. Now, during a lockout, the prompt hook asks Teach at most once a minute whether a reset is allowed. If it is,
+  rEach clears the lockout (`M-LOGIN-UNLOCKED-BY-TEACH`). A chat that already passed the student ID and yes goes
+  straight to choosing a new password; any other chat continues from its step, so the identity check is never
+  skipped. `M-LOGIN-LOCKED` now says the instructor can lift it this way (`STD-SIGNIN-PASSWORD`).
+
 ## [0.35.10] - 2026-10-05
 
 ### Changed

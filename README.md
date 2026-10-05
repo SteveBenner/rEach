@@ -205,6 +205,8 @@ An instructor can try rEach without enrolling. Run `reach instructor keygen` onc
 the repository and prints the public key entry to add under `enrollment.instructor_keys` in `config.yml`, which ships in
 a release. Mint a code in your own terminal with `reach instructor code --label NAME`, then paste it into the locked
 prompt in any harness: rEach intercepts it, so the agent never sees it, and stops blocking prompts on that computer.
+On an enrolled computer, the same code typed at any prompt, even mid sign-in or during a lockout, signs that chat in
+and clears the lockouts; `reach instructor unlock` does it from a terminal when no hook runs.
 `reach instructor status` shows the unlock and `reach instructor lock` undoes it. Keep codes and the key out of chats
 and repositories. To revoke a code, add its id (shown by `reach instructor status`) to `enrollment.instructor_revoked`
 in `config.yml`; removing the key entry revokes every code it signed.
