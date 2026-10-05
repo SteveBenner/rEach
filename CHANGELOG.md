@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.8] - 2026-10-05
+
+### Fixed
+
+- `PRIVACY.md` no longer claims that error reports carry no folder names; 0.34.6 and 0.34.7 said so, but an error
+  report's backtrace lines can name folders outside rEach. The setup-problem report (the Windows user-folder
+  mismatch) is described in its own line, and it is the one that carries no folder names.
+- `reach status`'s folder line said "nothing was changed" after a `rollback_incomplete` failure; it now gives the
+  same advice as the failure message.
+- `reach.spec.yml` documents `rollback_incomplete` and the bootstrap-only `.reach-home.pre-*` rollback.
+
 ## [0.34.7] - 2026-10-05
 
 ### Fixed

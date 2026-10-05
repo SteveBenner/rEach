@@ -1298,7 +1298,7 @@ module Reach
       state = status
       if state[:state] == "failed"
         reason = REASONS[state[:reason]] || state[:reason]
-        return "Your reach-work folder: #{base} (rEach's own files are still in #{home}; rEach could not move them into #{Reach::Paths.new_home} yet: #{reason}; nothing was changed)"
+        return "Your reach-work folder: #{base} (rEach's own files are still in #{home}; rEach could not move them into #{Reach::Paths.new_home} yet: #{reason}. #{failure_tail(state[:reason])})"
       end
 
       "Your reach-work folder: #{base} (rEach's own files are still in #{home}; rEach will move them into #{Reach::Paths.new_home} soon)"

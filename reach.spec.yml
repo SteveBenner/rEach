@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.34.7
+version: 0.34.8
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2817,7 +2817,11 @@ home_in_workspace:
     renamed to <base>/.reach-home.set-aside-<UTC timestamp> and the stray home is moved in its place; an enrolled
     destination still fails destination_occupied. Since 0.34.5 that rename happens in the switch step, after the copy,
     verification and enrollment comparison passed and immediately before the staged home is renamed in, and is undone
-    when that rename fails, so a failed run leaves the profile home as it was. An enrolled stray home is always chosen
+    when that rename fails, so a failed run leaves the profile home as it was. Since 0.34.6 the same holds for a
+    bootstrap-only home renamed to .reach-home.pre-<timestamp>-<hex>; when putting either folder back fails, or the
+    destination reappeared meanwhile, the run fails with reason rollback_incomplete, the folder stays under its
+    set-aside or pre name (nothing is deleted) and the student is told so and to tell their instructor. An enrolled
+    stray home is always chosen
     over an unenrolled one. At session start, on Windows with $HOME different from user_home, Reach::Debug.emit_always
     records a W-DBG-FAULT fault event (where paths.user_home, cause home_env_mismatch, a stable fault_id, home_source
     and two booleans), never a path or a name.
