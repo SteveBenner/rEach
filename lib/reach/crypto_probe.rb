@@ -118,8 +118,6 @@ module Reach
 
       return nil if Reach::GCM.native_aad?
 
-      result = gcm_self_test
-
       kit = kit_ruby_exe
       unless kit && File.executable?(kit)
         begin
@@ -127,22 +125,13 @@ module Reach
         rescue StandardError
           nil
         end
-        Reach::Debug.emit_always("fault", fault_fields(result, "kit_missing"))
         return nil
       end
 
-      Reach::Debug.emit_always("fault", fault_fields(result, "kit_reexec"))
       env = Reach::RuntimeKit.clean_env(REEXEC_ENV => "1")
       exec(env, kit, exe, *argv)
     rescue SystemCallError, NotImplementedError
       nil
-    end
-
-    def fault_fields(result, outcome)
-      {
-        "where" => "crypto_self_test", "exception" => "OpenSSL::Cipher::CipherError", "stage" => result["stage"],
-        "outcome" => outcome, "detail" => result["error"]
-      }.merge(facts)
     end
   end
 end

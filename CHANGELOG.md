@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.12] - 2026-10-05
+
+### Fixed
+
+- A Mac whose built-in Ruby cannot use AES-GCM additional authenticated data (Ruby 2.6.10 with LibreSSL 3.3.6) no
+  longer reports a fault on every command. Since 0.21.3 `Reach::CryptoProbe.fallback!` (`lib/reach/crypto_probe.rb`)
+  moves each command to the kit Ruby, or carries on with the pure-Ruby GCM while the kit installs, and it recorded
+  that handled move as a fault event (`where` `crypto_self_test`, `exception` `OpenSSL::Cipher::CipherError`) even
+  though the command worked. The course's technical support saw a problem on every such Mac although nothing had
+  failed, and each event spent one slot of the shared `fault_max_per_hour` budget, so a busy session could crowd out
+  real faults. The fallback is unchanged and now records nothing; it also skips the self-test it ran only to fill
+  that event. Debug session events still carry `kit_reexec`, `gcm_self_test` and the SSL library, and
+  `reach doctor --report` still shows the failing stage (`STD-CRYPTO-FALLBACK`). No wire change.
+
 ## [0.35.11] - 2026-10-05
 
 ### Fixed

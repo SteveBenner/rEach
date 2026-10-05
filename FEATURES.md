@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.11 |
+| **Registry version** | 0.35.12 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1143,7 +1143,12 @@ sync warning texts. Verified in GitHub Actions platform run 37100202414 before t
 steps on macOS arm64 and Intel (system Ruby 2.6.10, LibreSSL 3.3.6), where `reach doctor --report` inside
 `codex sandbox` (Codex CLI 0.160.0) moved to the kit Ruby 4.0.7 (OpenSSL 3.6.2) and opened the stored guardrails
 package, and green on Linux and both Windows legs. Run 37100526911 on the rebased 0.21.3 passed again: 16 of 16 on
-both macOS legs, with both package kinds opening from storage and from fake_teach under the kit Ruby.
+both macOS legs, with both package kinds opening from storage and from fake_teach under the kit Ruby. From 0.21.3 to
+0.35.11 that handled move also recorded a fault event (`crypto_self_test`) on every command, which reached the
+course's technical support as a problem although nothing had failed; since 0.35.12 it records nothing. Checked on
+2026-10-05 on Linux with a Ruby 4.0.6 whose GCM `auth_data=` was made to raise as LibreSSL does: three
+`reach doctor --report --offline` runs with and without a kit spooled three fault events each before the change and
+none after it, with every run exiting 0 on the same GCM path as before. Not run on a Mac.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
