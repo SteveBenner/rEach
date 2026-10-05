@@ -139,7 +139,7 @@
 - [x] Run the same-WiFi second-device test from `docs/smoke-assignment-1.md` (passed 2026-09-29, live).
 - [x] Verify the public ZIP install against real GitHub after the push (passed 2026-09-28 with `--public`, after the 0.7.1 empty-submodule fix).
 - [ ] The installer's Windows path is unverified.
-- [ ] The plaintext BUS 101 files remain in the public GitHub history (the Initial commit) unless history is rewritten.
+- [x] The plaintext BUS 101 files remain in the public GitHub history (the Initial commit) unless history is rewritten. (Removed by the 2026-10-01 rewrite; no course file is in any commit, tag or branch, checked 2026-10-05.)
 - [x] The bus-201 reference now ships as an encrypted `.rref` (packed 2026-09-29 from the existing hand-vetted copy, key id `09d72206a5d3b1ae`; parity with bus-101). The plaintext source copy still sits under `corpus/course-reference/.backup/` pending a human's go-ahead to delete it (AGENTS.md Part E; the delete itself was refused by the auto-mode classifier as irreversible). Resolved in 0.14.5: `corpus/` is gone and the source copy lives with Teach.
 - [x] A tampered blob's key id now reports refused, not locked, when we hold a key for the same course under a different key id (fixed 2026-09-29 in `Reach::Reference.open_blob`).
 - [x] Complete the `FEATURES.md` inventory: it covers the 0.7.0 surfaces and the core flows only. (Done in 0.16.22: every surface through 0.16.21, with unverified rows stated.)
