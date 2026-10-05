@@ -1150,6 +1150,102 @@ module Reach
       nil
     end
 
+    def repair_ruby_paths!
+      root = Reach::Paths.root
+      return 0 unless File.directory?(root)
+
+      groups = [[nil, Reach::Paths.with_persona(nil) { space_targets }]]
+      persona_dirs(root).each_key { |id| groups << [id, Reach::Paths.with_persona(id) { space_targets }] }
+      repaired = 0
+      groups.each do |id, targets|
+        Reach::Paths.with_persona(id) do
+          targets.each do |target|
+            begin
+              next unless stale_ruby_target?(target)
+
+              Reach::Harness.configure_all(target)
+              repaired += 1
+            rescue StandardError
+              nil
+            end
+          end
+        end
+      end
+      repaired
+    rescue StandardError
+      0
+    end
+
+    def stale_ruby_target?(target)
+      pairs = written_command_pairs(target)
+      return false if pairs.empty?
+
+      ruby = Reach::Runtime.ruby_path
+      shim = Reach::Runtime.shim_path
+      pairs.any? { |pair_ruby, pair_shim| pair_ruby != ruby || pair_shim != shim }
+    end
+
+    def written_command_pairs(target)
+      pairs = []
+      [File.join(target, ".codex", "hooks.json"), File.join(target, ".claude", "settings.json")].each do |path|
+        next unless File.file?(path)
+
+        data = JSON.parse(File.read(path))
+        hooks = data.is_a?(Hash) && data["hooks"].is_a?(Hash) ? data["hooks"] : {}
+        hooks.each_value do |entries|
+          Array(entries).each do |entry|
+            Array(entry.is_a?(Hash) ? entry["hooks"] : nil).each do |hook|
+              pair = command_pair(hook["command"]) if hook.is_a?(Hash)
+              pairs << pair if pair
+            end
+          end
+        end
+      end
+      mcp = File.join(target, ".mcp.json")
+      if File.file?(mcp)
+        data = JSON.parse(File.read(mcp))
+        server = data.is_a?(Hash) && data["mcpServers"].is_a?(Hash) ? data["mcpServers"]["reach"] : nil
+        if server.is_a?(Hash) && server["command"].is_a?(String) && server["args"].is_a?(Array) && server["args"].first.is_a?(String)
+          pairs << [server["command"], server["args"].first]
+        end
+      end
+      pairs.concat(toml_command_pairs(File.join(target, ".codex", "config.toml")))
+      pairs
+    rescue StandardError
+      []
+    end
+
+    def command_pair(command)
+      return nil unless command.is_a?(String)
+
+      tokens = command.start_with?("\"") ? command.scan(/"([^"]*)"/).flatten : Shellwords.shellsplit(command)
+      return nil if tokens.length < 3
+
+      shim = tokens[1].tr("\\", "/")
+      return nil unless File.basename(shim) == "reach" && File.basename(File.dirname(shim)) == "bin"
+
+      [tokens[0], tokens[1]]
+    rescue StandardError
+      nil
+    end
+
+    def toml_command_pairs(path)
+      return [] unless File.file?(path)
+
+      lines = File.read(path).lines.map(&:strip)
+      start = lines.index("[mcp_servers.reach]")
+      return [] unless start
+
+      section = lines[(start + 1)..].take_while { |line| !line.start_with?("[") }
+      command = section.map { |line| line.match(/\Acommand\s*=\s*"((?:[^"\\]|\\.)*)"\z/) }.compact.first
+      args = section.map { |line| line.match(/\Aargs\s*=\s*\["((?:[^"\\]|\\.)*)"/) }.compact.first
+      return [] unless command && args
+
+      [[command[1], args[1]].map { |value| value.gsub(/\\(["\\])/) { Regexp.last_match(1) } }]
+    rescue StandardError
+      []
+    end
+
     def record_final(ctx, fields)
       state_path = File.join(ctx[:final_home], "state", "relocation.json")
       state = read_json(state_path) || {}

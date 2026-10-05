@@ -18,8 +18,40 @@ module Reach
       File.join(root, "exe", "reach")
     end
 
+    KIT_RUBY = %r{/runtime/([^/]+)/ruby/bin/(ruby(?:\.exe)?)\z}i
+
     def ruby_path
+      installed = installed_kit_ruby
+      return installed if installed
+
+      own = RbConfig.ruby
+      match = own.to_s.tr("\\", "/").match(KIT_RUBY)
+      return own if File.file?(own.to_s) && (match.nil? || kit_inside_root?(own))
+
+      kit_ruby_fallback(match) || own
+    rescue StandardError
       RbConfig.ruby
+    end
+
+    def installed_kit_ruby
+      id = Reach::RuntimeKit.current_id
+      return nil unless id
+
+      bin = File.join(Reach::Paths.runtime_dir, id, "ruby", "bin")
+      %w[ruby.exe ruby].map { |name| File.join(bin, name) }.find { |candidate| File.file?(candidate) }
+    rescue StandardError
+      nil
+    end
+
+    def kit_inside_root?(path)
+      Reach::Paths.path_within?(File.expand_path(path.to_s.tr("\\", "/")), File.expand_path(Reach::Paths.root))
+    end
+
+    def kit_ruby_fallback(match)
+      return nil unless match
+
+      candidate = File.join(Reach::Paths.runtime_dir, match[1], "ruby", "bin", match[2])
+      File.file?(candidate) ? candidate : nil
     end
 
     def shim_path

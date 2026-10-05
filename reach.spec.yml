@@ -3051,6 +3051,21 @@ codex_hook_trust:
     which asks the student's consent as before. CodexSetup.ask_chat and configure_terminal no longer answer already
     set up while trust is stale. While the sign-in is pending the hooks_not_running and
     codex_hooks_untrusted detections are withheld from the agent; signin_hook_not_running is not.
+  hook_ruby: >-
+    Since 0.35.9. Every command rEach writes into a course folder (.codex/hooks.json and .claude/settings.json hook
+    commands, the .mcp.json reach server, the .codex/config.toml [mcp_servers.reach] command) names
+    Reach::Runtime.ruby_path and Reach::Runtime.shim_path, and Codex trusts a hook only for its exact content, so those
+    two paths must be the same for one rEach home whichever process writes the folder. Runtime.ruby_path returns the
+    runtime kit's Ruby (<root>/runtime/<id>/ruby/bin/ruby, ruby.exe on Windows) whenever runtime/current names an id
+    whose Ruby exists, whichever Ruby the current process is; with no installed kit it returns RbConfig.ruby unless
+    that is a kit Ruby outside the home (a relocated kit), then the same kit id under the current home, and finally
+    RbConfig.ruby. reach hello, on every session start of every harness and unless a relocation holds its lock, calls
+    Relocation.repair_ruby_paths!: for each course folder (root, extracurricular, slices, every persona) that holds a
+    rEach-written command, a folder is stale when any such command names a Ruby or shim other than ruby_path and
+    shim_path, and it is rewritten with Harness.configure_all, which refreshes Codex hook trust (CodexSetup.refresh_trust!)
+    under the existing consent rules, so hook-trust-1 is still required for the handlers to be trusted. A folder that
+    already matches is not rewritten. Each repair run emits one fault event (where relocation.repair_ruby_paths, cause
+    stale_ruby_path, repaired count only, no paths).
 grade_view:
   since: 0.19.0
   standard: STD-GRADE-VIEW

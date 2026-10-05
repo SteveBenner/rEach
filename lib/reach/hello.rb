@@ -28,6 +28,7 @@ module Reach
       else
         Reach::RuntimeAuto.start
       end
+      repair_ruby_paths
       hookless = hookless?(harness, format, mcp)
       harness_id = resolve_harness(harness == "antigravity" ? nil : harness)
       Reach::Debug.begin_hook(event, harness_id)
@@ -66,6 +67,22 @@ module Reach
 
       notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
       { "context" => nil, "notice" => notice.empty? ? nil : notice }
+    rescue StandardError
+      nil
+    end
+
+    def repair_ruby_paths
+      return nil if Reach::Relocation.lock_live?
+
+      repaired = Reach::Relocation.repair_ruby_paths!
+      return nil unless repaired.to_i.positive?
+
+      fields = {
+        "where" => "relocation.repair_ruby_paths", "exception" => nil, "errno" => nil, "message_id" => nil,
+        "cause" => "stale_ruby_path", "frames" => [], "shown" => nil
+      }
+      Reach::Debug.emit_always("fault", fields.merge("fault_id" => Reach::Issues.signature(fields), "repaired" => repaired))
+      nil
     rescue StandardError
       nil
     end
