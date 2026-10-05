@@ -294,8 +294,43 @@ module Reach
       false
     end
 
+    def signin_pending?
+      Reach::Login.required? && !Reach::Login.any_active?
+    rescue StandardError
+      false
+    end
+
+    def course_hook_files
+      space = Reach::Workspace.space_for(Dir.pwd)
+      files = Reach::CodexSetup.managed_hook_files
+      return files unless space
+
+      wanted = File.join(File.expand_path(space["path"]), ".codex", "hooks.json")
+      files.select { |path, _kind| File.expand_path(path) == wanted }
+    end
+
+    def course_hooks_untrusted?(env = environment)
+      return false unless family_of(env["harness"]) == "codex"
+      return false if signin_pending?
+
+      course_hook_files.any? do |path, _kind|
+        content = Reach::CodexSetup.read_hooks(path)
+        content && Reach::CodexHookTrust.stale?(Reach::CodexHookTrust.status(path, content))
+      end
+    rescue StandardError
+      false
+    end
+
+    def untrusted_or(message_id)
+      course_hooks_untrusted? ? "M-HOOKS-UNTRUSTED" : message_id
+    rescue StandardError
+      message_id
+    end
+
     def require_hooks!
-      return nil unless guard_enabled? && prompt_hook_dead?
+      return nil unless guard_enabled?
+      raise Reach::Refused, Reach::Messages.text("M-HOOKS-UNTRUSTED") if course_hooks_untrusted?
+      return nil unless prompt_hook_dead?
 
       raise Reach::Refused, Reach::Messages.text("M-HOOKS-REQUIRED")
     end
@@ -305,9 +340,11 @@ module Reach
       when "codex_sandbox"
         Reach::Sandbox.blocked?
       when "hooks_not_running"
-        mcp && prompt_hook_dead?(env)
+        mcp && !signin_pending? && prompt_hook_dead?(env)
       when "signin_hook_not_running"
-        mcp && signin_hook_dead?(env)
+        mcp && !signin_pending? && signin_hook_dead?(env)
+      when "codex_hooks_untrusted"
+        mcp && course_hooks_untrusted?(env)
       else
         false
       end

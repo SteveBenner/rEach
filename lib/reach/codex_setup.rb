@@ -5,6 +5,7 @@ require "digest"
 require "open3"
 require "rbconfig"
 require "securerandom"
+require_relative "codex_hook_trust"
 
 module Reach
   module CodexSetup
@@ -486,6 +487,92 @@ module Reach
         result
       end
 
+      def trust_guard(doc)
+        doc[:keys].each do |key|
+          table = key[:table]
+          path = key[:path]
+          raise Unsafe, FORM if table.nil? && path[0] == "hooks"
+          raise Unsafe, FORM if table && table[:path] == ["hooks"] && path[0] == "state"
+          raise Unsafe, FORM if table && table[:path] == %w[hooks state]
+        end
+        seen = []
+        doc[:headers].each do |header|
+          path = header[:path]
+          next unless path[0] == "hooks" && path[1] == "state"
+          next if path.length == 2 && !header[:array]
+          raise Unsafe, FORM if path.length != 3 || header[:array]
+          raise Unsafe, TWICE if seen.include?(path[2])
+
+          seen << path[2]
+        end
+      end
+
+      def trust_headers(doc)
+        doc[:headers].select { |header| header[:path].length == 3 && header[:path][0] == "hooks" && header[:path][1] == "state" && !header[:array] }
+      end
+
+      def trust_field(doc, header, name)
+        found = doc[:keys].select { |key| key[:table].equal?(header) && key[:path] == [name] }
+        raise Unsafe, TWICE if found.length > 1
+
+        found.first
+      end
+
+      def trust_state(bytes)
+        decoded = decode(bytes)
+        decoded = decoded[1..-1] if decoded.start_with?("\uFEFF")
+        doc = scan(decoded)
+        trust_guard(doc)
+        trust_headers(doc).each_with_object({}) do |header, state|
+          hash = trust_field(doc, header, "trusted_hash")
+          enabled = trust_field(doc, header, "enabled")
+          state[header[:path][2]] = {
+            "trusted_hash" => hash ? read_string(doc, hash) : nil,
+            "enabled" => enabled ? read_bool(doc, enabled) : nil
+          }
+        end
+      end
+
+      def trust_edit(bytes, wanted)
+        text = decode(bytes)
+        bom = text.start_with?("\uFEFF") ? "\uFEFF" : ""
+        body = text[bom.length..-1]
+        nl = newline_of(body)
+        doc = scan(body)
+        trust_guard(doc)
+        headers = trust_headers(doc).each_with_object({}) { |header, map| map[header[:path][2]] = header }
+        replace = {}
+        after = Hash.new { |hash, key| hash[key] = [] }
+        tail = []
+
+        wanted.uniq.each do |key, hash|
+          header = headers[key]
+          unless header
+            tail << ["[hooks.state.#{quote(key)}]", "trusted_hash = #{quote(hash)}"]
+            next
+          end
+
+          held = trust_field(doc, header, "trusted_hash")
+          if held
+            next if read_string(doc, held) == hash
+
+            replace[held[:index]] = splice(doc, held, quote(hash))
+          else
+            spot = last_filled(doc, header[:index], table_end(doc, header))
+            after[spot] << "trusted_hash = #{quote(hash)}"
+          end
+        end
+
+        return text if replace.empty? && after.empty? && tail.empty?
+
+        result = bom + render(doc, replace, after, tail, nl)
+        state = trust_state(result)
+        wanted.each do |key, hash|
+          raise Unsafe, "the result did not read back as approved" unless state[key] && state[key]["trusted_hash"] == hash
+        end
+        result
+      end
+
       def splice(doc, key, value)
         line = doc[:lines][key[:index]][:text]
         line[0...key[:value_start]] + value + line[key[:value_end]..-1].to_s
@@ -677,6 +764,110 @@ module Reach
       found["readable"] && Editor.satisfied?(found, mode)
     end
 
+    def trust_state
+      bytes = current_bytes
+      bytes.nil? ? {} : Editor.trust_state(bytes)
+    rescue Unsafe, SystemCallError
+      nil
+    end
+
+    def course_spaces
+      spaces = [[Reach::Paths.workspace_root, "root"], [Reach::Paths.extracurricular_root, "extracurricular"]]
+      Reach::Workspace.current_slices.each { |path| spaces << [path, "slice"] }
+      spaces.map { |path, kind| [File.join(File.expand_path(path), ".codex", "hooks.json"), kind] }
+    rescue StandardError
+      []
+    end
+
+    def managed_hook_files
+      course_spaces.select { |path, _kind| File.file?(path) }
+    end
+
+    def read_hooks(path)
+      parsed = JSON.parse(File.read(path))
+      parsed.is_a?(Hash) ? parsed : nil
+    rescue StandardError
+      nil
+    end
+
+    def managed_content?(content)
+      prefix = Reach::Runtime.hook_command
+      events = content["hooks"]
+      return false unless events.is_a?(Hash)
+
+      commands = events.values.flat_map do |groups|
+        Array(groups).flat_map { |group| group.is_a?(Hash) ? Array(group["hooks"]) : [] }
+      end
+      commands.all? { |handler| handler.is_a?(Hash) && handler["command"].to_s.start_with?(prefix) }
+    end
+
+    def trust_entries(files = managed_hook_files)
+      files.flat_map do |path, _kind|
+        content = read_hooks(path)
+        content && managed_content?(content) ? CodexHookTrust.keys(path, content) : []
+      end
+    end
+
+    def trust_current?(files = managed_hook_files)
+      files.all? do |path, _kind|
+        content = read_hooks(path)
+        content.nil? || !CodexHookTrust.stale?(CodexHookTrust.status(path, content))
+      end
+    rescue StandardError
+      true
+    end
+
+    def trust_wanted?
+      return false unless enabled? && preflight.nil?
+
+      consent = read_state["consent"]
+      consent.is_a?(Hash) && consent["answer"] == "yes"
+    end
+
+    def refresh_trust!(hooks_path = nil)
+      return nil unless trust_wanted?
+
+      files = hooks_path ? [[File.expand_path(hooks_path), nil]] : managed_hook_files
+      wanted = trust_entries(files)
+      return nil if wanted.empty?
+
+      outcome = locked { write_trust(wanted) }
+      outcome == :busy ? nil : outcome
+    rescue StandardError => e
+      Reach::Debug.fault(e, "codex_setup:trust")
+      nil
+    end
+
+    def write_trust(wanted)
+      raise Unsafe, "the settings file is a link" if File.symlink?(config_path)
+
+      before = current_bytes
+      after = Editor.trust_edit(before || "", wanted)
+      return :already if !before.nil? && after.b == before.b
+
+      cli = codex_cli
+      FileUtils.mkdir_p(codex_home) if cli && !File.directory?(codex_home)
+      baseline = cli ? codex_accepts?(cli) : nil
+      old_mode = before.nil? ? 0o600 : (File.stat(config_path).mode & 0o777)
+      backup = before.nil? ? nil : write_backup(before, old_mode)
+      write_atomic(after, old_mode)
+      if cli && baseline == true && codex_accepts?(cli) == false
+        before.nil? ? File.delete(config_path) : write_atomic(before, old_mode)
+        emit("refused", "via" => "trust", "reason" => "codex rejected the file")
+        return :refused
+      end
+
+      update_state { |state| state.merge("config_sha256" => Digest::SHA256.hexdigest(after), "trusted_at" => now_s) }
+      emit("trusted", "via" => "trust", "handlers" => wanted.length, "backup" => backup ? File.basename(backup) : nil)
+      :trusted
+    rescue Unsafe => e
+      emit("refused", "via" => "trust", "reason" => e.message)
+      :refused
+    rescue SystemCallError => e
+      emit("refused", "via" => "trust", "reason" => "the settings file could not be written", "errno" => e.class.name)
+      :refused
+    end
+
     def status
       found = facts
       state = read_state
@@ -745,6 +936,8 @@ module Reach
         emit("refused", "mode" => mode, "via" => via, "reason" => e.message)
         return answer("unsafe", false, "M-CODEX-SETUP-UNSAFE", reason: e.message)
       end
+      trust_only = !before.nil? && after.b == before.b
+      after = with_trust(after)
 
       if !before.nil? && after.b == before.b
         write_state(state.merge("mode" => mode))
@@ -752,10 +945,20 @@ module Reach
         return answer("already", true, "M-CODEX-SETUP-ALREADY")
       end
 
-      write_change(state, mode, via, before, after)
+      write_change(state, mode, via, before, after, trust_only)
     end
 
-    def write_change(state, mode, via, before, after)
+    def with_trust(after)
+      wanted = trust_entries
+      return after if wanted.empty?
+
+      Editor.trust_edit(after, wanted)
+    rescue Unsafe => e
+      emit("refused", "via" => "trust", "reason" => e.message)
+      after
+    end
+
+    def write_change(state, mode, via, before, after, trust_only = false)
       cli = codex_cli
       FileUtils.mkdir_p(codex_home) if cli && !File.directory?(codex_home)
       baseline = cli ? codex_accepts?(cli) : nil
@@ -777,7 +980,8 @@ module Reach
       write_state(fresh)
       emit(via == "heal" ? "healed" : "applied", "mode" => mode, "via" => via, "backup" => backup ? File.basename(backup) : nil)
       shown = backup && via == "live" ? File.basename(backup) : backup
-      backup ? answer("applied", true, "M-CODEX-SETUP-DONE", backup: shown) : answer("applied", true, "M-CODEX-SETUP-DONE-NEW")
+      done = trust_only ? "M-CODEX-SETUP-TRUST-DONE" : "M-CODEX-SETUP-DONE"
+      backup ? answer("applied", true, done, backup: shown) : answer("applied", true, "#{done}-NEW")
     rescue SystemCallError => e
       write_state(state)
       emit("refused", "mode" => mode, "via" => via, "reason" => "the settings file could not be written", "errno" => e.class.name)
@@ -858,7 +1062,7 @@ module Reach
       mode = check_mode!(mode)
       early = preflight
       return early if early
-      return answer("already", true, "M-CODEX-SETUP-ALREADY") if satisfied?(mode)
+      return answer("already", true, "M-CODEX-SETUP-ALREADY") if satisfied?(mode) && trust_current?
 
       output.puts question(mode)
       output.print "> "
@@ -894,7 +1098,7 @@ module Reach
       mode = check_mode!(mode)
       early = preflight
       return early if early
-      return answer("already", true, "M-CODEX-SETUP-ALREADY") if satisfied?(mode)
+      return answer("already", true, "M-CODEX-SETUP-ALREADY") if satisfied?(mode) && trust_current?
       return answer("terminal", false, "M-CODEX-SETUP-TERMINAL", command: "reach codex configure") if mcp && hooks_off?
       return answer("terminal", false, "M-CODEX-SETUP-SIGN-IN", command: "reach codex configure") if mcp && Reach::Login.enrolled_id.nil?
 
@@ -947,7 +1151,7 @@ module Reach
       return nil if recent?(state["healed_at"], HEAL_GAP_S)
 
       mode = MODES.include?(state["mode"]) ? state["mode"] : mode_wanted
-      return nil if satisfied?(mode)
+      return nil if satisfied?(mode) && trust_current?
 
       outcome = locked do
         result = apply_locked(mode, "heal")

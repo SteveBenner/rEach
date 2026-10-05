@@ -2922,8 +2922,8 @@ codex_setup:
     [projects."<reach-work>"] trust_level = "trusted". full: sandbox_mode = "danger-full-access" and the same trust
     table, with [sandbox_workspace_write] left as found. An existing danger-full-access is never narrowed.
   never_written: >-
-    approval_policy, model, features, hooks, Codex hook trust, marketplaces, mcp_servers and every other key. Reach
-    neither writes nor reads Codex hook trust.
+    approval_policy, model, features, hooks, marketplaces, mcp_servers and every other key. The only other keys it
+    writes are hooks.state trusted_hash entries for the course hooks.json files it manages (codex_hook_trust).
   editor: >-
     Line based and binary safe: it keeps the file's line ending style, every byte it does not edit and a final newline,
     replaces or inserts only the lines it must (top-level sandbox_mode after the last top-level line, a missing key
@@ -2989,6 +2989,52 @@ codex_setup:
     Windows and macOS (the editor's CRLF and path handling, the PowerShell installer step, case-insensitive path
     comparison), the Codex desktop app and IDE extension honoring the user-level config, and a real Codex chat
     reaching the course server after configure.
+codex_hook_trust:
+  since: unreleased
+  standard: STD-CODEX-HOOK-TRUST
+  library: >-
+    lib/reach/codex_hook_trust.rb (Reach::CodexHookTrust: hash, key, keys, status, stale?) and the hooks.state editing in
+    Reach::CodexSetup::Editor (trust_state, trust_edit) with CodexSetup.refresh_trust!, trust_entries, trust_current?
+    and managed_hook_files.
+  rule: >-
+    Codex trusts every non-managed hook handler on its own: state key <absolute hooks.json path>:<event label>:<group
+    index>:<handler index> (event labels pre_tool_use, post_tool_use, session_start, user_prompt_submit, stop), value
+    [hooks.state."<key>"] trusted_hash = "sha256:<hex>" in the user's config.toml. A handler whose current hash differs
+    from the recorded one is modified, one with no record is untrusted, and both are skipped without a message.
+  hash: >-
+    sha256 over the compact JSON, object keys sorted recursively, of {event_name: <event label>, matcher: <the group's
+    matcher, absent for UserPromptSubmit, Stop and Interrupt and when none>, hooks: [{type: command, command, timeout:
+    seconds, async: bool, statusMessage and additionalContextLimit only when set, the limit only for events that emit
+    additionalContext and when not 2500}]}. Verified equal to codex 0.160.0 app-server hooks/list currentHash and key
+    for rEach-written course hooks.json in a root, a slice and an extracurricular folder, and for hand-built files
+    covering matchers on every event, async, statusMessage, additionalContextLimit, SessionEnd timeout clamping and
+    non-ASCII command text; hooks/list then reported every course handler trusted after CodexSetup recorded the keys.
+  split: >-
+    The plugin's two hooks stay as they are (hooks/codex.json and every manifest hook unchanged byte for byte). On Codex
+    (an event with turn_id), when the sign-in is satisfied and the event's cwd is in a course folder, the plugin's gate
+    enroll runs Reach::Gate.prompt (claimed, so the sign-in is not claimed twice) and merges its context and link and
+    issue notices into its own UserPromptSubmit answer; reach hello, on a Codex SessionStart in a course folder, runs
+    Reach::Gate.session and merges the guardrails line or the link and issue notice into its own answer. Reach::Gate.once!
+    keeps one marker per (session id, turn id) for a prompt and per (session id, session) for a session start under
+    <root>/state/hook_once, so an older course-folder gate prompt or gate session that still runs does nothing when the
+    plugin did the work, and the reverse; markers older than a day are pruned by the writer. The plugin's gate enroll
+    stamps work_at and prompt_at (KnownIssues.record_hook!) on every Codex run, before any gating. The course folder's
+    hooks.json keeps PreToolUse, PostToolUse and Stop in their old group order and text.
+  trust_state: >-
+    CodexSetup writes the entries for every course hooks.json it manages whose commands are all rEach's own, in the same
+    write as the sandbox settings (apply, reapply) and, when the student's yes stands, right after Harness.configure_codex
+    rewrites a file, with the same backup, atomic write, codex features list check and refusals. A hooks.state header
+    written twice, as a dotted key, or with other keys than trusted_hash and enabled it does not read makes status
+    unknown and the write refused. enabled is never written. When only trust changed the outcome is
+    M-CODEX-SETUP-TRUST-DONE, which does not ask for a new chat.
+  detection: >-
+    KnownIssues.course_hooks_untrusted? (Codex only, false while the sign-in is pending, unknown never counts) is true
+    when a handler of the current folder's hooks.json is modified or untrusted. require_hooks! then refuses with
+    M-HOOKS-UNTRUSTED, the known-issue detector codex_hooks_untrusted fires, and reach_next, the sign-in texts and
+    M-HOOKS-REQUIRED give way to M-HOOKS-UNTRUSTED where they would have been chosen. The remedy is codex_configure,
+    which asks the student's consent as before. CodexSetup.ask_chat and configure_terminal no longer answer already
+    set up while trust is stale. While the sign-in is pending the hooks_not_running, signin_hook_not_running and
+    codex_hooks_untrusted detections are withheld from the agent.
 grade_view:
   since: 0.19.0
   standard: STD-GRADE-VIEW

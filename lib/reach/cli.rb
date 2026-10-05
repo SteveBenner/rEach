@@ -725,7 +725,9 @@ module Reach
         event = read_stdin_json
         hook_kind = { "prompt" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
         if sub == "enroll"
-          Reach::KnownIssues.record_enroll_hook!(Reach::Fingerprint.harness_label(options[:harness]))
+          label = Reach::Fingerprint.harness_label(options[:harness])
+          Reach::KnownIssues.record_enroll_hook!(label)
+          Reach::KnownIssues.record_hook!(label, "prompt") if codex_prompt_event?(options[:harness], event)
         else
           Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
         end
@@ -771,8 +773,23 @@ module Reach
         JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => context })
       end
 
+      def codex_prompt_event?(harness, event)
+        harness.to_s != "hermes" && event.is_a?(Hash) && !event["turn_id"].to_s.empty?
+      end
+
+      def duplicate_codex_hook?(sub, options, event)
+        return false unless %w[prompt session].include?(sub.to_s) && options[:harness].to_s == "codex"
+        return false unless event.is_a?(Hash) && !event["session_id"].to_s.empty?
+        return false if sub.to_s == "prompt" && event["turn_id"].to_s.empty?
+
+        !Reach::Gate.once!(event, sub.to_s)
+      rescue StandardError
+        false
+      end
+
       def gate_dispatch(sub, options, event)
         return gate_enroll(options[:harness], event) if sub == "enroll"
+        return 0 if duplicate_codex_hook?(sub, options, event)
 
         hermes = hermes_hook?(options[:harness], event)
         if hermes
@@ -1045,7 +1062,8 @@ module Reach
         end
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
         signed_in = nil
-        decision, signed_in = enroll_login(event, harness_id) if decision.nil? && !hermes
+        satisfied = false
+        decision, signed_in, satisfied = enroll_login(event, harness_id) if decision.nil? && !hermes
         if decision.nil?
           setup = hermes || signed_in ? nil : codex_setup_answer(event)
           notice = [Reach::EnrollFlow.consume_notice, signed_in, setup].compact.join("\n\n")
@@ -1057,12 +1075,19 @@ module Reach
           end
           remote = Reach::Debug.remote_notice(nil)
           notice = [notice, remote].compact.join("\n\n") if remote
+          course = satisfied && !hermes ? plugin_course_prompt(event) : nil
+          if course
+            @gate_decision = "context" if course["context"]
+            notice = [notice, course["context"]].compact.join("\n\n")
+            notice = nil if notice.empty?
+          end
           if hermes
             puts JSON.generate(notice ? { "context" => notice } : {})
           else
             payload = {}
             payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => notice } if notice
-            message = Reach::Debug.prompt_message(event, harness)
+            message = [course && course["notice"], Reach::Debug.prompt_message(event, harness)].compact.join("\n\n")
+            message = nil if message.empty?
             payload["systemMessage"] = message if message
             puts JSON.generate(payload) unless payload.empty?
           end
@@ -1126,10 +1151,25 @@ module Reach
         nil
       end
 
+      def plugin_course_prompt(event)
+        cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
+        return nil unless Reach::Workspace.space_for(cwd)
+        return nil unless Reach::Gate.once!(event, "prompt")
+
+        context = if File.directory?(cwd)
+          Dir.chdir(cwd) { Reach::Gate.prompt(event: event, harness: "codex", claimed: true) }
+        else
+          Reach::Gate.prompt(event: event, harness: "codex", claimed: true)
+        end
+        { "context" => context, "notice" => [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n") }
+      end
+
       def enroll_login(event, harness_id)
-        return nil if Reach::Instructor.mode? || !Reach::Login.required?
+        return nil if Reach::Instructor.mode?
 
         codex = !event["turn_id"].to_s.empty?
+        return [nil, nil, codex] unless Reach::Login.required?
+
         unless codex
           cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
           return nil if Reach::Workspace.space_for(cwd)
@@ -1151,7 +1191,7 @@ module Reach
         end
         context << result["context"]
         text = context.compact.join("\n\n")
-        [nil, text.empty? ? nil : text]
+        [nil, text.empty? ? nil : text, codex]
       rescue StandardError
         nil
       end

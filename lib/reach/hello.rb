@@ -34,10 +34,40 @@ module Reach
       Reach::Debug.session(harness_id, source)
       Reach::KnownIssues.refresh_if_stale!(quick: true) if mcp
       greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook", mcp: mcp, hookless: hookless)
+      course = course_session(harness_id, format, event, source, cwd)
+      context = [context, course["context"]].compact.join("\n") if course && course["context"]
 
-      emit(format, context, banner, greeting_id, greeting_text)
+      emit(format, context, banner, greeting_id, greeting_text, course && course["notice"])
     rescue StandardError
       emit(format, MINIMAL_CONTEXT, nil, nil, nil)
+    end
+
+    def course_session(harness_id, format, event, source, cwd)
+      return nil unless format.to_s == "hook" && harness_id == "codex" && event.is_a?(Hash) && event["hook_event_name"] == "SessionStart"
+      return nil unless in_course_folder?(cwd)
+      return nil unless Reach::Gate.once!(event, "session")
+
+      Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label("codex"), source)
+      begin
+        if File.directory?(cwd.to_s)
+          Dir.chdir(cwd) { Reach::Gate.session(harness: "codex") }
+        else
+          Reach::Gate.session(harness: "codex")
+        end
+      rescue Reach::GateBlocked
+        return nil
+      end
+      verified = begin
+        "Course rules #{Reach::Guardrails.version} verified."
+      rescue StandardError
+        nil
+      end
+      return { "context" => verified, "notice" => nil } if verified
+
+      notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+      { "context" => nil, "notice" => notice.empty? ? nil : notice }
+    rescue StandardError
+      nil
     end
 
     def observe_home_env
@@ -333,7 +363,7 @@ module Reach
     end
 
     def login_context(updating = nil, mcp: false)
-      needed = mcp && Reach::KnownIssues.signin_hook_dead? ? "M-LOGIN-NEEDED-NO-HOOK" : "M-LOGIN-NEEDED"
+      needed = mcp && Reach::KnownIssues.signin_hook_dead? ? Reach::KnownIssues.untrusted_or("M-LOGIN-NEEDED-NO-HOOK") : "M-LOGIN-NEEDED"
       text = ["#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text(needed)}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
       updating ? "#{text}\n#{update_line(updating)}" : text
     end
@@ -622,11 +652,12 @@ module Reach
       ""
     end
 
-    def emit(format, context, banner, greeting_id, greeting_text)
+    def emit(format, context, banner, greeting_id, greeting_text, notice = nil)
       case format.to_s
       when "hook"
         payload = { "hookSpecificOutput" => { "hookEventName" => "SessionStart", "additionalContext" => context } }
-        payload["systemMessage"] = banner if banner
+        message = [banner, notice].compact.join("\n\n")
+        payload["systemMessage"] = message unless message.empty?
         JSON.generate(payload)
       when "json"
         JSON.generate("greeting_id" => greeting_id, "greeting" => greeting_text, "banner" => banner, "context" => context)

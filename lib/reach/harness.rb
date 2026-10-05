@@ -229,6 +229,7 @@ module Reach
         write_protected(config_path, codex_config_toml(space_kind))
         hooks_path = File.join(dir, "hooks.json")
         write_protected(hooks_path, JSON.pretty_generate(codex_hooks_content(space_kind)))
+        Reach::CodexSetup.refresh_trust!(hooks_path)
         config_path
       end
 
@@ -257,8 +258,6 @@ module Reach
 
         {
           "hooks" => {
-            "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "codex"), 10)],
-            "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "codex"), 60)],
             "PreToolUse" => [
               hook_entry("apply_patch|Write|Edit", h("gate", "write", "--harness", "codex"), 10),
               hook_entry("Bash|shell|exec_command", h("gate", "shell", "--harness", "codex"), 10),

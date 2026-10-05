@@ -523,7 +523,7 @@ module Reach
       def login_text(message)
         return message unless message == Reach::Messages.text("M-LOGIN-NEEDED") && Reach::KnownIssues.signin_hook_dead?
 
-        Reach::Messages.text("M-LOGIN-NEEDED-NO-HOOK")
+        Reach::Messages.text(Reach::KnownIssues.untrusted_or("M-LOGIN-NEEDED-NO-HOOK"))
       rescue StandardError
         message
       end

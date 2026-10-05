@@ -40,7 +40,42 @@ module Reach
       nil
     end
 
-    def prompt(event: {}, harness: nil)
+    ONCE_KEEP_S = 86_400
+
+    def once_dir
+      File.join(Reach::Paths.root_state_dir, "hook_once")
+    end
+
+    def once!(event, kind)
+      session = Reach::Session.resolve_session_id(event)
+      token = kind.to_s == "session" ? "session" : event["turn_id"].to_s
+      return true if token.empty?
+
+      dir = once_dir
+      FileUtils.mkdir_p(dir)
+      prune_once(dir)
+      name = Digest::SHA256.hexdigest("#{kind}\n#{session}\n#{token}")
+      File.open(File.join(dir, name), File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")) }
+      true
+    rescue Errno::EEXIST
+      false
+    rescue StandardError
+      true
+    end
+
+    def prune_once(dir)
+      cutoff = Time.now - ONCE_KEEP_S
+      Dir.children(dir).each do |name|
+        path = File.join(dir, name)
+        File.delete(path) if File.file?(path) && File.mtime(path) < cutoff
+      rescue SystemCallError
+        next
+      end
+    rescue SystemCallError
+      nil
+    end
+
+    def prompt(event: {}, harness: nil, claimed: false)
       event = {} unless event.is_a?(Hash)
       toggled = safely { Reach::Debug.toggle_from_prompt!(event["prompt"]) }
       if Reach::Instructor.mode?
@@ -62,7 +97,7 @@ module Reach
       decision = nil
       unless blocked
         begin
-          decision = Reach::Login.claim(event: event, harness: harness) if Reach::Login.required?
+          decision = Reach::Login.claim(event: event, harness: harness) if Reach::Login.required? && !claimed
         rescue StandardError
           decision = { "action" => "block", "message" => Reach::Messages.text("M-LOGIN-NEEDED"), "note" => nil, "stuck" => true }
         end
@@ -213,7 +248,7 @@ module Reach
     end
 
     def login_needed_id
-      Reach::KnownIssues.signin_hook_dead? ? "M-LOGIN-NEEDED-NO-HOOK" : "M-LOGIN-NEEDED"
+      Reach::KnownIssues.signin_hook_dead? ? Reach::KnownIssues.untrusted_or("M-LOGIN-NEEDED-NO-HOOK") : "M-LOGIN-NEEDED"
     rescue StandardError
       "M-LOGIN-NEEDED"
     end
