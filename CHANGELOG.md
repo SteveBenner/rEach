@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.17] - 2026-10-05
+
+### Fixed
+
+- On Windows, a tool call that rEach's Codex gates blocked could still run: a file write to a path the student may
+  not change, a shell command or an image read that rEach refuses (`STD-CODEX-PROMPT-JSON-BLOCK`). The gates blocked
+  with exit 2, which Codex's PowerShell turns into exit 1, a hook failure that does not block. `reach gate write`,
+  `gate shell` and `gate read` with `--harness codex` now block with exit 0 and
+  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":...}}`
+  on standard output, which Codex treats exactly like exit 2 (`Reach::CLI.run_hook`). Every other harness is
+  unchanged, and the course folders' `.codex/hooks.json` command lines are unchanged, so nothing needs trusting again.
+
 ## [0.35.16] - 2026-10-05
 
 ### Fixed
