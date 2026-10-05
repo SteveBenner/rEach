@@ -37,7 +37,8 @@ module Reach
       "overlap" => "the old and new folders overlap",
       "unreadable_source" => "a file could not be read",
       "copy_error" => "a file could not be copied",
-      "verify_failed" => "the copy did not match the original"
+      "verify_failed" => "the copy did not match the original",
+      "rollback_incomplete" => "a folder could not be put back after the move stopped"
     }.freeze
 
     class Failure < StandardError
@@ -172,9 +173,15 @@ module Reach
       nil
     end
 
+    def failure_tail(reason)
+      return "Nothing was deleted or lost, but part of rEach's folder is still under a name ending in set-aside or pre in your reach-work folder; tell your instructor." if reason == "rollback_incomplete"
+
+      "Nothing was changed or lost; your files are safe where they are."
+    end
+
     def failed_outcome(reason, detail = nil)
       text = REASONS[reason] || reason.to_s
-      outcome("failed", reason: reason, detail: detail, line: "rEach could not move its files into your reach-work folder yet (#{text}). Nothing was changed or lost; your files are safe where they are.")
+      outcome("failed", reason: reason, detail: detail, line: "rEach could not move its files into your reach-work folder yet (#{text}). #{failure_tail(reason)}")
     end
 
     def record_failure(ctx, reason, detail)
@@ -941,8 +948,13 @@ module Reach
       end
       begin
         File.rename(ctx[:staged], final)
-      rescue StandardError, ScriptError
-        File.rename(displaced, final) if displaced && !present?(final)
+      rescue StandardError, ScriptError => e
+        restore = displaced || aside
+        begin
+          File.rename(restore, final) if restore && !present?(final)
+        rescue StandardError
+          raise Failure.new("rollback_incomplete", "#{e.class}: #{File.basename(restore)} kept under its set-aside name")
+        end
         raise
       end
       finish_switch(ctx, manifest, aside)
@@ -1259,7 +1271,7 @@ module Reach
              when "completed" then "rEach has already moved its files into your reach-work folder (#{state[:date]})."
              when "none-needed" then "Nothing to move: rEach already keeps its files in your reach-work folder."
              when "in-progress" then "rEach is moving its files into your reach-work folder right now."
-             when "failed" then "rEach could not move its files into your reach-work folder yet (#{REASONS[state[:reason]] || state[:reason]}). Nothing was changed or lost."
+             when "failed" then "rEach could not move its files into your reach-work folder yet (#{REASONS[state[:reason]] || state[:reason]}). #{failure_tail(state[:reason])}"
              else "rEach will move its files into your reach-work folder the next time a session starts."
              end
       outcome(state[:state], reason: state[:reason], line: line)

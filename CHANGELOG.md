@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.6] - 2026-10-05
+
+### Fixed
+
+- If the move's final rename failed and putting the set-aside profile home (or a bootstrap-only home renamed to
+  `.pre-<timestamp>`) back failed too, the second error hid the first and the student was told nothing had changed.
+  The relocation now puts back whichever folder it renamed, including the bootstrap-only one, and when that fails it
+  records the new reason `rollback_incomplete` and tells the student that part of rEach's folder is still under its
+  set-aside name and to tell their instructor. Nothing is deleted in any case (`lib/reach/relocation.rb`).
+- Transcript scrubbing on Windows also replaces the Cygwin spelling (`/cygdrive/c/Users/...`) of the home folder.
+
+### Changed
+
+- `PRIVACY.md` says the short reports rEach sends with debug mode off also cover setup problems, such as an app
+  pointing rEach at a folder that is not the student's own on Windows, and carry no folder names.
+
 ## [0.34.5] - 2026-10-05
 
 ### Fixed

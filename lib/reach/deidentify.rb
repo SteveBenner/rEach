@@ -112,6 +112,7 @@ module Reach
           rest = Regexp.last_match(2)
           forms << "/#{drive}/#{rest}"
           forms << "/mnt/#{drive}/#{rest}"
+          forms << "/cygdrive/#{drive}/#{rest}"
         end
         if base.start_with?("//")
           back = base.tr("/", "\\")
