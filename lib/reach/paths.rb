@@ -231,6 +231,12 @@ module Reach
       false
     end
 
+    def enrolled_home?(home)
+      File.file?(File.join(home, "install.yml")) && File.file?(File.join(home, "keys", "install.pem"))
+    rescue StandardError
+      false
+    end
+
     def completed_pointer_at?(home)
       pointer = File.join(home, "state", "relocation.json")
       return false unless File.file?(pointer)
@@ -269,19 +275,27 @@ module Reach
       seen
     end
 
-    def stray_root_for(base)
+    def stray_root_for(base, enrolled_only = false)
       home = File.join(base, "reach-work", NEW_HOME_NAME)
-      return home if (completed_pointer_at?(home) || new_home_populated?(home)) && readable_directory?(home)
+      if enrolled_only
+        return home if enrolled_home?(home) && readable_directory?(home)
+      elsif (completed_pointer_at?(home) || new_home_populated?(home)) && readable_directory?(home)
+        return home
+      end
 
       legacy = File.join(base, ".reach")
-      return legacy if legacy_present?(legacy) && readable_directory?(legacy)
+      if enrolled_only
+        return legacy if enrolled_home?(legacy) && readable_directory?(legacy)
+      elsif legacy_present?(legacy) && readable_directory?(legacy)
+        return legacy
+      end
 
       nil
     end
 
-    def stray_resolution
+    def stray_resolution(enrolled_only = false)
       stray_bases.each do |base|
-        root = stray_root_for(base)
+        root = stray_root_for(base, enrolled_only)
         return { mode: :stray, root: root, stray_base: base } if root
       end
       nil
@@ -297,7 +311,7 @@ module Reach
                 { mode: :new, root: new_home }
               elsif legacy_present?
                 { mode: :legacy, root: legacy_home }
-              elsif new_home_populated?
+              elsif new_home_populated? && (enrolled_home?(new_home) || stray_resolution(true).nil?)
                 { mode: :new, root: new_home }
               else
                 stray_resolution || { mode: :new, root: new_home }

@@ -262,7 +262,11 @@ module Reach
         state = read_json(File.join(final, "state", "relocation.json"))
         return :switched if state && state["phase"] == "switching" && state["schema"] == SCHEMA
 
-        raise Failure.new("destination_occupied", final) unless bootstrap_only?(final)
+        if displaceable?(ctx, final)
+          set_aside_final(ctx, final)
+        elsif !bootstrap_only?(final)
+          raise Failure.new("destination_occupied", final)
+        end
       end
 
       return :fresh unless present?(staged)
@@ -277,6 +281,17 @@ module Reach
       return :resume if consistent
 
       :set_aside
+    end
+
+    def displaceable?(ctx, final)
+      ctx[:stray_base] && !bootstrap_only?(final) && !Reach::Paths.enrolled_home?(final)
+    end
+
+    def set_aside_final(ctx, final)
+      aside = "#{ctx[:base]}/#{Reach::Paths::NEW_HOME_NAME}.set-aside-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}"
+      aside = "#{aside}-#{SecureRandom.hex(2)}" if present?(aside)
+      File.rename(final, aside)
+      ctx[:set_aside] = File.basename(aside)
     end
 
     def bootstrap_only?(path)
@@ -958,6 +973,7 @@ module Reach
       end
 
       log_event(log_path, "event" => "relocated", "from" => ctx[:legacy_home], "to" => final, "files" => manifest["files"], "bytes" => manifest["bytes"])
+      log_event(log_path, "event" => "set_aside", "to" => ctx[:set_aside]) if ctx[:set_aside]
       copy_stray_workspace(ctx, log_path) if ctx[:stray_base]
       Reach::Paths.with_persona(nil) do
         configure_spaces(ctx)
@@ -1213,7 +1229,7 @@ module Reach
       if present?(final)
         state = read_json(File.join(final, "state", "relocation.json"))
         return false if state && state["phase"] == "switching"
-        return true unless bootstrap_only?(final)
+        return true unless bootstrap_only?(final) || displaceable?(ctx, final)
       end
 
       staged = ctx[:staged]

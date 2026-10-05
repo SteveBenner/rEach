@@ -99,11 +99,16 @@ module Reach
 
     def surfaces(token, value)
       forms = [value]
-      if token == "[[home-folder]]" && value.include?("\\")
-        forms << value.tr("\\", "/")
-        forms << value.gsub("\\", "\\\\\\\\")
+      if token == "[[home-folder]]"
+        base = value.tr("\\", "/")
+        forms << base
+        if base =~ %r{\A[A-Za-z]:/}
+          back = base.tr("/", "\\")
+          forms << back
+          forms << back.gsub("\\", "\\\\\\\\")
+        end
       end
-      forms
+      forms.uniq
     end
 
     def scrubber(install, status)

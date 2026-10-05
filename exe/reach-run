@@ -68,6 +68,7 @@ same_or_nested() {
 }
 
 stray_root() {
+  want_enrolled=${1:-}
   for raw in "${HOME:-}" "${USERPROFILE:-}"; do
     [ -n "$raw" ] || continue
     sb=$(win_dir "$raw") || continue
@@ -75,13 +76,23 @@ stray_root() {
     same_or_nested "$sb" "$user_home" && continue
     sh_home=$sb/reach-work/.reach-home
     if [ -d "$sh_home" ] && [ -r "$sh_home" ]; then
-      if { [ -f "$sh_home/state/relocation.json" ] && grep -q '"phase" *: *"completed"' "$sh_home/state/relocation.json" 2>/dev/null; } || [ -f "$sh_home/install.yml" ] || [ -d "$sh_home/plugin" ] || [ -d "$sh_home/keys" ]; then
+      if [ -n "$want_enrolled" ]; then
+        if [ -f "$sh_home/install.yml" ] && [ -f "$sh_home/keys/install.pem" ]; then
+          printf '%s' "$sh_home"
+          return 0
+        fi
+      elif { [ -f "$sh_home/state/relocation.json" ] && grep -q '"phase" *: *"completed"' "$sh_home/state/relocation.json" 2>/dev/null; } || [ -f "$sh_home/install.yml" ] || [ -d "$sh_home/plugin" ] || [ -d "$sh_home/keys" ]; then
         printf '%s' "$sh_home"
         return 0
       fi
     fi
     sh_legacy=$sb/.reach
-    if [ -d "$sh_legacy" ] && [ -r "$sh_legacy" ] && { [ -f "$sh_legacy/install.yml" ] || [ -d "$sh_legacy/plugin" ]; }; then
+    if [ -n "$want_enrolled" ]; then
+      if [ -d "$sh_legacy" ] && [ -r "$sh_legacy" ] && [ -f "$sh_legacy/install.yml" ] && [ -f "$sh_legacy/keys/install.pem" ]; then
+        printf '%s' "$sh_legacy"
+        return 0
+      fi
+    elif [ -d "$sh_legacy" ] && [ -r "$sh_legacy" ] && { [ -f "$sh_legacy/install.yml" ] || [ -d "$sh_legacy/plugin" ]; }; then
       printf '%s' "$sh_legacy"
       return 0
     fi
@@ -111,6 +122,9 @@ resolve_home() {
     REACH_HOME=$user_home/.reach
   elif [ -f "$new_home/install.yml" ] || [ -d "$new_home/plugin" ] || [ -d "$new_home/keys" ]; then
     REACH_HOME=$new_home
+    if [ ! -f "$new_home/keys/install.pem" ] && [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && stray=$(stray_root enrolled) && [ -n "$stray" ]; then
+      REACH_HOME=$stray
+    fi
   elif [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && stray=$(stray_root) && [ -n "$stray" ]; then
     REACH_HOME=$stray
   else

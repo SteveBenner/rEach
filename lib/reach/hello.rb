@@ -52,7 +52,7 @@ module Reach
 
       profile = Reach::Paths.windows_slashes(ENV["USERPROFILE"])
       differs = !profile.empty? && Reach::Paths.realish(profile).casecmp(mine) != 0
-      Reach::Debug.emit_always("home_env_mismatch", "source" => Reach::Paths.user_home_source, "userprofile_differs" => differs, "stray" => Reach::Paths.stray_active?)
+      Reach::Debug.emit_always("session", "event" => "home_env_mismatch", "source" => Reach::Paths.user_home_source, "userprofile_differs" => differs, "stray" => Reach::Paths.stray_active?)
       nil
     rescue StandardError
       nil
