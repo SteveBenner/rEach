@@ -134,8 +134,13 @@ module Reach
           code = Reach::Client.with_deadline(hook_budget(argv)) { dispatch_hook(argv) }
         rescue Reach::GateBlocked => e
           Reach::Debug.note(e)
-          warn e.message unless cowork_prompt_hook?(argv)
-          code = 2
+          if argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "codex"
+            buffer.string = "#{JSON.generate("decision" => "block", "reason" => e.message)}\n"
+            code = 0
+          else
+            warn e.message unless cowork_prompt_hook?(argv)
+            code = 2
+          end
         rescue StandardError, ScriptError => e
           failure = e
         ensure

@@ -19,7 +19,7 @@ The scratch workspace root is `<scratch>/work` (`REACH_WORKSPACE_ROOT`), so prov
 | fake_teach | the fixture answers `GET /api/v1/health` with 200 |
 | hook_session_start | the SessionStart command from the installed `hooks/hooks.json` exits 0 |
 | hook_prompt_locked | the UserPromptSubmit gate blocks before enrollment: exit 2, a message on stderr, nothing on stdout |
-| hook_codex | the same block through the command from `hooks/codex.json` |
+| hook_codex | the same block through the command from `hooks/codex.json`: exit 0 and `{"decision":"block","reason":...}` on stdout (STD-CODEX-PROMPT-JSON-BLOCK) |
 | enroll | `reach enroll` against the fixture connects the student to the course |
 | machine_id | `Reach::Fingerprint.machine_id` is not `unknown` and has the platform's form |
 | sync_packages | `reach sync` exits 0 with no package fetch, course rules or workspace warning; `packages/guardrails/1.pkg` and `packages/workspace/1.pkg` are stored under the scratch `REACH_HOME`; a second `reach sync` makes the fixture answer 304 to both kinds, counted from its `requests.jsonl`; it then waits for Reach's local request budget to refill so doctor's health check is not rate limited |

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.15
+version: 0.35.16
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2285,7 +2285,10 @@ hook_io_contract:
     input: >-
       The same JSON event on standard input as Claude Code; a file write arrives as tool_name apply_patch with the
       patch text in tool_input.command, which reach gate write reads for its target paths.
-    output: Exit 0 allows; exit 2 blocks and standard error is shown to the agent.
+    output: >-
+      Exit 0 allows; exit 2 blocks and standard error is shown to the agent. Since 0.35.16 (STD-CODEX-PROMPT-JSON-BLOCK)
+      the prompt gates (gate enroll, gate prompt) block with exit 0 and {"decision":"block","reason":...} as the only
+      standard output, because Codex on Windows runs hooks in PowerShell -Command, which turns a native exit 2 into 1.
     trust: Codex runs plugin and project hooks only after the student trusts them; setup tells the student to.
     launcher: >-
       reach work checks the gate, writes the workspace configuration and execs codex with it, so the gate holds even

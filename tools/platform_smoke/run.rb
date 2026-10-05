@@ -397,9 +397,16 @@ module PlatformSmoke
     def hook_codex_step
       @codex_command = hook_command("codex.json", "PLUGIN_ROOT", "UserPromptSubmit")
       code, out, err = run_hook(@codex_command, prompt_payload)
-      return [:pass, "blocked with exit #{BLOCK_EXIT} and a message on stderr"] if blocked?(code, out, err)
+      block = begin
+        JSON.parse(out)
+      rescue StandardError
+        nil
+      end
+      if code == 0 && block.is_a?(Hash) && block["decision"] == "block" && !block["reason"].to_s.strip.empty?
+        return [:pass, "blocked with exit 0 and a JSON block on stdout"]
+      end
 
-      [:fail, "expected exit #{BLOCK_EXIT} with a stderr message and empty stdout, got exit #{code.inspect}: #{tail(out, err)}"]
+      [:fail, "expected exit 0 with {\"decision\":\"block\",\"reason\":...} on stdout, got exit #{code.inspect}: #{tail(out, err)}"]
     end
 
     def enroll_step

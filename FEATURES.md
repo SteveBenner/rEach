@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.15 |
+| **Registry version** | 0.35.16 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -614,6 +614,17 @@ Since 0.34.11 the sign-in step counts as running when either prompt hook ran (th
 course folder's `gate prompt`), and tool gates refuse with `M-LOGIN-NEEDED-NO-HOOK` while neither did. Verified
 2026-10-05 with the real hook commands: session start only (silent, new text), course-folder `gate prompt` only
 (running, old text), a new session with both silent (silent), then `gate enroll` (running).
+Since 0.35.16 (`STD-CODEX-PROMPT-JSON-BLOCK`) `gate enroll` and `gate prompt` with `--harness codex` block by printing
+`{"decision":"block","reason":...}` on standard output and exiting 0, not by exiting 2. Codex on Windows runs hooks
+in the session's PowerShell (`-Command`), which turns a native exit 2 into 1, and Codex treats exit 1 as a hook
+failure that does not block: the student's passkey, student ID, yes or password went on to the model and rEach's
+question never showed. Codex's `UserPromptSubmit` handler blocks on that JSON exactly as on exit 2 with standard
+error (codex-rs `hooks/src/events/user_prompt_submit.rs`, main 402f5b6). Every other harness and gate keeps exit 2.
+Verified 2026-10-05 on Linux in a scratch home with the real hook commands: `gate enroll --harness codex` and
+`gate prompt --harness codex` exited 0 with only the JSON block on standard output, and `gate enroll --harness
+claude-code` still exited 2 with the question on standard error. Not run under PowerShell or inside a real Codex;
+the tool gates (`gate write`, `shell`, `read`) still block with exit 2, so under PowerShell a Codex tool block can
+still come back as exit 1.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.27.1 is live with both entries; students update to 0.21.9 on their own).
 

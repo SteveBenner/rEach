@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.16] - 2026-10-05
+
+### Fixed
+
+- On Windows, Codex sent the student's message on to the model even when rEach's sign-in hook blocked it, so the
+  student never saw rEach's passkey, student ID, yes or password question, the agent saw their answer instead, and
+  it kept telling them to quit Codex and start a new chat (`STD-CODEX-PROMPT-JSON-BLOCK`). Codex runs hooks in the
+  session's PowerShell (`-Command`), which turns rEach's exit 2 into exit 1, and Codex treats exit 1 as a hook
+  failure that does not block. `reach gate enroll` and `reach gate prompt` with `--harness codex` now block by
+  printing `{"decision":"block","reason":...}` on standard output and exiting 0, which Codex's prompt hook handler
+  treats exactly like exit 2 with standard error (`Reach::CLI.run_hook`). Every other harness and gate is unchanged.
+  `hooks/codex.json` is unchanged, so students do not need to trust the hook again.
+
+### Changed
+
+- The platform smoke's `hook_codex` step expects the JSON block with exit 0.
+
 ## [0.35.15] - 2026-10-05
 
 ### Security

@@ -110,7 +110,7 @@ Stop the fixture with Ctrl-C and delete the two scratch folders when you are don
     PASS fake_teach health 200 on http://127.0.0.1:34441 after 2 attempt(s); webrick present
     PASS hook_session_start exit 0
     PASS hook_prompt_locked blocked with exit 2 and a message on stderr
-    PASS hook_codex blocked with exit 2 and a message on stderr
+    PASS hook_codex blocked with exit 0 and a JSON block on stdout
     PASS enroll You're connected to Business 101: Demo Course. ...
     PASS sync_packages guardrails and workspace fetched, stored as 1.pkg and revalidated with 304 on the second sync
     PASS hook_prompt_open signed in through the plugin hook (...), gate open
