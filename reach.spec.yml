@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.34.12
+version: 0.34.13
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2824,7 +2824,10 @@ home_in_workspace:
     stray home is always chosen
     over an unenrolled one. At session start, on Windows with $HOME different from user_home, Reach::Debug.emit_always
     records a W-DBG-FAULT fault event (where paths.user_home, cause home_env_mismatch, a stable fault_id, home_source
-    and two booleans), never a path or a name.
+    and two booleans), never a path or a name. Since 0.34.13 Reach::Debug.relative_frames writes a backtrace frame
+    under user_home, $HOME or %USERPROFILE% as ~/..., and Reach::Deidentify scrubs a $HOME that differs from user_home
+    on Windows as [[home-folder-env]] (Teach restores any [[a-z0-9-]] placeholder); a home folder that is a drive or
+    filesystem root yields no scrub form.
   relocation: >-
     Reach::Relocation copies the legacy home to <workspace_base>/.reach-home.relocating with a journal (SHA-256 per
     file, resumable after a kill), verifies in rounds, compares enrollment before and after (key, fingerprint and stamp

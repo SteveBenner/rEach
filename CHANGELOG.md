@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.13] - 2026-10-05
+
+### Fixed
+
+- Error reports sent with debug mode off listed backtrace lines with full paths, which named the student's user folder
+  when Ruby or a gem lived inside it (the runtime kit does). `Reach::Debug.relative_frames` now writes any line under
+  the profile folder, `HOME` or `USERPROFILE` as `~/...`, and `PRIVACY.md` says so.
+- On Windows, when `HOME` points somewhere other than the profile folder, transcript scrubbing also replaces that
+  folder, as `[[home-folder-env]]`.
+- A profile folder that is a drive root (such as `D:\`) no longer produces short scrub forms like `/d/` that would
+  have replaced unrelated text in a transcript.
+
 ## [0.34.12] - 2026-10-05
 
 ### Changed
