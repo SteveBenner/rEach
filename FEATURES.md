@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.33.6 |
+| **Registry version** | 0.34.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1301,6 +1301,19 @@ The licence is `undecided` in `reach.spec.yml`; it must be decided before a publ
 `lib/reach.rb` carry an MIT SPDX line.
 
 Build ⚪ · Deploy ⚫ · Blocker: Human.
+
+### 11.7 · Security audit mode for releases
+
+Since 0.34.0 (`STD-SECURITY-AUDIT-MODE`) a release push to GitHub passes a pre-push gate first: a scan for secrets,
+credential files, local paths and student data (a salted hashed roster from Teach), then a headless read-only Claude
+Code audit, blocking on a finding at or above the severity set on Teach's Ops page. Maintainer tooling only; nothing
+students run changes. Checked on 2026-10-05 against a scratch remote and a stub Teach: a non-release push passes
+silently, a planted private key and a seeded student email and name block with masked reports, a clean release ran a
+real Haiku audit ($0.26) whose verdict the tag push reused, a stopped Teach falls back to the cached settings and
+roster, the kill switch skips, and report-only never blocks. Interim: raudit takes the gate over fleet-wide. Not yet
+run under Ruby 2.6.10, against live Teach, or on a real release.
+
+Build ✅ · Deploy 🔵 · Blocker: -
 
 ## Appendix · Blocked by
 

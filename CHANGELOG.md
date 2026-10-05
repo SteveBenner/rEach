@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.0] - 2026-10-05
+
+### Added
+
+- Security audit mode for releases (`STD-SECURITY-AUDIT-MODE`), a maintainer tool that students never run. A
+  `pre-push` hook (`.githooks/pre-push`, armed per clone by `tools/security_audit/install`) acts only when a push to
+  this repository on GitHub carries a release (a `v*` tag, or a change to `VERSION`). It scans the diff since the last
+  release for secrets, key and credential files, local paths and student data (matched against a salted, hashed roster
+  from Teach, so no identifier is ever in plain text) in `tools/security_audit/scan.rb`, then runs a headless,
+  read-only Claude Code audit of the same diff (`tools/security_audit/prompt.md`) for exposure, liability, data loss,
+  security and privacy issues, and blocks the push on a finding at or above the configured severity. Settings come
+  from Teach's Ops page (Teach 0.53.0); each release tree is audited once, reports are masked, and every run is
+  posted to Teach and to rLogs. `REACH_SECURITY_AUDIT=0` skips it.
+
 ## [0.33.6] - 2026-10-05
 
 ### Changed
