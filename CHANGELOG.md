@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.5] - 2026-10-05
+
+### Fixed
+
+- In Codex, a student could never sign in. Each new chat the agent said there was a setup problem and told them to
+  quit Codex and start a new chat. Codex trusts every hook by the hash of its command, and a course folder's
+  `.codex/hooks.json` is written after the student approved the plugin's hooks, so Codex never ran any course-folder
+  hook. The "hooks not running" known issue was therefore always detected, and its steps sent the student away from
+  the sign-in question. Prompts were never recorded, and qualify and submit were refused (`STD-CODEX-HOOK-TRUST`).
+- The plugin's `gate enroll` and `hello` hooks now do the course prompt and session work on Codex. `hooks/codex.json`
+  is unchanged byte for byte, so nothing needs approving again. A marker lets exactly one hook do it when an older,
+  trusted course-folder hook also runs. `gate enroll` stamps `prompt_at` on every Codex run.
+- A course folder's Codex hooks keep only the tool and stop hooks. With the student's existing yes to Codex's
+  settings, rEach records Codex's hook trust for them (`Reach::CodexHookTrust`, checked against codex 0.160.0) and
+  marks each course folder a trusted project. It repairs both whenever they go stale. `PRIVACY.md` and the consent
+  question say so.
+- Missing or stale trust refuses qualify, submit and part answers with `M-HOOKS-UNTRUSTED`, whose remedy is
+  `reach_setup configure`. While the student's sign-in is pending, hook-trust and course-hook known issues are not
+  shown to the agent, and no hook-trust message tells the student to restart Codex or start a new chat.
+
 ## [0.35.4] - 2026-10-05
 
 ### Fixed

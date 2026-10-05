@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.4
+version: 0.35.5
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2991,7 +2991,7 @@ codex_setup:
     comparison), the Codex desktop app and IDE extension honoring the user-level config, and a real Codex chat
     reaching the course server after configure.
 codex_hook_trust:
-  since: unreleased
+  since: 0.35.5
   standard: STD-CODEX-HOOK-TRUST
   library: >-
     lib/reach/codex_hook_trust.rb (Reach::CodexHookTrust: hash, key, keys, status, stale?) and the hooks.state editing in
