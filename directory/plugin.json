@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "reach-installer",
-  "version": "0.34.9",
+  "version": "0.34.10",
   "description": "Installs rEach, the student's academic assistant for a Teach-run course, from its public GitHub repository.",
   "author": {
     "name": "PatḗrasAI",

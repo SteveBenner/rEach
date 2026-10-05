@@ -473,7 +473,7 @@ module Reach
           Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
           error(id, -32000, Reach::Link.student_text(e, :tool))
         else
-          error(id, -32000, e.message)
+          error(id, -32000, login_text(e.message))
         end
       rescue StandardError, ScriptError => e
         if e.is_a?(KeyError) && e.receiver.equal?(arguments)
@@ -482,6 +482,14 @@ module Reach
 
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
         error(id, -32000, Reach::Messages.text("M-REACH-HICCUP-TOOL"))
+      end
+
+      def login_text(message)
+        return message unless message == Reach::Messages.text("M-LOGIN-NEEDED") && Reach::KnownIssues.signin_hook_dead?
+
+        Reach::Messages.text("M-LOGIN-NEEDED-NO-HOOK")
+      rescue StandardError
+        message
       end
 
       def tool_label(name)

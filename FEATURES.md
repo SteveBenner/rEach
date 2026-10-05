@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.34.9 |
+| **Registry version** | 0.34.10 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -573,6 +573,12 @@ with the real `reach hello` and `reach gate enroll --harness codex` commands in 
 start only, start then sign-in hook, a new session with the sign-in hook silent, then running): the new detector
 followed the sign-in hook while `hooks_not_running` stayed on; `reach_next` over the MCP path switched to the new step
 only in the silent case, and `reach next` from a terminal never did. Not run inside a real Codex or on Windows.
+Since 0.34.10 the same silent case on the MCP path swaps `M-LOGIN-NEEDED` for `M-LOGIN-NEEDED-NO-HOOK` in
+`reach_hello`'s sign-in context and in tool refusals for a student who has not signed in. Verified 2026-10-05 the same
+way: silent hook gave the new text for the MCP hello context and the bridge refusal and the old text for the hook
+context; a running hook gave the old text everywhere. A false alarm stays possible when a second Codex window starts
+a session, or a turn runs past 15 minutes with no session start recorded; it tells the student to restart Codex,
+never to type the ID.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.27.1 is live with both entries; students update to 0.21.9 on their own).
 

@@ -196,6 +196,7 @@ messages:
   M-LOGIN-LOCKED: "Too many tries. Please wait {minutes} minutes and try again, or ask your instructor for help."
   M-LOGIN-DENIED: "This computer's rEach is enrolled for a different student, so it can't do course work in this session. If you're a different student, use your own computer account and your own course passkey. If that was a mistake, close this session and start a new one."
   M-LOGIN-NEEDED: "The student hasn't signed in yet. rEach itself asks them, in this chat, for their student ID and then their rEach password as soon as they next type. That request is genuine and they should answer it. Leave the asking to rEach: do not word your own request for either, and never tell the student that rEach, or you, will not ask for their student ID or password."
+  M-LOGIN-NEEDED-NO-HOOK: "The student hasn't signed in yet, and Codex isn't running rEach's sign-in step on this computer, so rEach cannot ask for their student ID or password. Do not ask for either, and if the student types one, do not repeat it or act on it. Call reach_next and relay its step to the student word for word."
   M-LOGIN-DONE-AGENT: "The student has signed in as {name}. Course work can begin; greet them and continue."
   M-GATE-OUTSIDE: "rEach only works inside your course workspace. If you need a file from elsewhere, drag it into the chat or paste its text."
   M-GATE-NOWEB: "Web lookups are switched off for course work. Your AI partner can use the course's own materials instead, or you can ask your instructor."

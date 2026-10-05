@@ -333,7 +333,8 @@ module Reach
     end
 
     def login_context(updating = nil, mcp: false)
-      text = ["#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text('M-LOGIN-NEEDED')}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
+      needed = mcp && Reach::KnownIssues.signin_hook_dead? ? "M-LOGIN-NEEDED-NO-HOOK" : "M-LOGIN-NEEDED"
+      text = ["#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text(needed)}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
       updating ? "#{text}\n#{update_line(updating)}" : text
     end
 

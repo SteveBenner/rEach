@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.10] - 2026-10-05
+
+### Fixed
+
+- While Codex's sign-in hook was silent, the agent was still told that rEach would ask for the student ID and password
+  in the chat and that the request was genuine (`M-LOGIN-NEEDED`), which contradicted 0.34.9's
+  `M-NEXT-LOGIN-NO-HOOK`. On the MCP path, `reach_hello`'s
+  sign-in context (`Reach::Hello.login_context`) and every tool refusal for a student who has not signed in
+  (`Reach::MCPBridge#login_text` over `Reach::Login.require_active!`) now say `M-LOGIN-NEEDED-NO-HOOK`: rEach cannot
+  ask, so the agent asks for neither, does not repeat one the student types, and relays `reach_next`
+  (`STD-SIGNIN-HOOK-SILENT`). Found by the 0.34.9 pre-push security audit.
+
 ## [0.34.9] - 2026-10-05
 
 ### Fixed
