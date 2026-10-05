@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.34.2
+version: 0.34.3
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2787,10 +2787,33 @@ home_in_workspace:
     rEach's own files live in <workspace_base>/.reach-home (workspace_base is $REACH_WORKSPACE_ROOT or ~/reach-work),
     never in ~/.reach for a new install. The workspace stays where it is. A persona keeps its home at
     <home>/personas/<id> and its workspace at <workspace_base>/personas/<id>.
+  user_home: >-
+    Since 0.34.3 (STD-USER-HOME) every ~ above is Reach::Paths.user_home. On macOS and Linux that is File.expand_path("~")
+    as before. On Windows it is the signed-in user's profile folder as Windows reports it, never $HOME: the Profile
+    known folder (SHGetKnownFolderPath through Fiddle), else HKCU\Volatile Environment USERPROFILE (reg.exe), else
+    %USERPROFILE%, else ~; Reach::Paths.user_home_source names the step that answered. exe/reach-run asks reg.exe, then
+    PowerShell's [Environment]::GetFolderPath('UserProfile'), then $USERPROFILE; scripts/reach-install and
+    scripts/reach-install.ps1 follow the same order. A harness's config folder follows that harness's own rule:
+    CLAUDE_CONFIG_DIR, else %USERPROFILE%, else user_home for Claude and Antigravity; CODEX_HOME, else user_home for
+    Codex; HERMES_HOME, else user_home for Hermes. rEach never creates the folder its paths hang from (user_home, or the
+    parent of $REACH_WORKSPACE_ROOT or $REACH_HOME): when it is missing every launcher and Reach::Paths.ensure_home!
+    create nothing and answer M-HOME-MISSING.
   resolution: >-
     Reach::Paths.root, memoized for at most 2 seconds: (1) $REACH_HOME set: that directory, legacy logic off; (2)
     <workspace_base>/.reach-home/state/relocation.json exists with phase completed: the new home; (3) ~/.reach holds
-    install.yml or plugin/: the legacy home is active and a relocation is due; (4) otherwise the new home.
+    install.yml or plugin/: the legacy home is active and a relocation is due; (4) the new home holds install.yml,
+    plugin/ or keys/: the new home; (5) on Windows only, with neither override set, a stray home exists: a
+    reach-work/.reach-home (completed, or holding install.yml, plugin/ or keys/) or a legacy .reach under $HOME or
+    %USERPROFILE% when that folder differs from user_home; the stray home is active and a relocation is due; (6)
+    otherwise the new home.
+  stray_relocation: >-
+    Since 0.34.3 a stray home is moved by the same relocation as a legacy one, with the stray home as its source and
+    user_home's reach-work as its base. After the home is switched in, the stray reach-work's other top-level entries
+    are copied into user_home's reach-work one by one through a .<name>.reach-moving staging name that is renamed only
+    after it verifies; an entry whose name already exists there is skipped and logged. Nothing under the stray folder is
+    deleted, truncated, renamed or overwritten; a RELOCATED.json the stray source refuses is logged and does not stop the
+    move. At session start, on Windows with $HOME different from user_home, Reach::Debug.emit_always records
+    home_env_mismatch with the source step and two booleans, never a path or a name.
   relocation: >-
     Reach::Relocation copies the legacy home to <workspace_base>/.reach-home.relocating with a journal (SHA-256 per
     file, resumable after a kill), verifies in rounds, compares enrollment before and after (key, fingerprint and stamp

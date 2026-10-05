@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.3] - 2026-10-05
+
+### Fixed
+
+- On Windows rEach created a folder such as `C:\Users\anon` that is not the student's own user folder, and the student
+  then hit permission errors there (`STD-USER-HOME`). rEach took its home from `HOME`, which a harness or shell can
+  point anywhere; the hook launcher `exe/reach-run`, `Reach::Paths` and `scripts/reach-install` all built
+  `~/reach-work` from it and created every missing folder on the way. On Windows rEach now asks Windows for the
+  signed-in user's profile folder (`Reach::Paths.user_home`: the Profile known folder, then the `HKCU\Volatile
+  Environment` `USERPROFILE` value, then `%USERPROFILE%`), and so do `exe/reach-run` (registry, then PowerShell, then
+  `$USERPROFILE`), `scripts/reach-install` and `scripts/reach-install.ps1`. macOS and Linux are unchanged.
+- rEach never creates the folder its paths hang from: when the user folder (or the parent of `REACH_WORKSPACE_ROOT` or
+  `REACH_HOME`) is missing, the launcher, the installers and `Reach::Paths.ensure_home!` create nothing and say so with
+  the new `M-HOME-MISSING` message.
+- An install that already landed under the wrong folder moves to the real one by itself: `Reach::Paths.root` finds it
+  as a stray home and the existing relocation copies it into `<profile>\reach-work\.reach-home`, then copies the other
+  entries of the stray `reach-work` beside it, skipping any name already there. Nothing in the stray folder is deleted
+  or changed apart from `RELOCATED.json`.
+- Harness config folders follow each harness's own home rule (`CLAUDE_CONFIG_DIR`, else `%USERPROFILE%` for Claude
+  Code and Antigravity; `CODEX_HOME`, else the profile for Codex; `HERMES_HOME` for Hermes), so setup, updates and the
+  Codex marketplace source write where the harness reads. Transcript scrubbing removes the real profile path.
+
+### Added
+
+- At session start on Windows, when `HOME` differs from the profile folder, rEach records `home_env_mismatch` in its
+  fault log with the lookup step and two yes/no flags, never a path or a name.
+
 ## [0.34.2] - 2026-10-05
 
 ### Removed

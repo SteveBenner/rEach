@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.34.2 |
+| **Registry version** | 0.34.3 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -47,6 +47,11 @@ the first public run). `tools/smoke/assignment_one.rb --public` installed from t
 Since 0.34.1 (`STD-STUDENT-TREE`) `.gitattributes` keeps developer material (`tools/`,
 `.githooks/`, `.github/`, the smoke and deploy notes, figure 08) out of the archive the installer and every update
 download, after a student's agent asked to use the instructors' local server port it had read in those notes.
+Since 0.34.3 (`STD-USER-HOME`) the installer, the hook launcher and `Reach::Paths` take the Windows profile folder
+from Windows instead of `HOME`, which had created `C:\Users\anon` on a student's computer; they never create a
+missing user folder, and an install that landed under a stray home moves to the profile by the relocation. Checked
+on Linux and in a simulated Windows run; the known-folder, registry and PowerShell lookups have not run on a student's
+Windows computer.
 
 Build ✅ · Deploy 🟢 · Blocker: Engineering (the Windows path is unverified).
 
