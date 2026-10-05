@@ -174,7 +174,7 @@ module Reach
     end
 
     def failure_tail(reason)
-      return "Nothing was deleted or lost, but part of rEach's folder is still under a name ending in set-aside or pre in your reach-work folder; tell your instructor." if reason == "rollback_incomplete"
+      return "Nothing was deleted or lost, but part of rEach's folder is still in your reach-work folder under a hidden name that starts with .reach-home and contains set-aside or pre; tell your instructor." if reason == "rollback_incomplete"
 
       "Nothing was changed or lost; your files are safe where they are."
     end
@@ -950,10 +950,14 @@ module Reach
         File.rename(ctx[:staged], final)
       rescue StandardError, ScriptError => e
         restore = displaced || aside
-        begin
-          File.rename(restore, final) if restore && !present?(final)
-        rescue StandardError
-          raise Failure.new("rollback_incomplete", "#{e.class}: #{File.basename(restore)} kept under its set-aside name")
+        if restore
+          begin
+            raise Errno::EEXIST, final if present?(final)
+
+            File.rename(restore, final)
+          rescue StandardError
+            raise Failure.new("rollback_incomplete", "#{e.class}: #{File.basename(restore)} kept under its set-aside name")
+          end
         end
         raise
       end

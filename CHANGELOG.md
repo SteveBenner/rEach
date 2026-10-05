@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.7] - 2026-10-05
+
+### Fixed
+
+- When the move's final rename failed and something had recreated the destination meanwhile, the relocation did not
+  try to put the renamed folder back and still told the student nothing had changed. It now reports
+  `rollback_incomplete` in that case too.
+- The `rollback_incomplete` message tells the student the leftover folder has a hidden name that starts with
+  `.reach-home` and contains `set-aside` or `pre`.
+
+### Changed
+
+- `PRIVACY.md` says a setup-problem report carries a few fixed facts, such as which way rEach found the user folder.
+
 ## [0.34.6] - 2026-10-05
 
 ### Fixed
