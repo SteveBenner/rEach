@@ -106,9 +106,9 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 
 | Harness | Command |
 | --- | --- |
-| Claude Code | `claude plugin marketplace add <link>` then `claude plugin install reach@reach --scope user` |
+| Claude Code | `claude plugin marketplace add SteveBenner/rEach#stable` then `claude plugin install reach@reach --scope user` |
 | Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
-| Codex | `codex plugin marketplace add <link>` then `codex plugin add reach@reach`, and trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
+| Codex | `codex plugin marketplace add SteveBenner/rEach@stable` then `codex plugin add reach@reach`, and trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
 | Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
 | Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/reach-work/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
 | Any of the above | install the public GitHub archive to `~/reach-work/.reach-home/plugin` (to `~/.reach/plugin` on a computer that already has an older install, which setup then moves), then run `exe/reach setup` from the path the installer prints |

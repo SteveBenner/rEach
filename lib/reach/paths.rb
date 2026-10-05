@@ -1,6 +1,7 @@
 require "fileutils"
 require "json"
 require "open3"
+require "pathname"
 require "rbconfig"
 require "timeout"
 
@@ -14,6 +15,8 @@ module Reach
 
     PROFILE_FOLDER_ID = [0x5E6C858F, 0x0E22, 0x4760, 0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73].freeze
     REGISTRY_TIMEOUT_S = 5
+    SHELL_FOLDERS_KEY = 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders'.freeze
+    DOWNLOADS_FOLDER_ID = "{374DE290-123F-4565-9164-39C4925E467B}".freeze
     HOME_MISSING_ID = "M-HOME-MISSING".freeze
 
     def windows_host?
@@ -79,6 +82,47 @@ module Reach
       windows_slashes(line.sub(/\A\s*USERPROFILE\s+REG_(?:EXPAND_)?SZ\s+/i, ""))
     rescue StandardError, Timeout::Error
       nil
+    end
+
+    def registry_downloads_value
+      require "win32/registry"
+
+      Win32::Registry::HKEY_CURRENT_USER.open(SHELL_FOLDERS_KEY) do |key|
+        key.read(DOWNLOADS_FOLDER_ID)[1].to_s
+      end
+    rescue StandardError, LoadError
+      nil
+    end
+
+    def expand_windows_variables(text)
+      unresolved = false
+      expanded = text.to_s.gsub(/%([^%\r\n]+)%/) do
+        name = Regexp.last_match(1)
+        found = ENV.to_h.find { |key, _value| key.casecmp(name).zero? }
+        value = found ? found[1].to_s : ""
+        value = user_home if value.empty? && name.casecmp("USERPROFILE").zero?
+        unresolved = true if value.to_s.empty?
+        value.to_s
+      end
+      unresolved ? nil : expanded
+    end
+
+    def windows_downloads_dir
+      raw = registry_downloads_value.to_s.strip
+      return nil if raw.empty?
+
+      expanded = expand_windows_variables(raw)
+      return nil unless expanded
+
+      path = windows_slashes(expanded)
+      Pathname.new(path).absolute? ? existing_directory(path) : nil
+    rescue StandardError
+      nil
+    end
+
+    def downloads_dir
+      configured = windows_host? ? windows_downloads_dir : nil
+      configured || File.join(user_home, "Downloads")
     end
 
     def user_home_pair

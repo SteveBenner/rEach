@@ -144,6 +144,16 @@ module Reach
     end
 
     def summary_text
+      text = base_summary_text
+      open = Reach::Consent.open_notice
+      open ? "#{text}\n\n#{open['text']}" : text
+    end
+
+    def open_question
+      Reach::Consent.open_notice
+    end
+
+    def base_summary_text
       begin
         refresh!(quick: true)
       rescue Reach::NetworkError, Reach::RemoteRefused
@@ -175,8 +185,9 @@ module Reach
       end
     end
 
-    def choose!(modules, quick: false)
-      Reach::Login.require_active!
+    def choose!(modules, quick: false, session_id: nil)
+      session_id = Reach::Login.current_session_id if session_id.to_s.empty?
+      Reach::Login.require_active!(session_id: session_id)
       data = nil
       begin
         refresh!(quick: quick)
@@ -214,7 +225,7 @@ module Reach
 
       consent = Reach::Consent.take!(kind: "module_lock", subject: subject)
       unless consent
-        question = Reach::Consent.ask!(kind: "module_lock", subject: subject, message_id: "M-MODULES-LOCK-ASK", fields: { modules: names(chosen) }, replay: {})
+        question = Reach::Consent.ask!(kind: "module_lock", subject: subject, message_id: "M-MODULES-LOCK-ASK", fields: { modules: names(chosen) }, replay: {}, session_id: session_id)
         return { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
       end
 

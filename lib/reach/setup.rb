@@ -140,11 +140,11 @@ module Reach
         return { id: "claude-code", ok: false, message: "Claude app: open Customize › Plugins › Add › Add marketplace, paste this repository's link, then add rEach." }
       end
 
-      add_out, add_err, add_status = capture(["claude", "plugin", "marketplace", "add", source])
-      unless add_status
+      added = Reach::HarnessSource.claude_add(Reach::HarnessSource.pin(source, "claude-code"))
+      unless added == "ok"
         update_out, update_err, update_status = capture(["claude", "plugin", "marketplace", "update", "reach"])
         unless update_status
-          return { id: "claude-code", ok: false, message: "Claude: marketplace add/update failed: #{add_err}#{add_out} #{update_err}#{update_out}".strip }
+          return { id: "claude-code", ok: false, message: "Claude: marketplace add/update failed: #{added.sub(/\Afailed: /, '')} #{update_err}#{update_out}".strip }
         end
       end
 
@@ -161,6 +161,7 @@ module Reach
         return { id: "codex", ok: false, message: "Codex app: add this repository as a plugin marketplace, then add rEach from the Plugins directory." }
       end
 
+      source = Reach::HarnessSource.pin(source, "codex")
       add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
       if !add_status && "#{add_out}#{add_err}".include?(Reach::HarnessSource::CONFLICT)
         replaced = Reach::HarnessSource.replace_codex_source(source)

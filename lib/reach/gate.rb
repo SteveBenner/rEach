@@ -218,6 +218,7 @@ module Reach
         done = safely { Reach::Consent.follow_up!(observed) }
         context << Reach::Consent.agent_context(observed, done) unless done.to_s.empty?
       end
+      context << safely { Reach::Consent.relay!(session) } unless observed
       context.concat(Array(safely { Reach::Live.prompt_notices(session) }))
       if space
         import_path = space["kind"] == "root" ? safely { focus_workspace } : space["path"]

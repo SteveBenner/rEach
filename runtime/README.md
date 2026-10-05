@@ -13,7 +13,7 @@ The runtime is a per-platform bundle that `reach runtime install` downloads for 
 
 ## Bundle layout
 
-Every path sits under a top directory `runtime/`: `runtime/ruby/` (with `bin/ruby` or `bin/ruby.exe`), `runtime/gems/<lock12>/` (BUNDLE_PATH, Gemfile and Gemfile.lock for one profile, lock12 being the first 12 hex characters of the original lock's sha256), and `runtime/BUILD.json`. When the platform is missing from a lock, `bundle lock --add-platform` runs before install, so the bundled lock can differ from the profile lock; the manifest hashes record the original bytes.
+Every path sits under a top directory `runtime/`: `runtime/ruby/` (with `bin/ruby` or `bin/ruby.exe`), `runtime/gems/<lock12>/` (BUNDLE_PATH, Gemfile and Gemfile.lock for one profile, lock12 being the first 12 hex characters of the sha256 of the lock with LF line endings), and `runtime/BUILD.json`. When the platform is missing from a lock, `bundle lock --add-platform` runs before install, so the bundled lock can differ from the profile lock; the manifest hashes record the LF form of the profile lock, and a kit matches a lock in its LF or CRLF form (STD-KIT-LOCK-MATCH).
 
 ## Ruby sources
 

@@ -281,7 +281,7 @@ module Reach
           "witnessed" => Reach::Ledger.witnessed(workspace),
           "marks" => Reach::Seal.verify(workspace),
           "hooked" => Reach::Ledger.records(workspace).any? { |record| record["kind"] == "session" },
-          "harness" => Reach::Ledger.last_harness(workspace) || env_harness || "unknown",
+          "harness" => Reach::Ledger.last_harness(workspace) || env_harness || detected_harness || "unknown",
           "sidecar_id" => Reach::Sidecar.id,
           "integrity_events" => Reach::Ledger.integrity_count(workspace)
         }
@@ -291,6 +291,11 @@ module Reach
 
       def env_harness
         value = ENV["REACH_HARNESS"]
+        ALLOWED_HARNESSES.include?(value) ? value : nil
+      end
+
+      def detected_harness
+        value = Reach::Session.detect_harness
         ALLOWED_HARNESSES.include?(value) ? value : nil
       end
 

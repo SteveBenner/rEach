@@ -411,15 +411,7 @@ module Reach
     def resolve_harness(harness)
       return harness if harness
 
-      if ENV["PLUGIN_ROOT"] && !ENV["CLAUDE_PROJECT_DIR"]
-        "codex"
-      elsif ENV["CLAUDE_PLUGIN_ROOT"] || ENV["CLAUDE_PROJECT_DIR"]
-        "claude-code"
-      elsif ENV["HERMES_HOME"].to_s != ""
-        "hermes"
-      else
-        "unknown"
-      end
+      Reach::Session.detect_harness
     end
 
     def maybe_refresh_status

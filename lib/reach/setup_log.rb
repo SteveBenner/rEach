@@ -523,6 +523,22 @@ module Reach
       nil
     end
 
+    def succeeded!(fields = {})
+      return nil if env_off? || config["enabled"] == false
+
+      guard do
+        streak_was = nil
+        with_state do |state|
+          streak_was = state["streak"].to_i
+          state["streak"] = 0
+          state["last_success_at"] = now_iso
+          state.delete("offer")
+        end
+        append_record("outcome", { "result" => "success", "streak" => 0, "streak_cleared" => streak_was }.merge(fields))
+      end
+      nil
+    end
+
     def take_offer!
       return nil if env_off? || !File.file?(state_file)
 

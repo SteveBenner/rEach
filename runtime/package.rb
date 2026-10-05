@@ -89,7 +89,7 @@ Dir.mktmpdir("reach-runtime-stage") do |stage|
 
   entries = []
   profiles.each do |name|
-    lock_bytes = File.binread(File.join(LOCKS_DIR, name, "Gemfile.lock"))
+    lock_bytes = File.binread(File.join(LOCKS_DIR, name, "Gemfile.lock")).gsub("\r\n".b, "\n".b)
     gemfile_bytes = File.binread(File.join(LOCKS_DIR, name, "Gemfile"))
     lock_sha = Digest::SHA256.hexdigest(lock_bytes)
     gemfile_sha = Digest::SHA256.hexdigest(gemfile_bytes)

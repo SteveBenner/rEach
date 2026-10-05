@@ -314,14 +314,22 @@ module Reach
         return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
       end
 
-      FileUtils.rm_f(Reach::Paths.enroll_flow_file)
       Reach::Progress.enrolled!(install["student_id"])
+      finish("chat")
       spawn_sync
       first_name = install["display_name"].to_s.split(/\s+/).first || "there"
       Reach::Messages.text(
         "M-ENR-DONE",
         course_title: (install["course"] || {})["title"], first_name: first_name, launch: Reach::Runtime.hook_command("work")
       )
+    end
+
+    def finish(via)
+      FileUtils.rm_f(Reach::Paths.enroll_flow_file)
+      Reach::SetupLog.succeeded!("where" => "enroll:#{via}")
+      nil
+    rescue StandardError
+      nil
     end
 
     def denial_reason(error)

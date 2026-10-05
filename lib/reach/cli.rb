@@ -29,6 +29,7 @@ module Reach
         code = nil
         failure = nil
         begin
+          Reach::Client.scrub_requests_log_once!
           code = hook_invocation?(argv) ? run_hook(argv) : run_terminal(argv)
         rescue StandardError, ScriptError => e
           failure = e
@@ -249,6 +250,11 @@ module Reach
         command = args.shift
         @command_name = command.to_s.match?(/\A[a-z-]{1,24}\z/) ? command.to_s : "?"
 
+        if command && !%w[--help -h help version --version -V].include?(command) && args.any? { |token| %w[--help -h].include?(token) }
+          print_usage(command)
+          return 0
+        end
+
         unless UNLOCKED_COMMANDS.include?(command)
           lock = Reach::EnrollmentLock.state
           if lock["locked"]
@@ -375,8 +381,22 @@ module Reach
 
       private
 
-      def print_usage
-        puts <<~USAGE
+      def print_usage(verb = nil)
+        text = usage_text
+        if verb
+          name = verb == "enrol" ? "enroll" : verb
+          lines = text.lines.select { |line| line.start_with?("  ") && line.strip.split(/\s+/).first == name }
+          unless lines.empty?
+            puts "usage: reach #{lines.first.strip}"
+            lines.drop(1).each { |line| puts "       reach #{line.strip}" }
+            return
+          end
+        end
+        puts text
+      end
+
+      def usage_text
+        <<~USAGE
           usage: reach <command> [options]
 
           commands:
@@ -548,17 +568,19 @@ module Reach
         Reach::Progress.mark("enroll.code")
         course = preview["course"]
         rules = Reach::Identity.rules(preview["identity"], preview["hints"])
-        asked = Reach::Messages.text(
-          "M-ENR-ASK-USERNAME",
-          course_title: course["title"], course_id: course["id"], term: course["term"],
-          institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules)
-        )
-        username = interactive ? ask_value(asked, Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules))) { |text| Reach::Identity.normalize_username(text, rules) } : Reach::Identity.normalize_username(options[:username], rules)
+        asked = lambda do
+          Reach::Messages.text(
+            "M-ENR-ASK-USERNAME",
+            course_title: course["title"], course_id: course["id"], term: course["term"],
+            institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules)
+          )
+        end
+        username = interactive ? ask_value(asked, -> { Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules)) }) { |text| Reach::Identity.normalize_username(text, rules) } : Reach::Identity.normalize_username(options[:username], rules)
         unless username
           warn Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules))
           return 1
         end
-        student_id = interactive ? ask_value(Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules)), Reach::Messages.text("M-ENR-ID-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules))) { |text| Reach::Identity.normalize_student_id(text, rules) } : Reach::Identity.normalize_student_id(options[:student_id], rules)
+        student_id = interactive ? ask_value(-> { Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules)) }, -> { Reach::Messages.text("M-ENR-ID-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules)) }) { |text| Reach::Identity.normalize_student_id(text, rules) } : Reach::Identity.normalize_student_id(options[:student_id], rules)
         unless student_id
           warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules))
           return 1
@@ -593,6 +615,7 @@ module Reach
           return 1
         end
         Reach::Progress.enrolled!(install["student_id"])
+        Reach::EnrollFlow.finish("terminal")
         finish_enroll(install)
       end
 
@@ -636,11 +659,11 @@ module Reach
       end
 
       def ask_course_code
-        ask_value(Reach::Messages.text("M-ENR-ASK-CODE"), Reach::Messages.text("M-ENR-CODE-FORMAT")) { |text| Reach::Identity.parse_course_code(text) }
+        ask_value(-> { Reach::Messages.text("M-ENR-ASK-CODE") }, -> { Reach::Messages.text("M-ENR-CODE-FORMAT") }) { |text| Reach::Identity.parse_course_code(text) }
       end
 
       def ask_value(question, retry_text)
-        puts question
+        puts question.respond_to?(:call) ? question.call : question
         5.times do
           line = STDIN.gets
           return nil if line.nil?
@@ -648,7 +671,7 @@ module Reach
           value = yield(line.strip)
           return value if value
 
-          puts retry_text
+          puts retry_text.respond_to?(:call) ? retry_text.call : retry_text
         end
         nil
       end
@@ -747,7 +770,7 @@ module Reach
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
         @gate_event = event
-        hook_kind = { "prompt" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
+        hook_kind = { "prompt" => "prompt", "session" => "session", "write" => "work", "shell" => "work", "read" => "work" }.fetch(sub.to_s, "other")
         if sub == "enroll"
           label = Reach::Fingerprint.harness_label(options[:harness])
           Reach::KnownIssues.record_enroll_hook!(label)
@@ -1192,11 +1215,19 @@ module Reach
       end
 
       def codex_setup_answer(event)
-        return nil if event["turn_id"].to_s.empty? || Reach::Instructor.mode?
+        return nil if Reach::Instructor.mode?
+
+        cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
+        kinds = []
+        kinds << Reach::CodexSetup::KIND unless event["turn_id"].to_s.empty?
+        kinds << "module_lock" unless Reach::Workspace.space_for(cwd)
+        return nil if kinds.empty?
 
         entry = Reach::Gate.live_prompt(event)
-        observed = entry ? Reach::Consent.observe(entry, kinds: [Reach::CodexSetup::KIND]) : nil
-        return nil unless observed
+        observed = entry ? Reach::Consent.observe(entry, kinds: kinds) : nil
+        unless observed
+          return entry ? Reach::Consent.relay!(entry["session_id"], kinds: kinds) : nil
+        end
 
         done = Reach::Consent.follow_up!(observed)
         done.to_s.empty? ? nil : Reach::Consent.agent_context(observed, done)
@@ -2135,6 +2166,7 @@ module Reach
           source = Reach::Subscribe::SOURCES.include?(options[:source]) ? options[:source] : "background"
           Reach::Subscribe.tick(source: source)
           Reach::Transcript.stream
+          Reach::Debug.flush
           Reach::Subscribe.ensure! unless Reach::Subscribe.installed?
           0
         when "install"
@@ -2272,6 +2304,8 @@ module Reach
           result = Reach::Update.run(apply: apply, force: force || STDIN.tty?, check: !scheduled)
           if json
             puts JSON.pretty_generate(result)
+          elsif result["cache"]
+            puts result["cache"]["message"]
           elsif result["skipped"]
             puts "update skipped: #{result['skipped']}"
           elsif result["held"]
@@ -2280,6 +2314,14 @@ module Reach
             puts "update error: #{result['error']}"
           else
             puts "update phase: #{result['phase']} (local #{result['local']}, target #{result['target'] || 'none'})"
+          end
+          result["cache"] && result["cache"]["ok"] != true ? 1 : 0
+        when "source"
+          results = Reach::HarnessSource.ensure_stable!
+          if json
+            puts JSON.pretty_generate(results)
+          else
+            results.each { |harness, outcome| puts "#{harness}: #{outcome}" }
           end
           0
         else
@@ -2742,6 +2784,7 @@ module Reach
           cmd_hook(["stop"] + remaining + (final ? ["--final"] : []))
         when "code"
           options, _remaining = parse_flags(args, [:harness])
+          Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), "work")
           event = read_stdin_json
           if hermes_hook?(options[:harness], event)
             event = normalize_hermes_event(event)
@@ -2799,7 +2842,10 @@ module Reach
           rescue Reach::NetworkError, Reach::RemoteRefused
             nil
           end
-          puts JSON.generate(response || Reach::Modules.current || {})
+          result = response || Reach::Modules.current || {}
+          open = Reach::Modules.open_question
+          result = result.merge("open_question" => open.reject { |key, _| key == "text" }) if open
+          puts JSON.generate(result)
           return 0
         end
         puts Reach::Modules.summary_text

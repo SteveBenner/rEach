@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.17
+version: 0.35.18
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -436,7 +436,7 @@ harness_integration:
       reach.rplugin.yml and checked by rplugin check; none is edited by hand.
     files:
       .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
-      .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add <link>, codex plugin add reach@reach).
+      .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add SteveBenner/rEach@stable, codex plugin add reach@reach; Claude Code uses SteveBenner/rEach#stable, STD-AUTO-UPDATE).
       plugin.json: >-
         The Agent Plugins 1.0 manifest, read by Antigravity. Codex 0.156 and newer takes a root plugin.json over
         .codex-plugin/plugin.json and then loads no plugin hooks (openai/codex#47925), so since 0.16.16 Reach sets it
@@ -830,8 +830,10 @@ submission:
     Reach::Archive writes <course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip in course time (STD-COURSE-TIME) with
     Reach's own standard-library ZIP writer (Reach::Zip) through a hidden temporary file, never overwriting (-2, -3 and
     so on), with every slice workspace of the assignment minus top-level dot entries, AGENTS.md, CLAUDE.md, GEMINI.md and
-    symbolic links, plus rEach/receipts/<receipt_id>.json for the assignment and rEach/own-part.json. The destination is
-    REACH_DOWNLOADS_DIR when set, otherwise XDG_DOWNLOAD_DIR on Linux, otherwise Downloads in the home folder. It is
+    symbolic links, and minus every file a workspace's .reach/delivered.json lists as read-only (since 0.35.18), plus
+    rEach/receipts/<receipt_id>.json for the assignment and rEach/own-part.json. The destination is REACH_DOWNLOADS_DIR
+    when set, otherwise on Windows the Downloads known folder (Reach::Paths.downloads_dir), otherwise XDG_DOWNLOAD_DIR
+    on Linux, otherwise Downloads in the home folder. It is
     skipped above config.yml submit.archive_max_mb (default 256) and a skipped or failed copy never fails, undoes or
     delays the submission. A queued submission that Reach later sends from the outbox is archived the same way when its
     workspace still exists. Nothing about the copy is sent to Teach. Since 0.19.0 (STD-SUBMIT-ARCHIVE) the submit ask
@@ -3031,7 +3033,7 @@ codex_hook_trust:
     keeps one marker per (session id, turn id) for a prompt and per (session id, start source) for a session start under
     <root>/state/hook_once, so an older course-folder gate prompt or gate session that still runs does nothing when the
     plugin did the work, and the reverse; markers older than a day are pruned by the writer. The plugin's gate enroll
-    stamps work_at and prompt_at (KnownIssues.record_hook!) on every Codex run, before any gating. The course folder's
+    stamps prompt_at and prompt_since, never work_at (KnownIssues.record_hook!), on every Codex run, before any gating. The course folder's
     hooks.json keeps PreToolUse, PostToolUse and Stop in their old group order and text.
   trust_state: >-
     CodexSetup writes the entries only for a course hooks.json whose parsed content equals exactly what

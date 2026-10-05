@@ -11,7 +11,7 @@ try {
 } catch {
 }
 
-$RawBase = 'https://raw.githubusercontent.com/SteveBenner/rEach/main'
+$RawBase = 'https://raw.githubusercontent.com/SteveBenner/rEach/stable'
 $LockStaleSeconds = 900
 $LogThreshold = 3
 $LogEnvKeep = '^(?i)(PATH|HOME|USERPROFILE|SHELL|LANG|LC_ALL|TERM|TMPDIR|TEMP|XDG_[A-Z_]+|RUBY[A-Z_]*|GEM_[A-Z_]+|BUNDLE_[A-Z_]+|REACH_[A-Z_]+|CLAUDE[A-Z_]*|CODEX[A-Z_]*|HERMES[A-Z_]*|ANTIGRAVITY[A-Z_]*|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|SSL_CERT_FILE|SSL_CERT_DIR)$'

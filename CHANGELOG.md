@@ -5,6 +5,57 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.18] - 2026-10-05
+
+### Security
+
+- Students only ever receive released builds. Their Codex and Claude Code marketplaces followed `main`, so builds
+  marked "Not released" (0.35.11, 0.35.13) reached a Windows student. Every student fetch from GitHub (bootstrap
+  archive and scripts in `INSTALL.md`, `scripts/reach-install`, `scripts/reach-install.ps1`, the install-reach skill,
+  and the marketplace sources `SteveBenner/rEach@stable` for Codex and `SteveBenner/rEach#stable` for Claude Code) now
+  follows a `stable` branch that moves only when a version is published as Latest. `Reach::HarnessSource` repoints an
+  existing unpinned or `main` marketplace source to `stable` once per harness, detached, at session start or the
+  update check (`reach update source`), restoring the old source on failure (`STD-AUTO-UPDATE`).
+- The request log (`logs/requests.jsonl`) no longer stores the course passkey or the chat text that was sent as one:
+  every query value in a logged route is `[redacted]`, and older lines are scrubbed once (`STD-REQUEST-LOG`).
+
+### Fixed
+
+- Enrollment sent ordinary chat sentences to Teach as course codes ("course code unknown" eight times for one
+  student). `Reach::Identity.parse_course_code` accepts a code only alone or as exactly one code-shaped token (course
+  id, optional separator, eight characters of Teach's secret alphabet), preferring a separated code over a split
+  inside one word; anything else gets the format guidance and is never sent (`STD-ENROLL-LOCKDOWN`).
+- A yes typed in one chat answered a question asked in another: a student's "sure" locked modules they had not
+  chosen. A pending consent question is now bound to the session that asked it; only that session's yes or no
+  answers it, a CLI-asked question binds to the first signed-in chat that relays it, and a module-lock answer is
+  captured outside the course folder too. `reach next` and `reach modules` state an open question
+  (`M-CONSENT-OPEN`), and sign-in-gated commands require the current chat's own sign-in (`STD-CONSENT-FROM-REACH`,
+  `STD-SIGNIN-PASSWORD`).
+- `reach next` names the slice, and after a submission continues to the next unsubmitted slice instead of stopping
+  at the first (`STD-MODULES-PENDING`).
+- rEach believed a Codex course folder's hooks were running when none were, because the plugin's prompt hook stamped
+  `work_at`. Only course-folder work hooks stamp it now, and the hooks-not-running detection also fires when no work
+  hook ran within 10 minutes of a prompt (`STD-HOOK-GUARD`, `STD-KNOWN-ISSUES`). A Codex chat that runs no tool for
+  10 minutes after a prompt can be reported falsely; that is accepted. The course folder's `hooks.json` is unchanged,
+  so nothing needs trusting again.
+- The submission ZIP carried every read-only kit file of every slice (35 MB of a 35.2 MB ZIP). It now leaves out
+  every file `.reach/delivered.json` lists as read-only. On Windows it goes to the Downloads known folder, falling
+  back to the profile's Downloads (`STD-SUBMIT-ARCHIVE`).
+- On Windows the final check compiled its tools from source and failed (ffi): the runtime kit indexed its gems by
+  the CRLF hash of the lock while Teach ships it with LF. A kit now matches a lock in either form, so existing kits
+  work without a rebuild; `runtime/package.rb` hashes the LF form, `.gitattributes` pins `runtime/locks/**` to LF,
+  and a failed fallback install names the gem (`STD-KIT-LOCK-MATCH`).
+- `reach update run --apply` on a Codex or Claude Code plugin-cache install reported nothing and changed nothing. It
+  now refreshes through the harness CLI (using `CODEX_CLI_PATH` when codex is not on PATH) and records the result,
+  or says the student must update from the app (`M-UPDATE-APP-ONLY`) and exits 1 (`STD-AGENT-UPDATE`).
+- The debug spool was not sent after a submission; `reach submit` and the subscribe tick now flush it. Codex
+  commands were labeled `unknown` or `claude-code`; one function, `Reach::Session.detect_harness`, reads Codex's own
+  variables first (`STD-DEBUG-MODE`).
+- A terminal `reach enroll` left the chat enrollment flow and the setup log's failure streak behind; both are
+  cleared on success. Messages rendered only to be discarded (`M-GATE-NOGUARD`) are no longer logged or counted as
+  shown (`STD-SETUP-LOG`).
+- `reach <verb> --help` and `-h` print that verb's usage and exit 0 (`STD-CLI-HELP`).
+
 ## [0.35.17] - 2026-10-05
 
 ### Fixed

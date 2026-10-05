@@ -3,7 +3,20 @@ require "time"
 module Reach
   module Next
     class << self
-      def compute(mcp: false)
+      def compute(mcp: false, consent: true)
+        step = compute_step(mcp: mcp)
+        return step unless consent
+
+        open = Reach::Consent.open_notice
+        return step unless open
+
+        step.merge(
+          "text" => "#{open['text']}\n\n#{step['text']}",
+          "consent" => open.reject { |key, _| key == "text" }
+        )
+      end
+
+      def compute_step(mcp: false)
         return result("M-NEXT-ENROLL") unless Reach::Enroll.current
         if Reach::Login.required? && !Reach::Login.any_active?
           return result(Reach::KnownIssues.untrusted_or("M-NEXT-LOGIN-NO-HOOK")) if mcp && Reach::KnownIssues.signin_hook_dead?
@@ -33,10 +46,19 @@ module Reach
           meta = Reach::Workspace.metadata(path)
           map[[meta["cutout_id"], meta["slice"]]] = path
         end
+        waiting = nil
         slices.each do |slice|
           step = slice_step(slice, assignment, workspaces[[slice["cutout_id"], slice["slice"]]])
-          return step if step
+          next unless step
+
+          if step["id"] == "M-NEXT-WAIT-GRADE"
+            waiting ||= step
+            next
+          end
+          return step
         end
+        return waiting if waiting
+
         result("M-NEXT-DONE", assignment_id: assignment, assignment: assignment)
       end
 
@@ -44,7 +66,7 @@ module Reach
         kind = space.is_a?(Hash) ? space["kind"] : space
         return nil if kind.nil? || kind.to_s == "extracurricular"
 
-        step = compute
+        step = compute(consent: false)
         return nil if %w[M-NEXT-ENROLL M-NEXT-LOGIN M-NEXT-NO-ASSIGNMENT].include?(step["id"])
 
         status = Reach::Sync.cached_status || {}
@@ -114,8 +136,8 @@ module Reach
         return result("M-NEXT-BUILD", module_id: module_id, assignment_id: assignment, module: name) unless qualification
 
         latest = Reach::Receipts.latest_for(cutout_id: slice["cutout_id"], slice: slice["slice"])
-        return result("M-NEXT-SUBMIT", module_id: module_id, assignment_id: assignment, module: name) unless submitted_after?(latest, qualification)
-        return result("M-NEXT-WAIT-GRADE", module_id: module_id, assignment_id: assignment, module: name) unless latest["kind"] == "grade"
+        return result("M-NEXT-SUBMIT", module_id: module_id, assignment_id: assignment, module: name, slice: slice["slice"]) unless submitted_after?(latest, qualification)
+        return result("M-NEXT-WAIT-GRADE", module_id: module_id, assignment_id: assignment, module: name, slice: slice["slice"]) unless latest["kind"] == "grade"
 
         scenarios = Array(latest["scenarios"])
         failed = scenarios.count { |item| item["result"] == "failed" }

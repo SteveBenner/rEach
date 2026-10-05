@@ -493,7 +493,7 @@ module ReachInstall
     def parse(argv)
       options = {
         destination: default_destination,
-        url: "https://github.com/SteveBenner/rEach/archive/refs/heads/main.zip"
+        url: "https://github.com/SteveBenner/rEach/archive/refs/heads/stable.zip"
       }
       OptionParser.new do |parser|
         parser.on("--archive PATH") { |value| options[:archive] = File.expand_path(value) }

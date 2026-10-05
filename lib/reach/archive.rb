@@ -49,22 +49,35 @@ module Reach
       end
       workspaces.flat_map do |workspace|
         top = File.basename(workspace)
-        walk(workspace, top, true)
+        walk(workspace, top, true, delivered_readonly(workspace), nil)
       end
     end
 
-    def walk(directory, prefix, top)
+    def delivered_readonly(workspace)
+      marker = File.join(workspace, Reach::Workspace::MARKER_DIR, Reach::Workspace::DELIVERED_FILE)
+      return nil unless File.file?(marker)
+
+      readonly = Reach::Workspace.read_delivered_digests(workspace)["readonly"]
+      return nil unless readonly.is_a?(Hash)
+
+      readonly.keys.to_h { |relative| [relative.to_s.tr("\\", "/"), true] }
+    rescue StandardError
+      nil
+    end
+
+    def walk(directory, prefix, top, readonly = nil, relative = nil)
       Dir.children(directory).sort.flat_map do |name|
         next [] if top && (name.start_with?(".") || SKIPPED_TOP_FILES.include?(name))
 
         path = File.join(directory, name)
+        child = relative ? "#{relative}/#{name}" : name
         stat = File.lstat(path)
         if stat.symlink?
           []
         elsif stat.directory?
-          walk(path, "#{prefix}/#{name}", false)
+          walk(path, "#{prefix}/#{name}", false, readonly, child)
         elsif stat.file?
-          [["#{prefix}/#{name}", path, stat.size, stat.mtime]]
+          readonly && readonly.key?(child) ? [] : [["#{prefix}/#{name}", path, stat.size, stat.mtime]]
         else
           []
         end
@@ -127,9 +140,11 @@ module Reach
       override = ENV["REACH_DOWNLOADS_DIR"].to_s
       return File.expand_path(override) unless override.empty?
 
+      return Reach::Paths.downloads_dir if Reach::Paths.windows_host?
+
       linux = RbConfig::CONFIG["host_os"].to_s.include?("linux")
       configured = linux ? xdg_download_dir : nil
-      configured || File.join(Reach::Paths.user_home, "Downloads")
+      configured || Reach::Paths.downloads_dir
     end
 
     def xdg_download_dir

@@ -131,6 +131,7 @@ module Reach
     ].freeze
     LOG_MAX_BYTES = 5 * 1024 * 1024
     LOG_KEEP = 5
+    SCRUB_MARKER = "requests-log-scrubbed.json".freeze
     class Response
       attr_reader :status, :headers, :body
 
@@ -156,6 +157,54 @@ module Reach
 
     class << self
       attr_accessor :deadline
+
+      def redact_route(route)
+        Reach::SetupLog.redact_path(route)
+      rescue StandardError
+        route.to_s.split("?", 2).first.to_s
+      end
+
+      def requests_log_files
+        base = Reach::Paths.requests_log
+        [base] + (1..LOG_KEEP).map { |index| "#{base}.#{index}" }
+      end
+
+      def scrub_requests_log_once!
+        marker = File.join(Reach::Paths.state_dir, SCRUB_MARKER)
+        return nil if @scrubbed == marker || File.file?(marker)
+        return nil unless requests_log_files.any? { |path| File.file?(path) }
+
+        FileUtils.mkdir_p(Reach::Paths.state_dir)
+        Reach::Locks.exclusive("#{marker}.lock", wait_s: 1.0) do
+          next if File.file?(marker)
+
+          requests_log_files.each { |path| scrub_requests_file(path) if File.file?(path) }
+          File.write(marker, JSON.generate("scrubbed_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "version" => 1))
+        end
+        @scrubbed = marker if File.file?(marker)
+        nil
+      rescue StandardError
+        nil
+      end
+
+      def scrub_requests_file(path)
+        lines = File.readlines(path, chomp: true).map do |line|
+          record = begin
+            JSON.parse(line)
+          rescue JSON::ParserError
+            nil
+          end
+          next Reach::SetupLog.scrub_text(line) unless record.is_a?(Hash)
+
+          record["route"] = redact_route(record["route"]) if record.key?("route")
+          JSON.generate(record)
+        end
+        tmp = "#{path}.tmp.#{Process.pid}"
+        File.write(tmp, lines.map { |line| "#{line}\n" }.join)
+        File.rename(tmp, path)
+      ensure
+        FileUtils.rm_f(tmp) if tmp && File.exist?(tmp)
+      end
 
       def with_deadline(seconds)
         previous = @deadline
@@ -385,9 +434,10 @@ module Reach
 
     def log_request(method, route, status, duration_ms, retry_count)
       FileUtils.mkdir_p(Reach::Paths.logs_dir)
+      self.class.scrub_requests_log_once!
       record = {
         "method" => method.to_s.upcase,
-        "route" => route,
+        "route" => self.class.redact_route(route),
         "status" => status,
         "duration_ms" => duration_ms,
         "retry_count" => retry_count,

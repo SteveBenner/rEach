@@ -440,12 +440,18 @@ module Reach
       end.compact
     end
 
+    def lock_digests(lock_bytes)
+      lf = lock_bytes.to_s.b.gsub("\r\n".b, "\n".b)
+      crlf = lf.gsub("\n".b, "\r\n".b)
+      [lf, crlf].map { |bytes| Digest::SHA256.hexdigest(bytes) }.uniq
+    end
+
     def gems_for(lock_bytes)
       runtime = active
       return nil unless runtime
 
-      digest = Digest::SHA256.hexdigest(lock_bytes)
-      profile = runtime["profiles"].find { |entry| entry["lock_sha256"] == digest }
+      digests = lock_digests(lock_bytes)
+      profile = runtime["profiles"].find { |entry| digests.include?(entry["lock_sha256"]) }
       return nil unless profile && File.directory?(profile["dir"])
 
       gemfile = File.join(profile["dir"], "Gemfile")

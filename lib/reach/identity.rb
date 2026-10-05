@@ -4,6 +4,9 @@ module Reach
     SECRET_LENGTH = 8
     COURSE_ID_MAX = 16
     TEXT_MAX = 64
+    SECRET_CHARS = /\A[0-9A-TV-Z]{8}\z/.freeze
+    CODE_JOIN = /\A[ \t_-]+\z/.freeze
+    CODE_ALONE = /\A[ \t_-]*[A-Z0-9][A-Z0-9 \t_-]*\z/.freeze
 
     module_function
 
@@ -54,14 +57,49 @@ module Reach
     def parse_course_code(text)
       return nil unless text.is_a?(String) && text.length <= TEXT_MAX
 
-      value = text.upcase.gsub(/[^A-Z0-9]/, "")
-      return nil if value.length < SECRET_LENGTH + 1
+      upper = text.upcase
+      alone = upper.match?(CODE_ALONE)
+      code_shapes(upper).each do |shapes|
+        found = shapes.select do |course_id, secret|
+          secret.match?(SECRET_CHARS) && "#{course_id}#{secret}".match?(/[0-9]/) && (alone || course_id.match?(/[A-Z]/))
+        end.map { |course_id, secret| [course_id, secret.tr("OIL", "011")] }.uniq
+        next if found.empty?
+        return nil unless found.length == 1
 
-      course_id = value[0...-SECRET_LENGTH]
-      return nil if course_id.length > COURSE_ID_MAX
+        course_id, secret = found.first
+        return { "course_id" => course_id, "secret" => secret, "code" => "#{course_id}-#{secret}" }
+      end
+      nil
+    end
 
-      secret = value[-SECRET_LENGTH, SECRET_LENGTH].tr("OIL", "011")
-      { "course_id" => course_id, "secret" => secret, "code" => "#{course_id}-#{secret}" }
+    def code_shapes(upper)
+      tokens = []
+      upper.scan(/[A-Z0-9]+/) do |word|
+        match = Regexp.last_match
+        tokens << { "word" => word, "from" => match.begin(0), "to" => match.end(0) }
+      end
+      shapes = []
+      split = []
+      tokens.each_with_index do |token, index|
+        word = token["word"]
+        split << [word[0...-SECRET_LENGTH], word[-SECRET_LENGTH, SECRET_LENGTH]] if word.length.between?(SECRET_LENGTH + 1, COURSE_ID_MAX + SECRET_LENGTH)
+        next if word.length > COURSE_ID_MAX
+
+        first = tokens[index + 1]
+        next unless first && code_joined?(upper, token, first)
+
+        if first["word"].length == SECRET_LENGTH
+          shapes << [word, first["word"]]
+        elsif first["word"].length == SECRET_LENGTH / 2
+          second = tokens[index + 2]
+          shapes << [word, first["word"] + second["word"]] if second && second["word"].length == SECRET_LENGTH / 2 && code_joined?(upper, first, second)
+        end
+      end
+      [shapes, split]
+    end
+
+    def code_joined?(upper, left, right)
+      upper[left["to"]...right["from"]].match?(CODE_JOIN)
     end
 
     def normalize_username(text, rules)

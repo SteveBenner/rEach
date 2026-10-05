@@ -100,7 +100,14 @@ module Reach
         err_lines = stderr.to_s.lines.map(&:strip).reject(&:empty?)
         line = (err_lines + out_lines).find { |candidate| candidate =~ /error|could not|failed|cannot/i } ||
                err_lines.first || out_lines.last || "bundle install exited without a message"
-        line[0, 300]
+        gem_name = failing_gem(stdout, stderr)
+        line = line[0, 300]
+        gem_name ? "the gem #{gem_name} failed to install: #{line}" : line
+      end
+
+      def failing_gem(stdout, stderr)
+        text = "#{stderr}\n#{stdout}"
+        text[/An error occurred while installing ([A-Za-z0-9_.\-]+)(?: \(|,)/, 1]
       end
 
       def profile_ready?(ruby_exe, ruby_bin, profile)

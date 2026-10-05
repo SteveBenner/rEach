@@ -16,7 +16,7 @@ The student wants rEach, their academic assistant for a course run on Teach. Thi
 
 ## Install
 
-Read https://raw.githubusercontent.com/SteveBenner/rEach/main/INSTALL.md and follow its section "Claude Code, Codex, Antigravity and Hermes" exactly, with `codex` as the harness. It gives one command for macOS and Linux, one for Windows PowerShell, and one for Windows without Ruby. Run the one that fits as a single shell call.
+Read https://raw.githubusercontent.com/SteveBenner/rEach/stable/INSTALL.md and follow its section "Claude Code, Codex, Antigravity and Hermes" exactly, with `codex` as the harness. It gives one command for macOS and Linux, one for Windows PowerShell, and one for Windows without Ruby. Run the one that fits as a single shell call.
 
 - Do not download a release, tag or archive yourself, and do not search GitHub. The releases named "Reach runtime" are Ruby kits, not rEach.
 - Never install anything system-wide or with sudo or administrator rights.

@@ -8,6 +8,12 @@ module Reach
     MANIFEST_FILE = ".manifest.json"
     BODIES_PREFIX = "directives/"
 
+    class Missing < Reach::Refused
+      def to_s
+        @rendered ||= Reach::Messages.text("M-GATE-NOGUARD")
+      end
+    end
+
     module_function
 
     def ensure_current
@@ -56,7 +62,7 @@ module Reach
 
     def load
       ensure_current
-      raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") unless File.file?(directives_path)
+      raise Missing unless File.file?(directives_path)
 
       report_mismatches
 

@@ -445,8 +445,22 @@ module Reach
       false
     end
 
-    def require_active!
-      return if !required? || any_active?
+    SESSION_ENV_KEYS = %w[CODEX_THREAD_ID CODEX_SESSION_ID CLAUDE_CODE_SESSION_ID].freeze
+
+    def current_session_id
+      hooked = Reach::EnrollmentLock.pass_session
+      return hooked unless hooked.to_s.empty?
+
+      SESSION_ENV_KEYS.each do |key|
+        value = ENV[key].to_s
+        return Reach::Session.resolve_session_id("session_id" => value) unless value.empty?
+      end
+      nil
+    end
+
+    def require_active!(session_id: current_session_id)
+      return unless required?
+      return if session_id.to_s.empty? ? any_active? : session_confirmed?(session_id)
 
       raise Reach::Refused, Reach::Messages.text("M-LOGIN-NEEDED")
     end

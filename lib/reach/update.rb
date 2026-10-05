@@ -56,6 +56,7 @@ module Reach
         "etag" => nil,
         "releases_blocked_until" => nil,
         "harness_results" => {},
+        "cache_apply" => nil,
         "announced" => {},
         "sessions" => {},
         "completed_version" => nil,
@@ -631,8 +632,26 @@ module Reach
       announced.is_a?(Hash) && Array(announced[key]).include?(id)
     end
 
+    def spawn_source_pin
+      return nil unless Reach::HarnessSource.pending?
+
+      exe = File.join(Reach::Runtime.root, "exe", "reach")
+      options = { in: File::NULL, out: File::NULL, err: File::NULL }
+      if Reach::Runtime.windows?
+        options[:new_pgroup] = true
+      else
+        options[:pgroup] = true
+      end
+      Process.detach(Process.spawn(RbConfig.ruby, exe, "update", "source", options))
+    rescue StandardError
+      nil
+    end
+
     def on_session_start(session_id)
-      return nil if disabled? || !managed?
+      return nil if disabled?
+
+      spawn_source_pin
+      return nil unless managed?
 
       record_session!(session_id)
       manifest = load_manifest
@@ -725,11 +744,104 @@ module Reach
       end
       stage(manifest) if managed && %w[detected downloaded].include?(manifest["phase"])
       apply(manifest) if apply && managed && manifest["phase"] == "staged"
+      Reach::HarnessSource.ensure_stable! unless disabled?
+      cache = apply_cache_install(manifest) if apply && !managed
       outcome = { "phase" => manifest["phase"], "target" => manifest["target_version"], "local" => manifest["local_version"] || local_version }
+      outcome["cache"] = cache if cache
       outcome["error"] = manifest["last_error"] if manifest["failures"].to_i > 0 && manifest["last_error"].to_s != ""
       outcome
     rescue StandardError => e
       { "error" => e.message }
+    end
+
+    def cache_harness
+      root = File.realpath(Reach::Runtime.root)
+      {
+        "codex" => File.join(Reach::Paths.codex_home, "plugins", "cache"),
+        "claude-code" => File.join(Reach::Paths.claude_config_dir, "plugins", "cache")
+      }.each do |harness, cache|
+        base = File.realpath(cache)
+        return harness if root == base || root.start_with?(base + File::SEPARATOR)
+      rescue SystemCallError
+        next
+      end
+      nil
+    rescue SystemCallError
+      nil
+    end
+
+    def cached_version(harness)
+      base = harness == "codex" ? File.join(Reach::Paths.codex_home, "plugins", "cache") : File.join(Reach::Paths.claude_config_dir, "plugins", "cache")
+      versions = Dir.glob(File.join(base, "*", "reach", "*", "VERSION")).map do |file|
+        Gem::Version.new(File.read(file).strip)
+      rescue ArgumentError, SystemCallError
+        nil
+      end
+      versions.compact.max&.to_s
+    end
+
+    def apply_cache_install(manifest)
+      harness = cache_harness
+      return nil unless harness
+
+      steps = {}
+      ok = harness == "codex" ? refresh_codex_cache(steps) : refresh_claude_cache(steps)
+      version = cached_version(harness)
+      message = if ok
+                  "rEach was refreshed through #{harness == 'codex' ? 'Codex' : 'Claude Code'}#{version ? " (newest copy now on this computer: #{version})" : ''}. The student needs to start a new chat to use it."
+                elsif steps.empty?
+                  Reach::Messages.text("M-UPDATE-APP-ONLY")
+                else
+                  failed = steps.find { |_name, result| result != "ok" }
+                  "rEach could not refresh itself through #{harness == 'codex' ? 'Codex' : 'Claude Code'} (#{failed ? "#{failed[0]}: #{failed[1]}" : 'unknown step'}). #{Reach::Messages.text('M-UPDATE-APP-ONLY')}"
+                end
+      record = { "at" => now_s, "harness" => harness, "ok" => ok, "steps" => steps, "version" => version, "message" => message }
+      results = manifest["harness_results"].is_a?(Hash) ? manifest["harness_results"] : {}
+      results[harness] = ok ? "ok" : "failed"
+      manifest["harness_results"] = results
+      manifest["cache_apply"] = record
+      save_manifest(manifest)
+      log("cache_apply", "harness" => harness, "ok" => ok, "steps" => steps, "version" => version)
+      record
+    end
+
+    def refresh_codex_cache(steps)
+      return false unless Reach::HarnessSource.codex_bin
+
+      source = Reach::HarnessSource.pin(Reach::HarnessSource.slug.to_s, "codex")
+      _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.codex_command("plugin", "marketplace", "upgrade", Reach::HarnessSource::MARKETPLACE))
+      steps["marketplace upgrade"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
+      unless ok
+        result = Reach::HarnessSource.codex(source)
+        steps["marketplace add"] = result
+        return false unless result == "ok"
+      end
+      _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.codex_command("plugin", "add", Reach::HarnessSource::PLUGIN))
+      steps["plugin add"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
+      return false unless ok
+
+      repaired = Reach::CodexCache.repair
+      steps["cache repair"] = repaired.to_s
+      true
+    end
+
+    def refresh_claude_cache(steps)
+      return false unless Reach::HarnessSource.claude_bin
+
+      _out, err, ok = Reach::HarnessSource.capture(%w[claude plugin marketplace update reach])
+      steps["marketplace update"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
+      unless ok
+        result = Reach::HarnessSource.claude_add(Reach::HarnessSource.pin(Reach::HarnessSource.slug.to_s, "claude-code"))
+        steps["marketplace add"] = result
+        return false unless result == "ok"
+      end
+      _out, err, ok = Reach::HarnessSource.capture(%w[claude plugin install reach@reach --scope user])
+      steps["plugin install"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
+      return false unless ok
+
+      _out, err, ok = Reach::HarnessSource.capture(%w[claude plugin update reach@reach --scope user])
+      steps["plugin update"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
+      ok
     end
 
     def status_lines

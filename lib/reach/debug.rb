@@ -212,10 +212,8 @@ module Reach
     def resolve_harness(flag)
       value = flag.to_s
       return value if HARNESSES.include?(value)
-      return "claude-code" if ENV["CLAUDE_CODE_ENTRYPOINT"].to_s != ""
 
-      guessed = Reach::Hello.resolve_harness(nil)
-      HARNESSES.include?(guessed) ? guessed : "unknown"
+      Reach::Session.detect_harness
     end
 
     def envelope_context
@@ -462,6 +460,7 @@ module Reach
         "exit" => exit_value, "duration_ms" => elapsed_ms(started), "error" => raised ? raised.class.name : nil
       )
       error(raised, "command") if raised && !raised.is_a?(Reach::Error) && !raised.is_a?(SignalException)
+      spawn_flush if @flush_after_command
     rescue StandardError
       nil
     end
@@ -603,6 +602,16 @@ module Reach
         "archive" => result["archive"].is_a?(Hash) ? result["archive"]["state"] : nil, "attempt" => result["attempt"], "resubmit" => result["resubmit"],
         "rejected_as" => rejection["code"].to_s.empty? ? nil : "rejected"
       )
+      @flush_after_command = true
+    rescue StandardError
+      nil
+    end
+
+    def spawn_flush
+      return nil unless File.file?(spool_file) && File.size(spool_file).positive?
+      return nil if ENV["REACH_OFFLINE"] == "1"
+
+      Reach::Storage.spawn_detached(%w[debug flush])
     rescue StandardError
       nil
     end

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.17 |
+| **Registry version** | 0.35.18 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1300,6 +1300,15 @@ through `codex app-server` `hooks/list`: 0 plugin hooks before, and the SessionS
 as untrusted after setup, after `reach mcp` on a plain `codex plugin add` install, and after the update step.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session on macOS has not yet trusted and run both hooks on 0.16.16).
+
+**0.35.18, from one real Windows Codex Desktop install (2026-10-05):** ✅ built, 🔵 not yet on any student
+machine. Student installs follow the `stable` branch (moved only on a Latest release) instead of `main`; course-code
+parsing no longer sends chat sentences; the request log redacts the passkey; consent is bound to the asking chat;
+`work_at` comes only from course-folder work hooks; the submission ZIP leaves out read-only kit files and uses the
+Windows Downloads known folder; the runtime kit matches a lock in LF or CRLF form; `update run --apply` refreshes a
+plugin-cache install through the harness CLI. Verified only on Linux with scratch homes, fake harness CLIs and the
+fixture Teach; none of it has run on Windows, inside real Codex Desktop, or against the Claude Code app's marketplace
+box.
 
 ### 10.4 · Antigravity
 

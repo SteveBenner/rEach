@@ -5,3 +5,4 @@
 /docs/deploy-and-test.md export-ignore
 /docs/assets/figures/08-deployment-topology-light.svg export-ignore
 /docs/assets/figures/08-deployment-topology-dark.svg export-ignore
+/runtime/locks/** text eol=lf

@@ -36,15 +36,79 @@ module Reach
       Reach::Login.no?(text)
     end
 
-    def ask!(kind:, subject:, message_id:, fields: {}, replay: {})
+    def ask!(kind:, subject:, message_id:, fields: {}, replay: {}, session_id: nil)
       question = Reach::Messages.text(message_id, **fields.each_with_object({}) { |(key, value), memo| memo[key.to_sym] = value }).strip
       Reach::Login.write_json(
         pending_path,
         "schema" => SCHEMA, "kind" => kind.to_s, "subject" => subject, "subject_digest" => digest(subject),
         "message_id" => message_id.to_s, "question" => question, "asked_at" => iso(Time.now.utc),
-        "student_id" => Reach::Login.enrolled_id, "replay" => replay
+        "student_id" => Reach::Login.enrolled_id, "replay" => replay,
+        "session_id" => (session_id.to_s.empty? ? Reach::Login.current_session_id : session_id.to_s)
       )
       question
+    end
+
+    def open_question(kinds: nil)
+      pending = Reach::Login.read_json(pending_path)
+      return nil unless pending.is_a?(Hash) && pending["student_id"] == Reach::Login.enrolled_id
+      return nil if kinds && !kinds.include?(pending["kind"])
+      return nil if Time.now.utc - Time.iso8601(pending["asked_at"]) > WINDOW_S
+
+      pending
+    rescue StandardError
+      nil
+    end
+
+    def subject_text(pending)
+      subject = pending["subject"].is_a?(Hash) ? pending["subject"] : {}
+      modules = Array(subject["modules"]).map(&:to_s)
+      return Reach::Modules.names(modules) unless modules.empty?
+
+      pending["kind"].to_s.tr("_", " ")
+    rescue StandardError
+      pending["kind"].to_s.tr("_", " ")
+    end
+
+    def open_notice(kinds: nil)
+      pending = open_question(kinds: kinds)
+      return nil unless pending
+
+      text = Reach::Messages.text("M-CONSENT-OPEN", message_id: pending["message_id"], subject: subject_text(pending), question: pending["question"])
+      { "message_id" => pending["message_id"], "kind" => pending["kind"], "subject" => subject_text(pending), "question" => pending["question"], "text" => text }
+    rescue StandardError
+      nil
+    end
+
+    def relay!(session_id, kinds: nil)
+      sid = session_id.to_s
+      return nil if sid.empty?
+      return nil unless Reach::Login.session_confirmed?(sid)
+
+      lock = "#{pending_path}.lock"
+      FileUtils.mkdir_p(dir)
+      bound = nil
+      Reach::Locks.exclusive(lock) do
+        pending = open_question(kinds: kinds)
+        next unless pending && pending["session_id"].to_s.empty?
+
+        Reach::Login.write_json(pending_path, pending.merge("session_id" => sid))
+        bound = pending
+      end
+      return nil unless bound
+
+      Reach::Messages.text("M-CONSENT-NEEDED", question: bound["question"])
+    rescue StandardError
+      nil
+    end
+
+    def asked_by?(pending, entry)
+      asked = pending["session_id"].to_s
+      return false if asked.empty?
+
+      raw = entry["session_id"].to_s
+      return false if raw.empty?
+
+      asked == Reach::Session.resolve_session_id("session_id" => raw)
     end
 
     def observe(entry, kinds: nil)
@@ -68,6 +132,7 @@ module Reach
       pending = Reach::Login.read_json(pending_path)
       return nil unless pending.is_a?(Hash) && pending["student_id"] == Reach::Login.enrolled_id
       return nil if kinds && !kinds.include?(pending["kind"])
+      return nil unless asked_by?(pending, entry)
 
       now = Time.now.utc
       return nil if now - Time.iso8601(pending["asked_at"]) > WINDOW_S
@@ -125,7 +190,7 @@ module Reach
                when "transfer_request"
                  Reach::Transfer.request!(modules: subject["modules"], note: replay["note"], quick: true)
                when "module_lock"
-                 Reach::Modules.choose!(subject["modules"], quick: true)
+                 Reach::Modules.choose!(subject["modules"], quick: true, session_id: observed["session_id"])
                end
       spawn_flush(observed["kind"]) if result.is_a?(Hash) && result["state"] == "queued"
       result.is_a?(Hash) ? result["text"] : nil
