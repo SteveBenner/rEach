@@ -358,7 +358,6 @@ module Reach
 
           commands:
             enroll [--course-passkey P --username U --student-id I --password-stdin]   enroll with your course passkey, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
-            enroll <code>                        enroll with a per-student code
             version                              print this rEach's version (also --version, -V)
             sync                                 fetch new packages and refresh workspaces
             status                               enrollment, slices, receipts, open hands
@@ -498,12 +497,12 @@ module Reach
           return enroll_with_identity(options, teach_url)
         end
 
-        unless code
-          warn "usage: reach enroll [--course-passkey P --username U --student-id I --password-stdin] | reach enroll <code>"
+        if code
+          warn Reach::Messages.text("M-ENROLL-POSITIONAL")
           return 1
         end
-        install = Reach::Enroll.generate_and_register(code, teach_url)
-        finish_enroll(install)
+        warn "usage: reach enroll | reach enroll --course-passkey P --username U --student-id I --password-stdin"
+        1
       rescue Reach::NetworkError => e
         Reach::Debug.note(e)
         warn Reach::Messages.text("M-ENR-CLI-OFFLINE", url: teach_url, detail: e.detail || e.cause_name)
@@ -1730,7 +1729,7 @@ module Reach
 
         ["R-DOC-ENROLL: rEach is locked (#{lock["reason"]}): #{Reach::Messages.text(lock["message_id"])}"]
       rescue StandardError
-        ["R-DOC-ENROLL: enrollment could not be checked - run reach enroll <code>"]
+        ["R-DOC-ENROLL: enrollment could not be checked - run reach enroll"]
       end
 
       def doctor_enroll_line

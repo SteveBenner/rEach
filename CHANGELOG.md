@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.2] - 2026-10-05
+
+### Fixed
+
+- Enrolling through the AI always failed with "That course passkey wasn't accepted", whatever passkey was typed
+  (`STD-ENROLL-NO-RELAY`). `reach enroll <passkey>` and the `reach_enroll` tool still sent the request shape from
+  before enrollment v2 (`Reach::Enroll.generate_and_register`), which Teach refuses as `invalid_request` every time.
+  That request is gone. The tool takes no arguments and never enrolls: it says how rEach enrolls the student
+  (`M-GATE-NOENROLL`), that Codex isn't running rEach's hooks and the student should not type their details in the
+  chat (`M-ENROLL-NO-HOOK`), or that the install is already enrolled, with the next step (`M-ENROLL-ALREADY`).
+  `reach enroll` with a bare passkey says to run `reach enroll` on its own or answer rEach in the chat
+  (`M-ENROLL-POSITIONAL`). The interactive `reach enroll` and the flag form are unchanged; the passkey, email,
+  student ID and password still never pass through the AI.
+
+### Removed
+
+- The unused `M-ENROLL-REFUSED` message and the `enroll <code>` line in `reach help`; `reach status` and doctor's
+  `R-DOC-ENROLL` now say to run `reach enroll`.
+
 ## [0.35.1] - 2026-10-05
 
 ### Fixed

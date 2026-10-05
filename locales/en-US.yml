@@ -2,6 +2,9 @@ schema: reach.locale/v1
 locale: en-US
 messages:
   M-GATE-NOENROLL: "rEach is locked until you enroll in your course. Type anything in a chat with your AI partner and rEach will walk you through it, or run reach enroll in a terminal."
+  M-ENROLL-NO-HOOK: "rEach can't enroll you in this chat yet, because Codex isn't running rEach's hooks on this computer. Please don't type your course passkey, email, student ID or password in this chat. Quit Codex completely and open it again. If Codex shows a notice about hooks to review or trust, open it and allow rEach's hooks, then start a new chat and say hi. Or open a terminal window, run reach enroll, and type your answers there. If neither works, tell your instructor."
+  M-ENROLL-ALREADY: "rEach is already connected to your course, so there is nothing to enroll. {next}"
+  M-ENROLL-POSITIONAL: "rEach asks for the course passkey itself, so it doesn't take one here. Run reach enroll on its own and type your answers when it asks, or say hi in a chat with your AI partner and type the passkey when rEach asks for it."
   M-GATE-NOGUARD: "Your course rules haven't arrived yet, so rEach can't start on course work. Run reach sync, and if that doesn't work, tell your instructor."
   M-GATE-OLDGUARD: "Your course rules have an update. Run reach sync to get it, then try again."
   M-GATE-REVOKED: "This computer's rEach was switched off by your instructor. Ask them for a new course passkey."
@@ -17,7 +20,6 @@ messages:
   M-UPDATE-RETRY: "rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own."
   M-REACH-OUTDATED: "This version of rEach ({version}) is too old for your course, which needs {minimum} or newer. Update rEach, then try again."
   M-AUTH-FAILED: "Your course server didn't accept rEach's signature. Check that your computer's clock is right, then run reach sync. If it keeps happening, tell your instructor."
-  M-ENROLL-REFUSED: "That course passkey wasn't accepted. Check it's typed correctly, or ask your instructor for a new one."
   M-ENROLL-DONE: "You're connected to {course}. rEach is fetching your course materials now."
   M-ENR-WELCOME: "Welcome to rEach. Before anything else, connect rEach to your course. Please type the course passkey your instructor gave you. It is the course code followed by eight letters and numbers, like ABCD123-XXXX-XXXX."
   M-ENR-ASK-CODE: "Please type the course passkey your instructor gave you. It is the course code followed by eight letters and numbers, like ABCD123-XXXX-XXXX."

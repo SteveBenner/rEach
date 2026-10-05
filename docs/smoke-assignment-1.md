@@ -115,7 +115,7 @@ Expected turns, with the evidence to capture at each:
 | --- | --- | --- | --- |
 | 1 | the install prompt above | fetches the public ZIP without asking for GitHub credentials, checks Ruby, backs up any existing `~/.reach/plugin`, runs `reach-install`, then `reach setup --harness codex`; prints the greeting only after setup succeeded | transcript, `~/.reach/plugin` exists, no `git clone` |
 | 2 | "yes, go ahead" to each confirmation | tells the student in one sentence what changes before each step; asks the student to trust the start-up hook | transcript |
-| 3 | "How do I connect to my course?" then the code | runs `reach enroll <code>` (the course server comes from `config.yml`), reports ready only after Teach answered | `reach status` shows enrolled |
+| 3 | "How do I connect to my course?" then the code | rEach's prompt hook asks for the passkey, email, student ID and password itself and the agent never collects them (`reach enroll <code>` only points to the chat since 0.35.2); the course server comes from `config.yml` | `reach status` shows enrolled |
 | 4 | "What is my first task?" | runs `reach sync`, opens the G1 context A1 backend workspace, reads the README and the scenario names, explains the task in plain words | workspace path, README present |
 | 5 | the business choices below | saves a plan with `reach plan save` before any edit; asks the student the meaningful decisions | `reach plan show` |
 | 6 | "Please build it." | writes the owned file itself; the student does not type code; edits stay in the owned files | owned file, `reach check` clean |

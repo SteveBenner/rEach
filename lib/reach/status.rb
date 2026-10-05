@@ -54,7 +54,7 @@ module Reach
 
       def header_line
         data = install
-        return "rEach #{Reach::VERSION} · not connected to a course yet (run reach enroll <code>)" unless data
+        return "rEach #{Reach::VERSION} · not connected to a course yet (run reach enroll)" unless data
 
         course = data["course"] || {}
         status = cached_status || {}

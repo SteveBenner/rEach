@@ -14,40 +14,6 @@ module Reach
 
     module_function
 
-    def generate_and_register(code, teach_url)
-      key = Reach::Crypto.generate_install_key
-      client = Reach::Client.anonymous(teach_url, link: false)
-      body_fields = {
-        "code" => code,
-        "public_key_pem" => key.public_key.to_pem,
-        "reach_version" => Reach::VERSION,
-        "platform" => platform,
-        "ruby_version" => RUBY_VERSION
-      }
-
-      begin
-        response = post_enroll(client, body_fields)
-      rescue Reach::RemoteRefused => e
-        raise Reach::Refused, Reach::Messages.text("M-ENROLL-REFUSED") if e.code == "invalid_request"
-
-        raise
-      end
-
-      body = response.json || {}
-      verify_response!(body)
-
-      Reach::Paths.ensure_home!
-      write_private_key(key)
-      write_install_file(body, teach_url)
-      Reach::Stamp.drop!
-      Reach::EnrollmentLock.clear_moved!
-      write_notice(body)
-      announce_sidecar(current)
-      Reach::Subscribe.spawn_ensure
-
-      current
-    end
-
     def flow_client(teach_url)
       Reach::Client.anonymous(teach_url, connect_timeout: CONNECT_TIMEOUT_S, read_timeout: READ_TIMEOUT_S, max_retries: 0, link: false)
     end

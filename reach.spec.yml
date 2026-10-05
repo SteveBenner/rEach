@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.1
+version: 0.35.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1023,7 +1023,11 @@ mcp_bridge:
       Since 0.16.0 it never enrolls: it answers with M-GATE-NOENROLL, because the student's code, username and
       student ID go to rEach's own enrollment flow and never through the agent. Since 0.16.20 it takes no teach_url
       argument, so no agent has a reason to ask for one. While Reach is locked every other tool
-      refuses with the lock's message too (W-ENR-6).
+      refuses with the lock's message too (W-ENR-6). Since 0.35.2 (STD-ENROLL-NO-RELAY) it takes no code either and
+      never posts to Teach in any state: before 0.35.2 an enrolled install's call reached the pre-v2 enroll request,
+      which Teach always refuses (invalid_request), and the student saw M-ENROLL-REFUSED. It answers M-GATE-NOENROLL,
+      or M-ENROLL-NO-HOOK when Codex is not running a sign-in prompt hook, and on an enrolled install M-ENROLL-ALREADY
+      with the reach_next step.
   - name: reach_sync
     description: Fetch new packages, verify them and refresh workspaces
   - name: reach_check

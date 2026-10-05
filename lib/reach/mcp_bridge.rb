@@ -114,13 +114,10 @@ module Reach
       },
       {
         "name" => "reach_enroll",
-        "description" => "Enroll in a course using the code the instructor gave the student",
+        "description" => "How the student enrolls. It never enrolls and takes nothing: rEach asks for the course passkey, email, student ID and password itself, in the chat or in reach enroll in a terminal, so never ask for or pass on any of them; relay what it returns word for word",
         "inputSchema" => {
           "type" => "object",
-          "properties" => {
-            "code" => { "type" => "string" }
-          },
-          "required" => ["code"]
+          "properties" => {}
         }
       },
       {
@@ -531,6 +528,12 @@ module Reach
         message
       end
 
+      def enroll_refusal_id
+        Reach::KnownIssues.signin_hook_dead? ? "M-ENROLL-NO-HOOK" : "M-GATE-NOENROLL"
+      rescue StandardError
+        "M-GATE-NOENROLL"
+      end
+
       def tool_label(name)
         name.to_s.match?(/\A[a-z_]{1,40}\z/) ? name.to_s : "?"
       end
@@ -538,7 +541,7 @@ module Reach
       def dispatch(name, arguments)
         lock = UNLOCKED_TOOLS.include?(name) ? nil : Reach::EnrollmentLock.state
         if lock && lock["locked"]
-          raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? "M-GATE-NOENROLL" : lock["message_id"])
+          raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? enroll_refusal_id : lock["message_id"])
         end
 
         case name
@@ -588,8 +591,7 @@ module Reach
         when "reach_profile_forget"
           { "forgotten" => Reach::Profile.forget! }
         when "reach_enroll", "reach_enrol"
-          install = Reach::Enroll.generate_and_register(arguments.fetch("code"), Reach::Runtime.default_teach_url)
-          { "install" => install, "sync" => Reach::Sync.run }
+          { "text" => Reach::Messages.text("M-ENROLL-ALREADY", next: Reach::Next.compute(mcp: true)["text"]), "relay_verbatim" => true }
         when "reach_sync"
           Reach::Sync.run
         when "reach_check"
