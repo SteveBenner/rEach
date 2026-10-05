@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.4] - 2026-10-05
+
+### Fixed
+
+- A Windows student whose rEach landed in the wrong user folder and who reinstalled before 0.34.3 moved it got a
+  fresh, unenrolled install in the right folder while their enrollment stayed behind (`STD-USER-HOME`).
+  `Reach::Paths.root` and `exe/reach-run` now take an enrolled stray home over an unenrolled one in the profile, and
+  the relocation renames the unenrolled profile home to `.reach-home.set-aside-<timestamp>` (nothing deleted) and
+  moves the enrolled one in. An enrolled profile home is never displaced.
+- Transcript scrubbing on Windows again replaces the home folder written with backslashes (`C:\Users\...`) and its
+  JSON-escaped form, not only the forward-slash form 0.34.3 left (`Reach::Deidentify.surfaces`).
+- The `home_env_mismatch` record added in 0.34.3 was never written, because it is not a debug event kind Teach
+  accepts; it is now a `session` event with `event: home_env_mismatch`.
+
 ## [0.34.3] - 2026-10-05
 
 ### Fixed
