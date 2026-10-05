@@ -263,7 +263,7 @@ module Reach
         return :switched if state && state["phase"] == "switching" && state["schema"] == SCHEMA
 
         if displaceable?(ctx, final)
-          set_aside_final(ctx, final)
+          ctx[:displace] = true
         elsif !bootstrap_only?(final)
           raise Failure.new("destination_occupied", final)
         end
@@ -292,6 +292,8 @@ module Reach
       aside = "#{aside}-#{SecureRandom.hex(2)}" if present?(aside)
       File.rename(final, aside)
       ctx[:set_aside] = File.basename(aside)
+      log_event(File.join(ctx[:staged], "logs", "relocation.jsonl"), "event" => "set_aside", "to" => ctx[:set_aside])
+      aside
     end
 
     def bootstrap_only?(path)
@@ -925,14 +927,24 @@ module Reach
     def switch!(ctx, manifest)
       final = ctx[:final_home]
       aside = nil
+      displaced = nil
       if present?(final)
-        raise Failure.new("destination_occupied", final) unless bootstrap_only?(final)
+        if ctx[:displace] && displaceable?(ctx, final)
+          displaced = set_aside_final(ctx, final)
+        else
+          raise Failure.new("destination_occupied", final) unless bootstrap_only?(final)
 
-        merge_bootstrap(ctx, final)
-        aside = "#{final}.pre-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(2)}"
-        File.rename(final, aside)
+          merge_bootstrap(ctx, final)
+          aside = "#{final}.pre-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(2)}"
+          File.rename(final, aside)
+        end
       end
-      File.rename(ctx[:staged], final)
+      begin
+        File.rename(ctx[:staged], final)
+      rescue StandardError, ScriptError
+        File.rename(displaced, final) if displaced && !present?(final)
+        raise
+      end
       finish_switch(ctx, manifest, aside)
     end
 
@@ -973,7 +985,6 @@ module Reach
       end
 
       log_event(log_path, "event" => "relocated", "from" => ctx[:legacy_home], "to" => final, "files" => manifest["files"], "bytes" => manifest["bytes"])
-      log_event(log_path, "event" => "set_aside", "to" => ctx[:set_aside]) if ctx[:set_aside]
       copy_stray_workspace(ctx, log_path) if ctx[:stray_base]
       Reach::Paths.with_persona(nil) do
         configure_spaces(ctx)

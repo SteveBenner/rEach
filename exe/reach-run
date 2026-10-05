@@ -125,7 +125,7 @@ resolve_home() {
     if [ ! -f "$new_home/keys/install.pem" ] && [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && stray=$(stray_root enrolled) && [ -n "$stray" ]; then
       REACH_HOME=$stray
     fi
-  elif [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && stray=$(stray_root) && [ -n "$stray" ]; then
+  elif [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && { stray=$(stray_root enrolled) && [ -n "$stray" ] || stray=$(stray_root) && [ -n "$stray" ]; }; then
     REACH_HOME=$stray
   else
     REACH_HOME=$new_home

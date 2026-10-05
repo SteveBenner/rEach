@@ -107,8 +107,19 @@ module Reach
           forms << back
           forms << back.gsub("\\", "\\\\\\\\")
         end
+        if base =~ %r{\A([A-Za-z]):/(.*)\z}m
+          drive = Regexp.last_match(1).downcase
+          rest = Regexp.last_match(2)
+          forms << "/#{drive}/#{rest}"
+          forms << "/mnt/#{drive}/#{rest}"
+        end
+        if base.start_with?("//")
+          back = base.tr("/", "\\")
+          forms << back
+          forms << back.gsub("\\", "\\\\\\\\")
+        end
       end
-      forms.uniq
+      forms.uniq.select { |form| form.length >= MIN_LENGTH }
     end
 
     def scrubber(install, status)

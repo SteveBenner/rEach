@@ -314,7 +314,7 @@ module Reach
               elsif new_home_populated? && (enrolled_home?(new_home) || stray_resolution(true).nil?)
                 { mode: :new, root: new_home }
               else
-                stray_resolution || { mode: :new, root: new_home }
+                stray_resolution(true) || stray_resolution || { mode: :new, root: new_home }
               end
       @resolution_cache = { value: value, key: key, at: now }
       value
