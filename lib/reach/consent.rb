@@ -47,11 +47,11 @@ module Reach
       question
     end
 
-    def observe(entry)
+    def observe(entry, kinds: nil)
       return nil unless entry.is_a?(Hash) && entry["gate"] == "allowed"
       return nil unless Reach::Login.session_confirmed?(entry["session_id"])
 
-      capture(entry)
+      capture(entry, kinds: kinds)
     rescue StandardError
       nil
     end
@@ -88,8 +88,17 @@ module Reach
       }
       record["gate"] = "blocked" if entry["gate"] == "blocked"
       FileUtils.mkdir_p(dir)
-      File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
-      FileUtils.rm_f(pending_path)
+      claimed = "#{pending_path}.#{Process.pid}.#{rand(1_000_000)}"
+      begin
+        File.rename(pending_path, claimed)
+      rescue SystemCallError
+        return nil
+      end
+      begin
+        File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
+      ensure
+        FileUtils.rm_f(claimed)
+      end
       record.merge("subject" => pending["subject"], "replay" => pending["replay"] || {})
     end
 

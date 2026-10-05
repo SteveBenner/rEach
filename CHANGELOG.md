@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.4] - 2026-10-04
+
+### Fixed
+
+- In Codex, a student who typed yes to rEach's question about changing Codex's settings was told that rEach had not
+  registered the answer, and the settings never changed. Only a course folder's prompt hook (`gate prompt`) read the
+  answer, and Codex does not run that hook until the folder and the hook are trusted, which is what the setup is for.
+  The plugin's prompt hook (`gate enroll`) now takes a yes or no to that one question itself, for a signed-in Codex
+  session, and answers with the result (`Reach::CLI.codex_setup_answer` in `lib/reach/cli.rb`,
+  `Reach::Consent.observe` with `kinds`, STD-CODEX-SETUP).
+- The plugin's prompt hook counted as proof that the course-folder prompt hook runs (since 0.28.1), so in a Codex that
+  ran only the plugin's hooks rEach asked the question in chat instead of sending the student to a terminal, did not
+  refuse qualify, submit and `reach part record` with `M-HOOKS-REQUIRED`, and the student's own-part answers stayed
+  unsaved with no reason given. The plugin hook now keeps its own stamp (`hooks_enroll_seen.json`) and never writes
+  `hooks_seen.json` (`lib/reach/known_issues.rb`, STD-HOOK-GUARD). `reach_setup configure` sends the student to a
+  terminal only when no rEach hook at all has run for 15 minutes (`lib/reach/codex_setup.rb`).
+- When the plugin hook and a course-folder hook both see one consent answer, one of them records it and speaks; the
+  pending question is claimed by renaming it (`lib/reach/consent.rb`).
+
+### Changed
+
+- A Codex student whose course-folder hooks are not running, and who could qualify and submit before because the
+  plugin hook hid that, is now refused with `M-HOOKS-REQUIRED` until those hooks run, as STD-HOOK-GUARD always
+  intended.
+- Not verified: a real Codex chat. Checked on a scratch Teach, scratch student and scratch Codex home with the hook
+  commands and the MCP tool run by hand, before and after the change.
+
 ## [0.33.3] - 2026-10-04
 
 ### Fixed

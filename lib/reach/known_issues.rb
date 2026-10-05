@@ -150,8 +150,13 @@ module Reach
       nil
     end
 
+    def enroll_seen_file
+      File.join(Reach::Paths.root_state_dir, "hooks_enroll_seen.json")
+    end
+
     def recorded_harness
-      label = (read_json(hooks_seen_file) || {})["label"].to_s
+      latest = [read_json(hooks_seen_file), read_json(enroll_seen_file)].compact.max_by { |seen| seen["at"].to_s }
+      label = latest ? latest["label"].to_s : ""
       label.empty? ? nil : label
     end
 
@@ -212,8 +217,8 @@ module Reach
       step && step["text"]
     end
 
-    def hook_quiet?(key, limit)
-      seen = read_json(hooks_seen_file)
+    def hook_quiet?(key, limit, file = hooks_seen_file)
+      seen = read_json(file)
       value = seen ? seen[key].to_s : ""
       return true if value.empty?
 
@@ -228,6 +233,17 @@ module Reach
 
     def prompt_hook_quiet?(limit)
       hook_quiet?("prompt_at", limit)
+    end
+
+    def enroll_hook_quiet?(limit)
+      hook_quiet?("at", limit, enroll_seen_file)
+    end
+
+    def record_enroll_hook!(harness_label)
+      write_json(enroll_seen_file, "at" => now_s, "label" => harness_label.to_s)
+      nil
+    rescue StandardError
+      nil
     end
 
     def session_started!(harness_label, source)

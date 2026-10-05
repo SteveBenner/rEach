@@ -712,8 +712,12 @@ module Reach
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
         event = read_stdin_json
-        hook_kind = { "prompt" => "prompt", "enroll" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
-        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
+        hook_kind = { "prompt" => "prompt", "session" => "session" }.fetch(sub.to_s, "work")
+        if sub == "enroll"
+          Reach::KnownIssues.record_enroll_hook!(Reach::Fingerprint.harness_label(options[:harness]))
+        else
+          Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
+        end
         Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
@@ -1000,7 +1004,8 @@ module Reach
         signed_in = nil
         decision, signed_in = enroll_login(event, harness_id) if decision.nil? && !hermes
         if decision.nil?
-          notice = [Reach::EnrollFlow.consume_notice, signed_in].compact.join("\n\n")
+          setup = hermes || signed_in ? nil : codex_setup_answer(event)
+          notice = [Reach::EnrollFlow.consume_notice, signed_in, setup].compact.join("\n\n")
           notice = nil if notice.empty?
           if Reach::Instructor.mode?
             session = Reach::Session.resolve_session_id(event)
@@ -1032,6 +1037,19 @@ module Reach
           return 0
         end
         raise Reach::GateBlocked.new(decision["id"] || "M-ENR", message)
+      end
+
+      def codex_setup_answer(event)
+        return nil if event["turn_id"].to_s.empty? || Reach::Instructor.mode?
+
+        entry = Reach::Gate.live_prompt(event)
+        observed = entry ? Reach::Consent.observe(entry, kinds: [Reach::CodexSetup::KIND]) : nil
+        return nil unless observed
+
+        done = Reach::Consent.follow_up!(observed)
+        done.to_s.empty? ? nil : Reach::Consent.agent_context(observed, done)
+      rescue StandardError
+        nil
       end
 
       def enroll_login(event, harness_id)

@@ -884,7 +884,8 @@ module Reach
 
     def hooks_off?
       label = Reach::KnownIssues.harness.to_s
-      !label.empty? && Reach::KnownIssues.family_of(label) == "codex" && Reach::KnownIssues.hooks_stale?
+      !label.empty? && Reach::KnownIssues.family_of(label) == "codex" && Reach::KnownIssues.hooks_stale? &&
+        Reach::KnownIssues.enroll_hook_quiet?(Reach::KnownIssues::HOOKS_QUIET_S)
     rescue StandardError
       false
     end
