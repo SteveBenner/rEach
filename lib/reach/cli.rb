@@ -392,7 +392,7 @@ module Reach
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
             debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush | export [--format text|json]   debug mode: what rEach did, with no prompts, replies, code or secrets
-            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | unlock [CODE] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
+            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | unlock | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
@@ -747,6 +747,7 @@ module Reach
           Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
         end
         Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
+        Reach::EnrollmentLock.pass_session = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
         @gate_decision = "allow"
@@ -1025,8 +1026,16 @@ module Reach
       end
 
       def instructor_unlock(args)
-        code = args.shift
-        code = (STDIN.tty? ? read_hidden : STDIN.gets) if code.nil?
+        unless args.empty?
+          warn Reach::Messages.text("M-INSTRUCTOR-UNLOCK-NO-ARG")
+          return 1
+        end
+
+        code = STDIN.tty? ? read_hidden : STDIN.gets
+        instructor_unlock_code(code)
+      end
+
+      def instructor_unlock_code(code)
         code = code.to_s.strip
         result = code.empty? ? nil : Reach::Instructor.unlock!(code)
         unless result
@@ -2855,7 +2864,7 @@ module Reach
         puts Reach::Messages.text("M-LOGIN-ASK-PASSWORD-TERMINAL")
         password = read_hidden
         return 1 if password.nil?
-        return instructor_unlock([password]) if Reach::Instructor.attempt?(password)
+        return instructor_unlock_code(password) if Reach::Instructor.attempt?(password)
 
         ok, text = Reach::Login.terminal_password(password)
         ok ? puts(text) : warn(text)

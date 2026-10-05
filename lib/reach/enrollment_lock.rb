@@ -18,6 +18,14 @@ module Reach
 
     module_function
 
+    def pass_session=(session_id)
+      @pass_session = session_id.to_s.empty? ? nil : session_id.to_s
+    end
+
+    def pass_session
+      @pass_session
+    end
+
     def state
       current = compute_state
       Reach::Debug.lock(current)
@@ -33,6 +41,7 @@ module Reach
 
       reason = reason_for_state
       return { "locked" => false, "reason" => nil, "message_id" => nil } unless reason
+      return { "locked" => false, "reason" => "instructor_pass", "message_id" => nil } if Reach::Instructor.pass_for(@pass_session)
 
       { "locked" => true, "reason" => reason, "message_id" => MESSAGES.fetch(reason) }
     rescue StandardError

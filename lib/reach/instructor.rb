@@ -16,6 +16,7 @@ module Reach
     HEX16 = /\A[0-9a-f]{16}\z/.freeze
     LABEL_PATTERN = /\A[A-Za-z0-9 ._-]{0,40}\z/.freeze
     CONTEXT_SESSIONS_KEPT = 50
+    PASSES_KEPT = 50
 
     module_function
 
@@ -193,9 +194,20 @@ module Reach
     end
 
     def unlock!(code, session_id: nil, harness: nil)
+      return unlock_enrolled!(code, session_id, harness) if Reach::Enroll.current
+
       record = accept(code)
       return nil unless record
-      return { "record" => record, "enrolled" => false } unless Reach::Login.enrolled_id
+
+      { "record" => record, "enrolled" => false }
+    end
+
+    def unlock_enrolled!(code, session_id, harness)
+      payload, reason = verify(code)
+      unless payload
+        log("instructor.refused", "reason" => reason)
+        return nil
+      end
 
       cleared = Reach::Login.clear_lockouts.merge("enroll_lockout" => Reach::EnrollFlow.clear_lockout!)
       target = session_id.to_s.empty? ? nil : session_id.to_s
@@ -204,10 +216,55 @@ module Reach
         target = waiting && waiting["session_id"]
         harness = waiting["harness"] if waiting && harness.to_s.empty?
       end
-      Reach::Login.sign_in_session(target, harness) if target
-      payload = record["payload"]
-      log("instructor.signed_in", "code_id" => payload["id"], "key_id" => payload["key_id"], "session_id" => target, "cleared" => cleared)
-      { "record" => record, "enrolled" => true, "session_id" => target, "cleared" => cleared }
+      granted = nil
+      if target
+        Reach::Login.sign_in_session(target, harness)
+        granted = grant_pass!(payload, target)
+      end
+      log("instructor.signed_in", "code_id" => payload["id"], "key_id" => payload["key_id"], "session_id" => target, "cleared" => cleared, "pass_expires_at" => granted && granted["expires_at"])
+      { "enrolled" => true, "session_id" => target, "cleared" => cleared }
+    end
+
+    def pass_file
+      File.join(Reach::Paths.root_state_dir, "instructor_passes.json")
+    end
+
+    def read_passes
+      data = Reach::Login.read_json(pass_file)
+      Array(data.is_a?(Hash) ? data["passes"] : nil).select { |entry| entry.is_a?(Hash) }
+    end
+
+    def grant_pass!(payload, session_id)
+      now = Time.now.utc
+      record = {
+        "session_id" => session_id.to_s, "code_id" => payload["id"], "key_id" => payload["key_id"],
+        "granted_at" => now.iso8601, "expires_at" => (now + (Reach::Login.max_hours * 3600)).iso8601
+      }
+      live = read_passes.reject do |entry|
+        entry["session_id"] == record["session_id"] || Time.iso8601(entry["expires_at"].to_s) <= now
+      rescue ArgumentError
+        true
+      end
+      Reach::Login.write_json(pass_file, "passes" => (live + [record]).last(PASSES_KEPT))
+      File.chmod(0o600, pass_file)
+      record
+    rescue StandardError
+      nil
+    end
+
+    def pass_for(session_id)
+      sid = session_id.to_s
+      return nil if sid.empty?
+
+      entry = read_passes.find { |candidate| candidate["session_id"] == sid }
+      return nil unless entry
+      return nil unless Time.iso8601(entry["expires_at"].to_s) > Time.now.utc
+      return nil unless pinned_public_key(entry["key_id"])
+      return nil if revoked_ids.include?(entry["code_id"].to_s)
+
+      entry
+    rescue StandardError
+      nil
     end
 
     def stored
