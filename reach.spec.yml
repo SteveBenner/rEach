@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.0
+version: 0.35.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1879,8 +1879,9 @@ setup_log:
     string_max_bytes 65536, env_every_s 600. REACH_SETUP_LOG=0 turns it off.
   typed_text: >-
     Never recorded. Fields named prompt, user_message, message_text, text, answer, username, email, student_id,
-    first_name, last_name, full_name, display_name, name, passkey or code keep only {typed, length, lines}; fields the
-    debug scrub drops by name are [redacted]; strings lose PEM blocks, RINS1 codes, course-code-shaped values and
+    first_name, last_name, full_name, display_name, given_name, family_name, middle_name, preferred_name, legal_name, nickname, name, passkey or code keep
+    only {typed, length, lines}; fields the debug scrub drops by name, and since 0.35.1 fingerprint, salt, binding,
+    hostname and machine id fields, are [redacted]; since 0.35.1 the user folder in every path becomes ~; strings lose PEM blocks, RINS1 codes, course-code-shaped values and
     values matching the enrollment username and student ID patterns. Messages are recorded by id and parameter names,
     never their rendered text.
   report: >-

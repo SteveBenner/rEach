@@ -36,6 +36,16 @@ function Get-LogText($Value) {
     $text = [string]$Value
     $text = [regex]::Replace($text, '(?<=://)[^/@\s]+@', '[scrubbed]@')
     $text = [regex]::Replace($text, '[A-Z0-9]{3,}-[A-Z0-9]{4}-[A-Z0-9]{4}', '[scrubbed]')
+    $homes = @()
+    try { $homes += (Get-UserHome) } catch { }
+    $homes += $env:USERPROFILE
+    $homes += $env:HOME
+    foreach ($homeDir in ($homes | Where-Object { $_ -and $_.Length -ge 3 } | Sort-Object Length -Descending -Unique)) {
+        $trimmed = $homeDir.TrimEnd('\', '/')
+        foreach ($form in @($trimmed, $trimmed.Replace('\', '/'))) {
+            $text = [regex]::Replace($text, [regex]::Escape($form) + '(?=[\\/]|$|[^A-Za-z0-9._-])', '~', 'IgnoreCase')
+        }
+    }
     return $text
 }
 

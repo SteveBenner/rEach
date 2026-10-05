@@ -12,7 +12,8 @@ module Reach
     }.freeze
     SCHEMA = "reach.setup-report/v1".freeze
     SAFE = [StandardError, NotImplementedError].freeze
-    TYPED_KEY = /\A(?:prompt|user_message|message_text|text|answer|username|email|student_id|first_name|last_name|full_name|display_name|name|passkey|code)\z/i.freeze
+    TYPED_KEY = /\A(?:prompt|user_message|message_text|text|answer|username|email|student_id|first_name|last_name|full_name|display_name|given_name|family_name|middle_name|preferred_name|legal_name|nickname|name|passkey|code)\z/i.freeze
+    DEVICE_KEY = /fingerprint|salt|binding|hostname|host_name|machine_id/i.freeze
     ENV_KEEP = /\A(?:PATH|HOME|USERPROFILE|SHELL|LANG|LC_ALL|TERM|TMPDIR|TEMP|XDG_[A-Z_]+|RUBY[A-Z_]*|GEM_[A-Z_]+|BUNDLE_[A-Z_]+|REACH_[A-Z_]+|CLAUDE[A-Z_]*|CODEX[A-Z_]*|HERMES[A-Z_]*|ANTIGRAVITY[A-Z_]*|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|SSL_CERT_FILE|SSL_CERT_DIR)\z/i.freeze
     ENV_DROP = /token|key|secret|password|passphrase|signature|pem|credential|passkey|course_code|enroll_code|enrollment_code/i.freeze
     HEADER_DROP = /\A(?:authorization|proxy-authorization|cookie|set-cookie)\z/i.freeze
@@ -242,11 +243,23 @@ module Reach
       value = value.gsub(Reach::Debug::PEM_BLOCK, scrubbed).gsub(Reach::Debug::RINS, scrubbed).gsub(Reach::Debug::COURSE_SHAPE, scrubbed)
       Reach::Debug.identity_patterns.each { |pattern| value = value.gsub(pattern, scrubbed) }
       value = value.gsub(URL_USERINFO, "#{scrubbed}@")
+      value = scrub_homes(value)
       limit = config["string_max_bytes"].to_i
       return value unless limit.positive? && value.bytesize > limit
 
       cut = value.bytesize - limit
       "#{value.byteslice(0, limit).scrub("")}…[cut #{cut} bytes]"
+    end
+
+    def scrub_homes(value)
+      Reach::Debug.home_prefixes.each do |home|
+        [home, home.tr("/", "\\")].uniq.each do |form|
+          value = value.gsub(/#{Regexp.escape(form)}(?=[\\\/]|\z|[^A-Za-z0-9._-])/i, "~")
+        end
+      end
+      value
+    rescue StandardError
+      value
     end
 
     def typed_shape(value)
@@ -274,7 +287,7 @@ module Reach
 
       if key
         name = key.to_s
-        return "[redacted]" if Reach::Debug::DROP_KEY.match?(name)
+        return "[redacted]" if Reach::Debug::DROP_KEY.match?(name) || DEVICE_KEY.match?(name)
         return typed_shape(value) if TYPED_KEY.match?(name)
       end
       case value

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.0 |
+| **Registry version** | 0.35.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -530,6 +530,8 @@ Build ✅ · Deploy 🔵 · Blocker: Human (Teach 0.17.2 deployed).
 ### 2.30d · Setup log and setup report
 
 Since 0.35.0 (`STD-SETUP-LOG`), until a student is enrolled rEach writes an exhaustive local log to `setup-log/` in the rEach home: every command with its full backtrace, hook, request and response, debug event (debug mode on or off), fault, message id and an environment snapshot, plus the installers' step records (`install-<stamp>.jsonl`). It holds no typed text (only lengths) and never a password, passkey or code, and rEach never sends it. After three setup failures in a row (and every three after) it saves `reach-setup-report-<time>.json` in Downloads and shows the student the path and a `file://` link, suggesting they send it to the instructor; rejected input neither counts nor resets, and a locked command run before enrolling does not count. `reach debug export` and the `reach_debug` export action save one on demand. The debug phrases ("enable debug mode", "turn debug off") now also work in the plugin-level enrollment hook before enrollment, except at a password step. Verified 2026-10-05 on a scratch home against an unreachable course server: the phrase toggled debug and re-asked the passkey question without moving the flow; three locked `reach status` runs wrote no report; the third offline enrollment failure carried M-SETUP-REPORT-SAVED and wrote a 0600 report of schema `reach.setup-report/v1`; a typed passkey, username, student ID and password were absent from every setup-log file and report; terminal `reach enroll`, the MCP `reach_debug` export and `REACH_SETUP_LOG=0` behaved as specified; a hook ran 0.20 s with the log on and off; the same enrollment journey passed on Ruby 2.6.10 (container, no network). Not verified: `scripts/reach-install.ps1` (never run), the installer's success path, a real student or harness session.
+
+Since 0.35.1 every path in the log, the installer records and the report starts with `~` instead of the user folder, and the enrollment fingerprint (salt, hashes, binding, hostname) is redacted; verified on a scratch home (0 raw user-folder paths in the report and the installer log, fingerprint fields `[redacted]`) and on Ruby 2.6.10.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (a real student's setup has not produced a report yet).
 

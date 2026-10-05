@@ -236,11 +236,37 @@ module ReachInstall
       return nil unless folder
 
       @log_file ||= File.join(folder, "install-#{Time.now.utc.strftime("%Y%m%dT%H%M%SZ")}.jsonl")
-      line = JSON.generate({ "at" => Time.now.utc.iso8601(3), "pid" => Process.pid }.merge(record))
+      line = JSON.generate(log_homeless({ "at" => Time.now.utc.iso8601(3), "pid" => Process.pid }.merge(record)))
       File.open(@log_file, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.write("#{line}\n") }
       nil
     rescue StandardError, NotImplementedError
       nil
+    end
+
+    def log_home_prefixes
+      list = [(user_home rescue nil), ENV["HOME"], ENV["USERPROFILE"]].compact.map { |home| home.to_s.tr("\\", "/").chomp("/") }
+      list.reject { |home| home.length < 3 }.uniq.sort_by { |home| -home.length }
+    end
+
+    def log_homeless(value)
+      case value
+      when Hash
+        value.each_with_object({}) { |(key, item), out| out[key] = log_homeless(item) }
+      when Array
+        value.map { |item| log_homeless(item) }
+      when String
+        text = value
+        log_home_prefixes.each do |home|
+          [home, home.tr("/", "\\")].uniq.each do |form|
+            text = text.gsub(/#{Regexp.escape(form)}(?=[\\\/]|\z|[^A-Za-z0-9._-])/i, "~")
+          end
+        end
+        text
+      else
+        value
+      end
+    rescue StandardError
+      value
     end
 
     def log_text(value)

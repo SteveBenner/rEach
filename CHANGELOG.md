@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.1] - 2026-10-05
+
+### Fixed
+
+- The setup log, the installers' records and the setup report wrote paths with the student's user folder in them,
+  which usually carries their account name; every such path now starts with `~` instead (`Reach::SetupLog.scrub_homes`,
+  the installers' `log_homeless` and `Get-LogText`). Found by the release security audit of 0.35.0, which was pushed
+  to `main` but never tagged or released.
+- The enrollment request's device fingerprint (its salt and salted hashes, the binding and the hostname) is now
+  `[redacted]` in the setup log and the report; with the salt beside them, short values could be guessed back.
+- More name fields (`given_name`, `family_name`, `middle_name`, `preferred_name`, `legal_name`, `nickname`) are kept
+  only as their length, like the other typed fields.
+- `PRIVACY.md` says the setup log holds folder and program names with the user folder's name taken out.
+
 ## [0.35.0] - 2026-10-05
 
 ### Added
