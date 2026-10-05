@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.33.2 |
+| **Registry version** | 0.33.3 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1152,6 +1152,11 @@ connected (the model turn itself hit the smoke token's weekly limit).
 Build ✅ · Deploy 🔵 · Blocker: -.
 
 ### 10.2 · Claude Cowork
+
+Since 0.33.3 rEach does not enroll or sign in from Cowork: an unenrolled or signed-out prompt there gets one fixed
+message sending the student to the Claude app's Code tab (`M-COWORK-CODE-TAB`), because Cowork showed rEach's
+blocked prompt as "Claude's response came back empty". Checked with the hook run under
+`CLAUDE_CODE_ENTRYPOINT=local-agent` and real Claude turns; never run in Cowork itself.
 
 Claude desktop, plugin added from Customize > Plugins; the reason the executable lives at `exe/reach` rather than a
 top-level `bin/` (Cowork refuses a plugin that carries one).

@@ -18,6 +18,8 @@ module Reach
       "hook-stop" => 26, "transcript-turn" => 26, "transcript-code" => 12, "hello" => 8, "check" => 55
     }.freeze
     HERMES_PROMPT_BUDGET_S = 13
+    CODE_TAB_HARNESSES = %w[claude-cowork].freeze
+    CODE_TAB_SUBS = %w[enroll prompt].freeze
     HOOK_DEFAULT_BUDGET_S = 8
     HERMES_FAIL_CLOSED_SUBS = %w[write shell read].freeze
 
@@ -718,6 +720,12 @@ module Reach
         @gate_decision = "allow"
         rule = nil
         begin
+          if code_tab_hold?(sub, options, event)
+            rule = "M-COWORK-CODE-TAB"
+            @gate_decision = "context"
+            puts code_tab_payload(event)
+            return 0
+          end
           gate_dispatch(sub, options, event)
         rescue Reach::GateBlocked => e
           @gate_decision = "block"
@@ -728,6 +736,24 @@ module Reach
           Reach::Debug.hook(name, @gate_decision, rule, started)
           Reach::Debug.emit("gate", "check" => sub.to_s, "outcome" => @gate_decision, "message_id" => rule)
         end
+      end
+
+      def code_tab_hold?(sub, options, event)
+        return false unless CODE_TAB_SUBS.include?(sub.to_s)
+        return false unless CODE_TAB_HARNESSES.include?(Reach::Fingerprint.harness_label(options[:harness]))
+        return false if hermes_hook?(options[:harness], event) || Reach::Instructor.mode?
+        return true if Reach::EnrollmentLock.state["locked"]
+
+        Reach::Login.required? && !Reach::Login.session_confirmed?(Reach::Login.session_id(event))
+      rescue StandardError
+        false
+      end
+
+      def code_tab_payload(event)
+        text = event.is_a?(Hash) && event["prompt"].is_a?(String) ? event["prompt"] : nil
+        message = Reach::Login.crisis_match?(text) ? Reach::Support.message(told: nil) : Reach::Messages.text("M-COWORK-CODE-TAB")
+        context = Reach::Messages.text("M-COWORK-RELAY", message: message)
+        JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => context })
       end
 
       def gate_dispatch(sub, options, event)

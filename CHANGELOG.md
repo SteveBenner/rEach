@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.3] - 2026-10-04
+
+### Fixed
+
+- In Claude Cowork a student who was not enrolled or not signed in got "Claude's response came back empty" instead of
+  rEach's question, and could not enroll. rEach asks by blocking the prompt, and Cowork appears to show a blocked
+  prompt as an empty reply. In Cowork (`CLAUDE_CODE_ENTRYPOINT` `local-agent` or `remote_cowork`) the prompt hook now
+  answers with one fixed message that sends the student to the Claude app's Code tab (`M-COWORK-CODE-TAB`,
+  `Reach::CLI.code_tab_hold?` in `lib/reach/cli.rb`, STD-COWORK-CODE-TAB). It runs no enrollment or sign-in step
+  there, so nothing the student types in Cowork counts as an answer or a failed attempt, and the passkey, student ID
+  and password still never pass through the AI. A prompt that matches the crisis check gets the support message.
+- The student guide tells Claude desktop users to work in the Code tab.
+- Not verified: a real Cowork session. The cause is inferred from one student's screenshot; the hook was run with
+  Cowork's entrypoint value and real Claude turns repeated the message exactly.
+
 ## [0.33.2] - 2026-10-04
 
 ### Fixed

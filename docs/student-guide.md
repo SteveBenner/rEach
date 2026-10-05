@@ -9,8 +9,9 @@ and sends it in when you are ready.
 ## Getting started
 
 1. Paste this repository's link into your AI app and ask it to install rEach.
-   Cowork users: add it under Customize › Plugins › Add › Add marketplace
-   instead. Hermes users: rEach sets up its own Hermes profile, so always
+   Claude desktop app users: work in the Code tab (the </> button at the top),
+   not in Cowork. In Cowork rEach only tells you to switch to the Code tab.
+   Hermes users: rEach sets up its own Hermes profile, so always
    open your course with `~/reach-work/.reach-home/bin/reach work --harness hermes`
    (setup shows the exact command for your computer).
 2. Enroll right away: rEach does nothing else until you do. Type anything in
