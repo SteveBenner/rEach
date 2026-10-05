@@ -347,6 +347,22 @@ module Reach
       false
     end
 
+    def scrub_enrolled_backups!
+      return 0 unless root_enrolled?
+
+      Dir.glob(File.join(File.dirname(stored_file), ".backup", "instructor-*.json")).count do |path|
+        data = Reach::Login.read_json(path)
+        next false unless data.is_a?(Hash) && DROPPED_FIELDS.any? { |key| data.key?(key) }
+
+        Reach::Login.write_json(path, data.reject { |key, _| DROPPED_FIELDS.include?(key) })
+        payload = data["payload"].is_a?(Hash) ? data["payload"] : {}
+        log("instructor.backup_scrubbed", "code_id" => payload["id"], "key_id" => payload["key_id"])
+        true
+      end
+    rescue StandardError
+      0
+    end
+
     def stored
       data = Reach::Login.read_json(stored_file)
       data.is_a?(Hash) ? data : nil

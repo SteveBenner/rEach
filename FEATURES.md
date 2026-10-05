@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.14 |
+| **Registry version** | 0.35.15 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -527,7 +527,10 @@ the pass, the command-line argument refused, and a non-enrolled install unchange
 pass ships in 0.35.14, which signs each pass with an HMAC keyed from the install key and ignores a pass that is
 unsigned, edited, dated ahead or longer than a sign-in. The seal stops other programs and accidents, not the student
 at that computer, who can read the install key. 0.35.14 also removes a code that 0.35.12 stored on an enrolled
-install at the next session start, and neither that removal nor `reach instructor lock` keeps the code in its backup. A backup made by `lock` under 0.35.12 still holds the code until 0.35.15.
+install at the next session start, and neither that removal nor `reach instructor lock` keeps the code in its backup. Since 0.35.15 each session start on an install enrolled as a student also strips the code
+from backups that `lock` made before 0.35.14 and logs `instructor.backup_scrubbed`. Verified in scratch homes: a coded
+backup scrubbed once and kept at 0600, a second run changing nothing, a code-free backup and other files untouched,
+and a non-enrolled install's backups left as they were.
 Checked in scratch homes before commit: hand-edited passes refused, a stored code removed, `lock` keeping no code, and a
 non-enrolled install unchanged; not yet run in a real harness session.
 

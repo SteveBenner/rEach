@@ -24,6 +24,7 @@ module Reach
 
       observe_home_env
       Reach::Instructor.drop_enrolled_code!
+      Reach::Instructor.scrub_enrolled_backups!
       if Reach::Relocation.due?
         Reach::Relocation.start
       else

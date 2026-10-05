@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.15] - 2026-10-05
+
+### Security
+
+- A backup that `reach instructor lock` made before 0.35.14 (`~/.reach/.backup/instructor-*.json`) still held the
+  full, never-expiring instructor code, so on a student's computer anyone could copy it and get past every enrollment
+  lock. On an install enrolled as a student, each session start now rewrites every such backup that still has a
+  `code`, `signature` or `raw_code` field without them (`Reach::Instructor.scrub_enrolled_backups!`, called from
+  `lib/reach/hello.rb` after `drop_enrolled_code!`). It logs `instructor.backup_scrubbed` with the code id and key id,
+  never the code. The backup keeps the payload, the times and its 0600 mode. A computer that is not enrolled keeps
+  its backups as they are. Codes that 0.35.12 exposed should still be revoked under `enrollment.instructor_revoked`.
+
 ## [0.35.14] - 2026-10-05
 
 ### Security
