@@ -313,8 +313,8 @@ module Reach
       return false unless family_of(env["harness"]) == "codex"
       return false if signin_pending?
 
-      course_hook_files.any? do |path, _kind|
-        content = Reach::CodexSetup.read_hooks(path)
+      course_hook_files.any? do |path, kind|
+        content = Reach::CodexSetup.managed_content(path, kind)
         content && Reach::CodexHookTrust.stale?(Reach::CodexHookTrust.status(path, content))
       end
     rescue StandardError

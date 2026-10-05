@@ -2939,7 +2939,7 @@ codex_setup:
     only the new file is rejected. A second apply on a set-up file writes nothing (M-CODEX-SETUP-ALREADY).
   state: >-
     <root>/state/codex_setup.json (0600, temporary file and rename): consent {answer yes, no or withdrawn, at, via
-    terminal, chat or live}, mode, applied_at, backup, config_sha256, healed_at and the last probe {at, available,
+    terminal, chat or live, scope hook-trust-1 on a yes recorded since the hook-trust change}, mode, applied_at, backup, config_sha256, healed_at and the last probe {at, available,
     network, home_writable, reason, codex_version}. <root>/state/codex_setup.lock through Reach::Locks with a 5 second
     wait; a busy lock answers M-CODEX-SETUP-BUSY.
   consent: >-
@@ -3022,8 +3022,16 @@ codex_hook_trust:
     stamps work_at and prompt_at (KnownIssues.record_hook!) on every Codex run, before any gating. The course folder's
     hooks.json keeps PreToolUse, PostToolUse and Stop in their old group order and text.
   trust_state: >-
-    CodexSetup writes the entries for every course hooks.json it manages whose commands are all rEach's own, in the same
-    write as the sandbox settings (apply, reapply) and, when the student's yes stands, right after Harness.configure_codex
+    CodexSetup writes the entries only for a course hooks.json whose parsed content equals exactly what
+    Harness.codex_hooks_content produces now for that folder's kind (any of root, slice and extracurricular when the
+    kind is not known); any other file gets no trust and is not counted as stale. It writes them, and the course
+    folders' project trust, only when the recorded consent is a yes that carries scope hook-trust-1, which the
+    terminal, chat (the plugin hook's captured answer) and live-action paths record when the student answers the
+    question that names hook approval. A yes recorded earlier covers only the sandbox settings: those keep healing,
+    no trust is written, reach_setup configure and reach codex configure ask the new question instead of answering
+    already set up while trust is stale, and M-HOOKS-UNTRUSTED still points the agent at reach_setup configure. Trust
+    is written in the same
+    write as the sandbox settings (apply, reapply) and, when the scoped yes stands, right after Harness.configure_codex
     rewrites a file, with the same backup, atomic write, codex features list check and refusals. A hooks.state header
     written twice, as a dotted key, or with other keys than trusted_hash and enabled it does not read makes status
     unknown and the write refused. enabled is never written. When only trust changed the outcome is

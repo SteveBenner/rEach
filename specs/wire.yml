@@ -2568,5 +2568,7 @@ known_issues:
       implements signin_hook_not_running (since 2026-10-05b: an MCP call on a Codex harness when neither prompt hook that signs the
       student in, the plugin's gate enroll or a course folder's gate prompt, has run since the latest Codex session
       start, or neither ever ran, or with no session start recorded neither has run for 15 minutes); hooks_not_running
-      reads only the course-folder hooks. A detector name Reach does not
-      implement is never detected; its entry is still listed.
+      reads only the course-folder hooks. Since 2026-10-05d Reach also implements codex_hooks_untrusted (an MCP call on a
+      Codex harness, outside a pending sign-in, when a handler of the current course folder's hooks.json is untrusted
+      or modified in the student's Codex settings, so Codex skips it); its remedy is codex_configure. A detector name
+      Reach does not implement is never detected; its entry is still listed.

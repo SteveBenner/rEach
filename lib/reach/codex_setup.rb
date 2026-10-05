@@ -22,6 +22,7 @@ module Reach
     FULL_ACCESS = "danger-full-access".freeze
     WORKSPACE_WRITE = "workspace-write".freeze
     TRUSTED = "trusted".freeze
+    TRUST_SCOPE = "hook-trust-1".freeze
     BACKUP_INFIX = ".reach-backup-".freeze
 
     class Unsafe < StandardError; end
@@ -811,23 +812,22 @@ module Reach
       nil
     end
 
-    def managed_content?(content)
-      prefix = Reach::Runtime.hook_command
-      events = content["hooks"]
-      return false unless events.is_a?(Hash)
+    def managed_content(path, kind = nil)
+      content = read_hooks(path)
+      return nil unless content
 
-      commands = events.values.flat_map do |groups|
-        Array(groups).flat_map { |group| group.is_a?(Hash) ? Array(group["hooks"]) : [] }
-      end
-      commands.all? { |handler| handler.is_a?(Hash) && handler["command"].to_s.start_with?(prefix) }
+      kinds = kind ? [kind] : %w[root slice extracurricular]
+      kinds.any? { |candidate| content == Reach::Harness.send(:codex_hooks_content, candidate) } ? content : nil
+    rescue StandardError
+      nil
     end
 
     def trust_plan(files = managed_hook_files)
       entries = []
       folders = []
-      files.each do |path, _kind|
-        content = read_hooks(path)
-        next unless content && managed_content?(content)
+      files.each do |path, kind|
+        content = managed_content(path, kind)
+        next unless content
 
         entries.concat(CodexHookTrust.keys(path, content))
         folders << CodexHookTrust.hooks_folder(path)
@@ -845,19 +845,21 @@ module Reach
     end
 
     def trust_current?(files = managed_hook_files)
-      files.all? do |path, _kind|
-        content = read_hooks(path)
+      files.all? do |path, kind|
+        content = managed_content(path, kind)
         content.nil? || !CodexHookTrust.stale?(CodexHookTrust.status(path, content))
       end
     rescue StandardError
       true
     end
 
-    def trust_wanted?
-      return false unless enabled? && preflight.nil?
+    def trust_consent?(state = read_state)
+      consent = state["consent"]
+      consent.is_a?(Hash) && consent["answer"] == "yes" && consent["scope"] == TRUST_SCOPE
+    end
 
-      consent = read_state["consent"]
-      consent.is_a?(Hash) && consent["answer"] == "yes"
+    def trust_wanted?
+      enabled? && preflight.nil? && trust_consent?
     end
 
     def refresh_trust!(hooks_path = nil)
@@ -956,7 +958,9 @@ module Reach
     end
 
     def record_consent(state, answer_word, via)
-      state.merge("consent" => { "answer" => answer_word, "at" => now_s, "via" => via })
+      consent = { "answer" => answer_word, "at" => now_s, "via" => via }
+      consent["scope"] = TRUST_SCOPE if answer_word == "yes"
+      state.merge("consent" => consent)
     end
 
     def apply_locked(mode, via)
@@ -973,7 +977,7 @@ module Reach
         return answer("unsafe", false, "M-CODEX-SETUP-UNSAFE", reason: e.message)
       end
       trust_only = !before.nil? && after.b == before.b
-      after = with_trust(after)
+      after = with_trust(after, state)
 
       if !before.nil? && after.b == before.b
         write_state(state.merge("mode" => mode))
@@ -984,7 +988,9 @@ module Reach
       write_change(state, mode, via, before, after, trust_only)
     end
 
-    def with_trust(after)
+    def with_trust(after, state)
+      return after unless trust_consent?(state)
+
       wanted, folders = trust_plan
       return after if wanted.empty?
 
@@ -1187,7 +1193,7 @@ module Reach
       return nil if recent?(state["healed_at"], HEAL_GAP_S)
 
       mode = MODES.include?(state["mode"]) ? state["mode"] : mode_wanted
-      return nil if satisfied?(mode) && trust_current?
+      return nil if satisfied?(mode) && (trust_current? || !trust_consent?(state))
 
       outcome = locked do
         result = apply_locked(mode, "heal")
