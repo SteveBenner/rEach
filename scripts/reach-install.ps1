@@ -13,13 +13,181 @@ try {
 
 $RawBase = 'https://raw.githubusercontent.com/SteveBenner/rEach/main'
 $LockStaleSeconds = 900
+$LogThreshold = 3
+$LogEnvKeep = '^(?i)(PATH|HOME|USERPROFILE|SHELL|LANG|LC_ALL|TERM|TMPDIR|TEMP|XDG_[A-Z_]+|RUBY[A-Z_]*|GEM_[A-Z_]+|BUNDLE_[A-Z_]+|REACH_[A-Z_]+|CLAUDE[A-Z_]*|CODEX[A-Z_]*|HERMES[A-Z_]*|ANTIGRAVITY[A-Z_]*|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|SSL_CERT_FILE|SSL_CERT_DIR)$'
+$LogEnvDrop = '(?i)(token|key|secret|password|passphrase|signature|pem|credential|passkey|course_code|enroll_code|enrollment_code)'
+$script:LogEnabled = ($env:REACH_SETUP_LOG -ne '0')
+$script:LogHome = $null
+$script:LogFile = $null
+$script:LogStarted = [DateTime]::UtcNow
+$script:LogEnded = $false
+$script:LogCode = $null
+$script:LogMessage = $null
+$script:ChildCounted = $false
 
 function Write-Plain([string]$Text) {
     [Console]::Error.WriteLine($Text)
 }
 
+function Get-LogText($Value) {
+    if ($null -eq $Value) {
+        return ''
+    }
+    $text = [string]$Value
+    $text = [regex]::Replace($text, '(?<=://)[^/@\s]+@', '[scrubbed]@')
+    $text = [regex]::Replace($text, '[A-Z0-9]{3,}-[A-Z0-9]{4}-[A-Z0-9]{4}', '[scrubbed]')
+    return $text
+}
+
+function Test-LogAnchor {
+    if ($env:REACH_HOME) {
+        $anchor = Split-Path -Parent $env:REACH_HOME
+    } elseif ($env:REACH_WORKSPACE_ROOT) {
+        $anchor = Split-Path -Parent $env:REACH_WORKSPACE_ROOT
+    } else {
+        $anchor = Get-UserHome
+    }
+    return [bool]($anchor -and (Test-Path -LiteralPath $anchor -PathType Container))
+}
+
+function Write-Log([hashtable]$Record) {
+    if (-not $script:LogEnabled -or -not $script:LogHome) {
+        return
+    }
+    try {
+        if (-not (Test-LogAnchor)) {
+            return
+        }
+        $dir = Join-Path $script:LogHome 'setup-log'
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        if (-not $script:LogFile) {
+            $script:LogFile = Join-Path $dir ('install-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-ps.jsonl')
+        }
+        $entry = @{ at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ'); pid = $PID }
+        foreach ($name in $Record.Keys) {
+            $entry[$name] = $Record[$name]
+        }
+        $line = ConvertTo-Json -InputObject $entry -Compress -Depth 6
+        [IO.File]::AppendAllText($script:LogFile, $line + "`n", (New-Object Text.UTF8Encoding($false)))
+    } catch {
+    }
+}
+
+function Write-LogStep([string]$Step, [DateTime]$Began, [hashtable]$Fields) {
+    $record = @{ kind = 'step'; step = $Step; duration_ms = [int]([DateTime]::UtcNow - $Began).TotalMilliseconds }
+    if ($Fields) {
+        foreach ($name in $Fields.Keys) {
+            $record[$name] = $Fields[$name]
+        }
+    }
+    Write-Log $record
+}
+
+function Start-Log([string]$LogRoot, [string]$Dest, [string]$HarnessName) {
+    $script:LogHome = $LogRoot
+    $variables = @{}
+    try {
+        foreach ($item in Get-ChildItem Env:) {
+            if ($item.Name -match $LogEnvKeep) {
+                if ($item.Name -match $LogEnvDrop) {
+                    $variables[$item.Name] = '[redacted]'
+                } else {
+                    $variables[$item.Name] = Get-LogText $item.Value
+                }
+            }
+        }
+    } catch {
+    }
+    $os = ''
+    try {
+        $os = [Environment]::OSVersion.VersionString
+    } catch {
+    }
+    Write-Log @{
+        kind = 'start'; script = 'reach-install.ps1'; destination = (Get-LogText $Dest); harness = $HarnessName
+        powershell = $PSVersionTable.PSVersion.ToString(); os = $os; arch = $env:PROCESSOR_ARCHITECTURE; env = $variables
+    }
+}
+
+function Update-Streak([bool]$Success) {
+    if (-not $script:LogEnabled -or -not $script:LogHome) {
+        return
+    }
+    try {
+        if (-not (Test-LogAnchor)) {
+            return
+        }
+        $dir = Join-Path $script:LogHome 'setup-log'
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $path = Join-Path $dir 'state.json'
+        $state = @{}
+        if (Test-Path -LiteralPath $path) {
+            try {
+                $parsed = [IO.File]::ReadAllText($path) | ConvertFrom-Json
+                foreach ($property in $parsed.PSObject.Properties) {
+                    $state[$property.Name] = $property.Value
+                }
+            } catch {
+                $state = @{}
+            }
+        }
+        $streak = 0
+        if ($state.ContainsKey('streak') -and $state['streak']) {
+            $streak = [int]$state['streak']
+        }
+        $stamp = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+        if ($Success) {
+            $state['streak'] = 0
+            $state['last_success_at'] = $stamp
+            $streak = 0
+        } elseif ($script:ChildCounted) {
+            return
+        } else {
+            $streak = $streak + 1
+            $state['streak'] = $streak
+            $list = @()
+            if ($state.ContainsKey('failures') -and $state['failures']) {
+                $list = @($state['failures'])
+            }
+            $list = @($list + @(@{ at = $stamp; where = 'installer'; error = (Get-LogText $script:LogMessage) }))
+            $state['failures'] = @($list | Select-Object -Last 10)
+        }
+        $json = ConvertTo-Json -InputObject $state -Compress -Depth 6
+        $tmp = $path + '.tmp.' + $PID
+        [IO.File]::WriteAllText($tmp, $json, (New-Object Text.UTF8Encoding($false)))
+        Move-Item -Force -LiteralPath $tmp -Destination $path
+        if (-not $Success -and $streak -gt 0 -and ($streak % $LogThreshold) -eq 0) {
+            Write-Plain ('rEach has hit a problem ' + $streak + ' times in a row while getting set up. Once it runs, `reach debug export` saves a report for your instructor in Downloads.')
+        }
+    } catch {
+    }
+}
+
+function Complete-Log {
+    if ($script:LogEnded) {
+        return
+    }
+    $script:LogEnded = $true
+    try {
+        $success = ($script:LogCode -eq 0)
+        $record = @{
+            kind = 'end'; outcome = $(if ($success) { 'success' } else { 'failure' }); exit = $script:LogCode
+            duration_ms = [int]([DateTime]::UtcNow - $script:LogStarted).TotalMilliseconds
+        }
+        if (-not $success) {
+            $record['error'] = @{ message = (Get-LogText $script:LogMessage) }
+        }
+        Write-Log $record
+        Update-Streak $success
+    } catch {
+    }
+}
+
 function Stop-Install([string]$Text) {
     Write-Plain ('rEach install: ' + $Text)
+    $script:LogCode = 1
+    $script:LogMessage = $Text
+    Complete-Log
     exit 1
 }
 
@@ -103,11 +271,26 @@ function Get-KitRuby([string]$ReachHome) {
 function Save-File([string]$Url, [string]$Path) {
     $last = $null
     for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $began = [DateTime]::UtcNow
         try {
             Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Path
+            $bytes = $null
+            $hash = $null
+            try {
+                $bytes = (Get-Item -LiteralPath $Path).Length
+                $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLower()
+            } catch {
+            }
+            Write-LogStep 'download' $began @{ attempt = $attempt; url = (Get-LogText $Url); status = 200; bytes = $bytes; sha256 = $hash }
             return
         } catch {
             $last = $_.Exception.Message
+            $status = $null
+            try {
+                $status = [int]$_.Exception.Response.StatusCode
+            } catch {
+            }
+            Write-LogStep 'download' $began @{ attempt = $attempt; url = (Get-LogText $Url); status = $status; error = (Get-LogText $last) }
             Start-Sleep -Seconds ($attempt * 2)
         }
     }
@@ -250,7 +433,9 @@ function Install-KitRuby([string]$ReachHome, [string]$BootstrapDir) {
         if (-not (Test-Path -LiteralPath $tar)) {
             $tar = 'tar.exe'
         }
+        $unpackBegan = [DateTime]::UtcNow
         & $tar -xzf $part -C $stage
+        Write-LogStep 'extract' $unpackBegan @{ what = 'ruby-kit'; exit = $LASTEXITCODE }
         if ($LASTEXITCODE -ne 0) {
             throw 'tar.exe could not unpack the Ruby kit'
         }
@@ -288,8 +473,10 @@ function Install-KitRuby([string]$ReachHome, [string]$BootstrapDir) {
             $previous = $final + '.old-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
             Move-Item -LiteralPath $final -Destination $previous
         }
+        $moveBegan = [DateTime]::UtcNow
         try {
             Move-Item -LiteralPath $root -Destination $final
+            Write-LogStep 'move' $moveBegan @{ what = 'ruby-kit' }
         } catch {
             if ($previous -and -not (Test-Path -LiteralPath $final)) {
                 Move-Item -LiteralPath $previous -Destination $final
@@ -323,6 +510,10 @@ try {
     if (-not $Destination) {
         $Destination = Join-Path $reachHome 'plugin'
     }
+    try {
+        Start-Log (Split-Path -Parent $Destination) $Destination $Harness
+    } catch {
+    }
     $bootstrapDir = Join-Path (Join-Path (Get-WorkspaceBase) '.reach-home') 'bootstrap'
 
     $ruby = Get-PathRuby
@@ -338,11 +529,16 @@ try {
     }
 
     $installer = Find-Sibling 'reach-install' 'scripts/reach-install' $bootstrapDir
+    $installerBegan = [DateTime]::UtcNow
     & $ruby $installer --destination $Destination
+    Write-LogStep 'installer' $installerBegan @{ exit = $LASTEXITCODE }
     if ($LASTEXITCODE -ne 0) {
+        $script:ChildCounted = $true
         Stop-Install 'reach-install failed.'
     }
+    $setupBegan = [DateTime]::UtcNow
     & $ruby (Join-Path $Destination 'exe\reach') setup --harness $Harness
+    Write-LogStep 'setup' $setupBegan @{ exit = $LASTEXITCODE }
     if ($LASTEXITCODE -ne 0) {
         Stop-Install 'reach setup failed.'
     }
@@ -350,12 +546,19 @@ try {
     if ((Get-Command codex -ErrorAction SilentlyContinue) -or (Test-Path -LiteralPath $codexHome)) {
         $reachExe = Join-Path $Destination 'exe\reach'
         if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+            $codexBegan = [DateTime]::UtcNow
             & $ruby $reachExe codex configure
+            Write-LogStep 'codex' $codexBegan @{ ran = $true; exit = $LASTEXITCODE }
         } else {
+            Write-Log @{ kind = 'step'; step = 'codex'; ran = $false }
             Write-Plain ('rEach install: to let rEach set up Codex, run this in a terminal: "' + $ruby + '" "' + $reachExe + '" codex configure')
         }
     }
+    $script:LogCode = 0
+    Complete-Log
     exit 0
 } catch {
     Stop-Install $_.Exception.Message
+} finally {
+    Complete-Log
 }

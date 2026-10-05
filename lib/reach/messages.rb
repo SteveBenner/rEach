@@ -13,7 +13,13 @@ module Reach
         template = catalogue(locale).fetch("messages", {})[id.to_s]
         raise Reach::Error, "reach: unknown message id #{id.inspect}" unless template
 
-        interpolate(template, fields)
+        rendered = interpolate(template, fields)
+        begin
+          Reach::SetupLog.note_message(id, fields)
+        rescue StandardError
+          nil
+        end
+        rendered
       end
 
       def failure_reason(category, locale: DEFAULT_LOCALE)

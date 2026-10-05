@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.0] - 2026-10-05
+
+### Added
+
+- Setup log (`STD-SETUP-LOG`, `lib/reach/setup_log.rb`): until the student is enrolled, rEach records every command,
+  hook, request and response, debug event, fault, message id and an environment snapshot in `setup-log/` in the rEach
+  home, with full backtraces and no typed text, passwords, passkeys or codes. It is never sent.
+- Setup report: at the third setup failure in a row (and every third after), rEach saves
+  `reach-setup-report-<time>.json` (schema `reach.setup-report/v1`) in Downloads and shows its path and `file://` link
+  with the suggestion to send it to the instructor (`M-SETUP-REPORT-SAVED`), in the enrollment hook reply, a terminal
+  command's output or an MCP tool result. `reach debug export` and the `reach_debug` action `export` save one on demand.
+- `scripts/reach-install` and `scripts/reach-install.ps1` record each step and the outcome in
+  `setup-log/install-<stamp>.jsonl` and count a failed install toward the streak.
+- `reach debug status` shows the setup log (active, streak, files, bytes; JSON key `setup_log`).
+
+### Changed
+
+- The debug phrases ("enable debug mode", "turn debug off") work before enrollment: the plugin-level enrollment hook
+  switches debug mode and asks its current question again instead of treating the phrase as a passkey.
+- `PRIVACY.md` lists the setup log under what stays on the computer.
+
 ## [0.34.13] - 2026-10-05
 
 ### Fixed

@@ -228,6 +228,8 @@ module Reach
 
     def emit(kind, fields = {})
       return nil if Thread.current[:reach_debug_busy]
+
+      Reach::SetupLog.record("debug", "kind" => kind.to_s, "fields" => fields)
       return nil unless on?
 
       Thread.current[:reach_debug_busy] = true
@@ -402,6 +404,7 @@ module Reach
     def emit_always(kind, fields)
       return nil if Thread.current[:reach_debug_busy]
 
+      Reach::SetupLog.record("debug", "kind" => kind.to_s, "fields" => fields)
       Thread.current[:reach_debug_busy] = true
       begin
         append(kind.to_s, fields, on? ? nil : "fault", throttle: true)
@@ -420,6 +423,7 @@ module Reach
         "cause" => error.respond_to?(:cause_name) ? error.cause_name : nil,
         "frames" => relative_frames(error), "shown" => shown_id
       }
+      Reach::SetupLog.fault(error, fields, where)
       emit_always("fault", fields.merge("fault_id" => Reach::Issues.signature(fields)))
       Reach::Issues.observe(fields)
       error(error, where) if on?
@@ -440,9 +444,9 @@ module Reach
     end
 
     def command(argv, exit_value, started, raised = nil)
-      return nil unless on?
-
       raised ||= @noted
+      Reach::SetupLog.command(argv, exit_value, elapsed_ms(started), raised)
+      return nil unless on?
 
       name = argv.first.to_s
       return nil if name == "debug"
@@ -463,7 +467,7 @@ module Reach
     end
 
     def hook(event, decision, rule, started)
-      return nil unless on?
+      return nil unless on? || Reach::SetupLog.active?
 
       space = begin
         found = Reach::Gate.current_space
@@ -471,16 +475,20 @@ module Reach
       rescue StandardError
         "outside"
       end
+      Reach::SetupLog.hook(event, decision, rule, space, elapsed_ms(started))
+      return nil unless on?
+
       emit("hook", "event" => event, "decision" => decision, "rule" => rule, "space" => space, "latency_ms" => elapsed_ms(started))
     rescue StandardError
       nil
     end
 
-    def request(method, path, status, error_name, request_id, attempt, latency_ms, bytes_out, bytes_in)
-      return nil unless on?
-
+    def request(method, path, status, error_name, request_id, attempt, latency_ms, bytes_out, bytes_in, extra = nil)
       route = path.to_s.split("?").first.to_s
       return nil if route == ROUTE
+
+      Reach::SetupLog.http(method, path, status, error_name.to_s.empty? ? nil : error_name, request_id, attempt, latency_ms, bytes_out, bytes_in, extra)
+      return nil unless on?
 
       route = route.gsub(%r{/[A-Za-z0-9_.:-]*[0-9][A-Za-z0-9_.:-]{6,}}, "/:id")
       emit(
@@ -493,7 +501,7 @@ module Reach
     end
 
     def response(method, path, answer, attempt, latency_ms, body)
-      return nil unless on?
+      return nil unless on? || Reach::SetupLog.active?
 
       parsed = begin
         answer.json
@@ -504,8 +512,17 @@ module Reach
       detail = parsed["error"].is_a?(Hash) ? parsed["error"]["code"] : nil
       request(
         method, path, answer.status, answer.status < 400 ? nil : detail,
-        answer.headers["x-request-id"] || parsed["request_id"], attempt, latency_ms, body.to_s.bytesize, answer.body.to_s.bytesize
+        answer.headers["x-request-id"] || parsed["request_id"], attempt, latency_ms, body.to_s.bytesize, answer.body.to_s.bytesize,
+        response_extra(answer, body)
       )
+    rescue StandardError
+      nil
+    end
+
+    def response_extra(answer, body)
+      extra = { "headers" => Reach::SetupLog.redact_headers(answer.headers), "request_body" => Reach::SetupLog.parsed_body(body) }
+      extra["response_body"] = Reach::SetupLog.parsed_body(answer.body)
+      extra
     rescue StandardError
       nil
     end

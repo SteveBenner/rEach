@@ -11,6 +11,9 @@ require "uri"
 require "open3"
 require "rbconfig"
 require "timeout"
+require "digest"
+require "time"
+require "yaml"
 
 module ReachInstall
   MAX_BYTES = 100 * 1024 * 1024
@@ -21,10 +24,28 @@ module ReachInstall
   MIN_DOWNLOAD_INTERVAL_S = 1
   PROFILE_FOLDER_ID = [0x5E6C858F, 0x0E22, 0x4760, 0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73].freeze
   HOME_MISSING = "rEach could not find your user folder on this computer, so it did not create anything. Close this app, open it again from your own Windows account, and send your message again. If this keeps happening, tell your instructor.".freeze
+  SENSITIVE_FLAG = /key|token|code|password|secret|passphrase|passkey/i
+  ENV_KEEP = /\A(?:PATH|HOME|USERPROFILE|SHELL|LANG|LC_ALL|TERM|TMPDIR|TEMP|XDG_[A-Z_]+|RUBY[A-Z_]*|GEM_[A-Z_]+|BUNDLE_[A-Z_]+|REACH_[A-Z_]+|CLAUDE[A-Z_]*|CODEX[A-Z_]*|HERMES[A-Z_]*|ANTIGRAVITY[A-Z_]*|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|SSL_CERT_FILE|SSL_CERT_DIR)\z/i
+  ENV_DROP = /token|key|secret|password|passphrase|signature|pem|credential|passkey|course_code|enroll_code|enrollment_code/i
+  LOG_THRESHOLD = 3
+  LOG_FAILURES_KEPT = 10
+  LOG_LOCK_WAIT_S = 2.0
 
   class << self
     def run(argv)
+      log_begin(argv)
+      code = nil
+      begin
+        code = execute(argv)
+      ensure
+        log_finish(code)
+      end
+      code
+    end
+
+    def execute(argv)
       options = parse(argv)
+      log_start(options)
       raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !options[:archive]
 
       destination = File.expand_path(options[:destination])
@@ -41,6 +62,7 @@ module ReachInstall
       codex_step(destination)
       0
     rescue StandardError => e
+      @log_error = e
       warn "reach-install: #{e.message}"
       1
     end
@@ -50,11 +72,11 @@ module ReachInstall
 
       FileUtils.mkdir_p(temp)
       reach_archive = archive || download(url, temp, "reach.zip")
-      reach_root = extract_archive(reach_archive, File.join(temp, "reach"))
+      reach_root = logged_extract(reach_archive, File.join(temp, "reach"))
       revision_value = read_revision(revision || File.join(reach_root, "dovetail-revision.txt"))
       dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision_value}.zip"
       dovetail_archive = download(dovetail_url, temp, "dovetail.zip")
-      dovetail_root = extract_archive(dovetail_archive, File.join(temp, "dovetail"))
+      dovetail_root = logged_extract(dovetail_archive, File.join(temp, "dovetail"))
       dovetail_destination = File.join(reach_root, "dovetail")
       if File.directory?(dovetail_destination) && !File.symlink?(dovetail_destination) && Dir.empty?(dovetail_destination)
         Dir.rmdir(dovetail_destination)
@@ -62,7 +84,9 @@ module ReachInstall
         raise "archive already contains a Dovetail directory"
       end
 
+      began = log_clock
       FileUtils.mv(dovetail_root, dovetail_destination)
+      log_step("move", began, "what" => "dovetail")
       reach_root
     end
 
@@ -174,6 +198,197 @@ module ReachInstall
       raise HOME_MISSING
     end
 
+    def log_clock
+      Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    end
+
+    def log_enabled?
+      ENV["REACH_SETUP_LOG"].to_s != "0"
+    end
+
+    def log_home
+      @log_home || File.dirname(default_destination)
+    rescue StandardError
+      nil
+    end
+
+    def log_dir
+      home = log_home
+      home ? File.join(home, "setup-log") : nil
+    end
+
+    def log_ensure_dir
+      folder = log_dir
+      return nil unless folder
+      return nil unless File.directory?(home_anchor)
+
+      FileUtils.mkdir_p(folder, mode: 0o700)
+      File.chmod(0o700, folder)
+      folder
+    rescue StandardError, NotImplementedError
+      nil
+    end
+
+    def log_write(record)
+      return nil unless log_enabled?
+
+      folder = log_ensure_dir
+      return nil unless folder
+
+      @log_file ||= File.join(folder, "install-#{Time.now.utc.strftime("%Y%m%dT%H%M%SZ")}.jsonl")
+      line = JSON.generate({ "at" => Time.now.utc.iso8601(3), "pid" => Process.pid }.merge(record))
+      File.open(@log_file, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.write("#{line}\n") }
+      nil
+    rescue StandardError, NotImplementedError
+      nil
+    end
+
+    def log_text(value)
+      text = value.to_s.dup
+      text = text.encode("UTF-8", invalid: :replace, undef: :replace, replace: "?") unless text.encoding == Encoding::UTF_8 && text.valid_encoding?
+      text = text.gsub(%r{(?<=://)[^/@\s]+@}, "[scrubbed]@")
+      text = text.gsub(/-----BEGIN [A-Z0-9 ]+-----.*?(?:-----END [A-Z0-9 ]+-----|\z)/m, "[scrubbed]")
+      text.gsub(/[A-Z0-9]{3,}-[A-Z0-9]{4}-[A-Z0-9]{4}/, "[scrubbed]")
+    end
+
+    def log_argv(argv)
+      hide = false
+      Array(argv).map do |token|
+        token = token.to_s
+        if token.start_with?("--")
+          flag, given = token.split("=", 2)
+          sensitive = SENSITIVE_FLAG.match?(flag)
+          hide = sensitive && given.nil?
+          given.nil? ? log_text(flag) : (sensitive ? "#{flag}=[redacted]" : log_text(token))
+        elsif hide
+          hide = false
+          "[redacted]"
+        else
+          log_text(token)
+        end
+      end
+    end
+
+    def log_env
+      ENV.to_h.select { |name, _| ENV_KEEP.match?(name) }.each_with_object({}) do |(name, value), memo|
+        memo[name] = ENV_DROP.match?(name) ? "[redacted]" : log_text(value)
+      end
+    end
+
+    def log_begin(argv)
+      @log_started = log_clock
+      @log_argv = log_argv(argv)
+      @log_error = nil
+      @log_began = false
+    end
+
+    def log_start(options)
+      @log_destination = File.expand_path(options[:destination])
+      @log_home = File.dirname(@log_destination)
+      return if @log_began
+
+      @log_began = true
+      log_write(
+        "kind" => "start", "argv" => @log_argv, "destination" => File.expand_path(options[:destination]),
+        "url" => log_text(options[:url]), "archive" => options[:archive] ? true : false,
+        "ruby" => { "version" => RUBY_VERSION, "platform" => RUBY_PLATFORM, "patchlevel" => RUBY_PATCHLEVEL, "executable" => RbConfig.ruby },
+        "ruby_platform" => RUBY_PLATFORM, "env" => log_env, "cwd" => (Dir.pwd rescue nil), "script" => $PROGRAM_NAME
+      )
+    end
+
+    def log_step(step, began, fields = {})
+      log_write({ "kind" => "step", "step" => step, "duration_ms" => ((log_clock - began) * 1000).round }.merge(fields))
+    end
+
+    def logged_extract(archive, destination)
+      began = log_clock
+      root = extract_archive(archive, destination)
+      log_step("extract", began, "archive" => File.basename(archive), "bytes" => (File.size(archive) rescue nil))
+      root
+    rescue StandardError => e
+      log_step("extract", began, "archive" => File.basename(archive), "error" => log_text(e.class.name), "message" => log_text(e.message))
+      raise
+    end
+
+    def log_finish(code)
+      error = @log_error || $!
+      success = code == 0 && error.nil?
+      unless @log_began
+        @log_home ||= nil
+        @log_began = true
+        log_write("kind" => "start", "argv" => @log_argv)
+      end
+      record = {
+        "kind" => "end", "outcome" => success ? "success" : "failure", "exit" => code,
+        "duration_ms" => ((log_clock - @log_started) * 1000).round
+      }
+      if error
+        record["error"] = {
+          "class" => error.class.name, "message" => log_text(error.message),
+          "backtrace" => Array(error.backtrace).first(100).map { |frame| log_text(frame) }
+        }
+      end
+      log_write(record)
+      log_streak(success, error)
+    rescue StandardError
+      nil
+    end
+
+    def log_threshold
+      path = File.join(@log_destination || File.join(log_home.to_s, "plugin"), "config.yml")
+      data = File.file?(path) ? YAML.safe_load(File.read(path)) : nil
+      section = data.is_a?(Hash) ? data["setup_log"] : nil
+      value = section.is_a?(Hash) ? section["threshold"].to_i : 0
+      value.positive? ? value : LOG_THRESHOLD
+    rescue StandardError
+      LOG_THRESHOLD
+    end
+
+    def log_streak(success, error)
+      return nil unless log_enabled?
+
+      folder = log_ensure_dir
+      return nil unless folder
+
+      streak = 0
+      path = File.join(folder, "state.json")
+      File.open(File.join(folder, "lock"), File::RDWR | File::CREAT, 0o600) do |handle|
+        locked = false
+        deadline = log_clock + LOG_LOCK_WAIT_S
+        until locked || log_clock >= deadline
+          locked = handle.flock(File::LOCK_EX | File::LOCK_NB)
+          sleep(0.02) unless locked
+        end
+        state = begin
+          parsed = JSON.parse(File.read(path))
+          parsed.is_a?(Hash) ? parsed : {}
+        rescue StandardError
+          {}
+        end
+        if success
+          state["streak"] = 0
+          state["last_success_at"] = Time.now.utc.iso8601(3)
+        else
+          state["streak"] = state["streak"].to_i + 1
+          failures = Array(state["failures"])
+          failures << { "at" => Time.now.utc.iso8601(3), "where" => "installer", "error" => error ? log_text(error.class.name) : "exit" }
+          state["failures"] = failures.last(LOG_FAILURES_KEPT)
+        end
+        streak = state["streak"]
+        tmp = "#{path}.tmp.#{Process.pid}"
+        File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(state)) }
+        File.rename(tmp, path)
+        handle.flock(File::LOCK_UN) if locked
+      end
+      threshold = log_threshold
+      if !success && streak.positive? && (streak % threshold).zero?
+        warn "rEach has hit a problem #{streak} times in a row while getting set up. Once it runs, `reach debug export` saves a report for your instructor in Downloads."
+      end
+      nil
+    rescue StandardError, NotImplementedError
+      nil
+    end
+
     def default_destination
       home_value = ENV["REACH_HOME"].to_s
       return File.join(expand_home(home_value), "plugin") unless home_value.empty?
@@ -216,11 +431,14 @@ module ReachInstall
       terminal = answer_terminal
       if terminal
         begin
-          system(RbConfig.ruby, exe, "codex", "configure", in: terminal)
+          began = log_clock
+          ran = system(RbConfig.ruby, exe, "codex", "configure", in: terminal)
+          log_step("codex", began, "ran" => true, "ok" => ran ? true : false)
         ensure
           terminal.close unless terminal.equal?($stdin)
         end
       else
+        log_write("kind" => "step", "step" => "codex", "ran" => false)
         puts "rEach install: to let rEach set up Codex, run this in a terminal: \"#{RbConfig.ruby}\" \"#{exe}\" codex configure"
       end
     rescue StandardError
@@ -275,11 +493,15 @@ module ReachInstall
       last_error = nil
       MAX_ATTEMPTS.times do |attempt|
         wait_for_download_turn
+        began = log_clock
+        @fetch_status = nil
         begin
           fetch(URI(url), path)
+          log_step("download", began, "attempt" => attempt + 1, "url" => log_text(url), "status" => @fetch_status, "bytes" => File.size(path), "sha256" => Digest::SHA256.file(path).hexdigest)
           return path
         rescue StandardError => e
           last_error = e
+          log_step("download", began, "attempt" => attempt + 1, "url" => log_text(url), "status" => @fetch_status, "error" => log_text(e.class.name), "message" => log_text(e.message))
           sleep(attempt + 1) if attempt + 1 < MAX_ATTEMPTS
         end
       end
@@ -307,6 +529,7 @@ module ReachInstall
           target = URI.join(uri, response.fetch("location"))
           return fetch(target, path, redirects + 1)
         end
+        @fetch_status = response.code
         raise "archive download returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
         declared = response["content-length"].to_i
         raise "archive exceeds #{MAX_BYTES} bytes" if declared > MAX_BYTES
@@ -422,6 +645,7 @@ module ReachInstall
     end
 
     def install(source, destination)
+      began = log_clock
       backup = nil
       if File.exist?(destination) || File.symlink?(destination)
         backup_dir = File.join(File.dirname(destination), ".backup")
@@ -430,6 +654,7 @@ module ReachInstall
         FileUtils.mv(destination, backup)
       end
       FileUtils.mv(source, destination)
+      log_step("move", began, "what" => "install", "destination" => destination, "backup" => backup ? true : false)
       puts "previous install kept at #{backup}" if backup
     rescue StandardError
       FileUtils.mv(backup, destination) if backup && File.exist?(backup) && !File.exist?(destination)

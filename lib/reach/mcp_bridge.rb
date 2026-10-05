@@ -291,11 +291,11 @@ module Reach
       },
       {
         "name" => "reach_debug",
-        "description" => "Turn rEach's debug mode on (action on, optional minutes), off (action off) or show whether it is on (action status, the default); works where the harness's shell is sandboxed. Tell the student the text in plain words",
+        "description" => "Turn rEach's debug mode on (action on, optional minutes), off (action off) or show whether it is on (action status, the default); export saves a setup report to Downloads for the student to send to their instructor; works where the harness's shell is sandboxed. Tell the student the text in plain words",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[on off status] },
+            "action" => { "type" => "string", "enum" => %w[on off status export] },
             "minutes" => { "type" => "integer", "minimum" => 1, "maximum" => 999_999 }
           }
         }
@@ -461,6 +461,45 @@ module Reach
       end
 
       def call_tool(id, params)
+        params = {} unless params.is_a?(Hash)
+        Reach::SetupLog.unit!
+        started = Reach::Debug.clock
+        response = run_tool(id, params)
+        note_tool(params, response, started)
+        with_setup_offer(response)
+      end
+
+      def note_tool(params, response, started)
+        failed = response.is_a?(Hash) && response["error"].is_a?(Hash)
+        input = params["arguments"].is_a?(Hash) ? params["arguments"] : {}
+        message = failed ? response["error"]["message"].to_s : nil
+        counted = failed && response["error"]["code"] != -32602
+        Reach::SetupLog.mcp(tool_label(params["name"]), input["action"].to_s[0, 32], !failed, Reach::Debug.elapsed_ms(started), message, counted)
+      rescue StandardError
+        nil
+      end
+
+      def with_setup_offer(response)
+        return response unless response.is_a?(Hash)
+
+        content = response["result"].is_a?(Hash) ? response["result"]["content"] : nil
+        failure = response["error"].is_a?(Hash) ? response["error"] : nil
+        return response unless content.is_a?(Array) || failure
+
+        offer = Reach::SetupLog.take_offer!
+        return response unless offer
+
+        if content.is_a?(Array)
+          content << { "type" => "text", "text" => offer }
+        else
+          failure["message"] = "#{failure["message"]}\n\n#{offer}"
+        end
+        response
+      rescue StandardError
+        response
+      end
+
+      def run_tool(id, params)
         name = params["name"]
         arguments = params["arguments"] || {}
         payload = Reach::Client.with_deadline(TOOL_BUDGET_S) { dispatch(name, arguments) }
@@ -692,6 +731,11 @@ module Reach
                    Reach::Messages.text("M-DEBUG-STATUS-OFF", queued: report["spool"]["queued"], sent: report["spool"]["sent"])
                  end
           { "text" => text }
+        when "export"
+          path = Reach::SetupLog.export!(reason: "manual")
+          raise Reach::Error, Reach::Messages.text("M-SETUP-REPORT-FAILED", reason: Reach::SetupLog.last_error || "unknown problem") unless path
+
+          { "text" => Reach::Messages.text("M-SETUP-REPORT-MANUAL", path: path, link: Reach::SetupLog.link(path)), "path" => path }
         else
           raise Reach::Error, "reach: unknown debug action"
         end

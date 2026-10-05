@@ -35,8 +35,20 @@ module Reach
           code = 1
         ensure
           Reach::Debug.command(argv, code, started, failure || $!)
+          setup_log_finish(argv)
         end
         code
+      end
+
+      def setup_log_finish(argv)
+        Reach::SetupLog.record_environment!
+        return nil if argv.first == "mcp" || hook_invocation?(argv)
+
+        offer = Reach::SetupLog.take_offer!
+        warn offer if offer
+        nil
+      rescue StandardError
+        nil
       end
 
       def run_terminal(argv)
@@ -366,7 +378,7 @@ module Reach
             doctor [--install-chromium]          check the local install, one line per problem
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
-            debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush   debug mode: what rEach did, with no prompts, replies, code or secrets
+            debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush | export [--format text|json]   debug mode: what rEach did, with no prompts, replies, code or secrets
             instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
@@ -922,8 +934,9 @@ module Reach
         when "status"
           options, _remaining = parse_flags(args, [:format])
           report = Reach::Debug.status
+          setup = Reach::SetupLog.status
           if (options[:format] || "text") == "json"
-            puts JSON.generate(report)
+            puts JSON.generate(report.merge("setup_log" => setup))
           elsif report["on"]
             puts Reach::Messages.text(
               "M-DEBUG-STATUS-ON", reason: report["reason"], until: report["until"] || "no end time",
@@ -932,6 +945,7 @@ module Reach
           else
             puts Reach::Messages.text("M-DEBUG-STATUS-OFF", queued: report["spool"]["queued"], sent: report["spool"]["sent"])
           end
+          puts Reach::Messages.text("M-SETUP-LOG-STATUS", state: setup["active"] ? "recording" : "not recording", streak: setup["streak"], files: setup["files"], bytes: setup["bytes"]) unless (options[:format] || "text") == "json"
           0
         when "show"
           options, _remaining = parse_flags(args, [:last, :format])
@@ -951,6 +965,25 @@ module Reach
         when "flush"
           result = Reach::Debug.flush(quick: false)
           puts Reach::Messages.text("M-DEBUG-FLUSHED", sent: result["sent"], stopped: result["stopped"] || "none")
+          0
+        when "export"
+          options, _remaining = parse_flags(args, [:format])
+          format = options[:format] || "text"
+          unless %w[text json].include?(format)
+            warn Reach::Messages.text("M-DEBUG-USAGE")
+            return 1
+          end
+          path = Reach::SetupLog.export!(reason: "manual")
+          unless path
+            warn Reach::Messages.text("M-SETUP-REPORT-FAILED", reason: Reach::SetupLog.last_error || "unknown problem")
+            return 1
+          end
+          link = Reach::SetupLog.link(path)
+          if format == "json"
+            puts JSON.generate("path" => path, "link" => link, "bytes" => File.size(path))
+          else
+            puts Reach::Messages.text("M-SETUP-REPORT-MANUAL", path: path, link: link)
+          end
           0
         else
           warn Reach::Messages.text("M-DEBUG-USAGE")
@@ -1000,6 +1033,17 @@ module Reach
           end
           raise Reach::GateBlocked.new("M-PERSONA-LOCKED", text)
         end
+        flow_state = enroll_flow_state
+        Reach::SetupLog.record("enroll_prompt", "prompt" => event["prompt"], "state" => flow_state, "harness" => harness_id)
+        toggled = gate_debug_toggle(event, flow_state)
+        if toggled
+          reply = "#{Reach::Messages.text("M-DEBUG-RELAY", text: toggled)}\n\n#{Reach::EnrollFlow.next_message(Reach::EnrollmentLock.state)}"
+          if hermes
+            puts JSON.generate("context" => reply)
+            return 0
+          end
+          raise Reach::GateBlocked.new("M-DEBUG-RELAY", reply)
+        end
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
         signed_in = nil
         decision, signed_in = enroll_login(event, harness_id) if decision.nil? && !hermes
@@ -1031,12 +1075,43 @@ module Reach
           notice = Reach::TranscriptExport.pending_notice!
           message = "#{message}\n\n#{notice}" if notice
         end
+        message = gate_setup_outcome(message, flow_state)
         if hermes
           guide = Reach::Messages.text("M-ENR-HERMES-GUIDE", command: Reach::Runtime.hook_command("guide"))
           puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: message)}\n\n#{guide}")
           return 0
         end
         raise Reach::GateBlocked.new(decision["id"] || "M-ENR", message)
+      end
+
+      def enroll_flow_state
+        flow = Reach::EnrollFlow.read_flow
+        flow ? flow["state"] : nil
+      rescue StandardError
+        nil
+      end
+
+      def gate_debug_toggle(event, flow_state)
+        return nil if %w[awaiting_password awaiting_password_again].include?(flow_state)
+        return nil unless Reach::EnrollmentLock.state["locked"]
+
+        choice = Reach::Debug.phrase(event["prompt"])
+        toggled = Reach::Debug.toggle_from_prompt!(event["prompt"])
+        return nil unless toggled.is_a?(String)
+
+        Reach::SetupLog.record("debug_toggle", "to" => choice)
+        toggled
+      rescue StandardError
+        nil
+      end
+
+      def gate_setup_outcome(message, flow_state)
+        result = Reach::SetupLog.classify_messages
+        Reach::SetupLog.outcome!(result, "where" => "gate:enroll", "state" => flow_state, "messages" => Reach::SetupLog.noted) if result
+        offer = Reach::SetupLog.take_offer!
+        offer ? "#{message}\n\n#{offer}" : message
+      rescue StandardError
+        message
       end
 
       def codex_setup_answer(event)

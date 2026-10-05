@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.34.13
+version: 0.35.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -322,6 +322,9 @@ library:
   - name: Reach::DebugRender
     role: >-
       W-DBG-RENDER. detect picks tui or gui from the harness environment (Claude Code CLAUDE_CODE_ENTRYPOINT and CLAUDE_CODE_DESKTOP_APP_VERSION, Codex CODEX_DESKTOP_APP and CODEX_IDE_*, Hermes always tui, unknown tui); config.yml debug.render (auto, ascii, markdown) overrides it for display. table renders time, kind, what, result and ms as an ASCII table of at most 100 columns or a Markdown pipe table, at most debug.show_max_rows rows then the M-DEBUG-MORE line, with every label from locales/en-US.yml.
+  - name: Reach::SetupLog
+    role: >-
+      Setup log since 0.35.0 (STD-SETUP-LOG). active? while the current home has no install file and instructor mode is off and REACH_SETUP_LOG is not 0. record(kind, fields) appends a redacted line to <home>/setup-log/log-<date>.jsonl under a flock; Reach::Debug's emit, command, hook, request, response and fault and Reach::Messages.text feed it whether or not debug mode is on. redact drops secret-named fields, turns typed text into its length and line count and cuts strings at setup_log.string_max_bytes. outcome! keeps the failure streak in setup-log/state.json; at each multiple of setup_log.threshold export! writes reach-setup-report-<time>.json to Downloads and take_offer! returns M-SETUP-REPORT-SAVED once. Never sends anything, never raises.
   - name: Reach::Guide
     role: >-
       Reads the text of docs/INSTALLATION-AND-SETUP-GUIDE.docx with the standard library (Reach::Unzip and Zlib),
@@ -1056,7 +1059,9 @@ mcp_bridge:
   - name: reach_debug
     description: >-
       Since 0.21.8 (STD-CODEX-SANDBOX), debug mode through the bridge: action on (optional minutes), off or status, with
-      the same messages as reach debug; works before enrollment like reach debug
+      the same messages as reach debug; works before enrollment like reach debug. Since 0.35.0 (STD-SETUP-LOG) action
+      export saves a setup report to Downloads (M-SETUP-REPORT-MANUAL), and while not enrolled every tool result carries
+      M-SETUP-REPORT-SAVED once after an automatic report
   - name: reach_doctor
     description: >-
       Since 0.21.8 (STD-CODEX-SANDBOX), the reach doctor health check through the bridge, which Codex runs outside its
@@ -1302,17 +1307,19 @@ cli:
       revoked. Errors map to M-PERSONA-CODE-REFUSED, M-PERSONA-COURSE-NEEDED, M-PERSONA-NO-STUDENT and
       M-PERSONA-TEACH-OLD; a revoked or unpinned code locks the persona at the next prompt (M-PERSONA-LOCKED).
   - name: debug
-    synopsis: reach debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush
+    synopsis: reach debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush | export [--format text|json]
     phrase: >-
       Since 0.20.1 a prompt that is only "enable debug mode", "turn debug on", "turn debug off" or a close variant (an
       optional please, trailing punctuation) switches debug mode from the prompt hook, before any enrollment or lock check,
       and the agent relays M-DEBUG-SAID-ON or M-DEBUG-SAID-OFF word for word (M-DEBUG-RELAY); a sentence that only mentions
-      debug changes nothing. While debug mode is on, the session event also carries Reach::OsInfo.snapshot: OS family,
+      debug changes nothing. Since 0.35.0 (STD-SETUP-LOG) the plugin-level enrollment hook (reach gate enroll) takes the
+      same phrases before the enrollment flow sees the prompt, except at a password step: the reply is M-DEBUG-RELAY with
+      the current enrollment question after it, and the phrase is never an enrollment answer. While debug mode is on, the session event also carries Reach::OsInfo.snapshot: OS family,
       name, version and build, kernel, arch, WSL, container, virtualization, CPU, memory, disk, uptime, load, locale,
       timezone, shell, terminal, desktop, session type, ssh, and Ruby, git, node and Chrome versions; never a hostname,
       username, path or address. Cached for 24 hours; every probe is bounded to 2 seconds.
     purpose: >-
-      Since 0.16.23 (STD-DEBUG-MODE), and it runs while Reach is locked. on turns local debug mode on, for MINUTES minutes or until off; off turns the local switch off (an instructor's remote request or an active persona still keeps it on, and the command says so). status prints whether it is on, the reason (persona, local or remote), the end time and the spool counts. show prints the latest events as an ASCII table, a Markdown table or JSON, by default the form the detected surface renders. flush sends the spool through W-API-DEBUG now. At the end of every turn, while debug is on, the Stop hook shows the turn's events as a hook systemMessage (never agent context) on Claude Code and Codex; Hermes has no user-visible hook output, so reach debug show is its way. Outside course folders, where only the plugin-level hooks run, the next prompt shows the pending events. A remote request on a real student prints M-DEBUG-NOTICE once per session.
+      Since 0.16.23 (STD-DEBUG-MODE), and it runs while Reach is locked. on turns local debug mode on, for MINUTES minutes or until off; off turns the local switch off (an instructor's remote request or an active persona still keeps it on, and the command says so). status prints whether it is on, the reason (persona, local or remote), the end time and the spool counts. show prints the latest events as an ASCII table, a Markdown table or JSON, by default the form the detected surface renders. flush sends the spool through W-API-DEBUG now. At the end of every turn, while debug is on, the Stop hook shows the turn's events as a hook systemMessage (never agent context) on Claude Code and Codex; Hermes has no user-visible hook output, so reach debug show is its way. Outside course folders, where only the plugin-level hooks run, the next prompt shows the pending events. A remote request on a real student prints M-DEBUG-NOTICE once per session. Since 0.35.0 (STD-SETUP-LOG) export writes reach-setup-report-<time>.json to the Downloads folder, enrolled or not, and prints its path and file:// link (M-SETUP-REPORT-MANUAL; json prints path, link and bytes; a failed write prints M-SETUP-REPORT-FAILED and exits 1), and status adds the setup log (active, streak, files, bytes; json key setup_log).
   - name: mcp
     synopsis: reach mcp
     purpose: The stdio MCP bridge
@@ -1859,6 +1866,28 @@ debug_mode:
     claude-desktop-3p, claude-vscode, claude-in-teams, local-agent and remote values are gui, as is any value naming a
     desktop, IDE or JetBrains host and any run with CLAUDE_CODE_DESKTOP_APP_VERSION set. Codex: gui when CODEX_DESKTOP_APP
     or a CODEX_IDE_* variable is set, else tui. Hermes and anything unknown: tui.
+setup_log:
+  since: 0.35.0
+  standard: STD-SETUP-LOG (specs/app.yml)
+  library: lib/reach/setup_log.rb (Reach::SetupLog); fed by Reach::Debug, Reach::Messages.text, Reach::CLI and the MCP bridge
+  files: >-
+    <home>/setup-log/ (0700): log-<date>.jsonl, install-<stamp>.jsonl (written by scripts/reach-install and
+    reach-install.ps1), state.json {streak, failures, last_success_at, env_at, offer} and lock, all 0600. Separate from
+    <home>/debug/, where nothing is created while debug mode is off.
+  config: >-
+    config.yml setup_log (optional): enabled true, threshold 3, max_bytes 20971520, report_max_bytes 8388608,
+    string_max_bytes 65536, env_every_s 600. REACH_SETUP_LOG=0 turns it off.
+  typed_text: >-
+    Never recorded. Fields named prompt, user_message, message_text, text, answer, username, email, student_id,
+    first_name, last_name, full_name, display_name, name, passkey or code keep only {typed, length, lines}; fields the
+    debug scrub drops by name are [redacted]; strings lose PEM blocks, RINS1 codes, course-code-shaped values and
+    values matching the enrollment username and student ID patterns. Messages are recorded by id and parameter names,
+    never their rendered text.
+  report: >-
+    reach-setup-report-<YYYYMMDD-HHMMSS>.json in Reach::Archive.downloads_dir (setup-log/reports when Downloads cannot
+    be written), schema reach.setup-report/v1: created_at, reason (streak or manual), reach_version, streak,
+    recent_failures, environment, installer, log (oldest-first, trimmed from the oldest end, log_trimmed), debug_events,
+    issues. Written without asking at each multiple of the threshold; never sent by Reach.
 progress_checkpoints:
   standard: STD-PROGRESS (specs/app.yml); wire W-API-PROGRESS, revision 2026-10-03h. Since 0.24.0.
   library: >-

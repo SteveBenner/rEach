@@ -231,6 +231,13 @@ or file text, codes, passwords or keys, sends it to Teach, and shows it at the e
 terminal harness, a Markdown table in a desktop or IDE app (`debug.render` in `config.yml` overrides it).
 `reach debug show` prints the latest events, `reach debug status` says whether it is on and why.
 
+Until a student has enrolled, rEach also keeps a setup log on the computer (`setup-log/` in the rEach home): every
+command, hook, request and response, error with its full backtrace, and the computer's Ruby and operating system,
+never passwords, the passkey or anything the student typed. It is never sent. After three setup failures in a row
+rEach saves `reach-setup-report-<time>.json` in the student's Downloads folder, shows where it is, and suggests
+sending it to the instructor; `reach debug export` saves one at any time. Saying "enable debug mode" works before
+enrollment too: the enrollment hook switches it and asks its question again. `REACH_SETUP_LOG=0` turns the log off.
+
 Codex runs an agent's shell commands in its own sandbox, and outside a course folder the student has trusted that
 sandbox blocks the internet and rEach's folder. Since 0.21.8 a rEach command that the sandbox stops says so in plain
 words instead of reporting a lost connection, and the agent turns debug mode on or off and runs the health check
