@@ -4,6 +4,8 @@ require "json"
 require "time"
 require "fileutils"
 require "securerandom"
+require "yaml"
+require "digest"
 
 module Reach
   module Instructor
@@ -17,6 +19,9 @@ module Reach
     LABEL_PATTERN = /\A[A-Za-z0-9 ._-]{0,40}\z/.freeze
     CONTEXT_SESSIONS_KEPT = 50
     PASSES_KEPT = 50
+    PASS_SKEW_S = 300
+    PASS_KEY_LABEL = "reach.instructor-pass/v1".freeze
+    DROPPED_FIELDS = %w[code signature raw_code].freeze
 
     module_function
 
@@ -234,17 +239,54 @@ module Reach
       Array(data.is_a?(Hash) ? data["passes"] : nil).select { |entry| entry.is_a?(Hash) }
     end
 
+    def pass_secret(create: false)
+      key_file = Reach::Paths.install_key_file
+      return Digest::SHA256.digest("#{PASS_KEY_LABEL}\n#{File.binread(key_file)}") if File.file?(key_file)
+
+      path = File.join(Reach::Paths.root_state_dir, "instructor_pass.key")
+      return File.binread(path) if File.file?(path)
+      return nil unless create
+
+      FileUtils.mkdir_p(File.dirname(path))
+      File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(SecureRandom.random_bytes(32)) }
+      File.binread(path)
+    rescue Errno::EEXIST
+      File.binread(path)
+    end
+
+    def pass_mac(entry, secret)
+      fields = %w[session_id code_id key_id granted_at expires_at].map { |name| entry[name].to_s }
+      OpenSSL::HMAC.hexdigest("SHA256", secret, ([PASS_KEY_LABEL] + fields).join("\n"))
+    end
+
+    def pass_authentic?(entry)
+      secret = pass_secret
+      return false unless secret && entry["mac"].is_a?(String)
+
+      Reach::EnrollFlow.digest_equal?(pass_mac(entry, secret), entry["mac"])
+    rescue StandardError
+      false
+    end
+
+    def pass_live?(entry, now = Time.now.utc)
+      granted = Time.iso8601(entry["granted_at"].to_s)
+      expires = Time.iso8601(entry["expires_at"].to_s)
+      expires > now && granted <= now + PASS_SKEW_S && expires - granted <= Reach::Login.max_hours * 3600 && pass_authentic?(entry)
+    rescue ArgumentError
+      false
+    end
+
     def grant_pass!(payload, session_id)
       now = Time.now.utc
+      secret = pass_secret(create: true)
+      return nil unless secret
+
       record = {
         "session_id" => session_id.to_s, "code_id" => payload["id"], "key_id" => payload["key_id"],
         "granted_at" => now.iso8601, "expires_at" => (now + (Reach::Login.max_hours * 3600)).iso8601
       }
-      live = read_passes.reject do |entry|
-        entry["session_id"] == record["session_id"] || Time.iso8601(entry["expires_at"].to_s) <= now
-      rescue ArgumentError
-        true
-      end
+      record["mac"] = pass_mac(record, secret)
+      live = read_passes.reject { |entry| entry["session_id"] == record["session_id"] || !pass_live?(entry, now) }
       Reach::Login.write_json(pass_file, "passes" => (live + [record]).last(PASSES_KEPT))
       File.chmod(0o600, pass_file)
       record
@@ -257,14 +299,52 @@ module Reach
       return nil if sid.empty?
 
       entry = read_passes.find { |candidate| candidate["session_id"] == sid }
-      return nil unless entry
-      return nil unless Time.iso8601(entry["expires_at"].to_s) > Time.now.utc
+      return nil unless entry && pass_live?(entry)
       return nil unless pinned_public_key(entry["key_id"])
       return nil if revoked_ids.include?(entry["code_id"].to_s)
 
       entry
     rescue StandardError
       nil
+    end
+
+    def root_enrolled?
+      path = File.join(Reach::Paths.root, "install.yml")
+      File.file?(path) && !YAML.safe_load(File.read(path)).nil?
+    rescue StandardError
+      false
+    end
+
+    def backup_without_code(data)
+      backup_dir = File.join(File.dirname(stored_file), ".backup")
+      FileUtils.mkdir_p(backup_dir)
+      target = File.join(backup_dir, "instructor-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{Process.pid}.json")
+      Reach::Login.write_json(target, (data || {}).reject { |key, _| DROPPED_FIELDS.include?(key) })
+      target
+    end
+
+    def retire_stored!(event, fields = {})
+      return nil unless File.file?(stored_file)
+
+      data = stored
+      target = begin
+        backup_without_code(data)
+      rescue StandardError
+        nil
+      end
+      FileUtils.rm_f(stored_file)
+      payload = data && data["payload"].is_a?(Hash) ? data["payload"] : {}
+      log(event, { "code_id" => payload["id"], "key_id" => payload["key_id"] }.merge(fields))
+      target
+    end
+
+    def drop_enrolled_code!
+      return false unless File.file?(stored_file) && root_enrolled?
+
+      retire_stored!("instructor.invalidated", "reason" => "enrolled_install")
+      true
+    rescue StandardError
+      false
     end
 
     def stored
@@ -275,6 +355,7 @@ module Reach
     def current
       data = stored
       return nil unless data
+      return nil if drop_enrolled_code!
 
       payload, reason = verify(data["code"])
       if payload
@@ -312,14 +393,7 @@ module Reach
     def lock!
       return nil unless File.file?(stored_file)
 
-      data = stored
-      backup_dir = File.join(File.dirname(stored_file), ".backup")
-      FileUtils.mkdir_p(backup_dir)
-      target = File.join(backup_dir, "instructor-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{Process.pid}.json")
-      FileUtils.mv(stored_file, target)
-      payload = data && data["payload"].is_a?(Hash) ? data["payload"] : {}
-      log("instructor.relocked", "code_id" => payload["id"], "key_id" => payload["key_id"])
-      target
+      retire_stored!("instructor.relocked")
     end
 
     def status

@@ -23,6 +23,7 @@ module Reach
       end
 
       observe_home_env
+      Reach::Instructor.drop_enrolled_code!
       if Reach::Relocation.due?
         Reach::Relocation.start
       else
