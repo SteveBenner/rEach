@@ -501,7 +501,7 @@ module Reach
           next unless path[0] == "hooks" && path[1] == "state"
           next if path.length == 2 && !header[:array]
           raise Unsafe, FORM if path.length != 3 || header[:array]
-          raise Unsafe, TWICE if seen.include?(path[2])
+          raise Unsafe, TWICE if seen.any? { |other| Reach::CodexHookTrust.same_key?(other, path[2]) }
 
           seen << path[2]
         end
@@ -533,20 +533,20 @@ module Reach
         end
       end
 
-      def trust_edit(bytes, wanted)
+      def trust_edit(bytes, wanted, folders = [])
         text = decode(bytes)
         bom = text.start_with?("\uFEFF") ? "\uFEFF" : ""
         body = text[bom.length..-1]
         nl = newline_of(body)
         doc = scan(body)
         trust_guard(doc)
-        headers = trust_headers(doc).each_with_object({}) { |header, map| map[header[:path][2]] = header }
+        headers = trust_headers(doc)
         replace = {}
         after = Hash.new { |hash, key| hash[key] = [] }
         tail = []
 
         wanted.uniq.each do |key, hash|
-          header = headers[key]
+          header = headers.find { |candidate| Reach::CodexHookTrust.same_key?(candidate[:path][2], key) }
           unless header
             tail << ["[hooks.state.#{quote(key)}]", "trusted_hash = #{quote(hash)}"]
             next
@@ -563,12 +563,33 @@ module Reach
           end
         end
 
+        folded = []
+        folders.each do |folder|
+          next if folded.any? { |other| same_path?(other, folder) }
+
+          folded << folder
+          found = locate(doc, folder)
+          if found[:trust_level]
+            key = found[:trust_level]
+            replace[key[:index]] = splice(doc, key, quote(TRUSTED)) unless read_string(doc, key) == TRUSTED
+          elsif found[:project]
+            spot = last_filled(doc, found[:project][:index], table_end(doc, found[:project]))
+            after[spot] << "trust_level = #{quote(TRUSTED)}"
+          else
+            tail << ["[projects.#{quote(written_path(folder))}]", "trust_level = #{quote(TRUSTED)}"]
+          end
+        end
+
         return text if replace.empty? && after.empty? && tail.empty?
 
         result = bom + render(doc, replace, after, tail, nl)
         state = trust_state(result)
         wanted.each do |key, hash|
-          raise Unsafe, "the result did not read back as approved" unless state[key] && state[key]["trusted_hash"] == hash
+          held = Reach::CodexHookTrust.held_for(state, key)
+          raise Unsafe, "the result did not read back as approved" unless held && held["trusted_hash"] == hash
+        end
+        folded.each do |folder|
+          raise Unsafe, "the result did not read back as approved" unless facts(result, folder)["trusted"]
         end
         result
       end
@@ -801,11 +822,26 @@ module Reach
       commands.all? { |handler| handler.is_a?(Hash) && handler["command"].to_s.start_with?(prefix) }
     end
 
-    def trust_entries(files = managed_hook_files)
-      files.flat_map do |path, _kind|
+    def trust_plan(files = managed_hook_files)
+      entries = []
+      folders = []
+      files.each do |path, _kind|
         content = read_hooks(path)
-        content && managed_content?(content) ? CodexHookTrust.keys(path, content) : []
+        next unless content && managed_content?(content)
+
+        entries.concat(CodexHookTrust.keys(path, content))
+        folders << CodexHookTrust.hooks_folder(path)
       end
+      [entries, folders]
+    end
+
+    def project_trusted?(folder)
+      bytes = current_bytes
+      return false if bytes.nil?
+
+      Editor.facts(bytes, folder)["trusted"]
+    rescue Unsafe, SystemCallError
+      nil
     end
 
     def trust_current?(files = managed_hook_files)
@@ -828,21 +864,21 @@ module Reach
       return nil unless trust_wanted?
 
       files = hooks_path ? [[File.expand_path(hooks_path), nil]] : managed_hook_files
-      wanted = trust_entries(files)
+      wanted, folders = trust_plan(files)
       return nil if wanted.empty?
 
-      outcome = locked { write_trust(wanted) }
+      outcome = locked { write_trust(wanted, folders) }
       outcome == :busy ? nil : outcome
     rescue StandardError => e
       Reach::Debug.fault(e, "codex_setup:trust")
       nil
     end
 
-    def write_trust(wanted)
+    def write_trust(wanted, folders)
       raise Unsafe, "the settings file is a link" if File.symlink?(config_path)
 
       before = current_bytes
-      after = Editor.trust_edit(before || "", wanted)
+      after = Editor.trust_edit(before || "", wanted, folders)
       return :already if !before.nil? && after.b == before.b
 
       cli = codex_cli
@@ -949,10 +985,10 @@ module Reach
     end
 
     def with_trust(after)
-      wanted = trust_entries
+      wanted, folders = trust_plan
       return after if wanted.empty?
 
-      Editor.trust_edit(after, wanted)
+      Editor.trust_edit(after, wanted, folders)
     rescue Unsafe => e
       emit("refused", "via" => "trust", "reason" => e.message)
       after

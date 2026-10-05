@@ -115,13 +115,36 @@ module Reach
       listed
     end
 
+    def fold_key(value)
+      windows? ? value.to_s.tr("\\", "/").downcase : value.to_s
+    end
+
+    def same_key?(left, right)
+      fold_key(left) == fold_key(right)
+    end
+
+    def held_for(state, handler_key)
+      return state[handler_key] if state.key?(handler_key)
+      return nil unless windows?
+
+      match = state.keys.find { |other| same_key?(other, handler_key) }
+      match ? state[match] : nil
+    end
+
+    def hooks_folder(hooks_path)
+      File.dirname(File.dirname(File.expand_path(hooks_path.to_s)))
+    end
+
     def status(hooks_path, content)
       state = Reach::CodexSetup.trust_state
+      folder = state.nil? ? nil : Reach::CodexSetup.project_trusted?(hooks_folder(hooks_path))
       keys(hooks_path, content).each_with_object({}) do |(handler_key, current), answers|
-        answers[handler_key] = if state.nil?
+        answers[handler_key] = if state.nil? || folder.nil?
           "unknown"
+        elsif folder == false
+          "untrusted"
         else
-          held = state[handler_key]
+          held = held_for(state, handler_key)
           trusted = held.is_a?(Hash) ? held["trusted_hash"] : nil
           if trusted.nil?
             "untrusted"

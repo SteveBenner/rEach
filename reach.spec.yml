@@ -2923,7 +2923,8 @@ codex_setup:
     table, with [sandbox_workspace_write] left as found. An existing danger-full-access is never narrowed.
   never_written: >-
     approval_policy, model, features, hooks, marketplaces, mcp_servers and every other key. The only other keys it
-    writes are hooks.state trusted_hash entries for the course hooks.json files it manages (codex_hook_trust).
+    writes are hooks.state trusted_hash entries for the course hooks.json files it manages and the trust_level of those
+    files' course folders (codex_hook_trust).
   editor: >-
     Line based and binary safe: it keeps the file's line ending style, every byte it does not edit and a final newline,
     replaces or inserts only the lines it must (top-level sandbox_mode after the last top-level line, a missing key
@@ -3015,7 +3016,7 @@ codex_hook_trust:
     enroll runs Reach::Gate.prompt (claimed, so the sign-in is not claimed twice) and merges its context and link and
     issue notices into its own UserPromptSubmit answer; reach hello, on a Codex SessionStart in a course folder, runs
     Reach::Gate.session and merges the guardrails line or the link and issue notice into its own answer. Reach::Gate.once!
-    keeps one marker per (session id, turn id) for a prompt and per (session id, session) for a session start under
+    keeps one marker per (session id, turn id) for a prompt and per (session id, start source) for a session start under
     <root>/state/hook_once, so an older course-folder gate prompt or gate session that still runs does nothing when the
     plugin did the work, and the reverse; markers older than a day are pruned by the writer. The plugin's gate enroll
     stamps work_at and prompt_at (KnownIssues.record_hook!) on every Codex run, before any gating. The course folder's
@@ -3027,14 +3028,21 @@ codex_hook_trust:
     written twice, as a dotted key, or with other keys than trusted_hash and enabled it does not read makes status
     unknown and the write refused. enabled is never written. When only trust changed the outcome is
     M-CODEX-SETUP-TRUST-DONE, which does not ask for a new chat.
+  project_trust: >-
+    Codex reads a folder's .codex/hooks.json only when that folder is a trusted project, so whenever CodexSetup records
+    hook trust it also writes [projects."<course folder>"] trust_level = "trusted" for the folder that holds the file
+    (a slice, the extracurricular folder or the root), with the same editor, written_path, same_path? matching and
+    refusals as the reach-work folder's own trust. CodexHookTrust.status answers untrusted for every handler of a
+    folder that is not trusted, so heal and the already-set-up answers treat it as stale trust. On Windows, hook keys
+    and project paths are matched ignoring case and with / and \ alike, and an existing entry's spelling is reused.
   detection: >-
     KnownIssues.course_hooks_untrusted? (Codex only, false while the sign-in is pending, unknown never counts) is true
     when a handler of the current folder's hooks.json is modified or untrusted. require_hooks! then refuses with
     M-HOOKS-UNTRUSTED, the known-issue detector codex_hooks_untrusted fires, and reach_next, the sign-in texts and
     M-HOOKS-REQUIRED give way to M-HOOKS-UNTRUSTED where they would have been chosen. The remedy is codex_configure,
     which asks the student's consent as before. CodexSetup.ask_chat and configure_terminal no longer answer already
-    set up while trust is stale. While the sign-in is pending the hooks_not_running, signin_hook_not_running and
-    codex_hooks_untrusted detections are withheld from the agent.
+    set up while trust is stale. While the sign-in is pending the hooks_not_running and
+    codex_hooks_untrusted detections are withheld from the agent; signin_hook_not_running is not.
 grade_view:
   since: 0.19.0
   standard: STD-GRADE-VIEW

@@ -342,7 +342,7 @@ module Reach
       when "hooks_not_running"
         mcp && !signin_pending? && prompt_hook_dead?(env)
       when "signin_hook_not_running"
-        mcp && !signin_pending? && signin_hook_dead?(env)
+        mcp && signin_hook_dead?(env)
       when "codex_hooks_untrusted"
         mcp && course_hooks_untrusted?(env)
       else

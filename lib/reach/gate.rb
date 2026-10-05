@@ -48,7 +48,7 @@ module Reach
 
     def once!(event, kind)
       session = Reach::Session.resolve_session_id(event)
-      token = kind.to_s == "session" ? "session" : event["turn_id"].to_s
+      token = kind.to_s == "session" ? "session:#{event["source"]}" : event["turn_id"].to_s
       return true if token.empty?
 
       dir = once_dir
