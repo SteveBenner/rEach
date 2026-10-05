@@ -1802,7 +1802,8 @@ compatibility:
   W-COMPAT-5:
     rule: >-
       Since revision 2026-10-01b. A Reach of this revision enrolls with shape v2 from the enrollment flow and from
-      reach enroll --course-code, and with shape v1 only from reach enroll <code>. An install enrolled with shape v1
+      reach enroll --course-code, and with shape v1 only from reach enroll <code>; since 2026-10-05c (Reach 0.35.2 on)
+      no Reach path sends shape v1, and reach enroll <code> sends nothing. An install enrolled with shape v1
       carries no stamp; it keeps working unless the course policy sets enrollment.require_stamp, in which case Reach
       locks into the enrollment flow until the student enrolls with shape v2.
 reach_client_safety:

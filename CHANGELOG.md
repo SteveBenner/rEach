@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.3] - 2026-10-05
+
+### Fixed
+
+- `specs/app.yml` `STD-ENROLL-NO-RELAY` named a Teach-internal constant; it now cites only `W-API-ENROLL`
+  (`STD-TEACH-OPAQUE`). Found by the release security audit of 0.35.2.
+- `specs/wire.yml` `W-COMPAT-5` (revision 2026-10-05c) no longer says `reach enroll <code>` sends shape v1; since
+  0.35.2 no Reach path does.
+
 ## [0.35.2] - 2026-10-05
 
 ### Fixed
