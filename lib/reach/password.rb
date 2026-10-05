@@ -12,6 +12,8 @@ module Reach
     RESET_ROUTE = "/api/v1/password/reset".freeze
     CONNECT_TIMEOUT_S = 5
     READ_TIMEOUT_S = 10
+    PROBE_TTL_S = 60
+    PROBE_ANSWERS = %w[allowed not_allowed offline].freeze
     FORGOT_WORDS = [
       "forgot", "forgot password", "forgot my password", "i forgot", "i forgot it", "i forgot my password",
       "reset", "reset password", "reset my password"
@@ -135,6 +137,37 @@ module Reach
       body = client(Reach::Enroll.current).get(RESET_ROUTE).json
       body.is_a?(Hash) && body["allowed"] == true ? :allowed : :not_allowed
     rescue Reach::Error
+      :offline
+    end
+
+    def probe_file
+      File.join(Reach::Login.state_dir, "reset_probe.json")
+    end
+
+    def drop_probe!
+      FileUtils.rm_f(probe_file)
+      nil
+    end
+
+    def reset_allowed_cached
+      install = Reach::Enroll.current
+      return :offline unless install
+
+      FileUtils.mkdir_p(Reach::Login.state_dir)
+      outcome = Reach::Locks.exclusive("#{probe_file}.lock") do
+        now = Time.now.utc
+        held = Reach::Login.read_json(probe_file)
+        if held.is_a?(Hash) && held["install_id"] == install["install_id"] && PROBE_ANSWERS.include?(held["answer"])
+          at = Time.iso8601(held["at"].to_s)
+          next held["answer"].to_sym if at <= now && now - at < PROBE_TTL_S
+        end
+
+        answer = reset_allowed
+        Reach::Login.write_json(probe_file, "install_id" => install["install_id"], "answer" => answer.to_s, "at" => now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        answer
+      end
+      outcome == :busy ? :offline : outcome
+    rescue StandardError
       :offline
     end
 

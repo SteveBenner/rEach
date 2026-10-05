@@ -192,6 +192,24 @@ module Reach
       record
     end
 
+    def unlock!(code, session_id: nil, harness: nil)
+      record = accept(code)
+      return nil unless record
+      return { "record" => record, "enrolled" => false } unless Reach::Login.enrolled_id
+
+      cleared = Reach::Login.clear_lockouts.merge("enroll_lockout" => Reach::EnrollFlow.clear_lockout!)
+      target = session_id.to_s.empty? ? nil : session_id.to_s
+      if target.nil?
+        waiting = Reach::Login.waiting_session
+        target = waiting && waiting["session_id"]
+        harness = waiting["harness"] if waiting && harness.to_s.empty?
+      end
+      Reach::Login.sign_in_session(target, harness) if target
+      payload = record["payload"]
+      log("instructor.signed_in", "code_id" => payload["id"], "key_id" => payload["key_id"], "session_id" => target, "cleared" => cleared)
+      { "record" => record, "enrolled" => true, "session_id" => target, "cleared" => cleared }
+    end
+
     def stored
       data = Reach::Login.read_json(stored_file)
       data.is_a?(Hash) ? data : nil

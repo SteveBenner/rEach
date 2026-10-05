@@ -12,7 +12,8 @@ module Reach
     CRISIS_CONTEXT = "The student may be in crisis: run reach support now and relay it word for word.".freeze
     SCHEMA = "reach.login/v1".freeze
     FAILURES_SCHEMA = "reach.login-failures/v1".freeze
-    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json].freeze
+    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json reset_probe.json].freeze
+    WAITING_STATES = %w[awaiting_id awaiting_confirm awaiting_password awaiting_new_password awaiting_new_password_again].freeze
     PASSWORD_STATES = %w[awaiting_password awaiting_new_password awaiting_new_password_again].freeze
     ID_SPLIT = /[^A-Za-z0-9_-]+/
 
@@ -88,6 +89,9 @@ module Reach
       window = window_failures(failures, now)
       locked = locked_remaining(failures, now)
       if locked
+        freed = teach_unlock(state, failures, now, harness)
+        return freed if freed
+
         return decision("block", Reach::Messages.text("M-LOGIN-LOCKED", minutes: locked), "login", nil, state, persist: false).merge("stuck" => true)
       end
 
@@ -136,11 +140,60 @@ module Reach
       end
     end
 
-    def confirm(state, now, message_id)
-      next_state = without_reset(state).merge(
+    def teach_unlock(state, failures, now, harness)
+      return nil if state["state"] == "denied" || !Reach::Password.required?
+      return nil unless Reach::Password.reset_allowed_cached == :allowed
+
+      Reach::Password.drop_probe!
+      next_state = without_reset(state).merge("state" => "awaiting_new_password", "updated_at" => iso(now))
+      prompt = if harness.to_s == "hermes"
+        Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
+      else
+        Reach::Messages.text("M-LOGIN-RESET-NEW")
+      end
+      out = decision("block", "#{Reach::Messages.text("M-LOGIN-UNLOCKED-BY-TEACH")}\n\n#{prompt}", "login", nil, next_state, persist: true)
+      out["failures_data"] = failures.merge("failures" => [], "locked_until" => nil)
+      out
+    rescue StandardError
+      nil
+    end
+
+    def lift_lockout_for_reset
+      data = failures_data
+      return nil unless locked_remaining(data, Time.now.utc)
+
+      Reach::Password.drop_probe!
+      clear_failures
+      Reach::Messages.text("M-LOGIN-UNLOCKED-BY-TEACH")
+    end
+
+    def confirmed_session_state(state, now)
+      without_reset(state).merge(
         "state" => "confirmed", "confirmed_at" => precise(now), "expires_at" => iso(now + (max_hours * 3600)),
         "updated_at" => iso(now)
       )
+    end
+
+    def sign_in_session(sid, harness)
+      state = read_session(sid) || fresh_state(sid, harness)
+      write_session(sid, confirmed_session_state(state, Time.now.utc).merge("session_id" => sid, "harness" => harness.to_s))
+      add_just_confirmed(sid)
+      sid
+    end
+
+    def waiting_session
+      sessions.select { |state| WAITING_STATES.include?(state["state"]) }.max_by { |state| state["updated_at"].to_s }
+    end
+
+    def clear_lockouts
+      data = failures_data
+      cleared = { "login_failures" => !Array(data["failures"]).empty?, "login_lockout" => !locked_remaining(data, Time.now.utc).nil? }
+      clear_failures if cleared["login_failures"] || data["locked_until"]
+      cleared
+    end
+
+    def confirm(state, now, message_id)
+      next_state = confirmed_session_state(state, now)
       out = decision("block", Reach::Messages.text(message_id, first_name: student["first_name"] || "there"), "login", nil, next_state, persist: true)
       out["confirmed_now"] = true
       out
@@ -242,7 +295,7 @@ module Reach
       return [:none, Reach::Messages.text("M-LOGIN-TERMINAL-NONE")] if waiting.empty?
 
       case Reach::Password.reset_allowed
-      when :allowed then [:allowed, nil]
+      when :allowed then [:allowed, lift_lockout_for_reset]
       when :not_allowed then [:refused, Reach::Messages.text("M-LOGIN-RESET-ASK-TERMINAL")]
       else [:refused, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
       end

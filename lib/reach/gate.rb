@@ -41,6 +41,8 @@ module Reach
     end
 
     ONCE_KEEP_S = 86_400
+    INSTRUCTOR_WINDOW_S = 30
+    INSTRUCTOR_LOCK_WAIT_S = 2
 
     def once_dir
       File.join(Reach::Paths.root_state_dir, "hook_once")
@@ -63,6 +65,29 @@ module Reach
       true
     end
 
+    def instructor_once!(event, source)
+      event = {} unless event.is_a?(Hash)
+      return once!(event, "instructor") unless event["turn_id"].to_s.empty?
+
+      session = Reach::Session.resolve_session_id(event)
+      dir = once_dir
+      FileUtils.mkdir_p(dir)
+      prune_once(dir)
+      name = Digest::SHA256.hexdigest("instructor\n#{session}\n#{Digest::SHA256.hexdigest(event["prompt"].to_s)}")
+      path = File.join(dir, name)
+      claimed = Reach::Locks.exclusive("#{path}.lock", wait_s: INSTRUCTOR_LOCK_WAIT_S) do
+        if File.file?(path) && File.read(path).strip != source.to_s && Time.now - File.mtime(path) < INSTRUCTOR_WINDOW_S
+          false
+        else
+          File.write(path, source.to_s)
+          true
+        end
+      end
+      claimed == true
+    rescue StandardError
+      true
+    end
+
     def prune_once(dir)
       cutoff = Time.now - ONCE_KEEP_S
       Dir.children(dir).each do |name|
@@ -77,6 +102,12 @@ module Reach
 
     def prompt(event: {}, harness: nil, claimed: false)
       event = {} unless event.is_a?(Hash)
+      if !claimed && Reach::Instructor.attempt?(event["prompt"])
+        attempt = Reach::EnrollFlow.instructor_decision(event, event["prompt"], Reach::EnrollmentLock.state, harness, "prompt")
+        return nil if attempt["action"] == "elsewhere"
+
+        raise Reach::GateBlocked.new("M-INSTRUCTOR", attempt["message"])
+      end
       toggled = safely { Reach::Debug.toggle_from_prompt!(event["prompt"]) }
       if Reach::Instructor.mode?
         return Reach::Messages.text("M-DEBUG-RELAY", text: toggled) if toggled

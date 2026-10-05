@@ -309,10 +309,10 @@ library:
   - name: Reach::EnrollmentLock
     role: Decides whether Reach is locked and why (W-ENR-6); since 0.16.0
   - name: Reach::EnrollFlow
-    role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0
+    role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0. It also answers a typed instructor code first, in every state, through instructor_decision, which lets exactly one of the plugin hook and a course folder's prompt hook act on one prompt (Gate.instructor_once!).
   - name: Reach::Instructor
     role: >-
-      Instructor unlock since 0.16.17 (STD-INSTRUCTOR-UNLOCK). Keygen, RINS1 code minting and verification against the keys pinned in config.yml, the stored code in instructor.json, relock and the once-per-session instructor context.
+      Instructor unlock since 0.16.17 (STD-INSTRUCTOR-UNLOCK). Keygen, RINS1 code minting and verification against the keys pinned in config.yml, the stored code in instructor.json, relock and the once-per-session instructor context. unlock!(code, session_id:, harness:) accepts a code and, on an enrolled install, signs the session in, clears the sign-in and enrollment-flow lockouts and logs instructor.signed_in; it never lowers verification.
   - name: Reach::Persona
     role: >-
       Instructor personas since 0.16.23 (STD-INSTRUCTOR-PERSONA). start! enrolls the install as a test student through W-API-ENROLL-INSTRUCTOR into root/personas/<id>/ (workspace under workspace_base/personas/<id>/), writes root/persona.json last and moves a half-made persona to .backup on any failure; exit! moves the pointer, home and workspace to .backup; status names the active persona. Reach::Paths.root and workspace_base are the shared locations, Paths.home and workspace_root follow the active persona.
@@ -908,6 +908,8 @@ course_alignment:
       asks for a new password twice; Reach sets it with POST /api/v1/password/reset and signs the student in. When it
       is not, Reach writes renewed.json and asks for the password as before. Hermes keeps the terminal step.
     - Since 0.28.0 (W-ID-5) the yes is followed by the password the student chose at enrollment (M-LOGIN-ASK-PASSWORD); the session is confirmed only when it matches the local verifier (~/.reach/state/login/verifier.json, a salted PBKDF2 digest) or, with no verifier, the course server. A wrong password counts toward the lockout. forgot password starts a reset, which works only after an instructor allowed one, and then asks for a new password twice. Hermes is sent to a terminal instead.
+    - While the sign-in lockout is active the prompt hook asks Teach whether a password reset is allowed (Reach::Password.reset_allowed_cached, the existing GET of the reset route, at most once every 60 seconds, cached in ~/.reach/state/login/reset_probe.json). When it is allowed the failures and lockout are cleared, the session moves to the new password step and the answer is M-LOGIN-UNLOCKED-BY-TEACH then M-LOGIN-RESET-NEW; a denied session is not moved, and Hermes gets the terminal step. reach login reset lifts the lockout the same way. M-LOGIN-LOCKED names the instructor's unlock.
+    - A valid instructor code typed at any prompt in any state, including every sign-in step and a lockout, is never judged as a password, student ID or yes or no and never adds a sign-in failure. It signs the current chat in as the enrolled student (M-INSTRUCTOR-SIGNED-IN), clears the failures, the lockout and the enrollment-flow lockout, and leaves a new chat to sign in as usual (STD-INSTRUCTOR-UNLOCK). reach instructor unlock does the same from a terminal.
     - State lives in ~/.reach/state/login/. Commands - reach login status, reach login password (type the password in a terminal, typing hidden), reach login reset (choose a new password in a terminal once an instructor allowed a reset).
     - Since 0.19.1 the first prompt the agent sees after the yes carries M-LOGIN-DONE-AGENT (the student's name and that course work can begin) with the session start's local parts, replacing the session start's "wait for them" (M-LOGIN-NEEDED); the just-signed-in marker is removed only after the hook has written and flushed that answer, so a hook the harness kills delivers it on the next prompt.
     - Hermes cannot block a prompt, so its agent sees the typed ID; Antigravity has no hooks and no sign-in.
@@ -1297,13 +1299,16 @@ cli:
     synopsis: reach lock
     purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
   - name: instructor
-    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit
+    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | unlock [CODE] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit
     purpose: >-
       Since 0.16.17, instructor unlock (STD-INSTRUCTOR-UNLOCK), and it runs while Reach is locked. keygen writes a new
       RSA 3072 private key (0600, parent directory 0700, never overwriting) and prints its key id and the YAML entry for
       enrollment.instructor_keys, never the key. code prints one RINS1 code signed with the key, and refuses with
       M-INSTRUCTOR-KEY-UNPINNED when config.yml does not pin the key. status says whether the unlock is on, with the code
-      id, label, key id and time, never the code, and names the active persona. lock exits an active persona and moves
+      id, label, key id and time, never the code, and names the active persona. unlock takes a code as its argument or reads
+      one line from standard input (hidden on a terminal), accepts it like a code pasted into a prompt and, on an enrolled
+      install, signs in the most recent chat waiting for sign-in and clears the sign-in and enrollment lockouts
+      (M-INSTRUCTOR-TERMINAL-OK; M-INSTRUCTOR-REFUSED and exit 1 for a code that does not verify). lock exits an active persona and moves
       instructor.json to a .backup sibling. Since 0.16.23 (STD-INSTRUCTOR-PERSONA), dummy starts a blank test student and
       as USERNAME a test copy of that roster student (W-API-ENROLL-INSTRUCTOR; --course is needed when Teach has not
       exactly one open course), and exit moves the persona's pointer, home and workspace to .backup. All need the

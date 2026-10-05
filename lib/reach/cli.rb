@@ -392,7 +392,7 @@ module Reach
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
             debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush | export [--format text|json]   debug mode: what rEach did, with no prompts, replies, code or secrets
-            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
+            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | unlock [CODE] | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
@@ -900,6 +900,8 @@ module Reach
             end
           end
           0
+        when "unlock"
+          instructor_unlock(args)
         when "lock"
           if Reach::Persona.active?
             exited = Reach::Persona.exit!
@@ -1022,6 +1024,20 @@ module Reach
         end
       end
 
+      def instructor_unlock(args)
+        code = args.shift
+        code = (STDIN.tty? ? read_hidden : STDIN.gets) if code.nil?
+        code = code.to_s.strip
+        result = code.empty? ? nil : Reach::Instructor.unlock!(code)
+        unless result
+          warn Reach::Messages.text("M-INSTRUCTOR-REFUSED")
+          return 1
+        end
+
+        puts Reach::Messages.text(result["enrolled"] ? "M-INSTRUCTOR-TERMINAL-OK" : "M-INSTRUCTOR-UNLOCKED")
+        0
+      end
+
       def instructor_persona(sub, args)
         raise Reach::Refused, Reach::Messages.text("M-PERSONA-NEEDS-UNLOCK") unless Reach::Instructor.active?
 
@@ -1076,6 +1092,10 @@ module Reach
           raise Reach::GateBlocked.new("M-DEBUG-RELAY", reply)
         end
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
+        if decision && decision["action"] == "elsewhere"
+          puts "{}" if hermes
+          return 0
+        end
         signed_in = nil
         satisfied = false
         decision, signed_in, satisfied = enroll_login(event, harness_id) if decision.nil? && !hermes
@@ -2835,6 +2855,7 @@ module Reach
         puts Reach::Messages.text("M-LOGIN-ASK-PASSWORD-TERMINAL")
         password = read_hidden
         return 1 if password.nil?
+        return instructor_unlock([password]) if Reach::Instructor.attempt?(password)
 
         ok, text = Reach::Login.terminal_password(password)
         ok ? puts(text) : warn(text)
@@ -2851,6 +2872,7 @@ module Reach
           warn text
           return 1
         end
+        puts text if text
         password = ask_password("M-LOGIN-RESET-NEW-TERMINAL", "M-LOGIN-RESET-AGAIN", "M-LOGIN-RESET-MISMATCH")
         return 1 unless password
 

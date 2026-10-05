@@ -23,7 +23,7 @@ module Reach
       event = {} unless event.is_a?(Hash)
       text = event["prompt"].is_a?(String) ? event["prompt"] : nil
       lock = Reach::EnrollmentLock.state
-      return block(instructor_attempt(text, lock)) if Reach::Instructor.attempt?(text)
+      return instructor_decision(event, text, lock, harness, "enroll") if Reach::Instructor.attempt?(text)
       return nil unless lock["locked"]
 
       return block(Reach::Messages.text("M-ENR-COURSE-ENDED")) if lock["reason"] == "course_ended"
@@ -37,8 +37,19 @@ module Reach
       block(Reach::Messages.text("M-ENR-ASK-CODE"))
     end
 
-    def instructor_attempt(text, lock)
-      return Reach::Messages.text("M-INSTRUCTOR-UNLOCKED") if Reach::Instructor.accept(text)
+    def instructor_decision(event, text, lock, harness, source)
+      return { "action" => "elsewhere" } unless Reach::Gate.instructor_once!(event, source)
+
+      block(instructor_attempt(text, lock, event, harness))
+    end
+
+    def instructor_attempt(text, lock, event = {}, harness = nil)
+      unlocked = Reach::Instructor.unlock!(text, session_id: Reach::Session.resolve_session_id(event), harness: harness)
+      if unlocked
+        return Reach::Messages.text("M-INSTRUCTOR-UNLOCKED") unless unlocked["enrolled"]
+
+        return Reach::Messages.text("M-INSTRUCTOR-SIGNED-IN", name: Reach::Login.display_name || "the enrolled student")
+      end
 
       now = Time.now.utc
       flow = read_flow || fresh_flow
@@ -423,6 +434,15 @@ module Reach
     def lockout_minutes
       value = settings["lockout_minutes"].to_i
       value.positive? ? value : 15
+    end
+
+    def clear_lockout!
+      flow = read_flow
+      return false unless flow
+
+      held = !flow["locked_until"].nil? || !Array(flow["refusals"]).empty?
+      write_flow(flow.merge("refusals" => [], "locked_until" => nil, "updated_at" => iso(Time.now.utc))) if held
+      held
     end
 
     def locked_minutes(flow, now)
