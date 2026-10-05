@@ -392,7 +392,10 @@ module Reach
       end
 
       def quote(value)
-        "\"#{value.to_s.gsub(/[\\"]/) { |char| "\\#{char}" }}\""
+        escaped = value.to_s.gsub(/[\\"\u0000-\u001f\u007f]/) do |char|
+          char == "\\" || char == "\"" ? "\\#{char}" : format("\\u%04X", char.ord)
+        end
+        "\"#{escaped}\""
       end
 
       def last_filled(doc, from, upto)

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.7
+version: 0.35.8
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2995,7 +2995,7 @@ codex_hook_trust:
   standard: STD-CODEX-HOOK-TRUST
   library: >-
     lib/reach/codex_hook_trust.rb (Reach::CodexHookTrust: hash, key, keys, status, stale?) and the hooks.state editing in
-    Reach::CodexSetup::Editor (trust_state, trust_edit) with CodexSetup.refresh_trust!, trust_entries, trust_current?
+    Reach::CodexSetup::Editor (trust_state, trust_edit) with CodexSetup.refresh_trust!, trust_plan, trust_current?
     and managed_hook_files.
   rule: >-
     Codex trusts every non-managed hook handler on its own: state key <absolute hooks.json path>:<event label>:<group

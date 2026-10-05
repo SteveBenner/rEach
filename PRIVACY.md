@@ -41,7 +41,7 @@ rEach also asks your course server whether anything changed (new course material
 
 ## Codex's settings
 
-If you use Codex, rEach asks before it changes Codex's own settings file on your computer (`config.toml` in Codex's folder), so Codex's commands can use the internet and save inside your reach-work folder. It also marks your reach-work folder's course folders as trusted there and approves rEach's own course-folder hooks, so Codex runs rEach's course checks. It changes only those settings, saves a copy of your old settings beside the file first, and never sends the file anywhere. If you say no, nothing changes. `reach codex off` stops rEach putting its settings back.
+If you use Codex, rEach asks before it changes Codex's own settings file on your computer (`config.toml` in Codex's folder), so Codex's commands can use the internet and save inside your reach-work folder. It also marks your reach-work folder's course folders as trusted there and approves rEach's own course-folder hooks, so Codex runs rEach's course checks. It changes only those settings, saves a copy of your old settings beside the file first, and never sends the file anywhere. If you say no, nothing changes. `reach codex off` stops rEach putting its settings back. It does not undo what rEach already changed: the folder trust and hook approvals stay in the file until you remove them or put back the saved copy.
 
 ## Your AI provider
 

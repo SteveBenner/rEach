@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.8] - 2026-10-05
+
+### Fixed
+
+- When rEach writes a folder path or hook key into Codex's `config.toml`, it now escapes control characters as
+  `\uXXXX`. A folder name holding one used to produce an invalid string. The editor's read-back and Codex's own check
+  refused the result and put the old file back, so nothing broke, but the trust was never written. Found by the
+  release security audit of 0.35.6.
+- `PRIVACY.md` says that `reach codex off` leaves folder trust and hook approvals already written until the student
+  removes them or puts back the saved copy.
+- `reach.spec.yml` names `CodexSetup.trust_plan`, the method the code has, instead of `trust_entries`.
+
 ## [0.35.7] - 2026-10-05
 
 ### Fixed
