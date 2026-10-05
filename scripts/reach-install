@@ -12,12 +12,6 @@ require "open3"
 require "rbconfig"
 require "timeout"
 
-begin
-  require "fiddle"
-rescue LoadError
-  nil
-end
-
 module ReachInstall
   MAX_BYTES = 100 * 1024 * 1024
   MAX_UNPACKED_BYTES = 500 * 1024 * 1024
@@ -87,7 +81,7 @@ module ReachInstall
     end
 
     def known_folder_profile
-      return nil unless defined?(Fiddle)
+      require "fiddle"
 
       shell32 = Fiddle.dlopen("shell32.dll")
       ole32 = Fiddle.dlopen("ole32.dll")

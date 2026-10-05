@@ -4,12 +4,6 @@ require "open3"
 require "rbconfig"
 require "timeout"
 
-begin
-  require "fiddle"
-rescue LoadError
-  nil
-end
-
 module Reach
   module Paths
     module_function
@@ -40,7 +34,7 @@ module Reach
     end
 
     def known_folder_profile
-      return nil unless defined?(Fiddle)
+      require "fiddle"
 
       shell32 = Fiddle.dlopen("shell32.dll")
       ole32 = Fiddle.dlopen("ole32.dll")
