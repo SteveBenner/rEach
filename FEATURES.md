@@ -622,7 +622,9 @@ question never showed. Codex's `UserPromptSubmit` handler blocks on that JSON ex
 error (codex-rs `hooks/src/events/user_prompt_submit.rs`, main 402f5b6). Every other harness and gate keeps exit 2.
 Verified 2026-10-05 on Linux in a scratch home with the real hook commands: `gate enroll --harness codex` and
 `gate prompt --harness codex` exited 0 with only the JSON block on standard output, and `gate enroll --harness
-claude-code` still exited 2 with the question on standard error. Not run under PowerShell or inside a real Codex;
+claude-code` still exited 2 with the question on standard error; the platform smoke (`--skip-runtime`) passed
+`hook_codex` and `hook_prompt_open`, a full Codex sign-in through the plugin hook (ask, confirm, yes, wrong
+password, password, signed-in context) with every block read from the JSON. Not run under PowerShell or inside a real Codex;
 the tool gates (`gate write`, `shell`, `read`) still block with exit 2, so under PowerShell a Codex tool block can
 still come back as exit 1.
 
