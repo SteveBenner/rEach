@@ -5,7 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.14] - 2026-10-05
+
+### Security
+
+- The per-chat instructor pass from 0.35.13 was a plain JSON record, so anyone at an enrolled computer could write or
+  edit `<root>/state/instructor_passes.json` and let a chat through every enrollment lock without a code. Each pass
+  now carries an HMAC-SHA256 over its session id, code id, key id, grant time and expiry, keyed from the install key
+  (or a 0600 `instructor_pass.key` in the root state folder when the install has none). A pass with no MAC, a wrong
+  MAC, a grant time more than five minutes in the future, or a lifetime longer than the normal sign-in is ignored.
+- A code that 0.35.12 stored in `~/.reach/instructor.json` on an enrolled install is removed at the start of the next
+  session (`instructor.invalidated`, `reason` `enrolled_install`). Its backup keeps the payload but not the code or
+  signature. Non-enrolled installs keep their unlock.
+- `reach instructor lock` no longer keeps the code in its backup.
+
 ## [0.35.13] - 2026-10-05
+
+Not released: the release security audit found the forgeable pass and the leftover 0.35.12 codes fixed in 0.35.14.
+Its changes ship in 0.35.14.
 
 ### Security
 

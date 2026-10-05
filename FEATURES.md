@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.13 |
+| **Registry version** | 0.35.14 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -523,7 +523,12 @@ student ID and yes goes straight to the new password. Verified in a scratch home
 scratch pinned key, in every sign-in state, with both prompt hooks firing for one prompt (exactly one answers); not
 yet run in a real harness session. The 0.35.13 pass was verified the same way: no stored code, every sign-in state,
 the revoked, stamp-invalid, moved and course-ended locks lifted for that chat only, revocation and key removal voiding
-the pass, the command-line argument refused, and a non-enrolled install unchanged.
+the pass, the command-line argument refused, and a non-enrolled install unchanged. 0.35.13 was never released; its
+pass ships in 0.35.14, which signs each pass with an HMAC keyed from the install key and ignores a pass that is
+unsigned, edited, dated ahead or longer than a sign-in. 0.35.14 also removes a code that 0.35.12 stored on an enrolled
+install at the next session start, and neither that removal nor `reach instructor lock` keeps the code in its backup.
+Checked in scratch homes before commit: forged passes refused, a stored code removed, `lock` keeping no code, and a
+non-enrolled install unchanged; not yet run in a real harness session.
 
 Build ✅ · Deploy 🔵 · Blocker: Human. Since 0.16.18 the instructor key `343572ebf748c69d` is pinned in `config.yml`, so codes minted from it unlock installs on 0.16.18 or later; no instructor has yet unlocked a real harness session with one.
 
