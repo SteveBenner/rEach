@@ -45,12 +45,28 @@ module Reach
         @catalogues[locale] ||= load_locale(locale)
       end
 
+      def preload
+        catalogue(DEFAULT_LOCALE)
+        true
+      rescue StandardError
+        false
+      end
+
+      def locale_file(name)
+        dirs = [LOCALES_DIR]
+        begin
+          dirs << File.join(Reach::Paths.managed_install_dir, "locales")
+        rescue StandardError
+          nil
+        end
+        dirs.map { |dir| File.join(dir, name) }.find { |path| File.file?(path) }
+      end
+
       private
 
       def load_locale(locale)
-        path = File.join(LOCALES_DIR, "#{locale}.yml")
-        path = File.join(LOCALES_DIR, "#{DEFAULT_LOCALE}.yml") unless File.file?(path)
-        YAML.safe_load(File.read(path))
+        path = locale_file("#{locale}.yml") || locale_file("#{DEFAULT_LOCALE}.yml")
+        YAML.safe_load(File.read(path || File.join(LOCALES_DIR, "#{DEFAULT_LOCALE}.yml")))
       end
 
       def interpolate(template, fields)

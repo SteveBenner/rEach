@@ -19,11 +19,18 @@ module Reach
         @catalogues[locale] ||= load_locale(locale)
       end
 
+      def preload
+        catalogue(DEFAULT_LOCALE)
+        true
+      rescue StandardError
+        false
+      end
+
       private
 
       def load_locale(locale)
-        path = File.join(LOCALES_DIR, "greetings.#{locale}.yml")
-        YAML.safe_load(File.read(path))
+        name = "greetings.#{locale}.yml"
+        YAML.safe_load(File.read(Reach::Messages.locale_file(name) || File.join(LOCALES_DIR, name)))
       end
 
       def interpolate(template, fields)

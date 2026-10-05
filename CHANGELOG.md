@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.19] - 2026-10-05
+
+### Fixed
+
+- A rEach tool could stop answering in the middle of a chat, on macOS and on Windows, after rEach updated itself or
+  the harness refreshed its copy of the plugin (issue `iss_a21b0970be2cbd119569`, `Errno::ENOENT` in `mcp:loop`,
+  still reported on 0.35.17). The tool bridge (`reach mcp`) stays open for the whole chat, and `Reach::Messages`
+  read `locales/en-US.yml` only when the first message was needed, from the plugin folder the bridge was started
+  from. Once that folder had been moved or removed the read raised `Errno::ENOENT`, both rescue paths in
+  `lib/reach/mcp_bridge.rb` asked for the same message again, and the bridge failed (faults `mcp:<tool>`,
+  `mcp:loop`). The bridge now reads `locales/en-US.yml` and `locales/greetings.en-US.yml` once when it starts
+  (`Reach::Messages.preload`, `Reach::Greetings.preload`), any process that finds no file under its own `locales/`
+  reads the managed install's copy (`Reach::Messages.locale_file`), and the bridge's fault replies can no longer
+  raise (`STD-MESSAGES-LOADED`).
+
 ## [0.35.18] - 2026-10-05
 
 ### Security

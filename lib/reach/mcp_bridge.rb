@@ -373,6 +373,8 @@ module Reach
       def serve(input: STDIN, output: STDOUT)
         input.binmode if input.respond_to?(:binmode)
         output.binmode if output.respond_to?(:binmode)
+        Reach::Messages.preload
+        Reach::Greetings.preload
         Reach::Subscribe.start_session_thread
         Reach::Transcript.start_stream_thread
         loop do
@@ -407,7 +409,7 @@ module Reach
             handle(message)
           rescue StandardError, ScriptError => e
             Reach::Debug.fault(e, "mcp:loop", "M-REACH-HICCUP-TOOL")
-            message["id"].nil? ? nil : error(message["id"], -32000, Reach::Messages.text("M-REACH-HICCUP-TOOL"))
+            message["id"].nil? ? nil : error(message["id"], -32000, hiccup_text)
           end
           begin
             write_message(output, response, framed) if response
@@ -517,7 +519,13 @@ module Reach
         end
 
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
-        error(id, -32000, Reach::Messages.text("M-REACH-HICCUP-TOOL"))
+        error(id, -32000, hiccup_text)
+      end
+
+      def hiccup_text
+        Reach::Messages.text("M-REACH-HICCUP-TOOL")
+      rescue StandardError
+        "reach: internal error"
       end
 
       def login_text(message)

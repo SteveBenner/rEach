@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.18
+version: 0.35.19
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2116,6 +2116,11 @@ student_messages:
   locales: >-
     en-US in v1. Course messages live in locales/en-US.yml and rEach's greetings in locales/greetings.en-US.yml, so
     both can be translated; the texts in the files are authoritative, and the ones above are the original wording.
+    Since 0.35.19 the tool bridge reads both files once when it starts (Reach::Messages.preload, Reach::Greetings.preload)
+    and keeps them in memory, because an update, a harness refreshing its plugin copy or a relocation can move or
+    remove the plugin folder a running bridge was started from. Any other process that finds no file under its own
+    locales/ reads the one in the managed install (Reach::Messages.locale_file). The bridge's fault replies never
+    raise: with no catalogue at all they answer "reach: internal error" and the bridge keeps serving.
 failure_reason_catalogue:
   purpose: Turns the suite's failure categories into the plain reasons students and agents see.
   categories:
