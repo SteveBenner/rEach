@@ -145,13 +145,21 @@ module Reach
       return nil unless Reach::Password.reset_allowed_cached == :allowed
 
       Reach::Password.drop_probe!
-      next_state = without_reset(state).merge("state" => "awaiting_new_password", "updated_at" => iso(now))
-      prompt = if harness.to_s == "hermes"
-        Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
+      lifted = Reach::Messages.text("M-LOGIN-UNLOCKED-BY-TEACH")
+      if PASSWORD_STATES.include?(state["state"])
+        next_state = without_reset(state).merge("state" => "awaiting_new_password", "updated_at" => iso(now))
+        prompt = if harness.to_s == "hermes"
+          Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
+        else
+          Reach::Messages.text("M-LOGIN-RESET-NEW")
+        end
+        out = decision("block", "#{lifted}\n\n#{prompt}", "login", nil, next_state, persist: true)
+      elsif state["state"] == "awaiting_confirm"
+        out = decision("block", "#{lifted}\n\n#{confirm_text}", "login", nil, state, persist: false)
       else
-        Reach::Messages.text("M-LOGIN-RESET-NEW")
+        next_state = state.merge("state" => "awaiting_id", "updated_at" => iso(now))
+        out = decision("block", "#{lifted}\n\n#{Reach::Messages.text("M-LOGIN-ASK")}", "login", nil, next_state, persist: true)
       end
-      out = decision("block", "#{Reach::Messages.text("M-LOGIN-UNLOCKED-BY-TEACH")}\n\n#{prompt}", "login", nil, next_state, persist: true)
       out["failures_data"] = failures.merge("failures" => [], "locked_until" => nil)
       out
     rescue StandardError
