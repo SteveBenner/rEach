@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.33.5
+version: 0.33.6
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1374,7 +1374,9 @@ subscription:
     detached reach subscribe ensure after enrollment and after reach update applies a release, never in a hook.
   notices: >-
     status course_update, grades grade, hands hand_reply, extra_credit extra_credit, receipts receipt; known_issues adds
-    none. They are stored unannounced and deduplicated by kind; the prompt hook reads them and adds M-SUBSCRIBE-UPDATES
+    none. Since 0.33.6 a hands change whose new replies all carry answered_by service-desk or teach-issues is stored as
+    support_message ("technical support sent a message about a problem you reported") instead of hand_reply, and every
+    entry of the sync summary's hand_replies names from as technical_support or instructor. They are stored unannounced and deduplicated by kind; the prompt hook reads them and adds M-SUBSCRIBE-UPDATES
     once, then marks them announced; a notice older than 7 days is dropped.
   cli: >-
     reach subscribe status [--format text|json], tick --source session|background, install, uninstall (and ensure, the

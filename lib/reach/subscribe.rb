@@ -31,6 +31,7 @@ module Reach
       "course_update" => "your course has new materials or settings",
       "grade" => "a grade was posted",
       "hand_reply" => "an instructor answered your raised hand",
+      "support_message" => "technical support sent a message about a problem you reported",
       "extra_credit" => "your extra credit changed",
       "receipt" => "a receipt arrived"
     }.freeze
@@ -231,7 +232,7 @@ module Reach
 
       update_state do |state|
         previous = state["revision"] ? state["parts"] : nil
-        add_notices(state, previous, parts, at) if previous
+        add_notices(state, previous, parts, at, hands_kind(summary)) if previous
         state["revision"] = revision
         state["parts"] = parts
         state["last_sync_at"] = at
@@ -250,11 +251,17 @@ module Reach
       { "result" => "failed", "source" => source }
     end
 
-    def add_notices(state, previous, parts, at)
+    def hands_kind(summary)
+      replies = summary.is_a?(Hash) ? Array(summary["hand_replies"]) : []
+      from = replies.map { |entry| (entry[:from] || entry["from"]).to_s }
+      !from.empty? && from.all?("technical_support") ? "support_message" : "hand_reply"
+    end
+
+    def add_notices(state, previous, parts, at, hands = "hand_reply")
       changed = NOTICE_KINDS.keys.select { |part| previous[part] != parts[part] }
       notices = Array(state["notices"])
       changed.each do |part|
-        kind = NOTICE_KINDS[part]
+        kind = part == "hands" ? hands : NOTICE_KINDS[part]
         existing = notices.find { |notice| notice["kind"] == kind && !notice["announced"] }
         if existing
           existing["at"] = at

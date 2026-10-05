@@ -7,6 +7,7 @@ module Reach
   module Hands
     ROUTE = "/api/v1/hands"
     POLL_INTERVAL_S = 60
+    SUPPORT_AUTHORS = %w[service-desk teach-issues].freeze
     BUNDLE_LIMIT = 196_608
     OUTPUT_LIMIT = 65_536
     FILE_CUT = 32_768
@@ -168,6 +169,11 @@ module Reach
         end
       end
 
+      def reply_from(reply)
+        author = reply.is_a?(Hash) ? reply["answered_by"].to_s : ""
+        SUPPORT_AUTHORS.include?(author) ? "technical_support" : "instructor"
+      end
+
       def poll_replies
         changed = []
         state = open_hands
@@ -183,7 +189,7 @@ module Reach
           end
           update_open_hand(hand_id, current[:reply], Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
           if current[:reply] && current[:reply] != record["reply"] && record["originator"] != "reach"
-            changed << { hand_id: hand_id, state: current[:state], reply: current[:reply] }
+            changed << { hand_id: hand_id, state: current[:state], reply: current[:reply], from: reply_from(current[:reply]) }
             Reach::Ladder.reset_for_hand(hand_id)
           end
           remove_open_hand(hand_id) if %w[resolved closed].include?(current[:state].to_s)
