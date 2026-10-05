@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.9] - 2026-10-05
+
+### Fixed
+
+- A Codex student whose sign-in hook was not running was asked for their student ID again and again
+  (`STD-SIGNIN-HOOK-SILENT`). `reach_next` (`Reach::Next.compute` with
+  `mcp: true`) now returns `M-NEXT-LOGIN-NO-HOOK` when Codex has not run the plugin's sign-in hook (`gate enroll`)
+  since the session started: rEach can't sign the student in yet, they should not type their ID or password in the
+  chat, and they restart Codex, allow rEach's hooks and start a new chat. `reach next` in a terminal is unchanged.
+- The known issue for a silent sign-in hook was flagged whether or not that hook ran, because `hooks_not_running`
+  watches the course-folder hooks. The new detector `signin_hook_not_running`
+  (`Reach::KnownIssues.signin_hook_dead?`) compares the sign-in hook's stamp (`hooks_enroll_seen.json`) with the
+  latest Codex session start; `hooks_not_running` and the qualify, submit and part-record refusal are unchanged.
+- `reach_known_issues` and the session context named the fix for every matching known issue, detected or not, so the
+  agent was told to run `reach_setup configure` for a problem rEach had not found. `Reach::KnownIssues.remedy_lines`
+  now names a remedy only for a detected issue.
+
+### Changed
+
+- Wire revision 2026-10-05a: W-KI-4 lists `signin_hook_not_running`. Teach's pinned copy changes with it.
+
 ## [0.34.8] - 2026-10-05
 
 ### Fixed

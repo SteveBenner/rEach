@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.34.8 |
+| **Registry version** | 0.34.9 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -565,6 +565,14 @@ refused), the prompt hook running (not refused), a compaction and a hand-run `re
 40 minutes with no hook (refused). Not run inside a real Codex, on macOS or on Windows.
 Verified against a scratch Teach 0.27.1 (200, then 304 on revalidation), over MCP (hooks_not_running detected with no
 hook run), and inside the real `codex sandbox` runner (the sandbox entry detected from the cache with no request).
+Since 0.34.9 (`STD-SIGNIN-HOOK-SILENT`, wire revision 2026-10-05a) a third detector, `signin_hook_not_running`,
+watches the plugin's own sign-in hook against the latest Codex session start, `hooks_not_running` keeps watching the
+course-folder hooks, `reach_next` says `M-NEXT-LOGIN-NO-HOOK` instead of asking for the student ID while the sign-in
+hook is silent, and a remedy is named only for a detected issue. Verified 2026-10-05 on Linux against a scratch home
+with the real `reach hello` and `reach gate enroll --harness codex` commands in five sequences (nothing run, session
+start only, start then sign-in hook, a new session with the sign-in hook silent, then running): the new detector
+followed the sign-in hook while `hooks_not_running` stayed on; `reach_next` over the MCP path switched to the new step
+only in the silent case, and `reach next` from a terminal never did. Not run inside a real Codex or on Windows.
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.27.1 is live with both entries; students update to 0.21.9 on their own).
 
