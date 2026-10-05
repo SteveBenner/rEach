@@ -17,11 +17,11 @@ module Reach
 
       host_os = RbConfig::CONFIG["host_os"].to_s
       base = if host_os =~ /darwin/
-               File.expand_path("~/Library/Application Support")
+               File.join(Reach::Paths.user_home, "Library", "Application Support")
              elsif host_os =~ /mswin|mingw|cygwin/
-               ENV["LOCALAPPDATA"].to_s.empty? ? File.expand_path("~/AppData/Local") : ENV["LOCALAPPDATA"]
+               ENV["LOCALAPPDATA"].to_s.empty? ? File.join(Reach::Paths.user_home, "AppData", "Local") : ENV["LOCALAPPDATA"]
              else
-               ENV["XDG_STATE_HOME"].to_s.empty? ? File.expand_path("~/.local/state") : ENV["XDG_STATE_HOME"]
+               ENV["XDG_STATE_HOME"].to_s.empty? ? File.join(Reach::Paths.user_home, ".local", "state") : ENV["XDG_STATE_HOME"]
              end
       File.join(base, "reach", "seal.json")
     end

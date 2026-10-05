@@ -22,6 +22,7 @@ module Reach
         cwd = event["cwd"] if event["cwd"]
       end
 
+      observe_home_env
       if Reach::Relocation.due?
         Reach::Relocation.start
       else
@@ -37,6 +38,24 @@ module Reach
       emit(format, context, banner, greeting_id, greeting_text)
     rescue StandardError
       emit(format, MINIMAL_CONTEXT, nil, nil, nil)
+    end
+
+    def observe_home_env
+      return nil unless Reach::Paths.windows_host?
+
+      env_home = ENV["HOME"].to_s
+      return nil if env_home.empty?
+
+      mine = Reach::Paths.realish(Reach::Paths.user_home)
+      theirs = Reach::Paths.realish(Reach::Paths.windows_slashes(env_home))
+      return nil if theirs.casecmp(mine).zero?
+
+      profile = Reach::Paths.windows_slashes(ENV["USERPROFILE"])
+      differs = !profile.empty? && Reach::Paths.realish(profile).casecmp(mine) != 0
+      Reach::Debug.emit_always("home_env_mismatch", "source" => Reach::Paths.user_home_source, "userprofile_differs" => differs, "stray" => Reach::Paths.stray_active?)
+      nil
+    rescue StandardError
+      nil
     end
 
     def context_text(harness:, cwd:, source: "startup", event: nil, session: nil)

@@ -22,6 +22,8 @@ module Reach
     AUTO_JITTER_S = 600
     AUTO_MAX_ATTEMPTS = 5
     HOME_EXCLUDED = [POINTER_NAME].freeze
+    STRAY_EXCLUDED = [POINTER_NAME, "state/relocation.json", "state/relocation.jsonl", "state/relocation-manifest.json"].freeze
+    MOVING_SUFFIX = ".reach-moving".freeze
     SCAN_MAX_BYTES = 5 * 1024 * 1024
     UPDATE_BLOCKING_PHASES = %w[staged swapped refreshed].freeze
     REASONS = {
@@ -50,7 +52,7 @@ module Reach
     module_function
 
     def due?
-      Reach::Paths.legacy_active?
+      Reach::Paths.legacy_active? || Reach::Paths.stray_active?
     end
 
     def lock_path
@@ -84,6 +86,7 @@ module Reach
     end
 
     def with_lock
+      Reach::Paths.require_home!
       FileUtils.mkdir_p(File.dirname(lock_path))
       File.open(lock_path, File::RDWR | File::CREAT, 0o600) do |handle|
         return :locked unless handle.flock(File::LOCK_EX | File::LOCK_NB)
@@ -108,8 +111,10 @@ module Reach
 
     def context
       base = Reach::Paths.workspace_base
+      stray = Reach::Paths.stray_active?
       {
-        legacy_home: Reach::Paths.legacy_home,
+        legacy_home: stray ? Reach::Paths.root : Reach::Paths.legacy_home,
+        stray_base: stray ? Reach::Paths.stray_base : nil,
         base: base,
         staged: File.join(base, STAGING_NAME),
         final_home: Reach::Paths.new_home
@@ -405,7 +410,7 @@ module Reach
     end
 
     def walk_home(ctx)
-      walk_tree(ctx[:legacy_home], HOME_EXCLUDED)
+      walk_tree(ctx[:legacy_home], ctx[:stray_base] ? STRAY_EXCLUDED : HOME_EXCLUDED)
     end
 
     def walk_tree(base, excluded)
@@ -940,9 +945,20 @@ module Reach
       Reach::Paths.forget_resolution!
 
       pointer = File.join(ctx[:legacy_home], POINTER_NAME)
-      write_json_atomic(pointer, "to_home" => final, "workspace" => ctx[:base], "completed_at" => completed_at, "manifest_digest" => manifest["root_digest"])
+      pointer_body = { "to_home" => final, "workspace" => ctx[:base], "completed_at" => completed_at, "manifest_digest" => manifest["root_digest"] }
+      log_path = File.join(final, "logs", "relocation.jsonl")
+      if ctx[:stray_base]
+        begin
+          write_json_atomic(pointer, pointer_body)
+        rescue StandardError => e
+          log_event(log_path, "event" => "stray_pointer_failed", "error" => e.class.name)
+        end
+      else
+        write_json_atomic(pointer, pointer_body)
+      end
 
-      log_event(File.join(final, "logs", "relocation.jsonl"), "event" => "relocated", "from" => ctx[:legacy_home], "to" => final, "files" => manifest["files"], "bytes" => manifest["bytes"])
+      log_event(log_path, "event" => "relocated", "from" => ctx[:legacy_home], "to" => final, "files" => manifest["files"], "bytes" => manifest["bytes"])
+      copy_stray_workspace(ctx, log_path) if ctx[:stray_base]
       Reach::Paths.with_persona(nil) do
         configure_spaces(ctx)
         refresh_harnesses(ctx)
@@ -954,6 +970,90 @@ module Reach
         files: manifest["files"], bytes: manifest["bytes"], completed_at: completed_at,
         line: "rEach moved its files into your reach-work folder (#{final}): #{manifest['files']} files, #{format_bytes(manifest['bytes'])}. The old folder was left exactly as it was."
       )
+    end
+
+    def copy_stray_workspace(ctx, log_path)
+      source = File.join(ctx[:stray_base], "reach-work")
+      return nil unless File.directory?(source)
+
+      Dir.children(source).sort.each do |name|
+        next if Reach::Paths.home_name?(name) || name.end_with?(MOVING_SUFFIX)
+
+        begin
+          result = copy_workspace_entry(File.join(source, name), File.join(ctx[:base], name), File.join(ctx[:base], ".#{name}#{MOVING_SUFFIX}"))
+          log_event(log_path, "event" => "workspace_entry_#{result}", "name" => name)
+        rescue StandardError => e
+          log_event(log_path, "event" => "workspace_entry_failed", "name" => name, "error" => e.class.name, "reason" => e.respond_to?(:reason) ? e.reason : nil)
+        end
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def copy_workspace_entry(src, dest, tmp)
+      return "skipped" if present?(dest)
+
+      stat = File.lstat(src)
+      entry = { mode: stat.mode & 0o7777, mtime: stat.mtime.to_i, mtime_nsec: stat.mtime.nsec, atime: stat.atime.to_i }
+      if stat.symlink?
+        File.symlink(File.readlink(src), dest)
+      elsif stat.file?
+        copy_file(src, tmp, entry)
+        raise Failure.new("verify_failed", src) unless file_digest(src) == file_digest(tmp)
+
+        File.rename(tmp, dest)
+      elsif stat.directory?
+        copy_workspace_tree(src, tmp, entry)
+        File.rename(tmp, dest)
+      else
+        return "skipped_special"
+      end
+      "copied"
+    rescue NotImplementedError, Errno::EPERM, Errno::EACCES => e
+      raise Failure.new("copy_error", e.class.name)
+    end
+
+    def copy_workspace_tree(src, tmp, entry)
+      entries = walk_tree(src, [])
+      if present?(tmp)
+        raise Failure.new("destination_occupied", tmp) unless File.directory?(tmp) && !File.symlink?(tmp)
+      else
+        Dir.mkdir(tmp, 0o700)
+      end
+      directories = entries.select { |item| item[:kind] == "dir" }
+      directories.each do |item|
+        target = File.join(tmp, item[:rel])
+        next if File.directory?(target) && !File.symlink?(target)
+
+        raise Failure.new("destination_occupied", target) if present?(target)
+
+        Dir.mkdir(target, 0o700)
+      end
+      entries.each do |item|
+        target = File.join(tmp, item[:rel])
+        case item[:kind]
+        when "file"
+          copy_file(item[:src], target, item)
+          raise Failure.new("verify_failed", item[:rel]) unless File.size(target) == item[:size] && file_digest(item[:src]) == file_digest(target)
+        when "symlink"
+          next if File.symlink?(target) && File.readlink(target) == item[:target]
+          raise Failure.new("destination_occupied", target) if present?(target)
+
+          begin
+            File.symlink(item[:target], target)
+          rescue NotImplementedError, Errno::EPERM, Errno::EACCES
+            nil
+          end
+        end
+      end
+      directories.reverse_each do |item|
+        target = File.join(tmp, item[:rel])
+        File.chmod(item[:mode], target)
+        apply_times(target, item)
+      end
+      File.chmod(entry[:mode], tmp)
+      apply_times(tmp, entry)
     end
 
     def finish_switched(ctx, _trigger)
@@ -1026,7 +1126,7 @@ module Reach
       legacy_plugin = File.join(ctx[:legacy_home], "plugin")
       return unless File.directory?(plugin)
 
-      links = [File.expand_path("~/.gemini/config/plugins/reach"), File.expand_path("~/.gemini/antigravity-cli/plugins/reach")]
+      links = [File.join(Reach::Paths.gemini_dir, "config", "plugins", "reach"), File.join(Reach::Paths.gemini_dir, "antigravity-cli", "plugins", "reach")]
       links.each { |link| repoint(link, plugin, legacy_plugin) }
 
       config_path = Reach::Harness.hermes_config_path
@@ -1150,7 +1250,7 @@ module Reach
     def folder_line
       home = Reach::Paths.root
       base = Reach::Paths.workspace_base
-      return "Your reach-work folder: #{base} (rEach keeps its own files in #{home})" unless Reach::Paths.legacy_active?
+      return "Your reach-work folder: #{base} (rEach keeps its own files in #{home})" unless due?
 
       state = status
       if state[:state] == "failed"

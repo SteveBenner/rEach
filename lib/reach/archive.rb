@@ -129,11 +129,11 @@ module Reach
 
       linux = RbConfig::CONFIG["host_os"].to_s.include?("linux")
       configured = linux ? xdg_download_dir : nil
-      configured || File.join(Dir.home, "Downloads")
+      configured || File.join(Reach::Paths.user_home, "Downloads")
     end
 
     def xdg_download_dir
-      config_home = ENV["XDG_CONFIG_HOME"].to_s.empty? ? File.join(Dir.home, ".config") : ENV["XDG_CONFIG_HOME"]
+      config_home = ENV["XDG_CONFIG_HOME"].to_s.empty? ? File.join(Reach::Paths.user_home, ".config") : ENV["XDG_CONFIG_HOME"]
       file = File.join(config_home, "user-dirs.dirs")
       return nil unless File.file?(file)
 
@@ -142,7 +142,7 @@ module Reach
 
       value = line.split("=", 2).last.strip
       value = value[1..-2] if value.length >= 2 && value.start_with?('"') && value.end_with?('"')
-      value = value.gsub("$HOME", Dir.home).gsub("${HOME}", Dir.home)
+      value = value.gsub("$HOME", Reach::Paths.user_home).gsub("${HOME}", Reach::Paths.user_home)
       value.empty? || !value.start_with?("/") ? nil : value
     rescue SystemCallError
       nil

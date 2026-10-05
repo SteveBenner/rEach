@@ -8,6 +8,15 @@ require "optparse"
 require "securerandom"
 require "tmpdir"
 require "uri"
+require "open3"
+require "rbconfig"
+require "timeout"
+
+begin
+  require "fiddle"
+rescue LoadError
+  nil
+end
 
 module ReachInstall
   MAX_BYTES = 100 * 1024 * 1024
@@ -16,6 +25,8 @@ module ReachInstall
   CONNECT_TIMEOUT_S = 10
   READ_TIMEOUT_S = 60
   MIN_DOWNLOAD_INTERVAL_S = 1
+  PROFILE_FOLDER_ID = [0x5E6C858F, 0x0E22, 0x4760, 0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73].freeze
+  HOME_MISSING = "rEach could not find your user folder on this computer, so it did not create anything. Close this app, open it again from your own Windows account, and send your message again. If this keeps happening, tell your instructor.".freeze
 
   class << self
     def run(argv)
@@ -24,6 +35,7 @@ module ReachInstall
 
       destination = File.expand_path(options[:destination])
       parent = File.dirname(destination)
+      refuse_missing_home(destination)
       FileUtils.mkdir_p(parent)
 
       Dir.mktmpdir("reach-install-", parent) do |temp|
@@ -62,13 +74,119 @@ module ReachInstall
 
     private
 
-    def default_destination
+    def windows_host?
+      RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
+    end
+
+    def windows_slashes(path)
+      text = path.to_s.strip.tr("\\", "/")
+      match = text.match(%r{\A/([A-Za-z])(?:/(.*))?\z})
+      return text unless match
+
+      "#{match[1].upcase}:/#{match[2]}"
+    end
+
+    def known_folder_profile
+      return nil unless defined?(Fiddle)
+
+      shell32 = Fiddle.dlopen("shell32.dll")
+      ole32 = Fiddle.dlopen("ole32.dll")
+      fetch = Fiddle::Function.new(shell32["SHGetKnownFolderPath"], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+      release = Fiddle::Function.new(ole32["CoTaskMemFree"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_VOID)
+      slot = Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP, Fiddle::RUBY_FREE)
+      address = 0
+      begin
+        result = fetch.call(PROFILE_FOLDER_ID.pack("VvvC8"), 0, nil, slot)
+        return nil unless (result & 0xFFFFFFFF).zero?
+
+        address = slot[0, Fiddle::SIZEOF_VOIDP].unpack("J").first
+        return nil if address.zero?
+
+        wide = Fiddle::Pointer.new(address)
+        bytes = "".b
+        index = 0
+        while index < 32_768
+          unit = wide[index * 2, 2]
+          break if unit == "\0\0".b
+
+          bytes << unit
+          index += 1
+        end
+        windows_slashes(bytes.force_encoding(Encoding::UTF_16LE).encode(Encoding::UTF_8))
+      ensure
+        release.call(Fiddle::Pointer.new(address)) unless address.zero?
+      end
+    rescue StandardError, LoadError
+      nil
+    end
+
+    def registry_profile
+      out = Timeout.timeout(5) do
+        text, _status = Open3.capture2("reg.exe", "query", "HKCU\\Volatile Environment", "/v", "USERPROFILE", err: File::NULL)
+        text
+      end
+      pattern = /\A\s*USERPROFILE\s+REG_(?:EXPAND_)?SZ\s+/i
+      line = out.to_s.lines.find { |entry| entry =~ pattern }
+      line ? windows_slashes(line.sub(pattern, "")) : nil
+    rescue StandardError, Timeout::Error
+      nil
+    end
+
+    def user_home
+      @user_home ||= begin
+        found = nil
+        if windows_host?
+          [-> { known_folder_profile }, -> { registry_profile }, -> { windows_slashes(ENV["USERPROFILE"]) }].each do |finder|
+            path = finder.call.to_s
+            next if path.empty? || !File.directory?(path)
+
+            found = path
+            break
+          end
+        end
+        found || File.expand_path("~")
+      end
+    end
+
+    def expand_home(value)
+      text = value.to_s
+      return File.join(user_home, text[1..-1].to_s) if text == "~" || text.start_with?("~/") || text.start_with?("~\\")
+
+      File.expand_path(text)
+    end
+
+    def home_anchor
       home_value = ENV["REACH_HOME"].to_s
-      return File.join(File.expand_path(home_value), "plugin") unless home_value.empty?
+      return File.dirname(expand_home(home_value)) unless home_value.empty?
 
       workspace_value = ENV["REACH_WORKSPACE_ROOT"].to_s
-      workspace = File.expand_path(workspace_value.empty? ? "~/reach-work" : workspace_value)
-      legacy = File.expand_path("~/.reach")
+      return File.dirname(expand_home(workspace_value)) unless workspace_value.empty?
+
+      user_home
+    end
+
+    def refuse_missing_home(destination)
+      anchor = home_anchor
+      return if File.directory?(anchor)
+
+      left = destination.to_s
+      right = anchor.to_s
+      if windows_host?
+        left = left.downcase
+        right = right.downcase
+      end
+      return unless left == right || left.start_with?("#{right.chomp('/')}/")
+
+      raise HOME_MISSING
+    end
+
+    def default_destination
+      home_value = ENV["REACH_HOME"].to_s
+      return File.join(expand_home(home_value), "plugin") unless home_value.empty?
+
+      workspace_value = ENV["REACH_WORKSPACE_ROOT"].to_s
+      workspace = expand_home(workspace_value.empty? ? "~/reach-work" : workspace_value)
+      legacy = File.join(user_home, ".reach")
       return File.join(legacy, "plugin") if legacy_active?(workspace, legacy)
 
       File.join(workspace, ".reach-home", "plugin")
@@ -125,7 +243,7 @@ module ReachInstall
     end
 
     def codex_present?
-      home = ENV["CODEX_HOME"].to_s.empty? ? File.join(Dir.home, ".codex") : ENV["CODEX_HOME"]
+      home = ENV["CODEX_HOME"].to_s.empty? ? File.join(user_home, ".codex") : expand_home(ENV["CODEX_HOME"])
       return true if File.directory?(home)
 
       names = Gem.win_platform? ? %w[codex.exe codex.cmd codex.bat codex] : %w[codex]

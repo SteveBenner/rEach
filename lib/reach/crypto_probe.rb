@@ -29,7 +29,7 @@ module Reach
     end
 
     def display_path(path)
-      home = File.expand_path("~")
+      home = Reach::Paths.user_home
       text = path.to_s
       return "~" if text == home
 

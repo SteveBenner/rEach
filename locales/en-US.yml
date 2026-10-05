@@ -121,6 +121,7 @@ messages:
   M-WRITE-OUTSIDE: "That file belongs to the course and can't be changed. Your work goes in {owned_files}."
   M-WRITE-ROOT: "Nothing is written at the top of your course folder. Coursework goes in your slice under deliverables/, and anything else you want to build goes in extracurricular/."
   M-PICK-SLICE: "Which slice? Run this from inside one: {choices}"
+  M-HOME-MISSING: "rEach could not find your user folder on this computer, so it did not create anything. Close this app, open it again from your own Windows account, and send your message again. If this keeps happening, tell your instructor."
   M-RELOCATING: "rEach is moving its own files into your reach-work folder. This takes a moment; nothing is lost."
   M-WRITE-OUTSIDE-EXTRA: "From your extracurricular folder, only files inside it can change. Coursework goes in your slice's files under deliverables/."
   M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."

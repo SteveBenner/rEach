@@ -33,7 +33,7 @@ module Reach
 
     def default_key_path
       base = ENV["XDG_CONFIG_HOME"].to_s
-      base = File.join(Dir.home, ".config") if base.empty?
+      base = File.join(Reach::Paths.user_home, ".config") if base.empty?
       File.join(File.expand_path(base), "reach-instructor", "key.pem")
     end
 

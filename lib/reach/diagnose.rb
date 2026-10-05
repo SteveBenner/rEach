@@ -76,7 +76,7 @@ module Reach
     def environment
       root = Reach::Paths.root
       {
-        "home" => Reach::CryptoProbe.display_path(File.expand_path("~")),
+        "home" => Reach::CryptoProbe.display_path(Reach::Paths.user_home),
         "reach_home" => Reach::CryptoProbe.display_path(root),
         "reach_home_set" => !ENV["REACH_HOME"].to_s.empty?,
         "reach_home_writable" => File.directory?(root) ? File.writable?(root) : nil,

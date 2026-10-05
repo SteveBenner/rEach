@@ -9,7 +9,14 @@ rescue ScriptError, StandardError
 end
 
 rplugin_home = ENV["RPLUGIN_HOME"]
-rplugin_home = File.expand_path(rplugin_home && !rplugin_home.empty? ? rplugin_home : "~/.rplugin")
+rplugin_profile = ENV["USERPROFILE"].to_s
+rplugin_home = if rplugin_home && !rplugin_home.empty?
+                 File.expand_path(rplugin_home)
+               elsif RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ && !rplugin_profile.empty?
+                 File.join(rplugin_profile.tr("\\", "/"), ".rplugin")
+               else
+                 File.expand_path("~/.rplugin")
+               end
 if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.3") && File.file?(File.join(rplugin_home, "lib", "rplugin.rb"))
   begin
     require File.join(rplugin_home, "lib", "rplugin")

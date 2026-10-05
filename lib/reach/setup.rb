@@ -101,16 +101,15 @@ module Reach
 
     def detected_harnesses
       ids = []
-      ids << "claude-code" if on_path?("claude") || File.directory?(File.expand_path("~/.claude"))
-      ids << "codex" if on_path?("codex") || File.directory?(File.expand_path("~/.codex"))
-      ids << "antigravity" if on_path?("agy") || File.directory?(File.expand_path("~/.gemini"))
+      ids << "claude-code" if on_path?("claude") || File.directory?(Reach::Paths.claude_config_dir)
+      ids << "codex" if on_path?("codex") || File.directory?(Reach::Paths.codex_home)
+      ids << "antigravity" if on_path?("agy") || File.directory?(Reach::Paths.gemini_dir)
       ids << "hermes" if on_path?("hermes") || File.directory?(hermes_home)
       ids
     end
 
     def hermes_home
-      value = ENV["HERMES_HOME"].to_s
-      File.expand_path(value.empty? ? "~/.hermes" : value)
+      Reach::Paths.hermes_home
     end
 
     def on_path?(executable)
@@ -190,8 +189,8 @@ module Reach
         return { id: "antigravity", ok: true, message: "Antigravity: rEach installed. Start a new Antigravity session to meet rEach." }
       end
 
-      targets = [File.expand_path("~/.gemini/config/plugins/reach")]
-      antigravity_cli = File.expand_path("~/.gemini/antigravity-cli")
+      targets = [File.join(Reach::Paths.gemini_dir, "config", "plugins", "reach")]
+      antigravity_cli = File.join(Reach::Paths.gemini_dir, "antigravity-cli")
       targets << File.join(antigravity_cli, "plugins", "reach") if File.directory?(antigravity_cli)
 
       blocked = nil

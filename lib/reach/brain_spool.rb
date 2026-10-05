@@ -21,7 +21,7 @@ module Reach
         Rplugin::Paths.state_home
       else
         value = ENV["XDG_STATE_HOME"].to_s
-        File.expand_path(File.join(value.empty? ? File.join(Dir.home, ".local", "state") : value, "rplugin"))
+        File.expand_path(File.join(value.empty? ? File.join(Reach::Paths.user_home, ".local", "state") : value, "rplugin"))
       end
     end
 

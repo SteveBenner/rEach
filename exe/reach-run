@@ -1,5 +1,6 @@
 #!/bin/sh
 
+M_HOME_MISSING="rEach could not find your user folder on this computer, so it did not create anything. Close this app, open it again from your own Windows account, and send your message again. If this keeps happening, tell your instructor."
 M_BOOTSTRAP_WAIT="rEach is finishing its one-time setup on this computer: it is downloading its own copy of Ruby, which takes about a minute. Tell the student, in one short friendly sentence, that rEach is getting ready and that they should send their message again in a minute. Do no course work and run no rEach command until then."
 
 LOCK_STALE_S=900
@@ -11,14 +12,107 @@ case $0 in
   *) self_dir=. ;;
 esac
 PLUGIN_ROOT=$(cd "$self_dir/.." 2>/dev/null && pwd) || exit 1
+is_windows() {
+  case $(uname -s 2>/dev/null) in
+    MINGW* | MSYS* | CYGWIN*) return 0 ;;
+  esac
+  [ "${OS:-}" = Windows_NT ]
+}
+
+win_dir() {
+  wd=$(printf '%s' "$1" | tr -d '\r')
+  [ -n "$wd" ] || return 1
+  if command -v cygpath >/dev/null 2>&1; then
+    wc=$(cygpath -u "$wd" 2>/dev/null)
+    [ -n "$wc" ] && wd=$wc
+  else
+    case $wd in
+      [A-Za-z]:*)
+        wl=$(printf '%s' "$wd" | cut -c1 | tr 'A-Z' 'a-z')
+        wr=$(printf '%s' "$wd" | cut -c3- | tr '\\' '/')
+        wd=/$wl$wr
+        ;;
+      *) wd=$(printf '%s' "$wd" | tr '\\' '/') ;;
+    esac
+  fi
+  [ -d "$wd" ] || return 1
+  printf '%s' "$wd"
+}
+
+windows_profile() {
+  wp=
+  if command -v reg.exe >/dev/null 2>&1; then
+    raw=$(MSYS2_ARG_CONV_EXCL='*' reg.exe query 'HKCU\Volatile Environment' /v USERPROFILE 2>/dev/null | awk '/USERPROFILE/ && /REG_/ { sub(/^.*REG_(EXPAND_)?SZ[ \t]+/, ""); print; exit }')
+    wp=$(win_dir "$raw") && [ -n "$wp" ] && { printf '%s' "$wp"; return 0; }
+  fi
+  if command -v powershell.exe >/dev/null 2>&1; then
+    raw=$(powershell.exe -NoProfile -NonInteractive -Command "[Environment]::GetFolderPath('UserProfile')" 2>/dev/null)
+    wp=$(win_dir "$raw") && [ -n "$wp" ] && { printf '%s' "$wp"; return 0; }
+  fi
+  if [ -n "${USERPROFILE:-}" ]; then
+    wp=$(win_dir "$USERPROFILE") && [ -n "$wp" ] && { printf '%s' "$wp"; return 0; }
+  fi
+  return 1
+}
+
+lower() {
+  printf '%s' "$1" | tr 'A-Z' 'a-z'
+}
+
+same_or_nested() {
+  la=$(lower "$1")/
+  lb=$(lower "$2")/
+  case $la in "$lb"*) return 0 ;; esac
+  case $lb in "$la"*) return 0 ;; esac
+  return 1
+}
+
+stray_root() {
+  for raw in "${HOME:-}" "${USERPROFILE:-}"; do
+    [ -n "$raw" ] || continue
+    sb=$(win_dir "$raw") || continue
+    [ -n "$sb" ] || continue
+    same_or_nested "$sb" "$user_home" && continue
+    sh_home=$sb/reach-work/.reach-home
+    if [ -d "$sh_home" ] && [ -r "$sh_home" ]; then
+      if { [ -f "$sh_home/state/relocation.json" ] && grep -q '"phase" *: *"completed"' "$sh_home/state/relocation.json" 2>/dev/null; } || [ -f "$sh_home/install.yml" ] || [ -d "$sh_home/plugin" ] || [ -d "$sh_home/keys" ]; then
+        printf '%s' "$sh_home"
+        return 0
+      fi
+    fi
+    sh_legacy=$sb/.reach
+    if [ -d "$sh_legacy" ] && [ -r "$sh_legacy" ] && { [ -f "$sh_legacy/install.yml" ] || [ -d "$sh_legacy/plugin" ]; }; then
+      printf '%s' "$sh_legacy"
+      return 0
+    fi
+  done
+  return 1
+}
+
 resolve_home() {
-  [ -n "${REACH_HOME:-}" ] && return 0
-  workspace=${REACH_WORKSPACE_ROOT:-$HOME/reach-work}
+  user_home=$HOME
+  if is_windows; then
+    found=$(windows_profile) && [ -n "$found" ] && user_home=$found
+  fi
+  if [ -n "${REACH_HOME:-}" ]; then
+    HOME_ANCHOR=$(dirname "$REACH_HOME")
+    return 0
+  fi
+  if [ -n "${REACH_WORKSPACE_ROOT:-}" ]; then
+    HOME_ANCHOR=$(dirname "$REACH_WORKSPACE_ROOT")
+  else
+    HOME_ANCHOR=$user_home
+  fi
+  workspace=${REACH_WORKSPACE_ROOT:-$user_home/reach-work}
   new_home=$workspace/.reach-home
   if [ -f "$new_home/state/relocation.json" ] && grep -q '"phase" *: *"completed"' "$new_home/state/relocation.json" 2>/dev/null; then
     REACH_HOME=$new_home
-  elif [ -f "$HOME/.reach/install.yml" ] || [ -d "$HOME/.reach/plugin" ]; then
-    REACH_HOME=$HOME/.reach
+  elif [ -f "$user_home/.reach/install.yml" ] || [ -d "$user_home/.reach/plugin" ]; then
+    REACH_HOME=$user_home/.reach
+  elif [ -f "$new_home/install.yml" ] || [ -d "$new_home/plugin" ] || [ -d "$new_home/keys" ]; then
+    REACH_HOME=$new_home
+  elif [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && stray=$(stray_root) && [ -n "$stray" ]; then
+    REACH_HOME=$stray
   else
     REACH_HOME=$new_home
   fi
@@ -39,7 +133,12 @@ stamp() {
   date -u +%Y-%m-%dT%H:%M:%SZ
 }
 
+home_present() {
+  [ -d "$HOME_ANCHOR" ]
+}
+
 blog() {
+  home_present || return 0
   mkdir -p "$REACH_HOME/logs" 2>/dev/null || return 0
   printf '%s %.300s\n' "$(stamp)" "$*" >>"$REACH_HOME/logs/bootstrap.log" 2>/dev/null
   return 0
@@ -386,6 +485,14 @@ fi
 hook=
 if hook_event "$@"; then
   hook=1
+fi
+
+if ! home_present; then
+  printf '%s\n' "$M_HOME_MISSING" >&2
+  if [ -n "$hook" ]; then
+    answer_hook "$M_HOME_MISSING"
+  fi
+  exit 1
 fi
 
 fail_unavailable() {

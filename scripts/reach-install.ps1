@@ -23,11 +23,22 @@ function Stop-Install([string]$Text) {
     exit 1
 }
 
+function Get-UserHome {
+    try {
+        $known = [Environment]::GetFolderPath('UserProfile')
+        if ($known -and (Test-Path -LiteralPath $known -PathType Container)) {
+            return $known
+        }
+    } catch {
+    }
+    return $env:USERPROFILE
+}
+
 function Get-WorkspaceBase {
     if ($env:REACH_WORKSPACE_ROOT) {
         return $env:REACH_WORKSPACE_ROOT
     }
-    return (Join-Path $env:USERPROFILE 'reach-work')
+    return (Join-Path (Get-UserHome) 'reach-work')
 }
 
 function Get-ReachHome {
@@ -45,7 +56,7 @@ function Get-ReachHome {
         } catch {
         }
     }
-    $legacy = Join-Path $env:USERPROFILE '.reach'
+    $legacy = Join-Path (Get-UserHome) '.reach'
     if ((Test-Path -LiteralPath (Join-Path $legacy 'install.yml')) -or (Test-Path -LiteralPath (Join-Path $legacy 'plugin') -PathType Container)) {
         return $legacy
     }
@@ -335,7 +346,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         Stop-Install 'reach setup failed.'
     }
-    $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
+    $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path (Get-UserHome) '.codex' }
     if ((Get-Command codex -ErrorAction SilentlyContinue) -or (Test-Path -LiteralPath $codexHome)) {
         $reachExe = Join-Path $Destination 'exe\reach'
         if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {

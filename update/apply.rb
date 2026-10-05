@@ -12,6 +12,8 @@ require "yaml"
 
 HARNESS_TIMEOUT_S = 120
 
+require_relative "../lib/reach/paths"
+
 options = { resume: false }
 OptionParser.new do |parser|
   parser.on("--staged DIR") { |value| options[:staged] = value }
@@ -104,8 +106,7 @@ def first_output_line(text)
 end
 
 def codex_registered_source
-  value = ENV["CODEX_HOME"].to_s
-  config = File.join(File.expand_path(value.empty? ? "~/.codex" : value), "config.toml")
+  config = File.join(Reach::Paths.codex_home, "config.toml")
   return nil unless File.file?(config)
 
   inside = false
@@ -229,8 +230,7 @@ results["claude-code"] = refresh_harness("claude", [%w[plugin marketplace update
 codex_path = on_path("codex")
 run_step([codex_path, "plugin", "marketplace", "upgrade", "reach"]) if codex_path
 results["codex"] = refresh_harness("codex", [%w[plugin add reach@reach]])
-codex_home = ENV["CODEX_HOME"].to_s
-Dir.glob(File.join(File.expand_path(codex_home.empty? ? "~/.codex" : codex_home), "plugins", "cache", "*", "reach", "*", "plugin.json")).each do |cached|
+Dir.glob(File.join(Reach::Paths.codex_home, "plugins", "cache", "*", "reach", "*", "plugin.json")).each do |cached|
   next unless File.file?(File.join(File.dirname(cached), ".codex-plugin", "plugin.json"))
 
   begin

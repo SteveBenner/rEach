@@ -4,8 +4,7 @@ module Reach
 
     class << self
       def codex_home
-        value = ENV["CODEX_HOME"].to_s
-        File.expand_path(value.empty? ? "~/.codex" : value)
+        Reach::Paths.codex_home
       end
 
       def repair
