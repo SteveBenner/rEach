@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.5] - 2026-10-05
+
+### Changed
+
+- A message the course's technical support stores on a raised hand is no longer announced as "an instructor answered
+  your raised hand". When every new reply rEach finds on the student's hands was written by the service desk or by
+  the issue desk (`answered_by` `service-desk` or `teach-issues`), the update notice reads "technical support sent a
+  message about a problem you reported", and each entry of the sync summary's `hand_replies` carries `from`
+  (`technical_support` or `instructor`). An instructor's answer is announced as before. No wire change.
+
 ## [0.33.4] - 2026-10-04
 
 ### Fixed
