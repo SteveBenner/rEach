@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.5] - 2026-10-05
+
+### Fixed
+
+- The relocation set aside an unenrolled profile home before the copy was verified, so a failed move left harness
+  links pointing at a folder that had been renamed while it told the student nothing had changed. The rename now
+  happens in the switch step, right before the moved home is renamed in, and is undone if that rename fails
+  (`lib/reach/relocation.rb`).
+- When one stray location held an unenrolled rEach home and another an enrolled one, `Reach::Paths.root` could pick
+  the unenrolled one; it now always prefers the enrolled one, as `exe/reach-run` does.
+- Transcript scrubbing on Windows also replaces the Git Bash (`/c/Users/...`) and WSL (`/mnt/c/Users/...`) spellings
+  of the home folder, and the backslash forms of a network (`\\server\...`) profile.
+- The `home_env_mismatch` record is a fault event (`where: paths.user_home`), the only kind besides link that rEach
+  sends while debug mode is off (`W-DBG-FAULT`), instead of a session event; it still carries no path or name.
+
 ## [0.34.4] - 2026-10-05
 
 ### Fixed

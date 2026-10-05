@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.34.4
+version: 0.34.5
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2815,9 +2815,12 @@ home_in_workspace:
     deleted, truncated, renamed or overwritten; a RELOCATED.json the stray source refuses is logged and does not stop the
     move. Since 0.34.4 a destination home that is populated but not enrolled (a reinstall that ran before the move) is
     renamed to <base>/.reach-home.set-aside-<UTC timestamp> and the stray home is moved in its place; an enrolled
-    destination still fails destination_occupied. At session start, on Windows with $HOME different from user_home,
-    Reach::Debug.emit_always records a session event with fields.event home_env_mismatch, the source step and two
-    booleans, never a path or a name (W-DBG-KINDS has no kind of its own for it).
+    destination still fails destination_occupied. Since 0.34.5 that rename happens in the switch step, after the copy,
+    verification and enrollment comparison passed and immediately before the staged home is renamed in, and is undone
+    when that rename fails, so a failed run leaves the profile home as it was. An enrolled stray home is always chosen
+    over an unenrolled one. At session start, on Windows with $HOME different from user_home, Reach::Debug.emit_always
+    records a W-DBG-FAULT fault event (where paths.user_home, cause home_env_mismatch, a stable fault_id, home_source
+    and two booleans), never a path or a name.
   relocation: >-
     Reach::Relocation copies the legacy home to <workspace_base>/.reach-home.relocating with a journal (SHA-256 per
     file, resumable after a kill), verifies in rounds, compares enrollment before and after (key, fingerprint and stamp
