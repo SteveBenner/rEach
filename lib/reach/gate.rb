@@ -205,11 +205,17 @@ module Reach
 
       session = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Login.session_id(event) : nil
       confirmed = session ? Reach::Login.session_confirmed?(session) : Reach::Login.any_active?
-      raise_blocked!("M-LOGIN-NEEDED") unless confirmed
+      raise_blocked!(login_needed_id) unless confirmed
     rescue Reach::GateBlocked
       raise
     rescue StandardError
-      raise_blocked!("M-LOGIN-NEEDED")
+      raise_blocked!(login_needed_id)
+    end
+
+    def login_needed_id
+      Reach::KnownIssues.signin_hook_dead? ? "M-LOGIN-NEEDED-NO-HOOK" : "M-LOGIN-NEEDED"
+    rescue StandardError
+      "M-LOGIN-NEEDED"
     end
 
     def code_tool!

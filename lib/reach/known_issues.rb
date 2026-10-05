@@ -280,15 +280,16 @@ module Reach
     def signin_hook_dead?(env = environment)
       return false unless family_of(env["harness"]) == "codex"
 
-      ran = (read_json(enroll_seen_file) || {})["at"].to_s
-      return true if ran.empty?
-
       seen = read_json(hooks_seen_file) || {}
+      stamps = [(read_json(enroll_seen_file) || {})["at"], seen["prompt_at"]].map(&:to_s).reject(&:empty?)
+      return true if stamps.empty?
+
+      ran = stamps.map { |stamp| Time.parse(stamp) }.max
       started = seen["session_at"].to_s
       if !started.empty? && family_of(seen["session_label"]) == "codex"
-        return Time.parse(ran) < Time.parse(started)
+        return ran < Time.parse(started)
       end
-      enroll_hook_quiet?(HOOKS_QUIET_S)
+      Time.now - ran > HOOKS_QUIET_S
     rescue StandardError
       false
     end

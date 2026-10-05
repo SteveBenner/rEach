@@ -2564,7 +2564,8 @@ known_issues:
       on a Codex harness when no Reach hook has run on this computer for 15 minutes; since 2026-10-04e a
       session-start hook does not count, only a prompt, tool or stop hook; since 2026-10-04f it is also detected at
       once when a session-start hook ran on Codex and no prompt hook has run since). Since 2026-10-05a Reach also
-      implements signin_hook_not_running (an MCP call on a Codex harness when the plugin's own prompt hook, gate
-      enroll, has not run since the latest Codex session start, or never ran, or with no session start recorded has
-      not run for 15 minutes); hooks_not_running reads only the course-folder hooks. A detector name Reach does not
+      implements signin_hook_not_running (an MCP call on a Codex harness when neither prompt hook that signs the
+      student in, the plugin's gate enroll or a course folder's gate prompt, has run since the latest Codex session
+      start, or neither ever ran, or with no session start recorded neither has run for 15 minutes); hooks_not_running
+      reads only the course-folder hooks. A detector name Reach does not
       implement is never detected; its entry is still listed.

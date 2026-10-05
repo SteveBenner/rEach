@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.11] - 2026-10-05
+
+### Fixed
+
+- 0.34.9 and 0.34.10 judged sign-in only by the plugin's prompt hook (`gate enroll`), but a course folder's prompt hook
+  (`gate prompt`) signs the student in too (`Reach::Login.claim`). A Codex student whose course-folder hooks ran and
+  whose plugin hook did not was told sign-in could not start. `Reach::KnownIssues.signin_hook_dead?` now counts the
+  latest of both stamps (`hooks_enroll_seen.json` at, `hooks_seen.json` prompt_at) against the session start.
+- A tool gate refusing a student who has not signed in (`Reach::Gate.require_login!`) still said `M-LOGIN-NEEDED`,
+  that rEach would ask for the ID and password in the chat, while no prompt hook was running. It now says
+  `M-LOGIN-NEEDED-NO-HOOK` in that state (`STD-SIGNIN-HOOK-SILENT`). Found by the 0.34.10 pre-push security audit.
+
+### Changed
+
+- Wire W-KI-4 (revision 2026-10-05a) says `signin_hook_not_running` fires only when neither sign-in prompt hook ran;
+  Teach's pinned copy changes with it.
+
 ## [0.34.10] - 2026-10-05
 
 ### Fixed
