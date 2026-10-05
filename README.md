@@ -75,8 +75,8 @@ hidden checks, signed receipts and instructors who answer.
 [`docs/architecture.md`](docs/architecture.md) has ten figures: trust boundaries, the enrollment handshake, the work
 lifecycle, the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong
 together, and a poster. Teach is private, so each one shows what it guarantees and never how.
-[`docs/deploy-and-test.md`](docs/deploy-and-test.md) has worked examples for running and testing rEach without a
-course server.
+[`docs/deploy-and-test.md`](docs/deploy-and-test.md) (in a clone only) has worked examples for running and testing
+rEach without a course server.
 
 The full design is in [`reach.spec.yml`](reach.spec.yml); every byte between
 Reach and Teach follows [`specs/wire.yml`](specs/wire.yml) (protocol 1).
@@ -339,7 +339,7 @@ reach doctor
 ## Smoke test
 
 The test and release tooling below lives in a clone only: `.gitattributes` keeps `tools/`, `specs/implementation/`,
-`.githooks/`, `.github/` and the smoke and deploy notes out of the archive a student's install and updates download.
+`.githooks/`, `.github/`, `.rproject/` and the smoke and deploy notes out of the archive a student's install and updates download.
 
 Before tagging a release that changes anything a student sees, run the sandboxed
 smoke test: real Claude sessions with rEach loaded, in Docker, with scripted and

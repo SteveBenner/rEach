@@ -166,6 +166,7 @@ module SecurityAuditGate
   def http(method, path, body = nil, key = nil)
     bearer = token
     return nil unless bearer
+    return nil unless teach_url.start_with?("https://", "http://")
 
     uri = URI.parse("#{teach_url}#{path}")
     last = nil

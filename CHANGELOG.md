@@ -10,14 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - A student's agent asked to use the instructors' local server port, after reading developer notes that came with
-  the rEach download (`STD-STUDENT-TREE`). `.gitattributes` now leaves `.githooks/`, `.github/`, `tools/`,
+  the rEach download (`STD-STUDENT-TREE`). `.gitattributes` now leaves `.githooks/`, `.github/`, `.rproject/`, `tools/`,
   `specs/implementation/`, `docs/smoke-assignment-1.md`, `docs/deploy-and-test.md` and figure 08 out of GitHub's
   archives, so a new install (`main.zip`) and every update (`refs/tags/vN.N.N.zip`) no longer carry them, and an
   update removes them from an existing install. For a marketplace added from the repository link, which clones the
   whole tree, no file outside this changelog names that port any more: the smoke runner reads it from the Teach
   source it builds, and the smoke notes and blueprints use a placeholder.
 - `tools/security_audit/gate.rb` reaches Teach at `config.yml` `teach.url` when `TEACH_URL` is unset, in place of a
-  local default.
+  local default, and sends nothing when that address is not an http(s) URL.
 
 ### Changed
 
