@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More name fields (`given_name`, `family_name`, `middle_name`, `preferred_name`, `legal_name`, `nickname`) are kept
   only as their length, like the other typed fields.
 - `PRIVACY.md` says the setup log holds folder and program names with the user folder's name taken out.
+- `scripts/reach-install.ps1` no longer drops one of two equal-length home folders from its path scrub
+  (`Select-Object -Unique` before sorting) and strips PEM blocks like the Ruby writers.
 
 ## [0.35.0] - 2026-10-05
 
