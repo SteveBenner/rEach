@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.1] - 2026-10-04
+
+### Fixed
+
+- The student's AI told them that rEach would never ask for their student ID and password, and rEach then asked for
+  both. The instruction rEach gives the AI said "never ask for either yourself", and the AI passed it on as a promise
+  from rEach. `M-LOGIN-NEEDED`, `M-ENR-AGENT-CONTEXT`, `M-ENR-AGENT-GUIDE`, `M-ENR-HERMES-GUIDE`, the assistant
+  persona (`agents/reach.md`, `skills/reach-assistant`) and `skills/reach-course` now say that rEach itself asks for
+  the student ID and the password in the chat, that the request is genuine, and that the AI must never tell the
+  student that rEach will not ask.
+
 ## [0.33.0] - 2026-10-04
 
 ### Changed
