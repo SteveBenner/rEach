@@ -367,7 +367,17 @@ module Reach
     end
 
     def relative_frames(error)
-      Array(error.backtrace).first(12).map { |frame| frame.to_s.sub(PLUGIN_ROOT + "/", "") }
+      homes = home_prefixes
+      Array(error.backtrace).first(12).map do |frame|
+        text = frame.to_s.sub(PLUGIN_ROOT + "/", "")
+        homes.each { |home| text = "~/#{text[home.length + 1..-1]}" if text.downcase.start_with?("#{home.downcase}/") }
+        text
+      end
+    end
+
+    def home_prefixes
+      list = [(Reach::Paths.user_home rescue nil), ENV["HOME"], ENV["USERPROFILE"]].compact.map { |home| home.to_s.tr("\\", "/").chomp("/") }
+      list.reject { |home| home.length < 3 }.uniq.sort_by { |home| -home.length }
     end
 
     def error(error, where = nil)

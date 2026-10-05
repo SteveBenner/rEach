@@ -71,6 +71,17 @@ module Reach
       ""
     end
 
+    def other_home_folder
+      return "" unless Reach::Paths.windows_host?
+
+      value = Reach::Paths.windows_slashes(ENV["HOME"])
+      return "" if value.empty? || value.casecmp(Reach::Paths.user_home.to_s).zero?
+
+      value
+    rescue StandardError
+      ""
+    end
+
     def home_folder
       Reach::Paths.user_home.to_s
     rescue StandardError
@@ -92,6 +103,8 @@ module Reach
       name.split(/\s+/).map { |part| part.gsub(/\A[^\p{L}\p{N}]+|[^\p{L}\p{N}]+\z/, "") }.uniq.each_with_index do |part, index|
         list << ["[[student-name-#{index + 1}]]", part]
       end
+      other = other_home_folder
+      list << ["[[home-folder-env]]", other] unless other.empty?
       list << ["[[computer-account]]", account_name]
       list << ["[[computer-name]]", computer_name]
       list.select { |_token, value| value.length >= MIN_LENGTH && value.bytesize <= MAX_VALUE_BYTES }
@@ -99,8 +112,9 @@ module Reach
 
     def surfaces(token, value)
       forms = [value]
-      if token == "[[home-folder]]"
+      if token.start_with?("[[home-folder")
         base = value.tr("\\", "/")
+        return [] if base =~ %r{\A(?:[A-Za-z]:)?/*\z}
         forms << base
         if base =~ %r{\A[A-Za-z]:/}
           back = base.tr("/", "\\")
