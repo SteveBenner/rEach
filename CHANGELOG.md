@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.9] - 2026-10-05
+
+### Fixed
+
+- A course folder's hook and MCP commands named the Ruby of whichever rEach process last wrote the folder. The
+  plugin hooks run the first `ruby` on PATH, while the CLI and the MCP server may run another, so rewrites could flip
+  the path. Since 0.35.6 every flip made Codex treat the course hooks as changed and skip them. A home move could also
+  leave a path into a kit that no longer exists. `Reach::Runtime.ruby_path` now returns the runtime kit installed in
+  the rEach home whenever there is one. If not, it uses the same kit id under the current home, and only then the
+  running Ruby.
+- At each session start, `reach hello` rewrites a course folder whose rEach-written commands name another Ruby or
+  shim, in `.codex/hooks.json`, `.codex/config.toml`, `.mcp.json` or `.claude/settings.json`. Codex trust is then
+  refreshed under the existing consent rules. A fault event records only the count (cause `stale_ruby_path`). Salvaged
+  from the unreleased `win-ruby-path` branch. Without a kit, two processes running different Rubies can still
+  alternate.
+
 ## [0.35.8] - 2026-10-05
 
 ### Fixed

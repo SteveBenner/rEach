@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.8 |
+| **Registry version** | 0.35.9 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1209,6 +1209,13 @@ top-level `bin/` (Cowork refuses a plugin that carries one).
 Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run).
 
 ### 10.3 · Codex
+
+Since 0.35.9 the Ruby in every command rEach writes into a course folder is the runtime kit installed in the rEach
+home whenever one exists, whichever Ruby wrote the folder, so Codex's approval of the course hooks no longer breaks
+when a different Ruby rewrites them. Each session start rewrites a course folder whose rEach commands name another
+Ruby or shim (for example, a kit left behind by a home move) and refreshes Codex's trust. Checked in a scratch home
+with codex 0.160.0 `app-server hooks/list` (modified, then trusted after the repair); the Windows quoted-command
+form is not yet run on Windows.
 
 Since 0.35.6 (`STD-CODEX-HOOK-TRUST`) the plugin's two Codex hooks carry the course session and prompt work, so
 sign-in, prompt recording and the course prompt rules no longer depend on a course folder's hooks, which Codex never
