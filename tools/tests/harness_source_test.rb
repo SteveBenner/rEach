@@ -48,11 +48,11 @@ class HarnessSourceCodexBinTest < Minitest::Test
   end
 
   def test_accepts_windows_path_spelling
-    ENV["CODEX_CLI_PATH"] = 'C:\Users\student\AppData\Local\OpenAI\Codex\bin\f544b3844e0f14e9\codex.exe'
+    ENV["CODEX_CLI_PATH"] = 'C:\Program Files\Codex\bin\0123456789abcdef\codex.exe'
     File.stub(:file?, true) do
       assert_equal ENV["CODEX_CLI_PATH"], Reach::HarnessSource.codex_bin
     end
-    ENV["CODEX_CLI_PATH"] = 'C:\Users\student\Downloads\payload.exe'
+    ENV["CODEX_CLI_PATH"] = 'C:\Temp\payload.exe'
     File.stub(:file?, true) do
       assert_nil Reach::HarnessSource.codex_bin
     end
