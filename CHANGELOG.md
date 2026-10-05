@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.12] - 2026-10-05
+
+### Changed
+
+- Wire W-KI-4 marks the both-prompt-hooks rule for `signin_hook_not_running` as revision 2026-10-05b, and
+  `STD-SIGNIN-HOOK-SILENT` now opens with the rule 0.34.11 implements (either prompt hook counts) instead of the
+  plugin-hook-only rule of 0.34.9. Documentation only; no behavior changes.
+
 ## [0.34.11] - 2026-10-05
 
 ### Fixed
@@ -19,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Wire W-KI-4 (revision 2026-10-05a) says `signin_hook_not_running` fires only when neither sign-in prompt hook ran;
+- Wire revision 2026-10-05b: W-KI-4 says `signin_hook_not_running` fires only when neither sign-in prompt hook ran;
   Teach's pinned copy changes with it.
 
 ## [0.34.10] - 2026-10-05
