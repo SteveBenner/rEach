@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.5 |
+| **Registry version** | 0.35.6 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1203,7 +1203,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run).
 
 ### 10.3 · Codex
 
-Since 0.35.5 (`STD-CODEX-HOOK-TRUST`) the plugin's two Codex hooks carry the course session and prompt work, so
+Since 0.35.6 (`STD-CODEX-HOOK-TRUST`) the plugin's two Codex hooks carry the course session and prompt work, so
 sign-in, prompt recording and the course prompt rules no longer depend on a course folder's hooks, which Codex never
 ran because it trusts each hook by the hash of its command. The course folder's `.codex/hooks.json` keeps only the
 tool and stop hooks, and under the student's Codex-settings consent rEach records Codex's trust for them and marks each
@@ -1213,7 +1213,7 @@ codex 0.160.0 `app-server hooks/list` in a scratch Codex home for the root, slic
 handlers trusted after the write); not yet run on a real Windows Codex, where Codex's own spelling of the hook path
 is unverified.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (a Windows Codex student has to sign in on 0.35.5).
+Build ✅ · Deploy 🔵 · Blocker: Human (a Windows Codex student has to sign in on 0.35.6).
 
 Since 0.33.4 a yes or no typed in a Codex chat to the Codex setup question is taken by the plugin's prompt hook
 (`gate enroll`), not only by a course folder's prompt hook, which Codex does not run until the folder and the hook

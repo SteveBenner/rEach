@@ -5,7 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.6] - 2026-10-05
+
+### Fixed
+
+- rEach approves a course folder's Codex hooks only when the file is exactly what rEach writes for that folder.
+  Before, any command that merely began with rEach's own command was approved, so extra text added to the file
+  would have been approved too. Found by the release security audit of 0.35.5.
+- A yes to Codex's settings given before this release no longer approves hooks or course folders. That yes covered
+  less, so rEach asks again, naming hook approval. Only a yes recorded with the `hook-trust-1` scope lets rEach write
+  Codex hook trust. The sandbox settings keep healing under the earlier yes. Found by the same audit.
+- `specs/wire.yml` `W-KI-4` lists the `codex_hooks_untrusted` detector (since 2026-10-05d).
+
 ## [0.35.5] - 2026-10-05
+
+Not released: the release security audit found the two problems fixed in 0.35.6. Its changes ship in 0.35.6.
 
 ### Fixed
 
