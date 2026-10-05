@@ -397,14 +397,7 @@ module PlatformSmoke
     def hook_codex_step
       @codex_command = hook_command("codex.json", "PLUGIN_ROOT", "UserPromptSubmit")
       code, out, err = run_hook(@codex_command, prompt_payload)
-      block = begin
-        JSON.parse(out)
-      rescue StandardError
-        nil
-      end
-      if code == 0 && block.is_a?(Hash) && block["decision"] == "block" && !block["reason"].to_s.strip.empty?
-        return [:pass, "blocked with exit 0 and a JSON block on stdout"]
-      end
+      return [:pass, "blocked with exit 0 and a JSON block on stdout"] if codex_block_reason(code, out)
 
       [:fail, "expected exit 0 with {\"decision\":\"block\",\"reason\":...} on stdout, got exit #{code.inspect}: #{tail(out, err)}"]
     end
@@ -619,14 +612,23 @@ RUBY
       run_hook(@codex_command, payload)
     end
 
+    def codex_block_reason(code, out)
+      return nil unless code == 0
+
+      block = JSON.parse(out)
+      block.is_a?(Hash) && block["decision"] == "block" && !block["reason"].to_s.strip.empty? ? block["reason"] : nil
+    rescue StandardError
+      nil
+    end
+
     def hook_prompt_open_step
       session = "platform-smoke-codex"
       [["t1", "hello", "student ID"], ["t2", STUDENT_ID, STUDENT_NAME], ["t3", "yes", "password"], ["t4", "not-the-password", "isn't your rEach password"], ["t5", TEST_PASSWORD, "signed in"]].each do |turn, prompt, expected|
         code, out, err = codex_turn(session, turn, prompt)
-        return [:fail, "codex #{turn}: expected a block naming #{expected.inspect}, got exit #{code.inspect}: #{tail(out, err)}"] unless blocked?(code, out, err) && err.include?(expected)
+        return [:fail, "codex #{turn}: expected a block naming #{expected.inspect}, got exit #{code.inspect}: #{tail(out, err)}"] unless codex_block_reason(code, out).to_s.include?(expected)
       end
       code, out, err = codex_turn(session, "t5", TEST_PASSWORD)
-      return [:fail, "codex t5 answered twice: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0 && err.strip.empty?
+      return [:fail, "codex t5 answered twice: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0 && err.strip.empty? && codex_block_reason(code, out).nil?
 
       code, out, err = codex_turn(session, "t6", "hello")
       return [:fail, "codex t6: exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
