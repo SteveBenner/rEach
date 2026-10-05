@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.21] - 2026-10-05
+
+### Added
+
+- `tools/tests/harness_source_test.rb` and `tools/tests/release_stable_test.rb` (Minitest, run each with `ruby`),
+  for the 0.35.20 security audit's test finding: `codex_bin` accepts `codex` and `codex.exe` in any case and with a
+  Windows path, and rejects other names, a missing file, a folder and an empty value; `tools/release_stable.rb`
+  refuses a tag that is not Latest, a non-fast-forward move and a malformed tag, reports a dry run without pushing,
+  and moves `stable` against a scratch bare origin. Both fail on the code they replace.
+
+### Fixed
+
+- `tools/release_stable.rb` failed with `couldn't find remote ref refs/heads/stable` when the remote had no `stable`
+  branch, because it fetched that branch unconditionally; it now fetches it only when it exists and creates it.
+
 ## [0.35.20] - 2026-10-05
 
 ### Added

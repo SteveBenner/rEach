@@ -57,11 +57,13 @@ module ReleaseStable
     latest = latest_tag(name)
     raise "#{tag} is not the Latest release of #{name} (Latest is #{latest}); stable moves only to the Latest release" unless latest == tag
 
-    run_command("git", "fetch", "--quiet", "origin", "refs/tags/#{tag}:refs/tags/#{tag}", "refs/heads/#{BRANCH}:refs/remotes/origin/#{BRANCH}")
+    current = remote_sha("refs/heads/#{BRANCH}")
+    refspecs = ["refs/tags/#{tag}:refs/tags/#{tag}"]
+    refspecs << "refs/heads/#{BRANCH}:refs/remotes/origin/#{BRANCH}" if current
+    run_command("git", "fetch", "--quiet", "origin", *refspecs)
     target = run_command("git", "rev-parse", "#{tag}^{commit}")
     raise "the remote tag #{tag} is not #{target}" unless remote_sha("refs/tags/#{tag}^{}") == target || remote_sha("refs/tags/#{tag}") == target
 
-    current = remote_sha("refs/heads/#{BRANCH}")
     if current == target
       puts "#{BRANCH} already at #{tag} (#{target[0, 12]})"
       return 0

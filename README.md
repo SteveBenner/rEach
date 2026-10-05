@@ -361,6 +361,17 @@ model-played students. See [`tools/smoke/README.md`](tools/smoke/README.md).
 ruby tools/smoke/run.rb
 ```
 
+## Unit tests
+
+`tools/tests/` holds Minitest files for `Reach::HarnessSource.codex_bin` (the `CODEX_CLI_PATH` name check) and
+`tools/release_stable.rb` (Latest-only, fast-forward-only moves of `stable`, against a scratch bare origin). Each runs
+on its own:
+
+```
+ruby tools/tests/harness_source_test.rb
+ruby tools/tests/release_stable_test.rb
+```
+
 ## Platform smoke
 
 `tools/platform_smoke/run.rb` installs Reach from this checkout and runs its commands and hook command lines

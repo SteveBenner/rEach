@@ -1,6 +1,6 @@
 {
   "name": "reach",
-  "version": "0.35.20",
+  "version": "0.35.21",
   "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
   "author": {
     "name": "PatḗrasAI"
