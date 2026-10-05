@@ -474,7 +474,8 @@ module SecurityAuditGate
     errors << "roster unavailable" if roster_on && SecurityAuditScan.roster_index(roster).nil?
     scan_findings = SecurityAuditScan.run(ROOT, base, diff, roster, roster_on)
 
-    audit_result = audit(settings, base, commit, scan_findings, diff[:raw])
+    scan_blocks = settings["mode"] == "gate" && scan_findings.any? { |f| BLOCKING[settings["block_at"]].include?(f["severity"]) }
+    audit_result = scan_blocks ? { summary: "Audit not run: the deterministic scan already blocks this release." } : audit(settings, base, commit, scan_findings, diff[:raw])
     cost = audit_result[:cost].to_f
     errors << audit_result[:error] if audit_result[:error]
     audit_findings = audit_result[:findings] || []
