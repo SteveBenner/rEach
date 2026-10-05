@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.13] - 2026-10-05
+
+### Security
+
+- An instructor code pasted on an enrolled student's computer was stored there in full. The code never expires, so
+  anyone at that computer could later sign any chat in without the password, get past any enrollment lock (a revoked
+  or ended course included), and reach the instructor persona and diagnose commands, until someone ran
+  `reach instructor lock`. This shipped in 0.35.12, which carried 0.35.11's unlock. Now, on an enrolled install, a
+  valid code is verified and never stored: no `~/.reach/instructor.json` and no `instructor.unlocked` entry. It signs
+  that one chat in, clears the sign-in and enrollment lockouts, and grants that chat a pass in
+  `<root>/state/instructor_passes.json` (0600). The pass holds the session id, code id, key id and expiry, never the code. It
+  lets that chat through every enrollment lock until the normal sign-in expiry. Each read re-checks it, so revoking
+  the code or removing its key voids it. Other chats, the MCP tools and terminal commands get no bypass, and
+  `M-INSTRUCTOR-SIGNED-IN` now says the code works for this chat only. On a computer that is not enrolled the code
+  still switches on instructor mode as before (`STD-INSTRUCTOR-UNLOCK`).
+- `reach instructor unlock` no longer takes the code as an argument, where it stayed in the shell history and the
+  process list. With an argument it refuses (`M-INSTRUCTOR-UNLOCK-NO-ARG`); with none it reads the code with typing hidden.
+
 ## [0.35.12] - 2026-10-05
 
 ### Fixed
@@ -20,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `reach doctor --report` still shows the failing stage (`STD-CRYPTO-FALLBACK`). No wire change.
 
 ## [0.35.11] - 2026-10-05
+
+Not released on its own; first released in 0.35.12. The release security audit found that it stored the
+instructor code on enrolled installs, which 0.35.13 fixes.
 
 ### Fixed
 

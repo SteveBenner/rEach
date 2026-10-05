@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.35.12 |
+| **Registry version** | 0.35.13 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -513,12 +513,17 @@ Since 0.16.17 an instructor can lift the enrollment lock on one install. `reach 
 
 Since 0.35.11 a valid code typed at any prompt, in any sign-in, lockout or enrollment-lock state, is never judged as an
 answer or counted. On an enrolled install it signs that chat in as the enrolled student and clears the sign-in and
-enrollment lockouts (`M-INSTRUCTOR-SIGNED-IN`); a new chat signs in as usual. `reach instructor unlock [CODE]` does the
+enrollment lockouts (`M-INSTRUCTOR-SIGNED-IN`); a new chat signs in as usual. Since 0.35.13 that code is never stored
+on an enrolled install: the chat gets a pass (`instructor_passes.json`, no code) that lets it through every enrollment
+lock until the sign-in expiry, and revoking the code or removing its key voids it. `reach instructor unlock` (no
+argument; the code is read hidden) does the
 same from a terminal for the chat waiting to sign in, so it works when no hook runs. When an instructor allows a
 password reset in Teach, a locked-out student's next message lifts the lockout. Only a chat that already passed the
 student ID and yes goes straight to the new password. Verified in a scratch home against the fixture Teach with a
 scratch pinned key, in every sign-in state, with both prompt hooks firing for one prompt (exactly one answers); not
-yet run in a real harness session.
+yet run in a real harness session. The 0.35.13 pass was verified the same way: no stored code, every sign-in state,
+the revoked, stamp-invalid, moved and course-ended locks lifted for that chat only, revocation and key removal voiding
+the pass, the command-line argument refused, and a non-enrolled install unchanged.
 
 Build ✅ · Deploy 🔵 · Blocker: Human. Since 0.16.18 the instructor key `343572ebf748c69d` is pinned in `config.yml`, so codes minted from it unlock installs on 0.16.18 or later; no instructor has yet unlocked a real harness session with one.
 
