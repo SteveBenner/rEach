@@ -354,8 +354,13 @@ module Reach
         data = Reach::Login.read_json(path)
         next false unless data.is_a?(Hash) && DROPPED_FIELDS.any? { |key| data.key?(key) }
 
-        Reach::Login.write_json(path, data.reject { |key, _| DROPPED_FIELDS.include?(key) })
         payload = data["payload"].is_a?(Hash) ? data["payload"] : {}
+        begin
+          Reach::Login.write_json(path, data.reject { |key, _| DROPPED_FIELDS.include?(key) })
+        rescue StandardError => e
+          log("instructor.backup_scrub_failed", "code_id" => payload["id"], "key_id" => payload["key_id"], "file" => File.basename(path), "error" => e.class.name)
+          next false
+        end
         log("instructor.backup_scrubbed", "code_id" => payload["id"], "key_id" => payload["key_id"])
         true
       end

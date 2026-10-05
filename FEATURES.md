@@ -529,7 +529,7 @@ unsigned, edited, dated ahead or longer than a sign-in. The seal stops other pro
 at that computer, who can read the install key. 0.35.14 also removes a code that 0.35.12 stored on an enrolled
 install at the next session start, and neither that removal nor `reach instructor lock` keeps the code in its backup. Since 0.35.15 each session start on an install enrolled as a student also strips the code
 from backups that `lock` made before 0.35.14 and logs `instructor.backup_scrubbed`. Verified in scratch homes: a coded
-backup scrubbed once and kept at 0600, a second run changing nothing, a code-free backup and other files untouched,
+backup scrubbed once and kept at 0600, a second run changing nothing, a code-free backup and other files untouched, an unwritable backup logged as failed while the next one was still scrubbed,
 and a non-enrolled install's backups left as they were.
 Checked in scratch homes before commit: hand-edited passes refused, a stored code removed, `lock` keeping no code, and a
 non-enrolled install unchanged; not yet run in a real harness session.
