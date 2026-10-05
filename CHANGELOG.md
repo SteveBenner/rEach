@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.2] - 2026-10-05
+
+### Removed
+
+- Build blueprints (`specs/implementation/`) and the course-alignment design draft
+  (`docs/course-alignment-design.md`) are no longer kept in this public repository (`STD-TEACH-OPAQUE`); they live
+  with the maintainer's private material. `.rproject/` work notes are no longer tracked.
+- `config.yml` `rstack.backup` lists no mirrors: the maintainer's own backup locations no longer ship to students.
+
+### Changed
+
+- Text that described the course server's internals or the maintainer's computer is reworded in `TODO.md`,
+  `CHANGELOG.md`, the smoke notes, the known-answer fixture notes, the security audit installer and the vendored
+  skill's provenance. The repository's history, every tag and branch, was rewritten the same day to remove the same
+  material from every earlier commit, and the GitHub release notes were redacted to match.
+
 ## [0.34.1] - 2026-10-05
 
 ### Fixed
@@ -1264,7 +1280,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path repaired it and added the note, the hook path and a machine without Codex did not.
 - `tools/smoke/assignment_one.rb` no longer defaults to a `/tmp/teach-a1` that does not exist. Without
   `--teach-dir`/`SMOKE_TEACH_DIR` it exports the committed `HEAD` of `SMOKE_TEACH_REPO` (default
-  `~/src/teach`) into the run directory, so a dirty Teach checkout never reaches the run.
+  a sibling `teach` checkout) into the run directory, so a dirty Teach checkout never reaches the run.
 
 ## [0.16.23] - 2026-10-02
 

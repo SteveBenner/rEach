@@ -31,15 +31,15 @@ ruby tools/smoke/assignment_one.rb --public
 ```
 
 Environment overrides: `SMOKE_TEACH_DIR` (default `/tmp/teach-a1`), `SMOKE_GROKIT_ROOT`
-(default `~/src/grokit`), `SMOKE_DOVETAIL_ROOT`
-(default `~/src/dovetail`), `SMOKE_RUBY4_BIN` (default
+(default a sibling `grokit` checkout), `SMOKE_DOVETAIL_ROOT`
+(default a sibling `dovetail` checkout), `SMOKE_RUBY4_BIN` (default
 `~/.rubies/ruby-4.0.6/bin`), `SMOKE_TEACH_BUNDLE` (the gem path for a Teach checkout with no
 gems of its own), `SMOKE_RUN_DIR`, `SMOKE_GRADER_TIMEOUT` (seconds, default 900).
 
 Isolation: every run gets its own `REACH_HOME`, `REACH_WORKSPACE_ROOT`, Teach home,
 `CODEX_HOME` and a student `HOME` under the run directory (default
 `~/.cache/reach-smoke/a1/<timestamp>/`). The runner refuses a run directory inside the
-real `~/.reach` or `<Teach home>`. Teach runs as the real Ruby 4.0.6 process on a free
+real `~/.reach` or the instructor's real Teach home. Teach runs as the real Ruby 4.0.6 process on a free
 loopback port and is stopped by its recorded PID.
 
 The enrollment code is written only to `private/codes.json` (mode 0600) in the run

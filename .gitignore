@@ -8,3 +8,6 @@ ai-brain/
 .specstory/
 
 docs/assets/figures/png/
+.rproject/
+TOKENS.jsonl
+TMP_AGENT_FILE_LOCKS.yml

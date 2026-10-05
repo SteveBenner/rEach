@@ -76,15 +76,7 @@ rstack:
     policy:
       copies: 3
       off_disk_copies: 2
-    mirrors:
-    - name: pcloud
-      require_mount: "~/CloudDrive"
-      encrypt: true
-      path: "~/CloudDrive/corpora/rstack-plugins/reach-mirror"
-    - name: backup-drive
-      require_mount: "/run/media/${USER}/BACKUP-DRIVE"
-      encrypt: true
-      path: "/run/media/${USER}/BACKUP-DRIVE/corpora/rstack-plugins/reach-mirror"
+    mirrors: []
 submit:
   archive_max_mb: 256
 live:

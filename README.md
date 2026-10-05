@@ -338,8 +338,8 @@ reach doctor
 
 ## Smoke test
 
-The test and release tooling below lives in a clone only: `.gitattributes` keeps `tools/`, `specs/implementation/`,
-`.githooks/`, `.github/`, `.rproject/` and the smoke and deploy notes out of the archive a student's install and updates download.
+The test and release tooling below lives in a clone only: `.gitattributes` keeps `tools/`,
+`.githooks/`, `.github/` and the smoke and deploy notes out of the archive a student's install and updates download.
 
 Before tagging a release that changes anything a student sees, run the sandboxed
 smoke test: real Claude sessions with rEach loaded, in Docker, with scripted and
