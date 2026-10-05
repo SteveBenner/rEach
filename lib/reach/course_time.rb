@@ -3,13 +3,18 @@ require "date"
 
 module Reach
   module CourseTime
-    DEFAULT_ZONE = "America/Los_Angeles"
+    DEFAULT_ZONE = "UTC"
+    PACIFIC_ZONE = "America/Los_Angeles"
 
     class << self
       def zone
         install = Reach::Enroll.current
         tz = install && install["course"] && install["course"]["timezone"]
         return tz if tz && !tz.to_s.empty?
+
+        packaged = Reach::Guardrails.load["course"]
+        packaged_tz = packaged.is_a?(Hash) ? packaged["timezone"] : nil
+        return packaged_tz if packaged_tz && !packaged_tz.to_s.empty?
 
         config = Reach::Runtime.load_config
         config_tz = config.is_a?(Hash) && config["course"].is_a?(Hash) ? config["course"]["timezone"] : nil
@@ -39,7 +44,8 @@ module Reach
       def stamp(instant, zone: nil)
         moment = instant.is_a?(Time) ? instant : Time.parse(instant.to_s)
         zone_name = zone || self.zone
-        return stamp_pacific(moment) if zone_name == DEFAULT_ZONE
+        return stamp_pacific(moment) if zone_name == PACIFIC_ZONE
+        return "#{moment.getutc.strftime("%Y-%m-%d-%H%M")}-UTC" if zone_name == DEFAULT_ZONE
 
         stamp_other(moment, zone_name)
       end
@@ -72,8 +78,10 @@ module Reach
       end
 
       def format_instant(instant, zone_name)
-        if zone_name == DEFAULT_ZONE
+        if zone_name == PACIFIC_ZONE
           format_pacific(instant)
+        elsif zone_name == DEFAULT_ZONE
+          "#{instant.getutc.strftime("%a %-d %b %-l:%M %P")} UTC"
         else
           format_other(instant, zone_name)
         end

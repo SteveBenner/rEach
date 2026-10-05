@@ -118,11 +118,11 @@ module Reach
         if archive
           case archive["state"]
           when "saved"
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"], lms: Reach::Archive.lms_name)
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"], credit: Reach::Archive.credit("M-LMS-UPLOAD-ZIP"))
           when "skipped"
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED", lms: Reach::Archive.lms_name)
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED", credit: Reach::Archive.credit("M-LMS-UPLOAD-WORK"))
           else
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED", lms: Reach::Archive.lms_name)
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED", credit: Reach::Archive.credit("M-LMS-UPLOAD-WORK"))
           end
         end
         due = result["due"].to_s.empty? ? nil : Reach::Messages.course_time(result["due"])
@@ -399,7 +399,7 @@ module Reach
                 else
                   Reach::Messages.text("M-SUBMIT-ASK-LATE", due: Reach::Messages.course_time(due))
                 end
-        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again, lms: Reach::Archive.lms_name }
+        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again, credit: Reach::Archive.credit("M-LMS-UPLOAD-THAT") }
       end
 
       def approve!(workspace, meta)

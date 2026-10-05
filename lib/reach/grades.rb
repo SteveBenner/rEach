@@ -101,7 +101,7 @@ module Reach
     def render(answer, header_id)
       lines = [Reach::Messages.text(header_id, as_of: Reach::Messages.course_time(answer["as_of"]))]
       lines.concat(lines_for(answer).map { |line| "  #{line}" })
-      lines << Reach::Messages.text("M-GRADES-NOTE", lms: Reach::Archive.lms_name)
+      lines << Reach::Messages.text("M-GRADES-NOTE", record: Reach::Archive.grade_record)
       lines.join("\n")
     end
 
@@ -114,7 +114,7 @@ module Reach
     def unavailable
       {
         "state" => "unavailable", "available" => false, "grades" => [], "total" => nil, "as_of" => nil,
-        "text" => Reach::Messages.text("M-GRADES-UNAVAILABLE", lms: Reach::Archive.lms_name)
+        "text" => Reach::Messages.text("M-GRADES-UNAVAILABLE", record: Reach::Archive.grade_record)
       }
     end
 

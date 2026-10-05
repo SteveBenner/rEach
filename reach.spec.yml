@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.32.2
+version: 0.33.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -66,8 +66,8 @@ decisions:
 - date: '2026-09-28'
   decision: >-
     Course times are course times: due dates and receipt times are shown in the course's timezone with its PDT/PST
-    label, whatever zone the student's computer is in. BUS 101 and BUS 201 run on America/Los_Angeles, which is also
-    the default when Teach sends no zone (course_time).
+    label, whatever zone the student's computer is in. Since 0.33.0 the zone comes only from Teach; with none, times
+    are shown in UTC and labeled UTC (course_time).
 - date: '2026-09-28'
   decision: >-
     Releases that change what a student sees are smoke-tested first with tools/smoke: real Claude sessions in a Docker
@@ -834,14 +834,14 @@ submission:
     workspace still exists. Nothing about the copy is sent to Teach. Since 0.19.0 (STD-SUBMIT-ARCHIVE) the submit ask
     (M-SUBMIT-ASK) and every answer after an ingest (M-SUBMIT-ARCHIVED, M-SUBMIT-ARCHIVE-SKIPPED,
     M-SUBMIT-ARCHIVE-FAILED) say the ZIP is or will be in Downloads and that the student must also upload it to the
-    learning system named by config.yml submit.lms_name (default Blackboard) to receive credit; a skipped or failed
-    copy names reach submit archive. Reach::Archive.claim_zip is the shared claim-and-rename step and Reach::Archive.lms_name reads the setting.
+    learning system the course profile names (STD-COURSE-PROFILE, since 0.33.0) when the course requires that upload; a skipped or failed
+    copy names reach submit archive. Reach::Archive.claim_zip is the shared claim-and-rename step and Reach::Archive.lms_name reads the name and Reach::Archive.credit adds the sentence.
   archive_again: >-
     Since 0.19.0 reach submit archive [--assignment A] (and reach_submit with archive true and optional assignment)
     runs Reach::Submit.archive_again: it needs a stored ingest receipt for the assignment (default the current
     workspace's, else the only one with a submission), refuses with M-SUBMIT-ARCHIVE-NONE or M-SUBMIT-ARCHIVE-WHICH
     otherwise, writes the ZIP with Reach::Archive.write! from a workspace of that assignment, and answers with the
-    same followup text as a submission, Blackboard reminder included.
+    same followup text as a submission, upload reminder included when the course requires it.
   retries:
     policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
     never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason.
@@ -1957,6 +1957,17 @@ announcements:
   tool: reach_announcements
   messages: M-ANNOUNCE-NOTICE, M-ANNOUNCE-LINE, M-ANNOUNCE-NONE, M-DUE-CHANGED
   switches: config.yml announcements.show (default true)
+course_profile:
+  standard: STD-COURSE-PROFILE (specs/app.yml)
+  since: 0.33.0
+  wire: W-POL-2, W-API-ENROLL-PREVIEW hints, revision 2026-10-04j
+  summary: >-
+    Reach::CourseProfile reads the profile section of the guardrails package's course.yml. It supplies the learning
+    system's name and the upload rule, the enrollment hints, and the wellbeing phrases and support text. With no
+    profile Reach names no learning system, asks for the school email and student ID in plain words, shows times in
+    UTC when no zone is known, and keeps its built-in crisis phrases and support message.
+  messages: M-LMS-UPLOAD-ZIP, M-LMS-UPLOAD-THAT, M-LMS-UPLOAD-WORK, M-LMS-RECORD, M-ENR-SCHOOL, M-ENR-EMAIL-DOMAIN
+  not_read_yet: terms, slices
 student_messages:
   principle: >-
     Every message a student sees is one or two plain sentences, says what happened and what to do next, and uses
@@ -2636,8 +2647,8 @@ course_time:
     written in the course's timezone with its abbreviation, e.g. "Sat 3 Oct 11:59 pm PDT" and "Sat 14 Nov 11:59 pm
     PST", whatever zone the student's computer is set to, because the syllabus and Teach's deadline use course time.
   zone: >-
-    install.yml course.timezone from Teach's enrollment; config.yml course.timezone when Teach sends none; otherwise
-    America/Los_Angeles, the zone BUS 101 and BUS 201 run on.
+    install.yml course.timezone from Teach's enrollment; then the guardrails package's course.yml timezone; then a
+    local config.yml course.timezone; otherwise UTC, labeled UTC (since 0.33.0).
   computation: >-
     America/Los_Angeles uses built-in US daylight-time rules (PDT from 2:00 am on the second Sunday of March to 2:00 am
     on the first Sunday of November, PST otherwise), so it is right on macOS, Linux and Windows alike. Any other zone
@@ -2907,7 +2918,7 @@ grade_view:
   fetch: >-
     Reach::Grades.fetch GETs /api/v1/grades through Reach::Client (its token bucket, timeouts, retries and breaker),
     keeps only the last answer in state grades.json, and renders each assignment's points and points_possible and the
-    total (M-GRADES-*), with the course grade of record named as in config.yml submit.lms_name. 404 and 403
+    total (M-GRADES-*), with the course grade of record named when the course profile names a learning system. 404 and 403
     grades_disabled forget the stored answer and answer M-GRADES-UNAVAILABLE; a network failure shows the stored answer
     labelled with its as_of (M-GRADES-OFFLINE-LAST) or M-GRADES-OFFLINE. Points are never derived from receipts.
 smoke_test:

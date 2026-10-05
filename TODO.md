@@ -1,5 +1,16 @@
 # TODO
 
+## Course content out of the repository (0.33.0, wire revision 2026-10-04j)
+
+- [ ] Read the profile's `terms` and `slices`: the message catalogue still says slice, cutout, module and panel,
+      and `directives.rb`, `hands.rb` and `policy.rb` still list `backend panel verification`.
+- [ ] The skills, the agent file and `mcp_bridge.rb` still carry course teaching rules, private directive names and
+      one learning system's name in places; they are to keep mechanics only.
+- [ ] `check.rb`'s rule tables, the AGENTS.md wrapper text, and the `dovetail`, `qualify` and `ruby` directives are
+      to arrive from the course server; the Dovetail submodule is to go.
+- [ ] Specs, docs, the setup guide, fixtures and figures still name a real course; replace with a demo course.
+- [ ] An instructor key trusted on first contact where none is pinned; the pinned key stays for existing installs.
+
 ## Announcements and course updates (0.30.0, wire revision 2026-10-04g)
 
 - [ ] See an announcement arrive in a real harness session on macOS and Windows; only Linux with Ruby 4.0 ran,

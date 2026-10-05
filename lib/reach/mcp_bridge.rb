@@ -61,7 +61,7 @@ module Reach
       },
       {
         "name" => "reach_raise_hand",
-        "description" => "Raise a hand with a summary. Pick the closest type for the student's request (access_issue covers accounts and Blackboard, grade_question grades, extension_request more time) and student_request when none fits",
+        "description" => "Raise a hand with a summary. Pick the closest type for the student's request (access_issue covers accounts and the course's learning system, grade_question grades, extension_request more time) and student_request when none fits",
         "inputSchema" => {
           "type" => "object",
           "properties" => {

@@ -250,7 +250,8 @@ packages:
       course.yml: >-
         YAML map {id, title, term, timezone, current_assignment: {id, due}, interview: {course_question}}. Since
         protocol 1 revision 2026-09-30b it also carries the course policy (W-POL-1): login, limits, support,
-        student_part and module_selection. A Reach older than that revision ignores the extra keys.
+        student_part and module_selection. A Reach older than that revision ignores the extra keys. Since
+        revision 2026-10-04j it also carries profile, the course profile (W-POL-2), or null when the course has none.
         interview.course_question is teach.spec.yml course_model.interview.course_question, or null when absent.
       tips.yml: >-
         YAML list of {cutout_id, text}, one per string in each of the student's cutouts' "tips" list. Absent since
@@ -606,6 +607,7 @@ routes:
       course: {id: string, title: string, term: string, ends_on: "YYYY-MM-DD or null"}
       expires_at: "W-CONV-3 timestamp, the end of the course's last day in the course timezone"
       identity: "{institution_name, username_domain, username_pattern, student_id_pattern}, the W-ENR-3 rules Teach enforces for this course"
+      hints: "since 2026-10-04j, optional: {email, student_id}, one sentence each that says how the value looks at this institution (W-POL-2); absent when the course has none"
     errors: {400 course_code_unknown: "as W-API-ENROLL", 400 course_code_expired: "as W-API-ENROLL", 429 rate_limited: "too many attempts"}
     notes: >-
       Since revision 2026-10-01b. Reveals only what the class-wide code already reveals to anyone who holds it: the
@@ -2075,6 +2077,22 @@ alignment:
       support: "{text: string, the course's own support line appended to W-SUP-1}"
       student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
       module_selection: "{mode: instructor | student_choice, count (2), options: [{id, title}], opens_at, closes_at, capacity_per_module (null), slices: [slice kinds each chosen module gets, default [backend, panel]]}"
+  W-POL-2:
+    name: course profile
+    since: 2026-10-04j
+    rule: >-
+      The words and course facts Reach shows a student that belong to one course, not to Reach. Teach writes them
+      into the guardrails package's course.yml under profile, per course, and Reach reads them from the verified
+      guardrails package only. Reach's repository carries none of them. Every section is optional and a course may
+      send none; Reach then uses the neutral behavior named beside each key. Reach refuses nothing because a section
+      is missing. A changed profile makes Teach rebuild the install's guardrails package, so the next reach sync
+      carries it.
+    keys:
+      submission: "{lms_name: the name of the learning system that holds the grade of record, at most 40 characters; lms_upload_required: boolean, whether the student must also upload the submission ZIP there to receive credit}. Without lms_name Reach names no learning system and says nothing about an upload"
+      terms: "{slice, cutout, module, panel: {one, many}}, the course's own words for these parts, at most 40 characters each. Reach does not read them yet"
+      slices: "[slice names] the course uses, at most 12, each a lowercase identifier. Reach does not read them yet"
+      hints: "{email, student_id}, as W-API-ENROLL-PREVIEW answers them, at most 240 characters each. Without a hint Reach asks for the school email and the student ID in plain words"
+      wellbeing: "{phrases: [text a student might type that means they may be in crisis, at most 64], support_text: the course's own support message, at most 2000 characters}. Without phrases Reach uses its built-in list; without support_text it shows its built-in message (W-SUP-1). Crisis detection is never switched off by a missing or empty section"
   W-CONSENT-1:
     name: consent record
     rule: >-

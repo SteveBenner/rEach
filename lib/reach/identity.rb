@@ -7,15 +7,33 @@ module Reach
 
     module_function
 
-    def rules(preview_identity = nil)
-      configured = Reach::Runtime.load_config["enrollment"]
-      configured = {} unless configured.is_a?(Hash)
+    def rules(preview_identity = nil, preview_hints = nil)
       given = preview_identity.is_a?(Hash) ? preview_identity : {}
-      RULE_KEYS.each_with_object({}) do |key, memo|
-        value = given[key].to_s.strip
-        value = configured[key].to_s.strip if value.empty?
-        memo[key] = value
-      end
+      found = RULE_KEYS.each_with_object({}) { |key, memo| memo[key] = given[key].to_s.strip }
+      hints = preview_hints.is_a?(Hash) ? preview_hints : {}
+      found["email_hint"] = hints["email"].to_s.strip
+      found["student_id_hint"] = hints["student_id"].to_s.strip
+      found
+    end
+
+    def institution(rules)
+      name = rules.is_a?(Hash) ? rules["institution_name"].to_s.strip : ""
+      name.empty? ? Reach::Messages.text("M-ENR-SCHOOL") : name
+    end
+
+    def email_hint(rules)
+      return "" unless rules.is_a?(Hash)
+
+      hint = rules["email_hint"].to_s.strip
+      return " #{hint}" unless hint.empty?
+
+      domain = rules["username_domain"].to_s.strip
+      domain.empty? ? "" : " #{Reach::Messages.text("M-ENR-EMAIL-DOMAIN", domain: domain)}"
+    end
+
+    def id_hint(rules)
+      hint = rules.is_a?(Hash) ? rules["student_id_hint"].to_s.strip : ""
+      hint.empty? ? "" : " #{hint}"
     end
 
     def normalize_course_id(text)
@@ -53,12 +71,15 @@ module Reach
       return nil if value.empty? || value.count("@") > 1
 
       domain = rules["username_domain"].to_s.downcase
-      value = "#{value}@#{domain}" unless value.include?("@")
+      value = "#{value}@#{domain}" unless value.include?("@") || domain.empty?
       local, host = value.split("@", 2)
-      return nil unless host == domain && !local.to_s.empty?
+      return nil if local.to_s.empty? || host.to_s.empty? || value.match?(/\s/)
+      return nil unless domain.empty? || host == domain
 
-      pattern = Regexp.new(rules["username_pattern"].to_s)
-      local =~ pattern ? value : nil
+      pattern = rules["username_pattern"].to_s
+      return value if pattern.empty?
+
+      local =~ Regexp.new(pattern) ? value : nil
     rescue RegexpError
       nil
     end
@@ -67,9 +88,12 @@ module Reach
       return nil unless text.is_a?(String)
 
       value = text.gsub(/[\s-]/, "")
-      return nil if value.empty?
+      return nil if value.empty? || value.length > TEXT_MAX
 
-      value =~ Regexp.new(rules["student_id_pattern"].to_s) ? value : nil
+      pattern = rules["student_id_pattern"].to_s
+      return value if pattern.empty?
+
+      value =~ Regexp.new(pattern) ? value : nil
     rescue RegexpError
       nil
     end

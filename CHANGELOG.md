@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 2026-10-04
+
+### Changed
+- rEach takes the facts of one course from that course, not from this repository (`STD-COURSE-PROFILE`, wire
+  revision 2026-10-04j). The learning system's name and the upload-for-credit rule, the hints for the school email
+  and student ID, and the wellbeing phrases and support message now come from the course profile in the guardrails
+  package. A course that sends them reads as before.
+- With no profile, rEach names no learning system and adds no upload sentence, asks for "your school email" and
+  "your student ID" in plain words and leaves the checking to the course server, and shows times in UTC, labeled
+  UTC, when no time zone is known.
+- The passkey example in the enrollment messages names no course.
+
+### Removed
+- The institution name, email domain, username and student-ID patterns, the default time zone and the learning
+  system's name are gone from the shipped `config.yml` and from the code. A local `config.yml` may still set
+  `course.timezone` or `submit.lms_name`.
+
 ## [0.32.2] - 2026-10-04
 
 ### Fixed

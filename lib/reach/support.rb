@@ -82,7 +82,8 @@ module Reach
       end
 
       def message(told:)
-        base = Reach::Messages.text("M-SUPPORT", support_text: support_text)
+        own = Reach::CourseProfile.wellbeing_support_text
+        base = own ? [own, support_text].reject(&:empty?).join(" ") : Reach::Messages.text("M-SUPPORT", support_text: support_text)
         base = base.gsub(/ {2,}/, " ").strip
         suffix = case told
                  when :told then Reach::Messages.text("M-SUPPORT-TOLD")

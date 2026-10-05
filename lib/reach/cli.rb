@@ -511,20 +511,20 @@ module Reach
         end
         Reach::Progress.mark("enroll.code")
         course = preview["course"]
-        rules = Reach::Identity.rules(preview["identity"])
+        rules = Reach::Identity.rules(preview["identity"], preview["hints"])
         asked = Reach::Messages.text(
           "M-ENR-ASK-USERNAME",
           course_title: course["title"], course_id: course["id"], term: course["term"],
-          institution: rules["institution_name"], domain: rules["username_domain"]
+          institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules)
         )
-        username = interactive ? ask_value(asked, Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: rules["institution_name"], domain: rules["username_domain"])) { |text| Reach::Identity.normalize_username(text, rules) } : Reach::Identity.normalize_username(options[:username], rules)
+        username = interactive ? ask_value(asked, Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules))) { |text| Reach::Identity.normalize_username(text, rules) } : Reach::Identity.normalize_username(options[:username], rules)
         unless username
-          warn Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: rules["institution_name"], domain: rules["username_domain"])
+          warn Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules))
           return 1
         end
-        student_id = interactive ? ask_value(Reach::Messages.text("M-ENR-ASK-ID", institution: rules["institution_name"]), Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])) { |text| Reach::Identity.normalize_student_id(text, rules) } : Reach::Identity.normalize_student_id(options[:student_id], rules)
+        student_id = interactive ? ask_value(Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules)), Reach::Messages.text("M-ENR-ID-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules))) { |text| Reach::Identity.normalize_student_id(text, rules) } : Reach::Identity.normalize_student_id(options[:student_id], rules)
         unless student_id
-          warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"])
+          warn Reach::Messages.text("M-ENR-ID-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules))
           return 1
         end
         Reach::Progress.mark("enroll.identity")

@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.32.2 |
+| **Registry version** | 0.33.0 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 93 catalogued |
+| **Feature count** | 94 catalogued |
 
 ## How to read this registry
 
@@ -23,13 +23,13 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 85 | 91% |
+| ✅ Shipped | 86 | 91% |
 | ⚪ Planned | 6 | 7% |
 | ⛔ Torn down | 2 | 2% |
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 5 | 5% |
+| 🟢 Live | 6 | 6% |
 | 🟡 Partly live | 1 | 1% |
 | 🔵 Built, not enabled | 76 | 82% |
 | ⚫ No runtime path | 11 | 12% |
@@ -829,6 +829,25 @@ exited 1; in mode full (the Windows default) the course server, the internet and
 Codex desktop app and IDE extension, and a student's real Codex chat reaching the course server.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no student's Codex has run the setup yet).
+
+### 2.46 · Course profile
+
+Since 0.33.0 (`STD-COURSE-PROFILE`, wire `W-POL-2`, revision 2026-10-04j) the facts of one course reach rEach from
+the course, inside the guardrails package, and are no longer written in this repository: the learning system's name
+and whether the submission ZIP must be uploaded there for credit, the hints for the school email and student ID, and
+the wellbeing phrases and support message. With no profile rEach names no learning system, asks in plain words,
+shows times in UTC when it knows no zone, and keeps its built-in crisis phrases and support message. The profile's
+terms and slice names are delivered and not read yet.
+
+Verified 2026-10-04 on Linux, Ruby 4.0.6, against a scratch course server: with no profile the preview carried no
+hints, enrollment completed, no learning system was named, any email and student ID passed rEach's own check and the
+built-in crisis phrases matched; one sync after a profile was written rEach named the course's learning system,
+added the upload sentence, matched the course's own phrases and showed its support text; with the upload not
+required the sentence was gone and the grade-of-record line stayed; the preview answered the hints and the student-ID
+question carried one; a profile with an unknown section was refused and the last good one stayed. The stock smoke run
+passed. Not verified: macOS and Windows, a real harness session.
+
+Build ✅ · Deploy 🟢 Live (released 2026-10-04 as v0.33.0, GitHub Latest; Teach 0.47.0 serves a profile for both courses) · Blocker: -.
 
 ## 3 · Course reference
 

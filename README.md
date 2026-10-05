@@ -275,7 +275,8 @@ files, plus the receipts and the student's own part) in the Downloads folder as
 (`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
 may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
 by rEach before it asks and by Teach. Since 0.19.0 rEach says plainly, before and after every submission, that the ZIP in
-Downloads must also be uploaded to Blackboard to receive credit; `reach submit archive` makes the ZIP again.
+Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (since
+0.33.0 the course names that system; rEach's repository names none); `reach submit archive` makes the ZIP again.
 
 ### Late work and grades
 

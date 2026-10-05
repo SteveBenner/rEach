@@ -59,7 +59,7 @@ module Reach
 
       cleaned = text.downcase.gsub(/[^\p{L}\p{N} '\-]/, " ").gsub(/\s+/, " ").strip
       padded = " #{cleaned} "
-      CRISIS_PHRASES.any? { |phrase| padded.include?(" #{phrase} ") }
+      (Reach::CourseProfile.wellbeing_phrases || CRISIS_PHRASES).any? { |phrase| padded.include?(" #{phrase} ") }
     end
 
     def evaluate(event:, harness:)

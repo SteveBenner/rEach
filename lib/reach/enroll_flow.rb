@@ -130,7 +130,7 @@ module Reach
         "pending_code" => nil,
         "course" => { "id" => course["id"].to_s, "title" => course["title"].to_s, "term" => course["term"].to_s },
         "expires_at" => body["expires_at"],
-        "identity" => Reach::Identity.rules(body["identity"]),
+        "identity" => Reach::Identity.rules(body["identity"], body["hints"]),
         "username" => nil,
         "student_id" => nil,
         "updated_at" => iso(Time.now.utc)
@@ -165,18 +165,18 @@ module Reach
       rules = flow["identity"] || Reach::Identity.rules
       username = Reach::Identity.normalize_username(text, rules)
       unless username
-        return Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: rules["institution_name"], domain: rules["username_domain"])
+        return Reach::Messages.text("M-ENR-USERNAME-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules))
       end
 
       next_flow = flow.merge("state" => "awaiting_student_id", "username" => username, "updated_at" => iso(Time.now.utc))
       write_flow(next_flow)
-      Reach::Messages.text("M-ENR-ASK-ID", institution: rules["institution_name"])
+      Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules))
     end
 
     def step_student_id(flow, text)
       rules = flow["identity"] || Reach::Identity.rules
       student_id = Reach::Identity.normalize_student_id(text, rules)
-      return Reach::Messages.text("M-ENR-ID-FORMAT", institution: rules["institution_name"]) unless student_id
+      return Reach::Messages.text("M-ENR-ID-FORMAT", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules)) unless student_id
 
       next_flow = flow.merge("state" => "awaiting_confirm", "student_id" => student_id, "updated_at" => iso(Time.now.utc))
       write_flow(next_flow)
@@ -378,7 +378,7 @@ module Reach
     def ask(flow)
       case flow["state"]
       when "awaiting_username" then ask_username(flow)
-      when "awaiting_student_id" then Reach::Messages.text("M-ENR-ASK-ID", institution: (flow["identity"] || {})["institution_name"])
+      when "awaiting_student_id" then Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(flow["identity"]), hint: Reach::Identity.id_hint(flow["identity"]))
       when "awaiting_confirm" then confirm_text(flow)
       when "awaiting_move" then Reach::Messages.text("M-ENR-MOVE-PENDING")
       when "awaiting_password" then Reach::Messages.text("M-ENR-ASK-PASSWORD")
@@ -393,7 +393,7 @@ module Reach
       Reach::Messages.text(
         "M-ENR-ASK-USERNAME",
         course_title: course["title"], course_id: course["id"], term: course["term"],
-        institution: rules["institution_name"], domain: rules["username_domain"]
+        institution: Reach::Identity.institution(rules), hint: Reach::Identity.email_hint(rules)
       )
     end
 

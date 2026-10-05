@@ -6,7 +6,6 @@ module Reach
     DEFAULT_MAX_MB = 256
     SKIPPED_TOP_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md].freeze
     MAX_NAME_TRIES = 200
-    DEFAULT_LMS = "Blackboard".freeze
 
     module_function
 
@@ -98,11 +97,30 @@ module Reach
     end
 
     def lms_name
+      given = Reach::CourseProfile.lms_name
+      return given if given
+
       section = Reach::Runtime.load_config["submit"]
       value = section.is_a?(Hash) ? section["lms_name"].to_s.strip : ""
-      value.empty? ? DEFAULT_LMS : value
+      value.empty? ? nil : value
     rescue StandardError
-      DEFAULT_LMS
+      nil
+    end
+
+    def upload_required?
+      return false unless lms_name
+
+      Reach::CourseProfile.lms_name.nil? || Reach::CourseProfile.lms_upload_required?
+    rescue StandardError
+      false
+    end
+
+    def credit(id)
+      upload_required? ? " #{Reach::Messages.text(id, lms: lms_name)}" : ""
+    end
+
+    def grade_record
+      lms_name ? " #{Reach::Messages.text("M-LMS-RECORD", lms: lms_name)}" : ""
     end
 
     def downloads_dir
