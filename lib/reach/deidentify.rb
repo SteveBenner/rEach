@@ -72,7 +72,7 @@ module Reach
     end
 
     def home_folder
-      Dir.home.to_s
+      Reach::Paths.user_home.to_s
     rescue StandardError
       ""
     end

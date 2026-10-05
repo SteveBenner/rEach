@@ -66,7 +66,7 @@ module Reach
       value = value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "?") unless value.encoding == Encoding::UTF_8 && value.valid_encoding?
       value = value.gsub(%r{(?<![A-Za-z0-9])/(?:home|Users|root|var|tmp|etc|usr|opt|mnt)/[^\s,;]*}, "[path]")
       value = value.gsub(/[A-Za-z]:\\[^\s,;]*/, "[path]")
-      [Dir.home, ENV["USER"], ENV["USERNAME"], (Etc.getlogin rescue nil)].compact.map(&:to_s).reject { |name| name.length < 3 }.each do |name|
+      [Dir.home, (defined?(Reach::Paths) ? (Reach::Paths.user_home rescue nil) : nil), ENV["USER"], ENV["USERNAME"], (Etc.getlogin rescue nil)].compact.map(&:to_s).reject { |name| name.length < 3 }.each do |name|
         value = value.gsub(name, "[scrubbed]")
       end
       value = value.byteslice(0, MAX_VALUE_BYTES).scrub("") if value.bytesize > MAX_VALUE_BYTES
