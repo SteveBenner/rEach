@@ -13,6 +13,7 @@ module Reach
     STABLE_REF = "stable".freeze
     UNPINNED_REFS = [nil, "", "main"].freeze
     HARNESSES = %w[claude-code codex].freeze
+    CODEX_NAMES = %w[codex codex.exe].freeze
 
     module_function
 
@@ -53,7 +54,9 @@ module Reach
       return "codex" if on_path?("codex")
 
       path = ENV["CODEX_CLI_PATH"].to_s
-      path.empty? || !File.file?(path) ? nil : path
+      return nil if path.empty? || !File.file?(path)
+
+      CODEX_NAMES.include?(File.basename(path.tr("\\", "/")).downcase) ? path : nil
     end
 
     def claude_bin

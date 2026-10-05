@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.20] - 2026-10-05
+
+### Added
+
+- `tools/release_stable.rb vX.Y.Z [--dry-run]` moves `origin stable`, the branch every student install follows,
+  to a tag. It refuses unless GitHub names that tag the Latest release (`gh api repos/<owner>/<repo>/releases/latest`)
+  and the move is a fast-forward, pushes only the tag's commit to `refs/heads/stable`, and confirms the remote
+  branch afterwards; `--dry-run` reports the move without pushing.
+
+### Fixed
+
+- `reach update run --apply` on a Codex plugin-cache install ran whatever existing file `CODEX_CLI_PATH` named
+  (0.35.18 security audit, low). `Reach::HarnessSource.codex_bin` now accepts it only when the file is named `codex`
+  or `codex.exe`, in any case, which is what Codex Desktop sets.
+
+### Changed
+
+- `STD-ENROLL-LOCKDOWN` now says what happens to a bare course id that is shaped like a passkey with no separator
+  (`BUS201FA26`): it is sent to Teach, which answers `course_only`, and the student sees
+  M-ENR-CODE-COURSE-ONLY. Checked against live Teach; no code change.
+
 ## [0.35.19] - 2026-10-05
 
 ### Fixed

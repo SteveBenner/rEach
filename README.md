@@ -126,7 +126,8 @@ when a session starts and once an hour while you work, downloads it in the backg
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
 `~/reach-work/.reach-home/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
 things stand and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
-is never updated.
+is never updated. Marketplace installs follow the `stable` branch, which a maintainer moves only to the Latest release,
+with `ruby tools/release_stable.rb vX.Y.Z`.
 
 Hermes keeps hooks and MCP servers in a profile's `config.yaml`, never per
 folder, so setup creates a Hermes profile named `reach` (`hermes profile create

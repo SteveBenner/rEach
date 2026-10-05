@@ -1301,14 +1301,15 @@ as untrusted after setup, after `reach mcp` on a plain `codex plugin add` instal
 
 Build ✅ · Deploy 🔵 · Blocker: Human (a live Codex session on macOS has not yet trusted and run both hooks on 0.16.16).
 
-**0.35.18, from one real Windows Codex Desktop install (2026-10-05):** ✅ built, 🔵 not yet on any student
-machine. Student installs follow the `stable` branch (moved only on a Latest release) instead of `main`; course-code
+**0.35.18, from one real Windows Codex Desktop install (2026-10-05):** ✅ built, ✅ released as Latest and on `stable` (any student
+machine that updates). Student installs follow the `stable` branch (moved only on a Latest release) instead of `main`; course-code
 parsing no longer sends chat sentences; the request log redacts the passkey; consent is bound to the asking chat;
 `work_at` comes only from course-folder work hooks; the submission ZIP leaves out read-only kit files and uses the
 Windows Downloads known folder; the runtime kit matches a lock in LF or CRLF form; `update run --apply` refreshes a
-plugin-cache install through the harness CLI. Verified only on Linux with scratch homes, fake harness CLIs and the
-fixture Teach; none of it has run on Windows, inside real Codex Desktop, or against the Claude Code app's marketplace
-box.
+plugin-cache install through the harness CLI. Verified on Linux with scratch homes, fake harness CLIs and the
+fixture Teach. Sven confirmed it working in real Codex Desktop on Windows on 2026-10-05 (0.35.19); the Claude Code
+app's marketplace box is still untested. Since 0.35.20 `CODEX_CLI_PATH` is used only when it names `codex` or
+`codex.exe`, and `tools/release_stable.rb` moves `stable` to a Latest release (fast-forward only).
 
 ### 10.4 · Antigravity
 
