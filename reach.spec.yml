@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.33.1
+version: 0.33.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1893,6 +1893,10 @@ issue_reports:
   doctor: R-DOC-ISSUES while an issue report waits in the outbox.
 live_sessions:
   standard: STD-LIVE (specs/app.yml); wire W-LIVE-1 to W-LIVE-9 and W-API-LIVE routes, revision 2026-10-03f. Since 0.23.0.
+  runner_start: >-
+    Since 0.33.2 the runner and every other detached reach process start with Reach::Runtime.detach_group
+    (new_pgroup on Windows, pgroup elsewhere). A request made while an answer is still queued returns M-LIVE-SENDING
+    and starts the runner; it does not ask the student again.
   diagnosis: >-
     STD-LIVE-DIAGNOSIS, wire W-LIVE-10, revision 2026-10-04c, since 0.27.0. Reach::Live.diagnose! (reach instructor
     diagnose, reach_live action diagnose) needs a valid instructor unlock on the install, starts a blank test

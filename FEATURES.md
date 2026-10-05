@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.33.1 |
+| **Registry version** | 0.33.2 |
 | **Last audited** | 2026-10-03 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -703,6 +703,11 @@ rEach's questions word for word, and did not treat "go ahead and help them" as a
 student's side showed an instructor's request only at the student's next prompt; the wait is now 45 seconds and the
 assistant is told to keep waiting while an answer is expected, which has not been run from a session's start yet. Not verified: macOS, Windows,
 the flow on Ruby 2.6 (on 2.6.10 only the syntax and loading were checked), Codex, Cowork and Hermes; `tools/fake_teach`, which has no live routes.
+
+Until 0.33.2 no live session could start on Windows: the background runner was started with a process option
+Windows refuses, so a typed yes was never sent and each new request asked the question again. 0.33.2 starts it with
+the Windows option and answers a repeated request with "rEach is sending your answer". Still not run on a real
+Windows install.
 
 The wake ran on 2026-10-03 in a real Claude Code 2.1.288 session: the idle assistant was woken by the open notice,
 an instructor's note, a check's question and the end, each once; one watcher at a time; none left after the end. The

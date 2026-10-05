@@ -132,6 +132,10 @@ module Reach
       RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
     end
 
+    def detach_group
+      windows? ? { new_pgroup: true } : { pgroup: true }
+    end
+
     def default_teach_url
       value = ENV["REACH_TEACH_URL"]
       return value if value && !value.empty?

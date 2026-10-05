@@ -351,7 +351,7 @@ module Reach
     end
 
     def spawn_sync
-      pid = Process.spawn(RbConfig.ruby, Reach::Runtime.exe_path, "sync", in: File::NULL, out: File::NULL, err: File::NULL, pgroup: true)
+      pid = Process.spawn(RbConfig.ruby, Reach::Runtime.exe_path, "sync", in: File::NULL, out: File::NULL, err: File::NULL, **Reach::Runtime.detach_group)
       Process.detach(pid)
     rescue StandardError
       nil

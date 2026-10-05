@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.2] - 2026-10-04
+
+### Fixed
+
+- On Windows a student who asked for a live session was asked for their yes again and again, and no session was ever
+  requested. rEach started its background live runner with the process option `pgroup`, which Ruby on Windows
+  refuses; the error was swallowed, so the typed yes stayed on the computer. Every detached start now takes its
+  option from `Reach::Runtime.detach_group` (`new_pgroup` on Windows): the live runner, transcript stream, subscribe
+  tick and storage measure (`Reach::Storage.spawn_detached`), the support flush (`lib/reach/support.rb`), the module
+  and transfer flush (`lib/reach/consent.rb`) and the sync after enrollment or a module lock
+  (`lib/reach/enroll_flow.rb`, `lib/reach/modules.rb`). None of these ran on Windows before.
+- `reach live request` and the `reach_live` tool no longer repeat the question while the student's answer is still
+  waiting to be sent: they say rEach is sending it and start the runner (`Reach::Live.ask!`).
+- Not verified: a real Windows install. On Linux the detached start still runs and the Windows branch was checked
+  for the option it selects.
+
 ## [0.33.1] - 2026-10-04
 
 ### Fixed

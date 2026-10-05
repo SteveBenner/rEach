@@ -157,7 +157,7 @@ module Reach
     def spawn_flush(kind)
       command = kind == "module_lock" ? %w[modules --flush] : %w[transfer --flush]
       exe = File.expand_path("../../exe/reach", __dir__)
-      pid = Process.spawn(RbConfig.ruby, exe, *command, in: File::NULL, out: File::NULL, err: File::NULL, pgroup: true)
+      pid = Process.spawn(RbConfig.ruby, exe, *command, in: File::NULL, out: File::NULL, err: File::NULL, **Reach::Runtime.detach_group)
       Process.detach(pid)
     rescue StandardError
       nil

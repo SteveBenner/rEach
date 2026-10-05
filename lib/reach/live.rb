@@ -207,6 +207,11 @@ module Reach
       current = session
       return { "state" => current["state"], "message" => status_text(current) } if live?(current)
 
+      if read_state["pending"]
+        spawn_runner
+        return { "state" => "sending", "message" => Reach::Messages.text("M-LIVE-SENDING") }
+      end
+
       hand = hand_id.to_s.empty? ? default_hand : hand_id.to_s
       question = Reach::Consent.ask!(kind: KIND, subject: REQUEST_SUBJECT, message_id: "M-LIVE-ASK", replay: { "hand_id" => hand })
       { "state" => "asking", "question" => question, "message" => Reach::Messages.text("M-LIVE-ASK-AGENT", question: question) }
