@@ -10,6 +10,7 @@ module Reach
     UNSUPPORTED_WAIT_S = 21_600
     PER_PROMPT = 3
     RECEIPTS_PER_POST = 50
+    KEEP_EXPIRED = 50
 
     module_function
 
@@ -23,7 +24,32 @@ module Reach
     end
 
     def list
-      items.sort_by { |item| item["sent_at"].to_s }.reverse.map { |item| item.slice("id", "audience", "title", "body", "sent_at", "received_at", "shown_at") }
+      items.sort_by { |item| item["sent_at"].to_s }.reverse.map do |item|
+        row = item.slice("id", "audience", "title", "body", "sent_at", "show_until", "received_at", "shown_at")
+        row["expired"] = expired?(item)
+        row
+      end
+    end
+
+    def expired?(item, now = Time.now)
+      until_at = item["show_until"]
+      return false unless until_at.is_a?(String) && !until_at.strip.empty?
+
+      Time.parse(until_at) <= now
+    rescue ArgumentError
+      false
+    end
+
+    def frame_fields(item)
+      stamp = Reach::Messages.course_time(item["sent_at"]).to_s.split(" ")
+      {
+        id: item["id"].to_s,
+        sent_at: item["sent_at"].to_s,
+        sent_weekday: stamp[0].to_s,
+        sent_date: stamp[1, 2].to_a.join(" "),
+        sent_time: stamp[3, 2].to_a.join(" "),
+        time_zone: stamp[5..-1].to_a.join(" ")
+      }
     end
 
     def parked?(state)
@@ -58,12 +84,16 @@ module Reach
       Reach::StateFile.update(FILE) do |state|
         known = items(state).to_h { |item| [item["id"], item] }
         fresh = 0
-        state["items"] = rows.select { |row| row.is_a?(Hash) && row["id"].is_a?(String) }.map do |row|
+        served = rows.select { |row| row.is_a?(Hash) && row["id"].is_a?(String) }
+        state["items"] = served.map do |row|
           prior = known[row["id"]]
           fresh += 1 if prior.nil?
           kept = prior ? prior.slice("received_at", "shown_at", "reported_received", "reported_shown") : { "received_at" => at }
-          row.slice("id", "audience", "title", "body", "sent_at").merge(kept)
+          row.slice("id", "audience", "title", "body", "sent_at", "show_until").merge(kept)
         end
+        served_ids = served.map { |row| row["id"] }
+        lapsed = known.values.reject { |item| served_ids.include?(item["id"]) || !expired?(item) }
+        state["items"] += lapsed.sort_by { |item| item["sent_at"].to_s }.last(KEEP_EXPIRED)
         state["fetched_at"] = at
         state.delete("unsupported_until")
         fresh
@@ -111,16 +141,16 @@ module Reach
     end
 
     def notice_text(item)
-      Reach::Messages.text(
-        "M-ANNOUNCE-NOTICE", sent: Reach::Messages.course_time(item["sent_at"]), title: item["title"].to_s, body: item["body"].to_s
-      )
+      body = Reach::Messages.text("M-ANNOUNCE-NOTICE", title: item["title"].to_s, body: item["body"].to_s)
+      Reach::AgentControl.channel("notice.announcement", **frame_fields(item)) { body }
     end
 
     def prompt_notices
       return [] unless show?
 
       shown = Reach::StateFile.update(FILE) do |state|
-        due = items(state).reject { |item| item["shown_at"] }.sort_by { |item| item["sent_at"].to_s }.first(PER_PROMPT)
+        now = Time.now
+        due = items(state).reject { |item| item["shown_at"] || expired?(item, now) }.sort_by { |item| item["sent_at"].to_s }.first(PER_PROMPT)
         due.each { |item| item["shown_at"] = Reach::StateFile.now_s }
         due.map(&:dup)
       end

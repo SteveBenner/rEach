@@ -41,10 +41,14 @@ module Reach
         waiting
       end
       Array(pending).map do |entry|
-        Reach::Messages.text(
-          "M-DUE-CHANGED", assignment: entry["assignment"].to_s,
-                           before: Reach::Messages.course_time(entry["before"]), after: Reach::Messages.course_time(entry["after"])
-        )
+        before = Reach::Messages.course_time(entry["before"])
+        after = Reach::Messages.course_time(entry["after"])
+        text = Reach::Messages.text("M-DUE-CHANGED", assignment: entry["assignment"].to_s, before: before, after: after)
+        Reach::AgentControl.channel(
+          "notice.due_change", assignment: entry["assignment"].to_s, before: before, after: after,
+                               before_at: entry["before"].to_s, after_at: entry["after"].to_s, changed_at: entry["at"].to_s,
+                               time_zone: Reach::CourseTime.zone
+        ) { text }
       end
     end
   end
