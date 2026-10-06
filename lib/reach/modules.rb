@@ -166,7 +166,7 @@ module Reach
       if data && data["mode"] == "student_choice"
         return Reach::Messages.text("M-MODULES-CLOSED") unless data["open"]
 
-        closes = data["window"].is_a?(Hash) ? Reach::Messages.course_time(data["window"]["closes_at"]) : ""
+        closes = data["window"].is_a?(Hash) ? Reach::CourseTime.date(data["window"]["closes_at"]) : ""
         if closes.to_s.empty?
           return Reach::Messages.text("M-MODULES-OPTIONS-OPEN", count: data["count"], options: join_names(option_titles(data)))
         end
