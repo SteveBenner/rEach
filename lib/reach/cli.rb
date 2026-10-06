@@ -451,6 +451,9 @@ module Reach
             transcript code --harness H | flush | stream [--force] | status [--format text|json]
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
+            login                                sign in here: asks for your student ID, then your password, hidden
+            login --window                       open a terminal window that runs login for you
+            enroll --window                      open a terminal window that runs enroll for you
             login status                         whether this session is signed in
             relocate [--format text|json]        move rEach's own files into your reach-work folder, or show where that stands
             login password                       type your password here, hidden, to finish signing in
@@ -531,7 +534,18 @@ module Reach
         {}
       end
 
+      def open_terminal_window(verb)
+        ok, reason = Reach::Desktop.terminal([Reach::Runtime.ruby_path, Reach::Runtime.shim_path, verb])
+        return 0 if ok
+
+        warn "reach: #{reason}"
+        1
+      end
+
       def cmd_enroll(args)
+        window, args = parse_bare_flag(args, "window")
+        return open_terminal_window("enroll") if window
+
         password_stdin, args = parse_bare_flag(args, "password-stdin")
         options, remaining = parse_flags(args, [:teach_url, :course_passkey, :course_code, :username, :student_id])
         options[:course_code] = options.delete(:course_passkey) || options[:course_code]
@@ -631,7 +645,7 @@ module Reach
         line && line.strip
       end
 
-      def ask_password(ask = "M-ENR-ASK-PASSWORD", again_text = "M-ENR-ASK-PASSWORD-AGAIN", mismatch = "M-ENR-PASSWORD-MISMATCH")
+      def ask_password(ask = Reach::EnrollFlow.password_prompt_id, again_text = "M-ENR-ASK-PASSWORD-AGAIN", mismatch = "M-ENR-PASSWORD-MISMATCH")
         loop do
           puts Reach::Messages.text(ask)
           password = read_hidden
@@ -1131,6 +1145,9 @@ module Reach
           end
           raise Reach::GateBlocked.new("M-DEBUG-RELAY", reply)
         end
+        wrong_folder = hermes ? nil : Reach::Gate.codex_wrong_folder_text(event, harness_id)
+        raise Reach::GateBlocked.new("M-CODEX-WRONG-FOLDER", wrong_folder) if wrong_folder
+
         decision = Reach::EnrollFlow.evaluate(event: event, harness: harness_id)
         if decision && decision["action"] == "elsewhere"
           puts "{}" if hermes
@@ -1141,7 +1158,7 @@ module Reach
         decision, signed_in, satisfied = enroll_login(event, harness_id) if decision.nil? && !hermes
         if decision.nil?
           setup = hermes || signed_in ? nil : codex_setup_answer(event)
-          notice = [Reach::EnrollFlow.consume_notice, signed_in, setup].compact.join("\n\n")
+          notice = [Reach::EnrollFlow.consume_notice(harness_id), signed_in, setup].compact.join("\n\n")
           notice = nil if notice.empty?
           if Reach::Instructor.mode?
             session = Reach::Session.resolve_session_id(event)
@@ -2990,12 +3007,16 @@ module Reach
       end
 
       def cmd_login(args)
+        window, args = parse_bare_flag(args, "window")
+        return open_terminal_window("login") if window
+
         sub = args.shift
+        return login_signin if sub.nil? && STDIN.tty?
         return login_password if sub == "password"
         return login_reset if sub == "reset"
 
         unless sub == "status"
-          warn "usage: reach login status | password | reset"
+          warn "usage: reach login | login --window | login status | password | reset"
           return 1
         end
         latest = Reach::Login.last_session_state
@@ -3003,6 +3024,26 @@ module Reach
         puts "Most recent session: #{recent ? 'signed in' : 'not signed in'}"
         puts "Any active sign-in: #{Reach::Login.any_active? ? 'yes' : 'no'}"
         0
+      end
+
+      def login_signin
+        id = Reach::Login.enrolled_id
+        unless id
+          warn Reach::Messages.text("M-LOGIN-TERMINAL-NONE")
+          return 1
+        end
+        puts Reach::Messages.text("M-LOGIN-ASK")
+        id_text = STDIN.gets
+        return 1 if id_text.nil?
+
+        puts Reach::Messages.text("M-LOGIN-ASK-PASSWORD-TERMINAL")
+        password = read_hidden
+        return 1 if password.nil?
+        return instructor_unlock_code(password) if Reach::Instructor.attempt?(password)
+
+        ok, text = Reach::Login.terminal_signin(id_text.strip, password)
+        ok ? puts(text) : warn(text)
+        ok ? 0 : 1
       end
 
       def login_password

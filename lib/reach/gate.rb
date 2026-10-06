@@ -100,6 +100,32 @@ module Reach
       nil
     end
 
+    def codex_wrong_folder?(harness, cwd)
+      return false unless harness.to_s == "codex"
+
+      path = cwd.to_s.empty? ? Dir.pwd : cwd.to_s
+      path = Reach::Paths.windows_slashes(path) if Reach::Paths.windows_host?
+      base = Reach::Paths.realish(Reach::Paths.workspace_base)
+      !Reach::Paths.path_within?(Reach::Paths.realish(path), base)
+    rescue StandardError
+      false
+    end
+
+    def codex_wrong_folder_text(event, harness)
+      event = {} unless event.is_a?(Hash)
+      return nil unless harness.to_s == "codex"
+      return nil if Reach::Instructor.mode? || Reach::Instructor.attempt?(event["prompt"])
+
+      lock = Reach::EnrollmentLock.state
+      pending = (lock["locked"] && lock["reason"] != "course_ended") || Reach::Hello.login_pending?(event)
+      return nil unless pending
+      return nil unless codex_wrong_folder?(harness, event["cwd"])
+
+      Reach::Messages.text("M-CODEX-WRONG-FOLDER")
+    rescue StandardError
+      nil
+    end
+
     def prompt(event: {}, harness: nil, claimed: false)
       event = {} unless event.is_a?(Hash)
       if !claimed && Reach::Instructor.attempt?(event["prompt"])

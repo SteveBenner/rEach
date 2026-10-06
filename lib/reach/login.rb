@@ -298,6 +298,34 @@ module Reach
       end
     end
 
+    def terminal_signin(id_text, password)
+      now = Time.now.utc
+      failures = failures_data
+      locked = locked_remaining(failures, now)
+      return [false, Reach::Messages.text("M-LOGIN-LOCKED", minutes: locked)] if locked
+
+      sid = "terminal-#{SecureRandom.hex(8)}"
+      unless contains_id?(id_text)
+        out = failed(fresh_state(sid, "cli"), failures, window_failures(failures, now), now, "cli", "M-LOGIN-WRONG")
+        commit!(out, event: { "session_id" => sid }, harness: "cli")
+        return [false, out["message"]]
+      end
+
+      case Reach::Password.check(Reach::Password.trimmed(password))
+      when :ok, :unset
+        sign_in_session(sid, "cli")
+        clear_failures
+        Reach::Progress.mark("setup.signin")
+        [true, Reach::Messages.text("M-LOGIN-OK", first_name: student["first_name"] || "there")]
+      when :wrong
+        out = failed(fresh_state(sid, "cli"), failures, window_failures(failures, now), now, "cli", "M-LOGIN-PASSWORD-WRONG-TERMINAL")
+        commit!(out, event: { "session_id" => sid }, harness: "cli")
+        [false, out["message"]]
+      when :limited then [false, Reach::Messages.text("M-LOGIN-LOCKED", minutes: lockout_minutes)]
+      else [false, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
+      end
+    end
+
     def terminal_reset
       waiting = sessions.select { |state| PASSWORD_STATES.include?(state["state"]) }
       return [:none, Reach::Messages.text("M-LOGIN-TERMINAL-NONE")] if waiting.empty?

@@ -813,7 +813,7 @@ module Reach
           pid = Reach::Update.spawn_background(apply: true, now: true)
           return { "text" => Reach::Messages.text(pid ? "M-UPDATE-STARTED" : "M-UPDATE-NOT-STARTED") }
         end
-        { "text" => ["rEach #{Reach::VERSION}", *Reach::Update.status_lines].join("\n") }
+        { "text" => Reach::Update.status_lines.join("\n") }
       end
 
       def doctor_tool
