@@ -501,7 +501,7 @@ module Reach
       def run_tool(id, params)
         name = params["name"]
         arguments = params["arguments"] || {}
-        payload = Reach::Client.with_deadline(TOOL_BUDGET_S) { dispatch(name, arguments) }
+        payload = relay_channel(name, Reach::Client.with_deadline(TOOL_BUDGET_S) { dispatch(name, arguments) })
         result(id, { "content" => [{ "type" => "text", "text" => JSON.generate(payload) }] })
       rescue Reach::NetworkError => e
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-TEACH-LINK-LOST")
@@ -520,6 +520,15 @@ module Reach
 
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
         error(id, -32000, hiccup_text)
+      end
+
+      def relay_channel(name, payload)
+        return payload unless payload.is_a?(Hash) && payload["relay_verbatim"] == true && payload["text"].is_a?(String)
+
+        channel = name.to_s == "reach_support" ? "support.message" : "mcp.relay"
+        payload.merge("text" => Reach::AgentControl.channel(channel) { payload["text"] })
+      rescue StandardError
+        payload
       end
 
       def hiccup_text
@@ -547,6 +556,10 @@ module Reach
       end
 
       def dispatch(name, arguments)
+        unless Reach::Controls.tool_allowed?(name)
+          raise Reach::Refused, Reach::Messages.text("M-CONTROL-TEST-LOCKED", ends: Reach::Controls.ends_text)
+        end
+
         lock = UNLOCKED_TOOLS.include?(name) ? nil : Reach::EnrollmentLock.state
         if lock && lock["locked"]
           raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? enroll_refusal_id : lock["message_id"])

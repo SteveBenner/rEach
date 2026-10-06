@@ -106,7 +106,7 @@ module Reach
         attempt = Reach::EnrollFlow.instructor_decision(event, event["prompt"], Reach::EnrollmentLock.state, harness, "prompt")
         return nil if attempt["action"] == "elsewhere"
 
-        raise Reach::GateBlocked.new("M-INSTRUCTOR", attempt["message"])
+        raise Reach::GateBlocked.new("M-INSTRUCTOR", framed("gate.instructor", attempt["message"]))
       end
       toggled = safely { Reach::Debug.toggle_from_prompt!(event["prompt"]) }
       if Reach::Instructor.mode?
@@ -121,6 +121,7 @@ module Reach
         check_guardrails!
         check_has_workspace!
         Reach::Update.hold!
+        Reach::Controls.check_prompt!(current_space)
       rescue Reach::GateBlocked => e
         blocked = e
       end
@@ -144,7 +145,7 @@ module Reach
       live = blocked || (login_block && decision["stuck"]) ? safely { Reach::Live.blocked_prompt(event) } : nil
       blocked = Reach::GateBlocked.new(blocked.message_id, [blocked.message, live, toggled].compact.join("\n\n")) if blocked && (toggled || live)
       raise blocked if blocked
-      raise Reach::GateBlocked.new("M-LOGIN", [decision["message"].to_s, live, toggled].compact.join("\n\n")) if login_block
+      raise Reach::GateBlocked.new("M-LOGIN", framed("gate.login", [decision["message"].to_s, live, toggled].compact.join("\n\n"))) if login_block
       return nil if elsewhere
 
       if recorded
@@ -193,45 +194,56 @@ module Reach
 
       if decision
         if safely { Reach::Login.just_confirmed?(session) }
-          context << signed_in_context(harness, session)
+          context << framed("gate.signin", signed_in_context(harness, session))
           after_answer { Reach::Login.clear_just_confirmed(session) }
           greeted = true
         end
-        context << decision["context"] if decision["context"]
+        context << framed("gate.decision", decision["context"]) if decision["context"]
       end
       stored = safely { Reach::Hello.stored_context(session) }
       if stored
-        context << stored
+        context << framed("hello.refreshed", stored)
         after_answer { Reach::Hello.clear_stored_context(session) }
       end
-      context.concat(Array(safely { Reach::Update.prompt_notices(session) }))
-      context.concat(Array(safely { storage_notices(session, greeted) }))
-      context.concat(Array(safely { Reach::ExportImport.prompt_notices(session) }))
-      context << safely { Reach::Debug.remote_notice(session) }
-      context << safely { Reach::LateWork.prompt_notice(session) }
-      context.concat(Array(safely { Reach::Announcements.prompt_notices }))
-      context.concat(Array(safely { Reach::DueChanges.prompt_notices }))
+      context.concat(Array(framed("notice.update", safely { Reach::Update.prompt_notices(session) })))
+      context.concat(Array(framed("notice.storage", safely { storage_notices(session, greeted) })))
+      context.concat(Array(framed("notice.export_import", safely { Reach::ExportImport.prompt_notices(session) })))
+      context << framed("notice.debug", safely { Reach::Debug.remote_notice(session) })
+      context << framed("notice.late_work", safely { Reach::LateWork.prompt_notice(session) })
+      context.concat(Array(framed("notice.announcement", safely { Reach::Announcements.prompt_notices })))
+      context.concat(Array(framed("notice.due_change", safely { Reach::DueChanges.prompt_notices })))
       transcripts = safely { Reach::TranscriptExport.pending_notice! }
-      context << Reach::TranscriptExport.agent_notice(transcripts) if transcripts
+      context << framed("notice.transcripts", Reach::TranscriptExport.agent_notice(transcripts)) if transcripts
       observed = safely { Reach::Consent.observe(entry) } if entry
       if observed
         done = safely { Reach::Consent.follow_up!(observed) }
-        context << Reach::Consent.agent_context(observed, done) unless done.to_s.empty?
+        context << framed("notice.consent", Reach::Consent.agent_context(observed, done)) unless done.to_s.empty?
       end
-      context << safely { Reach::Consent.relay!(session) } unless observed
-      context.concat(Array(safely { Reach::Live.prompt_notices(session) }))
+      context << framed("notice.consent", safely { Reach::Consent.relay!(session) }) unless observed
+      context.concat(Array(framed("notice.live", safely { Reach::Live.prompt_notices(session) })))
+      control_lines = Array(safely { Reach::Controls.context_lines })
+      context << framed("notice.control", control_lines.join("\n")) unless control_lines.empty?
       if space
         import_path = space["kind"] == "root" ? safely { focus_workspace } : space["path"]
         imports = import_path ? safely { Reach::Imports.observe(text: event["prompt"], space_path: import_path) } : nil
-        context.concat(Array(imports))
-        context << safely { Reach::Next.anchor_text(space) }
+        context.concat(Array(framed("notice.import", imports)))
+        context << framed("notice.next", safely { Reach::Next.anchor_text(space) })
       end
-      context << safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) }
-      context << safely { Reach::Subscribe.prompt_notice }
-      context << Reach::Messages.text("M-DEBUG-RELAY", text: toggled) if toggled
+      context << framed("notice.memory", safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) })
+      context << framed("notice.subscribe", safely { Reach::Subscribe.prompt_notice })
+      context << framed("notice.debug", Reach::Messages.text("M-DEBUG-RELAY", text: toggled)) if toggled
 
       text = context.compact.map(&:to_s).reject(&:empty?).join("\n\n")
       text.empty? ? nil : text
+    end
+
+    def framed(id, value)
+      return value if value.nil?
+      return value.map { |item| framed(id, item) } if value.is_a?(Array)
+
+      Reach::AgentControl.channel(id) { value }
+    rescue StandardError
+      value
     end
 
     def signed_in_context(harness, session)
@@ -315,6 +327,7 @@ module Reach
       Reach::Update.hold!
       Reach::Relocation.hold!
       space = current_space
+      Reach::Controls.check_tool!("write", space)
       kind = space && space["kind"]
 
       return write_from_root(path: path, patch: patch) if kind == "root"
@@ -450,6 +463,7 @@ module Reach
       raise_blocked!("M-SHELL-BLOCKED") if subshell_or_substitution?(text)
 
       space = current_space
+      Reach::Controls.check_tool!("shell", space)
       kind = space && space["kind"]
       state = { cwd: hook_cwd(event) }
 
@@ -511,6 +525,7 @@ module Reach
       tool = event["tool_name"].to_s
       input = event["tool_input"].is_a?(Hash) ? event["tool_input"] : {}
       space = current_space
+      Reach::Controls.check_tool!(WEB_TOOLS.include?(tool) || tool.start_with?("browser_") ? "web" : "read", space)
       kind = space && space["kind"]
       return nil unless kind
 
@@ -894,7 +909,7 @@ module Reach
       text = Reach::Messages.text(message_id, **fields)
       log_refusal(message_id, text)
       Reach::Debug.emit("gate", "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s)
-      raise Reach::GateBlocked.new(message_id, text)
+      raise Reach::GateBlocked.new(message_id, framed("gate.refusal", text))
     end
 
     def log_refusal(message_id, text)

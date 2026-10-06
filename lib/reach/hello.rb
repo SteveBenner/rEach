@@ -66,7 +66,7 @@ module Reach
       rescue StandardError
         nil
       end
-      return { "context" => verified, "notice" => nil } if verified
+      return { "context" => framed("hello.session", verified), "notice" => nil } if verified
 
       notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
       { "context" => nil, "notice" => notice.empty? ? nil : notice }
@@ -262,11 +262,11 @@ module Reach
       if lock["locked"]
         if hookless && lock["reason"] != "course_ended"
           message = Reach::Messages.text("M-ENR-NOHOOK-STUDENT")
-          return [nil, message, message, hookless_context(mcp: mcp)]
+          return [nil, message, message, framed("hello.hookless", hookless_context(mcp: mcp))]
         end
         message = Reach::EnrollFlow.next_message(lock)
         safe_transcript_export
-        return [nil, message, message, locked_context(format, mcp: mcp)]
+        return [nil, message, message, framed("hello.locked", locked_context(format, mcp: mcp))]
       end
 
       maybe_refresh_status unless local
@@ -281,7 +281,7 @@ module Reach
       if login_pending?(event)
         updating = safe_update_start(session_id, source)
         greeting_text = [nil, "startup", "clear"].include?(source) ? Reach::Greetings.text("G-LOGIN") : nil
-        return [greeting_text && "G-LOGIN", greeting_text, nil, login_context(updating, mcp: mcp)]
+        return [greeting_text && "G-LOGIN", greeting_text, nil, framed("hello.login", login_context(updating, mcp: mcp))]
       end
 
       greeting_id, greeting_text, banner = choose_greeting(source)
@@ -296,6 +296,15 @@ module Reach
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
       context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp)
       [greeting_id, greeting_text, banner, context]
+    end
+
+    def framed(id, value)
+      return value if value.nil?
+      return value.map { |item| framed(id, item) } if value.is_a?(Array)
+
+      Reach::AgentControl.channel(id) { value }
+    rescue StandardError
+      value
     end
 
     def safe_transcript_export
@@ -328,6 +337,12 @@ module Reach
       Reach::Storage.session_start
     rescue StandardError
       nil
+    end
+
+    def safe_control_lines
+      Array(Reach::Controls.context_lines)
+    rescue StandardError
+      []
     end
 
     def safe_session_context
@@ -578,35 +593,37 @@ module Reach
 
     def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false)
       lines = []
-      lines << "rEach session context (from reach hello)"
-      lines << "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."
-      lines << "- #{Reach::Messages.text("M-AGENT-TALK")}"
-      lines.concat(known_issue_lines(mcp))
-      lines << "- #{Reach::Messages.text("M-AGENT-UPDATE")}"
+      lines << framed("hello.session", "rEach session context (from reach hello)")
+      lines << framed("hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save.")
+      lines << framed("hello.session", "- #{Reach::Messages.text("M-AGENT-TALK")}")
+      lines.concat(framed("hello.issues", known_issue_lines(mcp)))
+      lines << framed("hello.session", "- #{Reach::Messages.text("M-AGENT-UPDATE")}")
       if greeting_text
-        lines << "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:"
-        greeting_text.each_line { |line| lines << "  #{line.chomp}" }
-        lines << "- Exception: if the student's first message says they are in crisis or might hurt themselves or someone else, skip the greeting and give reach support's message first (run reach support or the reach_support tool)."
+        lines << framed("hello.greeting", "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:")
+        greeting_text.each_line { |line| lines << framed("hello.greeting", "  #{line.chomp}") }
+        lines << framed("hello.greeting", "- Exception: if the student's first message says they are in crisis or might hurt themselves or someone else, skip the greeting and give reach support's message first (run reach support or the reach_support tool).")
       else
-        lines << "- This session continues an earlier one. Do not greet again."
+        lines << framed("hello.session", "- This session continues an earlier one. Do not greet again.")
       end
-      lines << "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."
-      lines << update_line(updating) if updating
-      lines << profile_line
-      lines << course_line
+      lines << framed("hello.session", "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them.")
+      lines << framed("hello.update", update_line(updating)) if updating
+      lines << framed("hello.profile", profile_line)
+      lines << framed("hello.course", course_line)
       lines.concat(alignment_lines)
       late = safe_late_line(workspace)
-      lines << late if late
+      lines << framed("hello.late_work", late) if late
       memory = safe_session_context
-      lines << memory if memory
+      lines << framed("hello.memory", memory) if memory
       question = safe_course_question
-      lines << course_question_line(question) if question
+      lines << framed("hello.course_question", course_question_line(question)) if question
       storage = local ? nil : safe_storage_context
-      lines << "- #{storage}" if storage
+      lines << framed("hello.storage", "- #{storage}") if storage
+      control_lines = safe_control_lines
+      lines << framed("hello.controls", control_lines.join("\n")) unless control_lines.empty?
 
       text = lines.join("\n")
       if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"
-        text = "#{text}\n\n#{persona_body}"
+        text = "#{text}\n\n#{framed("hello.persona", persona_body)}"
       end
       text
     end
@@ -616,11 +633,11 @@ module Reach
 
       lines = []
       ids = Reach::Modules.module_ids
-      lines << "- Modules: #{Reach::Modules.names(ids)}" unless ids.empty?
+      lines << framed("hello.modules", "- Modules: #{Reach::Modules.names(ids)}") unless ids.empty?
       pending = Reach::Transfer.current
-      lines << "- Module move: waiting for the student's instructor (asked #{Reach::Messages.course_time(pending['created_at'])})" if pending
+      lines << framed("hello.module_move", "- Module move: waiting for the student's instructor (asked #{Reach::Messages.course_time(pending['created_at'])})") if pending
       answer = Reach::Transfer.announcement!
-      lines << "- Tell the student about their module move request, in these words: #{answer}" if answer
+      lines << framed("hello.module_move", "- Tell the student about their module move request, in these words: #{answer}") if answer
       lines
     rescue StandardError
       []

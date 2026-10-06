@@ -182,6 +182,15 @@ module Reach
           end
 
           begin
+            fetched = Reach::Controls.fetch!
+            summary["controls"] = fetched if fetched
+          rescue Reach::Offline, Reach::NetworkError
+            nil
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not check for course controls (#{Reach::Link.reason(e, "sync")})"
+          end
+
+          begin
             Reach::Holdings.report!
           rescue Reach::Offline, Reach::NetworkError
             nil

@@ -5,7 +5,7 @@ require "securerandom"
 
 module Reach
   module Debug
-    KINDS = %w[session hook gate command request lock sync check qualify submit brain update error fault link storage import].freeze
+    KINDS = %w[session hook gate command request lock sync check qualify submit brain update error fault link storage import control].freeze
     ROUTE = "/api/v1/debug".freeze
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
@@ -695,6 +695,10 @@ module Reach
       end
     rescue StandardError
       nil
+    end
+
+    def control(outcome, fields = {})
+      typed("control", outcome, fields)
     end
 
     def storage(outcome, fields = {})

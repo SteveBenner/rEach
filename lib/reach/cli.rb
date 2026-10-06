@@ -1473,6 +1473,7 @@ module Reach
 
         options, _remaining = parse_flags(args, [:slice])
         Reach::Relocation.hold!
+        Reach::Controls.check_submit!
         slice = default_slice_id(options[:slice])
         pick_slice_if_ambiguous(slice)
         unless slice
@@ -1678,6 +1679,7 @@ module Reach
         problems.concat(check_wire)
         problems.concat(check_version)
         problems.concat(check_persona)
+        problems.concat(check_agent_control)
         problems.concat(check_directives)
         problems.concat(check_taste)
         problems.concat(check_sidecar)
@@ -2007,6 +2009,12 @@ module Reach
         []
       rescue StandardError
         ["R-DOC-VERSION: plugin versions could not be checked"]
+      end
+
+      def check_agent_control
+        Reach::AgentControl.problems
+      rescue StandardError
+        ["R-DOC-AGENT-CONTROL: agent-control.yml could not be checked"]
       end
 
       def check_persona

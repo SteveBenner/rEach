@@ -21,6 +21,7 @@ module Reach
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
+        Reach::Controls.check_submit!
         check_closed!(meta)
         pending = approve!(workspace, meta)
         if pending
@@ -87,6 +88,14 @@ module Reach
 
           install = Reach::Enroll.current
           next unless install
+
+          if entry["kind"] == "submission"
+            begin
+              Reach::Controls.check_submit!
+            rescue Reach::Error
+              next
+            end
+          end
 
           begin
             response = client(install).post_json(entry.fetch("route"), entry.fetch("body"), idempotency_key: entry.fetch("idempotency_key"))

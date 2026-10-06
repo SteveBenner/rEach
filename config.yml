@@ -99,3 +99,7 @@ codex:
   probe_timeout_s: 20
 transcripts:
   auto_export: true
+agent_control:
+  render: false
+  controls: false
+  test_mode: false

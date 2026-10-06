@@ -282,6 +282,11 @@ packages:
         blobs only from its vault copy of this package. Since Teach 0.18.2 only the install's own course's blobs are
         included, every release unit from enrollment on. Since Reach 0.17.1 the one plaintext copy Reach writes is the
         microbrain's private tier (STD-COURSE-CORPUS); never the Reach folder, a workspace or a log.
+      agent-control.yml: >-
+        Since 2026-10-06a. The agent-control spec (schema teach.agent-control/v1), byte for byte as Teach holds it: the
+        authority tiers, the precedence, the frame for every channel through which text reaches a student's agent, the
+        antifeatures and the control kinds. A Reach older than that revision ignores the entry. A Reach that bundles a
+        copy uses the package copy only when it is valid and its version is not older than the bundled one.
     reach_use: >-
       The guardrails version is header.version (an integer). Reach renders AGENTS.md, CLAUDE.md and GEMINI.md for a slice
       as W-RENDER-1, writes a digest manifest of the unpacked entries and re-checks it on every load (W-SEAL-3), and
@@ -1350,6 +1355,8 @@ routes:
         receipts: "W-CONV-4 digest of canonical_json of the receipt_ids of every receipt of the install's student, sorted"
         known_issues: "the W-API-KNOWN-ISSUES revision"
         announcements: "since 2026-10-04g: W-CONV-4 digest of canonical_json of [[id, sent_at]] for the install's W-API-ANNOUNCEMENTS list, or null while announcements are switched off; absent from a Teach that predates the revision"
+        controls: "since 2026-10-06a: W-CONV-4 digest of canonical_json of the W-API-CONTROLS body this install would get, with server_time removed, or null while controls are switched off; absent from a Teach that predates the revision"
+        tests: "since 2026-10-06a: W-CONV-4 digest of canonical_json of the W-API-TEST-CURRENT body this install would get, with server_time removed, or null while tests are switched off; absent from a Teach that predates the revision"
       server_time: W-CONV-3 timestamp
     response_304: when If-None-Match equals the current revision; no body
     notes: >-
@@ -1366,7 +1373,7 @@ routes:
     path: /api/v1/announcements
     auth: install
     response_200:
-      announcements: "[{id, audience, title, body, sent_at}], newest first, at most 50: every announcement an instructor has sent and not withdrawn whose audience holds the install's student. id matches ann_ and 20 lowercase hex characters; audience is course, group or student; title is at most 160 characters and body at most 4000, both plain text; sent_at is a W-CONV-3 timestamp"
+      announcements: "[{id, audience, title, body, sent_at, show_until}], newest first, at most 50: every announcement an instructor has sent and not withdrawn whose audience holds the install's student. id matches ann_ and 20 lowercase hex characters; audience is course, group or student; title is at most 160 characters and body at most 4000, both plain text; sent_at is a W-CONV-3 timestamp. Since 2026-10-06a show_until is a W-CONV-3 timestamp or null, and Teach leaves out a row whose show_until has passed; a Teach that predates the revision sends no show_until"
       server_time: W-CONV-3 timestamp
     errors:
       503 unavailable: "announcements are switched off on this course server (TEACH_ANNOUNCEMENTS_DISABLED); retry_after_seconds 300"
@@ -1399,6 +1406,78 @@ routes:
       moves either. The record says that the announcement reached the install and was put in front of the student. It
       is not a statement that the student read or agreed to anything, and it carries no text.
     reach_use: W-SAFE-16.
+  - id: W-API-CONTROLS
+    since: 2026-10-06a
+    method: GET
+    path: /api/v1/controls
+    auth: install
+    response_200:
+      controls: "[{id, kind, starts_at, ends_at, audience, test_id, time_limit_s}], every control that applies to the install's student and is active now or starts within 7 days. id matches ctl_ and 20 lowercase hex characters; kind is pause_course_work, hold_submissions or test; starts_at and ends_at are W-CONV-3 timestamps; audience is course, group or student; test_id and time_limit_s are present only when kind is test"
+      server_time: W-CONV-3 timestamp
+      time_zone: "the course's IANA time zone, or null"
+    errors:
+      503 unavailable: "controls are switched off on this course server; retry_after_seconds 300"
+    notes: >-
+      A control is a typed rule an instructor sets for a time window. A control that has been cancelled, has ended or does
+      not hold the install's student is never served. A Teach that predates the revision answers 404, which Reach
+      treats as no controls and asks again no sooner than six hours later.
+    reach_use: >-
+      Reach keeps the list in its local state and applies each control in its own gates and commands, offsetting its clock
+      by server_time. It never lifts a control on its own.
+  - id: W-API-TEST-CURRENT
+    since: 2026-10-06a
+    method: GET
+    path: /api/v1/tests/current
+    auth: install
+    response_200:
+      test: "null, or {control_id, test_id, title, window_end, time_limit_s, attempt} for the test control that applies to the install's student now; attempt is null or {id, opened_at, deadline_at, submitted_at}. Question text is never in this body"
+      server_time: W-CONV-3 timestamp
+    errors:
+      503 unavailable: "tests are switched off on this course server; retry_after_seconds 300"
+    reach_use: >-
+      Reach shows the student that a test is open and when it ends, and opens an attempt on the student's request.
+  - id: W-API-TEST-OPEN
+    since: 2026-10-06a
+    method: POST
+    path: /api/v1/tests/<control_id>/open
+    auth: install
+    idempotency: required
+    response_200:
+      attempt: "{id, opened_at, deadline_at}; id matches tat_ and 20 lowercase hex characters. deadline_at is the earlier of opened_at plus the control's time limit and the control's ends_at"
+      questions: "[{id, text}] in the test's order"
+    errors:
+      409 conflict: "the control's window is not open, or the student already submitted this test"
+      503 unavailable: as W-API-TEST-CURRENT
+    notes: >-
+      Opening again while the attempt is still open returns the same attempt and questions. Questions are served only by
+      this route and only to the attempting install.
+  - id: W-API-TEST-ANSWER
+    since: 2026-10-06a
+    method: POST
+    path: /api/v1/tests/attempts/<attempt_id>/answers
+    auth: install
+    idempotency: required
+    request:
+      question_id: string, one of the test's question ids
+      answer: string of at most 20000 characters, the student's own typed words
+    response_200:
+      recorded: "{question_id, seq, recorded_at}; seq counts from 1 per question and the highest seq is the answer"
+    errors:
+      409 conflict: "the deadline has passed, or the attempt was submitted"
+      422 validation_error: "question_id or answer is not acceptable; details.field names which"
+      503 unavailable: as W-API-TEST-CURRENT
+    notes: Answers are append-only; no route edits or deletes one.
+  - id: W-API-TEST-SUBMIT
+    since: 2026-10-06a
+    method: POST
+    path: /api/v1/tests/attempts/<attempt_id>/submit
+    auth: install
+    idempotency: required
+    response_200:
+      attempt: "{id, submitted_at, ended_reason, answered}; ended_reason is submitted or deadline, answered counts the questions with an answer"
+    errors:
+      503 unavailable: as W-API-TEST-CURRENT
+    notes: Submitting ends the attempt early; a second submit returns the same answer.
   - id: W-API-HOLDINGS
     since: 2026-10-04g
     method: POST
@@ -1523,9 +1602,10 @@ debug:
     - link (the Teach connection changed: state lost|back, the failure that caused it, outage_s on back; since 2026-10-02b, W-DBG-FAULT)
     - storage (since 2026-10-02d, W-DBG-KINDS-2: corpus_mb, brain_mb, total_mb, tier, outcome measured|warned|demanded|compact_started|compacted|compact_failed, before_mb and after_mb on compacted)
     - import (since 2026-10-02d, W-DBG-KINDS-2: vendor, mode brain|copy, outcome started|progress|finished|failed|cancelled, conversations, done, bytes, findings_queued)
+    - control (since 2026-10-06a, W-DBG-KINDS-2: check, outcome, control_kind, message_id; outcome agent_control_fallback carries reason)
   W-DBG-KINDS-2:
     rule: >-
-      Since revision 2026-10-02d. Reach records storage and import events under those kinds only when the
+      Since revision 2026-10-02d, and for control since 2026-10-06a. Reach records storage, import and control events under those kinds only when the
       wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml; otherwise it records them
       under kind brain with fields.event set to storage.<outcome> or import.<outcome>, so a Teach older than this
       revision, which answers 400 to an unknown kind, never sees one. Neither kind carries a path, a file or

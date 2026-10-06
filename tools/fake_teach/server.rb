@@ -283,6 +283,74 @@ module FakeTeach
       { "available" => !rows.empty?, "grades" => rows, "total" => total, "as_of" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
     end
 
+    def fixture_json(name)
+      home_path = File.join(@home, name)
+      path = File.file?(home_path) ? home_path : File.join(__dir__, "fixtures", name)
+      JSON.parse(File.read(path))
+    end
+
+    def controls(req, body)
+      authenticate!(req, body)
+      config = fixture_json("controls.json")
+      raise Failure.new(404, "not_found", "no such route") if config["mode"] == "404"
+      raise Failure.new(503, "unavailable", "controls are switched off on this course server") if config["mode"] == "disabled"
+
+      {
+        "controls" => Array(config["controls"]),
+        "server_time" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "time_zone" => config["time_zone"]
+      }
+    end
+
+    def tests_current(req, body)
+      authenticate!(req, body)
+      config = fixture_json("tests.json")
+      raise Failure.new(404, "not_found", "no such route") if config["mode"] == "404"
+      raise Failure.new(503, "unavailable", "tests are switched off on this course server") if config["mode"] == "disabled"
+
+      { "test" => config["test"], "server_time" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
+    end
+
+    def tests_open(req, body, control_id)
+      authenticate!(req, body)
+      config = fixture_json("tests.json")
+      raise Failure.new(404, "not_found", "no such route") if config["mode"] == "404"
+
+      test = config["test"]
+      raise Failure.new(409, "conflict", "outside the window") unless test.is_a?(Hash) && test["control_id"] == control_id
+
+      opened = Time.now.utc
+      deadline = [opened + test["time_limit_s"].to_i, Time.iso8601(test["window_end"]).utc].min
+      {
+        "attempt" => { "id" => "tat_#{control_id.delete_prefix("ctl_")[0, 20].ljust(20, "0")}", "opened_at" => opened.strftime("%Y-%m-%dT%H:%M:%SZ"), "deadline_at" => deadline.strftime("%Y-%m-%dT%H:%M:%SZ") },
+        "questions" => Array(config["questions"])
+      }
+    end
+
+    def tests_answer(req, body, attempt_id)
+      authenticate!(req, body)
+      data = JSON.parse(body.to_s.empty? ? "{}" : body)
+      raise Failure.new(422, "validation_error", "question_id is required", details: { "field" => "question_id" }) if data["question_id"].to_s.empty?
+      raise Failure.new(422, "validation_error", "answer is required", details: { "field" => "answer" }) if data["answer"].to_s.empty?
+
+      { "recorded" => { "question_id" => data["question_id"], "seq" => 1, "recorded_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") } }
+    end
+
+    def tests_submit(req, body, attempt_id)
+      authenticate!(req, body)
+      { "attempt" => { "id" => attempt_id, "submitted_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "ended_reason" => "submitted", "answered" => 0 } }
+    end
+
+    def announcements(req, body)
+      authenticate!(req, body)
+      config = fixture_json("announcements.json")
+      raise Failure.new(404, "not_found", "no such route") if config["mode"] == "404"
+
+      now = Time.now.utc
+      rows = Array(config["announcements"]).reject { |row| row["show_until"] && Time.iso8601(row["show_until"]).utc <= now }
+      { "announcements" => rows, "server_time" => now.strftime("%Y-%m-%dT%H:%M:%SZ") }
+    end
+
     def due_time
       value = ENV["FAKE_TEACH_DUE"].to_s
       value.empty? ? nil : Time.iso8601(value).utc
@@ -751,6 +819,18 @@ module FakeTeach
         @store.known_issues(req)
       elsif method == "GET" && path == "/api/v1/grades"
         @store.grades(req, body)
+      elsif method == "GET" && path == "/api/v1/controls"
+        @store.controls(req, body)
+      elsif method == "GET" && path == "/api/v1/tests/current"
+        @store.tests_current(req, body)
+      elsif method == "POST" && path =~ %r{\A/api/v1/tests/attempts/([A-Za-z0-9_]+)/answers\z}
+        @store.tests_answer(req, body, Regexp.last_match(1))
+      elsif method == "POST" && path =~ %r{\A/api/v1/tests/attempts/([A-Za-z0-9_]+)/submit\z}
+        @store.tests_submit(req, body, Regexp.last_match(1))
+      elsif method == "POST" && path =~ %r{\A/api/v1/tests/([A-Za-z0-9_]+)/open\z}
+        @store.tests_open(req, body, Regexp.last_match(1))
+      elsif method == "GET" && path == "/api/v1/announcements"
+        @store.announcements(req, body)
       elsif method == "POST" && path == "/api/v1/password/verify"
         @store.password_verify(req, body)
       elsif method == "GET" && path == "/api/v1/password/reset"
