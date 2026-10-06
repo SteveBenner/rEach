@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "transcripts"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "transcripts"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -312,6 +312,10 @@ module Reach
           cmd_setup(args)
         when "runtime"
           cmd_runtime(args)
+        when "sdk"
+          cmd_sdk(args)
+        when "brain"
+          cmd_brain(args)
         when "update"
           cmd_update(args)
         when "profile"
@@ -1698,6 +1702,7 @@ module Reach
         enroll_line = doctor_enroll_line
         puts enroll_line if enroll_line
         puts doctor_runtime_line
+        puts doctor_planes_line
         puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"
         puts codex_line(codex_status)
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
@@ -1907,6 +1912,12 @@ module Reach
         state["installed"] ? "runtime: #{state['runtime_id']} installed (#{state['components'].join(', ')})" : "runtime: not installed"
       rescue StandardError
         "runtime: not installed"
+      end
+
+      def doctor_planes_line
+        "R-DOC-BRAIN-PLANES: #{Reach::BrainPlanes.status_line}"
+      rescue StandardError
+        "R-DOC-BRAIN-PLANES: planes: spool mode (could not be checked)"
       end
 
       def which_binary(name)
@@ -2255,6 +2266,83 @@ module Reach
           0
         else
           warn "usage: reach runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]"
+          1
+        end
+      end
+
+      def cmd_sdk(args)
+        sub = args.shift
+        case sub
+        when "install"
+          auto, args = parse_bare_flag(args, "auto")
+          return Reach::SdkAuto.run if auto
+
+          options, _remaining = parse_flags(args, [:from])
+          if Reach::SdkAuto.with_lock { Reach::SdkKit.install!(from: options[:from]) } == :busy
+            warn Reach::SdkAuto::BUSY
+            return 1
+          end
+          0
+        when "status"
+          json, _rest = parse_bare_flag(args, "json")
+          state = Reach::SdkKit.status
+          puts(json ? JSON.pretty_generate(state) : Reach::SdkKit.status_lines(state))
+          0
+        else
+          warn "usage: reach sdk install [--from DIR] | status [--json]"
+          1
+        end
+      end
+
+      def planes_child_allowed?
+        return true if Reach::BrainPlanes.child? || Reach::BrainPlanes.in_process?
+
+        warn "reach: this command is internal to rEach and runs only inside its SDK helper"
+        false
+      end
+
+      def cmd_brain(args)
+        return 2 unless planes_child_allowed?
+
+        sub = args.shift
+        case sub
+        when "admit"
+          Reach::Brain.ensure_dir!
+          File.open(File.join(Reach::Brain.dir, "brain-admit.lock"), File::RDWR | File::CREAT, 0o600) do |lock|
+            return 0 unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+
+            ports = Reach.ports
+            unless ports
+              Reach::Brain.log("brain.admit_unavailable")
+              return 0
+            end
+            Reach::Corpus.new(ports).admit_inline
+          end
+          0
+        when "erase"
+          options, _remaining = parse_flags(args, [:ids_file])
+          path = options[:ids_file].to_s
+          return 1 if path.empty? || !File.file?(path)
+
+          ids = File.read(path).split("\n").map(&:strip).reject(&:empty?)
+          return 0 if ids.empty?
+
+          Reach::Corpus.new(Reach.ports).erase_inline(ids) == :erased ? 0 : 1
+        when "context"
+          options, remaining = parse_flags(args, [:query, :k])
+          _json, _rest = parse_bare_flag(remaining, "json")
+          query = options[:query].to_s
+          return 1 if query.strip.empty?
+
+          settings = Reach::Brain.settings
+          limit = options[:k].to_i.positive? ? options[:k].to_i : settings["prompt_k"]
+          result = Reach::Brain.context_result(query, limit, settings)
+          return 1 unless result
+
+          puts JSON.generate(result)
+          0
+        else
+          warn "reach: unknown internal command"
           1
         end
       end

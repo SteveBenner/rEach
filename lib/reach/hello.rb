@@ -29,6 +29,11 @@ module Reach
         Reach::Relocation.start
       else
         Reach::RuntimeAuto.start
+        begin
+          Reach::SdkAuto.start
+        rescue StandardError
+          nil
+        end
       end
       repair_ruby_paths
       hookless = hookless?(harness, format, mcp)

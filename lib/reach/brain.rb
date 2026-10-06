@@ -503,9 +503,9 @@ module Reach
         end
       end
       scrub = scrub.uniq
-      Reach::Corpus.new(Reach.ports).erase(scrub)
+      erased = Reach::Corpus.new(Reach.ports).erase(scrub)
       Reach::ExportImport.forget_all! if all
-      removed = Reach::BrainSpool.scrub!(scrub)
+      removed = Reach::BrainSpool.scrub!(scrub, keep_tombstones: erased != :queued)
       update_state do |state|
         table = state["reinforcements"].is_a?(Hash) ? state["reinforcements"] : {}
         table = table.reject { |id, _| doomed.include?(id) }
@@ -638,6 +638,16 @@ module Reach
     end
 
     def recall_via_context(query, limit, config)
+      return context_result(query, limit, config) if Reach.ports
+      return nil unless Reach::BrainPlanes.available?
+
+      context_via_child(query, limit)
+    rescue StandardError => e
+      log("brain.failed", "op" => "context", "error" => e.class.name)
+      nil
+    end
+
+    def context_result(query, limit, config)
       ports = Reach.ports
       return nil unless ports
 
@@ -652,6 +662,18 @@ module Reach
       { "text" => "#{Reach::Messages.text('M-BRAIN-RECALL')}\n#{body}", "ids" => [], "hits" => body.lines.length, "bytes" => body.bytesize, "mode" => "context" }
     rescue StandardError => e
       log("brain.failed", "op" => "context", "error" => e.class.name)
+      nil
+    end
+
+    def context_via_child(query, limit)
+      result = Reach::BrainPlanes.run(["brain", "context", "--query", query, "--k", limit.to_s, "--json"], timeout: 10)
+      return nil unless result && result[1].success?
+
+      data = JSON.parse(result[0])
+      return nil unless data.is_a?(Hash) && data["text"].is_a?(String) && !data["text"].empty?
+
+      data
+    rescue StandardError
       nil
     end
 

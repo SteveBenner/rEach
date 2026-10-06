@@ -6,7 +6,7 @@ rEach is the academic assistant for students in a course run on Teach. It is pub
 
 rEach runs on your computer. It sends course information only to your course server: the Teach server your instructors run for your course. Your instructors control that server and what it keeps. PatḗrasAI runs no server that receives your course work or your conversations.
 
-rEach downloads itself and its updates from its public GitHub repository, so GitHub sees those downloads like any other web request.
+rEach downloads itself, its updates, its own copy of Ruby and its memory library from its public GitHub repository, so GitHub sees those downloads like any other web request.
 
 ## What rEach sends to your course server
 
@@ -35,7 +35,7 @@ rEach also asks your course server whether anything changed (new course material
 
 - A one-way scrambled check value for your rEach password, so rEach can check it when you sign in without sending it. The password itself is never stored, recorded in a conversation or shown to your AI assistant.
 - Your profile: the answers you give rEach in its short interview. It is shared with your instructors only if you say yes when rEach asks them for help. Say "forget my profile" to delete it.
-- What rEach learns about how you like to work, from what you type. Ask rEach "what do you know about me?" to see it, or ask it to forget.
+- What rEach learns about how you like to work, from what you type, including the organized copy of that memory it keeps in its own folder (`~/reach-work/.reach-home/corpora`). Ask rEach "what do you know about me?" to see it, or ask it to forget; forgetting removes it from that copy too.
 - A copy of each submission, saved in your Downloads folder, and your submission receipts.
 - A setup log. Until you finish enrolling, rEach keeps a detailed record of what it does on this computer (its commands, its errors and its exchanges with your course server, the names of the folders and programs it uses with your own user folder's name taken out, and details such as your operating system and Ruby version) so a problem getting set up can be solved. It never holds your passwords, your course passkey or anything you type, only how long an answer was. rEach never sends it. If setup goes wrong three times in a row, rEach saves a report from it in your Downloads folder and suggests you send it to your instructor; whether you send it is up to you. You can also save one with `reach debug export`.
 

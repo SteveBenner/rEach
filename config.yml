@@ -20,8 +20,14 @@ runtime:
   interval_s: 3600
   jitter_s: 600
   max_attempts: 5
+sdk:
+  auto_install: true
+  interval_s: 3600
+  jitter_s: 600
+  max_attempts: 5
 brain:
   enabled: true
+  planes: true
   capture_min_chars: 1
   sources_per_hour: 120
   duplicate: 0.85

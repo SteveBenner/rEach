@@ -163,8 +163,17 @@ module Reach
       0
     end
 
+    def planes_root
+      return nil if Reach.ports
+
+      path = Reach::BrainPlanes.planes_dir
+      File.directory?(path) ? path : nil
+    rescue StandardError
+      nil
+    end
+
     def measure
-      root = corpus_root
+      root = corpus_root || planes_root
       corpus = root ? tree_bytes(root) : 0
       brain = distinct_roots(brain_roots).inject(0) { |sum, path| sum + tree_bytes(path) }
       { "corpus" => corpus, "brain" => brain, "total" => corpus + brain, "measured_at" => now_s }
