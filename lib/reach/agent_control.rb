@@ -11,6 +11,8 @@ module Reach
     TIER_IDS = %w[wellbeing control rule student information operational].freeze
     FRAME_IDS = %w[wellbeing control test rule student information announcement operational].freeze
     PRECEDENCE_LINES = 5
+    PRECEDENCE_CHANNELS = /\A(hello|gate|notice)\./.freeze
+    VAULT_FILE = "agent-control.yml".freeze
     CHANNEL_IDS = [
       "hello.persona",
       "hello.session",
@@ -91,16 +93,140 @@ module Reach
       nil
     end
 
-    def load
-      return nil unless bundled_digest_ok?
+    def vault_file
+      File.join(Reach::Guardrails.vault_path, VAULT_FILE)
+    end
 
-      parse(bundled_text)
+    def vault_candidate(bundled)
+      path = vault_file
+      return [nil, nil] unless File.file?(path)
+
+      doc = parse(File.binread(path).force_encoding("UTF-8"))
+      return [nil, "the course copy could not be read"] unless doc
+
+      found = document_problems(doc)
+      return [nil, found.first.to_s.sub("R-DOC-AGENT-CONTROL: ", "")] unless found.empty?
+      return [nil, "the course copy is older than the bundled copy"] if bundled.is_a?(Hash) && doc["version"].to_i < bundled["version"].to_i
+
+      [doc, nil]
+    rescue StandardError
+      [nil, nil]
+    end
+
+    def selected
+      @selected ||= begin
+        bundled = bundled_digest_ok? ? parse(bundled_text) : nil
+        vault, refusal = vault_candidate(bundled)
+        if vault
+          { "doc" => vault, "source" => "vault", "refusal" => nil }
+        else
+          { "doc" => bundled, "source" => "bundled", "refusal" => refusal }
+        end
+      end
+    rescue StandardError
+      @selected = { "doc" => nil, "source" => "none", "refusal" => nil }
+    end
+
+    def reset!
+      @selected = nil
+      @opened = false
+      @fallback_reported = false
+    end
+
+    def begin_context
+      @opened = false
+    end
+
+    def load
+      chosen = selected
+      report_fallback(chosen["refusal"])
+      chosen["doc"]
+    end
+
+    def report_fallback(reason)
+      return if reason.nil? || @fallback_reported
+
+      @fallback_reported = true
+      Reach::Debug.emit("control", "check" => "agent_control", "outcome" => "agent_control_fallback", "reason" => reason.to_s)
     rescue StandardError
       nil
     end
 
-    def channel(_id, **_fields)
-      yield
+    def channel_entry(doc, id)
+      Array(doc["channels"]).find { |entry| entry.is_a?(Hash) && entry["id"].to_s == id.to_s }
+    end
+
+    def frame_id(doc, id)
+      entry = channel_entry(doc, id)
+      frames = doc["frames"].is_a?(Hash) ? doc["frames"] : {}
+      name = entry ? entry["frame"].to_s : FALLBACK_FRAME
+      frames.key?(name) ? name : FALLBACK_FRAME
+    end
+
+    def fill(template, fields)
+      values = fields.each_with_object({}) { |(key, value), memo| memo[key.to_s] = value.to_s }
+      template.to_s.gsub(/\{(\w+)\}/) { values.fetch(Regexp.last_match(1), "") }.gsub(/ {2,}/, " ").gsub(/ +([.,;:])/, "\\1")
+    end
+
+    def frame_text(doc, frame, text, fields)
+      spec = doc["frames"].is_a?(Hash) ? doc["frames"][frame] : nil
+      return text unless spec.is_a?(Hash)
+
+      [fill(spec["open"], fields), text.to_s.chomp, fill(spec["close"], fields)].reject(&:empty?).join("\n")
+    end
+
+    def precedence_heading(doc)
+      precedence = doc["precedence"]
+      precedence.is_a?(Hash) ? precedence["heading"].to_s : ""
+    end
+
+    def carries_precedence?(doc, text)
+      heading = precedence_heading(doc)
+      !heading.empty? && text.include?(heading)
+    end
+
+    def channel(id, **fields)
+      text = yield
+      return text unless flag?("render")
+      return text if text.nil? || text.to_s.strip.empty?
+
+      render_block(id.to_s, text.to_s, fields) || text
+    rescue StandardError
+      text
+    end
+
+    def render_block(id, text, fields)
+      doc = load
+      return nil unless doc
+
+      if carries_precedence?(doc, text)
+        @opened = true
+        return text
+      end
+      body = frame_text(doc, frame_id(doc, id), text, fields)
+      return body if @opened || !id.match?(PRECEDENCE_CHANNELS)
+
+      @opened = true
+      "#{precedence_text(doc)}\n\n#{body}"
+    end
+
+    def compose(entries, separator = "\n")
+      pairs = entries.map { |id, value| [id, value] }
+      return pairs.map { |_id, value| value }.join(separator) unless flag?("render")
+
+      doc = load
+      return pairs.map { |_id, value| value }.join(separator) unless doc
+
+      groups = []
+      pairs.each do |id, value|
+        frame = frame_id(doc, id)
+        if groups.last && groups.last[:frame] == frame
+          groups.last[:values] << value
+        else
+          groups << { frame: frame, id: id, values: [value] }
+        end
+      end
+      groups.map { |group| channel(group[:id]) { group[:values].join(separator) } }.join(separator)
     end
 
     def precedence_text(doc = load)
@@ -111,6 +237,14 @@ module Reach
     end
 
     def rules_section(_space = nil)
+      return nil unless flag?("render")
+
+      doc = load
+      precedence = doc.is_a?(Hash) ? doc["precedence"] : nil
+      return nil unless precedence.is_a?(Hash) && precedence["lines"].is_a?(Array)
+
+      ["# #{precedence["heading"]}", "", *precedence["lines"].map(&:to_s)].join("\n")
+    rescue StandardError
       nil
     end
 
@@ -120,13 +254,32 @@ module Reach
       doc = parse(bundled_text)
       return found + ["R-DOC-AGENT-CONTROL: the bundled agent-control.yml could not be read"] unless doc
 
+      found.concat(document_problems(doc))
+      found.concat(vault_problems(doc))
+      found
+    rescue StandardError
+      ["R-DOC-AGENT-CONTROL: the bundled agent-control.yml could not be checked"]
+    end
+
+    def document_problems(doc)
+      found = []
       found << "R-DOC-AGENT-CONTROL: schema is not #{SCHEMA}" unless doc["schema"] == SCHEMA
       found << "R-DOC-AGENT-CONTROL: version is not a positive integer" unless doc["version"].is_a?(Integer) && doc["version"].positive?
       found.concat(structure_problems(doc))
       found.concat(channel_problems(doc))
       found
+    end
+
+    def vault_problems(_bundled)
+      path = vault_file
+      return [] unless File.file?(path)
+
+      doc = parse(File.binread(path).force_encoding("UTF-8"))
+      return ["R-DOC-AGENT-CONTROL: the course copy of agent-control.yml could not be read; the bundled copy is in use"] unless doc
+
+      document_problems(doc).map { |line| "#{line} (course copy refused; the bundled copy is in use)" }
     rescue StandardError
-      ["R-DOC-AGENT-CONTROL: the bundled agent-control.yml could not be checked"]
+      []
     end
 
     def structure_problems(doc)

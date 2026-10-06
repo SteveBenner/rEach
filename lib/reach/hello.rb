@@ -258,6 +258,7 @@ module Reach
     end
 
     def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil, mcp: false, hookless: false)
+      Reach::AgentControl.begin_context
       lock = Reach::EnrollmentLock.state
       if lock["locked"]
         if hookless && lock["reason"] != "course_ended"
@@ -598,38 +599,38 @@ module Reach
     end
 
     def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false)
-      lines = []
-      lines << framed("hello.session", "rEach session context (from reach hello)")
-      lines << framed("hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save.")
-      lines << framed("hello.session", "- #{Reach::Messages.text("M-AGENT-TALK")}")
-      lines.concat(framed("hello.issues", known_issue_lines(mcp)))
-      lines << framed("hello.session", "- #{Reach::Messages.text("M-AGENT-UPDATE")}")
+      entries = []
+      entries << ["hello.session", "rEach session context (from reach hello)"]
+      entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
+      entries << ["hello.session", "- #{Reach::Messages.text("M-AGENT-TALK")}"]
+      known_issue_lines(mcp).each { |line| entries << ["hello.issues", line] }
+      entries << ["hello.session", "- #{Reach::Messages.text("M-AGENT-UPDATE")}"]
       if greeting_text
-        lines << framed("hello.greeting", "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:")
-        greeting_text.each_line { |line| lines << framed("hello.greeting", "  #{line.chomp}") }
-        lines << framed("hello.greeting", "- Exception: if the student's first message says they are in crisis or might hurt themselves or someone else, skip the greeting and give reach support's message first (run reach support or the reach_support tool).")
+        entries << ["hello.greeting", "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:"]
+        greeting_text.each_line { |line| entries << ["hello.greeting", "  #{line.chomp}"] }
+        entries << ["hello.greeting", "- Exception: if the student's first message says they are in crisis or might hurt themselves or someone else, skip the greeting and give reach support's message first (run reach support or the reach_support tool)."]
       else
-        lines << framed("hello.session", "- This session continues an earlier one. Do not greet again.")
+        entries << ["hello.session", "- This session continues an earlier one. Do not greet again."]
       end
-      lines << framed("hello.session", "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them.")
-      lines << framed("hello.update", update_line(updating)) if updating
-      lines << framed("hello.profile", profile_line)
-      lines << framed("hello.course", course_line)
-      lines.concat(alignment_lines)
+      entries << ["hello.session", "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."]
+      entries << ["hello.update", update_line(updating)] if updating
+      entries << ["hello.profile", profile_line]
+      entries << ["hello.course", course_line]
+      entries.concat(alignment_lines)
       late = safe_late_line(workspace)
-      lines << framed("hello.late_work", late) if late
+      entries << ["hello.late_work", late] if late
       memory = safe_session_context
-      lines << framed("hello.memory", memory) if memory
+      entries << ["hello.memory", memory] if memory
       question = safe_course_question
-      lines << framed("hello.course_question", course_question_line(question)) if question
+      entries << ["hello.course_question", course_question_line(question)] if question
       storage = local ? nil : safe_storage_context
-      lines << framed("hello.storage", "- #{storage}") if storage
+      entries << ["hello.storage", "- #{storage}"] if storage
       control_lines = safe_control_lines
-      lines << framed("hello.controls", control_lines.join("\n")) unless control_lines.empty?
+      entries << ["hello.controls", control_lines.join("\n")] unless control_lines.empty?
       exam_lines = safe_exam_lines
-      lines << framed("hello.test", exam_lines.join("\n")) unless exam_lines.empty?
+      entries << ["hello.test", exam_lines.join("\n")] unless exam_lines.empty?
 
-      text = lines.join("\n")
+      text = Reach::AgentControl.compose(entries)
       if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"
         text = "#{text}\n\n#{framed("hello.persona", persona_body)}"
       end
@@ -639,14 +640,14 @@ module Reach
     def alignment_lines
       return [] unless safe_enrol_current
 
-      lines = []
+      entries = []
       ids = Reach::Modules.module_ids
-      lines << framed("hello.modules", "- Modules: #{Reach::Modules.names(ids)}") unless ids.empty?
+      entries << ["hello.modules", "- Modules: #{Reach::Modules.names(ids)}"] unless ids.empty?
       pending = Reach::Transfer.current
-      lines << framed("hello.module_move", "- Module move: waiting for the student's instructor (asked #{Reach::Messages.course_time(pending['created_at'])})") if pending
+      entries << ["hello.module_move", "- Module move: waiting for the student's instructor (asked #{Reach::Messages.course_time(pending['created_at'])})"] if pending
       answer = Reach::Transfer.announcement!
-      lines << framed("hello.module_move", "- Tell the student about their module move request, in these words: #{answer}") if answer
-      lines
+      entries << ["hello.module_move", "- Tell the student about their module move request, in these words: #{answer}"] if answer
+      entries
     rescue StandardError
       []
     end

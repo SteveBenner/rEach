@@ -138,6 +138,12 @@ module Reach
     end
 
     def render_rules(space: "slice", cutout_id: nil, slice: nil, behavior: nil, due: nil, owned_files: nil)
+      body = render_space_rules(space: space, cutout_id: cutout_id, slice: slice, behavior: behavior, due: due, owned_files: owned_files)
+      section = Reach::AgentControl.rules_section(space)
+      section ? "#{section}\n\n#{body}" : body
+    end
+
+    def render_space_rules(space:, cutout_id:, slice:, behavior:, due:, owned_files:)
       case space.to_s
       when "extracurricular"
         render_extracurricular_rules
@@ -167,16 +173,15 @@ module Reach
       end
 
       table = Reach::Directives.table(slice: slice, guardrails: data)
-      unless table.empty?
-        lines << ""
-        lines << table
-      end
+      tail = ["Your files: #{Array(owned_files).join(', ')}", "Slice: #{cutout_id} (#{slice}) - #{behavior}", "Due: #{due}"]
+      assemble("rules.slice", lines, table, tail)
+    end
 
-      lines << ""
-      lines << "Your files: #{Array(owned_files).join(', ')}"
-      lines << "Slice: #{cutout_id} (#{slice}) - #{behavior}"
-      lines << "Due: #{due}"
-      "#{lines.join("\n")}\n"
+    def assemble(channel_id, head, table, tail)
+      blocks = [Reach::AgentControl.channel(channel_id) { head.join("\n") }]
+      blocks << Reach::AgentControl.channel("rules.directives") { table } unless table.empty?
+      blocks << Reach::AgentControl.channel(channel_id) { tail.join("\n") }
+      "#{blocks.join("\n\n")}\n"
     end
 
     def render_extracurricular_rules
@@ -199,15 +204,8 @@ module Reach
       end
 
       table = extracurricular_directive_table
-      unless table.empty?
-        lines << ""
-        lines << table
-      end
-
-      lines << ""
-      lines << "Folder: #{Reach::Paths.extracurricular_root}"
-      lines << "This is the student's own code folder. Nothing here is graded or submitted."
-      "#{lines.join("\n")}\n"
+      tail = ["Folder: #{Reach::Paths.extracurricular_root}", "This is the student's own code folder. Nothing here is graded or submitted."]
+      assemble("rules.extracurricular", lines, table, tail)
     end
 
     def render_root_rules
@@ -227,9 +225,8 @@ module Reach
         index += 1
       end
 
-      lines << ""
-      lines << "Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else goes in extracurricular/."
-      "#{lines.join("\n")}\n"
+      tail = ["Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else goes in extracurricular/."]
+      assemble("rules.root", lines, "", tail)
     end
 
     def rule_scope(directive)
@@ -249,7 +246,7 @@ module Reach
       lines = ["## Engineering directives", ""]
       lines.concat(rows.map { |row| Reach::Directives.render_row(row) })
       lines << ""
-      lines << Reach::Directives::POINTER_SENTENCE
+      lines << Reach::Directives.pointer_sentence
       lines.join("\n")
     end
 
