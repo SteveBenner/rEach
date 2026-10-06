@@ -168,6 +168,10 @@ module Reach
       forget!
     end
 
+    def loggable(value)
+      value.to_s.gsub(/[^A-Za-z0-9_.:+-]/, "")[0, 64]
+    end
+
     def reject!(reason, fields = {})
       Reach::Instructor.log("instructor.keyring_rejected", { "reason" => reason }.merge(fields))
       nil
@@ -176,6 +180,7 @@ module Reach
     def fetch!(quick: true)
       base = Reach::Runtime.default_teach_url
       return nil if base.to_s.empty?
+      return reject!("insecure_url") if signing_keys.empty? && !base.to_s.start_with?("https://")
 
       current = cache
       headers = {}
@@ -190,8 +195,8 @@ module Reach
 
       body = response.json
       return reject!("malformed") unless well_formed?(body)
-      return reject!("signature", "signing_key_id" => body["signing_key_id"]) unless signature_ok?(body, signing_keys)
-      return reject!("rollback", "issued_at" => body["issued_at"]) if older_than_cache?(body)
+      return reject!("signature", "signing_key_id" => loggable(body["signing_key_id"])) unless signature_ok?(body, signing_keys)
+      return reject!("rollback", "issued_at" => loggable(body["issued_at"])) if older_than_cache?(body)
 
       data = { "fetched_at" => now_s, "keyring" => body }
       store!(data)

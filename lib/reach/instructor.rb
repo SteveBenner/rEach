@@ -13,7 +13,6 @@ module Reach
     PREFIX = "RINS1".freeze
     KIND = "reach.instructor-unlock".freeze
     MAX_CODE_CHARS = 4096
-    LABEL_MAX = 40
     CODE_PATTERN = /\ARINS1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\z/.freeze
     HEX16 = /\A[0-9a-f]{16}\z/.freeze
     LABEL_PATTERN = /\A[A-Za-z0-9 ._-]{0,40}\z/.freeze
@@ -77,27 +76,6 @@ module Reach
       key_id_for(key) == entry["id"].to_s ? key : nil
     rescue StandardError
       nil
-    end
-
-    def clean_label(label)
-      label.to_s.gsub(/[^A-Za-z0-9 ._-]/, "")[0, LABEL_MAX]
-    end
-
-    def mint(private_key, label: "")
-      key_id = key_id_for(private_key)
-      raise Reach::Error, Reach::Messages.text("M-INSTRUCTOR-KEY-UNPINNED", key_id: key_id) unless pinned_public_key(key_id)
-
-      payload = {
-        "v" => 1, "kind" => KIND, "id" => SecureRandom.hex(8), "key_id" => key_id,
-        "label" => clean_label(label), "issued_at" => Time.now.utc.iso8601
-      }
-      segment = b64(Reach::Crypto.canonical_json(payload))
-      signature = Reach::Crypto.sign_pss(private_key, "#{PREFIX}.#{segment}")
-      "#{PREFIX}.#{segment}.#{b64(signature)}"
-    end
-
-    def b64(bytes)
-      Base64.urlsafe_encode64(bytes, padding: false)
     end
 
     def unb64(text)

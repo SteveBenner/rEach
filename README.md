@@ -202,8 +202,8 @@ reach import next|done|search|show ...               what the agent reads to lea
 
 ## Instructors
 
-An instructor can try rEach without enrolling. Mint a code on the Teach console's Instructor codes page (or with
-`teach instructor-codes mint`), then paste it into the locked prompt in any harness: rEach intercepts it, so the agent
+An instructor can try rEach without enrolling. Mint a code on the Teach console's Instructor codes page, then
+paste it into the locked prompt in any harness: rEach intercepts it, so the agent
 never sees it, and stops blocking prompts on that computer. rEach checks the code against the instructor keyring Teach
 publishes (it fetches it at session start and before checking a code, keeps a copy for offline use, and refreshes every
 `instructor.keyring_refresh_s` seconds in `config.yml`, 900 by default); with no copy and no connection it says it could
