@@ -330,8 +330,8 @@ module FakeTeach
     def tests_answer(req, body, attempt_id)
       authenticate!(req, body)
       data = JSON.parse(body.to_s.empty? ? "{}" : body)
-      raise Failure.new(422, "validation_error", "question_id is required", details: { "field" => "question_id" }) if data["question_id"].to_s.empty?
-      raise Failure.new(422, "validation_error", "answer is required", details: { "field" => "answer" }) if data["answer"].to_s.empty?
+      raise Failure.new(400, "invalid_request", "question_id must be a question of this test") if data["question_id"].to_s.empty?
+      raise Failure.new(400, "invalid_request", "answer is required") if data["answer"].to_s.empty?
 
       { "recorded" => { "question_id" => data["question_id"], "seq" => 1, "recorded_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") } }
     end

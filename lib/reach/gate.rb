@@ -194,7 +194,7 @@ module Reach
 
       if decision
         if safely { Reach::Login.just_confirmed?(session) }
-          context << framed("gate.signin", signed_in_context(harness, session))
+          context << signed_in_context(harness, session)
           after_answer { Reach::Login.clear_just_confirmed(session) }
           greeted = true
         end
@@ -210,8 +210,8 @@ module Reach
       context.concat(Array(framed("notice.export_import", safely { Reach::ExportImport.prompt_notices(session) })))
       context << framed("notice.debug", safely { Reach::Debug.remote_notice(session) })
       context << framed("notice.late_work", safely { Reach::LateWork.prompt_notice(session) })
-      context.concat(Array(framed("notice.announcement", safely { Reach::Announcements.prompt_notices })))
-      context.concat(Array(framed("notice.due_change", safely { Reach::DueChanges.prompt_notices })))
+      context.concat(Array(safely { Reach::Announcements.prompt_notices }))
+      context.concat(Array(safely { Reach::DueChanges.prompt_notices }))
       transcripts = safely { Reach::TranscriptExport.pending_notice! }
       context << framed("notice.transcripts", Reach::TranscriptExport.agent_notice(transcripts)) if transcripts
       observed = safely { Reach::Consent.observe(entry) } if entry
@@ -221,10 +221,8 @@ module Reach
       end
       context << framed("notice.consent", safely { Reach::Consent.relay!(session) }) unless observed
       context.concat(Array(framed("notice.live", safely { Reach::Live.prompt_notices(session) })))
-      control_lines = Array(safely { Reach::Controls.context_lines })
-      context << framed("notice.control", control_lines.join("\n")) unless control_lines.empty?
-      exam_lines = Array(safely { Reach::ExamMode.context_lines })
-      context << framed("notice.test", exam_lines.join("\n")) unless exam_lines.empty?
+      context.concat(Array(safely { Reach::Controls.context_blocks("notice.control") }))
+      context.concat(Array(safely { Reach::ExamMode.context_blocks("notice.test") }))
       if space
         import_path = space["kind"] == "root" ? safely { focus_workspace } : space["path"]
         imports = import_path ? safely { Reach::Imports.observe(text: event["prompt"], space_path: import_path) } : nil
@@ -239,11 +237,11 @@ module Reach
       text.empty? ? nil : text
     end
 
-    def framed(id, value)
+    def framed(id, value, **fields)
       return value if value.nil?
-      return value.map { |item| framed(id, item) } if value.is_a?(Array)
+      return value.map { |item| framed(id, item, **fields) } if value.is_a?(Array)
 
-      Reach::AgentControl.channel(id) { value }
+      Reach::AgentControl.channel(id, **fields) { value }
     rescue StandardError
       value
     end
@@ -251,8 +249,9 @@ module Reach
     def signed_in_context(harness, session)
       student = safely { Reach::Login.student } || {}
       name = student["display_name"].to_s.empty? ? "the enrolled student" : student["display_name"]
-      parts = [Reach::Messages.text("M-LOGIN-DONE-AGENT", name: name)]
-      parts << safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup", session: session) }
+      hello = safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup", session: session) }
+      done = framed("gate.signin", Reach::Messages.text("M-LOGIN-DONE-AGENT", name: name))
+      parts = Reach::AgentControl.flag?("render") ? [hello, done] : [done, hello]
       parts.compact.join("\n\n")
     end
 
@@ -907,11 +906,11 @@ module Reach
       false
     end
 
-    def raise_blocked!(message_id, **fields)
+    def raise_blocked!(message_id, channel: "gate.refusal", frame: {}, **fields)
       text = Reach::Messages.text(message_id, **fields)
       log_refusal(message_id, text)
       Reach::Debug.emit("gate", "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s)
-      raise Reach::GateBlocked.new(message_id, framed("gate.refusal", text))
+      raise Reach::GateBlocked.new(message_id, framed(channel, text, **frame))
     end
 
     def log_refusal(message_id, text)

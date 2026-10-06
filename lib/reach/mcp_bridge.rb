@@ -570,7 +570,7 @@ module Reach
 
       def dispatch(name, arguments)
         unless Reach::Controls.tool_allowed?(name)
-          raise Reach::Refused, Reach::Messages.text("M-CONTROL-TEST-LOCKED", ends: Reach::Controls.ends_text)
+          raise Reach::Refused, Reach::Controls.refusal_text("mcp.control")
         end
 
         lock = UNLOCKED_TOOLS.include?(name) ? nil : Reach::EnrollmentLock.state

@@ -164,7 +164,8 @@ module Reach
       return Reach::Messages.text("M-ANNOUNCE-NONE") if rows.empty?
 
       rows.map do |item|
-        Reach::Messages.text("M-ANNOUNCE-LINE", sent: Reach::Messages.course_time(item["sent_at"]), title: item["title"].to_s, body: item["body"].to_s)
+        id = item["expired"] ? "M-ANNOUNCE-LINE-EXPIRED" : "M-ANNOUNCE-LINE"
+        Reach::Messages.text(id, sent: Reach::Messages.course_time(item["sent_at"]), until: Reach::Messages.course_time(item["show_until"]), title: item["title"].to_s, body: item["body"].to_s)
       end.join("\n\n")
     end
   end

@@ -211,22 +211,32 @@ module Reach
     end
 
     def compose(entries, separator = "\n")
-      pairs = entries.map { |id, value| [id, value] }
-      return pairs.map { |_id, value| value }.join(separator) unless flag?("render")
+      triples = entries.map { |id, value, fields| [id, value, fields || {}] }
+      return triples.map { |_id, value, _fields| value }.join(separator) unless flag?("render")
 
       doc = load
-      return pairs.map { |_id, value| value }.join(separator) unless doc
+      return triples.map { |_id, value, _fields| value }.join(separator) unless doc
 
       groups = []
-      pairs.each do |id, value|
+      triples.each do |id, value, fields|
         frame = frame_id(doc, id)
-        if groups.last && groups.last[:frame] == frame
+        if groups.last && groups.last[:frame] == frame && groups.last[:fields] == fields
           groups.last[:values] << value
         else
-          groups << { frame: frame, id: id, values: [value] }
+          groups << { frame: frame, id: id, fields: fields, values: [value] }
         end
       end
-      groups.map { |group| channel(group[:id]) { group[:values].join(separator) } }.join(separator)
+      groups.map { |group| channel(group[:id], **group[:fields]) { group[:values].join(separator) } }.join(separator)
+    end
+
+    def time_fields(prefix, formatted)
+      stamp = formatted.to_s.split(" ")
+      {
+        "#{prefix}_weekday".to_sym => stamp[0].to_s,
+        "#{prefix}_date".to_sym => stamp[1, 2].to_a.join(" "),
+        "#{prefix}_time".to_sym => stamp[3, 2].to_a.join(" "),
+        :time_zone => stamp[5..-1].to_a.join(" ")
+      }
     end
 
     def precedence_text(doc = load)

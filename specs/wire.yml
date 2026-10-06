@@ -1464,7 +1464,7 @@ routes:
       recorded: "{question_id, seq, recorded_at}; seq counts from 1 per question and the highest seq is the answer"
     errors:
       409 conflict: "the deadline has passed, or the attempt was submitted"
-      422 validation_error: "question_id or answer is not acceptable; details.field names which"
+      400 invalid_request: "question_id or answer is not acceptable; the message names which"
       503 unavailable: as W-API-TEST-CURRENT
     notes: Answers are append-only; no route edits or deletes one.
   - id: W-API-TEST-SUBMIT

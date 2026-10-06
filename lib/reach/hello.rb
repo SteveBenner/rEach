@@ -340,14 +340,14 @@ module Reach
       nil
     end
 
-    def safe_control_lines
-      Array(Reach::Controls.context_lines)
+    def safe_control_entries
+      Array(Reach::Controls.context_entries)
     rescue StandardError
       []
     end
 
-    def safe_exam_lines
-      Array(Reach::ExamMode.context_lines)
+    def safe_exam_entries
+      Array(Reach::ExamMode.context_entries)
     rescue StandardError
       []
     end
@@ -625,10 +625,8 @@ module Reach
       entries << ["hello.course_question", course_question_line(question)] if question
       storage = local ? nil : safe_storage_context
       entries << ["hello.storage", "- #{storage}"] if storage
-      control_lines = safe_control_lines
-      entries << ["hello.controls", control_lines.join("\n")] unless control_lines.empty?
-      exam_lines = safe_exam_lines
-      entries << ["hello.test", exam_lines.join("\n")] unless exam_lines.empty?
+      safe_control_entries.each { |text, fields| entries << ["hello.controls", text, fields] }
+      safe_exam_entries.each { |text, fields| entries << ["hello.test", text, fields] }
 
       text = Reach::AgentControl.compose(entries)
       if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"

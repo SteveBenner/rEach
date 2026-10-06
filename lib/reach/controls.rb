@@ -157,7 +157,7 @@ module Reach
       Reach::Debug.emit("control", "check" => check, "outcome" => "block", "control_kind" => kind, "message_id" => message_id)
       fields = { ends: format_time(ends) }
       fields[:support] = support_line if message_id == "M-CONTROL-PAUSED"
-      Reach::Gate.raise_blocked!(message_id, **fields)
+      Reach::Gate.raise_blocked!(message_id, channel: "gate.control", frame: Reach::AgentControl.time_fields("ends", fields[:ends]), **fields)
     end
 
     def check_pause!(space, check)
@@ -214,6 +214,11 @@ module Reach
       true
     end
 
+    def refusal_text(id)
+      text = Reach::Messages.text("M-CONTROL-TEST-LOCKED", ends: ends_text)
+      Reach::AgentControl.channel(id, **Reach::AgentControl.time_fields("ends", ends_text)) { text }
+    end
+
     def ends_text
       lock = test_lock
       return format_time(lock) if lock
@@ -222,19 +227,31 @@ module Reach
       row ? format_time(row["ends_at"]) : ""
     end
 
-    def context_lines
+    def context_entries
       return [] unless enabled?
 
-      lines = []
+      entries = []
       pause = active("pause_course_work").last
-      lines << Reach::Messages.text("M-CONTROL-PAUSED", ends: format_time(pause["ends_at"]), support: support_line) if pause
+      entries << entry(Reach::Messages.text("M-CONTROL-PAUSED", ends: format_time(pause["ends_at"]), support: support_line), pause["ends_at"]) if pause
       hold = active("hold_submissions").last
-      lines << Reach::Messages.text("M-CONTROL-HOLD", ends: format_time(hold["ends_at"])) if hold
+      entries << entry(Reach::Messages.text("M-CONTROL-HOLD", ends: format_time(hold["ends_at"])), hold["ends_at"]) if hold
       lock = test_lock
-      lines << Reach::Messages.text("M-CONTROL-TEST-LOCKED", ends: format_time(lock)) if lock
-      lines
+      entries << entry(Reach::Messages.text("M-CONTROL-TEST-LOCKED", ends: format_time(lock)), lock) if lock
+      entries
     rescue StandardError
       []
+    end
+
+    def entry(text, ends)
+      [text, Reach::AgentControl.time_fields("ends", format_time(ends))]
+    end
+
+    def context_lines
+      context_entries.map(&:first)
+    end
+
+    def context_blocks(id)
+      context_entries.map { |text, fields| Reach::AgentControl.channel(id, **fields) { text } }
     end
   end
 end

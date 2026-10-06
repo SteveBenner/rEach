@@ -15,6 +15,7 @@ messages:
   M-SUBSCRIBE-UPDATES: "rEach picked up new course updates since your last message: {updates}. Tell the student in plain words if it helps their work."
   M-ANNOUNCE-NOTICE: "{title}\n{body}"
   M-ANNOUNCE-LINE: "{sent}: {title}\n{body}"
+  M-ANNOUNCE-LINE-EXPIRED: "{sent}: {title} (shown until {until})\n{body}"
   M-ANNOUNCE-NONE: "No announcements from your instructors."
   M-CONTROL-PAUSED: "Course work is paused by your instructors until {ends}. Your own extracurricular folder still works, and reach support is always here.\n{support}"
   M-CONTROL-HOLD: "Submitting is on hold until {ends}. You can keep working and running checks; submit after that time."

@@ -10,7 +10,6 @@ module Reach
     ANSWER_ROUTE = "/api/v1/tests/attempts/%s/answers".freeze
     SUBMIT_ROUTE = "/api/v1/tests/attempts/%s/submit".freeze
     PROMPT_WINDOW_S = 1800
-    ENDED_NOTICE_S = 1800
     UNSUPPORTED_WAIT_S = 21_600
 
     module_function
@@ -313,22 +312,25 @@ module Reach
       dispatch(arguments["action"], arguments["question_id"])
     end
 
-    def context_lines
+    def context_entries
       return [] unless enabled?
 
       close_out!
       state = read
-      return [] unless attempt?(state)
+      return [] unless open_attempt?(state)
 
-      if open_attempt?(state)
-        [Reach::Messages.text("M-TEST-CLOCK", minutes: minutes_left(state), deadline: deadline_text(state))]
-      elsif !submitted?(state) && state["ended_at"].is_a?(String) && Time.now.utc - Time.iso8601(state["ended_at"]).utc < ENDED_NOTICE_S
-        [Reach::Messages.text("M-TEST-ENDED")]
-      else
-        []
-      end
+      text = Reach::Messages.text("M-TEST-CLOCK", minutes: minutes_left(state), deadline: deadline_text(state))
+      [[text, Reach::AgentControl.time_fields("ends", deadline_text(state))]]
     rescue ArgumentError
       []
+    end
+
+    def context_lines
+      context_entries.map(&:first)
+    end
+
+    def context_blocks(id)
+      context_entries.map { |text, fields| Reach::AgentControl.channel(id, **fields) { text } }
     end
   end
 end
