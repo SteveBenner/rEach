@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.8] - 2026-10-06
+
+### Changed
+
+- The Installation and Setup Guide (`docs/INSTALLATION-AND-SETUP-GUIDE.docx`, which `reach guide` prints) matches the
+  current install: rEach installs from the `stable` branch into `~/reach-work/.reach-home`, Claude desktop users work in
+  the Code tab, Windows uses rEach's own Ruby with no installer to run, enrollment ends with choosing a password and
+  sign-in asks for it, Codex users open the reach-work folder and answer rEach's Codex settings question, and the guide
+  states what rEach records during signed-in assignment work, as `PRIVACY.md` does.
+- `README.md`, `NOTICE.md` and the documents in `docs/` describe rEach in the present tense.
+
 ## [0.38.7] - 2026-10-06
 
 ### Fixed
