@@ -454,7 +454,7 @@ module Reach
       return nil unless profile
 
       lock = (profile["lock12"] || profile["lock_sha256"]).to_s
-      return nil if lock.length < 12
+      return nil unless lock.match?(/\A[0-9a-f]{12}/)
 
       dir = File.join(root, "gems", lock[0, 12])
       File.directory?(dir) ? dir : nil

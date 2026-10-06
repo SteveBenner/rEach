@@ -83,10 +83,14 @@ module Reach
       nil
     end
 
-    def backfill_started
+    def backfill_started(student_id)
+      return nil if student_id.to_s.empty?
+
       first_work = Reach::Workspace.current_slices.map do |workspace|
-        record = Reach::Ledger.records(workspace).first
+        record = Reach::Ledger.records(workspace).find { |entry| entry["student_id"].to_s == student_id.to_s }
         record ? [workspace, Time.iso8601(record["at"].to_s)] : nil
+      rescue StandardError
+        nil
       end.compact
       first_work.sort_by(&:last).each { |workspace, at| assignment_started(workspace, at: at) }
       nil
@@ -100,7 +104,7 @@ module Reach
       install = Reach::Enroll.current
       return nil unless install
 
-      backfill_started
+      backfill_started(install["student_id"])
       data = read
       pending = data["reached"].reject { |id, _| data["sent"].include?(id) }.first(MAX_BATCH)
       return nil if pending.empty?
