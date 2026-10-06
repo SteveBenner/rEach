@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.36.0] - 2026-10-06
+
+### Changed
+
+- Instructor keys and revoked codes are no longer pinned in `config.yml`. `enrollment.instructor_keys` and
+  `enrollment.instructor_revoked` are gone, and so is the key `343572ebf748c69d`, so every code minted from it stops
+  working. rEach now fetches them from Teach's instructor keyring (`GET /api/v1/instructor/keyring`,
+  `W-API-INSTRUCTOR-KEYRING`, Teach 0.62.0 on) through `lib/reach/instructor_keyring.rb`.
+  - On an enrolled install the keyring must be signed by one of the Teach signing keys received at enrollment, and the
+    cached copy is re-checked on every read. An install that is not enrolled takes it over TLS from its configured
+    Teach.
+  - It is cached in `<root>/state/instructor_keyring.json` (0600) and refreshed when stale
+    (`instructor.keyring_refresh_s`, default 900 s) at session start and before a typed code is checked. The cache is
+    used offline, and an older keyring never replaces a newer one.
+  - A key Teach has rotated out, or a code it has revoked, is refused on the next refresh.
+  - With no keyring cached and Teach out of reach, a typed code gets `M-INSTRUCTOR-KEYRING-UNAVAILABLE` and does not
+    count toward a lockout.
+- `reach instructor keygen` and `reach instructor code` no longer mint. They point to the Instructor codes page in
+  Teach's console (`M-INSTRUCTOR-MINT-IN-TEACH`) and exit 1. `reach instructor status` shows the keyring revision, its
+  age and the key ids.
+
 ## [0.35.23] - 2026-10-05
 
 ### Fixed

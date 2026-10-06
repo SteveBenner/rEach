@@ -6,12 +6,12 @@ require "fileutils"
 require "securerandom"
 require "yaml"
 require "digest"
+require_relative "instructor_keyring"
 
 module Reach
   module Instructor
     PREFIX = "RINS1".freeze
     KIND = "reach.instructor-unlock".freeze
-    KEY_BITS = 3072
     MAX_CODE_CHARS = 4096
     LABEL_MAX = 40
     CODE_PATTERN = /\ARINS1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\z/.freeze
@@ -37,12 +37,6 @@ module Reach
       File.join(Reach::Paths.root_logs_dir, "instructor.jsonl")
     end
 
-    def default_key_path
-      base = ENV["XDG_CONFIG_HOME"].to_s
-      base = File.join(Reach::Paths.user_home, ".config") if base.empty?
-      File.join(File.expand_path(base), "reach-instructor", "key.pem")
-    end
-
     def log(event, fields = {})
       FileUtils.mkdir_p(Reach::Paths.root_logs_dir)
       record = { "at" => Time.now.utc.iso8601, "event" => event }.merge(fields)
@@ -63,46 +57,16 @@ module Reach
       Reach::Crypto.digest_hex(Base64.decode64(body))[0, 16]
     end
 
-    def generate_key
-      OpenSSL::PKey::RSA.generate(KEY_BITS)
-    end
-
-    def keygen(path)
-      path = File.expand_path(path)
-      raise Reach::Error, Reach::Messages.text("M-INSTRUCTOR-KEY-EXISTS", path: path) if File.exist?(path)
-
-      dir = File.dirname(path)
-      existed = File.directory?(dir)
-      FileUtils.mkdir_p(dir)
-      File.chmod(0o700, dir) unless existed
-      key = generate_key
-      begin
-        File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(key.to_pem) }
-      rescue Errno::EEXIST
-        raise Reach::Error, Reach::Messages.text("M-INSTRUCTOR-KEY-EXISTS", path: path)
-      end
-      { "path" => path, "key_id" => key_id_for(key), "public_key_pem" => key.public_key.to_pem }
-    end
-
-    def load_private(path)
-      path = File.expand_path(path)
-      raise Reach::Error, Reach::Messages.text("M-INSTRUCTOR-NO-KEY", path: path) unless File.file?(path)
-
-      Reach::Crypto.load_private_key(File.read(path))
-    rescue OpenSSL::PKey::PKeyError
-      raise Reach::Error, Reach::Messages.text("M-INSTRUCTOR-NO-KEY", path: path)
-    end
-
     def pinned_keys
-      enrollment = Reach::Runtime.load_config["enrollment"]
-      list = enrollment.is_a?(Hash) ? enrollment["instructor_keys"] : nil
-      Array(list).select { |entry| entry.is_a?(Hash) }
+      Reach::InstructorKeyring.keys
     end
 
     def revoked_ids
-      enrollment = Reach::Runtime.load_config["enrollment"]
-      list = enrollment.is_a?(Hash) ? enrollment["instructor_revoked"] : nil
-      Array(list).map { |entry| entry.is_a?(Hash) ? entry["id"].to_s : entry.to_s }
+      Reach::InstructorKeyring.revoked_ids
+    end
+
+    def refusal
+      @refusal
     end
 
     def pinned_public_key(key_id)
@@ -170,6 +134,8 @@ module Reach
       payload = parsed["payload"]
       return [nil, "malformed"] unless payload_shape?(payload)
 
+      return [nil, "keyring_unavailable"] unless Reach::InstructorKeyring.available?
+
       key = pinned_public_key(payload["key_id"])
       return [nil, "key_unpinned"] unless key
       return [nil, "signature"] unless Reach::Crypto.verify_pss(key, parsed["signature"], "#{PREFIX}.#{parsed['segment']}")
@@ -180,8 +146,16 @@ module Reach
       [nil, "malformed"]
     end
 
-    def accept(code)
+    def verify_fresh(code)
+      @refusal = nil
+      Reach::InstructorKeyring.refresh_if_stale!(quick: true) if attempt?(code)
       payload, reason = verify(code)
+      @refusal = reason unless payload
+      [payload, reason]
+    end
+
+    def accept(code)
+      payload, reason = verify_fresh(code)
       unless payload
         log("instructor.refused", "reason" => reason)
         return nil
@@ -208,7 +182,7 @@ module Reach
     end
 
     def unlock_enrolled!(code, session_id, harness)
-      payload, reason = verify(code)
+      payload, reason = verify_fresh(code)
       unless payload
         log("instructor.refused", "reason" => reason)
         return nil

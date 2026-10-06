@@ -421,7 +421,7 @@ module Reach
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
             debug on [--for MINUTES] | off | status [--format text|json] | show [--last N] [--format ascii|markdown|json] | flush | export [--format text|json]   debug mode: what rEach did, with no prompts, replies, code or secrets
-            instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | unlock | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
+            instructor status [--format text|json] | unlock | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit   instructor unlock codes
             mcp                                  the stdio MCP bridge
             hello [--harness ...] [--format ...] [--source ...]   session-start greeting
             guide [--path] [--format text|json]  the installation and setup guide, as text
@@ -895,26 +895,16 @@ module Reach
       def cmd_instructor(args)
         sub = args.shift
         case sub
-        when "keygen"
-          options, _remaining = parse_flags(args, [:out])
-          result = Reach::Instructor.keygen(options[:out] || Reach::Instructor.default_key_path)
-          puts Reach::Messages.text(
-            "M-INSTRUCTOR-KEYGEN",
-            path: result["path"], key_id: result["key_id"],
-            entry: instructor_entry(result["key_id"], result["public_key_pem"])
-          )
-          0
-        when "code"
-          options, _remaining = parse_flags(args, [:label, :key])
-          key = Reach::Instructor.load_private(options[:key] || Reach::Instructor.default_key_path)
-          puts Reach::Instructor.mint(key, label: options[:label].to_s)
-          0
+        when "keygen", "code"
+          warn Reach::Messages.text("M-INSTRUCTOR-MINT-IN-TEACH")
+          1
         when "status"
           options, _remaining = parse_flags(args, [:format])
           status = Reach::Instructor.status
           persona = Reach::Persona.status
+          keyring = Reach::InstructorKeyring.summary
           if (options[:format] || "text") == "json"
-            puts JSON.generate(status.merge("persona" => persona))
+            puts JSON.generate(status.merge("persona" => persona, "keyring" => keyring))
           else
             if status["unlocked"]
               puts Reach::Messages.text(
@@ -923,6 +913,14 @@ module Reach
               )
             else
               puts Reach::Messages.text("M-INSTRUCTOR-STATUS-OFF")
+            end
+            if keyring
+              puts Reach::Messages.text(
+                "M-INSTRUCTOR-KEYRING-STATUS",
+                revision: keyring["revision"][0, 12], age: keyring["age_s"], keys: keyring["key_ids"].empty? ? "none" : keyring["key_ids"].join(", ")
+              )
+            else
+              puts Reach::Messages.text("M-INSTRUCTOR-KEYRING-STATUS-NONE")
             end
             if persona["active"]
               puts Reach::Messages.text(
@@ -1071,7 +1069,7 @@ module Reach
         code = code.to_s.strip
         result = code.empty? ? nil : Reach::Instructor.unlock!(code)
         unless result
-          warn Reach::Messages.text("M-INSTRUCTOR-REFUSED")
+          warn Reach::Messages.text(Reach::Instructor.refusal == "keyring_unavailable" ? "M-INSTRUCTOR-KEYRING-UNAVAILABLE" : "M-INSTRUCTOR-REFUSED")
           return 1
         end
 
@@ -1096,11 +1094,6 @@ module Reach
         puts Reach::Messages.text("M-PERSONA-STARTED", display_name: record["display_name"], student_id: record["student_id"], course_id: record["course_id"], workspace: result["workspace"])
         print_sync_summary(result["summary"]) if result["summary"]
         0
-      end
-
-      def instructor_entry(key_id, pem)
-        indented = pem.lines.map { |line| "        #{line.chomp}" }.join("\n")
-        "enrollment:\n  instructor_keys:\n    - id: #{key_id}\n      label: instructor\n      public_key_pem: |\n#{indented}"
       end
 
       def gate_enroll(harness, event)

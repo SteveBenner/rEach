@@ -202,17 +202,19 @@ reach import next|done|search|show ...               what the agent reads to lea
 
 ## Instructors
 
-An instructor can try rEach without enrolling. Run `reach instructor keygen` once; it writes your private key outside
-the repository and prints the public key entry to add under `enrollment.instructor_keys` in `config.yml`, which ships in
-a release. Mint a code in your own terminal with `reach instructor code --label NAME`, then paste it into the locked
-prompt in any harness: rEach intercepts it, so the agent never sees it, and stops blocking prompts on that computer.
+An instructor can try rEach without enrolling. Mint a code on the Teach console's Instructor codes page (or with
+`teach instructor-codes mint`), then paste it into the locked prompt in any harness: rEach intercepts it, so the agent
+never sees it, and stops blocking prompts on that computer. rEach checks the code against the instructor keyring Teach
+publishes (it fetches it at session start and before checking a code, keeps a copy for offline use, and refreshes every
+`instructor.keyring_refresh_s` seconds in `config.yml`, 900 by default); with no copy and no connection it says it could
+not reach the course server. `reach instructor keygen` and `reach instructor code` no longer make codes.
 On an enrolled computer, the same code typed at any prompt, even mid sign-in or during a lockout, signs that one chat in
 and clears the lockouts, and lets that chat through any enrollment lock; the code is not stored, nothing stays unlocked
 on the computer, and a new chat asks for sign-in as usual. `reach instructor unlock` does it from a terminal when no hook
 runs: run it with no argument and paste the code when asked (it stays hidden and out of your shell history).
-On a computer that is not enrolled, `reach instructor status` shows the unlock and `reach instructor lock` undoes it. Keep codes and the key out of chats
-and repositories. To revoke a code, add its id (shown by `reach instructor status`) to `enrollment.instructor_revoked`
-in `config.yml`; removing the key entry revokes every code it signed.
+On a computer that is not enrolled, `reach instructor status` shows the unlock and the keyring revision, age and key ids,
+and `reach instructor lock` undoes it. Keep codes out of chats and repositories. To revoke a code, use Revoke on the
+Teach console; rotating the key there makes every code from the old key stop working at once, on the next keyring refresh.
 
 Since 0.16.23 an unlocked install can also run as a test student, to go through the course exactly as a student does:
 `reach instructor dummy [--course ID]` starts a blank test student and `reach instructor as <username> [--course ID]`

@@ -1,7 +1,7 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-05'
+recorded: '2026-10-06'
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -656,7 +656,7 @@ routes:
       starts from the copied student's group, slice assignments, latest module record, submissions and their receipts,
       re-issued under the test student's ids; nothing is written to the copied student's own record. A dummy starts
       blank. Every later request from the persona's install is an ordinary install request; Teach answers revoked to it
-      once the code's id is listed in the course policy's enrollment.instructor_revoked or its key is removed. Test
+      once the code's id is revoked or its key is rotated out on the console's Instructor codes page (W-API-INSTRUCTOR-KEYRING). Test
       students are left out of roster imports, grade exports, module capacity, sidecar conflicts and course-wide
       counts, and every instructor view names them by their 'Test' display name. A Teach older than this revision
       answers 404 not_found, and Reach says the course server must be updated first.
@@ -1313,6 +1313,27 @@ routes:
       issues: "[known issue (W-KI-1)], every entry not retired, ordered by id"
     response_304: when If-None-Match equals the current revision; no body
     reach_use: W-KI-3. Carries no student, install or course data, so it is served before enrollment.
+  - id: W-API-INSTRUCTOR-KEYRING
+    since: 2026-10-06a
+    method: GET
+    path: /api/v1/instructor/keyring
+    auth: none (rate limited per IP, shared with W-API-ENROLL)
+    request_headers: If-None-Match with the revision Reach last cached, optional
+    response_200:
+      schema: "teach.instructor-keyring/v1"
+      revision: "lowercase hex SHA-256 of canonical_json({schema, keys, retired_key_ids, revoked_code_ids, signing_key_id}); also sent as the ETag header"
+      issued_at: "ISO 8601 UTC time the body was built"
+      keys: "[{key_id, label, public_key_pem}], the active instructor keys (RSA, key_id as STD-INSTRUCTOR-UNLOCK derives it)"
+      retired_key_ids: "[key_id], keys rotated out; a code from one of them is never valid again"
+      revoked_code_ids: "[code id], codes revoked on the console"
+      signing_key_id: "the Teach signing key (W-API-ENROLL signing_public_keys) that signed the body"
+      signature: "strict base64 RSA-PSS SHA-256 (salt 32) over canonical_json of every other field"
+    response_304: when If-None-Match equals the current revision; no body
+    reach_use: >
+      Replaces the instructor keys and revoked ids that were pinned in Reach config.yml. An install holding
+      signing_public_keys accepts the body only when the signature verifies with signing_key_id; an install that is not
+      enrolled accepts it over TLS from its configured Teach. Reach caches it, refreshes it when stale, keeps the cache
+      offline and never replaces it with one whose issued_at is older. Carries no student, install or course data.
   - id: W-API-REVISION
     since: 2026-10-03e
     method: GET

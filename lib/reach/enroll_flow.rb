@@ -50,6 +50,7 @@ module Reach
 
         return Reach::Messages.text("M-INSTRUCTOR-SIGNED-IN", name: Reach::Login.display_name || "the enrolled student")
       end
+      return Reach::Messages.text("M-INSTRUCTOR-KEYRING-UNAVAILABLE") if Reach::Instructor.refusal == "keyring_unavailable"
 
       now = Time.now.utc
       flow = read_flow || fresh_flow

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.35.23
+version: 0.36.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -310,9 +310,17 @@ library:
     role: Decides whether Reach is locked and why (W-ENR-6); since 0.16.0. A hook process sets pass_session from the event, and a live instructor pass for that session makes the state not locked for that chat only.
   - name: Reach::EnrollFlow
     role: The in-chat enrollment state machine run by the plugin-level prompt hook (W-ENR-7); since 0.16.0. It also answers a typed instructor code first, in every state, through instructor_decision, which lets exactly one of the plugin hook and a course folder's prompt hook act on one prompt (Gate.instructor_once!).
+  - name: Reach::InstructorKeyring
+    role: >-
+      The instructor keyring (built, not released). fetch!(quick:) and refresh_if_stale!(quick:) get GET
+      /api/v1/instructor/keyring from the configured Teach URL through the anonymous Reach::Client with If-None-Match,
+      check the teach.instructor-keyring/v1 shape, verify the PSS signature with the signing_public_keys key named by
+      signing_key_id when the install holds any, drop a keyring older than the cached one, and cache it at
+      <root state>/instructor_keyring.json (0600). keys, revoked_ids, available?, summary and age_s read the cache; on an
+      enrolled install a cache that no longer verifies is ignored. Rejections log instructor.keyring_rejected.
   - name: Reach::Instructor
     role: >-
-      Instructor unlock since 0.16.17 (STD-INSTRUCTOR-UNLOCK). Keygen, RINS1 code minting and verification against the keys pinned in config.yml, the stored code in instructor.json, relock and the once-per-session instructor context. unlock!(code, session_id:, harness:) accepts and stores a code on an install that is not enrolled; on an enrolled install it only verifies the code, signs the session in, clears the sign-in and enrollment-flow lockouts, grants that session a per-chat pass (grant_pass!, pass_for), a record sealed with an HMAC keyed by a per-install secret and re-checked for seal, expiry, pinned key and revocation on every read and logs instructor.signed_in, never storing the code or touching instructor.json; it never lowers verification. drop_enrolled_code! retires an instructor.json stored by an earlier release on an install enrolled as a student (root home enrolled), and lock! and that retirement keep only a backup without the code field. scrub_enrolled_backups! (since 0.35.15, at session start) strips the code fields from older .backup/instructor-*.json files on an enrolled install.
+      Instructor unlock since 0.16.17 (STD-INSTRUCTOR-UNLOCK). RINS1 code verification against the keys, retired key ids and revoked code ids of the cached instructor keyring (Reach::InstructorKeyring; Instructor.mint remains for code compatibility but nothing in the CLI mints), the stored code in instructor.json, relock and the once-per-session instructor context. unlock!(code, session_id:, harness:) accepts and stores a code on an install that is not enrolled; on an enrolled install it only verifies the code, signs the session in, clears the sign-in and enrollment-flow lockouts, grants that session a per-chat pass (grant_pass!, pass_for), a record sealed with an HMAC keyed by a per-install secret and re-checked for seal, expiry, keyring key and revocation on every read and logs instructor.signed_in, never storing the code or touching instructor.json; it never lowers verification. drop_enrolled_code! retires an instructor.json stored by an earlier release on an install enrolled as a student (root home enrolled), and lock! and that retirement keep only a backup without the code field. scrub_enrolled_backups! (since 0.35.15, at session start) strips the code fields from older .backup/instructor-*.json files on an enrolled install.
   - name: Reach::Persona
     role: >-
       Instructor personas since 0.16.23 (STD-INSTRUCTOR-PERSONA). start! enrolls the install as a test student through W-API-ENROLL-INSTRUCTOR into root/personas/<id>/ (workspace under workspace_base/personas/<id>/), writes root/persona.json last and moves a half-made persona to .backup on any failure; exit! moves the pointer, home and workspace to .backup; status names the active persona. Reach::Paths.root and workspace_base are the shared locations, Paths.home and workspace_root follow the active persona.
@@ -1301,13 +1309,15 @@ cli:
     synopsis: reach lock
     purpose: Wipe the decrypted vault (it is rebuilt from packages on demand)
   - name: instructor
-    synopsis: reach instructor keygen [--out PATH] | code [--label TEXT] [--key PATH] | status [--format text|json] | unlock | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit
+    synopsis: reach instructor status [--format text|json] | unlock | lock | dummy [--course ID] | as USERNAME [--course ID] | diagnose [--course ID] | exit
     purpose: >-
-      Since 0.16.17, instructor unlock (STD-INSTRUCTOR-UNLOCK), and it runs while Reach is locked. keygen writes a new
-      RSA 3072 private key (0600, parent directory 0700, never overwriting) and prints its key id and the YAML entry for
-      enrollment.instructor_keys, never the key. code prints one RINS1 code signed with the key, and refuses with
-      M-INSTRUCTOR-KEY-UNPINNED when config.yml does not pin the key. status says whether the unlock is on, with the code
-      id, label, key id and time, never the code, and names the active persona. unlock takes no argument (an argument is refused with
+      Since 0.16.17, instructor unlock (STD-INSTRUCTOR-UNLOCK), and it runs while Reach is locked. Since the instructor
+      keyring (built, not released) keygen and code no longer mint: both print M-INSTRUCTOR-MINT-IN-TEACH and exit 1,
+      because Teach holds the keys and mints, revokes and rotates the codes. Codes are checked against the keyring from
+      GET /api/v1/instructor/keyring (cached in the root state folder, refreshed at session start and before a typed
+      code is verified when older than instructor.keyring_refresh_s in config.yml, 900 by default); with no cache and no
+      connection a code is refused with M-INSTRUCTOR-KEYRING-UNAVAILABLE. status says whether the unlock is on, with the code
+      id, label, key id and time, never the code, shows the keyring revision, age and key ids, and names the active persona. unlock takes no argument (an argument is refused with
       M-INSTRUCTOR-UNLOCK-NO-ARG and exit 1, so the code never reaches shell history or the process list) and reads one
       line from standard input (hidden on a terminal). On an install that is not enrolled it accepts and stores the code
       like one pasted into a prompt; on an enrolled install it only verifies it, signs in the most recent chat waiting for
