@@ -7,6 +7,7 @@ module Reach
   module Debug
     KINDS = %w[session hook gate command request lock sync check qualify submit brain update error fault link storage import control].freeze
     ROUTE = "/api/v1/debug".freeze
+    STALE_FAULTS = %w[crypto_self_test].freeze
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
     RINS = /RINS1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.freeze
@@ -72,6 +73,10 @@ module Reach
 
     def rejected_file
       File.join(dir, "rejected-#{Time.now.utc.strftime('%Y%m%d')}.jsonl")
+    end
+
+    def stale_file
+      File.join(dir, "stale-#{Time.now.utc.strftime('%Y%m%d')}.jsonl")
     end
 
     def now_s
@@ -851,6 +856,7 @@ module Reach
       empty = { "sent" => 0, "batches" => 0, "stopped" => nil }
       return stopped(empty, "empty") unless File.file?(spool_file) && File.size(spool_file).positive?
 
+      retire_stale!
       install = begin
         Reach::Enroll.current
       rescue StandardError
@@ -987,6 +993,17 @@ module Reach
         remaining = File.file?(spool_file) ? File.readlines(spool_file).reject { |line| spooled_id_in?(line, ids) } : []
         File.open(spool_file, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(remaining.join) }
       end
+    end
+
+    def stale?(entry)
+      event = entry["event"]
+      event["kind"] == "fault" && event["fields"].is_a?(Hash) && STALE_FAULTS.include?(event["fields"]["where"].to_s)
+    end
+
+    def retire_stale!
+      stale = read_lines(spool_file).select { |entry| stale?(entry) }
+      retire(stale, stale_file) unless stale.empty?
+      stale.length
     end
 
     def spooled_id_in?(line, ids)

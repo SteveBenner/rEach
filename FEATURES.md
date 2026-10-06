@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.38.9 |
+| **Registry version** | 0.38.10 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1254,6 +1254,14 @@ course's technical support as a problem although nothing had failed; since 0.35.
 2026-10-05 on Linux with a Ruby 4.0.6 whose GCM `auth_data=` was made to raise as LibreSSL does: three
 `reach doctor --report --offline` runs with and without a kit spooled three fault events each before the change and
 none after it, with every run exiting 0 on the same GCM path as before. Not run on a Mac.
+Reports of the event kept arriving under 0.35.12 and later: a fault event written before 0.38.7 carries no
+`reach_version`, the spool outlives an update, and a harness plugin copy can stay older than the `reach` on PATH, so
+events written by an older rEach and flushed later were filed under the version of the install that sent them, or
+under no version once Teach read it from the event alone. Since 0.38.9 `Reach::Debug.flush` moves every spooled `crypto_self_test` fault
+event to `debug/stale-<day>.jsonl` before it batches and sends none, whichever version wrote it; nothing is deleted.
+Checked on 2026-10-06 on Linux with the same simulated LibreSSL failure: three `reach doctor --report --offline`
+runs under 0.35.11 spooled three such events; a flush under 0.38.9 batched none of them, moved all three to the
+stale file, kept a real fault in its batch, and a run under a normal Ruby spooled nothing. Not run on a Mac.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
@@ -1474,7 +1482,7 @@ Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 publ
 
 ### 10.7 · Handout parity
 
-Since 0.38.9 (`STD-HANDOUT-PARITY`) rEach does what the student setup and troubleshooting handout shows: the install
+Since 0.38.10 (`STD-HANDOUT-PARITY`) rEach does what the student setup and troubleshooting handout shows: the install
 greeting asks to connect to the course first, deliverables/ and extracurricular/ exist right after install, `update
 reach` gets a word-for-word reply and the version answer reads "rEach X is installed and up to date", the
 re-enrollment password sentence shows only to students who enrolled before, Codex refuses enrollment and sign-in
