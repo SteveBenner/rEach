@@ -1509,9 +1509,8 @@ module Reach
           puts result["text"]
           0
         when "ingested"
-          puts Reach::Receipts.announce(result["receipt"])
-          followup = Reach::Submit.followup_text(result)
-          puts followup unless followup.empty?
+          Reach::Receipts.announce(result["receipt"])
+          puts result["text"]
           0
         when "rejected"
           rejection = result["rejection"] || {}

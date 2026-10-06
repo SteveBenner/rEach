@@ -598,7 +598,8 @@ module Reach
 
           result = Reach::Submit.submit(slice: slice_argument(arguments))
           if result["state"] == "ingested"
-            result = result.merge("announcement" => Reach::Receipts.announce(result["receipt"]), "followup" => Reach::Submit.followup_text(result))
+            Reach::Receipts.announce(result["receipt"])
+            result = result.merge("announcement" => result["text"])
           elsif %w[asked declined].include?(result["state"])
             result = result.merge("message" => result["text"])
           end

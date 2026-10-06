@@ -607,7 +607,7 @@ RUBY
     def codex_turn(session, turn, prompt)
       payload = JSON.generate(
         "session_id" => session, "turn_id" => turn, "hook_event_name" => "UserPromptSubmit",
-        "prompt" => prompt, "cwd" => @scratch
+        "prompt" => prompt, "cwd" => FileUtils.mkdir_p(File.join(@scratch, "work")).first
       )
       run_hook(@codex_command, payload)
     end

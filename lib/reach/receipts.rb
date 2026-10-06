@@ -189,8 +189,7 @@ module Reach
             "M-SUBMIT-RECEIVED",
             slice: receipt["slice"],
             cutout: receipt["cutout_id"],
-            time: Reach::Messages.course_time(receipt["received_at"]),
-            receipt_id: receipt["receipt_id"]
+            time: Reach::Messages.course_time(receipt["received_at"])
           )
         end
       end

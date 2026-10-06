@@ -2250,6 +2250,7 @@ alignment:
       slices: "[slice names] the course uses, at most 12, each a lowercase identifier. Reach does not read them yet"
       hints: "{email, student_id}, as W-API-ENROLL-PREVIEW answers them, at most 240 characters each. Without a hint Reach asks for the school email and the student ID in plain words"
       wellbeing: "{phrases: [text a student might type that means they may be in crisis, at most 64], support_text: the course's own support message, at most 2000 characters}. Without phrases Reach uses its built-in list; without support_text it shows its built-in message (W-SUP-1). Crisis detection is never switched off by a missing or empty section"
+      support: "{contact_text: one line, at most 240 characters, how a student reaches a person now, for example \"text Sven at 707-968-7082\"}. Without it Reach names no way to reach a person beyond the hand it raises"
   W-CONSENT-1:
     name: consent record
     rule: >-

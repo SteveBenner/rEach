@@ -131,10 +131,10 @@ module Reach
 
     def clock(at)
       instant = Time.parse(at.to_s).utc
-      match = Reach::CourseTime.format(instant).match(/(\d{1,2}):(\d{2}) (am|pm)/)
+      match = Reach::CourseTime.format(instant).match(/(\d{1,2}):(\d{2}) (am|pm)/i)
       return instant.strftime("%H:%M:%S") unless match
 
-      hour = (match[1].to_i % 12) + (match[3] == "pm" ? 12 : 0)
+      hour = (match[1].to_i % 12) + (match[3].downcase == "pm" ? 12 : 0)
       format("%02d:%02d:%02d", hour, match[2].to_i, instant.sec)
     rescue StandardError
       "--:--:--"
