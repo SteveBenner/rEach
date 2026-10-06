@@ -50,7 +50,7 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 
 - **Enrollment is fail-closed** (10-01). After installing, the student must enroll; until then rEach refuses all input.
 - **Four inputs** (10-01, revised 10-02): the class-wide course passkey handed out in class or on Blackboard, the
-  school email, the school student ID, and a password the student chooses (at least 8 characters, typed
+  institutional email, the institutional student ID, and a password the student chooses (at least 8 characters, typed
   twice). Teach owns the roster they are checked against and keeps only a hash of the password.
 - **A course passkey links to exactly one course** (10-01), is class-wide, expires when the course ends, and is
   normalized loosely ("bus-101" and "bus 101" both resolve).

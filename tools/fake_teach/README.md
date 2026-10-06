@@ -37,7 +37,7 @@ Courses (`fixtures/courses.yml`):
 | BUS101 | BUS101-K7QX-94TD | 2026-12-18 | live |
 | ACCT201 | ACCT201-2M8R-QW3Z | 2026-06-01 | ended (course_code_expired) |
 
-Identity rules: institution school, domain school.example, username `^[a-z][a-z0-9._-]{1,31}$`, student id `^[0-9]{5,10}$`.
+Identity rules: institution Example University, domain school.example (a reserved example domain), username `^[a-z][a-z0-9._-]{1,31}$`, student id `^[0-9]{5,10}$`.
 
 BUS101 roster (`fixtures/roster.yml`, fictional people):
 

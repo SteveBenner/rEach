@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.2] - 2026-10-06
+
+### Changed
+
+- The repository names no institution. The README, the student guide, the design notes, the wire spec's example and
+  earlier changelog entries describe the student's school email and student ID in general terms, and the fake Teach
+  fixtures use Example University at the reserved domain `school.example`. A student still learns their own school
+  from Teach when they type the course passkey.
+- The security audit scan treats any `.edu` email address as student data, not one school's addresses.
+
+### Fixed
+
+- The enrollment messages for a mistyped email or student ID say "your" school's email or student ID, so they read
+  correctly for a school whose name begins with a vowel.
+
 ## [0.38.1] - 2026-10-06
 
 ### Changed
@@ -2383,7 +2398,7 @@ Not released: the release security audit found the two problems fixed in 0.35.6.
 - Enrollment v2 (wire protocol 1 revision 2026-10-01b, `specs/wire.yml` W-ENR-1..7, W-API-ENROLL shape v2,
   W-API-ENROLL-PREVIEW). Students enroll with a class-wide course code tied to one course and expiring at the
   course's end (`BUS101-K7QX-94TD`, normalized from any spacing, case or Crockford look-alikes; a course id within
-  two edits still matches), their institutional username (`FLLLNNN@school.example`) and their seven-digit student ID.
+  two edits still matches), their institutional username (their school email address) and their student ID.
   Institution rules come from Teach's preview and fall back to the new `config.yml` `enrollment` block.
 - Lockdown until enrolled (`lib/reach/enrollment_lock.rb`, `lib/reach/enroll_flow.rb`). A plugin-level
   UserPromptSubmit hook (`hooks/hooks.json`, `reach gate enroll`) blocks every prompt and runs the enrollment

@@ -37,7 +37,7 @@ module SecurityAuditScan
   LOCAL_PATH = %r{(?:/home/[A-Za-z0-9._\-]+/|/Users/[A-Za-z0-9._\-]+/|[A-Za-z]:\\Users\\[A-Za-z0-9._\-]+\\)}
   QUOTED = /["']([^"'\s]{32,})["']/
   STUDENT_ID = /student[\s_\-]*id\D{0,24}(?<!\d)(\d{6,9})(?!\d)/i
-  INSTITUTION_EMAIL = /[A-Za-z0-9._%+\-]+@school\.example/i
+  INSTITUTION_EMAIL = /[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9\-]+\.)+edu\b/i
 
   module_function
 

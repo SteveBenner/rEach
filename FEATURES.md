@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.38.1 |
+| **Registry version** | 0.38.2 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -447,7 +447,7 @@ Since 0.16.0 rEach does nothing until it is enrolled. A plugin-level prompt hook
 harness session and asks, one at a time, for the class-wide course passkey (since 0.18.1 the student-facing name of the wire's course
 code, `STD-COURSE-PASSKEY`; `BUS101-K7QX-94TD`, typed any way:
 dashes, spaces, case and O/0, I/L/1 in the secret are forgiven; a course id within two edits still matches), the
-school username (`FLLLNNN@school.example`) and the student ID. It confirms, then enrolls with wire
+institutional username (the student's school email address) and the student ID. It confirms, then enrolls with wire
 shape v2. Teach answers with a signed enrollment stamp binding the install, the student, the course and a salted,
 hashed fingerprint of the computer, the account and the install key. Every CLI verb except help, enroll, setup,
 doctor, support, update, guide and the hooks, and every MCP tool, refuses while locked. Reach locks again when the stamp

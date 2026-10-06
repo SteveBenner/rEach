@@ -17,8 +17,8 @@ and sends it in when you are ready.
 2. Enroll right away: rEach does nothing else until you do. Type anything in
    the chat and rEach asks you, one at a time, for the course passkey your
    instructor shared in class (it looks like `BUS101-K7QX-94TD`; dashes,
-   spaces and capitals don't matter), your school username (your university
-   email, like `jsmi123@school.example`) and your student ID, and last to choose
+   spaces and capitals don't matter), your school username (your school
+   email address) and your student ID, and last to choose
    a password (at least 8 characters, typed twice; write it down, you will
    type it every time you sign in). Your AI
    partner never sees what you type here. You can also run
