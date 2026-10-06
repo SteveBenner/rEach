@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.37.0 |
+| **Registry version** | 0.37.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -143,6 +143,9 @@ by `tools/figures/build.rb` into `docs/assets/figures/`; Teach appears only as a
 `STD-FIGURES`) and `docs/deploy-and-test.md` (the fixture walkthrough and the two smoke runs, every command run
 first). The public docs name no Teach class, table, setting or command (`STD-TEACH-OPAQUE`). `docs/INSTALLATION-AND-SETUP-GUIDE.docx` is catalogued at 1.5. The student guide's
 Privacy and Course folders wording was written before 0.16.12 and has not been re-audited against it.
+Since 0.37.1 (`STD-BRAND-IDENTITY`), the public docs use the adult cosmic hands banner and the shared three-sparkle
+mark. The self-contained SVGs are rendered and inspected in a browser; the logo matches the canonical rStack asset.
+The linked shared setup handout lives in the instructor corpus, outside this public plugin repository.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (prose is not checked against the code).
 

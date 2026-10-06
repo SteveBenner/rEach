@@ -1,7 +1,7 @@
 # reach
 
 <p align="center">
-  <img src="docs/assets/reach-banner.svg" alt="rEach: a human hand reaches an outstretched finger toward the outstretched finger of a white cybernetic hand" width="100%">
+  <img src="docs/assets/reach-banner.svg" alt="rEach: adult hands reach toward a radiant connection in a deep cosmos, inspired by The Creation of Adam" width="100%">
 </p>
 
 > **AI agents:** read [`AGENTS.md`](AGENTS.md) first. Asked to install rEach from
