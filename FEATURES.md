@@ -1462,7 +1462,7 @@ record into the planes; recall went through the child in 0.25 s and fell back to
 spool and planes, and a queued forget ran before the next admission; with no kit every brain verb matched 0.37.3. Not
 verified: macOS, Windows, Hermes and a real student session.
 
-Build ✅ · Deploy 🔵 Built, not enabled (enabled on a student's computer once 0.38.0 reaches stable and the SDK installs). · Blocker: -.
+Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer). · Blocker: -.
 
 ## 11 · Planned
 
@@ -1478,7 +1478,7 @@ Build ⚪ · Deploy ⚫ · Blocker: Human (the decision).
 Shipped in 0.38.0 as 2.51: the SDK kit ships rplugin and rBrain as a separate pinned release asset beside the runtime
 kit, and a student's computer runs `Rcorpus::Context` recall and `Rcorpus::Consolidate` in a child under the kit Ruby.
 
-Build ✅ · Deploy 🔵 (see 2.51) · Blocker: -.
+Build ✅ · Deploy 🟢 (see 2.51) · Blocker: -.
 
 ### 11.3 · Erasing admitted corpus history
 
