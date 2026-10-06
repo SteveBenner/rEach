@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.3] - 2026-10-06
+
+### Changed
+
+- Kept the public branding standard focused on the visible identity, removing private superproject layout details.
+- Recorded the artwork's creation method and visual reference in docs/assets/provenance.json. The existing undecided licensing status is explicit; this change assigns no new reuse terms.
+
 ## [0.37.2] - 2026-10-06
 
 ### Changed

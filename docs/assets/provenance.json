@@ -1,0 +1,17 @@
+{
+  "schema": "rEach.asset-provenance/v1",
+  "assets": [
+    {
+      "path": "reach-banner.svg",
+      "creation_method": "Original image generated for this project using OpenAI image generation, then packaged as a WebP image inside an SVG.",
+      "visual_reference": "The Creation of Adam: adult forearms and hands approaching a luminous connection.",
+      "reference_images_supplied": false,
+      "print_original_preserved": true
+    },
+    {
+      "path": "reach-logo.svg",
+      "creation_method": "Native vector geometry: a four-point sparkle constellation."
+    }
+  ],
+  "reuse_terms": "No additional reuse license is assigned by this asset update. The repository license remains undecided as recorded in reach.spec.yml."
+}
