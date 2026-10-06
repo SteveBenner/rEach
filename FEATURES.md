@@ -1550,7 +1550,31 @@ real Haiku audit ($0.26) whose verdict the tag push reused, a stopped Teach fall
 roster, the kill switch skips, and report-only never blocks. Interim: raudit takes the gate over fleet-wide. Not yet
 run under Ruby 2.6.10, against live Teach, or on a real release.
 
+Since 0.40.0 the hook runs `tools/release_gate/gate.rb` (11.8): block at high by default, `REACH_SECURITY_AUDIT=0`
+ignored, the instructor's recorded override the only way past a block, and Teach's own pushes pass the same gate.
+
 Build ✅ · Deploy 🔵 · Blocker: -
+
+### 11.8 · Release integrity gate and accepts-aware degrade
+
+Since 0.40.0 (`STD-RELEASE-GATE`, `STD-COMPAT-ACCEPTS`) a release push passes one pre-push gate shared with Teach
+through `specs/release_gate.yml`: the security scan and audit, then nineteen spec-named checks on compatibility (wire
+digest against the live and main Teach, pinned copies against their owner, installs that could not report), version
+integrity (collisions across branches and worktrees, VERSION against its eight homes and the tag, tags without a
+GitHub release, a release that would demote Latest, `stable` behind Latest without a hold), known broken state (open
+blocker alarms and issues, a failing doctor, a backup line that is not green) and instability (flapping alarms, a
+long-lived unit on stale code). One severity scale; critical and high block; a check that cannot run says so and blocks
+in the critical class. Every run and every override is recorded on Teach; the override is typed on a terminal with a
+reason and an expiry, raises an alarm until one push consumes it, and no environment variable skips the gate. Teach
+also advertises the hand triggers, debug kinds and harnesses it accepts, so a drifted install degrades (issue hand with
+capsule null) instead of going silent. Checked on 2026-10-06 against scratch bare remotes, a scratch Teach and a scratch
+database: a wire change blocked (CMP-WIRE-LIVE), a version collision blocked, a planted student-style address blocked
+Teach's push, the flapping alarm was listed, a terminal override let exactly one push through and the next was
+refused, `reach doctor` named the missing gate, and the four accepts cases behaved as specified in process. Not yet
+run on a live push, tag or release; `agent-control/agent-control.yml` is still the v2 copy, so CMP-PIN warns medium
+until it is re-pinned from Teach main.
+
+Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 
 ## Appendix · Blocked by
 

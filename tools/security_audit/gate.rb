@@ -551,7 +551,7 @@ module SecurityAuditGate
 
     config = load_config
     settings = config["settings"]
-    say("REACH_SECURITY_AUDIT=0 is ignored since 0.39.0; the instructor's override is ruby tools/release_gate/gate.rb override") if ENV["REACH_SECURITY_AUDIT"] == "0"
+    say("REACH_SECURITY_AUDIT=0 is ignored since 0.40.0; the instructor's override is ruby tools/release_gate/gate.rb override") if ENV["REACH_SECURITY_AUDIT"] == "0"
     unless settings["enabled"]
       say("disabled in Teach settings, skipping")
       return 0

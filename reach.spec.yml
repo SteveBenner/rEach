@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.38.10
+version: 0.40.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -858,7 +858,7 @@ submission:
     Downloads folder (STD-SUBMIT-ARCHIVE) and tell the student where it is; then tell the student whether and until
     when they can submit again (attempt, due and resubmit from Teach's answer, W-SUB-1).
   archive: >-
-    Reach::Archive writes <assignment>-<email local part>-<YYYYMMDD>.zip dated in course time (STD-COURSE-TIME) with
+    Reach::Archive writes <course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip in course time (STD-COURSE-TIME) with
     Reach's own standard-library ZIP writer (Reach::Zip) through a hidden temporary file, never overwriting (-2, -3 and
     so on), with every slice workspace of the assignment minus top-level dot entries, AGENTS.md, CLAUDE.md, GEMINI.md and
     symbolic links, and minus every file a workspace's .reach/delivered.json lists as read-only (since 0.35.18), plus
@@ -2684,10 +2684,10 @@ seal:
     2026-09-29b). hooked is self-reported from the student's ledger; it is a signal, not a guarantee.
 status_example: |
   rEach 0.11.0 · BUS 101 (Fall 2026) · enrolled as Dana Ruiz (G4 · Finance)
-  Current assignment: A2, due Oct 17, 2026 11:59 PM PDT
+  Current assignment: A2, due Sat 17 Oct 11:59 pm PDT
   Your slices:
     finance.a2s1  backend  in progress   shape: ok     checks: passed (12 min ago)
-    finance.a2s2  panel    submitted     receipt R-8F2C1 at Oct 15, 2026 9:41 PM PDT
+    finance.a2s2  panel    received      receipt R-8F2C1 at Thu 15 Oct 9:41 pm PDT
   Receipts: 4 (latest R-8F2C1)
   Open hands: none
   Course rules: v3 (verified)   Connection: online
@@ -2771,7 +2771,7 @@ interview:
 course_time:
   rule: >-
     Every time rEach shows a student (due dates in greetings, status and the session context; receipt times) is
-    written in the course's timezone with its abbreviation, e.g. "Oct 3, 2026 11:59 PM PDT" and "Nov 14, 2026 11:59 PM
+    written in the course's timezone with its abbreviation, e.g. "Sat 3 Oct 11:59 pm PDT" and "Sat 14 Nov 11:59 pm
     PST", whatever zone the student's computer is set to, because the syllabus and Teach's deadline use course time.
   zone: >-
     install.yml course.timezone from Teach's enrollment; then the guardrails package's course.yml timezone; then a
@@ -2780,7 +2780,7 @@ course_time:
     America/Los_Angeles uses built-in US daylight-time rules (PDT from 2:00 am on the second Sunday of March to 2:00 am
     on the first Sunday of November, PST otherwise), so it is right on macOS, Linux and Windows alike. Any other zone
     uses the system's zoneinfo when present, else the computer's own zone with its abbreviation.
-  date_only: A due value with no time ("2026-10-03") is shown as a date with no zone ("Oct 3, 2026").
+  date_only: A due value with no time ("2026-10-03") is shown as a date with no zone ("Sat 3 Oct").
   deadlines: Deadline warnings compare instants, so the display zone never changes when a warning fires.
 storage:
   since: 0.18.0

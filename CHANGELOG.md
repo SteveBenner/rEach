@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.40.0] - 2026-10-06
+
+### Added
+
+- Release gate (`STD-RELEASE-GATE`). `.githooks/pre-push` now runs `tools/release_gate/gate.rb`, which wraps the
+  security audit with the broken-state checks `specs/release_gate.yml` names: wire digest against the live and
+  main Teach, pinned copies against their owner, active installs that could not report, version collisions across
+  branches and worktrees, VERSION against its homes and the tag, tags without a GitHub release, a release that would
+  demote Latest, `stable` behind Latest without a hold, open blocker alarms and issues the push does not claim, a
+  failing doctor, a backup line that is not green, flapping alarms and a long-lived unit on stale code. Critical and
+  high block; a check that cannot run says so. Every run is recorded on Teach. `tools/release_gate/install` sets the
+  hook up; `reach doctor` reports `R-DOC-GATE` when a maintainer clone pushes over SSH without it.
+- Instructor override. `ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks ID,ID]` is typed
+  on a terminal, recorded on Teach with user, host and terminal, raises an alarm until one push consumes it, and is
+  the only way past a block. `hold stable --reason TEXT` records why `stable` stays behind Latest.
+- Accepts-aware degrade (`STD-COMPAT-ACCEPTS`, wire 2026-10-06d). Teach advertises the hand triggers, debug kinds
+  and harness names it accepts; `Reach::Compat` types hands and debug events from that list instead of the whole
+  wire digest, and an issue hand still goes (capsule null) when an older Teach's digest differs, so a fault on a
+  drifted install is heard.
+
+### Changed
+
+- The security audit blocks at high by default (was critical), and `REACH_SECURITY_AUDIT=0` is ignored; the
+  instructor's recorded override replaces it. `tools/security_audit/install` runs `tools/release_gate/install`.
+
 ## [0.38.10] - 2026-10-06
 
 ### Changed

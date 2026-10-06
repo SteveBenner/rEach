@@ -204,4 +204,6 @@
 
 ## Housekeeping
 
+- [ ] Re-pin `agent-control/agent-control.yml` from Teach main (Teach carries v3, the bundled copy is v2) and refresh its
+  bundled digest; until then the release gate's CMP-PIN warns medium on every rEach push.
 - [ ] Decide the licence (currently `undecided` in `reach.spec.yml`) before any public release; `exe/reach` and `lib/reach.rb` already carry an MIT SPDX line from 0.1.0.

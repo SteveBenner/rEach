@@ -372,6 +372,16 @@ the key arrives, the material is reported as locked.
 reach doctor
 ```
 
+## Release gate (maintainers)
+
+A release push (a tag `v*`, or a branch whose `VERSION` changes) runs `tools/release_gate/gate.rb` from
+`.githooks/pre-push`. `tools/release_gate/install` sets `core.hooksPath` and prints the token steps: a Teach service
+token minted for the release gate at `~/.config/release-gate/reach/token` (mode 0600) or
+`RELEASE_GATE_TOKEN`, and Teach's address from `config.yml` `teach.url` or `TEACH_URL`. `specs/release_gate.yml` names
+every check. `ruby tools/release_gate/gate.rb check` is the dry run. There is no skip switch; the instructor's
+one-push override is `ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks ID,ID]`, typed on
+a terminal and recorded on Teach. `reach doctor` reports `R-DOC-GATE` when a clone that pushes over SSH has no gate.
+
 ## Smoke test
 
 The test and release tooling below lives in a clone only: `.gitattributes` keeps `tools/`,
