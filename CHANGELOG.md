@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.9] - 2026-10-06
+
+### Fixed
+
+- A Mac's handled GCM fallback is no longer reported as a fault of a rEach that never recorded it. 0.35.12 stopped
+  recording the `crypto_self_test` fault event, but the spool outlives an update, a fault event written before 0.38.7
+  carries no `reach_version`, and a harness plugin copy can stay older than the `reach` on PATH, so an event written
+  by an older rEach and flushed later was filed under the version of the install that sent it, some with an occurred
+  time before that release existed, or under no version once Teach read the version from the event alone.
+  `Reach::Debug.flush` (`lib/reach/debug.rb`) now moves every spooled `crypto_self_test` fault event to
+  `debug/stale-<day>.jsonl` before it batches and sends none, whichever version wrote it; nothing is deleted.
+  Installs still on 0.21.3 to 0.35.11 keep recording and sending the event under their own version until they
+  update (`STD-CRYPTO-FALLBACK`). No wire change.
+
 ## [0.38.8] - 2026-10-06
 
 ### Changed
