@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.36.0 |
+| **Registry version** | 0.37.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 95 catalogued |
+| **Feature count** | 99 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 87 | 92% |
+| ✅ Shipped | 91 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,8 +31,8 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 6 | 6% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 77 | 81% |
-| ⚫ No runtime path | 11 | 12% |
+| 🔵 Built, not enabled | 81 | 82% |
+| ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
 
@@ -937,6 +937,62 @@ passed. Not verified: macOS and Windows, a real harness session.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-04 as v0.33.0, GitHub Latest; Teach 0.47.0 serves a profile for both courses) · Blocker: -.
 
+### 2.47 · Agent control rendering
+
+Since 0.37.0 (`STD-AGENT-CONTROL`, `agent_control.render` in `config.yml`) the text rEach puts in the agent's context is
+rendered from one bundled document, `agent-control/agent-control.yml`, pinned by `agent-control.yml.sha256`.
+`Reach::AgentControl` uses the bundled copy while its digest matches and prefers the copy delivered with the course
+guardrails when that copy is valid and not older. Every injected block (session context, prompt and tool hooks, tool
+bridge, generated rules files) goes through one channel call under a channel id fixed in code and sits in its frame; the
+order of authority opens each context and each generated `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`. On any error, with the
+flag off or with no usable document, the raw text is used. `reach doctor` reports a bundled copy that does not match its
+digest and a refused course copy (`R-DOC-AGENT-CONTROL`). The student sees the same messages as before.
+
+Verified 2026-10-06 on Linux, Ruby 4.0.7 runtime kit, against a scratch course server with the three flags on: the prompt
+context opened with the five-line order of authority, every block sat in a frame, the announcement was framed
+with its sent day, date, time and zone, and the answer to "help me with the slice" came back with exit 0. Not verified:
+macOS, Windows, Ruby 2.6 and a real harness session.
+
+Build ✅ · Deploy 🔵 Built, not released (0.37.0 on branch agent-control). · Blocker: -.
+
+### 2.48 · Typed course controls
+
+Since 0.37.0 (`STD-CONTROLS`, `agent_control.controls`) `Reach::Controls` enforces the pause, hold and test controls the
+instructors set, in code and by the course server's time: a pause blocks prompts and tool calls in a slice and in the
+workspace root and spares the extracurricular folder and `reach support`; a hold blocks `reach submit` only; while a test is
+open only the tools the document lists (`reach_test`, `reach_support`, `reach_status`) work, in the hooks and in the tool
+bridge. A server without the controls answers 404 and rEach asks again no sooner than six hours later, and a 503 clears
+the held controls. No environment variable or config key lifts a control in force.
+
+Not verified in this registry entry: a control against a live course server and a real harness session.
+
+Build ✅ · Deploy 🔵 Built, not released (0.37.0 on branch agent-control). · Blocker: -.
+
+### 2.49 · Test mode
+
+Since 0.37.0 (`STD-TEST-MODE`, `agent_control.test_mode`) `reach test [status | open | questions | record QUESTION | submit]`
+and the `reach_test` tool (`Reach::ExamMode`, `state/exam.json`) run a timed test: opening starts one attempt with a
+deadline, the questions are shown word for word, an answer is recorded only from the student's own captured prompt and
+never from one typed before the attempt opened, answers are append-only, and the attempt ends at submit or at the
+deadline. The agent may clarify the wording of a question and nothing else.
+
+Not verified in this registry entry: a full attempt against a live course server and a real harness session.
+
+Build ✅ · Deploy 🔵 Built, not released (0.37.0 on branch agent-control). · Blocker: -.
+
+### 2.50 · Announcement frame, show_until and the expired listing
+
+Since 0.37.0 (`STD-ANNOUNCEMENTS`) an announcement reaches the agent in a fixed announcement frame that carries the sent
+day, date, time and zone, says relative words such as today refer to that day, and says it is information that never stops
+the agent from helping. An announcement with a `show_until` time that passed before it was shown is not shown; `reach
+announcements` and `reach_announcements` list it with `(shown until <time>)`.
+
+Verified 2026-10-06 on Linux, against a scratch course server: the framed announcement carried its sent date and the help
+request that followed was answered with exit 0; an announcement whose `show_until` had passed was not shown. Not verified:
+the expired listing in `reach announcements` output, macOS, Windows and a real harness session.
+
+Build ✅ · Deploy 🔵 Built, not released (0.37.0 on branch agent-control). · Blocker: -.
+
 ## 3 · Course reference
 
 ### 3.1 · Encrypted reference
@@ -1138,7 +1194,7 @@ The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 27 tools beyond `re
 `reach_submit`, `reach_receipts`, `reach_qualify`, `reach_attempts`, `reach_raise_hand`, `reach_hand_status`, `reach_directive`,
 `reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, and since 0.14.3 `reach_support`, `reach_part`,
 `reach_transfer_request`, `reach_modules` and `reach_next`, and since 0.16.15 `reach_remember`, `reach_recall` and
-`reach_memory_forget` (2.29), since 0.21.12 `reach_update` (2.30), and since 0.30.0 `reach_announcements` (2.43) — each a thin wrapper the agent calls instead of shelling out to
+`reach_memory_forget` (2.29), since 0.21.12 `reach_update` (2.30), since 0.30.0 `reach_announcements` (2.43), and since 0.37.0 `reach_test` (2.49) — each a thin wrapper the agent calls instead of shelling out to
 the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
 returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
 tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.
@@ -1165,6 +1221,8 @@ fresh home (0.16.8: exit 1, R-DOC-ENROLL and the Codex warning; 0.16.9: exit 0, 
 stderr), under Ruby 2.6.10, and against a revoked and a damaged `install.yml` (both still R-DOC-ENROLL, exit 1).
 
 Build ✅ · Deploy 🔵 · Blocker: -.
+
+Since 0.37.0 doctor also runs `R-DOC-AGENT-CONTROL` (2.47): the bundled `agent-control.yml` matches its digest and carries every channel rEach uses.
 
 ### 7.2 · Diagnostic report and kit Ruby fallback
 
@@ -1440,3 +1498,5 @@ Build ✅ · Deploy 🔵 · Blocker: -
 - **Access**: 1.2.
 - **Human**: 1.3, 1.5, 1.6, 1.7, 2.30, 2.31, 2.33, 2.35, 2.37, 3.2, 4.3, 9.2, 10.2, 10.4, 10.5, 10.6, 11.1, 11.2, 11.6.
 - **Engineering**: 1.1 (the Windows installer path is unverified), 4.4, 11.3, 11.4, 11.5.
+
+## Antifeatures

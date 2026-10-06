@@ -307,6 +307,22 @@ it on the next sync, shows it once, word for word, and keeps it in a queue the s
 After each sync rEach also tells the course server which copy of the course materials it holds (names and check
 values only), so an instructor can see that an update reached every student.
 
+Since 0.37.0 the agent receives an announcement in a frame that says when it was sent and that it is information, so it
+never stops helping because of one. An announcement may carry a time until which it is shown; one that passed before
+the student saw it is not shown, and `reach announcements` lists it with "(shown until ...)".
+
+### Course controls and tests
+
+Since 0.37.0 the instructors can set a pause, a hold or a test, and rEach enforces each one in code
+(`agent_control.controls` and `agent_control.test_mode` in `config.yml`). A pause stops course work in a slice and in
+the workspace root, and leaves the student's own extracurricular folder and `reach support` working. A hold stops
+`reach submit` only; checks and `reach qualify` keep working. While a test is open, only the test, `reach support` and
+`reach status` work. The test runs through `reach test [status | open | questions | record QUESTION | submit]` or the
+`reach_test` tool: the questions are shown word for word, and an answer is recorded only from what the student typed in
+their own message, never from the agent. The agent may explain the wording of a question and nothing more. The text
+the agent is shown comes from the bundled `agent-control/agent-control.yml` (`agent_control.render` in `config.yml`);
+`reach doctor` checks it.
+
 ### Extra credit
 
 When the instructor texts a student an extra-credit code, the student gives it to rEach with their answer, at any time:

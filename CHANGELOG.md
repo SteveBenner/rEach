@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.0] - 2026-10-06
+
+### Added
+
+- An announcement reaches the agent as dated information and never stops it from helping
+  (`STD-ANNOUNCEMENTS`, `STD-AGENT-CONTROL`). Each announcement is wrapped in a fixed frame that says when it was sent
+  (day, date, time and zone), that relative words such as today refer to that day, and that it is
+  information and not an order. The student still sees the text word for word.
+- Agent control (`STD-AGENT-CONTROL`, `config.yml` `agent_control.render`). The text rEach puts in the agent's context
+  is rendered from one bundled document, `agent-control/agent-control.yml`, pinned by a SHA-256 digest. A copy
+  delivered with the course guardrails is used when it is valid and not older. Every injected block goes through
+  `Reach::AgentControl.channel` under a channel id fixed in code and sits in its frame; the order of authority comes first in each
+  context and in the generated `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`. On any error the raw text is used.
+  `reach doctor` checks the document (`R-DOC-AGENT-CONTROL`). Student-visible messages stay in rEach's own catalogue
+  (`STD-STUDENT-MESSAGES`).
+- Typed course controls (`STD-CONTROLS`, `agent_control.controls`), enforced in code. A pause blocks prompts and tool
+  calls in a slice and in the workspace root and spares the extracurricular folder and `reach support`
+  (`M-CONTROL-PAUSED`). A hold blocks `reach submit` only, so `reach qualify` and checks continue
+  (`M-CONTROL-HOLD`). While a test is open, only `reach_test`, `reach_support` and `reach_status` work
+  (`M-CONTROL-TEST-LOCKED`). Controls use the server's time, so the computer's clock changes nothing; a server without
+  them answers 404 and rEach asks again no sooner than six hours later, and a 503 clears them. No environment
+  variable or config key lifts a control in force.
+- Test mode (`STD-TEST-MODE`, `agent_control.test_mode`): `reach test [status | open | questions | record QUESTION | submit]`
+  and the `reach_test` tool (`Reach::ExamMode`, `state/exam.json`). The test opens one attempt with a deadline, shows the
+  questions word for word and records an answer only from the student's own captured prompt, never one typed before
+  the attempt opened; answers are append-only. The agent may clarify the wording of a question and nothing else.
+- An announcement can carry a `show_until` time. One not yet shown when that time passes is not shown, and
+  `reach announcements` and `reach_announcements` still list it, marked `(shown until <time>)`
+  (`M-ANNOUNCE-LINE-EXPIRED`).
+
+### Changed
+
+- `config.yml` ships `agent_control.render`, `agent_control.controls` and `agent_control.test_mode` as `true`.
+
 ## [0.36.0] - 2026-10-06
 
 ### Changed

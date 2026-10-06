@@ -100,6 +100,6 @@ codex:
 transcripts:
   auto_export: true
 agent_control:
-  render: false
-  controls: false
-  test_mode: false
+  render: true
+  controls: true
+  test_mode: true

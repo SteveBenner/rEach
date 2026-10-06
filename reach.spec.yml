@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.36.0
+version: 0.37.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -267,6 +267,10 @@ layout:
     content: The last GET /status response with fetched_at; the gate's freshness and update checks read it
   - path: "~/.reach/state/bucket.json"
     content: The request token bucket every Reach process shares, under an exclusive file lock
+  - path: "~/.reach/state/controls.json"
+    content: The course's active pause, hold and test controls with the server's time offset (since 0.37.0, STD-CONTROLS); mode 0600, written atomically by Reach::StateFile
+  - path: "~/.reach/state/exam.json"
+    content: The student's open or last test attempt (attempt id, deadline, questions while open, recorded answer positions and the end reason; since 0.37.0, STD-TEST-MODE); mode 0600, written atomically by Reach::StateFile
   - path: "~/.reach/bin/reach and ~/.reach/bin/root"
     content: >-
       A stable shim that runs the most recently used Reach install, so workspace hooks keep working when a harness
@@ -353,6 +357,25 @@ library:
     role: Loads the guardrails package, renders AGENTS.md and CLAUDE.md, and answers the gate
   - name: Reach::Gate
     role: The code-level checks the harness hooks call - may the agent run, may this path be written
+  - name: Reach::AgentControl
+    role: >-
+      Since 0.37.0 (STD-AGENT-CONTROL). Selects the bundled agent-control/agent-control.yml (used only while its SHA-256
+      equals agent-control/agent-control.yml.sha256) or the valid, not older copy in the vault, and renders every block
+      rEach injects through channel(id, **fields) with the channel's frame; puts the precedence block first in each
+      context and in the generated rules files; falls back to the raw text on any error. problems feeds R-DOC-AGENT-CONTROL.
+      Switch: config.yml agent_control.render
+  - name: Reach::Controls
+    role: >-
+      Since 0.37.0 (STD-CONTROLS). fetch! keeps the course's pause, hold and test controls in state/controls.json with the
+      server's time offset; check_prompt!, check_tool! and check_submit! refuse with M-CONTROL-PAUSED, M-CONTROL-TEST-LOCKED
+      and M-CONTROL-HOLD; tool_allowed? applies controls.test.allowed_tools to the tool bridge; context_blocks frames the
+      active controls for the session and the prompt. Switch: config.yml agent_control.controls
+  - name: Reach::ExamMode
+    role: >-
+      Since 0.37.0 (STD-TEST-MODE). The student's test (the student's word is test): fetch! and open! read the offered test and
+      open one attempt, questions shows the questions word for word, record! posts the student's own captured prompt as the
+      answer to one question, submit! ends the attempt, and the state is state/exam.json. Switch: config.yml
+      agent_control.test_mode
   - name: Reach::Workspace
     role: Creates, locks and verifies slice workspaces
   - name: Reach::Shape
@@ -1098,6 +1121,11 @@ mcp_bridge:
     description: >-
       Since 0.30.0 (STD-ANNOUNCEMENTS), the announcements the instructors sent this student, newest first, each with its
       sent time, title and text
+  - name: reach_test
+    description: >-
+      Since 0.37.0 (STD-TEST-MODE), the student's test: action status (the default), open, questions, record (with
+      question_id) or submit; the questions come back word for word, and record takes only what the student typed in
+      their own latest message. It stays allowed during the test lockdown with reach_support and reach_status
   - name: reach_storage
     description: >-
       Since 0.18.0, how much space rEach's memory uses (action status, the default), or compact the saved course memory
@@ -1264,6 +1292,14 @@ cli:
   - name: receipts
     synopsis: reach receipts [wait|show]
     purpose: Receipts
+  - name: test
+    synopsis: reach test [status | open | questions | record QUESTION | submit]
+    purpose: >-
+      Since 0.37.0 (STD-TEST-MODE), the student's timed test. status says whether a test is open and the time left; open
+      starts the attempt and prints the questions word for word; questions prints them again; record QUESTION takes the
+      student's own latest captured prompt as the answer to that question; submit ends the attempt. Works only while
+      config.yml agent_control.test_mode is true, and exits 1 with M-TEST-NONE, M-TEST-ENDED or M-TEST-NEEDS-ANSWER
+      otherwise
   - name: hand
     synopsis: reach hand raise [--type T] | status | list | late --assignment A [--type late_submission]
     purpose: Hand-raises; --type names one of the request types (STD-HAND-TYPES) and late is the detached late-work worker
@@ -2015,8 +2051,25 @@ announcements:
   state: state/announcements.json, state/holdings.json, state/due_changes.json (mode 0600, written atomically by Reach::StateFile)
   commands: reach announcements [list] [--format json], reach announcements flush
   tool: reach_announcements
-  messages: M-ANNOUNCE-NOTICE, M-ANNOUNCE-LINE, M-ANNOUNCE-NONE, M-DUE-CHANGED
+  messages: M-ANNOUNCE-NOTICE, M-ANNOUNCE-LINE, M-ANNOUNCE-LINE-EXPIRED, M-ANNOUNCE-NONE, M-DUE-CHANGED
   switches: config.yml announcements.show (default true)
+  frame: >-
+    Since 0.37.0 (STD-AGENT-CONTROL) the notice reaches the agent in the announcement frame, which carries the sent day, date, time and zone, says that
+    relative words refer to that day, and says it is information that never stops the agent from helping. An announcement with a show_until time that
+    has passed before it was shown is not shown; reach announcements lists it with M-ANNOUNCE-LINE-EXPIRED, ending in (shown until, then the time).
+agent_control:
+  standard: STD-AGENT-CONTROL, STD-CONTROLS, STD-TEST-MODE (specs/app.yml)
+  since: 0.37.0
+  summary: >-
+    One bundled, digest-pinned document (agent-control/agent-control.yml) supplies the frames and the order of authority
+    around everything rEach puts in the agent's context. Typed course controls (pause, hold, test) are enforced in code by
+    Reach::Controls, and a timed test is run by Reach::ExamMode.
+  modules: Reach::AgentControl (lib/reach/agent_control.rb), Reach::Controls (lib/reach/controls.rb), Reach::ExamMode (lib/reach/exam_mode.rb)
+  state: state/controls.json, state/exam.json (mode 0600, written atomically by Reach::StateFile)
+  commands: reach test [status | open | questions | record QUESTION | submit]
+  tool: reach_test
+  messages: M-CONTROL-PAUSED, M-CONTROL-HOLD, M-CONTROL-TEST-LOCKED, M-TEST-NONE, M-TEST-OPENED, M-TEST-CLOCK, M-TEST-NEEDS-ANSWER, M-TEST-RECORDED, M-TEST-SUBMITTED, M-TEST-ENDED, M-TEST-USAGE
+  switches: config.yml agent_control.render, agent_control.controls, agent_control.test_mode (all true in config.yml from 0.37.0)
 course_profile:
   standard: STD-COURSE-PROFILE (specs/app.yml)
   since: 0.33.0
@@ -2532,6 +2585,9 @@ doctor_checks:
 - id: R-DOC-STORAGE
   checks: Since 0.18.0, the last measure of rEach's memory (corpus and microbrain) is below storage.demand_mb; it is a finding only at or above it
   fix: reach storage compact
+- id: R-DOC-AGENT-CONTROL
+  checks: Since 0.37.0, the bundled agent-control.yml matches its pinned digest, has the schema, the six tiers, the eight frames, a five-line precedence block and exactly the channels rEach uses; a course copy that fails the same checks is reported as refused and the bundled copy stays in use
+  fix: reach sync, or reinstall rEach when the bundled copy does not match its digest
 directives:
   table: >-
     The last section of every workspace AGENTS.md (W-RENDER-1). One row per directive, fleet form: [<alias> ·
