@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.23] - 2026-10-05
+
+### Fixed
+
+- A successful module lock (0.35.22) deleted every further decision memory that named two module titles with one
+  not locked, so a memory such as "weighed A and B against C and D" could be lost for good.
+  `Reach::Modules.settle_memory` now deletes nothing: it supersedes only the first decision memory that names as many
+  module titles as were locked, one of them not locked, matches titles in any case and titles that start or end with
+  a symbol, and supersedes nothing when the brain reinforces or holds the new memory instead of saving it
+  (`STD-MODULES-LOCK-SYNC`).
+
 ## [0.35.22] - 2026-10-05
 
 ### Fixed

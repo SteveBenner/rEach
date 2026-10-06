@@ -252,15 +252,14 @@ module Reach
       Array(data && data["options"]).each do |option|
         titles[option["id"].to_s] = option["title"].to_s if option.is_a?(Hash) && !option["title"].to_s.empty?
       end
-      stale = Reach::Brain.list(category: "decision", limit: 200).select do |row|
-        named = titles.select { |_id, title| row["claim"].to_s.match?(/\b#{Regexp.escape(title)}\b/) }.keys
-        named.length >= 2 && !(named - locked).empty?
-      end.map { |row| row["id"] }
+      stale = Reach::Brain.list(category: "decision", limit: 200).find do |row|
+        named = titles.select { |_id, title| row["claim"].to_s.match?(/(?<![[:alnum:]])#{Regexp.escape(title)}(?![[:alnum:]])/i) }.keys
+        named.length == locked.length && !(named - locked).empty?
+      end
       Reach::Brain.remember(
         category: "decision", claim: "The student's modules are locked in: #{names(locked)}.",
-        evidence: "Course record #{record["record_id"]}, issued #{record["issued_at"]}.", supersedes: stale.first
+        evidence: "Course record #{record["record_id"]}, issued #{record["issued_at"]}.", supersedes: stale && stale["id"]
       )
-      Reach::Brain.forget(ids: stale.drop(1)) if stale.length > 1
       nil
     rescue StandardError
       nil
