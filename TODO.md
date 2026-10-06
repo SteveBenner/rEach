@@ -56,9 +56,8 @@
 
 ## Microbrain (0.16.15)
 
-- [ ] Ship rplugin and rcorpus in the runtime kit so students get corpus-side recall (`Rcorpus::Context`) and
-      consolidation; deferred 10-01 pending the decision to publish them. Students run on the spool plus Reach's own
-      recall, and the planes are admitted wherever rplugin is installed.
+- [x] Ship rplugin and rcorpus to students so they get corpus-side recall (`Rcorpus::Context`) and consolidation:
+      done in 0.38.0 as a pinned SDK kit beside the runtime kit (FEATURES 2.51).
 - [x] Erase tombstoned history from corpus planes: `reach memory forget` scrubs Reach's spool only, so a finding or
       source already admitted into a plane stays there until rcorpus can erase a tombstoned id. (Done in 0.16.22 with
       rcorpus 0.10.0 `Rcorpus::Erase`: verified in a scratch HOME that a forgotten finding's text is in no file.)

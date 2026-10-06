@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.37.3 |
+| **Registry version** | 0.38.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1439,6 +1439,29 @@ set the root manifest aside. Not yet seen on a Windows machine. Since 0.21.14 th
 
 Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the development machine; no Windows Codex run).
 
+### 2.51 · Brain planes on the student's computer
+
+Since 0.38.0 (`STD-BRAIN-PLANES`) the microbrain is admitted into rEach's own rBrain corpus at
+`~/reach-work/.reach-home/corpora/reach` on every computer that has the runtime kit, not only where rplugin is installed.
+A pinned SDK kit (rplugin 1.9.0 and rBrain 0.14.0 runtime files, about 150 KB, release asset `sdk-1.9.0-0.14.0-r1`
+published with `--latest=false`, its manifest sha256 compiled into rEach) installs itself in the background at session
+start (`reach sdk install`, `reach sdk status`; `REACH_SDK_DISABLE=1` stops downloads). Admission and the daily
+consolidation run in a detached child under the kit Ruby with a clean Ruby environment, never in a hook. `reach_recall`
+goes through rBrain Context in a child capped at 10 s and falls back to the lexical index. `reach memory forget` erases
+through rBrain Erase in a child capped at 30 s; a forget that cannot reach the planes is queued (0600) and runs before the
+next admission. `reach doctor` names the route (`R-DOC-BRAIN-PLANES`). Spool mode stays the complete fallback with no kit,
+no SDK, an instructor persona, `brain.planes: false` or `REACH_BRAIN_PLANES_DISABLE=1`. No embedding model is shipped, so
+plane recall is lexical and graph only, and `rcorpus check` reports each finding's embedding as pending.
+
+Verified 2026-10-06 on Linux in scratch homes: a pinned install downloaded the published asset from GitHub, verified it
+and placed it; an unpinned, corrupted or kit-less install was refused; the build is deterministic and its privacy gate
+refused a planted home path; under Ruby 2.6.10 (Docker) `remember` returned in 198 ms while a detached child admitted the
+record into the planes; recall went through the child in 0.25 s and fell back to the index; forget erased the text from
+spool and planes, and a queued forget ran before the next admission; with no kit every brain verb matched 0.37.3. Not
+verified: macOS, Windows, Hermes and a real student session.
+
+Build ✅ · Deploy 🔵 Built, not enabled (enabled on a student's computer once 0.38.0 reaches stable and the SDK installs). · Blocker: -.
+
 ## 11 · Planned
 
 ### 11.1 · Analytics keyed to the enrolled student
@@ -1450,11 +1473,10 @@ Build ⚪ · Deploy ⚫ · Blocker: Human (the decision).
 
 ### 11.2 · Corpus-side recall in the student's kit
 
-Ship rplugin and rcorpus in the runtime kit so a student's computer runs `Rcorpus::Context` recall and
-`Rcorpus::Consolidate`; deferred 2026-10-01 pending the decision to publish them. Students run on the spool and Reach's
-own recall (2.29).
+Shipped in 0.38.0 as 2.51: the SDK kit ships rplugin and rBrain as a separate pinned release asset beside the runtime
+kit, and a student's computer runs `Rcorpus::Context` recall and `Rcorpus::Consolidate` in a child under the kit Ruby.
 
-Build ⚪ · Deploy ⚫ · Blocker: Human (publication decision).
+Build ✅ · Deploy 🔵 (see 2.51) · Blocker: -.
 
 ### 11.3 · Erasing admitted corpus history
 
@@ -1499,7 +1521,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ## Appendix · Blocked by
 
 - **Access**: 1.2.
-- **Human**: 1.3, 1.5, 1.6, 1.7, 2.30, 2.31, 2.33, 2.35, 2.37, 3.2, 4.3, 9.2, 10.2, 10.4, 10.5, 10.6, 11.1, 11.2, 11.6.
+- **Human**: 1.3, 1.5, 1.6, 1.7, 2.30, 2.31, 2.33, 2.35, 2.37, 3.2, 4.3, 9.2, 10.2, 10.4, 10.5, 10.6, 11.1, 11.6.
 - **Engineering**: 1.1 (the Windows installer path is unverified), 4.4, 11.3, 11.4, 11.5.
 
 ## Antifeatures

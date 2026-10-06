@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0] - 2026-10-06
+
+### Added
+
+- Brain planes on every student's computer (`STD-BRAIN-PLANES`). A pinned SDK kit with rplugin 1.9.0 and rBrain 0.14.0
+  (release asset `sdk-1.9.0-0.14.0-r1`, about 150 KB, its manifest sha256 compiled into rEach) installs itself in the
+  background once the runtime kit is present. The microbrain is then admitted into rEach's own corpus at
+  `.reach-home/corpora/reach` and consolidated daily, in a detached child under the kit Ruby, never in a hook.
+- `reach sdk install [--from DIR]` and `reach sdk status [--json]`; `REACH_SDK_DISABLE=1` stops SDK downloads.
+- `reach doctor` reports the brain route on its `R-DOC-BRAIN-PLANES` line.
+- `tools/sdk_kit.rb` builds the SDK kit deterministically and refuses a build that carries a private path.
+
+### Changed
+
+- `reach_recall` uses rBrain Context through the SDK child (capped at 10 s) when it is installed, and falls back to the
+  lexical index.
+- `reach memory forget` also erases from the planes through rBrain Erase (capped at 30 s). A forget that cannot reach
+  them is queued in the brain folder and runs before the next admission, so forgotten text is never admitted.
+- Storage use counts the planes corpus.
+
+### Notes
+
+- Spool mode remains the full fallback: no runtime kit, no SDK, an instructor persona, `brain.planes: false` or
+  `REACH_BRAIN_PLANES_DISABLE=1` leave everything as in 0.37.3. No embedding model is shipped.
+
 ## [0.37.3] - 2026-10-06
 
 ### Changed

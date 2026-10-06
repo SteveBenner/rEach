@@ -172,9 +172,15 @@ floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced source
 forget <id>` or `reach memory forget --all --yes` erases it from rEach's files. The settings are in `config.yml`
 under `brain`.
 
+Once the runtime kit is present, rEach also installs its small SDK kit (rplugin and rBrain, verified against a manifest
+pinned in rEach) and organizes the memory into its own rBrain corpus in `~/reach-work/.reach-home/corpora/reach`, in a
+background helper that never slows a hook. Recall then searches that corpus, and forgetting erases from it too.
+`reach sdk status` shows the kit and `reach doctor` the route; without the kit, rEach works exactly as before.
+
 ```
 reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID]   keep one finding (the agent runs this)
 reach memory [list | show ID | forget ID... | forget --all --yes | export]   see, export or erase what it remembers
+reach sdk [install [--from DIR] | status [--json]]                           install or show the SDK kit
 ```
 
 ### Storage
