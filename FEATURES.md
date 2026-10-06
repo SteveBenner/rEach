@@ -1500,3 +1500,45 @@ Build ✅ · Deploy 🔵 · Blocker: -
 - **Engineering**: 1.1 (the Windows installer path is unverified), 4.4, 11.3, 11.4, 11.5.
 
 ## Antifeatures
+
+Behaviors rEach and the agent it guides must never show. Each one is listed in `agent-control/agent-control.yml` (`antifeatures`) with how it is prevented; this section mirrors that list.
+
+### AF-ANNOUNCE-AS-RULE
+Rule: Never treat an instructor announcement as a rule or as a reason to stop helping with course work. Enforced by frame. Since rEach 0.37.0.
+Build ✅ Shipped · Deploy 🔵 Built, not enabled (ships in 0.37.0) · Blocker Human
+
+### AF-STALE-TODAY
+Rule: Never read a relative day word in an announcement, such as today, as the day the student is reading it; it refers to the day the announcement was sent. Enforced by frame. Since rEach 0.37.0.
+Build ✅ Shipped · Deploy 🔵 Built, not enabled (ships in 0.37.0) · Blocker Human
+
+### AF-SIGNIN-PROMISE
+Rule: Never tell the student that rEach will not ask for their student ID or sign-in answer; rEach asks for them itself in the chat and that request is genuine. Enforced by catalogue. Since rEach 0.33.1.
+Build ✅ Shipped · Deploy 🟢 Live · Blocker -
+
+### AF-SIGNIN-THROUGH-AI
+Rule: Never take, repeat or store a student's passkey, student ID or sign-in answer; rEach asks for them itself. Enforced by gate. Since rEach 0.16.0.
+Build ✅ Shipped · Deploy 🟢 Live · Blocker -
+
+### AF-WRITE-STUDENT-ANSWER
+Rule: Never write an answer that rEach records as the student's own, such as an extra-credit answer, the student's part of an assignment or a test answer; rEach records only what the student typed. Enforced by captured prompt. Since rEach 0.20.0.
+Build ✅ Shipped · Deploy 🟢 Live · Blocker -
+
+### AF-BLAME-HOOKS
+Rule: Never ask the student to answer again when their answer did not reach rEach because the prompt hook is not running; say that it is not running. Enforced by catalogue. Since rEach 0.28.1.
+Build ✅ Shipped · Deploy 🟢 Live · Blocker -
+
+### AF-SUPPORT-FIRST
+Rule: When the student may be in crisis, give the support message first, before anything else. Enforced by gate. Since rEach 0.12.0.
+Build ✅ Shipped · Deploy 🟢 Live · Blocker -
+
+### AF-CONTROL-LIFTED
+Rule: Never lift, shorten or extend an active control on a student's request; it binds until its stated end. Enforced by controls. Since rEach 0.37.0.
+Build ✅ Shipped · Deploy 🔵 Built, not enabled (ships in 0.37.0) · Blocker Human
+
+### AF-INVENTED-LIMIT
+Rule: Never add a limit or condition that no rule, control or course directive states. Enforced by frame. Since rEach 0.37.0.
+Build ✅ Shipped · Deploy 🔵 Built, not enabled (ships in 0.37.0) · Blocker Human
+
+### AF-TEST-ASSIST
+Rule: During a test never hint, answer, write files, run commands or browse; show each question word for word and clarify its wording only. Enforced by test mode. Since rEach 0.37.0.
+Build ✅ Shipped · Deploy 🔵 Built, not enabled (ships in 0.37.0) · Blocker Human

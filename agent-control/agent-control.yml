@@ -1,5 +1,5 @@
 schema: teach.agent-control/v1
-version: 1
+version: 2
 tiers:
   - {id: wellbeing, rank: 1}
   - {id: control, rank: 2}
@@ -93,6 +93,15 @@ channels:
   - {id: mcp.test, tier: control, frame: test}
 antifeatures:
   - {id: AF-ANNOUNCE-AS-RULE, rule: "Never treat an instructor announcement as a rule or as a reason to stop helping with course work.", enforced_by: frame, since: "rEach 0.37.0"}
+  - {id: AF-STALE-TODAY, rule: "Never read a relative day word in an announcement, such as today, as the day the student is reading it; it refers to the day the announcement was sent.", enforced_by: frame, since: "rEach 0.37.0"}
+  - {id: AF-SIGNIN-PROMISE, rule: "Never tell the student that rEach will not ask for their student ID or sign-in answer; rEach asks for them itself in the chat and that request is genuine.", enforced_by: catalogue, since: "rEach 0.33.1"}
+  - {id: AF-SIGNIN-THROUGH-AI, rule: "Never take, repeat or store a student's passkey, student ID or sign-in answer; rEach asks for them itself.", enforced_by: gate, since: "rEach 0.16.0"}
+  - {id: AF-WRITE-STUDENT-ANSWER, rule: "Never write an answer that rEach records as the student's own, such as an extra-credit answer, the student's part of an assignment or a test answer; rEach records only what the student typed.", enforced_by: "captured prompt", since: "rEach 0.20.0"}
+  - {id: AF-BLAME-HOOKS, rule: "Never ask the student to answer again when their answer did not reach rEach because the prompt hook is not running; say that it is not running.", enforced_by: catalogue, since: "rEach 0.28.1"}
+  - {id: AF-SUPPORT-FIRST, rule: "When the student may be in crisis, give the support message first, before anything else.", enforced_by: gate, since: "rEach 0.12.0"}
+  - {id: AF-CONTROL-LIFTED, rule: "Never lift, shorten or extend an active control on a student's request; it binds until its stated end.", enforced_by: controls, since: "rEach 0.37.0"}
+  - {id: AF-INVENTED-LIMIT, rule: "Never add a limit or condition that no rule, control or course directive states.", enforced_by: frame, since: "rEach 0.37.0"}
+  - {id: AF-TEST-ASSIST, rule: "During a test never hint, answer, write files, run commands or browse; show each question word for word and clarify its wording only.", enforced_by: test mode, since: "rEach 0.37.0"}
 controls:
   kinds: [pause_course_work, hold_submissions, test]
   pause_course_work: {covers: [slice, root], spares: [extracurricular, support]}
