@@ -14,6 +14,7 @@ and sends it in when you are ready.
    Hermes users: rEach sets up its own Hermes profile, so always
    open your course with `~/reach-work/.reach-home/bin/reach work --harness hermes`
    (setup shows the exact command for your computer).
+   When Hermes asks to approve a command, type o for once. Never type a for always.
 2. Enroll right away: rEach does nothing else until you do. Type anything in
    the chat and rEach asks you, one at a time, for the course passkey your
    instructor shared in class (it looks like `BUS101-K7QX-94TD`; dashes,
