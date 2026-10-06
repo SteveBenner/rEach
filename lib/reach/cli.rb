@@ -2329,9 +2329,12 @@ module Reach
 
           Reach::Corpus.new(Reach.ports).erase_inline(ids) == :erased ? 0 : 1
         when "context"
-          options, remaining = parse_flags(args, [:query, :k])
+          options, remaining = parse_flags(args, [:query_file, :k])
           _json, _rest = parse_bare_flag(remaining, "json")
-          query = options[:query].to_s
+          path = options[:query_file].to_s
+          return 1 if path.empty? || !File.file?(path)
+
+          query = File.read(path)
           return 1 if query.strip.empty?
 
           settings = Reach::Brain.settings

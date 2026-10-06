@@ -1,5 +1,4 @@
 #!/usr/bin/env ruby
-# SPDX-License-Identifier: MIT
 
 require "json"
 require "digest"
@@ -13,14 +12,17 @@ require "zlib"
 
 module SdkKitBuild
   RPLUGIN_PATHS = %w[lib bin/rplugin LICENSE VERSION].freeze
-  RBRAIN_PATHS = %w[lib bin specs examples skills docs LICENSE VERSION].freeze
+  RBRAIN_PATHS = %w[lib bin examples/microdatabase-corpus LICENSE VERSION].freeze
   RBRAIN_EXCLUDE = %r{\Aspecs/implementation(/|\z)}.freeze
   FORBIDDEN_NAMES = %w[TOKENS.jsonl DECISIONS.md].freeze
   PATTERNS = [
     [%r{/home/[a-z]}, "a /home/ path"],
     [%r{/Users/[a-z]}, "a /Users/ path"],
     [/[A-Za-z0-9._%+-]+@(gmail|icloud|outlook|yahoo)\./, "a personal e-mail address"],
-    [/BEGIN [A-Z ]*PRIVATE KEY/, "a private key"]
+    [/BEGIN [A-Z ]*PRIVATE KEY/, "a private key"],
+    [/\.ts\.net\b|\btail[0-9a-f]{6}\b/, "a tailnet host name"],
+    [/\b(?:10\.[0-9]{1,3}|192\.168|172\.(?:1[6-9]|2[0-9]|3[01])|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7]))\.[0-9]{1,3}\.[0-9]{1,3}\b/, "a private network address"],
+    [/\b(?:sk-(?:ant-)?[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|ATBB[A-Za-z0-9]{20,})/, "an access token"]
   ].freeze
 
   class Refused < StandardError; end
@@ -60,14 +62,28 @@ module SdkKitBuild
     FORBIDDEN_NAMES.include?(parts.last) || parts.include?(".specstory")
   end
 
+  def identity_patterns
+    names = [ENV["USER"], ENV["LOGNAME"]]
+    begin
+      names.concat(git(Dir.pwd, "config", "user.name").split(/\s+/))
+    rescue Refused
+      nil
+    end
+    names.compact.map(&:strip).select { |name| name.length >= 3 }.uniq(&:downcase).map do |name|
+      [/(?<![A-Za-z])#{Regexp.escape(name)}(?![A-Za-z])/i, "the builder's name (#{name})"]
+    end
+  end
+
   def gate!(entries)
+    patterns = PATTERNS + identity_patterns
     entries.each do |path, data|
       raise Refused, "refused: #{path} is a private file name" if forbidden_name?(path)
 
+      checks = File.basename(path) == "LICENSE" ? PATTERNS : patterns
       text = data.dup.force_encoding(Encoding::BINARY)
       text.each_line.with_index(1) do |line, number|
-        PATTERNS.each do |pattern, label|
-          raise Refused, "refused: #{path}:#{number} holds #{label}" if line.match?(Regexp.new(pattern.source.b, Regexp::NOENCODING))
+        checks.each do |pattern, label|
+          raise Refused, "refused: #{path}:#{number} holds #{label}" if line.match?(Regexp.new(pattern.source.b, pattern.options | Regexp::NOENCODING))
         end
       end
     end

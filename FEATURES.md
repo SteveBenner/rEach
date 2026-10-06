@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.38.0 |
+| **Registry version** | 0.38.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1443,19 +1443,21 @@ Build ✅ · Deploy 🔵 · Blocker: Human (real install not applied on the deve
 
 Since 0.38.0 (`STD-BRAIN-PLANES`) the microbrain is admitted into rEach's own rBrain corpus at
 `~/reach-work/.reach-home/corpora/reach` on every computer that has the runtime kit, not only where rplugin is installed.
-A pinned SDK kit (rplugin 1.9.0 and rBrain 0.14.0 runtime files, about 150 KB, release asset `sdk-1.9.0-0.14.0-r1`
-published with `--latest=false`, its manifest sha256 compiled into rEach) installs itself in the background at session
+A pinned SDK kit (rplugin 1.9.0 and rBrain 0.14.0 runtime files and the microdatabase corpus template, about 120 KB,
+release asset `sdk-1.9.0-0.14.0-r2` published with `--latest=false` on the instructor's publication decision of
+2026-10-06, its manifest sha256 compiled into rEach since 0.38.1) installs itself in the background at session
 start (`reach sdk install`, `reach sdk status`; `REACH_SDK_DISABLE=1` stops downloads). Admission and the daily
 consolidation run in a detached child under the kit Ruby with a clean Ruby environment, never in a hook. `reach_recall`
-goes through rBrain Context in a child capped at 10 s and falls back to the lexical index. `reach memory forget` erases
+goes through rBrain Context in a child capped at 10 s, with the query in a 0600 file, and falls back to the lexical index. `reach memory forget` erases
 through rBrain Erase in a child capped at 30 s; a forget that cannot reach the planes is queued (0600) and runs before the
 next admission. `reach doctor` names the route (`R-DOC-BRAIN-PLANES`). Spool mode stays the complete fallback with no kit,
 no SDK, an instructor persona, `brain.planes: false` or `REACH_BRAIN_PLANES_DISABLE=1`. No embedding model is shipped, so
 plane recall is lexical and graph only, and `rcorpus check` reports each finding's embedding as pending.
 
-Verified 2026-10-06 on Linux in scratch homes: a pinned install downloaded the published asset from GitHub, verified it
-and placed it; an unpinned, corrupted or kit-less install was refused; the build is deterministic and its privacy gate
-refused a planted home path; under Ruby 2.6.10 (Docker) `remember` returned in 198 ms while a detached child admitted the
+Verified 2026-10-06 on Linux in scratch homes: a pinned install downloaded the published r2 asset from GitHub, verified
+it and placed it, and the planes then took a remembered record, recalled it through the child in 0.27 s and erased it on
+forget; an unpinned, corrupted or kit-less install was refused; the build is deterministic and its privacy gate
+refused a planted home path, tailnet host, private address, access token and the builder's name; under Ruby 2.6.10 (Docker) `remember` returned in 198 ms while a detached child admitted the
 record into the planes; recall went through the child in 0.25 s and fell back to the index; forget erased the text from
 spool and planes, and a queued forget ran before the next admission; with no kit every brain verb matched 0.37.3. Not
 verified: macOS, Windows, Hermes and a real student session.

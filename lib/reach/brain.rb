@@ -666,7 +666,10 @@ module Reach
     end
 
     def context_via_child(query, limit)
-      result = Reach::BrainPlanes.run(["brain", "context", "--query", query, "--k", limit.to_s, "--json"], timeout: 10)
+      ensure_dir!
+      path = File.join(dir, "context-#{Process.pid}-#{SecureRandom.hex(4)}.query")
+      File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(query) }
+      result = Reach::BrainPlanes.run(["brain", "context", "--query-file", path, "--k", limit.to_s, "--json"], timeout: 10)
       return nil unless result && result[1].success?
 
       data = JSON.parse(result[0])
@@ -675,6 +678,8 @@ module Reach
       data
     rescue StandardError
       nil
+    ensure
+      FileUtils.rm_f(path) if path
     end
 
     def course_recall(query:)

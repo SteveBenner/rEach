@@ -10,9 +10,9 @@ require "rubygems/package"
 
 module Reach
   module SdkKit
-    SDK_TAG = "sdk-1.9.0-0.14.0-r1".freeze
-    SDK_ID = "1.9.0-0.14.0-r1".freeze
-    MANIFEST_SHA256 = "f71faa357eabc4de845a15eed0d3c07574933d112ba903814adc6851ce94b941".freeze
+    SDK_TAG = "sdk-1.9.0-0.14.0-r2".freeze
+    SDK_ID = "1.9.0-0.14.0-r2".freeze
+    MANIFEST_SHA256 = "c984949b07336f90a2b6762160bf61a2c1492d643b87ecb00a29db820cf708c0".freeze
     RELEASE_BASE = Reach::RuntimeKit::RELEASE_BASE
     MANIFEST_ASSET = "sdk-manifest.json".freeze
     MANIFEST_SCHEMA = "reach.sdk-manifest/v1".freeze

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.38.0
+version: 0.38.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided

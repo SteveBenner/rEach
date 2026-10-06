@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.1] - 2026-10-06
+
+### Changed
+
+- rEach pins SDK kit r2 (`sdk-1.9.0-0.14.0-r2`, about 120 KB). It carries only rplugin's and rBrain's runtime files and
+  the microdatabase corpus template; r1 also carried rBrain's documentation, specs and skills, which nothing runs.
+- `tools/sdk_kit.rb` also refuses a kit that holds a tailnet host name, a private network address, an access token or
+  the builder's own name.
+
+### Security
+
+- Plane recall passes the student's query to its helper in a 0600 file instead of on the command line, where other
+  users of a shared computer could see it in the process list.
+
 ## [0.38.0] - 2026-10-06
 
 ### Added
