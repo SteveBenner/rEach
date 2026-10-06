@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.2] - 2026-10-06
+
+### Changed
+
+- Optimized the public banner raster as a high-quality WebP export at the original dimensions, substantially reducing the self-contained SVG. The web export contains no original PNG container metadata; full-resolution print originals remain available to the instructor.
+
 ## [0.37.1] - 2026-10-06
 
 ### Changed
