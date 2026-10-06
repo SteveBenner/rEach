@@ -1701,6 +1701,7 @@ module Reach
         problems.concat(check_issues)
         problems.concat(check_outdated)
         problems.concat(check_wire)
+        problems.concat(check_gate)
         problems.concat(check_version)
         problems.concat(check_persona)
         problems.concat(check_agent_control)
@@ -2011,6 +2012,22 @@ module Reach
         return [] unless cached && cached["wire_contract_sha256"]
 
         cached["wire_contract_sha256"] == Reach::Wire.digest ? [] : ["R-DOC-WIRE: this reach's wire contract does not match the course server's - update reach"]
+      rescue StandardError
+        []
+      end
+
+      def check_gate
+        root = Reach::Runtime.root
+        return [] unless File.file?(File.join(root, "tools", "release_gate", "gate.rb"))
+
+        push_url = `git -C #{Shellwords.escape(root)} remote get-url --push origin 2>/dev/null`.to_s.strip
+        return [] unless push_url.match?(%r{\A(?:git@|ssh://)})
+
+        hooks_path = `git -C #{Shellwords.escape(root)} config --get core.hooksPath 2>/dev/null`.to_s.strip
+        problems = []
+        problems << "R-DOC-GATE: core.hooksPath is #{hooks_path.empty? ? 'unset' : hooks_path}, not .githooks, so no release gate runs on push - run tools/release_gate/install" unless hooks_path == ".githooks"
+        problems << "R-DOC-GATE: .githooks/pre-push is missing or not executable - run tools/release_gate/install" unless File.executable?(File.join(root, ".githooks", "pre-push"))
+        problems
       rescue StandardError
         []
       end

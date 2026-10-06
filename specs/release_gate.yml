@@ -1,0 +1,264 @@
+schema: reach.release_gate/v1
+name: Release integrity gate
+recorded: '2026-10-06'
+status: normative
+canonical_copy: reach/specs/release_gate.yml
+pinned_copies:
+  - teach/specs/release_gate.yml
+private_contract: the superproject's specs/release_gate.yml names the course server's schedule, settings and alarms for these checks; this file is the outcome-level contract both gates read
+summary: >-
+  One pre-push gate, installed in both repositories by tools/release_gate/install and run by .githooks/pre-push on
+  every push that carries a release (a refs/tags/v* ref, or a branch update whose VERSION changed). The gate reads
+  facts (git, the GitHub release list, the specs, Teach's facts answer) and decides on one severity scale. The
+  security audit of tools/security_audit is one part of it. Teach keeps the record of every run and every override.
+  The course server runs the same checks on its own schedule for both repositories and raises and clears alarms the
+  normal way. This file is the interface: the gate code validates its own check table against the
+  checks listed here at start (GATE-SPEC) and refuses to run when they differ.
+severity_scale: [critical, high, medium, low, info]
+blocking:
+  setting: security_audit.block_at, a course server setting
+  default: high
+  critical: [critical]
+  high: [critical, high]
+  any: [critical, high, medium]
+  note: medium, low and info findings warn and are recorded; they never block.
+classes:
+  critical_class: a check that cannot run blocks (its finding has severity error and class critical_class)
+  warn_class: a check that cannot run warns and is recorded
+statuses: [passed, warned, blocked, overridden, error]
+hook:
+  path: .githooks/pre-push
+  command: ruby tools/release_gate/gate.rb <remote name> <remote url>
+  stdin: the pre-push lines <local ref> <local sha> <remote ref> <remote sha>
+  exit: 0 lets the push go; 1 refuses it; nothing is printed for a push that carries no release
+  repositories:
+    reach:
+      remote: github\.com[:/]SteveBenner/rEach(?:\.git)?
+      releases: github
+      component: reach
+    teach:
+      remote: any origin; the repository is private and recognised by its teach.spec.yml at the root
+      releases: none
+      component: teach
+  environment:
+    TEACH_URL: the Teach the gate reads and records at; for reach it falls back to config.yml teach.url, for teach to the course server's own address on this computer, and refuses to run without one
+    RELEASE_GATE_TOKEN: the bearer token; else ~/.config/release-gate/<repo>/token (mode 0600); for reach also the older ~/.config/reach-security-audit/token and REACH_SECURITY_AUDIT_TOKEN
+    RELEASE_GATE_STATE: the state directory; default ~/.local/state/release-gate/<repo>
+    RELEASE_GATE_REMOTE: a regular expression naming an extra remote to treat as the project remote (scratch runs)
+    RELEASE_GATE_REPO: reach or teach, when the origin url names neither (scratch clones)
+    RELEASE_GATE_GH: the gh executable (default gh); RELEASE_GATE_RAW_BASE the base of raw files (default https://raw.githubusercontent.com/SteveBenner/rEach)
+    RELEASE_GATE_CLAUDE and REACH_SECURITY_AUDIT_CLAUDE: the claude executable for the model audit
+  no_bypass: >-
+    No environment variable skips the gate. REACH_SECURITY_AUDIT=0, which used to skip the security audit, is
+    ignored and says so. The instructor's override below is the one way through a block.
+commands:
+  - ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z] [--no-security]   dry run of every check against a commit; prints the findings and the verdict, records nothing
+  - ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks IDS]    the instructor's one-push override, at an interactive terminal only
+  - ruby tools/release_gate/gate.rb overrides                                             the active override records
+  - ruby tools/release_gate/gate.rb hold stable --reason TEXT [--hours N]                 a recorded reason for stable to stay behind Latest (an override whose checks are [VER-STABLE])
+  - tools/release_gate/install                                                            sets core.hooksPath to .githooks and prints the token steps
+override:
+  owner: the instructor, at an interactive terminal (stdin and stdout are terminals), typing the phrase "override <repo>" when asked
+  record:
+    id: ovr_ followed by 20 hexadecimal characters
+    repo: reach or teach
+    created_at: W-CONV-3 timestamp
+    expires_at: created_at plus hours (1 to 24, default 2)
+    reason: 10 to 500 characters
+    checks: '["*"] or a list of check ids the record covers'
+    by:
+      user: the OS user
+      host: the hostname
+      tty: the terminal device
+      parent: the parent process name
+    scope: one_push
+    consumed_at: null until a run uses the record
+    consumed_by: '{ release_version, commit, trigger, run_id } once used'
+  storage: ~/.local/state/release-gate/<repo>/overrides/<id>.json (mode 0600) and the course server's override record
+  consumption: >-
+    A run whose every blocking finding (by check id) is covered by one active record ends overridden with exit 0, the
+    record is marked consumed, and the run names the record. The next push is judged afresh. A record covers one push.
+  record_everywhere: the course server records the override and alarms release_gate_override:<repo> until it is consumed or expired
+facts:
+  endpoint: the course server's release-gate facts answer, read with the gate's service token
+  freshness: fetched on every run; never served from a cache, because a stale fact defeats a broken-state check
+  keys: [generated_at, teach, units, alarms, flapping, issues, backup_line, installs, overrides]
+  teach: '{ version_loaded, version_tree, started_at, wire_sha256, minimum_reach_version, main: { sha, version, wire_sha256, fetched_at } }'
+  installs: counts per reach_version over 30 days with the version's wire digest when known; never an identity
+runs:
+  endpoint: the course server's release-gate run record, idempotent per run and rate limited per token
+  body: '{ repo, release_version, commit, tree, trigger, status, findings: [{id, severity, class, title, detail}], override_id, duration_s, error }'
+  record_everywhere: the course server records every run and alarms release_gate:<repo> on blocked or error until a later passed, warned or overridden run
+version_homes:
+  reach: [VERSION, plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, reach.spec.yml, specs/app.yml]
+  teach: [VERSION, teach.spec.yml, specs/app.yml]
+pins:
+  owner: reach
+  teach:
+    - { path: specs/wire.yml, owner_path: specs/wire.yml }
+    - { path: specs/release_gate.yml, owner_path: specs/release_gate.yml }
+    - { path: tools/release_gate/gate.rb, owner_path: tools/release_gate/gate.rb }
+    - { path: tools/release_gate/repo.rb, owner_path: tools/release_gate/repo.rb }
+    - { path: tools/release_gate/checks.rb, owner_path: tools/release_gate/checks.rb }
+    - { path: tools/release_gate/override.rb, owner_path: tools/release_gate/override.rb }
+    - { path: tools/release_gate/install, owner_path: tools/release_gate/install }
+    - { path: tools/security_audit/gate.rb, owner_path: tools/security_audit/gate.rb }
+    - { path: tools/security_audit/scan.rb, owner_path: tools/security_audit/scan.rb }
+    - { path: tools/security_audit/prompt.md, owner_path: tools/security_audit/prompt.md }
+  reach:
+    - { path: agent-control/agent-control.yml, owner: teach, owner_path: agent_control/agent-control.yml, via: facts.teach.main.agent_control_sha256, severity: medium, note: "rEach loads the course copy from Teach at run time; the bundled copy is the fallback" }
+  manifest: the course server keeps a manifest of the owner commit and the sha256 of each pinned copy and checks the files against it
+checks:
+  - id: SEC-SCAN
+    part: A
+    repos: [reach, teach]
+    class: critical_class
+    reads: the lines added between the base (the newest v* tag before the commit, or the empty tree for scope whole_tree) and the pushed commit; Teach's salted roster digests
+    broken: a secret shape or a secret-bearing file name (critical); a roster match (critical); a student-style address or id, a high-entropy quoted string (high); an absolute home path (medium)
+    severity: as each finding states
+    clear: remove the value from the release
+  - id: SEC-AUDIT
+    part: A
+    repos: [reach, teach]
+    class: warn_class
+    reads: one headless read-only claude -p over the diff and the scan summary with tools/security_audit/prompt.md; for teach a paragraph naming the repository is prepended at run time
+    broken: a model finding at or above block_at; the scale decides, never the model alone
+    severity: as each finding states; an audit that fails follows security_audit.on_error (default block)
+    clear: resolve the finding
+  - id: CMP-WIRE-LIVE
+    part: B
+    repos: [reach]
+    class: critical_class
+    reads: the W-CONV-4 digest of specs/wire.yml at the pushed commit; facts.teach.wire_sha256
+    broken: the digests differ, so every install that updates would run a contract the live Teach does not match
+    severity: high
+    clear: deploy the Teach that carries this contract first, or override with the deploy order as the reason
+  - id: CMP-WIRE-MAIN
+    part: B
+    repos: [reach]
+    class: warn_class
+    reads: the release's wire digest; facts.teach.main.wire_sha256 and fetched_at
+    broken: the live Teach matches and Teach main does not, so Teach main carries an unshipped contract change
+    severity: medium
+    clear: ship Teach main or revert its change
+  - id: CMP-PIN
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: "teach: each pinned path at the pushed commit against the owner's main copy (raw, 10 s) and, when main differs, against every rEach branch head; reach: facts.teach.main.wire_sha256 against the release and rEach main wire digests, and the bundled agent-control.yml against facts.teach.main.agent_control_sha256"
+    broken: a pinned copy differs from its owner's main
+    severity: high; medium when the copy matches a published rEach branch other than main, or when only rEach's bundled agent-control.yml (the run-time fallback) differs
+    clear: re-pin from the owner, or land the owner's change on its main
+  - id: CMP-INSTALLS
+    part: B
+    repos: [teach]
+    class: critical_class
+    reads: facts.installs.by_version; facts.teach.minimum_reach_version; the release's wire digest; the accepts floor rEach 0.40.0
+    broken: an active install could not enroll or report after the release, because its version is below minimum_reach_version, or its wire digest differs from the release's and its rEach predates accepts
+    severity: high; medium when every differing install runs rEach 0.40.0 or newer
+    clear: installs update, or the minimum is lowered
+  - id: VER-COLLISION
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: VERSION at the pushed commit; VERSION at every other local branch head, remote-tracking head and worktree HEAD that is not an ancestor of the pushed commit; the remote tag v<VERSION>
+    broken: another unmerged line claims the same version; or the remote already holds tag v<VERSION> on another commit
+    severity: high; critical for the existing remote tag
+    clear: re-version one line, or merge it
+  - id: VER-HOMES
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: VERSION and every version home of the repository at the pushed commit; for a tag push, the tag name
+    broken: a home disagrees with VERSION, or the tag name is not v<VERSION>
+    severity: high
+    clear: make every home agree
+  - id: VER-TAG-RELEASE
+    part: B
+    repos: [reach]
+    class: warn_class
+    reads: git ls-remote --tags origin (v*); gh api repos/<slug>/releases (tag names)
+    broken: a remote tag other than the one being pushed has no GitHub release
+    severity: medium
+    clear: create the release or delete the tag
+  - id: VER-DEMOTE
+    part: B
+    repos: [reach]
+    class: critical_class
+    reads: the pushed tag's version; the Latest release tag
+    broken: the pushed tag is older than Latest, so a release made from it would demote Latest
+    severity: high
+    clear: do not release an older tag, or override with the reason
+  - id: VER-STABLE
+    part: B
+    repos: [reach]
+    class: warn_class
+    reads: origin refs/heads/stable; the Latest release tag's commit; active records whose checks name VER-STABLE
+    broken: stable is not at Latest and no hold names why
+    severity: medium
+    clear: move stable with tools/release_stable.rb, or record a hold
+  - id: KNOWN-ALARM
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: facts.alarms open with severity blocker, except release_gate:* and release_gate_override:*; the messages of the pushed commits since the base
+    broken: an open blocker alarm the release does not claim to clear (a message naming the check_name)
+    severity: high
+    clear: the alarm clears, or the release names it
+  - id: KNOWN-ISSUE
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: facts.issues (open, fixing or ready; severity blocker); the pushed commits' messages and the pushed branch name
+    broken: an open blocker issue the release does not claim (its id in a message or in the branch name)
+    severity: high for an issue of this repository; medium for the other repository
+    clear: ship or close the issue, or claim it
+  - id: KNOWN-DOCTOR
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: "facts.alarms open doctor (the course server's own health check, run freshly against the deployed tree); facts.units, whose health tick must have run within 3 hours"
+    broken: a failing doctor check
+    severity: high
+    clear: doctor passes
+  - id: KNOWN-BACKUP
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: facts.backup_line
+    broken: the line is not green
+    severity: high
+    clear: a fresh restore-tested backup is in every configured place
+  - id: INST-FLAP
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: "facts.flapping: alarm names with at least 3 alarm openings within the last 24 hours (the course server's flap threshold 3 and window 24 h), each with its newest severity"
+    broken: an alarm that opened and cleared repeatedly, meaning 3 or more openings within 24 hours
+    severity: high
+    clear: 24 hours pass without a new opening of that alarm
+  - id: INST-STALE
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: facts.units (version_loaded against version_tree per long-lived unit)
+    broken: a long-lived unit runs code older than the deployed tree
+    severity: high
+    clear: restart the unit
+  - id: GATE-FACTS
+    part: B
+    repos: [reach, teach]
+    class: critical_class
+    reads: the course server's release-gate facts answer
+    broken: no token, Teach unreachable, or a non-2xx answer, so the broken-state checks cannot run
+    severity: error
+    clear: Teach answers, or override with the reason Teach is deliberately down
+  - id: GATE-SPEC
+    part: A
+    repos: [reach, teach]
+    class: critical_class
+    reads: this file against the check table compiled into tools/release_gate/gate.rb
+    broken: the spec names a check the code lacks, or the code runs a check the spec does not name
+    severity: error
+    clear: re-pin, or fix the spec
+course_server: the course server's schedule, settings and alarm names for these checks are in the private contract (private_contract above)

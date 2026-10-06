@@ -618,6 +618,7 @@ routes:
       encryption_key: "{key_id, pem}"
       minimum_reach_version: string
       wire_contract_sha256: string
+      accepts: "since 2026-10-06d (W-COMPAT-ACCEPTS), optional: {hand_triggers, debug_kinds, harnesses}, the values this Teach accepts; absent from an older Teach"
       display_name: "shape v2 only: the roster display name of the student"
       enrollment_stamp: "shape v2 only: the signed W-ENR-5 enrollment stamp"
     errors:
@@ -681,6 +682,7 @@ routes:
       encryption_key: "{key_id, pem}"
       minimum_reach_version: string
       wire_contract_sha256: string
+      accepts: "since 2026-10-06d (W-COMPAT-ACCEPTS), optional: {hand_triggers, debug_kinds, harnesses}, the values this Teach accepts; absent from an older Teach"
       display_name: "the test student's display name: 'Test student <4 hex>' or 'Test copy of <the student's display name>'"
       enrollment_stamp: "a signed W-ENR-5 stamp for the test student, exactly as W-API-ENROLL issues it"
       persona: "{kind: dummy|copy, student_id, username, display_name, test_of: the copied student's id or null}"
@@ -722,6 +724,7 @@ routes:
       encryption_key: "{key_id, pem}"
       minimum_reach_version: string
       wire_contract_sha256: string
+      accepts: "since 2026-10-06d (W-COMPAT-ACCEPTS), optional: {hand_triggers, debug_kinds, harnesses}, the values this Teach accepts; absent from an older Teach"
       transcripts: >-
         Since protocol 1 revision 2026-09-29c. {kinds: [entry kinds W-API-TRANSCRIPT accepts], max_text_bytes: 131072}.
         Absent from an older Teach, which Reach reads as kinds [prompt]. From 2026-10-03b to 2026-10-03h the block only
@@ -1109,7 +1112,7 @@ routes:
       identity: {type: object, note: "since 2026-10-04a (W-TRN-6): the sealed identity index {schema, key_id, wrapped_key, nonce, ciphertext, tag}; required"}
       restore: {note: "since 2026-10-04b, on every entry of every kind: string or null, the sealed exact-restore record of W-TRN-6, at most 400000 bytes"}
       session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
-      harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes only to a Teach whose advertised wire_contract_sha256 equals its own, and unknown otherwise"}
+      harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes when W-COMPAT-ACCEPTS allows it (since 2026-10-06d: accepts.harnesses names it, or there is no list and the advertised wire_contract_sha256 equals its own), and unknown otherwise"}
       cutout_id: {type: [string, "null"], maxBytes: 128}
       slice: {type: [string, "null"], enum: [backend, panel, verification, null]}
       entries:
@@ -1650,10 +1653,11 @@ debug:
     - provenance (since 2026-10-06b, W-DBG-KINDS-2: route, outcome verified|missing|invalid|expired, class, tier, effective_tier, policy_version, key_id, lowered true when the item was rendered below its record's tier)
   W-DBG-KINDS-2:
     rule: >-
-      Since revision 2026-10-02d, and for control since 2026-10-06a and provenance since 2026-10-06b. Reach records storage, import, control and provenance events under those kinds only when the
-      wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml; otherwise it records them
-      under kind brain with fields.event set to storage.<outcome> or import.<outcome>, so a Teach older than this
-      revision, which answers 400 to an unknown kind, never sees one. None of these kinds carries a path, a file or
+      Since revision 2026-10-02d, and for control since 2026-10-06a and provenance since 2026-10-06b. Reach records storage, import, control and provenance events under those kinds when W-COMPAT-ACCEPTS allows
+      the kind (since revision 2026-10-06d: the accepts.debug_kinds list Teach advertised names it, or there is no list
+      and the wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml); otherwise it
+      records them under kind brain with fields.event set to <kind>.<outcome>, so a Teach that would answer 400 to an
+      unknown kind never sees one. None of these kinds carries a path, a file or
       conversation name, a title or any text.
   W-DBG-SCRUB:
     rule: >-
@@ -1690,10 +1694,11 @@ issues:
       raised by Reach itself, with no agent and no student involved, when a fault on this install meets W-ISSUE-3. It
       travels on W-API-HAND like every hand, with an Idempotency-Key, and waits in the outbox when Teach cannot be
       reached (W-ISSUE-8). Its summary is the fixed text of message M-ISSUE-SUMMARY and never anything a person typed.
-      Like a wellbeing hand it carries null for cutout_id and slice. Reach sends trigger issue only when the
-      wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml; otherwise it raises
-      nothing and its fault events keep flowing (W-DBG-FAULT), so an older Teach, which answers 400 to an unknown
-      trigger, never sees one. REACH_ISSUES_DISABLE=1 or config.yml issues.enabled false turns issue hands off on an
+      Like a wellbeing hand it carries null for cutout_id and slice. Since revision 2026-10-06d Reach sends trigger issue when
+      W-COMPAT-ACCEPTS allows it, and when there is no accepts list and the digests differ it still sends it,
+      degraded: the bundle's capsule is null (W-ISSUE-4), its fault events keep flowing (W-DBG-FAULT), and a Teach
+      that answers 400 to the trigger drops the entry (W-ISSUE-8). Before that revision Reach raised nothing while the
+      digests differed, which silenced fault reporting on every install that updated ahead of Teach. REACH_ISSUES_DISABLE=1 or config.yml issues.enabled false turns issue hands off on an
       install; fault events are not affected.
   W-ISSUE-2:
     name: issue signature
@@ -1949,6 +1954,15 @@ compatibility:
     rule: >-
       Teach reports wire_contract_sha256, the W-CONV-4 digest of the bytes of its specs/wire.yml. Reach computes the same
       digest of its own specs/wire.yml; reach doctor reports R-DOC-WIRE when they differ.
+  W-COMPAT-ACCEPTS:
+    rule: >-
+      Since revision 2026-10-06d Teach may answer accepts in W-API-STATUS, W-API-ENROLL and W-API-ENROLL-INSTRUCTOR:
+      {hand_triggers: [the trigger values W-API-HAND accepts], debug_kinds: [the kinds W-API-DEBUG-EVENTS accepts],
+      harnesses: [the harness names it stores]}. When the answer carries a list, Reach sends a hand trigger, a debug
+      kind or a harness name only if that list names it and degrades otherwise as W-HAND-TYPES, W-DBG-KINDS-2 and
+      the harness note state; the whole-contract digest plays no part. When the answer carries no accepts, the digest
+      rule of each section applies as before. An unrelated change to this contract therefore no longer switches typed
+      reporting off, and W-ISSUE-1 never goes silent.
   W-COMPAT-3:
     rule: Protocol 1 does not interoperate with Reach 0.1.0 or Teach 0.1.0.
   W-COMPAT-4:
@@ -2470,9 +2484,10 @@ alignment:
       concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue,
       setup_issue, access_issue (accounts, Blackboard and other course systems), extension_request, feedback,
       integrity_question and other are chosen by the agent for a hand the student asks for, student_request when none
-      fits better. Reach sends the newer types only when the wire_contract_sha256 Teach last advertised equals the
-      digest of its own specs/wire.yml; otherwise it sends student_request and prefixes the summary with
-      [<type>], so an older Teach, which answers 400 to an unknown trigger, never sees one.
+      fits better. Reach sends a newer type when W-COMPAT-ACCEPTS allows it (since revision 2026-10-06d: the accepts.hand_triggers
+      list Teach advertised names it, or there is no list and the wire_contract_sha256 Teach last advertised equals
+      the digest of its own specs/wire.yml); otherwise it sends student_request and prefixes the summary with
+      [<type>], so a Teach that would answer 400 to an unknown trigger never sees one.
   W-SUP-1:
     name: support message
     rule: >-

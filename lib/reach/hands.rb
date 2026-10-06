@@ -68,7 +68,7 @@ module Reach
       def wire_type(type, summary)
         type = validate_type!(type)
         return [type, summary.to_s] unless NEWER_TYPES.include?(type)
-        return [type, summary.to_s] if Reach::Debug.teach_kinds?
+        return [type, summary.to_s] if Reach::Compat.accepts_trigger?(type)
 
         [STUDENT_REQUEST, "[#{type}] #{summary}"]
       end

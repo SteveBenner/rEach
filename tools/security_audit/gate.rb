@@ -22,7 +22,7 @@ module SecurityAuditGate
   ZERO = "0" * 40
   REMOTE = %r{github\.com[:/]SteveBenner/rEach(?:\.git)?}
   DEFAULTS = {
-    "enabled" => true, "mode" => "gate", "block_at" => "critical", "model" => "fable", "effort" => "default",
+    "enabled" => true, "mode" => "gate", "block_at" => "high", "model" => "fable", "effort" => "default",
     "token_open" => false, "budget_usd" => 10, "timeout_min" => 15, "scope" => "since_release",
     "roster_check" => true, "on_error" => "block"
   }.freeze
@@ -35,14 +35,25 @@ module SecurityAuditGate
   BLOCKING = { "critical" => %w[critical], "high" => %w[critical high], "any" => %w[critical high medium] }.freeze
   HTTP_TIMEOUT = 5
   ATTEMPTS = 3
+  RUNS_ROUTE = "/api/v1/ops/security-audit/runs".freeze
+
+  class << self
+    attr_accessor :repo, :last_http_error
+  end
 
   module_function
 
+  def root
+    repo ? repo.root : ROOT
+  end
+
   def say(text)
-    $stderr.puts("reach security audit: #{text}")
+    $stderr.puts("#{repo ? repo.name : 'reach'} security audit: #{text}")
   end
 
   def state_dir
+    return repo.state_dir if repo
+
     File.expand_path(ENV["REACH_SECURITY_AUDIT_STATE"].to_s.empty? ? "~/.local/state/reach-security-audit" : ENV["REACH_SECURITY_AUDIT_STATE"])
   end
 
@@ -60,11 +71,12 @@ module SecurityAuditGate
   end
 
   def git(*args)
-    out, status = Open3.capture2("git", "-C", ROOT, *args, err: File::NULL)
+    out, status = Open3.capture2("git", "-C", root, *args, err: File::NULL)
     status.success? ? out.strip : nil
   end
 
   def remote_matches?(url)
+    return repo.remote_matches?(url) if repo
     return true if url.to_s =~ REMOTE
 
     pattern = ENV["REACH_SECURITY_AUDIT_REMOTE"].to_s
@@ -139,17 +151,20 @@ module SecurityAuditGate
   end
 
   def teach_url
+    return repo.teach_url if repo
+
     (ENV["TEACH_URL"].to_s.empty? ? configured_teach_url : ENV["TEACH_URL"]).sub(%r{/+\z}, "")
   end
 
   def configured_teach_url
-    text = File.read(File.join(ROOT, "config.yml"))
+    text = File.read(File.join(root, "config.yml"))
     text[/^teach:\s*\n\s+url:\s*(\S+)/, 1].to_s
   rescue StandardError
     ""
   end
 
   def token
+    return repo.token if repo
     return ENV["REACH_SECURITY_AUDIT_TOKEN"].strip unless ENV["REACH_SECURITY_AUDIT_TOKEN"].to_s.strip.empty?
 
     path = File.expand_path("~/.config/reach-security-audit/token")
@@ -164,9 +179,16 @@ module SecurityAuditGate
   end
 
   def http(method, path, body = nil, key = nil)
+    self.last_http_error = nil
     bearer = token
-    return nil unless bearer
-    return nil unless teach_url.start_with?("https://", "http://")
+    if bearer.nil?
+      self.last_http_error = "no token"
+      return nil
+    end
+    unless teach_url.start_with?("https://", "http://")
+      self.last_http_error = "no Teach URL"
+      return nil
+    end
 
     uri = URI.parse("#{teach_url}#{path}")
     last = nil
@@ -189,13 +211,17 @@ module SecurityAuditGate
         response = net.request(request)
         code = response.code.to_i
         return JSON.parse(response.body.to_s) if code >= 200 && code < 300
-        return nil if code >= 400 && code < 500 && code != 429
+        if code >= 400 && code < 500 && code != 429
+          self.last_http_error = "HTTP #{code}"
+          return nil
+        end
 
         last = "HTTP #{code}"
       rescue StandardError, Timeout::Error => e
         last = e.class.to_s
       end
     end
+    self.last_http_error = last if last
     say("Teach unreachable (#{last})") if last
     nil
   end
@@ -242,14 +268,14 @@ module SecurityAuditGate
   end
 
   def audit(settings, base, sha, scan_findings, diff_raw)
-    binary = ENV["REACH_SECURITY_AUDIT_CLAUDE"].to_s.empty? ? "claude" : ENV["REACH_SECURITY_AUDIT_CLAUDE"]
+    binary = [ENV["RELEASE_GATE_CLAUDE"], ENV["REACH_SECURITY_AUDIT_CLAUDE"]].find { |value| !value.to_s.empty? } || "claude"
     model = MODEL_IDS[settings["model"]] || settings["model"]
     workdir = Dir.mktmpdir("reach-security-audit-")
     File.chmod(0o700, workdir)
     begin
       File.write(File.join(workdir, "diff.patch"), diff_raw)
       File.write(File.join(workdir, "scan.json"), JSON.pretty_generate("base" => base, "commit" => sha, "findings" => scan_findings))
-      prompt = File.read(File.join(__dir__, "prompt.md")).gsub("{{WORKDIR}}", workdir)
+      prompt = "#{repo && repo.prompt_paragraph}#{File.read(File.join(__dir__, "prompt.md")).gsub("{{WORKDIR}}", workdir)}"
       args = [binary, "-p", "--model", model]
       args += ["--effort", settings["effort"]] unless settings["effort"] == "default"
       args += ["--max-budget-usd", settings["budget_usd"].to_s] unless settings["token_open"]
@@ -263,7 +289,7 @@ module SecurityAuditGate
   end
 
   def run_claude(args, prompt, seconds)
-    stdin, stdout, stderr, thread = Open3.popen3(*args, chdir: ROOT)
+    stdin, stdout, stderr, thread = Open3.popen3(*args, chdir: root)
     reader = Thread.new { stdout.read }
     errors = Thread.new { stderr.read }
     begin
@@ -334,7 +360,7 @@ module SecurityAuditGate
 
   def report(release, run, settings, findings, audit_result, errors)
     lines = []
-    lines << "# Security audit: rEach #{release[:version]}"
+    lines << "# Security audit: #{repo ? repo.name : 'rEach'} #{release[:version]}"
     lines << ""
     lines << "- Status: #{run["status"]}"
     lines << "- Commit: #{run["commit"]}"
@@ -364,7 +390,7 @@ module SecurityAuditGate
     lines.join("\n") + "\n"
   end
 
-  def emit(kind, summary, payload)
+  def emit(kind, summary, payload, prefix: "security_audit.")
     return false if ENV["RLOGS_DISABLE"] == "1"
 
     lib = File.expand_path(ENV["RLOGS_LIB"] || "~/rstack/rlogs/lib")
@@ -373,13 +399,13 @@ module SecurityAuditGate
     Timeout.timeout(4) do
       $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
       require "rlogs/client"
-      version = File.read(File.join(ROOT, "VERSION")).strip
+      version = File.read(File.join(root, "VERSION")).strip
       client = Rlogs::Client.new(
         base_url: rlogs_url,
         token: ENV["RLOGS_AUTH_TOKEN"],
-        source: { component: "reach", component_version: version, process_role: "security_audit", workspace: ROOT }
+        source: { component: repo ? repo.component : "reach", component_version: version, process_role: "release_gate", workspace: root }
       )
-      client.send(client.event(category: "audit", kind: "security_audit.#{kind}", level: kind == "run" ? "info" : "warn", summary: summary, payload: payload))
+      client.send(client.event(category: "audit", kind: "#{prefix}#{kind}", level: kind == "run" ? "info" : "warn", summary: summary, payload: payload))
     end
     true
   rescue StandardError, LoadError, Timeout::Error
@@ -397,7 +423,7 @@ module SecurityAuditGate
   def notify(title, body)
     return unless ENV["PATH"].to_s.split(":").any? { |dir| File.executable?(File.join(dir, "notify-send")) }
 
-    pid = Process.spawn("notify-send", "-a", "reach", title, body, out: File::NULL, err: File::NULL)
+    pid = Process.spawn("notify-send", "-a", repo ? repo.name : "reach", title, body, out: File::NULL, err: File::NULL)
     Process.detach(pid)
   rescue StandardError
     nil
@@ -410,21 +436,21 @@ module SecurityAuditGate
   def flush_outbox
     Dir.glob(File.join(outbox_dir, "*.json")).sort.each do |path|
       entry = JSON.parse(File.read(path))
-      sent = http(:post, "/api/v1/ops/security-audit/runs", entry["body"], entry["key"])
+      sent = http(:post, entry["route"] || RUNS_ROUTE, entry["body"], entry["key"])
       File.delete(path) if sent
     rescue StandardError
       next
     end
   end
 
-  def post_run(run)
+  def post_run(run, route = RUNS_ROUTE)
     flush_outbox
     body = JSON.generate(run)
     key = SecureRandom.uuid
-    response = http(:post, "/api/v1/ops/security-audit/runs", body, key)
+    response = http(:post, route, body, key)
     return response["id"] if response.is_a?(Hash) && response["id"]
 
-    write_private(File.join(outbox_dir, "#{Time.now.to_i}-#{key}.json"), JSON.generate("key" => key, "body" => body))
+    write_private(File.join(outbox_dir, "#{Time.now.to_i}-#{key}.json"), JSON.generate("key" => key, "route" => route, "body" => body))
     entries = Dir.glob(File.join(outbox_dir, "*.json")).sort
     entries.first(entries.length - 50).each { |old| File.delete(old) } if entries.length > 50
     nil
@@ -455,7 +481,7 @@ module SecurityAuditGate
     Digest::SHA256.hexdigest("#{tree}\n#{base}\n#{digest}")
   end
 
-  def process(release, config)
+  def process(release, config, record: true)
     settings = config["settings"]
     sha = release[:sha]
     commit = git("rev-parse", "#{sha}^{commit}") || sha
@@ -468,7 +494,7 @@ module SecurityAuditGate
       begin
         cached = JSON.parse(File.read(cache_path))
         summarize(cached["status"], cached["findings"], cached["report_path"], cached["run_id"], true)
-        return cached["status"] == "blocked" ? 1 : 0
+        return { code: cached["status"] == "blocked" ? 1 : 0, status: cached["status"], findings: cached["findings"], reused: true, error: nil }
       rescue StandardError
         nil
       end
@@ -476,11 +502,11 @@ module SecurityAuditGate
 
     started = Time.now
     errors = []
-    diff = SecurityAuditScan.diff(ROOT, base, commit)
+    diff = SecurityAuditScan.diff(root, base, commit)
     roster = config["roster"]
     roster_on = settings["roster_check"]
     errors << "roster unavailable" if roster_on && SecurityAuditScan.roster_index(roster).nil?
-    scan_findings = SecurityAuditScan.run(ROOT, base, diff, roster, roster_on)
+    scan_findings = SecurityAuditScan.run(root, base, diff, roster, roster_on)
 
     scan_blocks = settings["mode"] == "gate" && scan_findings.any? { |f| BLOCKING[settings["block_at"]].include?(f["severity"]) }
     audit_result = scan_blocks ? { summary: "Audit not run: the deterministic scan already blocks this release." } : audit(settings, base, commit, scan_findings, diff[:raw])
@@ -497,19 +523,21 @@ module SecurityAuditGate
     report_path = File.join(state_dir, "reports", "#{release[:version]}-#{tree[0, 12]}.md")
     write_private(report_path, report_md)
 
-    run_id = post_run(run)
+    run_id = record ? post_run(run) : nil
     summarize(status, findings, report_path, run_id, false)
+    return { code: code, status: status, findings: findings, reused: false, error: run["error"] } unless record
+
     errors.each { |e| say("audit problem: #{e}") }
     say("ALLOWING THE PUSH although the audit failed (on_error=allow)") if status == "error" && code.zero?
     kind = status == "blocked" ? "blocked" : (status == "error" ? "error" : "run")
-    emit(kind, "Security audit #{release[:version]} #{status}", "status" => status, "version" => release[:version], "commit" => commit,
-         "model" => settings["model"], "mode" => settings["mode"], "findings" => findings.length, "scan_findings" => scan_findings.length,
-         "cost_usd" => cost, "duration_s" => duration.round, "error" => run["error"])
-    notify("rEach security audit #{status}", "#{release[:version]}: #{findings.length} findings") if %w[blocked error].include?(status)
+    emit(kind, "Security audit #{release[:version]} #{status}", { "status" => status, "version" => release[:version], "commit" => commit,
+                                                                   "model" => settings["model"], "mode" => settings["mode"], "findings" => findings.length, "scan_findings" => scan_findings.length,
+                                                                   "cost_usd" => cost, "duration_s" => duration.round, "error" => run["error"] })
+    notify("#{repo ? repo.name : 'rEach'} security audit #{status}", "#{release[:version]}: #{findings.length} findings") if %w[blocked error].include?(status)
     if status != "error"
       write_private(cache_path, JSON.generate("status" => status, "findings" => findings, "report_path" => report_path, "run_id" => run_id))
     end
-    code
+    { code: code, status: status, findings: findings, reused: false, error: run["error"] }
   end
 
   def main(argv)
@@ -523,23 +551,15 @@ module SecurityAuditGate
 
     config = load_config
     settings = config["settings"]
-    if ENV["REACH_SECURITY_AUDIT"] == "0"
-      say("skipped (REACH_SECURITY_AUDIT=0)")
-      list.each do |release|
-        commit = git("rev-parse", "#{release[:sha]}^{commit}") || release[:sha]
-        tree = git("rev-parse", "#{commit}^{tree}") || commit
-        post_run(run_record(release.merge(sha: commit), settings, "", tree, "skipped", [], 0, 0.0, 0, "Audit skipped by REACH_SECURITY_AUDIT=0\n", nil))
-      end
-      return 0
-    end
+    say("REACH_SECURITY_AUDIT=0 is ignored since 0.39.0; the instructor's override is ruby tools/release_gate/gate.rb override") if ENV["REACH_SECURITY_AUDIT"] == "0"
     unless settings["enabled"]
       say("disabled in Teach settings, skipping")
       return 0
     end
 
-    codes = list.uniq { |r| r[:sha] }.map { |release| process(release, config) }
+    codes = list.uniq { |r| r[:sha] }.map { |release| process(release, config)[:code] }
     codes.max
   end
 end
 
-exit(SecurityAuditGate.main(ARGV))
+exit(SecurityAuditGate.main(ARGV)) if $PROGRAM_NAME == __FILE__

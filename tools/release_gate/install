@@ -1,0 +1,18 @@
+#!/bin/sh
+root=$(cd "$(dirname "$0")/../.." && pwd)
+git -C "$root" config core.hooksPath .githooks
+chmod +x "$root/.githooks/pre-push"
+name=$(cd "$root" && ruby -e 'require "./tools/release_gate/repo"; r = ReleaseGate::Repo.detect(root: Dir.pwd); print(r ? r.name : "unknown")' 2>/dev/null)
+echo "Release gate enabled for $root ($name): .githooks/pre-push runs tools/release_gate/gate.rb on every release push."
+echo
+echo "Token setup:"
+echo "  1. On the course server, issue a service token named release-gate-$name with the scopes ops:release-gate,ops:security-audit (its CLI documents the verb)."
+echo "  2. Save it where the gate reads it:"
+echo "       mkdir -p ~/.config/release-gate/$name"
+echo "       umask 077; printf '%s' '<token>' > ~/.config/release-gate/$name/token"
+echo "       chmod 600 ~/.config/release-gate/$name/token"
+echo "     or export RELEASE_GATE_TOKEN. The file must be mode 0600 or it is refused."
+echo "  3. The gate reaches the course server at TEACH_URL (rEach: config.yml teach.url; the server itself: the address it serves on)."
+echo
+echo "There is no skip switch. The instructor's one-push override is: ruby tools/release_gate/gate.rb override --reason '...'"
+echo "Dry run: ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z]"

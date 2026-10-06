@@ -693,7 +693,7 @@ module Reach
     def typed(kind, outcome, fields)
       return nil unless on?
 
-      if teach_kinds?
+      if Reach::Compat.accepts_debug_kind?(kind)
         emit(kind, fields.merge("outcome" => outcome.to_s))
       else
         emit("brain", fields.merge("event" => "#{kind}.#{outcome}"))

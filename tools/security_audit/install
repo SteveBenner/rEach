@@ -1,16 +1,4 @@
 #!/bin/sh
 root=$(cd "$(dirname "$0")/../.." && pwd)
-git -C "$root" config core.hooksPath .githooks
-chmod +x "$root/.githooks/pre-push"
-echo "Pre-push security audit enabled for $root"
-echo
-echo "Token setup:"
-echo "  1. On the Teach computer, issue a service token with the ops:security-audit scope (Teach's runbook)."
-echo "  2. Save the token where the gate reads it:"
-echo "       mkdir -p ~/.config/reach-security-audit"
-echo "       umask 077; printf '%s' '<token>' > ~/.config/reach-security-audit/token"
-echo "       chmod 600 ~/.config/reach-security-audit/token"
-echo "     or export REACH_SECURITY_AUDIT_TOKEN. The file must be mode 0600 or it is refused."
-echo "  3. The gate reaches Teach at config.yml teach.url; export TEACH_URL to use another address."
-echo
-echo "Skip once with REACH_SECURITY_AUDIT=0 git push. Settings are managed in the Teach console under Ops."
+echo "tools/security_audit/install is part of tools/release_gate/install since 0.39.0; running it."
+exec "$root/tools/release_gate/install"

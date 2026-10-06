@@ -235,7 +235,7 @@ module Reach
       return false unless enabled? && File.file?(state_file)
       return true if queued_entries.any? { |_path, entry| due?(entry) }
 
-      Reach::Debug.teach_kinds? && read_state["issues"].any? { |_key, entry| entry["pending"].is_a?(Hash) }
+      read_state["issues"].any? { |_key, entry| entry["pending"].is_a?(Hash) }
     rescue StandardError
       false
     end
@@ -247,7 +247,7 @@ module Reach
       return { "built" => 0, "sent" => 0, "queued" => queued_entries.size } unless install
 
       result = serialized do
-        built = Reach::Debug.teach_kinds? ? build_pending(install) : 0
+        built = build_pending(install)
         sent = send_queued(install, quick: quick, force: force)
         { "built" => built, "sent" => sent, "queued" => queued_entries.size }
       end
@@ -316,7 +316,7 @@ module Reach
           "reach_version" => raised_version(pending), "ruby_version" => RUBY_VERSION, "platform" => RUBY_PLATFORM,
           "os" => os_name, "harness" => pending["harness"], "surface" => pending["surface"]
         },
-        "capsule" => Reach::Capsule.build
+        "capsule" => Reach::Compat.degraded? ? nil : Reach::Capsule.build
       }
     end
 
