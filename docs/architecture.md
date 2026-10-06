@@ -1,6 +1,6 @@
 # rEach and Teach: the system in figures
 
-rEach is half of a system. It runs on the student's computer, inside their own AI agent; [Teach](https://bitbucket.org/paterasai/teach) is the course server the instructors run. These ten figures show the two together: who is involved, what crosses between them, what guards the agent, who may do what, and what never leaves the student's computer.
+rEach is half of a system. It runs on the student's computer, inside their own AI agent; Teach is the course server the instructors run. These ten figures show the two together: who is involved, what crosses between them, what guards the agent, who may do what, and what never leaves the student's computer.
 
 Teach is private. Every figure draws it as a frosted block and names only what it guarantees, never how it does it. Everything the figures say about Teach is already published in this repository, in [`README.md`](../README.md), [`PRIVACY.md`](../PRIVACY.md) and [`specs/wire.yml`](../specs/wire.yml).
 
