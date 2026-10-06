@@ -1,6 +1,6 @@
-# NOTICE: design decisions of the alignment rewrite
+# Alignment design decisions
 
-This file records the design decisions behind rEach's alignment rewrite, each with the alternatives that were on the table, what a student or instructor feels as a result, which standing priority decided it, what is given up, and the toggle that carries it. It is written as the decisions are taken, 2026-10-06 onward, and only the latest form of each decision is kept. Earlier standing decisions live in `docs/DESIGN-DECISIONS.md`; the system as built is drawn in `docs/architecture.md`. The course server is described here by what it does, never by how it is built.
+This file records the design decisions behind rEach's alignment work, each with the alternatives that were on the table, what a student or instructor feels as a result, which standing priority decided it, what is given up, and the toggle that carries it. It is written as the decisions are taken, 2026-10-06 onward, and only the latest form of each decision is kept. The standing product decisions live in `docs/DESIGN-DECISIONS.md`; the system as built is drawn in `docs/architecture.md`. The course server is described here by what it does, never by how it is built.
 
 ## How decisions are made
 
@@ -8,9 +8,9 @@ Priorities, in order: **security, then consistency and resilience, then performa
 
 Toggles: every behavior has one of three homes. **Build** means fixed in the released code. **Config** means a value the course server sets and signs, delivered with the course policy. **Runtime** means an instructor action during the course (a control, a kill switch). A hybrid of these is the default answer; a pure choice is an exception and is marked as one. Nothing a student can edit may lift a rule (D13 below settles what the student may configure).
 
-Research: the 58 papers behind these decisions are summarized in the superproject's `research/research-agentic-alignment/DISTILLATION.md`; paper ids below refer to that index.
+Research: 58 papers inform these decisions; the paper ids below are arXiv identifiers.
 
-## D1. The rewrite lands in place, behind toggles
+## D1. The work lands in place, behind toggles
 
 **Decision.** New core modules (policy engine, provenance envelope, gate, decision log) are added to rEach and the course server under build and config toggles. The existing paths stay until the new ones reach parity, then are removed. The wire protocol is extended, never broken, and students keep updating through the `stable` branch.
 
@@ -20,7 +20,7 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 **Priority.** Consistency and resilience: one live class, one protocol, no migration day.
 
-**Given up.** The code carries the old paths for a while.
+**Given up.** Two paths coexist until the new one reaches parity.
 
 **Toggle.** Build (per module), then config to activate.
 
@@ -28,7 +28,7 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 **Decision.** Only typed items change what the gate allows: controls (pause, hold, test), policy flags, and instructor rules that carry a kind from a small vocabulary (permit, obligation, prohibition) with a check the code can run. Prose rules keep the rule frame and their place in the order of authority, but no sentence can grant or remove a capability.
 
-**Alternatives.** Prose rules keep binding by model obedience (today); typed items only with no prose tier at all.
+**Alternatives.** Prose rules that bind by model obedience; typed items only with no prose tier at all.
 
 **What people feel.** An instructor who needs something enforced picks a kind; an instructor who wants tone or coaching writes prose as before. A student is never blocked by a sentence, only by a typed rule they can be shown.
 
@@ -42,7 +42,7 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 **Decision.** Every item the course server sends carries a signed envelope: class, tier, issuer, issued time, expiry, policy version. rEach frames by the envelope. Items with no envelope (local memory, imports, known issues, due changes computed locally) use the tier fixed per channel in code. When an envelope claims a tier above the channel's ceiling, the lower wins: authority only narrows.
 
-**Alternatives.** Channel map only (today); the envelope as the only authority with no ceiling.
+**Alternatives.** Channel map only; the envelope as the only authority with no ceiling.
 
 **What people feel.** Nothing visible; the frames are the same text. An instructor can lower one item (an announcement sent as a plain notice) but can never raise one above what the channel allows.
 
@@ -50,7 +50,7 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 **Given up.** An envelope on every route the course server serves.
 
-**Scope of the first pass (2026-10-06).** In the code and on the wire the envelope is called a provenance record, because envelope already names the sealed package format in both programs. The first pass signs the items rEach frames: each control, the current test, each announcement and each private directive body. The status body, the known-issues list and the instructor keyring stay unsigned until the release manifest (Phase 4), because status carries the signing keys themselves and signing it needs the key-rotation chain designed first; until then those three are trusted as they are today, over TLS. Controls and tests require a verified record from the first release; information does not, so a server that sends no records still delivers announcements.
+**Scope of the first pass (2026-10-06).** In the code and on the wire the envelope is called a provenance record, because envelope already names the sealed package format in both programs. The first pass signs the items rEach frames: each control, the current test, each announcement and each private directive body. The status body, the known-issues list and the instructor keyring stay unsigned until the release manifest (Phase 4), because status carries the signing keys themselves and signing it needs the key-rotation chain designed first; until then those three travel over TLS. Controls and tests require a verified record from the first release; information does not, so a server that sends no records still delivers announcements.
 
 **Toggle.** Build for the envelope shape; config for the ceilings and for which classes require a record (control and test by default).
 
@@ -58,7 +58,7 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 **Decision.** One tiny hook entry point stays compatible with Ruby 2.6.10 (the macOS system Ruby) and does one thing: block course work until the portable Ruby 4 kit is present, then delegate to it. The policy engine, gate and bridge are written for Ruby 4 only.
 
-**Alternatives.** Everything stays 2.6-compatible (today); the kit required everywhere with no shim.
+**Alternatives.** Everything stays 2.6-compatible; the kit required everywhere with no shim.
 
 **What people feel.** Nothing new; the first-run path is unchanged.
 
@@ -72,13 +72,13 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 This decision and D6 were asked for in depth.
 
-**The problem.** The gates match fixed tool names: writes, shell, reads and web tools. Anything outside those lists runs ungated in a course space: the host's subagent tool, tools from other MCP servers the student has installed, any tool a host adds in a future release. During a test lockdown those paths stay open, so the lockdown is only as complete as the matcher list is current. The research is unambiguous on the direction: a gate that allows on no match leaves every unlabeled path open (2601.11893 reaches 0% attack success only "with proper labels" and itself defaults to allow); read-only tools can be exposed freely while state-changing tools need an explicit grant (2601.12449 cut attack success from 24.3% to 2.3% this way); the coding-assistant SoK (2601.17548) proposes silent for read-only in scope, logged for project writes, and constrained shell, network and credentials.
+**Why.** A gate that matches tool names covers the tools it lists. A host's subagent tool, tools from other MCP servers the student has installed and tools a host adds in a future release need coverage that does not depend on a list being current, above all during a test. The research is unambiguous on the direction: a gate that allows on no match leaves every unlabeled path open (2601.11893 reaches 0% attack success only "with proper labels" and itself defaults to allow); read-only tools can be exposed freely while state-changing tools need an explicit grant (2601.12449 cut attack success from 24.3% to 2.3% this way); the coding-assistant SoK (2601.17548) proposes silent for read-only in scope, logged for project writes, and constrained shell, network and credentials.
 
-**Decision.** In a course space (a slice or the workspace root) the policy lists tools by class. Read-only tools pass silently. State-changing tools (file writes, shell, network, spawning a subagent, every tool of another MCP server) need an allow entry in the policy or are refused with a reason that names the rule and says what the student can do instead. The extracurricular folder keeps default-allow with today's path rules. A new host tool needs one policy line from the course server, delivered as config, not a release.
+**Decision.** In a course space (a slice or the workspace root) the policy lists tools by class. Read-only tools pass silently. State-changing tools (file writes, shell, network, spawning a subagent, every tool of another MCP server) need an allow entry in the policy or are refused with a reason that names the rule and says what the student can do instead. The extracurricular folder keeps default-allow with the existing path rules. A new host tool needs one policy line from the course server, delivered as config, not a release.
 
-**Alternatives considered.** Default-allow with deny rules, which is today: no new friction and no coverage of anything unlisted. Default-deny everywhere including extracurricular: one rule set, but it breaks the standing promise that the student's own practice folder is theirs to use freely (`docs/DESIGN-DECISIONS.md`, D1 of the 0.12.0 design record).
+**Alternatives considered.** Default-allow with deny rules: no new friction, and nothing unlisted is covered. Default-deny everywhere including extracurricular: one rule set, but it breaks the standing promise that the student's own practice folder is theirs to use freely (`docs/DESIGN-DECISIONS.md`).
 
-**What the student feels.** In a slice, the first time an unlisted tool is used, a refusal that reads like every other rEach refusal: what was refused, which rule, and that the instructor can allow it. Reads, searches and the ordinary edit and run tools are unaffected because they are listed. In extracurricular nothing changes. During a test the lockdown is now complete rather than list-complete.
+**What the student feels.** In a slice, the first time an unlisted tool is used, a refusal that reads like every other rEach refusal: what was refused, which rule, and that the instructor can allow it. Reads, searches and the ordinary edit and run tools are unaffected because they are listed. In extracurricular nothing changes. During a test the lockdown covers every tool, listed or not.
 
 **What the instructor feels.** A short allow list to keep, shown on the course server with the tools students have actually tried (the logged tier of D7 supplies the names). Allowing a tool is a config change that reaches students at the next sync.
 
@@ -98,11 +98,11 @@ This decision and D6 were asked for in depth.
 
 This decision was asked for in depth.
 
-**The problem.** Today the hooks on Claude Code and Codex answer "allow" when something inside them fails, Hermes refuses, and a 503 from the course server's controls route clears the cached controls, so a pause or a test lockdown ends silently when the server restarts or a kill switch is flipped. The research favors failing closed: a deterministic authorization boundary that treats any timeout or error as deny (2601.17744, 200 of 200 fail-closed in its harness) and delegation grants that fail on anything stale or unresolvable (2601.14982). The cost it names is liveness: an offline student stops working.
+**Why.** A control has to hold through failure: a hook error, a server restart or a kill switch must not end a pause or a test early. The research favors failing closed: a deterministic authorization boundary that treats any timeout or error as deny (2601.17744, 200 of 200 fail-closed in its harness) and delegation grants that fail on anything stale or unresolvable (2601.14982). The cost it names is liveness: an offline student stops working.
 
 **Decision.** Controls are signed by the course server with a window (start, end) and a policy version, and rEach caches them. While a cached control's window is active, any failure (server unreachable, hook crash, state file unreadable, a 503) refuses state-changing actions with a reason that says a control is in force and until when; a 503 or a network error never clears a control before its expiry. Outside any known window, failures let work continue, are written to the decision log, and are shown by doctor. A grace period after expiry, during which a control is still honored while the server cannot be reached, is a config value with a default of a few minutes. A student is therefore only ever blocked by a control that was already in force when the failure happened.
 
-**Alternatives considered.** Fail-closed always: rules never lapse, and a server restart or a flaky network stops the whole class, which at classroom scale means the instructor's own machine becomes a single point of failure for every student's work. Fail-open always (today): zero liveness cost and zero guarantee, including during a test.
+**Alternatives considered.** Fail-closed always: rules never lapse, and a server restart or a flaky network stops the whole class, which at classroom scale means the instructor's own machine becomes a single point of failure for every student's work. Fail-open always: zero liveness cost and no guarantee, including during a test.
 
 **What the student feels.** Nothing new in ordinary work; a network drop outside a control window changes nothing. Inside a pause or a test window, a failure produces the same refusal as the control itself, with the end time, instead of silently lifting it. A student whose test window has ended and whose machine cannot reach the server keeps the lockdown only for the grace period.
 
@@ -122,7 +122,7 @@ This decision was asked for in depth.
 
 ## D7. Three tiers: silent, logged, blocked; deferral goes to the instructor
 
-**Decision.** No tier asks the student. Read-only actions in scope pass silently; project writes and other allowed state changes pass and are logged; everything else is blocked with the rule id. A blocked action an instructor could legitimately allow carries the hint that the instructor can issue a control or a permit through the course server; today's hand mechanism carries the request.
+**Decision.** No tier asks the student. Read-only actions in scope pass silently; project writes and other allowed state changes pass and are logged; everything else is blocked with the rule id. A blocked action an instructor could legitimately allow carries the hint that the instructor can issue a control or a permit through the course server; the existing hand mechanism carries the request.
 
 **Alternatives.** A confirmed tier for shell and network using the host's "ask" where it exists; silent and blocked only.
 
@@ -152,7 +152,7 @@ This decision was asked for in depth.
 
 **Decision.** The floor injected on every prompt is the order of authority, the active controls and the current-step anchor, under a byte budget with a default of about 1.5 KB. Each information item (announcement, due change, memory, consent) is pushed once when it arrives, framed, then only as a one-line pointer. Reminders fire at triggers (a tool-call count, a refusal, a change of space) with per-type caps and only restate rules already given. Budget, triggers and caps come from the course server.
 
-**Alternatives.** Everything every turn (today, roughly 18 to 20 KB after sign-in); once at session start only.
+**Alternatives.** Everything every turn (about 18 to 20 KB after sign-in); once at session start only.
 
 **What people feel.** Faster turns; fewer repeated notices; the agent stays on the rules late in a long session.
 
@@ -166,7 +166,7 @@ This decision was asked for in depth.
 
 **Decision.** An information frame opens with the class ("Information, not a rule") and then the issuer ("from the course's instructors"). Words such as important, urgent, official and must are refused in information-class frames by the course server's policy check at publish time. Frame wording stays course-server config inside that check.
 
-**Alternatives.** Neutralize the issuer entirely; name the issuer freely (today).
+**Alternatives.** Neutralize the issuer entirely; name the issuer freely.
 
 **What people feel.** Students still learn who wrote a notice; nothing reads as an order.
 
@@ -180,7 +180,7 @@ This decision was asked for in depth.
 
 **Decision.** An announcement has a kind (notice, schedule change, outage, reminder); each kind has a fixed frame, and an outage adds the server's canonical "rEach may be unavailable; keep working" sentence automatically. The body stays verbatim. A phrase screen (ignore, stop helping, you must, override, do not tell, and similar) warns the instructor with the matched phrase before sending; it never blocks and never strips. The same screen runs on course rules and directives.
 
-**Alternatives.** Screen and block until rephrased; free text with frames only (today).
+**Alternatives.** Screen and block until rephrased; free text with frames only.
 
 **What people feel.** An instructor sees a warning once in a while and decides; a student reads exactly what was written.
 
@@ -194,7 +194,7 @@ This decision was asked for in depth.
 
 **Decision.** The generated AGENTS.md, CLAUDE.md and GEMINI.md hold the floor, the typed rules and one-line pointers; directive bodies and course reference come through `reach directive` and the MCP bridge, which exist. The budget is course-server config; a freshness digest in each file lets doctor flag a stale workspace.
 
-**Alternatives.** Full rules files (today); pointer-only files.
+**Alternatives.** Full rules files; pointer-only files.
 
 **What people feel.** Shorter session starts; the agent fetches a directive when a pointer says to.
 
@@ -206,11 +206,11 @@ This decision was asked for in depth.
 
 ## D13. Build ships, server config binds, runtime controls act; student config is convenience only
 
-**Decision.** Feature flags are build-time and disappear at parity. Anything that binds (tool allow lists, budgets, grace seconds, publish screens, tier tables) is course-server config, signed inside the policy. Runtime is the instructor's controls and kill switches. The student's `config.yml` may hold conveniences only (display, paths, update cadence); no key in it is read by the gate, and an unreadable config falls to the signed defaults, which enforce. This retires the current `agent_control.controls` key, which disables control enforcement from a file on the student's machine, and the behavior where an unreadable `config.yml` does the same.
+**Decision.** Feature flags are build-time and disappear at parity. Anything that binds (tool allow lists, budgets, grace seconds, publish screens, tier tables) is course-server config, signed inside the policy. Runtime is the instructor's controls and kill switches. The student's `config.yml` may hold conveniences only (display, paths, update cadence); no key in it is read by the gate, and an unreadable config falls to the signed defaults, which enforce.
 
-**Alternatives.** The same, plus one documented student-side key that disables enforcement for support cases; or leaving `config.yml` as it is.
+**Alternatives.** The same, plus one documented student-side key that disables enforcement for support cases; or a student config with binding keys.
 
-**What people feel.** A student loses nothing they were meant to have; support cases that used to flip a local key now go through the instructor, who can pause enforcement for one install from the course server.
+**What people feel.** A student loses nothing they were meant to have; support cases go through the instructor, who can pause enforcement for one install from the course server.
 
 **Priority.** Security: a rule a student can switch off locally is not a rule. Consistency: one place to read what binds.
 
@@ -220,23 +220,23 @@ This decision was asked for in depth.
 
 ## D14. Every control is signed; local state is sealed; tampering refuses and reports
 
-**Decision.** The course server signs every control and envelope with the key already pinned at enrollment (today only packages are signed; controls and announcements arrive as plain JSON over TLS). rEach seals its own state files (`controls.json`, `exam.json`, `install.yml`) with an install-derived MAC. A missing or altered file inside a known control window is a failure under D6: state-changing actions are refused with the reason, and an integrity event goes to the course server. Outside a window it is logged. The server-side checks (deadline, answer provenance, submission acceptance) stay the real guarantee.
+**Decision.** The course server signs every control and envelope with the key already pinned at enrollment. rEach seals its own state files (`controls.json`, `exam.json`, `install.yml`) with an install-derived MAC. A missing or altered file inside a known control window is a failure under D6: state-changing actions are refused with the reason, and an integrity event goes to the course server. Outside a window it is logged. The server-side checks (deadline, answer provenance, submission acceptance) stay the real guarantee.
 
-**Alternatives.** Sign controls only, no local sealing (an edited `exam.json` still lifts a lockdown locally until the server refuses the answer); no change (a deleted `controls.json` ends a pause).
+**Alternatives.** Sign controls only, with no local sealing; server-side checks only.
 
 **What people feel.** Honest students feel nothing. A student who edits or deletes a state file during a pause or test gets a refusal that says why, and the instructor sees an integrity event with the install id, not the file contents.
 
 **Priority.** Security. Deterministic signature checks caught 100% of forged calls (2601.09292); scope, expiry and revocation freshness fail closed (2601.14982). The student owns the machine, so this stops casual edits and makes deliberate ones visible; it claims nothing more, and the server-side checks carry the integrity of grades.
 
-**Given up.** Honesty about the limit: a student with the install key material can re-seal; the server-side record is what counts.
+**Given up.** A claim of more than tamper evidence on a machine the student owns; the server-side record is what counts.
 
 **Toggle.** Build for signing and sealing; config for whether integrity events leave the machine (default on).
 
 ## D15. The updater verifies releases against a server-published manifest
 
-**Decision.** The course server lists the releases it accepts (version, archive digest, minimum version) in signed status. The updater refuses an archive whose digest is not listed and `reach doctor` says why. When the server is unreachable the last signed manifest is used; with none, no update happens. Today the archive is checked only by VERSION equal to tag.
+**Decision.** The course server lists the releases it accepts (version, archive digest, minimum version) in signed status. The updater refuses an archive whose digest is not listed and `reach doctor` says why. When the server is unreachable the last signed manifest is used; with none, no update happens.
 
-**Alternatives.** Detached signatures on each release asset with a key shipped in the plugin (independent of any server; rotation needs a release the old key still signs); both layers; no change (trust the `stable` branch).
+**Alternatives.** Detached signatures on each release asset with a key shipped in the plugin (independent of any server; rotation needs a release the old key still signs); both layers; the `stable` branch alone.
 
 **What people feel.** Updates behave as before; a release the course has not accepted does not install, and doctor names it. A student on another course's server is governed by that server's list.
 
@@ -248,7 +248,7 @@ This decision was asked for in depth.
 
 ## D16. Hookless hosts may do course work, marked; they may not take tests
 
-**Decision.** An install on a host without hooks (Antigravity today, any future host without them) receives the floor and pointers as context, its submissions and progress are marked unhooked so the instructor sees it, and the course server refuses to open a test for it because a lockdown cannot be enforced there. The student is told which hosts can take tests. Nothing pretends to be enforced.
+**Decision.** An install on a host without hooks (such as Antigravity, or any future host without them) receives the floor and pointers as context, its submissions and progress are marked unhooked so the instructor sees it, and the course server refuses to open a test for it because a lockdown cannot be enforced there. The student is told which hosts can take tests. Nothing pretends to be enforced.
 
 **Alternatives.** Refuse all course work on hookless hosts (a student whose only host is hookless is locked out); allow everything including tests with server-side checks only (no lockdown at all).
 
@@ -270,7 +270,7 @@ This decision was asked for in depth.
 
 **Priority.** Security (refusals and integrity events are what an instructor acts on) and consistency (every decision carries its policy version, 2601.15630). User experience on the student side is protected: the content of their work never leaves. 40% of 70 surveyed harnesses keep no audit and 5% are tamper-evident (2604.18071); this is structured, not tamper-evident, and says so.
 
-**Given up.** Tamper evidence of the local log; a student can edit their own history of silent and logged decisions, which the server never needed.
+**Given up.** Tamper evidence for the local log of silent and logged decisions, which the server never needed.
 
 **Toggle.** Config: which tiers leave the machine (default: blocked and integrity), owned by the course server.
 
@@ -290,11 +290,11 @@ This decision was asked for in depth.
 
 ## D19. A deterministic replay suite gates every policy publish; real-model runs are a recipe
 
-**Decision.** Recorded hook inputs (the incident, a pause, a lockdown, a tamper, a hookless install, each default-deny case) are replayed through the gate with no model, and the course server's policy check runs them before a policy publishes. Pass^k against a real host model is a documented recipe the instructor runs when they choose. This suite is test machinery requested by the owner on 2026-10-06; the standing rule against unrequested tests otherwise holds.
+**Decision.** Recorded hook inputs (an announcement worded like an order, a pause, a lockdown, a tamper, a hookless install, each default-deny case) are replayed through the gate with no model, and the course server's policy check runs them before a policy publishes. Pass^k against a real host model is a documented recipe the instructor runs when they choose.
 
 **Alternatives.** The replay suite plus a real-model Pass^k run on every release (catches obedience regressions the gate cannot see; spends tokens every release and the number moves with the model); manual scenarios only.
 
-**What people feel.** A policy that would let the incident through cannot be published; the instructor sees which scenario failed. Students never see the suite.
+**What people feel.** A policy that would let such an announcement act as a control cannot be published; the instructor sees which scenario failed. Students never see the suite.
 
 **Priority.** Consistency and resilience: the gate's behavior is fixed by replay, not by recollection. Performance: no model call in the release path. The papers measure with Pass^k against real models (2601.22027, 2601.22136); the gate is deterministic, so the replay is exact and the model run measures the host model, not rEach.
 
@@ -306,7 +306,7 @@ This decision was asked for in depth.
 
 **Decision.** Policy stays a versioned YAML file in the course server's repository; its digest is the policy version. The console renders the effective policy, the lint and phrase-screen results, and which installs still hold an older version. Publishing is one command that signs and serves it. There is no console editor, so every change has a commit.
 
-**Alternatives.** A console editor with versioned saves (friendlier for an instructor without git; two surfaces could disagree unless the file is retired); file only with no console view (today).
+**Alternatives.** A console editor with versioned saves (friendlier for an instructor without git; two surfaces could disagree unless the file is retired); file only with no console view.
 
 **What people feel.** An instructor sees exactly what students hold and what differs; a change is a commit and a publish.
 
@@ -334,7 +334,7 @@ This decision was asked for in depth.
 
 **Decision.** Spawning a subagent is a state-changing action under D5 and needs an allow entry. When allowed, the subagent's tool calls pass through the same hooks, inherit the parent's space and policy, and receive the floor in their context. During a test lockdown, spawning is refused. On a host that cannot hook a subagent's calls, spawning is refused in course spaces.
 
-**Alternatives.** Refused in course spaces altogether (a student loses parallel help on course work); allowed and ungated (today; a hole in every control).
+**Alternatives.** Refused in course spaces altogether (a student loses parallel help on course work); allowed and ungated (a gap in every control).
 
 **What people feel.** Course work can fan out as before where the instructor allows it; during a test it cannot. A refused spawn names the rule.
 
@@ -362,7 +362,7 @@ This decision was asked for in depth.
 
 **Decision.** The first pass counts as shipped when these four scenarios pass live on a real host, with a live course server and an enrolled install:
 
-1. Incident replay: the exact "no rEach for today until end of class" notice arrives framed as information, the agent keeps helping, and the decision log shows no control.
+1. Announcement replay: a notice worded as an order ("no rEach for today until end of class") arrives framed as information, the agent keeps helping, and the decision log shows no control.
 2. Pause and lockdown through an outage: an instructor pauses, the course server is stopped mid-window, the pause holds with its end time, a write is refused with the rule id, and work resumes when the window ends.
 3. Tamper detected: a student edits `exam.json` during a test; the next write is refused and the console shows the integrity event.
 4. Hookless and default-deny: an Antigravity install shows unhooked and cannot open a test; on a hooked host an unlisted MCP write tool is refused in a slice and allowed after one policy line.

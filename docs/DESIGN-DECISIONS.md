@@ -12,7 +12,7 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
   100% of the code and guides the student as it goes.
 - **Guide, never hand over answers** (09-25). The tutor leads students to the solution instead of giving direct
   answers, and does not do the student's thinking for them.
-- **No tips** (09-29). Tips were removed in the autonomous-agent redesign.
+- **No tips** (09-29). rEach gives no tips; the agent guides the student through the work itself.
 - **rEach introduces itself** as soon as it is installed and whenever it comes online ("Hi, I'm rEach, your academic
   assistant! ...") (09-27).
 - **Intake interview** (09-27, 09-28). A personal, curious conversation that stays relevant to the course plan and
@@ -49,53 +49,54 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 ## Enrollment and identity
 
 - **Enrollment is fail-closed** (10-01). After installing, the student must enroll; until then rEach refuses all input.
-- **Four inputs** (10-01, revised 10-02): the class-wide course passkey handed out in class or on Blackboard, the
+- **Four inputs** (10-02): the class-wide course passkey handed out in class or on the course's learning system, the
   institutional email, the institutional student ID, and a password the student chooses (at least 8 characters, typed
   twice). Teach owns the roster they are checked against and keeps only a hash of the password.
 - **A course passkey links to exactly one course** (10-01), is class-wide, expires when the course ends, and is
   normalized loosely ("bus-101" and "bus 101" both resolve).
-- **Instructor unlock** (10-01, Reach 0.16.17). An instructor can lift the enrollment lock on one install with a
-  signed code: a private key the instructor keeps outside the repository, its public key pinned in `config.yml`, and
-  codes minted locally at any time with no release, each with an id that `config.yml` can revoke. The code never
-  expires, is pasted into the locked prompt (which the hook intercepts, so the agent never sees it) and has no
-  command-line unlock verb. An unlocked, unenrolled install allows prompts without guardrails and captures nothing.
+- **Instructor unlock** (10-01). An instructor can lift the enrollment lock on one install with a signed code,
+  minted, revoked and rotated on the Teach console and checked against the instructor keyring Teach publishes. The
+  code is pasted into the locked prompt, which the hook intercepts so the agent never sees it, or given to
+  `reach instructor unlock` in a terminal. An unlocked, unenrolled install allows prompts without guardrails and
+  captures nothing.
 - **Machine fingerprint** (10-01). After enrollment rEach keeps a stamp of machine, harness and account that must
   match Teach's.
-- **Sign-in each session** (09-30): the student ID, then "Am I speaking with <name>?", enforced by hooks.
+- **Sign-in each session** (09-30): the student ID, then "Am I speaking with <name>?", then the student's password,
+  enforced by hooks.
 
 ## Data capture and privacy
 
 - **The record is whole and sent in the background** (10-04). Inside the same bounds as below, rEach also records
   what each tool returned to the AI and each subagent's work, splits a long text across entries instead of cutting it,
   and sends on a timer the course sets in Teach (600 s by default) from the open session and the background job, so
-  instructors do not wait for a turn end or a submission. The bounds themselves did not move.
-- **Signed-in assignment work is recorded** (10-03, replacing the 10-02 teardown). While a session is signed in, the
+  instructors do not wait for a turn end or a submission.
+- **Signed-in assignment work is recorded** (10-03). While a session is signed in, the
   course has a current assignment and the session runs in a slice or the course folder root, rEach records every
   prompt, the AI's replies, reasoning and actions, and the assignment code, and sends them to Teach, where the
   instructors read them. Nothing is recorded before sign-in, in the extracurricular folder, outside the course folder
   or in instructor mode, and recording never reaches back before a session's first recorded prompt. The microbrain is
   separate: it stays on the student's computer and is never sent. Students learn this from the docs, the privacy
   policy and their AI partner's answer when they ask; there is no in-session notice. The student can export their own
-  copy (`reach transcripts export`). Transcripts were removed in Reach 0.21.1 and restored in 0.25.0. Since 0.26.0 they leave the computer
+  copy (`reach transcripts export`). The record leaves the computer
   de-identified: a random pseudonym, placeholders for the identifiers rEach knows, and an identity index only the
   holder of the course's key can open.
-- **What reaches Teach** (10-01, revised 10-02 and 10-03). rEach does not capture the student's local workspace material, all
+- **What reaches Teach** (10-03). rEach does not capture the student's local workspace material, all
   the more because students are encouraged to import their personal contexts. Only these go to the instructors:
   - completed work and assignment material (the slice's owned files and submissions);
   - material the student explicitly approves or names to be sent, including their own-part answers;
   - metadata, analytics and usage data.
   - the recorded conversation of signed-in assignment work (10-03; see above).
-- **Extracurricular files stay on the student's computer** (10-01, Reach 0.16.12). They are never scanned, mirrored
+- **Extracurricular files stay on the student's computer** (10-01). They are never scanned, mirrored
   or sent. Teach's rule G-EXTRA-2 and rEach's own notices say so.
 - **Analytics are tied to the enrollment** (10-01). Usage analytics are identified by the enrolled student ID (see
   TODO.md).
-- **The brain stays local and learns from everything the student types** (10-01, Reach 0.16.15, revised 10-02).
+- **The brain stays local and learns from everything the student types** (10-02).
   rEach keeps a private microbrain on the student's computer: every prompt the student types that the gate allows,
   in any folder, becomes a private source as it arrives; the agent distils durable findings about the student and
   their work with `reach remember`; and rEach injects a profile at session start and matching memories on each prompt.
   Prompts the gate blocks (login, enrollment, passwords) never enter it. Nothing in it is sent to Teach; events carry
   ids and counts only; the student can ask what is remembered and have it forgotten, which scrubs rEach's own spool.
-- **Fault reports carry no content** (10-02, Reach 0.16.25). When rEach hides an error or the Teach connection
+- **Fault reports carry no content** (10-02). When rEach shows a plain message in place of an error, or the Teach connection
   changes, it records a fault or link event and sends it to Teach even while debug mode is off: where it happened, the
   exception class, the errno name, a few plugin-relative frames and the id of what the person was shown, never the
   error message, a prompt, a reply or a file. At most 60 an hour are kept and the rest are counted.
@@ -105,8 +106,7 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 
 ## Course material
 
-- **No course material in this repository** (10-01). rEach pulls course material from Teach; the history was
-  rewritten to remove what had been committed.
+- **No course material in this repository** (10-01). rEach pulls course material from Teach.
 - **No answer keys or instructor files** (09-28) ever reach the student's corpus; only the reference material Teach
   delivers does.
 - **The slice API belongs to Grokit** (09-29); rEach and Teach consume it through its spec, never a copy.
@@ -119,35 +119,24 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
 - **Harnesses** (09-30): Codex for GPT, Claude (Claude Code, the desktop app, Cowork) for Claude, Antigravity for
   Gemini, and Hermes Agent in its own profile, on macOS, Windows and Linux. The Gemini app and DeepSeek are not
   supported.
-- **A sandboxed install that cannot leave the sandbox** (10-01, Reach 0.16.12). The install needs the network and
+- **A sandboxed install that cannot leave the sandbox** (10-01). The install needs the network and
   writes outside the chat's folder, so it runs outside the sandbox once. If the agent cannot ask for that (Codex on
   Windows), it tells the student to switch the chat's permissions to Full access and ask again. It never improvises
   another folder or workaround, and never asks the student to paste commands.
-- **One rEach folder** (10-01, planned for 0.17.0; replaced 10-03 by the decision "Inside reach-work", below). Codex on Windows lets a sandboxed command write only inside the
-  chat's folder and the temp folder, so everything rEach keeps (its program, state, keys, runtime kit and the course
-  folders) moves into one rEach folder the student works in. The aim is that after the install the student can switch
-  Codex back to its default permissions; the release that ships it has to prove that on Windows, including network access for
-  enrollment and submission.
-- **Migration loses nothing** (10-01). Moving an existing install into the rEach folder must have zero chance of losing
+- **Migration loses nothing** (10-01). Moving an existing install into `~/reach-work/.reach-home` must have zero chance of losing
   student data: copy and verify before anything is removed, keep the old location until the new one is proven, and
   resume or roll back cleanly if interrupted.
-- **Inside reach-work, not a new folder** (10-03, replacing the ~/rEach decision of 10-01). rEach's own files move to
+- **Inside reach-work** (10-03). rEach's own files live in
   `~/reach-work/.reach-home`; the workspace stays where it is, so a student has one folder to open in the harness and no
   second one to find. The home is refused in every kind of space (reads, writes, listings, searches, redirects, cds)
   and pruned from every walk of the student's work, so the student's agent cannot read keys or the stamp and a
   submission never carries the home. A root-kind session judges writes by their target slice and asks which slice when
-  it cannot choose. Existing installs relocate by copy, hash verification and rename; the legacy folder is left exactly
-  as it was apart from `RELOCATED.json`, because losing student data has no acceptable odds.
-- **What this does not fix** (10-03). The layout alone does not open the Codex sandbox, which by default blocks the
-  network and writes outside the chat's folder; the decision below does. Codex hook trust is unrelated to the layout.
-  On Windows the project's top-level `.codex` is read-only inside the sandbox. None of these was measured on Windows or
-  macOS.
-- **rEach edits the student's own Codex settings** (10-03, branch only). A project-level `.codex/config.toml` changed
-  nothing in Codex 0.160.0, and the user-level `$CODEX_HOME/config.toml` did, so rEach writes the few sandbox keys it
-  needs there, from outside the sandbox and only after the student's yes, keeps a backup beside the file and puts the
+  it cannot choose. Existing installs relocate by copy, hash verification and rename; the earlier location is left
+  untouched apart from `RELOCATED.json`, because losing student data has no acceptable odds.
+- **rEach edits the student's own Codex settings** (10-03). Codex reads its sandbox keys from the user-level
+  `$CODEX_HOME/config.toml`, so rEach writes the few keys it needs there, from outside the sandbox and only after the student's yes, keeps a backup beside the file and puts the
   keys back when they were removed. It refuses rather than guess, because a second definition of a key stops Codex
-  from starting. Windows defaults to turning the sandbox off, because the workspace keys were never measured there and
-  writable roots are reported unreliable on Windows. rEach never writes Codex hook trust.
+  from starting. Windows defaults to turning the sandbox off, because Codex's writable roots are not reliable on Windows. rEach never writes Codex hook trust.
 
 ## Updates and releases
 

@@ -58,8 +58,7 @@ student wants to build goes in `extracurricular/` (`reach work
 --extracurricular`), which is never graded and never leaves the student's
 computer. The agent puts code in files, never in chat. The Stop and SessionEnd
 hooks run `reach hook stop`, which only flushes debug events and shows the link
-notice and the debug block. The first rEach command after updating deletes any
-transcripts an older version saved in the `transcripts/` folder of rEach's own files.
+notice and the debug block.
 
 ## How it fits together
 
@@ -88,7 +87,7 @@ until a student is enrolled, every session tells the agent to read it and finish
 
 Ruby 2.6.10 to 4.0.x, standard library only, no native gems. macOS's built-in
 `/usr/bin/ruby` is enough.
-A computer with no Ruby needs nothing first: since 0.20.7 the plugin's hooks run `sh exe/reach-run`, which downloads
+A computer with no Ruby needs nothing first: the plugin's hooks run `sh exe/reach-run`, which downloads
 and verifies the runtime kit's Ruby in the background and then runs Reach with it (on Windows,
 `scripts/reach-install.ps1` does the same for the install and adds it to the user PATH).
 
@@ -111,7 +110,7 @@ follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
 | Codex | `codex plugin marketplace add SteveBenner/rEach@stable` then `codex plugin add reach@reach`, and trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
 | Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
 | Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/reach-work/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
-| Any of the above | install the public GitHub archive to `~/reach-work/.reach-home/plugin` (to `~/.reach/plugin` on a computer that already has an older install, which setup then moves), then run `exe/reach setup` from the path the installer prints |
+| Any of the above | install the public GitHub archive to `~/reach-work/.reach-home/plugin`, then run `exe/reach setup` from the path the installer prints |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
@@ -213,7 +212,7 @@ paste it into the locked prompt in any harness: rEach intercepts it, so the agen
 never sees it, and stops blocking prompts on that computer. rEach checks the code against the instructor keyring Teach
 publishes (it fetches it at session start and before checking a code, keeps a copy for offline use, and refreshes every
 `instructor.keyring_refresh_s` seconds in `config.yml`, 900 by default); with no copy and no connection it says it could
-not reach the course server. `reach instructor keygen` and `reach instructor code` no longer make codes.
+not reach the course server.
 On an enrolled computer, the same code typed at any prompt, even mid sign-in or during a lockout, signs that one chat in
 and clears the lockouts, and lets that chat through any enrollment lock; the code is not stored, nothing stays unlocked
 on the computer, and a new chat asks for sign-in as usual. `reach instructor unlock` does it from a terminal when no hook
@@ -222,7 +221,7 @@ On a computer that is not enrolled, `reach instructor status` shows the unlock a
 and `reach instructor lock` undoes it. Keep codes out of chats and repositories. To revoke a code, use Revoke on the
 Teach console; rotating the key there makes every code from the old key stop working at once, on the next keyring refresh.
 
-Since 0.16.23 an unlocked install can also run as a test student, to go through the course exactly as a student does:
+An unlocked install can also run as a test student, to go through the course exactly as a student does:
 `reach instructor dummy [--course ID]` starts a blank test student and `reach instructor as <username> [--course ID]`
 a test copy of that roster student, with their group, slices, modules, submissions and receipts as of now. Teach makes
 the test student; nothing you do reaches the real student's record, and everything you send is filed on Teach as
@@ -230,7 +229,7 @@ instructor data. The persona keeps its own rEach home under `~/reach-work/.reach
 `~/reach-work/personas/`, applies to every harness session on the computer, and ends with `reach instructor exit`,
 which moves it to `.backup`. Teach must pin the same key in its course policy and run 0.17.2 or later.
 
-Since 0.27.0 an unlocked install can start a diagnosis session, to work out a rEach problem on that computer together
+An unlocked install can start a diagnosis session, to work out a rEach problem on that computer together
 with the instructor's assistant: `reach instructor diagnose [--course ID]`, or ask the assistant to start one. rEach
 asks one question; on your typed yes the session opens at once, the two assistants write to each other, and rEach
 runs the checks the instructor's side requests without asking again. On a computer that is not enrolled rEach makes
@@ -252,9 +251,9 @@ sending it to the instructor; `reach debug export` saves one at any time. Saying
 enrollment too: the enrollment hook switches it and asks its question again. `REACH_SETUP_LOG=0` turns the log off.
 
 Codex runs an agent's shell commands in its own sandbox, and outside a course folder the student has trusted that
-sandbox blocks the internet and rEach's folder. Since 0.21.8 a rEach command that the sandbox stops says so in plain
-words instead of reporting a lost connection, and the agent turns debug mode on or off and runs the health check
-through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox. Since 0.21.12 the `reach_update` tool
+sandbox blocks the internet and rEach's folder. A rEach command that the sandbox stops says so in plain
+words, and the agent turns debug mode on or off and runs the health check
+through the `reach_debug` and `reach_doctor` tools, which Codex runs outside its sandbox. The `reach_update` tool
 updates rEach the same way.
 
 rEach also fixes the cause: after the student says yes, it changes the student's own Codex settings
@@ -266,26 +265,26 @@ runs after setup), in a chat when the agent calls the `reach_setup` tool, or dur
 status`, `reach codex probe` and `reach doctor` show where it stands, and `reach codex off` stops rEach putting the
 settings back. `codex.setup: false` in `config.yml` or `REACH_CODEX_SETUP=0` turns it off.
 
-Since 0.21.9 rEach also tells the agent about known problems the instructors have recorded in Teach for this
+rEach also tells the agent about known problems the instructors have recorded in Teach for this
 computer's operating system and AI app: each session's context names the ones that match, and marks one rEach can see
 happening now, and the agent gets the student's steps from the `reach_known_issues` tool (or `reach known-issues`).
 This works before enrollment, and from the last saved copy when the course server can't be reached.
 
-Since 0.23.0 rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
+rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
 qualify or submit is reported the first time it happens, any other the third time in a day, as a hand of type
 `issue` holding where it happened and what rEach was running, never an error message, a prompt or code. The student
 is told once that it was reported and that nothing is needed from them, and once more when the fix reaches their
-version. Since 0.38.7 the report names the rEach version the problem happened on, even when it is sent after an
+version. The report names the rEach version the problem happened on, even when it is sent after an
 update. `reach issues` lists what was seen and reported (test student or debug mode), `reach issues flush` sends
 what is waiting, and `REACH_ISSUES_DISABLE=1` or `issues.enabled: false` in `config.yml` turns it off.
 
-Since 0.24.0 rEach also tells the course server where a student stands: the time they first passed each step of
+rEach also tells the course server where a student stands: the time they first passed each step of
 enrolling, first signed in and first started each assignment. It sends the step and its time only, on `reach sync`, and the instructors see it as a progress bar per student.
 `REACH_PROGRESS=0` turns it off.
 
 ### Submitting
 
-Since 0.17.0, once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.
+Once a slice's work passes `reach qualify`, the agent tells the student they can ask rEach to submit it.
 `reach submit` (or the `reach_submit` tool) runs every check first, then asks the student through rEach; the agent
 relays the question word for word, the prompt hook captures the answer, and only a yes, given within 30 minutes for
 exactly the files it was asked about, lets the agent's next `reach submit` send the work. Run in a terminal,
@@ -295,32 +294,32 @@ files, plus the receipts and the student's own part) in the Downloads folder as
 `<course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip` in course time, never overwriting a file
 (`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
 may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
-by rEach before it asks and by Teach. Since 0.19.0 rEach says plainly, before and after every submission, that the ZIP in
-Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (since
-0.33.0 the course names that system; rEach's repository names none); `reach submit archive` makes the ZIP again.
+by rEach before it asks and by Teach. rEach says plainly, before and after every submission, that the ZIP in
+Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (the
+course names that system); `reach submit archive` makes the ZIP again.
 
 ### Late work and grades
 
-Since 0.19.0 a student may keep working on an assignment after its due time: rEach says clearly and repeatedly that
+A student may keep working on an assignment after its due time: rEach says clearly and repeatedly that
 the work is late, lets the instructor know once, and says when it can no longer be submitted. `reach grade` shows the
 points the instructor has recorded in Teach, when there are any.  A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
 on) so the instructor sees what it is about.
 
 ### Announcements and course updates
 
-Since 0.30.0 an instructor can send an announcement to the whole course, one group or one student. rEach fetches
+An instructor can send an announcement to the whole course, one group or one student. rEach fetches
 it on the next sync, shows it once, word for word, and keeps it in a queue the student can list by date with
 `reach announcements`. When an assignment's due time moves, rEach says so once, with the earlier and the new time.
 After each sync rEach also tells the course server which copy of the course materials it holds (names and check
 values only), so an instructor can see that an update reached every student.
 
-Since 0.37.0 the agent receives an announcement in a frame that says when it was sent and that it is information, so it
+The agent receives an announcement in a frame that says when it was sent and that it is information, so it
 never stops helping because of one. An announcement may carry a time until which it is shown; one that passed before
 the student saw it is not shown, and `reach announcements` lists it with "(shown until ...)".
 
 ### Course controls and tests
 
-Since 0.37.0 the instructors can set a pause, a hold or a test, and rEach enforces each one in code
+The instructors can set a pause, a hold or a test, and rEach enforces each one in code
 (`agent_control.controls` and `agent_control.test_mode` in `config.yml`). A pause stops course work in a slice and in
 the workspace root, and leaves the student's own extracurricular folder and `reach support` working. A hold stops
 `reach submit` only; checks and `reach qualify` keep working. While a test is open, only the test, `reach support` and
@@ -345,11 +344,11 @@ reach hand raise --type T ...                   raise a hand of a given type
 
 ### When Teach can't be reached
 
-Since 0.16.25 rEach never shows a raw error, backtrace or hook failure. When a request to Teach fails for lack of a
+rEach never shows a raw error, backtrace or hook failure. When a request to Teach fails for lack of a
 connection, the student is told once per outage that the connection was lost and that their work is saved and will be
 sent when it is back, and once when it returns (a `systemMessage` on Claude Code and Codex, a relay line in the prompt
 context on Hermes, a line on stderr from a command). `REACH_OFFLINE=1` is deliberate and is not an outage. Any other
-error rEach hides behind a plain message (shown at most once every 15 minutes in a hook) is recorded as a `fault` event,
+error, which rEach shows as a plain message (at most once every 15 minutes in a hook), is recorded as a `fault` event,
 and each change of connection as a `link` event. Both are sent to Teach even while debug mode is off, with the failing
 location, exception class and a few plugin-relative frames but no error message, file or prompt text; instructors read
 them in Teach. The state lives in `link.json` under the rEach home, and `config.yml`
@@ -360,7 +359,7 @@ them in Teach. The state lives in `link.json` under the rEach home, and `config.
 Reference material never ships in this repository. From enrollment on, Teach sends each
 install its own course's encrypted `.rref` blobs, every unit, and their keys in the signed
 guardrails package at `reach sync`. `reach reference list|show|search|links` decrypts in memory.
-Since 0.17.1 rEach also ingests the whole course corpus into the student's microbrain: after each
+rEach also ingests the whole course corpus into the student's microbrain: after each
 sync, and at session start when the blobs changed, it spools every file as a private source under
 `course/<course>/`, and matching passages join each prompt's recall (`brain.course_recall`,
 `course_k`, `course_budget_bytes`, `course_min_score`). That private tier is the only plaintext
