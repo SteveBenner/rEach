@@ -767,7 +767,7 @@ record predates 0.38.7), and every `fault` event carries `reach_version`, becaus
 outlive a self-update; verified 2026-10-06 in scratch homes with copies labelled 0.38.6, 0.38.7 and 0.38.8 and fed into
 Teach 0.65.1 on a scratch database (see `CHANGELOG.md`).
 
-Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 accepts the issue hand; 0.38.7 is built and verified on scratch homes, not yet released). No report from a real student install has been seen yet.
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 accepts the issue hand; 0.38.7 released 2026-10-06 as v0.38.7, GitHub Latest, stable moved to it; Teach 0.66.1 is live with the same wire digest ad8edfaf70f985b5). No report from a real student install has been seen yet.
 
 ### 2.41 · Live sessions
 
