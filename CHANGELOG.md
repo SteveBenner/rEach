@@ -5,6 +5,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.9] - 2026-10-06
+
+### Changed
+
+- rEach now does what the student setup and troubleshooting handout says (`STD-HANDOUT-PARITY`).
+  - Install: the NEXT block is "rEach is installed and ready." then G-INSTALLED-ENROLL ("Before anything else, connect
+    rEach to your course."); the first-run interview waits until the student is enrolled and signed in
+    (`lib/reach/setup.rb`, `lib/reach/hello.rb`), and setup creates `deliverables/` and `extracurricular/` in reach-work.
+  - Updates: `reach_update` and `reach update status` start with M-UPDATE-CURRENT ("rEach X is installed and up to
+    date.") or M-UPDATE-AVAILABLE; M-UPDATE-STARTED is relayed word for word and tells the student to open a new chat.
+  - Enrollment: the "password chosen before October 5, 2026 was reset" sentence shows only when the install holds an
+    earlier enrollment (M-ENR-ASK-PASSWORD-REENROLL); enrolling ends with M-ENR-DONE and M-ENR-SYNCING, and the launch
+    command line only in Hermes (M-ENR-DONE-LAUNCH).
+  - Cowork: M-COWORK-CODE-TAB drops the setup-guide sentence.
+  - Antigravity: `reach enroll --window` and `reach login --window` open a terminal window for the student
+    (`lib/reach/desktop.rb`), and sign-in follows the enrollment pattern (M-LOGIN-NOHOOK-GUIDE).
+  - Hermes: setup prints "type o for once. Never type a for always." (M-HERMES-APPROVE-ONCE).
+  - Submitting: one message, "was received at …" then the ZIP sentence, with no receipt id; the ZIP is named
+    `<assignment>-<email local part>-<YYYYMMDD>.zip` (`lib/reach/archive.rb`); the returning greeting calls received
+    work "submitted"; `reach qualify` prints "reach qualify · check … · coverage … · local … · course server … ·
+    Qualified." first.
+  - Times read "Oct 19, 2026 11:59 PM PDT" and dates "Oct 12, 2026" (`lib/reach/course_time.rb`, STD-COURSE-TIME).
+  - Skills: reach-assistant gains the update-first, version, claim-is-not-confirmation, loop, three-layer and
+    no-pasted-commands rules (mirrored in `agents/reach.md`); reach-help raises a hand for "report this", "tell my
+    teacher" or the instructor's name.
+
+### Added
+
+- `reach hand raise --last-step --saw` and the matching `reach_raise_hand` arguments; a successful raise prints
+  M-HAND-SENT. A refused or queued hand adds the course profile's `support.contact_text` (M-HAND-CONTACT, wire W-POL-2).
+- Codex refuses enrollment and sign-in from a chat folder outside reach-work (M-CODEX-WRONG-FOLDER, `lib/reach/gate.rb`).
+
+### Fixed
+
+- A raised hand no longer carries a typed passkey, a labelled password or the student ID: every free-text field of the
+  bundle, and the unencrypted summary, is scrubbed to "[left out]" before it leaves (`lib/reach/hands.rb`).
+
 ## [0.38.8] - 2026-10-06
 
 ### Changed

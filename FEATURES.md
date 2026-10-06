@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.38.8 |
+| **Registry version** | 0.38.9 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 99 catalogued |
+| **Feature count** | 100 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 91 | 92% |
+| ✅ Shipped | 92 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 10 | 10% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 77 | 78% |
+| 🔵 Built, not enabled | 78 | 78% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -1471,6 +1471,22 @@ spool and planes, and a queued forget ran before the next admission; with no kit
 verified: macOS, Windows, Hermes and a real student session.
 
 Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer). · Blocker: -.
+
+### 10.7 · Handout parity
+
+Since 0.38.9 (`STD-HANDOUT-PARITY`) rEach does what the student setup and troubleshooting handout shows: the install
+greeting asks to connect to the course first, deliverables/ and extracurricular/ exist right after install, `update
+reach` gets a word-for-word reply and the version answer reads "rEach X is installed and up to date", the
+re-enrollment password sentence shows only to students who enrolled before, Codex refuses enrollment and sign-in
+outside reach-work, Antigravity opens a terminal window for enrollment and sign-in, Hermes prints the approve-once
+rule, a submission answers in one message with a ZIP named like A1-jruiz-20261007.zip, times read "Oct 19, 2026 11:59
+PM PDT", and a raised hand carries the last step that worked and what the student saw with passkeys, labelled
+passwords and the student ID left out, adding the course's support contact from Teach when it cannot be sent. Checked
+on 2026-10-06 in scratch homes against fake Teach (platform smoke 12 passed, the one doctor failure is this machine's
+Codex sandbox and also fails on 0.38.8). The terminal windows ran on Linux only; macOS and Windows windows are
+unverified.
+
+Build ✅ · Deploy 🔵 · Blocker: Engineering (macOS and Windows terminal windows unverified)
 
 ## 11 · Planned
 

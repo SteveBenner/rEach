@@ -291,7 +291,7 @@ exactly the files it was asked about, lets the agent's next `reach submit` send 
 `reach submit` asks at its own prompt; on Antigravity, which has no hooks, the agent asks first. Once Teach's ingest
 receipt verifies, rEach saves a ZIP of the whole assignment folder (every slice, without rEach's and the harness's own
 files, plus the receipts and the student's own part) in the Downloads folder as
-`<course>-<assignment>-<YYYY-MM-DD>-<HHMM>-<zone>.zip` in course time, never overwriting a file
+`<assignment>-<email local part>-<YYYYMMDD>.zip` (such as `A1-jruiz-20261007.zip`) dated in course time, never overwriting a file
 (`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
 may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
 by rEach before it asks and by Teach. rEach says plainly, before and after every submission, that the ZIP in
