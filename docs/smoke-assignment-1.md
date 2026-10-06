@@ -99,9 +99,11 @@ network. The teacher URL is `http://<instructor LAN address>:<port>`. Find the a
 with `ip -4 addr` or `ipconfig getifaddr en0` and give it to the student explicitly;
 nothing scans the network and students never assume localhost.
 
-Give the student the URL and the code together, outside the chat with Codex is fine:
+The student never types the course server's address: rEach reads it from `config.yml` (`teach.url`). For this
+pass, start Codex on the student machine with `REACH_TEACH_URL=http://<instructor LAN address>:<port>` in its
+environment, and give the student the passkey outside the chat:
 
-> Course server: `http://<instructor LAN address>:<port>`, your code: `<code from codes.csv>`.
+> Your course passkey: `<passkey from codes.csv>`.
 
 Student session, in a fresh Codex session on a machine with no rEach installed. Use
 a scratch account or an empty `CODEX_HOME` if it is the same machine. The first
@@ -113,9 +115,9 @@ Expected turns, with the evidence to capture at each:
 
 | Turn | Student says | Expected agent behavior | Evidence |
 | --- | --- | --- | --- |
-| 1 | the install prompt above | fetches the public ZIP without asking for GitHub credentials, checks Ruby, backs up any existing `~/.reach/plugin`, runs `reach-install`, then `reach setup --harness codex`; prints the greeting only after setup succeeded | transcript, `~/.reach/plugin` exists, no `git clone` |
+| 1 | the install prompt above | fetches the public ZIP without asking for GitHub credentials, checks Ruby, backs up any existing `~/reach-work/.reach-home/plugin`, runs `reach-install`, then `reach setup --harness codex`; prints the greeting only after setup succeeded | transcript, `~/reach-work/.reach-home/plugin` exists, no `git clone` |
 | 2 | "yes, go ahead" to each confirmation | tells the student in one sentence what changes before each step; asks the student to trust the start-up hook | transcript |
-| 3 | "How do I connect to my course?" then the code | rEach's prompt hook asks for the passkey, email, student ID and password itself and the agent never collects them (`reach enroll <code>` points to the chat); the course server comes from `config.yml` | `reach status` shows enrolled |
+| 3 | "How do I connect to my course?" then the passkey | rEach's prompt hook asks for the passkey, email, student ID and password itself and the agent never collects them (`reach enroll <code>` points to the chat); the course server comes from `config.yml` | `reach status` shows enrolled |
 | 4 | "What is my first task?" | runs `reach sync`, opens the G1 context A1 backend workspace, reads the README and the scenario names, explains the task in plain words | workspace path, README present |
 | 5 | the business choices below | saves a plan with `reach plan save` before any edit; asks the student the meaningful decisions | `reach plan show` |
 | 6 | "Please build it." | writes the owned file itself; the student does not type code; edits stay in the owned files | owned file, `reach check` clean |
@@ -148,7 +150,7 @@ Acceptance rubric. Mark each row pass or fail with the evidence named:
 | Install | the public ZIP installs with no GitHub login, no Git and no sudo; an existing install is backed up, not overwritten |
 | Truthful setup | a forced setup failure (for example an unwritable `CODEX_HOME`) exits nonzero and prints no installed or greeting text |
 | Introduction | the agent introduces rEach and loads its skill in the installing conversation |
-| Enroll | the student supplies the URL and code; readiness is reported only after Teach answered; a second use of the code is refused |
+| Enroll | rEach asks for the passkey, email, student ID and password itself and the agent never sees them; readiness is reported only after Teach answered |
 | Pre-enroll block | asking for coursework before enrolling is refused and pointed at `reach enroll` |
 | Workspace | README template, scenario names and `acceptance_mode` remote are present; no reference implementation or step definitions are readable |
 | Agent writes code | every code change is made by the agent; the student typed only decisions |
@@ -170,7 +172,7 @@ and a different physical device on the same WiFi as the student:
 2. If it times out, check the instructor machine's firewall and that both devices are on
    the same network, not a guest or client-isolated one; do not change the bind to a
    public interface.
-3. On the second device run the student session from turn 1, giving the LAN URL in turn 3.
+3. On the second device run the student session from turn 1, with `REACH_TEACH_URL` set to the LAN URL.
 4. Pass when enrollment, sync, submission and the grade receipt all complete over the LAN
    URL, and the receipt ids shown on the second device match the submissions and grades
    Teach lists on the instructor machine.
