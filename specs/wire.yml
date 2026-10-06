@@ -215,6 +215,46 @@ envelope:
     failure: >-
       Reach raises Reach::VerificationFailed and never writes any of the plaintext. Teach treats a submission or hand
       bundle that fails any step as a rejection (state rejected, code invalid_request) without storing plaintext.
+provenance:
+  W-PROV-1:
+    name: record shape
+    since: 2026-10-06b
+    rule: >-
+      A provenance record is the JSON object under the key provenance of one served item (a control of W-API-CONTROLS,
+      the test object of W-API-TEST-CURRENT, an announcement of W-API-ANNOUNCEMENTS, the body object of W-API-DIRECTIVE).
+      It has exactly the fields schema (the string teach.provenance/v1), class (control, test, information or rule), tier
+      (a tier id of the agent-control document), issuer (instructors or course), issued_at (W-CONV-3), expires_at
+      (W-CONV-3 or null), policy_version (W-CONV-4 digest of the bytes of the agent-control document in force on Teach),
+      signing_key_id (W-KEY-3) and signature (W-CONV-5). No field of the item is removed or renamed by its presence.
+  W-PROV-2:
+    name: signature
+    since: 2026-10-06b
+    rule: >-
+      signature is the W-CONV-6 signature, by the Teach signing key named in signing_key_id, over the W-CONV-2 canonical
+      JSON of the item with its provenance map present and its signature key removed. Reach verifies with the key of that
+      id in install.yml signing_public_keys (W-KEY-4) and, when the id is unknown, refreshes status once and tries again.
+  W-PROV-3:
+    name: classes, tiers, issuers and expiry per route
+    since: 2026-10-06b
+    table:
+      W-API-CONTROLS: {class: control, tier: control, issuer: instructors, issued_at: "the control's creation time", expires_at: "the control's ends_at"}
+      W-API-TEST-CURRENT: {class: test, tier: control, issuer: instructors, issued_at: "the test control's creation time", expires_at: "the control's window_end"}
+      W-API-ANNOUNCEMENTS: {class: information, tier: information, issuer: instructors, issued_at: "the announcement's sent_at", expires_at: "the announcement's show_until, or null"}
+      W-API-DIRECTIVE: {class: rule, tier: rule, issuer: course, issued_at: "the time of signing", expires_at: null}
+    note: >-
+      Class, tier and issuer are fixed per route by Teach. A Teach that predates the revision, or one that has
+      provenance switched off, sends no record; Reach ignores unknown fields, so an older Reach reads the same items as before.
+  W-PROV-4:
+    name: Reach use
+    since: 2026-10-06b
+    rule: >-
+      Reach verifies every record at fetch time, never inside a hook, and classifies the outcome as verified, missing
+      (no provenance map), invalid (wrong schema, unknown class or tier, unknown key or failed signature) or expired
+      (expires_at before server time). For a class listed under provenance.required in the agent-control document in
+      force (control and test in version 3), Reach stores and applies no item whose outcome is missing, invalid or
+      expired. Reach renders a verified item at the lower authority of the record's tier and the channel's ceiling in
+      that document, and never above the channel's own tier. Every outcome is recorded as W-DBG-KINDS provenance and the last
+      outcome per route is shown by reach doctor.
 tarball:
   W-TAR-1:
     name: format
@@ -990,10 +1030,11 @@ routes:
     method: GET
     path: /api/v1/directives/<OPCODE>
     auth: install
+    provenance: {since: 2026-10-06b, record: W-PROV-1, class: rule}
     query:
       cutout_id: {type: string, required: false}
       slice: {type: string, required: false}
-    response_200: {opcode: string, alias: string, rule: string, body: string, digest: string}
+    response_200: {opcode: string, alias: string, rule: string, body: string, digest: string, provenance: "since 2026-10-06b: W-PROV-1 record over this object, class rule"}
     notes: >-
       Since protocol 1 revision 2026-09-28c. The body of one private directive, served for this one request and
       never stored on the install; Reach asks in quick mode (one attempt, two-second timeouts, no retries) and shows
@@ -1372,8 +1413,9 @@ routes:
     method: GET
     path: /api/v1/announcements
     auth: install
+    provenance: {since: 2026-10-06b, record: W-PROV-1, class: information}
     response_200:
-      announcements: "[{id, audience, title, body, sent_at, show_until}], newest first, at most 50: every announcement an instructor has sent and not withdrawn whose audience holds the install's student. id matches ann_ and 20 lowercase hex characters; audience is course, group or student; title is at most 160 characters and body at most 4000, both plain text; sent_at is a W-CONV-3 timestamp. Since 2026-10-06a show_until is a W-CONV-3 timestamp or null, and Teach leaves out a row whose show_until has passed; a Teach that predates the revision sends no show_until"
+      announcements: "[{id, audience, title, body, sent_at, show_until}], newest first, at most 50: every announcement an instructor has sent and not withdrawn whose audience holds the install's student. id matches ann_ and 20 lowercase hex characters; audience is course, group or student; title is at most 160 characters and body at most 4000, both plain text; sent_at is a W-CONV-3 timestamp. Since 2026-10-06a show_until is a W-CONV-3 timestamp or null, and Teach leaves out a row whose show_until has passed; a Teach that predates the revision sends no show_until. Since 2026-10-06b each row carries provenance, a W-PROV-1 record of class information"
       server_time: W-CONV-3 timestamp
     errors:
       503 unavailable: "announcements are switched off on this course server (TEACH_ANNOUNCEMENTS_DISABLED); retry_after_seconds 300"
@@ -1411,8 +1453,9 @@ routes:
     method: GET
     path: /api/v1/controls
     auth: install
+    provenance: {since: 2026-10-06b, record: W-PROV-1, class: control}
     response_200:
-      controls: "[{id, kind, starts_at, ends_at, audience, test_id, time_limit_s}], every control that applies to the install's student and is active now or starts within 7 days. id matches ctl_ and 20 lowercase hex characters; kind is pause_course_work, hold_submissions or test; starts_at and ends_at are W-CONV-3 timestamps; audience is course, group or student; test_id and time_limit_s are present only when kind is test"
+      controls: "[{id, kind, starts_at, ends_at, audience, test_id, time_limit_s}], every control that applies to the install's student and is active now or starts within 7 days. id matches ctl_ and 20 lowercase hex characters; kind is pause_course_work, hold_submissions or test; starts_at and ends_at are W-CONV-3 timestamps; audience is course, group or student; test_id and time_limit_s are present only when kind is test. Since 2026-10-06b each control carries provenance, a W-PROV-1 record of class control"
       server_time: W-CONV-3 timestamp
       time_zone: "the course's IANA time zone, or null"
     errors:
@@ -1429,8 +1472,9 @@ routes:
     method: GET
     path: /api/v1/tests/current
     auth: install
+    provenance: {since: 2026-10-06b, record: W-PROV-1, class: test}
     response_200:
-      test: "null, or {control_id, test_id, title, window_end, time_limit_s, attempt} for the test control that applies to the install's student now; attempt is null or {id, opened_at, deadline_at, submitted_at}. Question text is never in this body"
+      test: "null, or {control_id, test_id, title, window_end, time_limit_s, attempt} for the test control that applies to the install's student now; attempt is null or {id, opened_at, deadline_at, submitted_at}. Question text is never in this body. Since 2026-10-06b the test object carries provenance, a W-PROV-1 record of class test"
       server_time: W-CONV-3 timestamp
     errors:
       503 unavailable: "tests are switched off on this course server; retry_after_seconds 300"
@@ -1603,12 +1647,13 @@ debug:
     - storage (since 2026-10-02d, W-DBG-KINDS-2: corpus_mb, brain_mb, total_mb, tier, outcome measured|warned|demanded|compact_started|compacted|compact_failed, before_mb and after_mb on compacted)
     - import (since 2026-10-02d, W-DBG-KINDS-2: vendor, mode brain|copy, outcome started|progress|finished|failed|cancelled, conversations, done, bytes, findings_queued)
     - control (since 2026-10-06a, W-DBG-KINDS-2: check, outcome, control_kind, message_id; outcome agent_control_fallback carries reason)
+    - provenance (since 2026-10-06b, W-DBG-KINDS-2: route, outcome verified|missing|invalid|expired, class, tier, effective_tier, policy_version, key_id, lowered true when the item was rendered below its record's tier)
   W-DBG-KINDS-2:
     rule: >-
-      Since revision 2026-10-02d, and for control since 2026-10-06a. Reach records storage, import and control events under those kinds only when the
+      Since revision 2026-10-02d, and for control since 2026-10-06a and provenance since 2026-10-06b. Reach records storage, import, control and provenance events under those kinds only when the
       wire_contract_sha256 Teach last advertised equals the digest of its own specs/wire.yml; otherwise it records them
       under kind brain with fields.event set to storage.<outcome> or import.<outcome>, so a Teach older than this
-      revision, which answers 400 to an unknown kind, never sees one. Neither kind carries a path, a file or
+      revision, which answers 400 to an unknown kind, never sees one. None of these kinds carries a path, a file or
       conversation name, a title or any text.
   W-DBG-SCRUB:
     rule: >-

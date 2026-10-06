@@ -21,8 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `specs/wire.yml` is at revision 2026-10-06c; Teach 0.65.1 carries the same pinned copy and takes the version of a
-  fault report from these fields alone.
+- `specs/wire.yml` is at revision 2026-10-06c; Teach 0.66.1 carries the same pinned copy and takes the version of a
+  fault report from these fields alone. The canonical copy now also carries the provenance rules of revision
+  2026-10-06b (`W-PROV-1` onward) that Teach pinned in 0.65.0, so the two digests agree again; rEach 0.38.7 does not
+  yet verify provenance records.
 
 Verified on Linux, Ruby 3.3, in scratch homes with `REACH_OFFLINE=1` and an injected fault in `hello`: a fault
 recorded by a 0.38.6 copy and flushed by a 0.38.8 copy produced a bundle with `environment.reach_version` null and
