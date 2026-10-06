@@ -1570,25 +1570,27 @@ module Reach
         case sub
         when "raise"
           include_profile, args = parse_bare_flag(args, "include-profile")
-          options, _remaining = parse_flags(args, [:type, :trigger, :summary, :slice])
+          options, _remaining = parse_flags(args, [:type, :trigger, :summary, :slice, :last_step, :saw])
           unless options[:summary]
-            warn "usage: reach hand raise --summary <text> [--type student_request] [--slice <id>] [--include-profile]"
+            warn "usage: reach hand raise --summary <text> [--type student_request] [--slice <id>] [--last-step <text>] [--saw <text>] [--include-profile]"
             return 1
           end
           record = Reach::Hands.raise_record(
             trigger: options[:type] || options[:trigger] || Reach::Hands::STUDENT_REQUEST,
             summary: options[:summary],
             slice: default_slice_id(options[:slice]),
-            include_profile: include_profile
+            include_profile: include_profile,
+            last_step: options[:last_step],
+            saw: options[:saw]
           )
           if record["refused"]
-            raise Reach::Refused, Reach::Messages.text("M-HAND-REFUSED", reason: record["refused"]["message"])
+            raise Reach::Refused, Reach::Hands.refused_text(record["refused"]["message"])
           end
 
           if record["queued"]
-            puts Reach::Messages.text("M-HAND-QUEUED")
+            puts Reach::Hands.queued_text
           else
-            puts "Hand raised: #{record['hand_id']}"
+            puts Reach::Hands.sent_text(record["hand_id"])
           end
           0
         when "late"

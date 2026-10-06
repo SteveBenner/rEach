@@ -54,6 +54,11 @@ module Reach
       value.empty? ? nil : value
     end
 
+    def support_contact
+      value = section("support")["contact_text"].to_s.strip
+      value.empty? ? nil : value
+    end
+
     def hint(hints, name)
       value = hints.is_a?(Hash) ? hints[name.to_s].to_s.strip : ""
       value.empty? ? "" : " #{value}"

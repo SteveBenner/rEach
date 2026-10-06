@@ -26,15 +26,37 @@ module Reach
     TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES).freeze
     SUMMARY_LIMIT = 2000
     TECHNICAL_TYPES = %w[technical_issue setup_issue access_issue].freeze
+    FIELD_LIMIT = 1000
+    LEFT_OUT = "[left out]".freeze
+    SECRET_LABEL = /(\b(?:password|passkey|passcode|pwd)\b\s*(?:\bis\b\s*)?[:=]?\s*)(["'`]?)([^\s"'`]+)\2/i.freeze
+    CODE_WORD = /[A-Za-z0-9]+/.freeze
+    CODE_WINDOW_MAX = 3
 
     class << self
-      def raise_hand(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
+      def raise_hand(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {}, last_step: nil, saw: nil)
         record = raise_record(trigger: trigger, summary: summary, slice: slice, include_profile: include_profile,
-                              originator: originator, details: details)
+                              originator: originator, details: details, last_step: last_step, saw: saw)
         refused = record["refused"]
-        raise Reach::Refused, Reach::Messages.text("M-HAND-REFUSED", reason: refused["message"]) if refused
+        raise Reach::Refused, refused_text(refused["message"]) if refused
 
         record["hand_id"]
+      end
+
+      def contact_text
+        contact = Reach::CourseProfile.support_contact
+        contact ? Reach::Messages.text("M-HAND-CONTACT", contact_text: contact) : ""
+      end
+
+      def refused_text(reason)
+        Reach::Messages.text("M-HAND-REFUSED", reason: reason, contact: contact_text)
+      end
+
+      def queued_text
+        Reach::Messages.text("M-HAND-QUEUED", contact: contact_text)
+      end
+
+      def sent_text(hand_id)
+        Reach::Messages.text("M-HAND-SENT", hand_id: hand_id)
       end
 
       def validate_type!(type)
@@ -51,8 +73,9 @@ module Reach
         [STUDENT_REQUEST, "[#{type}] #{summary}"]
       end
 
-      def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {})
-        details = (details || {}).merge("technical" => TECHNICAL_TYPES.include?(trigger.to_s))
+      def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {}, last_step: nil, saw: nil)
+        details = (details || {}).merge("technical" => TECHNICAL_TYPES.include?(trigger.to_s),
+                                        "last_step" => last_step, "saw" => saw)
         trigger, summary = wire_type(trigger, summary)
         workspace = resolve_workspace(slice)
         meta = Reach::Workspace.metadata(workspace)
@@ -68,7 +91,7 @@ module Reach
           "slice" => meta["slice"],
           "trigger" => trigger.to_s,
           "originator" => originator.to_s,
-          "summary" => truncate_summary(summary.to_s),
+          "summary" => truncate_summary(scrub(summary.to_s, install)),
           "bundle" => envelope
         }
         outbox_path = write_outbox(idempotency_key, ROUTE, body, File.basename(workspace), bundle["hand_ref"])
@@ -243,6 +266,8 @@ module Reach
           "tests" => Reach::Qualify.test_files(workspace).map { |relative, data| [relative, data.dup.force_encoding(Encoding::UTF_8).scrub] }.to_h,
           "last_output" => last_output(qualification),
           "agent_summary" => cut(details["agent_summary"] || summary.to_s, 4000),
+          "last_step_ok" => field_text(details["last_step"]),
+          "student_saw" => field_text(details["saw"]),
           "student_last_request" => nil,
           "environment" => {
             "reach_version" => Reach::VERSION,
@@ -260,7 +285,17 @@ module Reach
           bundle["capsule"] = Reach::Capsule.build
           bundle["signature_hint"] = Reach::Issues.recent_signature
         end
-        fit(bundle)
+        fit(redact_bundle(bundle, Reach::Enroll.current))
+      end
+
+      def scrub(text, install = Reach::Enroll.current)
+        value = text.to_s.dup.force_encoding(Encoding::UTF_8).scrub
+        value = value.gsub(SECRET_LABEL) { "#{Regexp.last_match(1)}#{LEFT_OUT}" }
+        value = scrub_codes(value)
+        known_secrets(install).each do |secret|
+          value = value.gsub(/(?<![A-Za-z0-9])#{Regexp.escape(secret)}(?![A-Za-z0-9])/, LEFT_OUT)
+        end
+        value
       end
 
       def seal_bundle(install, meta, tar_bytes)
@@ -268,6 +303,67 @@ module Reach
       end
 
       private
+
+      def field_text(value)
+        return nil if value.nil?
+
+        text = cut(value.to_s.strip, FIELD_LIMIT)
+        text.empty? ? nil : text
+      end
+
+      def known_secrets(install)
+        list = []
+        list << install["student_id"].to_s.strip if install.is_a?(Hash)
+        list.reject { |secret| secret.empty? }.uniq
+      end
+
+      def scrub_codes(text)
+        spans = text.to_enum(:scan, CODE_WORD).map { Regexp.last_match.then { |m| [m.begin(0), m.end(0)] } }
+        covered = []
+        index = 0
+        while index < spans.length
+          hit = nil
+          CODE_WINDOW_MAX.downto(1) do |count|
+            last = spans[index + count - 1]
+            next unless last
+
+            hit = [index, index + count - 1] if Reach::Identity.parse_course_code(text[spans[index][0]...last[1]])
+            break if hit
+          end
+          if hit
+            first, last = hit
+            first += 1 while first < last && Reach::Identity.parse_course_code(text[spans[first + 1][0]...spans[last][1]])
+            last -= 1 while first < last && Reach::Identity.parse_course_code(text[spans[first][0]...spans[last - 1][1]])
+            covered << [spans[first][0], spans[last][1]]
+            index = last + 1
+          else
+            index += 1
+          end
+        end
+        result = text.dup
+        covered.reverse_each { |from, upto| result[from...upto] = LEFT_OUT }
+        result
+      end
+
+      def redact_bundle(bundle, install)
+        bundle["task"]["description"] = scrub(bundle["task"]["description"], install) if bundle["task"].is_a?(Hash) && bundle["task"]["description"]
+        %w[agent_summary last_step_ok student_saw].each do |key|
+          bundle[key] = scrub(bundle[key], install) unless bundle[key].nil?
+        end
+        bundle["last_output"] = scrub_tree(bundle["last_output"], install)
+        attempts = bundle["attempts"]
+        attempts["history"] = scrub_tree(attempts["history"], install) if attempts.is_a?(Hash)
+        bundle
+      end
+
+      def scrub_tree(value, install)
+        case value
+        when String then scrub(value, install)
+        when Array then value.map { |item| scrub_tree(item, install) }
+        when Hash then value.transform_values { |item| scrub_tree(item, install) }
+        else value
+        end
+      end
 
       def attach_ladder(hand_ref, hand_id)
         return if hand_ref.nil?

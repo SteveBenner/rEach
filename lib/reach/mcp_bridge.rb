@@ -68,7 +68,9 @@ module Reach
             "summary" => { "type" => "string" },
             "type" => { "type" => "string", "enum" => Reach::Hands::AGENT_TYPES },
             "trigger" => { "type" => "string", "description" => "An older name for type" },
-            "slice" => { "type" => "string" }
+            "slice" => { "type" => "string" },
+            "last_step" => { "type" => "string", "description" => "The last step that worked, in the student's words; at most 1000 bytes; never a password, passkey or student ID" },
+            "saw" => { "type" => "string", "description" => "What the student saw, in the student's words; at most 1000 bytes; never a password, passkey or student ID" }
           },
           "required" => ["summary"]
         }
@@ -605,14 +607,17 @@ module Reach
           record = Reach::Hands.raise_record(
             trigger: arguments["type"] || arguments["trigger"] || Reach::Hands::STUDENT_REQUEST,
             summary: arguments.fetch("summary"),
-            slice: slice_argument(arguments)
+            slice: slice_argument(arguments),
+            last_step: arguments["last_step"],
+            saw: arguments["saw"]
           )
           if record["refused"]
-            raise Reach::Refused, Reach::Messages.text("M-HAND-REFUSED", reason: record["refused"]["message"])
+            raise Reach::Refused, Reach::Hands.refused_text(record["refused"]["message"])
           end
 
           result = { "hand_id" => record["hand_id"], "queued" => record["queued"] == true }
-          result = result.merge("text" => Reach::Messages.text("M-HAND-QUEUED"), "relay_verbatim" => true) if result["queued"]
+          result = result.merge("text" => Reach::Hands.queued_text, "relay_verbatim" => true) if result["queued"]
+          result = result.merge("text" => Reach::Hands.sent_text(record["hand_id"]), "relay_verbatim" => true) if record["hand_id"]
           result
         when "reach_hand_status"
           Reach::Hands.status(arguments.fetch("hand_id"))

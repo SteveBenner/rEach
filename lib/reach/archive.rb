@@ -164,9 +164,17 @@ module Reach
     end
 
     def base_name(meta)
-      course = clean(meta["course"])
       assignment = clean(meta["assignment"])
-      "#{course}-#{assignment}-#{Reach::CourseTime.stamp(Time.now)}"
+      user = clean(student_local_part)
+      day = Reach::CourseTime.stamp(Time.now)[0, 10].delete("-")
+      "#{assignment}-#{user}-#{day}"
+    end
+
+    def student_local_part
+      install = Reach::Enroll.current
+      name = install.is_a?(Hash) ? install["username"].to_s.strip : ""
+      local = name.split("@").first.to_s
+      local.empty? ? "student" : local
     end
 
     def clean(value)

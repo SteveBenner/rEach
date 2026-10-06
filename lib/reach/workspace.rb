@@ -167,7 +167,7 @@ module Reach
       meta = metadata(workspace_path)
       latest = Reach::Receipts.latest_for(cutout_id: meta["cutout_id"], slice: meta["slice"])
       return "graded" if latest && latest["kind"] == "grade"
-      return "received" if latest && latest["kind"] == "ingest"
+      return "submitted" if latest && latest["kind"] == "ingest"
       return "in progress" unless changed_owned_files(workspace_path).empty?
 
       "not started yet"

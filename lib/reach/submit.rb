@@ -49,6 +49,7 @@ module Reach
           response = client(install).post_json(ROUTE, body, idempotency_key: idempotency_key)
           result = handle_response(response.json || {})
           result = result.merge("archive" => Reach::Archive.write!(workspace, meta)) if result["state"] == "ingested"
+          result = result.merge("text" => student_text(result)) if result["state"] == "ingested"
           FileUtils.rm_f(outbox_path)
           Reach::Debug.submit(result)
           result
@@ -103,6 +104,7 @@ module Reach
             if entry["kind"] == "submission"
               handled = handle_response(body)
               handled = handled.merge("archive" => archive_for_outbox(entry["workspace"])) if handled["state"] == "ingested" && entry["workspace"]
+              handled = handled.merge("text" => student_text(handled)) if handled["state"] == "ingested"
               results << handled
             elsif entry["kind"] == "integrity"
               results << { "state" => "sent", "event_id" => body["event_id"] }
@@ -119,6 +121,16 @@ module Reach
           end
         end
         results
+      end
+
+      def student_text(result)
+        receipt = result["receipt"].is_a?(Hash) ? result["receipt"] : {}
+        received = Reach::Messages.text(
+          "M-SUBMIT-RECEIVED",
+          slice: receipt["slice"], cutout: receipt["cutout_id"], time: Reach::Messages.course_time(receipt["received_at"])
+        )
+        rest = followup_text(result).lines.map(&:chomp).reject(&:empty?)
+        ["#{received} #{rest.shift}".strip, *rest].join("\n")
       end
 
       def followup_text(result)

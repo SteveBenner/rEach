@@ -528,7 +528,7 @@ module Reach
       end
 
       def render_text(record)
-        lines = []
+        lines = [summary_line(record)]
         lines << record["notice"] if record["notice"]
         lines << record["next"] if record["next"]
         lines << "Qualification attempt #{record['attempt']} for #{record['slice']}"
@@ -547,10 +547,38 @@ module Reach
           parts = [finding["code"], finding["name"], finding["step"], finding["detail"]].compact.map(&:to_s).reject(&:empty?)
           lines << "  #{parts.join(' | ')}"
         end
-        lines << (record["passed"] ? "Qualified." : (record["pending"] ? "Waiting for the course server." : "Not qualified."))
         ladder = record["ladder"]
         lines << ladder["message"] if ladder && ladder["message"]
         lines.join("\n")
+      end
+
+      def summary_line(record)
+        steps = record["steps"].is_a?(Hash) ? record["steps"] : {}
+        verdict = record["passed"] ? "Qualified." : (record["pending"] ? "Waiting for the course server." : "Not qualified.")
+        [
+          "reach qualify",
+          "check #{step_word(steps["check"])}",
+          "coverage #{step_word(steps["coverage"])}",
+          "local #{local_word(steps)}",
+          "course server #{step_word(steps["remote"])}",
+          verdict
+        ].join(" \u00b7 ")
+      end
+
+      def step_word(step)
+        return "not run" unless step.is_a?(Hash)
+        return "pending" unless step["ran"]
+
+        step["passed"] ? "passed" : "failed"
+      end
+
+      def local_word(steps)
+        words = [steps["local_pass"], steps["local_stub"]].map { |step| step_word(step) }
+        return "not run" if words.all? { |word| word == "not run" }
+        return "failed" if words.include?("failed")
+        return "passed" if words.all? { |word| word == "passed" }
+
+        "pending"
       end
     end
   end

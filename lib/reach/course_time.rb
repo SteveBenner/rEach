@@ -5,6 +5,8 @@ module Reach
   module CourseTime
     DEFAULT_ZONE = "UTC"
     PACIFIC_ZONE = "America/Los_Angeles"
+    DATE_FORMAT = "%b %-d, %Y".freeze
+    INSTANT_FORMAT = "%b %-d, %Y %-l:%M %p".freeze
 
     class << self
       def zone
@@ -32,11 +34,24 @@ module Reach
         return "" if text && text.strip.empty?
 
         if text && text.match?(/\A\d{4}-\d{2}-\d{2}\z/)
-          return Date.strptime(text, "%Y-%m-%d").strftime("%a %-d %b")
+          return Date.strptime(text, "%Y-%m-%d").strftime(DATE_FORMAT)
         end
 
         instant = value.is_a?(Time) ? value : Time.parse(text)
-        format_instant(instant, zone || self.zone)
+        render(instant, zone || self.zone, INSTANT_FORMAT, true)
+      rescue ArgumentError, TypeError
+        ""
+      end
+
+      def date(value, zone: nil)
+        return "" if value.nil?
+
+        text = value.is_a?(Time) ? nil : value.to_s
+        return "" if text && text.strip.empty?
+        return Date.strptime(text, "%Y-%m-%d").strftime(DATE_FORMAT) if text && text.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
+        instant = value.is_a?(Time) ? value : Time.parse(text)
+        render(instant, zone || self.zone, DATE_FORMAT, false)
       rescue ArgumentError, TypeError
         ""
       end
@@ -77,23 +92,23 @@ module Reach
         end
       end
 
-      def format_instant(instant, zone_name)
+      def render(instant, zone_name, pattern, labelled)
         if zone_name == PACIFIC_ZONE
-          format_pacific(instant)
+          render_pacific(instant, pattern, labelled)
         elsif zone_name == DEFAULT_ZONE
-          "#{instant.getutc.strftime("%a %-d %b %-l:%M %P")} UTC"
+          text = instant.getutc.strftime(pattern)
+          labelled ? "#{text} UTC" : text
         else
-          format_other(instant, zone_name)
+          render_other(instant, zone_name, pattern, labelled)
         end
       end
 
-      def format_pacific(instant)
+      def render_pacific(instant, pattern, labelled)
         utc = instant.utc
         dst = pacific_dst?(utc)
-        offset_h = dst ? -7 : -8
-        label = dst ? "PDT" : "PST"
-        shifted = (utc + (offset_h * 3600)).utc
-        "#{shifted.strftime("%a %-d %b %-l:%M %P")} #{label}"
+        shifted = (utc + ((dst ? -7 : -8) * 3600)).utc
+        text = shifted.strftime(pattern)
+        labelled ? "#{text} #{dst ? "PDT" : "PST"}" : text
       end
 
       def pacific_dst?(utc)
@@ -115,15 +130,16 @@ module Reach
         Time.utc(year, 11, first_sunday, 9, 0, 0)
       end
 
-      def format_other(instant, zone_name)
+      def render_other(instant, zone_name, pattern, labelled)
+        full = labelled ? "#{pattern} %Z" : pattern
         zoneinfo = "/usr/share/zoneinfo/#{zone_name}"
-        return instant.localtime.strftime("%a %-d %b %-l:%M %P %Z") unless File.file?(zoneinfo)
+        return instant.localtime.strftime(full) unless File.file?(zoneinfo)
 
         had_tz = ENV.key?("TZ")
         previous_tz = ENV["TZ"]
         begin
           ENV["TZ"] = zone_name
-          Time.at(instant.to_r).localtime.strftime("%a %-d %b %-l:%M %P %Z")
+          Time.at(instant.to_r).localtime.strftime(full)
         ensure
           if had_tz
             ENV["TZ"] = previous_tz
