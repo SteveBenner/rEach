@@ -16,6 +16,7 @@ module Reach
     PUBLIC_ALIASES = ("A".."M").to_a.freeze
     PRIVATE_ALIASES = ("N".."Z").to_a.freeze
     POINTER_SENTENCE = "Every row binds. When a row's condition applies, run `reach directive <OPCODE>` (or the reach_directive tool) and follow the full text. Rows cover different surfaces and do not override one another; the numbered rules above come first.".freeze
+    POINTER_SENTENCE_RENDERED = "Every row binds. When a row's condition applies, run `reach directive <OPCODE>` (or the reach_directive tool) and follow the full text. Rows cover different surfaces and do not override one another.".freeze
 
     module_function
 
@@ -65,8 +66,12 @@ module Reach
         lines.concat(public_lines)
         lines << ""
       end
-      lines << POINTER_SENTENCE unless private_lines.empty? && public_lines.empty?
+      lines << pointer_sentence unless private_lines.empty? && public_lines.empty?
       lines.join("\n")
+    end
+
+    def pointer_sentence
+      Reach::AgentControl.flag?("render") ? POINTER_SENTENCE_RENDERED : POINTER_SENTENCE
     end
 
     def render_row(row)
