@@ -50,7 +50,9 @@ Research: the 58 papers behind these decisions are summarized in the superprojec
 
 **Given up.** An envelope on every route the course server serves.
 
-**Toggle.** Build for the envelope shape; config for the ceilings.
+**Scope of the first pass (2026-10-06).** In the code and on the wire the envelope is called a provenance record, because envelope already names the sealed package format in both programs. The first pass signs the items rEach frames: each control, the current test, each announcement and each private directive body. The status body, the known-issues list and the instructor keyring stay unsigned until the release manifest (Phase 4), because status carries the signing keys themselves and signing it needs the key-rotation chain designed first; until then those three are trusted as they are today, over TLS. Controls and tests require a verified record from the first release; information does not, so a server that sends no records still delivers announcements.
+
+**Toggle.** Build for the envelope shape; config for the ceilings and for which classes require a record (control and test by default).
 
 ## D4. A 2.6 shim over a Ruby 4 core
 
