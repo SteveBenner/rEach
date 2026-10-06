@@ -1,5 +1,6 @@
 /.githooks export-ignore
 /.github export-ignore
+/assets export-ignore
 /tools export-ignore
 /docs/smoke-assignment-1.md export-ignore
 /docs/deploy-and-test.md export-ignore

@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.5] - 2026-10-06
+
+### Added
+
+- The new rEach logo in `assets/logo/`: the wordmark in blue for light backgrounds (`reach-logo-blue.png`) and in
+  white for dark ones (`reach-logo-white.png`), and five pictures of a human hand and a robotic hand reaching
+  toward each other with the wordmark placed bottom center, bottom right or top left, in white or blue
+  (`reach-hands-*.png`). The PNGs are losslessly recompressed and pixel for pixel the same as the originals, and
+  their provenance is in `docs/assets/provenance.json`.
+
+### Changed
+
+- `README.md` opens with `assets/logo/reach-hands-white-bottom-center.png` instead of the cosmic SVG banner.
+  `docs/assets/reach-logo.svg` and `reach-banner.svg` stay for the pages that already use them.
+- `.gitattributes` marks `assets/` export-ignore, so the release archives that the installer and `reach update`
+  download carry none of the 12 MB of artwork.
+
 ## [0.38.4] - 2026-10-06
 
 ### Changed
