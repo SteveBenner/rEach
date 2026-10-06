@@ -246,7 +246,7 @@ messages:
   M-TRANSFER-DENIED: "Your professor didn't approve the move, so your modules stay {modules}. Their note: {reply}"
   M-TRANSFER-SAME: "Those are already your modules."
   M-TRANSFER-OFF: "Module moves can't be requested through rEach in this course. Please talk to your instructor directly."
-  M-CONSENT-NEEDED: "The student hasn't answered yet. Relay this question exactly and wait for their answer; Reach acts on the answer itself: {question}"
+  M-CONSENT-NEEDED: "The student hasn't answered yet. Relay this question exactly and wait for their answer; Reach acts on the answer itself. Nothing is decided until Reach says so, so do not save this to memory as the student's choice: {question}"
   M-CONSENT-OPEN: "A question is still open for the student ({message_id}, about {subject}). Relay it exactly and wait for their answer instead of asking your own question: {question}"
   M-CONSENT-DECLINED: "The student said no, so nothing was sent."
   M-CONSENT-DONE: "The student answered {answer} to Reach's question, and Reach has already acted on it. Give the student this word for word and do not run the command again: {text}"

@@ -431,19 +431,39 @@ module Reach
     end
 
     def profile_dirs(root, info)
+      built = built_profiles(root)
       Array(info["profiles"]).map do |profile|
         lock = profile["lock_sha256"].to_s
         next nil if lock.length < 12
 
         dir = File.join(root, "gems", lock[0, 12])
+        dir = built_dir(root, built, profile["name"]) || dir unless File.directory?(dir)
         { "name" => profile["name"], "lock_sha256" => lock, "dir" => dir }
       end.compact
+    end
+
+    def built_profiles(root)
+      info = JSON.parse(File.read(File.join(root, "BUILD.json")))
+      info.is_a?(Hash) ? Array(info["profiles"]).select { |profile| profile.is_a?(Hash) } : []
+    rescue JSON::ParserError, SystemCallError
+      []
+    end
+
+    def built_dir(root, built, name)
+      profile = built.find { |entry| !name.to_s.empty? && entry["name"] == name }
+      return nil unless profile
+
+      lock = (profile["lock12"] || profile["lock_sha256"]).to_s
+      return nil if lock.length < 12
+
+      dir = File.join(root, "gems", lock[0, 12])
+      File.directory?(dir) ? dir : nil
     end
 
     def lock_digests(lock_bytes)
       lf = lock_bytes.to_s.b.gsub("\r\n".b, "\n".b)
       crlf = lf.gsub("\n".b, "\r\n".b)
-      [lf, crlf].map { |bytes| Digest::SHA256.hexdigest(bytes) }.uniq
+      [lock_bytes.to_s.b, lf, crlf].map { |bytes| Digest::SHA256.hexdigest(bytes) }.uniq
     end
 
     def gems_for(lock_bytes)

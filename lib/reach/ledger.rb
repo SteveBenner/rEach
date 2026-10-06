@@ -67,6 +67,7 @@ module Reach
 
       split_if_large(workspace)
       Reach::Sidecar.update_head(File.basename(workspace), record["tag"], record["n"])
+      Reach::Progress.assignment_started(workspace)
       record
     rescue StandardError
       nil

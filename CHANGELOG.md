@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.22] - 2026-10-05
+
+### Fixed
+
+- On Windows `reach qualify` still compiled ffi from source after 0.35.18: the runtime-4.0.7-r3 Windows kit keeps
+  its gems in `gems/425419d6dd75` (the CRLF hash of the lock) while its manifest and `.complete` carry the LF hash
+  `aa2ee347cf56`, so `gems_for` matched the profile but found no folder. `Reach::RuntimeKit.profile_dirs` now falls
+  back to the folder the kit's own `BUILD.json` names for the profile of the same name, and the lock also matches on
+  its raw bytes (`STD-KIT-LOCK-MATCH`). Existing kits work without a rebuild.
+- "A1 started" never reached Teach for Codex chats, which run from the course root, because the mark was made only
+  when a prompt passed inside a slice workspace. `Reach::Ledger.append` now marks `<assignment>.started` whenever it
+  records anything for a slice, and `Reach::Progress.flush!` backfills it from the first ledger record of each
+  current slice at that record's time, so students who already started are reported at their next sync
+  (`STD-PROGRESS`). No Teach change.
+- A module pair the agent saved to memory while Reach's lock-in question was still open stayed in memory as the
+  student's choice after a different pair was locked. A successful lock now records "The student's modules are
+  locked in: X and Y." and supersedes a decision memory that names a module that was not locked
+  (`Reach::Modules.settle_memory`), and `M-CONSENT-NEEDED` tells the agent nothing is decided until Reach says so
+  and not to save it to memory (`STD-MODULES-LOCK-SYNC`).
+- Ported from the October 5 Windows fix bundles; the bundle's consent-binding change is not ported because 0.35.18
+  already binds a pending question to the session that asked it.
+
 ## [0.35.21] - 2026-10-05
 
 ### Added

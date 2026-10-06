@@ -234,12 +234,36 @@ module Reach
       case outcome[:state]
       when :locked
         spawn_sync
+        settle_memory(outcome[:record])
         { "state" => "locked", "text" => Reach::Messages.text("M-MODULES-LOCKED", modules: names(outcome[:record]["modules"])) }
       when :already
         { "state" => "refused", "text" => Reach::Messages.text("M-MODULES-ALREADY", modules: names(module_ids)) }
       else
         { "state" => "queued", "text" => Reach::Messages.text("M-MODULES-PENDING") }
       end
+    end
+
+    def settle_memory(record)
+      locked = Array(record && record["modules"]).map(&:to_s)
+      return nil if locked.empty?
+
+      data = options_data
+      titles = {}
+      Array(data && data["options"]).each do |option|
+        titles[option["id"].to_s] = option["title"].to_s if option.is_a?(Hash) && !option["title"].to_s.empty?
+      end
+      stale = Reach::Brain.list(category: "decision", limit: 200).select do |row|
+        named = titles.select { |_id, title| row["claim"].to_s.match?(/\b#{Regexp.escape(title)}\b/) }.keys
+        named.length >= 2 && !(named - locked).empty?
+      end.map { |row| row["id"] }
+      Reach::Brain.remember(
+        category: "decision", claim: "The student's modules are locked in: #{names(locked)}.",
+        evidence: "Course record #{record["record_id"]}, issued #{record["issued_at"]}.", supersedes: stale.first
+      )
+      Reach::Brain.forget(ids: stale.drop(1)) if stale.length > 1
+      nil
+    rescue StandardError
+      nil
     end
 
     def spawn_sync

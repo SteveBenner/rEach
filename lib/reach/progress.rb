@@ -72,13 +72,24 @@ module Reach
       nil
     end
 
-    def assignment_started(workspace)
+    def assignment_started(workspace, at: Time.now.utc)
       return nil if workspace.nil?
 
       assignment = Reach::Workspace.metadata(workspace)["assignment"].to_s
       return nil unless ASSIGNMENT_PATTERN.match?(assignment)
 
-      mark("#{assignment}.started")
+      mark("#{assignment}.started", at: at)
+    rescue StandardError
+      nil
+    end
+
+    def backfill_started
+      first_work = Reach::Workspace.current_slices.map do |workspace|
+        record = Reach::Ledger.records(workspace).first
+        record ? [workspace, Time.iso8601(record["at"].to_s)] : nil
+      end.compact
+      first_work.sort_by(&:last).each { |workspace, at| assignment_started(workspace, at: at) }
+      nil
     rescue StandardError
       nil
     end
@@ -89,6 +100,7 @@ module Reach
       install = Reach::Enroll.current
       return nil unless install
 
+      backfill_started
       data = read
       pending = data["reached"].reject { |id, _| data["sent"].include?(id) }.first(MAX_BATCH)
       return nil if pending.empty?
