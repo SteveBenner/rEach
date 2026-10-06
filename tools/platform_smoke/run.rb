@@ -14,9 +14,9 @@ module PlatformSmoke
   ROOT = File.expand_path("../..", __dir__)
   COURSE_CODE = "BUS101-K7QX-94TD".freeze
   TEST_PASSWORD = "smoke-test-password-1".freeze
-  USERNAME = "mdel101".freeze
+  USERNAME = "mdelgado".freeze
   STUDENT_NAME = "Maria Delgado".freeze
-  STUDENT_ID = "1040217".freeze
+  STUDENT_ID = "20410217".freeze
   RUNTIME_ID = "4.0.7-r3".freeze
   RUNTIME_RUBY = "4.0.7".freeze
   BLOCK_EXIT = 2

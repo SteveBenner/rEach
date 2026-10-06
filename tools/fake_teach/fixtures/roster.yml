@@ -1,17 +1,17 @@
 rosters:
   BUS101:
-    - username: mdel101@school.example
-      student_id: "1040217"
+    - username: mdelgado@school.example
+      student_id: "20410217"
       display_name: Maria Delgado
-    - username: joka204@school.example
-      student_id: "1040358"
+    - username: jokafor@school.example
+      student_id: "20410358"
       display_name: James Okafor
-    - username: pram317@school.example
-      student_id: "1040471"
+    - username: praman@school.example
+      student_id: "20410471"
       display_name: Priya Raman
-    - username: hwhi418@school.example
-      student_id: "1040592"
+    - username: hwhitfield@school.example
+      student_id: "20410592"
       display_name: Hannah Whitfield
-    - username: tbre529@school.example
-      student_id: "1040634"
+    - username: tbrennan@school.example
+      student_id: "20410634"
       display_name: Tomas Brennan

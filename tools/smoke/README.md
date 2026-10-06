@@ -142,9 +142,8 @@ Enrollment follows the Teach 0.17 flow in both drivers: `teach roster import --c
 FILE.csv` (columns `student_id,username,display_name,group`), `teach course code mint
 --course ID` for the class-wide course code, then `reach enroll --course-code C --username U
 --student-id I --password-stdin` with an 8 to 256 character password on stdin. The synthetic
-student is `smok001` with ID `1000001` (the course policy wants a 6 or 7 digit ID and a
-four-letter, three-digit username). The step `enroll-wrong-student-id-refused` enrolls the
-same username with a different ID from a second Reach home and expects the refusal and no
+student is `smok001` with ID `1000001` (chosen to fit the course's identity rules). The step
+`enroll-wrong-student-id-refused` enrolls the same username with a different ID from a second Reach home and expects the refusal and no
 second install. The course code and password are kept in the drivers' redaction list. It writes `summary.json`
 and `summary.md` under `~/.cache/reach-smoke/a1/<timestamp>/`. Its reference steps are
 `reference-pack`, `reference-locked-before-enroll`, `reference-after-sync` and

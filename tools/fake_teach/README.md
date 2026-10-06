@@ -43,17 +43,17 @@ BUS101 roster (`fixtures/roster.yml`, fictional people):
 
 | Username | Student id | Name |
 | --- | --- | --- |
-| mdel101@school.example | 1040217 | Maria Delgado |
-| joka204@school.example | 1040358 | James Okafor |
-| pram317@school.example | 1040471 | Priya Raman |
-| hwhi418@school.example | 1040592 | Hannah Whitfield |
-| tbre529@school.example | 1040634 | Tomas Brennan |
+| mdelgado@school.example | 20410217 | Maria Delgado |
+| jokafor@school.example | 20410358 | James Okafor |
+| praman@school.example | 20410471 | Priya Raman |
+| hwhitfield@school.example | 20410592 | Hannah Whitfield |
+| tbrennan@school.example | 20410634 | Tomas Brennan |
 
 ## Point Reach at it
 
     export REACH_HOME="$(mktemp -d)"
     export REACH_TEACH_URL=http://127.0.0.1:9480
-    ruby exe/reach enroll --course-code BUS101-K7QX-94TD --username mdel101 --student-id 1040217 --password-stdin --teach-url "$REACH_TEACH_URL" <<< "choose-a-password"
+    ruby exe/reach enroll --course-code BUS101-K7QX-94TD --username mdelgado --student-id 20410217 --password-stdin --teach-url "$REACH_TEACH_URL" <<< "choose-a-password"
 
 The fake refuses a shape v2 enrollment whose password is missing or not 8 to 256 characters, and never stores or logs it.
 

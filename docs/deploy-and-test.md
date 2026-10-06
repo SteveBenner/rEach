@@ -40,7 +40,7 @@ Check the fixture answers:
 
 Enroll the fictional student Maria Delgado. A student would be asked for these one at a time by rEach's prompt hook; the flags are the terminal form:
 
-    ruby exe/reach enroll --course-passkey BUS101-K7QX-94TD --username mdel101 --student-id 1040217 \
+    ruby exe/reach enroll --course-passkey BUS101-K7QX-94TD --username mdelgado --student-id 20410217 \
       --password-stdin --teach-url "$REACH_TEACH_URL" <<< "choose-a-password"
 
     You're connected to Business 101: Demo Course. rEach is fetching your course materials now.

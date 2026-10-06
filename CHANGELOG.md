@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.3] - 2026-10-06
+
+### Changed
+
+- The examples and fake Teach fixtures no longer follow one school's identity scheme. The wire spec example, the
+  fake Teach course rules and the identities in its roster, the deploy guide and the platform and sandbox probes use
+  generic rules (a username of letters, digits, dots, underscores or hyphens; a student ID of 5 to 10 digits) and
+  first-initial-and-surname usernames with eight-digit IDs.
+- Earlier changelog and feature entries no longer give the ID lengths and username shape of the school rEach was
+  first used at, nor the identities used to check enrollment against a live course server.
+
 ## [0.38.2] - 2026-10-06
 
 ### Changed
@@ -2094,11 +2105,11 @@ Not released: the release security audit found the two problems fixed in 0.35.6.
   argument (`lib/reach/mcp_bridge.rb`), `reach help` and the enroll usage line no longer list `--teach-url` (it stays
   an unlisted operator override, like `REACH_TEACH_URL`), and with no URL configured the enrollment flow and
   `reach enroll` say to run `reach update` instead of naming a missing address.
-- `config.yml` enrollment identity rules match live Teach: student IDs of six or seven digits (`^[0-9]{5,10}$`) and
-  usernames with an optional trailing letter (`^[a-z][a-z0-9._-]{1,31}$`, for example `jsmith`). The enrollment
-  prompts (`M-ENR-ASK-ID`, `M-ENR-ID-FORMAT`) and `docs/student-guide.md` no longer say the ID has seven digits.
-  Verified in scratch homes against live Teach over the public URL: the prompt-hook flow previewed the BUS 201
-  code and reached the confirm step for `jsmith` / 20410001 and for `jdoe` / 20410002 without asking for a URL.
+- `config.yml` enrollment identity rules match live Teach, which accepts student IDs of more than one length and
+  usernames with an optional trailing letter. The enrollment prompts (`M-ENR-ASK-ID`, `M-ENR-ID-FORMAT`) and
+  `docs/student-guide.md` no longer state an ID length.
+  Verified in scratch homes against live Teach over the public URL: the prompt-hook flow previewed a course
+  code and reached the confirm step for two roster identities without asking for a URL.
 
 ## [0.16.19] - 2026-10-01
 
