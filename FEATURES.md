@@ -29,9 +29,9 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Deploy | Count | Share |
 |---|---|---|
-| 🟢 Live | 10 | 10% |
+| 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 77 | 78% |
+| 🔵 Built, not enabled | 76 | 77% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -1263,7 +1263,7 @@ Checked on 2026-10-06 on Linux with the same simulated LibreSSL failure: three `
 runs under 0.35.11 spooled three such events; a flush under 0.38.9 batched none of them, moved all three to the
 stale file, kept a real fault in its batch, and a run under a normal Ruby spooled nothing. Not run on a Mac.
 
-Build ✅ · Deploy 🔵 · Blocker: -.
+Build ✅ · Deploy 🟢 Live (0.38.9 released 2026-10-06 as v0.38.9, GitHub Latest, stable moved to it; student Macs have run the kit fallback since 0.21.3) · Blocker: -.
 
 ## 8 · Shape check
 
