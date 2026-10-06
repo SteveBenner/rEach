@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.4] - 2026-10-06
+
+### Changed
+
+- The repository names no real course. Examples, specs, the changelog, the smoke tools and the fake Teach fixtures
+  use BUS 101 and BUS 201; the fake Teach course is Business 101: Demo Course, with the passkey
+  `BUS101-K7QX-94TD`.
+- The repository's public history was rewritten on 2026-10-06 so that no commit, branch or tag names the school,
+  its email domain or its identity rules, or the identities once used to check enrollment against a live course
+  server. Every tag kept its name and the current branch tips kept their contents.
+
+### Added
+
+- `TODO.md` records moving the built-in course server address to a neutral domain.
+
 ## [0.38.3] - 2026-10-06
 
 ### Changed

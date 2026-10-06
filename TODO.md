@@ -1,5 +1,12 @@
 # TODO
 
+## Set up a domain (0.38.4)
+
+- [ ] SET UP DOMAIN: serve Teach at a neutral public host name, a custom domain in front of the Tailscale Funnel,
+      so the built-in course server address (`config.yml` `teach.url`, `Reach::Runtime::TEACH_URL`, the docs and
+      the specs) no longer shows the maintainer's machine name and tailnet id. Switch rEach to it only with a
+      transition that keeps installed students reaching Teach, and record the new address in the wire spec.
+
 ## Course content out of the repository (0.33.0, wire revision 2026-10-04j)
 
 - [ ] Read the profile's `terms` and `slices`: the message catalogue still says slice, cutout, module and panel,
@@ -8,7 +15,8 @@
       one learning system's name in places; they are to keep mechanics only.
 - [ ] `check.rb`'s rule tables, the AGENTS.md wrapper text, and the `dovetail`, `qualify` and `ruby` directives are
       to arrive from the course server; the Dovetail submodule is to go.
-- [ ] Specs, docs, the setup guide, fixtures and figures still name a real course; replace with a demo course.
+- [x] Specs, docs, the setup guide, fixtures and figures still name a real course; replace with a demo course.
+      (0.38.4: the examples are BUS 101 and BUS 201, the fake Teach course is Business 101: Demo Course.)
 - [ ] An instructor key trusted on first contact where none is pinned; the pinned key stays for existing installs.
 
 ## Announcements and course updates (0.30.0, wire revision 2026-10-04g)
