@@ -24,6 +24,7 @@ module Reach
       results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, Antigravity, or Hermes, then run setup again." } if results.empty?
       ok = results.any? { |entry| entry[:ok] }
       relocation = relocate_after_install
+      Reach::Paths.ensure_workspace_dirs! if ok
       exit_code = ok ? 0 : 1
 
       host_steps = ok ? host_step_lines(results) : []
@@ -237,7 +238,7 @@ module Reach
       return { id: "hermes", ok: false, message: "blocked: #{blocked} exists" } if blocked
 
       Reach::Harness.configure("hermes", nil)
-      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with: #{Reach::Runtime.hook_command("work", "--harness", "hermes")}" }
+      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with: #{Reach::Runtime.hook_command("work", "--harness", "hermes")}\n#{Reach::Messages.text("M-HERMES-APPROVE-ONCE")}" }
     end
 
     def ensure_hermes_profile
@@ -288,19 +289,25 @@ module Reach
       ["", e.message, false]
     end
 
-    def next_greeting_text
-      status = Reach::Profile.load["status"]
-      if status == "not_started"
-        Reach::Greetings.text("G-FIRST-RUN")
-      else
-        greeting_id, greeting_text, = Reach::Hello.choose_greeting(nil)
-        greeting_text || Reach::Greetings.text("G-FIRST-RUN")
-      end
+    def enrolled?
+      !Reach::Enroll.current.nil?
     rescue StandardError
-      Reach::Greetings.text("G-FIRST-RUN")
+      false
+    end
+
+    def next_greeting_text
+      return Reach::Greetings.text("G-INSTALLED-ENROLL") unless enrolled?
+      return Reach::Greetings.text("G-LOGIN") if Reach::Login.required? && !Reach::Login.any_active?
+
+      greeting_id, greeting_text, = Reach::Hello.choose_greeting(nil)
+      greeting_id == "G-FIRST-RUN" ? nil : greeting_text
+    rescue StandardError
+      Reach::Greetings.text("G-INSTALLED-ENROLL")
     end
 
     def instructions_line
+      return "Then connect rEach to the student's course. If the reach-assistant skill is not loaded in this session yet, run `#{Reach::Runtime.hook_command("hello", "--format", "text")}` and follow what it prints. Do not start the first-run interview until the student is enrolled and signed in." unless enrolled?
+
       "Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `#{Reach::Runtime.hook_command("hello", "--format", "text")}` and follow what it prints."
     end
 
@@ -331,8 +338,10 @@ module Reach
       lines << ""
       lines << Reach::Greetings.text("G-INSTALLED")
       lines << ""
-      lines << next_greeting
-      lines << ""
+      if next_greeting
+        lines << next_greeting
+        lines << ""
+      end
       lines << instructions_line
       unless host_steps.empty?
         lines << ""

@@ -742,6 +742,23 @@ module Reach
       end
     end
 
+    def ensure_workspace_dirs!
+      base = workspace_base
+      [File.join(base, "deliverables"), File.join(base, "extracurricular")].each do |dir|
+        next if File.exist?(dir)
+
+        FileUtils.mkdir_p(dir)
+        begin
+          File.chmod(0o700, dir)
+        rescue NotImplementedError, Errno::ENOENT
+          nil
+        end
+      end
+      nil
+    rescue SystemCallError
+      nil
+    end
+
     def workspace_root
       id = persona_id
       id ? persona_workspace_for(id) : workspace_base

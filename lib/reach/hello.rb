@@ -265,6 +265,9 @@ module Reach
     def session_parts(harness_id, format, source, cwd, event = nil, local: false, session: nil, mcp: false, hookless: false)
       Reach::AgentControl.begin_context
       lock = Reach::EnrollmentLock.state
+      wrong_folder = Reach::Gate.codex_wrong_folder_text({ "cwd" => cwd }.merge(event.is_a?(Hash) ? event : {}), harness_id)
+      return wrong_folder_parts(wrong_folder, lock, format, mcp) if wrong_folder
+
       if lock["locked"]
         if hookless && lock["reason"] != "course_ended"
           message = Reach::Messages.text("M-ENR-NOHOOK-STUDENT")
@@ -283,6 +286,10 @@ module Reach
       spawn_background(session || Reach::Session.resolve_session_id(event)) if local
 
       session_id = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil
+
+      if hookless && login_pending?(event)
+        return [nil, nil, nil, framed("hello.hookless", hookless_login_context(mcp: mcp))]
+      end
 
       if login_pending?(event)
         updating = safe_update_start(session_id, source)
@@ -384,8 +391,23 @@ module Reach
     end
 
     def hookless_context(mcp: false)
-      guide = Reach::Messages.text("M-ENR-AGENT-NOHOOK-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"))
+      guide = Reach::Messages.text(
+        "M-ENR-AGENT-NOHOOK-GUIDE",
+        command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"), window_command: terminal_command("enroll", "--window")
+      )
       ["#{Reach::Messages.text("M-ENR-AGENT-NOHOOK-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
+    end
+
+    def wrong_folder_parts(message, lock, format, mcp)
+      base = lock["locked"] ? locked_context(format, mcp: mcp) : login_context(nil, mcp: mcp)
+      [nil, message, message, framed("hello.wrongfolder", "#{base}\n- #{message}")]
+    end
+
+    def hookless_login_context(mcp: false)
+      guide = Reach::Messages.text(
+        "M-LOGIN-NOHOOK-GUIDE", window_command: terminal_command("login", "--window"), login_command: terminal_command("login")
+      )
+      ["#{MINIMAL_CONTEXT}\n- #{guide}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
     end
 
     def locked_context(format = "hook", mcp: false)
@@ -489,7 +511,7 @@ module Reach
       profile = Reach::Profile.load
       status = profile["status"]
 
-      if status == "not_started"
+      if status == "not_started" && safe_enrol_current
         [
           "G-FIRST-RUN",
           Reach::Greetings.text("G-FIRST-RUN"),

@@ -202,7 +202,7 @@ module Reach
           Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("enroll"))
         else
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-          Reach::Messages.text("M-ENR-ASK-PASSWORD")
+          password_prompt
         end
       elsif Reach::Login.no?(text)
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
@@ -215,7 +215,7 @@ module Reach
     def step_move(flow, text, now, harness)
       if Reach::Login.yes?(text)
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
-        Reach::Messages.text("M-ENR-ASK-PASSWORD")
+        password_prompt
       elsif Reach::Login.no?(text)
         Reach::Enroll.clear_pending
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
@@ -223,6 +223,25 @@ module Reach
       else
         Reach::Messages.text("M-ENR-MOVE-PENDING")
       end
+    end
+
+    def earlier_enrollment?
+      return true unless Reach::Enroll.current.nil?
+      return true if File.file?(Reach::Password.verifier_file)
+      return true unless Array(Reach::Sidecar.read["installs"]).empty?
+
+      progress = Reach::Progress.read
+      !progress["student_id"].to_s.empty?
+    rescue StandardError
+      false
+    end
+
+    def password_prompt_id
+      earlier_enrollment? ? "M-ENR-ASK-PASSWORD-REENROLL" : "M-ENR-ASK-PASSWORD"
+    end
+
+    def password_prompt
+      Reach::Messages.text(password_prompt_id)
     end
 
     def password_range?(password)
@@ -318,11 +337,19 @@ module Reach
       Reach::Progress.enrolled!(install["student_id"])
       finish("chat")
       spawn_sync
+      done_text(install, harness)
+    end
+
+    LAUNCH_HARNESSES = %w[hermes].freeze
+
+    def done_text(install, harness)
       first_name = install["display_name"].to_s.split(/\s+/).first || "there"
-      Reach::Messages.text(
-        "M-ENR-DONE",
-        course_title: (install["course"] || {})["title"], first_name: first_name, launch: Reach::Runtime.hook_command("work")
-      )
+      parts = [
+        Reach::Messages.text("M-ENR-DONE", course_title: (install["course"] || {})["title"], first_name: first_name),
+        Reach::Messages.text("M-ENR-SYNCING")
+      ]
+      parts << Reach::Messages.text("M-ENR-DONE-LAUNCH", launch: Reach::Runtime.hook_command("work", "--harness", "hermes")) if LAUNCH_HARNESSES.include?(harness.to_s)
+      parts.join(" ")
     end
 
     def finish(via)
@@ -339,14 +366,17 @@ module Reach
       reason.empty? ? error.message.to_s : reason
     end
 
-    def consume_notice
+    def consume_notice(harness = nil)
       path = Reach::Paths.enroll_notice_file
       return nil unless File.file?(path)
 
       data = Reach::Login.read_json(path)
       FileUtils.rm_f(path)
       title = data.is_a?(Hash) ? data["course_title"] : nil
-      Reach::Messages.text("M-ENR-AGENT-ENROLLED", course_title: title || "the course")
+      notice = Reach::Messages.text("M-ENR-AGENT-ENROLLED", course_title: title || "the course")
+      return notice unless LAUNCH_HARNESSES.include?(harness.to_s)
+
+      "#{notice} #{Reach::Messages.text("M-ENR-DONE-LAUNCH", launch: Reach::Runtime.hook_command("work", "--harness", "hermes"))}"
     rescue StandardError
       nil
     end
@@ -401,7 +431,7 @@ module Reach
       when "awaiting_student_id" then Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(flow["identity"]), hint: Reach::Identity.id_hint(flow["identity"]))
       when "awaiting_confirm" then confirm_text(flow)
       when "awaiting_move" then Reach::Messages.text("M-ENR-MOVE-PENDING")
-      when "awaiting_password" then Reach::Messages.text("M-ENR-ASK-PASSWORD")
+      when "awaiting_password" then password_prompt
       when "awaiting_password_again" then Reach::Messages.text("M-ENR-ASK-PASSWORD-AGAIN")
       else Reach::Messages.text("M-ENR-ASK-CODE")
       end

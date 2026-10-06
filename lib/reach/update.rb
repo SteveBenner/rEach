@@ -844,6 +844,15 @@ module Reach
       ok
     end
 
+    def version_line(remote)
+      installed = local_version
+      newer = remote.select { |version| Gem::Version.correct?(version.to_s) && Gem::Version.correct?(installed) && Gem::Version.new(version.to_s) > Gem::Version.new(installed) }
+                    .max_by { |version| Gem::Version.new(version.to_s) }
+      return Reach::Messages.text("M-UPDATE-CURRENT", version: installed) unless newer
+
+      Reach::Messages.text("M-UPDATE-AVAILABLE", version: installed, newer: newer)
+    end
+
     def status_lines
       manifest = load_manifest
       dir = Reach::Paths.managed_install_dir
@@ -855,7 +864,7 @@ module Reach
                  "no (no install at #{dir})"
                end
       remote = Array(manifest["remote_versions"]).map { |entry| entry["version"] }
-      lines = []
+      lines = [version_line(remote)]
       lines << "updates: #{disabled? ? 'disabled' : 'enabled'}#{offline? ? ' (offline)' : ''}"
       lines << "managed install: #{reason}"
       lines << "local version: #{local_version}"
