@@ -10,19 +10,19 @@
 The student's side of the course software: a harness plugin that installs into
 Claude Code, Claude Cowork, Codex, Antigravity or Hermes and turns the student's own AI
 agent into **rEach**, a bounded course partner for a
-[Teach](https://bitbucket.org/paterasai/teach)-run course.
+Teach-run course.
 
 Until the student enrolls, rEach refuses everything else: it blocks every
 prompt and asks the student itself, one at a time, for the class-wide course
 passkey their instructor shared (like `BUS101-K7QX-94TD`), their institutional
 username (their school email address) and their student ID, and last asks them to
 choose a password (at least 8 characters, typed twice, to write down), so the
-agent never sees any of it. Teach checks them against its roster and returns a signed
+agent never sees any of it (it never even reaches the agent--it is captured via hooks). Teach checks them against its roster and returns a signed
 enrollment stamp tied to a scrambled fingerprint of the computer and account;
 a copied install locks until it is enrolled again (`specs/wire.yml`, W-ENR-1..7).
 Teach keeps only a one-way hash of the password; `tools/fake_teach` is a local stand-in for the enrollment and password parts of the wire.
 
-Since 0.28.0 that password is also the last step of every sign-in: after the
+That password is also the last step of every sign-in: after the
 student ID and the yes, rEach's prompt hook asks for it and keeps every gate
 closed until it is right. Nobody can look a password up. A student who forgot
 it types `forgot password`, and once their instructor has allowed a reset they
