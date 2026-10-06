@@ -275,7 +275,8 @@ Since 0.23.0 rEach also reports its own technical problems by itself. A fault th
 qualify or submit is reported the first time it happens, any other the third time in a day, as a hand of type
 `issue` holding where it happened and what rEach was running, never an error message, a prompt or code. The student
 is told once that it was reported and that nothing is needed from them, and once more when the fix reaches their
-version. `reach issues` lists what was seen and reported (test student or debug mode), `reach issues flush` sends
+version. Since 0.38.7 the report names the rEach version the problem happened on, even when it is sent after an
+update. `reach issues` lists what was seen and reported (test student or debug mode), `reach issues flush` sends
 what is waiting, and `REACH_ISSUES_DISABLE=1` or `issues.enabled: false` in `config.yml` turns it off.
 
 Since 0.24.0 rEach also tells the course server where a student stands: the time they first passed each step of

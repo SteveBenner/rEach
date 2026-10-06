@@ -422,7 +422,7 @@ module Reach
         "frames" => relative_frames(error), "shown" => shown_id
       }
       Reach::SetupLog.fault(error, fields, where)
-      emit_always("fault", fields.merge("fault_id" => Reach::Issues.signature(fields)))
+      emit_always("fault", fields.merge("fault_id" => Reach::Issues.signature(fields), "reach_version" => Reach::VERSION))
       Reach::Issues.observe(fields)
       error(error, where) if on?
       nil

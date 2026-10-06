@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.7] - 2026-10-06
+
+### Fixed
+
+- An issue report names the rEach version the fault happened on, not the version that sends it. The fault spool
+  and the pending issue record outlive a self-update, so a fault recorded on one build and flushed after an update
+  was reported under the new build, which made Teach reopen an issue that build had fixed. `Reach::Issues` now
+  keeps `reach_version` in the pending record when a fault is observed and sends it as the bundle's
+  `environment.reach_version` (null for a record written before this version), `raised_version` in
+  `state/issues.json` holds the same value, and every `fault` debug event carries `reach_version` in its fields
+  (`lib/reach/issues.rb`, `lib/reach/debug.rb`; `STD-ISSUES`, wire revision 2026-10-06c: `W-DBG-FAULT`,
+  `W-ISSUE-3`, `W-ISSUE-4`). "Once per signature per rEach version" now counts the version that observed the fault,
+  so a fault on a fixed build is reported again.
+
+### Changed
+
+- `specs/wire.yml` is at revision 2026-10-06c; Teach 0.65.1 carries the same pinned copy and takes the version of a
+  fault report from these fields alone.
+
+Verified on Linux, Ruby 3.3, in scratch homes with `REACH_OFFLINE=1` and an injected fault in `hello`: a fault
+recorded by a 0.38.6 copy and flushed by a 0.38.8 copy produced a bundle with `environment.reach_version` null and
+a fault event without the field; recorded by a 0.38.7 copy and flushed by 0.38.8, both named 0.38.7; recorded and
+flushed on 0.38.8, both named 0.38.8. Fed into Teach 0.65.1 on a scratch database holding the same issue shipped
+with fix version 0.38.8, the first two left it shipped and the third reopened it; today's Teach reopened it on the
+first.
+
 ## [0.38.6] - 2026-10-06
 
 ### Changed

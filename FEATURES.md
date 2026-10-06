@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.38.6 |
+| **Registry version** | 0.38.7 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -762,7 +762,12 @@ steps skipped). Not verified: any Teach, because no released Teach accepts trigg
 Hermes; the full flow on Ruby 2.6, where only the syntax and the signature were checked; `tools/smoke` with real
 harness sessions.
 
-Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 accepts the issue hand). No report from a real student install has been seen yet.
+Since 0.38.7 the report names the rEach version that raised the fault (`environment.reach_version`, null when the
+record predates 0.38.7), and every `fault` event carries `reach_version`, because the spool and the pending record
+outlive a self-update; verified 2026-10-06 in scratch homes with copies labelled 0.38.6, 0.38.7 and 0.38.8 and fed into
+Teach 0.65.1 on a scratch database (see `CHANGELOG.md`).
+
+Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 accepts the issue hand; 0.38.7 is built and verified on scratch homes, not yet released). No report from a real student install has been seen yet.
 
 ### 2.41 · Live sessions
 

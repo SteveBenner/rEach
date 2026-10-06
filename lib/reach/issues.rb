@@ -22,6 +22,7 @@ module Reach
     BACKOFF_BASE_S = 60
     BACKOFF_CAP_S = 21_600
     FLUSH_WAIT_S = 30
+    VERSION_SHAPE = /\A\d+\.\d+\.\d+\z/.freeze
 
     module_function
 
@@ -208,6 +209,7 @@ module Reach
       end
       {
         "hand_ref" => SecureRandom.uuid, "at" => stamp, "silent" => silent?(fields), "suppressed" => day["suppressed"].to_i,
+        "reach_version" => Reach::VERSION,
         "harness" => context["harness"], "surface" => context["surface"],
         "fault" => {
           "where" => fields["where"], "exception" => fields["exception"], "errno" => fields["errno"],
@@ -216,6 +218,11 @@ module Reach
         },
         "occurrences" => entry["count"].to_i, "first_at" => entry["first_at"], "last_at" => entry["last_at"]
       }
+    end
+
+    def raised_version(pending)
+      version = pending["reach_version"].to_s
+      VERSION_SHAPE.match?(version) ? version : nil
     end
 
     def spawn_flush
@@ -289,7 +296,7 @@ module Reach
 
           current.delete("pending")
           state["issues"][key] = current.merge(
-            "raised_at" => stamp, "raised_version" => Reach::VERSION, "hand_ref" => pending["hand_ref"],
+            "raised_at" => stamp, "raised_version" => raised_version(pending), "hand_ref" => pending["hand_ref"],
             "told" => pending["silent"] == true, "silent" => pending["silent"] == true
           )
           write_state(state)
@@ -306,7 +313,7 @@ module Reach
         "first_at" => pending["first_at"], "last_at" => pending["last_at"], "suppressed" => pending["suppressed"].to_i,
         "fault" => pending["fault"],
         "environment" => {
-          "reach_version" => Reach::VERSION, "ruby_version" => RUBY_VERSION, "platform" => RUBY_PLATFORM,
+          "reach_version" => raised_version(pending), "ruby_version" => RUBY_VERSION, "platform" => RUBY_PLATFORM,
           "os" => os_name, "harness" => pending["harness"], "surface" => pending["surface"]
         },
         "capsule" => Reach::Capsule.build

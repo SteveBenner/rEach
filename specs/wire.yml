@@ -1598,7 +1598,7 @@ debug:
     - brain (captures, recalls, refusals)
     - update (phase, outcome, versions)
     - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
-    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT; fault_id since 2026-10-03c, W-ISSUE-2)
+    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT; fault_id since 2026-10-03c, W-ISSUE-2; reach_version, the version of the Reach that recorded it, since 2026-10-06c)
     - link (the Teach connection changed: state lost|back, the failure that caused it, outage_s on back; since 2026-10-02b, W-DBG-FAULT)
     - storage (since 2026-10-02d, W-DBG-KINDS-2: corpus_mb, brain_mb, total_mb, tier, outcome measured|warned|demanded|compact_started|compacted|compact_failed, before_mb and after_mb on compacted)
     - import (since 2026-10-02d, W-DBG-KINDS-2: vendor, mode brain|copy, outcome started|progress|finished|failed|cancelled, conversations, done, bytes, findings_queued)
@@ -1626,7 +1626,10 @@ debug:
       only fault and link events and sends them with reason fault. A fault event carries no error message text unless
       debug mode is on (then a separate error event carries the scrubbed message as before), so a fault from a real
       student never holds file or prompt text. Reach records at most 60 fault events an hour and counts the rest in
-      the next fault's dropped_faults.
+      the next fault's dropped_faults. Since revision 2026-10-06c a fault event's fields carry reach_version, the
+      version of the Reach that recorded the fault. The spool outlives an update, so the X-Reach-Version of the
+      request that delivers a fault event says nothing about the Reach that recorded it: Teach takes the version of
+      a fault report from this field alone, and a fault event without it names no version.
   W-DBG-RENDER:
     rule: >-
       While debug mode is on, Reach shows the person a debug block at the end of each turn, and reach debug show prints
@@ -1671,7 +1674,8 @@ issues:
       whose exception is Reach::NetworkError or Reach::Offline, and a fault whose where begins with issues: is never
       an issue on Reach's side. Any other fault is blocking when its where begins with a W-ISSUE-BLOCKING prefix, and
       Reach raises an issue at its first occurrence. A fault that is not blocking raises an issue at its third
-      occurrence within 24 hours. Reach raises at most one issue per signature per Reach version, at most 3 a day
+      occurrence within 24 hours. Reach raises at most one issue per signature per Reach version (since 2026-10-06c
+      the version that observed the fault), at most 3 a day
       (UTC), and holds at most 10 unsent; what it does not raise it counts in the next bundle's suppressed field.
       The course policy (W-POL-1 limits.issues) may turn issues off, lower max_per_day and max_queued and raise
       repeat_threshold; it can never loosen a limit. Classification is a fixed table inside Reach: no model and no
@@ -1694,7 +1698,13 @@ issues:
       {phase, staged_version}, flags: the names, never the values, of the harness environment variables that are set,
       recent: the kind, where and at of the last 20 debug events}, at most 16384 bytes of JSON, cut from recent
       first. The bundle carries no message text, no prompt, no code, no path outside the plugin root, no profile and
-      no student identity; the hand's install names the student.
+      no student identity; the hand's install names the student. Since revision 2026-10-06c environment.reach_version
+      is the version of the Reach that raised the issue, the one that observed the fault and queued the hand, not the
+      one that builds or sends the bundle, so an issue queued on one build and sent after an update to another is
+      reported under the build it happened on; it is null when Reach cannot tell, for an issue queued before Reach
+      0.38.7 and built after an update. ruby_version, platform, os, harness and surface describe the Reach that builds
+      the bundle. Teach counts its version facets and decides a regression on this field, never on the request's
+      X-Reach-Version.
   W-ISSUE-5:
     name: capsule on agent-raised technical hands
     rule: >-

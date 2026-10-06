@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.38.6
+version: 0.38.7
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1970,7 +1970,8 @@ issue_reports:
   rules: >-
     Fixed table, no model: transport faults and the issue code's own faults are ignored; a fault on enrollment,
     sign-in, hello, sync, qualify or submit is raised at once; any other at the third occurrence in 24 hours; once per
-    signature per Reach version, 3 a day, 10 waiting. config.yml issues {enabled, repeat_threshold, window_h,
+    signature per Reach version (the version that observed the fault, kept in the pending record since 0.38.7 and sent
+    as the bundle's environment.reach_version), 3 a day, 10 waiting. config.yml issues {enabled, repeat_threshold, window_h,
     max_per_day, max_queued}; the course policy's limits.issues only tightens; REACH_ISSUES_DISABLE=1 turns it off.
   delivery: >-
     A detached reach issues flush --background seals reach.issue/v1 with the hand seal and posts it to W-API-HAND
