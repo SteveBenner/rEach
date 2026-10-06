@@ -366,6 +366,8 @@ module Reach
           cmd_codex(args)
         when "announcements"
           cmd_announcements(args)
+        when "test"
+          Reach::ExamMode.cli(args)
         when "subscribe"
           cmd_subscribe(args)
         when "grade"

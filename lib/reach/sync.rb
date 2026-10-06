@@ -191,6 +191,15 @@ module Reach
           end
 
           begin
+            exam = Reach::ExamMode.fetch!
+            summary["test"] = exam if exam
+          rescue Reach::Offline, Reach::NetworkError
+            nil
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not check for a test (#{Reach::Link.reason(e, "sync")})"
+          end
+
+          begin
             Reach::Holdings.report!
           rescue Reach::Offline, Reach::NetworkError
             nil

@@ -345,6 +345,12 @@ module Reach
       []
     end
 
+    def safe_exam_lines
+      Array(Reach::ExamMode.context_lines)
+    rescue StandardError
+      []
+    end
+
     def safe_session_context
       Reach::Brain.session_context
     rescue StandardError
@@ -620,6 +626,8 @@ module Reach
       lines << framed("hello.storage", "- #{storage}") if storage
       control_lines = safe_control_lines
       lines << framed("hello.controls", control_lines.join("\n")) unless control_lines.empty?
+      exam_lines = safe_exam_lines
+      lines << framed("hello.test", exam_lines.join("\n")) unless exam_lines.empty?
 
       text = lines.join("\n")
       if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"

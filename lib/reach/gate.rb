@@ -223,6 +223,8 @@ module Reach
       context.concat(Array(framed("notice.live", safely { Reach::Live.prompt_notices(session) })))
       control_lines = Array(safely { Reach::Controls.context_lines })
       context << framed("notice.control", control_lines.join("\n")) unless control_lines.empty?
+      exam_lines = Array(safely { Reach::ExamMode.context_lines })
+      context << framed("notice.test", exam_lines.join("\n")) unless exam_lines.empty?
       if space
         import_path = space["kind"] == "root" ? safely { focus_workspace } : space["path"]
         imports = import_path ? safely { Reach::Imports.observe(text: event["prompt"], space_path: import_path) } : nil

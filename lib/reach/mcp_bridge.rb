@@ -316,6 +316,17 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_test",
+        "description" => "The student's course test: status, open it, show its questions word for word, record the answer the student typed in their latest message for one question, or submit. Never write an answer for the student",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[status open questions record submit] },
+            "question_id" => { "type" => "string" }
+          }
+        }
+      },
+      {
         "name" => "reach_known_issues",
         "description" => "The known problems from the course server that match this computer's system and AI app, whether rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student through the steps in plain words, one at a time",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -522,10 +533,12 @@ module Reach
         error(id, -32000, hiccup_text)
       end
 
+      RELAY_CHANNELS = { "reach_support" => "support.message", "reach_test" => "mcp.test", "reach_announcements" => "mcp.announcements" }.freeze
+
       def relay_channel(name, payload)
         return payload unless payload.is_a?(Hash) && payload["relay_verbatim"] == true && payload["text"].is_a?(String)
 
-        channel = name.to_s == "reach_support" ? "support.message" : "mcp.relay"
+        channel = RELAY_CHANNELS.fetch(name.to_s, "mcp.relay")
         payload.merge("text" => Reach::AgentControl.channel(channel) { payload["text"] })
       rescue StandardError
         payload
@@ -652,6 +665,8 @@ module Reach
           step.merge("relay_verbatim" => true)
         when "reach_announcements"
           { "announcements" => Reach::Announcements.list }
+        when "reach_test"
+          Reach::ExamMode.tool(arguments)
         when "reach_known_issues"
           known_issues_tool
         when "reach_setup"
