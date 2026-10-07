@@ -1571,9 +1571,8 @@ capsule null) instead of going silent. Checked on 2026-10-06 against scratch bar
 database: a wire change blocked (CMP-WIRE-LIVE), a version collision blocked, a planted student-style address blocked
 Teach's push, an alarm opened three times in 24 hours refused the push and the push passed once that window had
 elapsed, a terminal override let exactly one push through and the next was
-refused, `reach doctor` named the missing gate, and the four accepts cases behaved as specified in process. The first live
-push of 0.40.0 to main went ungated because the hook ignored a push named `HEAD:main`; fixed before the tag. Not yet run on a
-live tag or release; `agent-control/agent-control.yml` is still the v2 copy, so CMP-PIN warns medium
+refused, `reach doctor` named the missing gate, and the four accepts cases behaved as specified in process. The hook's blind spot
+for a push named `HEAD:main` was found on the first live push and fixed before the tag. Not yet run on a live tag or release; `agent-control/agent-control.yml` is still the v2 copy, so CMP-PIN warns medium
 until it is re-pinned from Teach main.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
