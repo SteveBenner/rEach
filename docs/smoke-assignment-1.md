@@ -75,7 +75,7 @@ Steps, in order, grouped by evidence class:
 | remote | grader | Teach's grader issues a grade receipt; when it cannot run, an explicit skip, never a pass |
 | remote | sync-grade-receipt | `reach sync` verifies and stores the same grade receipt id |
 | remote | assignment-incomplete-not-done | with one slice submitted, A1.submitted is reached; after a panel slice is assigned too, Teach withdraws the A1 outcome and the grade export lists the panel slice as `missing` with score 0 |
-| remote | reassigned-slice-voided | after a `context` module record is written, `teach modules assign --modules intake --include-current` orphans every submission, the graded row exports as `orphaned` with `counts` false, and both intake slices export as `missing` |
+| remote | reassigned-slice-voided | moving the student from the context module to the intake module, current assignment included, orphans every submission, the graded row exports as `orphaned` with `counts` false, and both intake slices export as `missing` |
 | codex, lan | codex-conversation, lan-second-device | always skipped here; use Part 2 |
 
 `summary.json` carries each step with `status` (pass, fail, skip), `command`, output
