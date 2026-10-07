@@ -59,6 +59,7 @@ module PlatformSmoke
       FileUtils.mkdir_p(File.join(@scratch, "reach smoke"))
       begin
         run_steps
+        @environment = read_environment
       ensure
         stop_server
         cleanup
@@ -809,6 +810,40 @@ RUBY
       failed.zero? ? 0 : 1
     end
 
+    def read_environment
+      return nil unless @install && File.directory?(File.join(@install, "lib"))
+
+      script = 'require "reach"; require "json"; puts JSON.generate(Reach::Environment.fields)'
+      code, out, _err = spawn_capture([RbConfig.ruby, "-I", File.join(@install, "lib"), "-e", script], chdir: @scratch)
+      return nil unless code == 0
+
+      parsed = JSON.parse(out.to_s.lines.last.to_s)
+      parsed.is_a?(Hash) && !parsed.empty? ? parsed : nil
+    rescue StandardError
+      nil
+    end
+
+    def reach_version
+      File.read(File.join(ROOT, "VERSION")).strip
+    rescue StandardError
+      "unknown"
+    end
+
+    def commit_id
+      env_sha = ENV["GITHUB_SHA"].to_s.strip
+      return env_sha unless env_sha.empty?
+
+      code, out, _err = spawn_capture(["git", "-C", ROOT, "rev-parse", "HEAD"])
+      sha = out.to_s.strip
+      code == 0 && !sha.empty? ? sha : "unknown"
+    rescue StandardError
+      "unknown"
+    end
+
+    def leg_name
+      @options[:leg] || "#{RbConfig::CONFIG['host_os']} #{RbConfig::CONFIG['host_cpu']}"
+    end
+
     def os_version
       if windows?
         out, _status = Open3.capture2("cmd", "/c", "ver")
@@ -830,6 +865,10 @@ RUBY
         "platform" => "#{RbConfig::CONFIG['host_os']} #{RbConfig::CONFIG['host_cpu']}",
         "ruby_version" => RUBY_VERSION,
         "os_version" => os_version,
+        "leg" => leg_name,
+        "reach_version" => reach_version,
+        "commit" => commit_id,
+        "environment" => @environment || os_version,
         "steps" => @steps.map do |s|
           { "name" => s.name, "result" => s.result.to_s, "detail" => s.detail, "duration_s" => s.duration }
         end
@@ -848,6 +887,7 @@ RUBY
       parser.on("--skip-runtime") { options[:skip_runtime] = true }
       parser.on("--report PATH") { |value| options[:report] = value }
       parser.on("--keep") { options[:keep] = true }
+      parser.on("--leg NAME") { |value| options[:leg] = value }
     end.parse!(argv)
     Run.new(options).execute
   end

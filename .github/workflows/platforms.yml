@@ -92,7 +92,7 @@ jobs:
       - name: Platform smoke
         timeout-minutes: 30
         shell: bash
-        run: ruby tools/platform_smoke/run.rb --report "${RUNNER_TEMP}/platform-smoke-${{ matrix.leg }}.json"
+        run: ruby tools/platform_smoke/run.rb --leg "${{ matrix.leg }}" --report "${RUNNER_TEMP}/platform-smoke-${{ matrix.leg }}.json"
 
       - name: Upload report
         if: always()
@@ -136,7 +136,7 @@ jobs:
       - name: Platform smoke
         timeout-minutes: 30
         shell: powershell
-        run: ruby tools/platform_smoke/run.rb --report "$env:RUNNER_TEMP\platform-smoke-${{ matrix.label }}.json"
+        run: ruby tools/platform_smoke/run.rb --leg "${{ matrix.label }}" --report "$env:RUNNER_TEMP\platform-smoke-${{ matrix.label }}.json"
 
       - name: Upload report
         if: always()
@@ -147,3 +147,43 @@ jobs:
           path: ${{ runner.temp }}\platform-smoke-${{ matrix.label }}.json
           retention-days: 14
           if-no-files-found: warn
+
+  matrix:
+    name: compatibility matrix
+    needs: [hosted, vm]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Download reports
+        timeout-minutes: 5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: platform-smoke-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/reports
+
+      - name: Build the matrix
+        id: build
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          ruby tools/platform_smoke/matrix.rb --out "${RUNNER_TEMP}/compat-tested" "${RUNNER_TEMP}"/reports/*.json
+          echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+          cat "${RUNNER_TEMP}/compat-tested/compat-tested.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload matrix
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: compat-tested-${{ steps.build.outputs.version }}
+          path: ${{ runner.temp }}/compat-tested
+          retention-days: 14
+          if-no-files-found: error

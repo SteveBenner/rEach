@@ -2,9 +2,11 @@
 
 `run.rb` installs Reach from the checkout's HEAD into a scratch directory whose path contains a space, starts the fixture Teach (`tools/fake_teach/server.rb`), and runs Reach's own commands and its harness hook command lines against it. It starts no agent session and needs no secret. It uses only the Ruby standard library and runs on Ruby 2.6.10 through 4.0.x on Linux, macOS and Windows.
 
-    ruby tools/platform_smoke/run.rb [--skip-runtime] [--report PATH] [--keep]
+    ruby tools/platform_smoke/run.rb [--skip-runtime] [--report PATH] [--leg NAME] [--keep]
 
-Every step prints `PASS <step> <detail>`, `FAIL <step> <detail>` or `SKIP <step> <reason>`, then `platform smoke: N passed, M failed, K skipped`. The exit status is 0 only when no step failed. `--report` also writes a JSON report (`reach.platform-smoke/v1`) with the platform, Ruby version, OS version and each step's name, result, detail and duration. `--keep` leaves the scratch directory in place.
+Every step prints `PASS <step> <detail>`, `FAIL <step> <detail>` or `SKIP <step> <reason>`, then `platform smoke: N passed, M failed, K skipped`. The exit status is 0 only when no step failed. `--report` also writes a JSON report (`reach.platform-smoke/v1`) with the platform, Ruby version, OS version and each step's name, result, detail and duration. `--keep` leaves the scratch directory in place. `--leg NAME` labels the run in the report (default the Ruby `host_os` and `host_cpu`).
+
+The report also carries `leg`, `reach_version` (the checkout's `VERSION`), `commit` (`GITHUB_SHA`, else `git rev-parse HEAD`, else `unknown`) and `environment`: the installed copy's `Reach::Environment.fields` (harness, os, os_release, arch, ruby), read by running the installed copy's Ruby lib, or the `os_version` string when that fails. The existing keys are unchanged.
 
 The fixture Teach needs the `webrick` gem, which Ruby 3.0 and later no longer bundle. When `require "webrick"` fails, the script runs `gem install --no-document --install-dir <scratch>/gems webrick` (one attempt and one retry, each with a timeout) and starts the fixture with `GEM_PATH` including that directory and `GEM_HOME` unset. The outcome is part of the fake_teach step detail, so the machine needs network access to rubygems.org in that case.
 
@@ -47,3 +49,13 @@ Any other finding fails the step and is printed in full.
 `windows-runner/bootstrap.ps1` prepares a fresh Windows 10 or 11 VM once, from an elevated Windows PowerShell 5.1: OpenSSH Server with a firewall rule for port 22 and PowerShell as the default SSH shell, Git for Windows 2.56.0 (Git Bash included), RubyInstaller 4.0.7-1 x64 for all users with its bin directory on the machine PATH, and the GitHub Actions runner 2.337.0 for win-x64 in `C:\actions-runner`. Each download is checked against a pinned SHA-256 and retried up to three times.
 
 `windows-runner/register.ps1 -Url <repository url> -Token <registration token> -Label win10|win11 -Name <runner name>` registers the runner as a service. The token is passed at run time and never written to disk.
+
+## Groups and the tested matrix
+
+`matrix.rb` groups the steps. `claude-code` is hook_session_start, hook_prompt_locked and hook_prompt_open; `codex` is hook_codex and codex_sandbox_decrypt; every other step belongs to `core`. A group passes when none of its steps failed and at least one passed. `claude-code` and `codex` also need `core` to pass.
+
+    ruby tools/platform_smoke/matrix.rb --out DIR REPORT.json...
+
+reads one or more reports and writes `DIR/compat-tested.json` (`reach.compat-tested/v1`: `reach_version`, `commit`, `generated_at`, `scope`, and one cell per leg and group with `leg`, `os`, `os_release`, `arch`, `ruby`, `harness`, `result` and `failed_steps`) and `DIR/compat-tested.md`, a table of legs and OS releases against the three groups. It exits 0 even when cells fail and 2 only on unreadable input. The scope is stated in both files: commands and hook command lines, no live agent session.
+
+The `matrix` job in `.github/workflows/platforms.yml` runs after `hosted` and `vm` (always, so it still runs when the VM legs are skipped), downloads every `platform-smoke-*` artifact into one directory, runs `matrix.rb` with the system Ruby, uploads `compat-tested-<reach_version>` for 14 days and appends `compat-tested.md` to the job summary.
