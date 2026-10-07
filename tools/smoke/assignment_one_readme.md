@@ -4,7 +4,7 @@ Synthetic smoke student. Every answer below is scripted by the smoke runner, not
 
 ## Business user and decision
 
-A cafe manager checks one setting of the business profile, target_margin, before deciding whether this week's menu discount keeps the margin above target.
+A cafe manager checks one setting of the business profile, target_margin, before deciding whether this week's menu discount keeps the margin above the target the owner set for the season.
 
 ## Information flow
 
@@ -26,4 +26,4 @@ Queued is not passed; results arrive from the course server after submission.
 
 ## Contributions and tools
 
-Synthetic run. The smoke runner directed the behaviour choices; an AI agent implementation was scripted from the released contract.
+Synthetic run. The smoke runner directed the behaviour choices and wrote every answer in this file; the implementation an AI agent would write was scripted from the released contract, and no person wrote any part of it.

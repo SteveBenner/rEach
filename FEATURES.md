@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.38.10 |
+| **Registry version** | 0.41.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -693,6 +693,10 @@ findings is refused with M-SUBMIT-BLOCKED-CHECK and raises a `check_gate` hand t
 slice's own files count (0.11.0). Verified in 0.4.0: fix-first, then blocked with a `check_gate` hand, and a clean submit
 assessed `clean`.
 
+Since 0.41.0 (`STD-README-SUBSTANCE`) a README.md whose five template sections do not each hold 25 words is CK-README:
+qualify stops at its check step and submit refuses with M-SUBMIT-README, never sending it. Verified on the 2026-10-06
+A1 packages: the README of the one-slice qualification that prompted it fails all five sections, a complete one passes.
+
 Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.35 · Tool gates: write, shell and read
@@ -1136,6 +1140,10 @@ Build ✅ · Deploy 🔵 · Blocker: - (the manual Codex dialogue pass ran 2026-
 automated run, `~/.cache/reach-smoke/a1/20260928-203803`, recorded 31 pass, 2 skip (codex-conversation,
 lan-second-device) and 0 fail; both skipped scenarios (the manual Codex dialogue and the same-WiFi second device)
 were separately exercised live by the operator on 2026-09-29, outside this deterministic harness.
+Since 0.41.0 (`STD-SMOKE-ASSIGNMENT-GUARDS`) the smoke writes its own schedule overlay with A1 due 14 days out, runs
+rEach inside its own signed-in session instead of the host harness's, and checks the README gate, assignment
+completeness and the reassignment void. Run `~/.cache/reach-smoke/a1/20261006-234634` against Teach 0.70.0 recorded
+43 pass, 2 skip (codex-conversation, lan-second-device) and 0 fail.
 
 Build ✅ · Deploy ⚫ (never runs on a student's computer) · Blocker: -
 

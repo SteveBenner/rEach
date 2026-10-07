@@ -802,7 +802,9 @@ routes:
       Ingest is synchronous: the ingest receipt arrives in this response, so Reach announces "received" at once. A repeat
       with the same Idempotency-Key returns the original submission_id, state and receipt. Since revision 2026-10-02c
       (W-SUB-1) a slice may be submitted any number of times before its due time; a Reach older than that revision
-      ignores attempt, due and resubmit.
+      ignores attempt, due and resubmit. Since revision 2026-10-06e a package whose README.md breaks W-SUB-3 is rejected
+      with code readme_incomplete, and one whose evidence does not match a passed qualification of the slice (W-SUB-4)
+      with code not_qualified; both are in-band rejections (state rejected) and store nothing.
     errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "after the due time, when a submission of the slice that was not rejected is already on record (W-SUB-1)", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
   - id: W-API-SUBMISSION
     method: GET
@@ -833,7 +835,7 @@ routes:
       Ungraded: a qualification makes no score, no receipt and no grade row, and never counts as a submission. Teach
       runs it in the grading sandbox (W-QUAL-3). A repeat with the same Idempotency-Key returns the original
       qualification_id and its current status.
-    errors: {400 invalid_request: "a body, package or manifest outside W-PKG-7", 403 forbidden: "not the student's slice", 403 not_released: "", 413 too_large: "body over 2 MB", 429 rate_limited: "over TEACH_QUALIFY_LIMIT_PER_HOUR (default 12) per slice per hour, or 2 already pending or running for the student", 503 unavailable: "qualifications are switched off (TEACH_QUALIFY_DISABLE=1); Retry-After says when to try"}
+    errors: {400 invalid_request: "a body, package or manifest outside W-PKG-7", 422 readme_incomplete: "since revision 2026-10-06e, the package's README.md breaks W-SUB-3", 403 forbidden: "not the student's slice", 403 not_released: "", 413 too_large: "body over 2 MB", 429 rate_limited: "over TEACH_QUALIFY_LIMIT_PER_HOUR (default 12) per slice per hour, or 2 already pending or running for the student", 503 unavailable: "qualifications are switched off (TEACH_QUALIFY_DISABLE=1); Retry-After says when to try"}
   - id: W-API-QUALIFICATION
     method: GET
     path: /api/v1/qualifications/:id
@@ -1566,6 +1568,44 @@ submissions:
       due time has passed and it already holds an ingest receipt for the slice. After an ingest receipt verifies it
       saves a copy of the student's assignment folder on the student's computer. Neither the question, the answer nor
       the copy is sent to Teach.
+  W-SUB-3:
+    name: README substance
+    since: 2026-10-06e
+    rule: >-
+      When a slice owns README.md, the README carries five sections, each a Markdown heading of any level whose text,
+      lowercased with & read as and and every character outside a-z and 0-9 removed, equals that of: Business user and
+      decision; Information flow; People and control; Expected, actual, case, and status; Contributions and tools. A
+      section's body runs to the next heading of the same or a higher level, HTML comments removed, and must hold at
+      least 25 words, a word being a letter followed by letters, digits or apostrophes. Reach reports each short or
+      missing section as CK-README from reach check, fails reach qualify on it without counting a ladder attempt, and
+      refuses reach submit. Teach answers 422 readme_incomplete to a qualification and rejects a submission with the
+      same code. TEACH_README_CHECK_DISABLE=1 turns Teach's half off.
+  W-SUB-4:
+    name: qualification evidence at ingest
+    since: 2026-10-06e
+    rule: >-
+      Teach accepts a submission only when evidence/qualification.json names a qualification_id that belongs to the same
+      student, cutout_id, slice and assignment, is done and passed (every agent and hidden row passed, at least one of
+      each, every stub row failed), and whose stored package has the same owned-file digests as the submission's manifest
+      and the same qualify/ test digests as the submission's evidence/qualify/ files. Anything else is rejected with
+      not_qualified. TEACH_QUALIFY_EVIDENCE_DISABLE=1, or qualifications switched off, turns the check off.
+  W-SUB-5:
+    name: a reassigned slice voids its submissions
+    since: 2026-10-06e
+    rule: >-
+      When a module change takes a slice away from a student, Teach sets every submission of that slice that is not
+      rejected to state orphaned: it stays on record with its receipts, never counts toward a grade or progress, and
+      the grade export shows it with counts false. When the student is given the slice back, each orphaned submission
+      returns to graded if it holds a grade receipt and to ingested otherwise.
+  W-SUB-6:
+    name: assignment completeness
+    since: 2026-10-06e
+    rule: >-
+      Teach records <assignment>.qualified only when every slice the student owns for that assignment has a passed
+      qualification, and <assignment>.submitted only when every owned slice has a submission that is neither rejected
+      nor orphaned; each at the latest of those times. A checkpoint Teach recorded that no longer holds is withdrawn and
+      audited. The grade export carries one row per owned slice with no counting grade: status missing with score 0
+      when nothing was submitted, status ungraded with no score while a submission waits for its grade.
 receipts:
   W-RCPT-1:
     name: body
@@ -1944,6 +1984,8 @@ errors:
       extra_credit_unknown: {status: 400, reach: "never retried; M-XC-UNKNOWN; the entry stays in the profile as refused (since 2026-10-02f)"}
       extra_credit_expired: {status: 400, reach: "never retried; M-XC-EXPIRED; the entry stays in the profile as refused (since 2026-10-02f)"}
       extra_credit_used: {status: 409, reach: "never retried; M-XC-USED; the entry stays in the profile as refused (since 2026-10-02f)"}
+      readme_incomplete: {status: 422, reach: "never retried; the message names each short or missing section (W-SUB-3); details {min_words, sections} (since 2026-10-06e)"}
+      not_qualified: {status: 422, reach: "never retried; qualify again, then submit (W-SUB-4, since 2026-10-06e)"}
     rule: Reach branches on error.code, never on the HTTP status alone, because five codes share 403.
 compatibility:
   W-COMPAT-1:

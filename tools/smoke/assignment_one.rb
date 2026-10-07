@@ -11,6 +11,7 @@ require "time"
 require "yaml"
 require "timeout"
 require "securerandom"
+require "digest"
 
 module AssignmentOne
   REPO = File.expand_path("../..", __dir__)
@@ -30,6 +31,7 @@ module AssignmentOne
   README_SOURCE = File.join(__dir__, "assignment_one_readme.md")
   COMMAND_TIMEOUT_S = 180
   GRADER_TIMEOUT_S = Integer(ENV.fetch("SMOKE_GRADER_TIMEOUT", "900"))
+  HOST_SESSION_KEYS = %w[CLAUDE_CODE_SESSION_ID CLAUDE_CODE_ENTRYPOINT CLAUDECODE CODEX_THREAD_ID CODEX_SESSION_ID CODEX_SANDBOX CODEX_DESKTOP_APP REACH_HARNESS].freeze
 
   class Skip < StandardError; end
   class Fail < StandardError; end
@@ -118,6 +120,7 @@ module AssignmentOne
       step("edit-outside-owned-blocked", "local") { edit_outside_blocked }
       step("plan-save", "local") { plan_save }
       step("implementation-written", "local") { write_implementation }
+      step("readme-incomplete-flagged", "local") { readme_incomplete_flagged }
       step("readme-filled", "local") { fill_readme }
       step("reach-check", "local") { reach_check }
       step("checkpoint", "local") { checkpoint }
@@ -132,6 +135,8 @@ module AssignmentOne
           step("ingest-receipt-ids", "ingest") { ingest_receipt_ids }
           if step("grader", "remote") { run_grader }
             step("sync-grade-receipt", "remote") { sync_grade }
+            step("assignment-incomplete-not-done", "remote") { assignment_incomplete_not_done }
+            step("reassigned-slice-voided", "remote") { reassigned_slice_voided }
           else
             step("sync-grade-receipt", "remote") { raise Skip, "no grade receipt was produced" }
           end
@@ -268,7 +273,7 @@ module AssignmentOne
         "REACH_DOWNLOADS_DIR" => downloads_dir,
         "HOME" => @student_home,
         "CODEX_HOME" => @codex_home
-      }
+      }.merge(HOST_SESSION_KEYS.to_h { |key| [key, nil] }).merge("CLAUDE_CODE_SESSION_ID" => LOGIN_SESSION)
     end
 
     def downloads_dir
@@ -379,7 +384,32 @@ module AssignmentOne
       File.write(File.join(@private_dir, "course_code.json"), JSON.generate(minted), perm: 0o600)
       out = teach("slices", "assign", "--assignment", ASSIGNMENT, "--from", File.join(@run_dir, "slices.csv"))
       @last[:output] = out
-      "course #{COURSE_ID} provisioned with 2 synthetic students, slice #{CUTOUT}-#{SLICE} assigned to #{STUDENT_ID}"
+      due = write_schedule
+      "course #{COURSE_ID} provisioned with 2 synthetic students, slice #{CUTOUT}-#{SLICE} assigned to #{STUDENT_ID}, #{ASSIGNMENT} due #{due}"
+    end
+
+    def canonical(value)
+      case value
+      when Hash then value.map { |key, item| [key.to_s, canonical(item)] }.sort_by(&:first).to_h
+      when Array then value.map { |item| canonical(item) }
+      else value
+      end
+    end
+
+    def write_schedule
+      zone = "America/Los_Angeles"
+      start = Time.now + (14 * 86_400)
+      assignments = %w[A1 A2 A3 A4].each_with_index.map do |id, index|
+        { "id" => id, "name" => "Smoke #{id}", "due" => (start + (index * 7 * 86_400)).strftime("%Y-%m-%d 23:59") }
+      end
+      digest = Digest::SHA256.hexdigest(JSON.generate(canonical({ "course" => COURSE_ID, "timezone" => zone, "assignments" => assignments })))
+      dir = File.join(@reference_dir, "course-data", COURSE_ID)
+      FileUtils.mkdir_p(dir)
+      File.write(File.join(dir, "schedule.json"), JSON.generate(
+        "schema" => "aivorytower.course-schedule/v1", "course" => COURSE_ID, "timezone" => zone,
+        "generated_at" => Time.now.utc.iso8601, "assignments" => assignments, "digest" => digest
+      ))
+      assignments.first["due"]
     end
 
     def release_before_enroll
@@ -581,7 +611,7 @@ module AssignmentOne
 
     def hand_raise_cli
       out = reach!("hand", "raise", "--summary", "smoke: student request", chdir: @workspace)
-      hand_id = out[/Hand raised: (\S+)/, 1] or raise Fail, "no hand id: #{out.strip[0, 200]}"
+      hand_id = out[/(hand_[0-9a-f]+)/, 1] or raise Fail, "no hand id: #{out.strip[0, 200]}"
       (@hand_ids ||= []) << hand_id
       out = reach!("hand", "status", hand_id)
       raise Fail, "status of #{hand_id}: #{out.strip[0, 200]}" unless %w[open unclaimed].include?(JSON.parse(out)["state"])
@@ -716,6 +746,16 @@ module AssignmentOne
       body.lines.each { |line| lines << (line.strip.empty? ? "" : "#{indent}#{line.rstrip}") }
       (layout.length - 1).downto(0) { |index| lines << "#{"  " * index}end" }
       "#{lines.join("\n")}\n"
+    end
+
+    def readme_incomplete_flagged
+      out, status = reach("check", "--slice", slice_id, chdir: @workspace)
+      @last[:expected] = "nonzero exit naming CK-README for the delivered template README"
+      @last[:actual] = "exit #{status.exitstatus}"
+      raise Fail, "reach check passed a template README: #{out.lines.last(6).join}" if status.success?
+      raise Fail, "reach check did not name the README: #{out.lines.last(6).join}" unless out.include?("README.md")
+
+      "template README refused: #{out.lines.grep(/README/).first.to_s.strip}"
     end
 
     def fill_readme
@@ -886,8 +926,7 @@ module AssignmentOne
       raise Fail, "the Downloads folder holds #{archives.length} ZIP copies, want 1" unless archives.length == 1
 
       name = File.basename(archives.first)
-      course_folder = File.basename(File.dirname(File.dirname(@workspace)))
-      raise Fail, "the ZIP copy is named #{name}" unless name.match?(/\A#{Regexp.escape(course_folder)}-#{Regexp.escape(ASSIGNMENT)}-\d{4}-\d{2}-\d{2}-\d{4}-(PDT|PST)\.zip\z/i)
+      raise Fail, "the ZIP copy is named #{name}" unless name.match?(/\A#{Regexp.escape(ASSIGNMENT)}-[A-Za-z0-9._-]+-\d{8}(-\d+)?\.zip\z/)
       raise Fail, "submit did not tell the student where the copy is saved" unless out.include?(name)
 
       listing, status = Open3.capture2e("unzip", "-t", archives.first)
@@ -937,7 +976,7 @@ module AssignmentOne
       deadline = Time.now + GRADER_TIMEOUT_S
       rows = []
       loop do
-        rows = teach_json("grades", "export", "--assignment", ASSIGNMENT)
+        rows = teach_json("grades", "export", "--assignment", ASSIGNMENT).select { |item| item["receipt_id"] }
         break if rows.any?
         raise Fail, "no grade receipt within #{GRADER_TIMEOUT_S}s; grader log tail: #{File.read(log_path).lines.last(8).join}" if Time.now > deadline
 
@@ -1025,6 +1064,45 @@ module AssignmentOne
       raise Fail, "tampered blob gave no refusal message: #{out}" unless out.include?("refused")
 
       "tampered blob refused: #{out.strip[0, 120]}"
+    end
+
+    def progress_reached(student_id)
+      view = teach_json("progress", "show", student_id)
+      Array(view["steps"]).select { |item| item["state"] == "reached" }.map { |item| item["id"] }
+    end
+
+    def assignment_incomplete_not_done
+      reached = progress_reached(STUDENT_ID)
+      raise Fail, "#{ASSIGNMENT}.submitted not recorded with every owned slice submitted: #{reached.inspect}" unless reached.include?("#{ASSIGNMENT}.submitted")
+
+      csv = File.join(@run_dir, "slices-panel.csv")
+      File.write(csv, "student_id,cutout_id,slice\n#{STUDENT_ID},#{CUTOUT},panel\n")
+      teach("slices", "assign", "--assignment", ASSIGNMENT, "--from", csv)
+      reached = progress_reached(STUDENT_ID)
+      rows = teach_json("grades", "export", "--assignment", ASSIGNMENT)
+      panel = rows.find { |item| item["student_id"] == STUDENT_ID && item["slice"] == "panel" }
+      @last[:expected] = "no #{ASSIGNMENT}.qualified or .submitted; panel row status missing, score 0"
+      @last[:actual] = "reached #{reached.inspect}; panel row #{panel.inspect}"
+      raise Fail, "#{ASSIGNMENT} still counts as done with an untouched slice: #{reached.inspect}" if reached.any? { |id| id.start_with?("#{ASSIGNMENT}.qualified", "#{ASSIGNMENT}.submitted") }
+      raise Fail, "grades export has no zero row for the untouched panel slice: #{rows.inspect}" unless panel && panel["status"] == "missing" && panel["score"].to_f.zero?
+
+      "one of two slices done: #{ASSIGNMENT} withdrawn from progress, panel exported as missing with score 0"
+    end
+
+    def reassigned_slice_voided
+      teach("modules", "assign", "--student", STUDENT_ID, "--modules", "context", "--reason", "smoke module record")
+      teach("modules", "assign", "--student", STUDENT_ID, "--modules", "intake", "--reason", "smoke reassignment", "--include-current")
+      subs = teach_json("submissions", "list", "--student", STUDENT_ID)
+      rows = teach_json("grades", "export", "--assignment", ASSIGNMENT)
+      mine = rows.select { |item| item["student_id"] == STUDENT_ID }
+      graded = mine.find { |item| item["receipt_id"] }
+      @last[:expected] = "submission orphaned; graded row counts false; intake slices exported as missing"
+      @last[:actual] = "states #{subs.map { |item| item["state"] }.inspect}; rows #{mine.map { |item| item.values_at("cutout_id", "slice", "status", "counts") }.inspect}"
+      raise Fail, "the submission on the lost slice was not voided: #{subs.inspect}" unless subs.any? && subs.all? { |item| %w[orphaned rejected].include?(item["state"]) }
+      raise Fail, "the voided submission still counts in the grade export" unless graded && graded["status"] == "orphaned" && graded["counts"] == false
+      raise Fail, "the new intake slices are not exported as missing" unless mine.count { |item| item["cutout_id"].start_with?("intake.") && item["status"] == "missing" } == 2
+
+      "reassignment voided #{subs.count { |item| item["state"] == "orphaned" }} submission(s); intake slices exported as missing"
     end
 
     def sync_grade

@@ -1,5 +1,10 @@
 # TODO
 
+## Assignment guardrails (0.41.0, wire revision 2026-10-06e)
+
+- [ ] Publish 0.41.0 as Latest and run `ruby tools/release_stable.rb v0.41.0` once Teach 0.70.0 is live; an older
+      rEach meets the new `readme_incomplete` and `not_qualified` rejections with the generic fix text.
+
 ## Set up a domain (0.38.4)
 
 - [ ] SET UP DOMAIN: serve Teach at a neutral public host name, a custom domain in front of the Tailscale Funnel,

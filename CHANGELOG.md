@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.0] - 2026-10-06
+
+### Added
+
+- A README substance check (`STD-README-SUBSTANCE`, W-SUB-3, `lib/reach/readme_check.rb`). `reach check` reports
+  CK-README when README.md lacks one of the five template sections or a section holds fewer than 25 words. `reach
+  qualify` fails its check step on it (QF-README, M-QUALIFY-README) without spending a ladder rung, and `reach submit`
+  refuses with M-SUBMIT-README. Teach 0.70.0 applies the same rule at qualification and ingest.
+- Wire revision 2026-10-06e: W-SUB-3 to W-SUB-6 (README substance, qualification evidence at ingest, reassigned slices
+  void their submissions, assignment completeness), and the rejection codes `readme_incomplete` and `not_qualified`
+  with their fix text.
+- The assignment one smoke (`STD-SMOKE-ASSIGNMENT-GUARDS`) writes a schedule overlay with A1 due 14 days out, checks
+  that the template README is flagged, that one submitted slice of two leaves A1 incomplete with a missing row, and
+  that a module reassignment orphans the graded submission.
+
+### Fixed
+
+- The smoke ran against the spec's past A1 due date and failed at sync; it now writes its own schedule.
+- The smoke inherited the host harness's session variables, so sign-in checked a foreign session; it now unsets them.
+- The smoke's hand id kept the sentence's final period.
+
 ## [0.40.1] - 2026-10-06
 
 ### Fixed

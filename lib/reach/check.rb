@@ -66,6 +66,8 @@ module Reach
           findings.concat(check_ruby(workspace, meta, relative, full, content))
         when ".svelte"
           findings.concat(check_svelte(meta, relative, content))
+        when ".md"
+          findings.concat(readme_findings(relative, content)) if relative == Reach::ReadmeCheck::FILE
         end
       end
       findings.concat(shape_findings(workspace, changed))
@@ -73,6 +75,17 @@ module Reach
       record(workspace, changed, findings)
       Reach::Debug.check(findings, owned.length)
       format == :text ? render_text(findings) : findings
+    end
+
+    def readme_findings(relative, content)
+      Reach::ReadmeCheck.problems(content).map do |problem|
+        fix = if problem["missing"]
+                "Add the \"## #{problem['section']}\" heading from the course template and write that section"
+              else
+                "Write at least #{Reach::ReadmeCheck::MIN_WORDS} words there from the student's own answers; never invent a reflection or contributions"
+              end
+        finding("CK-README", relative, problem["line"], Reach::ReadmeCheck.describe(problem), fix)
+      end
     end
 
     def drop_deferred_panel_findings(findings)

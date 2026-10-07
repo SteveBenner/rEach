@@ -71,7 +71,8 @@ module Reach
       end
 
       def finish(workspace, record, local_only)
-        record["ladder"] = if record["pending"] || local_only
+        readme_only = !record["findings"].empty? && record["findings"].all? { |finding| finding["code"] == "QF-README" }
+        record["ladder"] = if record["pending"] || local_only || readme_only
                              nil
                            else
                              Reach::Ladder.record(workspace, record)
@@ -86,7 +87,12 @@ module Reach
         findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) }
         rows = findings.map { |finding| { "id" => finding[:id], "file" => finding[:file], "line" => finding[:line], "message" => finding[:message] } }
         record["steps"]["check"] = { "ran" => true, "passed" => rows.empty?, "rows" => rows }
-        rows.each { |row| record["findings"] << { "code" => "QF-CHECK", "detail" => "#{row['id']} #{row['file']}:#{row['line']} #{row['message']}" } }
+        rows.each do |row|
+          code = row["id"] == "CK-README" ? "QF-README" : "QF-CHECK"
+          record["findings"] << { "code" => code, "detail" => "#{row['id']} #{row['file']}:#{row['line']} #{row['message']}" }
+        end
+        readme = rows.count { |row| row["id"] == "CK-README" }
+        record["next"] = Reach::Messages.text("M-QUALIFY-README", count: readme, min: Reach::ReadmeCheck::MIN_WORDS) if readme.positive?
         rows.empty?
       end
 

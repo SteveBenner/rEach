@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.40.1
+version: 0.41.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -177,6 +177,10 @@ standards:
     text: "Since 0.20.5 the agent gives dates and times exactly as rEach states them, with the time zone rEach names, and never converts them to another zone (persona section How you talk with the student)."
   - id: STD-PORTABLE-GCM
     text: "Since 0.20.6 every AES-256-GCM seal and open in Reach (course packages, qualify, submit, hands and reference) goes through Reach::Crypto, which uses the native cipher when it accepts additional authenticated data and otherwise Reach::GCM: AES-256-CTR from the same library plus GHASH in Ruby, byte-identical to OpenSSL's GCM. macOS's built-in Ruby 2.6.10 (LibreSSL 3.3.6) refuses AAD on every GCM call, so without it no Mac running the system Ruby could open a package or submit."
+  - id: STD-README-SUBSTANCE
+    text: "Since 0.41.0 (wire 2026-10-06e, W-SUB-3) Reach::ReadmeCheck requires an owned README.md to carry the five template sections (Business user and decision; Information flow; People and control; Expected, actual, case, and status; Contributions and tools), each with at least 25 words. reach check reports each gap as CK-README, reach qualify fails its check step on it as QF-README with M-QUALIFY-README and does not count that on the attempt ladder, and reach submit refuses with M-SUBMIT-README before the check gate, raising no hand. Teach applies the same rule to qualifications (422 readme_incomplete) and submissions (rejected, readme_incomplete). The messages tell the agent to write from the student's own answers and never invent a reflection or contributions."
+  - id: STD-SMOKE-ASSIGNMENT-GUARDS
+    text: "Since 0.41.0 tools/smoke/assignment_one.rb writes a schedule overlay for its scratch course with A1 due 14 days ahead, so the run never depends on the spec's base due dates; checks that reach check refuses the delivered template README; and after the grade, assigns the panel slice too and requires that A1 leaves Teach's progress and the panel exports as missing with score 0, then moves the student to another module and requires the submission to be orphaned and the new slices to export as missing."
   - id: STD-SMOKE-REAL-PACKAGES
     text: "Since 0.20.5 the platform smoke opens real teach.package/v1 envelopes on every OS leg: a known-answer guardrails envelope sealed by Teach, and guardrails and workspace packages that fake_teach seals for the enrolled install, stores, and then answers with 304. R-DOC-GUARD is no longer an expected doctor finding."
   - id: STD-CLI-VERSION

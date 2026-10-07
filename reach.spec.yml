@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.40.1
+version: 0.41.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -776,7 +776,7 @@ qualification:
     Teach writes the kit into the workspace at qualify/kit/, refusing any source under a behaviours directory or any
     owned path, so it never carries an answer.
   steps:
-  - check - reach check; only findings in the slice's own files count.
+  - check - reach check; only findings in the slice's own files count. Since 0.41.0 a CK-README finding is recorded as QF-README with next M-QUALIFY-README, and a record whose only findings are QF-README is not counted on the attempt ladder.
   - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale.
   - >-
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
@@ -827,6 +827,7 @@ submission:
   - The shape check has no errors for panel slices (only findings in the slice's own files count, since 0.11.0).
   - The latest qualification passed on exactly the current owned files and scenarios (M-SUBMIT-UNQUALIFIED).
   - Every question of the student's own part is answered (M-SUBMIT-NO-PART).
+  - Since 0.41.0 README.md has every W-SUB-3 section at 25 words or more (M-SUBMIT-README, refused before the check gate and without a hand); Teach rejects the same package with readme_incomplete, and one whose evidence does not match a passed qualification with not_qualified (W-SUB-4).
   - >-
     The slice is not closed: when the due time has passed and an ingest receipt for the slice is already stored,
     reach submit refuses with M-SUBMIT-CLOSED before asking; with no cached due time or no local receipt it goes on and
@@ -2625,7 +2626,8 @@ directives:
 check:
   rules: >-
     CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-FUSE, CK-PANEL (with
-    Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed)
+    Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed), CK-README (since 0.41.0, an owned
+    README.md section that is missing or under 25 words, by Reach::ReadmeCheck and wire W-SUB-3)
   panel_deferral: >-
     Since 0.9.0, when Reach::Shape.ran? (a signed shape was present and the Dovetail checker exited 0 or 1 with a
     report in this run), Reach::Check drops every CK-PANEL finding whose rule starts with "S-", because CK-SHAPE

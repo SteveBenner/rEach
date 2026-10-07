@@ -231,7 +231,13 @@ module Reach
         meta = Reach::Workspace.metadata(workspace)
         owned = Array(meta["owned_files"])
         findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) }
-        check_gate!(workspace, meta, findings.reject { |finding| finding[:id] == "CK-SHAPE" })
+        readme = findings.select { |finding| finding[:id] == "CK-README" }
+        unless readme.empty?
+          raise Reach::Refused, Reach::Messages.text(
+            "M-SUBMIT-README", min: Reach::ReadmeCheck::MIN_WORDS, list: readme.map { |finding| "- #{finding[:message]}" }.join("\n")
+          )
+        end
+        check_gate!(workspace, meta, findings.reject { |finding| %w[CK-SHAPE CK-README].include?(finding[:id]) })
         if meta["slice"].to_s == "panel" && Array(findings).any? { |finding| finding[:classification] == :visible }
           raise Reach::Refused, "reach: the shape check still finds visible problems; fix them before submitting"
         end

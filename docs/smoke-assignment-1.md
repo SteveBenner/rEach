@@ -55,7 +55,7 @@ Steps, in order, grouped by evidence class:
 | reference | reference-after-sync | after sync `reach reference` lists, shows, searches and links the packed files, and no plaintext sentinel is on the student's disk |
 | reference | reference-tamper-refused | a blob with one flipped byte is refused with a refusal message and prints no plaintext |
 | install | prerequisites | Ruby 4.0.6, Teach gems, Grokit, Dovetail, `zip` and `unzip` found |
-| handshake | teach-course-provision | roster, course and the G1 backend slice assignment exist |
+| handshake | teach-course-provision | roster, course, the G1 backend slice assignment and a schedule overlay with A1 due 14 days out exist |
 | handshake | release-before-enroll | releasing A1 on Teach succeeds with zero installs |
 | install | install-local-archive | a GitHub-shaped ZIP (symlinks kept) installs with `scripts/reach-install --archive` |
 | install | install-local-archive-dereferenced | fallback, only when the faithful ZIP is refused; a workaround, not a pass for the public path |
@@ -66,6 +66,7 @@ Steps, in order, grouped by evidence class:
 | handshake | enroll-code-reuse-rejected | the same code from a second `REACH_HOME` is refused and no second install exists |
 | handshake | sync-delivers-workspace | workspace has `README.md`, `acceptance_mode` remote and the scenario names |
 | local | guarded-write-owned, edit-outside-owned-blocked | the gate allows the owned file and exits 2 for any other |
+| local | readme-incomplete-flagged | `reach check` on the template README reports CK-README |
 | local | plan-save, implementation-written, readme-filled | plan reads back; the implementation is derived from the released contract; README carries the student text |
 | local | reach-check, checkpoint, submit-refused-unqualified | check is clean; a checkpoint exists; submit is refused before any qualification and Teach holds nothing |
 | local | qualify-scenarios-written, qualify-list | the gate allows the agent's scenario files under qualify/; `reach qualify --list` prints the @backend tag and the graded names |
@@ -73,6 +74,8 @@ Steps, in order, grouped by evidence class:
 | ingest | submit-and-ingest-receipt, ingest-receipt-ids | Teach issued one signed ingest receipt and Reach stored the same id |
 | remote | grader | Teach's grader issues a grade receipt; when it cannot run, an explicit skip, never a pass |
 | remote | sync-grade-receipt | `reach sync` verifies and stores the same grade receipt id |
+| remote | assignment-incomplete-not-done | with one slice submitted, A1.submitted is reached; after a panel slice is assigned too, Teach withdraws the A1 outcome and the grade export lists the panel slice as `missing` with score 0 |
+| remote | reassigned-slice-voided | after a `context` module record is written, `teach modules assign --modules intake --include-current` orphans every submission, the graded row exports as `orphaned` with `counts` false, and both intake slices export as `missing` |
 | codex, lan | codex-conversation, lan-second-device | always skipped here; use Part 2 |
 
 `summary.json` carries each step with `status` (pass, fail, skip), `command`, output
