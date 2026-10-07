@@ -174,6 +174,20 @@ module Reach
       nil
     end
 
+    def awaiting_consent?(workspace)
+      current = state(workspace)
+      failed = current["failed"].to_i
+      failed >= HAND_AT && failed < HARD_STOP && current["consent_at"].nil?
+    end
+
+    def note_pending_prompts
+      Reach::Workspace.current_slices.each do |workspace|
+        note_prompt(workspace) if awaiting_consent?(workspace)
+      end
+    rescue StandardError
+      nil
+    end
+
     def student_prompt_since?(workspace, since)
       data = JSON.parse(File.read(prompt_path(workspace)))
       data.is_a?(Hash) && data["last_prompt_at"].to_s > since.to_s

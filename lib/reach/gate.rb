@@ -260,9 +260,10 @@ module Reach
       kind = space ? space["kind"] : "outside"
       safely { Reach::Brain.capture_prompt(session_id: entry["session_id"], space: kind, text: entry["text"]) }
       safely { Reach::Part.observe_prompt(space, entry["text"], recorded) }
-      return unless kind == "slice" && !entry["text"].to_s.strip.empty?
+      return if entry["text"].to_s.strip.empty?
 
-      safely { Reach::Ladder.note_prompt(space["path"]) }
+      safely { Reach::Ladder.note_prompt(space["path"]) } if kind == "slice"
+      safely { Reach::Ladder.note_pending_prompts } if kind == "root"
     end
 
     def prompt_context(event, harness, decision, entry, toggled: nil)
