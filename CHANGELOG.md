@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the harness hook command lines, not a live agent session.
 - `tools/platform_smoke/run.rb --leg NAME` names the leg in the report.
 
+### Changed
+
+- PRIVACY.md discloses the environment details sent with every request and how to turn them off.
+
 ## [0.41.0] - 2026-10-06
 
 ### Added
