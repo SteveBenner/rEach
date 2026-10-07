@@ -932,10 +932,13 @@ module Reach
 
       def current_workspace!
         workspace = Reach::Gate.focus_workspace
-        ensure_slice_choice!(workspace)
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") unless workspace
+        return workspace if workspace
 
-        workspace
+        slices = Reach::Workspace.current_slices
+        return slices.first if slices.length == 1
+        raise Reach::Refused, Reach::Gate.pick_slice_text if slices.length > 1
+
+        raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD")
       end
 
       def ensure_slice_choice!(workspace)
