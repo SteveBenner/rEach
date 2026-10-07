@@ -59,3 +59,7 @@ Any other finding fails the step and is printed in full.
 reads one or more reports and writes `DIR/compat-tested.json` (`reach.compat-tested/v1`: `reach_version`, `commit`, `generated_at`, `scope`, and one cell per leg and group with `leg`, `os`, `os_release`, `arch`, `ruby`, `harness`, `result` and `failed_steps`) and `DIR/compat-tested.md`, a table of legs and OS releases against the three groups. It exits 0 even when cells fail and 2 only on unreadable input. The scope is stated in both files: commands and hook command lines, no live agent session.
 
 The `matrix` job in `.github/workflows/platforms.yml` runs after `hosted` and `vm` (always, so it still runs when the VM legs are skipped), downloads every `platform-smoke-*` artifact into one directory, runs `matrix.rb` with the system Ruby, uploads `compat-tested-<reach_version>` for 14 days and appends `compat-tested.md` to the job summary.
+
+## Called by the stable workflow
+
+`platforms.yml` is also a reusable workflow (`workflow_call` with `ref` and `vms` inputs). `.github/workflows/stable.yml` calls it once a day with `ref` set to the Latest tag when `tools/stable_promote.rb plan` answers promote, and with `vms` on when `vars.REACH_VM_RUNNERS` is `on`. When every leg succeeds the workflow moves `stable` to the tag and closes any open `stable-hold` issue; when a leg fails or is cancelled it leaves `stable` where it is and opens, or comments on, one `stable-hold` issue naming the tag and the run.

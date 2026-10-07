@@ -29,6 +29,7 @@ messages:
   M-TEST-ENDED: "Your test has ended. Your instructors will read what you recorded."
   M-TEST-USAGE: "usage: reach test [status | open | questions | record QUESTION | submit]"
   M-DUE-CHANGED: "The due time for {assignment} changed. It was {before}. It is now {after}. Tell the student now, in plain words."
+  M-UPDATE-HOOKS-NOTICE: "rEach's next update (version {version}) changes the hooks Codex runs, so after it installs Codex will ask you to approve rEach's hooks again. That is expected: approve them, then start a new chat."
   M-UPDATE-RETRY: "rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own."
   M-UPDATE-APP-ONLY: "rEach can't update itself from here. Tell the student, in plain words, to open the Plugins page in their app, find rEach there and update it, then start a new chat. Don't try anything else to update it."
   M-REACH-OUTDATED: "This version of rEach ({version}) is too old for your course, which needs {minimum} or newer. Update rEach, then try again."

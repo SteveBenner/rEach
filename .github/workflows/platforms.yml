@@ -11,12 +11,24 @@ on:
         required: false
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to check out; empty means the event commit'
+        required: false
+        type: string
+        default: ''
+      vms:
+        description: 'Also run the self-hosted Windows 10 and Windows 11 VM legs'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: platforms-${{ github.ref }}
+  group: platforms-${{ github.ref }}-${{ inputs.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -54,6 +66,7 @@ jobs:
         timeout-minutes: 5
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ inputs.ref }}
           submodules: false
           persist-credentials: false
 
@@ -125,6 +138,7 @@ jobs:
         timeout-minutes: 5
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ inputs.ref }}
           submodules: false
           persist-credentials: false
 
@@ -159,6 +173,7 @@ jobs:
         timeout-minutes: 5
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ inputs.ref }}
           submodules: false
           persist-credentials: false
 

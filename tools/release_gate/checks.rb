@@ -393,8 +393,23 @@ module ReleaseGate
       return error("VER-STABLE", "origin has no tag #{latest}") if target.to_s.empty?
       return nil if stable == target
 
-      finding("VER-STABLE", "medium", "stable is not at Latest #{latest}", "origin stable is #{stable.to_s.empty? ? 'absent' : short(stable)}, Latest is #{short(target)}, and no hold names why",
-              "move stable with tools/release_stable.rb or record a hold")
+      published, perr = ctx.gh("api", "repos/#{repo.slug}/releases/latest", "--jq", ".published_at")
+      return error("VER-STABLE", "gh: #{perr}") if published.nil?
+
+      held, herr = ctx.gh("issue", "list", "--repo", repo.slug, "--label", "stable-hold", "--state", "open", "--json", "number", "--jq", "length")
+      return error("VER-STABLE", "gh: #{herr}") if held.nil?
+
+      noticed = !ctx.git_lines("ls-remote", "origin", "refs/tags/notice/hooks/#{latest}/*").empty?
+      limit = (noticed ? 50 : 26) * 3600
+      age = Time.now - Time.iso8601(published.to_s)
+      overdue = age > limit
+      return nil unless held.to_i.positive? || overdue
+
+      why = held.to_i.positive? ? "an open stable-hold issue names a failed smoke" : "Latest was published #{(age / 3600).floor} hours ago (limit #{noticed ? 50 : 26})"
+      finding("VER-STABLE", "medium", "stable is not at Latest #{latest}", "origin stable is #{stable.to_s.empty? ? 'absent' : short(stable)}, Latest is #{short(target)}, #{why}, and no hold names why",
+              "let the daily stable workflow promote Latest (fix the smoke a stable-hold issue names), run it by workflow_dispatch, or record a hold")
+    rescue ArgumentError
+      error("VER-STABLE", "gh: unreadable published_at")
     end
 
     def claims(release, ctx)

@@ -59,6 +59,7 @@ module Reach
         "cache_apply" => nil,
         "announced" => {},
         "sessions" => {},
+        "stable_version" => nil,
         "completed_version" => nil,
         "completed_at" => nil
       }
@@ -308,20 +309,64 @@ module Reach
       lines.map { |line| line.sub(/\0.*\z/m, "").chomp }
     end
 
+    TAG_REF = %r{\Arefs/tags/(v?\d+\.\d+\.\d+)(\^\{\})?\z}.freeze
+    NOTICE_REF = %r{\Arefs/tags/notice/hooks/(v?\d+\.\d+\.\d+)/(\d{4}-\d{2}-\d{2})\z}.freeze
+
+    def parse_refs(body)
+      list = []
+      commits = {}
+      notices = []
+      stable = nil
+      parse_pkt_lines(body).each do |line|
+        sha, name = line.split(" ", 2)
+        next unless sha =~ /\A\h+\z/ && name
+
+        name = name.strip
+        if name == "refs/heads/stable"
+          stable = sha
+        elsif (match = TAG_REF.match(name))
+          version = VERSION_TAG.match(match[1])[1]
+          if match[2]
+            commits[version] = sha
+          else
+            commits[version] ||= sha
+            list << { "version" => version, "tag" => match[1], "source" => "tags" }
+          end
+        elsif (match = NOTICE_REF.match(name))
+          notices << { "version" => VERSION_TAG.match(match[1])[1], "date" => match[2] }
+        end
+      end
+      { "tags" => list, "stable" => stable, "commits" => commits, "notices" => notices }
+    end
+
     def list_tags
       owner, repo, host = owner_repo
       uri = URI("https://#{host}/#{owner}/#{repo}.git/info/refs?service=git-upload-pack")
       response = http_get(uri, { "User-Agent" => "git/2.0 (rEach/#{Reach::VERSION})" }, LISTING_READ_TIMEOUT_S)
       raise Reach::NetworkError, "tag listing returned HTTP #{response.code}" unless response.code.to_i == 200
 
-      list = []
-      parse_pkt_lines(response.body).each do |line|
-        match = %r{\A\h+ refs/tags/(v?\d+\.\d+\.\d+)\z}.match(line)
-        next unless match
+      parsed = parse_refs(response.body)
+      @ref_info = parsed
+      parsed["tags"]
+    end
 
-        list << { "version" => VERSION_TAG.match(match[1])[1], "tag" => match[1], "source" => "tags" }
-      end
-      list
+    def stable_version(info)
+      return nil unless info && info["stable"]
+
+      matching = info["tags"].select { |entry| info["commits"][entry["version"]] == info["stable"] }
+      matching.map { |entry| entry["version"] }.max_by { |version| Gem::Version.new(version) }
+    end
+
+    def hook_notice(info, local)
+      return nil unless info
+
+      current = Gem::Version.new(local)
+      newer = info["notices"].select { |entry| Gem::Version.new(entry["version"]) > current }
+      return nil if newer.empty?
+
+      top = newer.map { |entry| Gem::Version.new(entry["version"]) }.max
+      chosen = newer.select { |entry| Gem::Version.new(entry["version"]) == top }.max_by { |entry| entry["date"] }
+      { "version" => chosen["version"], "date" => chosen["date"] }
     end
 
     def check_due?(manifest)
@@ -335,13 +380,34 @@ module Reach
       settings = config
       local = local_version
       releases = list_releases(manifest) || []
+      @ref_info = nil
+      listing_error = nil
       tags = begin
         list_tags
       rescue StandardError => e
         raise if releases.empty?
 
+        listing_error = e.message
         log("error", "phase" => "tags", "message" => e.message)
         []
+      end
+      ceiling = listing_error ? nil : stable_version(@ref_info)
+      unless ceiling
+        reason = if listing_error
+                   "the tag listing failed, so no stable version is known"
+                 elsif @ref_info.nil? || @ref_info["stable"].nil?
+                   "origin has no stable branch"
+                 else
+                   "origin stable matches no version tag"
+                 end
+        log("error", "phase" => "stable", "message" => reason)
+      end
+      manifest["stable_version"] = ceiling
+      notice = listing_error ? nil : hook_notice(@ref_info, local)
+      if notice
+        manifest["hook_notice"] = notice
+      else
+        manifest.delete("hook_notice")
       end
       candidates = releases + tags
       seen = {}
@@ -350,7 +416,9 @@ module Reach
 
         seen[entry["version"]] = true
       end
-      newer = unique.select { |entry| Gem::Version.new(entry["version"]) > Gem::Version.new(local) }
+      newer = unique.select do |entry|
+        ceiling && Gem::Version.new(entry["version"]) > Gem::Version.new(local) && Gem::Version.new(entry["version"]) <= Gem::Version.new(ceiling)
+      end
       newer.sort_by! { |entry| Gem::Version.new(entry["version"]) }
       manifest["local_version"] = local
       manifest["remote_versions"] = newer
@@ -683,6 +751,12 @@ module Reach
         Reach::Messages.text(message_id, version: version)
     end
 
+    def codex_harness?
+      Reach::KnownIssues.family_of(Reach::KnownIssues.harness) == "codex"
+    rescue StandardError
+      false
+    end
+
     def prompt_notices(session_id)
       return [] if disabled?
 
@@ -704,6 +778,11 @@ module Reach
       end
       if pending && manifest["last_error"].to_s != "" && !applying && manifest["attempts"].to_i >= 1
         candidates << ["retry:#{pending}", "M-UPDATE-RETRY", pending]
+      end
+      notice = manifest["hook_notice"]
+      if notice.is_a?(Hash) && notice["version"].to_s != "" && codex_harness? &&
+         Gem::Version.new(notice["version"].to_s) > Gem::Version.new(Reach::VERSION)
+        candidates << ["hooks:#{notice['version']}", "M-UPDATE-HOOKS-NOTICE", notice["version"].to_s]
       end
       candidates.each do |key, message_id, version|
         next if announced?(manifest, key, session_id)

@@ -1,0 +1,96 @@
+name: stable
+
+on:
+  schedule:
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      action: ${{ steps.plan.outputs.action }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - name: Check out
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          submodules: false
+          persist-credentials: false
+
+      - name: Plan
+        id: plan
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ruby tools/stable_promote.rb plan
+
+  smoke:
+    name: platform smoke
+    needs: plan
+    if: ${{ needs.plan.outputs.action == 'promote' }}
+    uses: ./.github/workflows/platforms.yml
+    with:
+      ref: ${{ needs.plan.outputs.tag }}
+      vms: ${{ vars.REACH_VM_RUNNERS == 'on' }}
+
+  act:
+    name: act
+    needs: [plan, smoke]
+    if: ${{ always() && (needs.plan.outputs.action == 'notice' || needs.plan.outputs.action == 'promote') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Check out
+        timeout-minutes: 5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          submodules: false
+          persist-credentials: true
+
+      - name: Set the committer
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Push the hook notice
+        if: ${{ needs.plan.outputs.action == 'notice' }}
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: ruby tools/stable_promote.rb apply notice --tag "${TAG}"
+
+      - name: Promote stable
+        if: ${{ needs.plan.outputs.action == 'promote' && needs.smoke.result == 'success' }}
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: ruby tools/stable_promote.rb apply promote --tag "${TAG}"
+
+      - name: Hold stable
+        if: ${{ needs.plan.outputs.action == 'promote' && needs.smoke.result != 'success' }}
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ruby tools/stable_promote.rb hold --tag "${TAG}" --run-url "${RUN_URL}"

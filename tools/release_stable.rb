@@ -35,6 +35,12 @@ module ReleaseStable
     line.empty? ? nil : line.split.first
   end
 
+  def tag_commit(tag)
+    lines = run_command("git", "ls-remote", "origin", "refs/tags/#{tag}", "refs/tags/#{tag}^{}").lines.map(&:strip).reject(&:empty?)
+    line = lines.find { |entry| entry.end_with?("^{}") } || lines.first
+    line&.split&.first
+  end
+
   def ancestor?(older, newer)
     _out, _err, status = Open3.capture3("git", "merge-base", "--is-ancestor", older, newer, chdir: ROOT)
     status.success?
