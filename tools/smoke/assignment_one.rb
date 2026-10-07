@@ -1076,7 +1076,7 @@ module AssignmentOne
       raise Fail, "#{ASSIGNMENT}.submitted not recorded with every owned slice submitted: #{reached.inspect}" unless reached.include?("#{ASSIGNMENT}.submitted")
 
       csv = File.join(@run_dir, "slices-panel.csv")
-      File.write(csv, "student_id,cutout_id,slice\n#{STUDENT_ID},#{CUTOUT},panel\n")
+      File.write(csv, [%w[student_id cutout_id slice], [STUDENT_ID, CUTOUT, "panel"]].map { |row| row.join(",") + "\n" }.join)
       teach("slices", "assign", "--assignment", ASSIGNMENT, "--from", csv)
       reached = progress_reached(STUDENT_ID)
       rows = teach_json("grades", "export", "--assignment", ASSIGNMENT)
