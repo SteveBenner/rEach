@@ -79,13 +79,14 @@ module ReleaseGate
           found << { sha: local_sha, trigger: "tag", version: tag.sub(/\Av/, ""), tag: tag, branch: nil }
           next
         end
-        next unless local_ref.to_s.start_with?("refs/heads/")
+        branch_ref = [remote_ref, local_ref].find { |ref| ref.to_s.start_with?("refs/heads/") }
+        next if branch_ref.nil?
 
         version = SecurityAuditGate.read_version(local_sha)
         previous = SecurityAuditGate.previous_version(remote_sha, local_sha, remote_name)
         next if previous && previous == version
 
-        found << { sha: local_sha, trigger: "version", version: version.to_s, tag: nil, branch: (remote_ref || local_ref).to_s.sub("refs/heads/", "") }
+        found << { sha: local_sha, trigger: "version", version: version.to_s, tag: nil, branch: branch_ref.sub("refs/heads/", "") }
       end
       found
     end

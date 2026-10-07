@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The security audit blocks at high by default (was critical), and `REACH_SECURITY_AUDIT=0` is ignored; the
   instructor's recorded override replaces it. `tools/security_audit/install` runs `tools/release_gate/install`.
 
+### Fixed
+
+- A push named by `HEAD:main`, a sha or any local ref that is not `refs/heads/*` is still a release push: the gate
+  now reads the branch from the remote ref. The first push of this version slipped through before this fix.
+
 ## [0.38.10] - 2026-10-06
 
 ### Changed
