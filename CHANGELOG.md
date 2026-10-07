@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-10-07
+
+### Added
+
+- Every signed request reports the environment rEach runs in (`STD-ENV-REPORT`, wire revision 2026-10-07a, W-ENV-1):
+  the harness, OS family, OS release, CPU architecture and Ruby version in the `X-Reach-Env` header, from the new
+  `Reach::Environment`. It is descriptive only; `REACH_ENV_REPORT_DISABLE=1` turns it off.
+- A tested compatibility matrix (`STD-COMPAT-TESTED`): the platform smoke report carries the leg, rEach version,
+  commit and environment, `tools/platform_smoke/matrix.rb` folds the reports into `compat-tested.json` and
+  `compat-tested.md`, and the platforms workflow builds and uploads it after every run. It covers rEach's commands and
+  the harness hook command lines, not a live agent session.
+- `tools/platform_smoke/run.rb --leg NAME` names the leg in the report.
+
 ## [0.41.0] - 2026-10-06
 
 ### Added

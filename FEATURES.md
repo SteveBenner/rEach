@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.41.0 |
+| **Registry version** | 0.42.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 100 catalogued |
+| **Feature count** | 101 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 92 | 92% |
+| ✅ Shipped | 93 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 77 | 77% |
+| 🔵 Built, not enabled | 78 | 77% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -1192,6 +1192,17 @@ not Teach, and `tools/platform_smoke` (2.28) and the enrollment-v2 verification 
 answers `400 password_required` like Teach 0.17.0.
 
 Build ✅ · Deploy ⚫ · Blocker: -
+
+### 4.6 · Compatibility matrix
+
+Since 0.42.0 (`STD-ENV-REPORT`, `STD-COMPAT-TESTED`) every signed request reports the harness, OS family, OS release,
+CPU architecture and Ruby version it was made from, so the instructors' side can count what works where; and the
+platform smoke builds a tested matrix per leg and harness group (core, claude-code, codex) in the platforms workflow's
+matrix job. Verified on Linux: the header reached a stub server and a forced failure left the request intact; matrix.rb
+folded this host's report and two hand-made ones into the expected cells. Not verified: a workflow run on GitHub
+(the matrix job has never run), and the tested scope is commands and hook command lines, not a live agent session.
+
+Build ✅ · Deploy 🔵 (released with 0.42.0, no student has it yet) · Blocker: Human (release)
 
 ## 5 · Interview and profile
 

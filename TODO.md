@@ -1,5 +1,12 @@
 # TODO
 
+## Compatibility matrix (0.42.0, wire revision 2026-10-07a)
+
+- [ ] The tested matrix covers commands and hook command lines only; no leg runs a live Claude Code, Codex or
+      Antigravity session, so a harness cell passing does not prove the harness works end to end.
+- [ ] The harness's own version (Claude Code, Codex) is not reported; only its label is.
+- [ ] Run the platforms workflow with the Windows 10 and 11 VM legs once, so the tested matrix covers them.
+
 ## Assignment guardrails (0.41.0, wire revision 2026-10-06e)
 
 - [ ] Publish 0.41.0 as Latest and run `ruby tools/release_stable.rb v0.41.0` once Teach 0.70.0 is live; an older

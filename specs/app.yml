@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.41.0
+version: 0.42.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -181,6 +181,10 @@ standards:
     text: "Since 0.41.0 (wire 2026-10-06e, W-SUB-3) Reach::ReadmeCheck requires an owned README.md to carry the five template sections (Business user and decision; Information flow; People and control; Expected, actual, case, and status; Contributions and tools), each with at least 25 words. reach check reports each gap as CK-README, reach qualify fails its check step on it as QF-README with M-QUALIFY-README and does not count that on the attempt ladder, and reach submit refuses with M-SUBMIT-README before the check gate, raising no hand. Teach applies the same rule to qualifications (422 readme_incomplete) and submissions (rejected, readme_incomplete). The messages tell the agent to write from the student's own answers and never invent a reflection or contributions."
   - id: STD-SMOKE-ASSIGNMENT-GUARDS
     text: "Since 0.41.0 tools/smoke/assignment_one.rb writes a schedule overlay for its scratch course with A1 due 14 days ahead, so the run never depends on the spec's base due dates; checks that reach check refuses the delivered template README; and after the grade, assigns the panel slice too and requires that A1 leaves Teach's progress and the panel exports as missing with score 0, then moves the student to another module and requires the submission to be orphaned and the new slices to export as missing."
+  - id: STD-ENV-REPORT
+    text: "Since 0.42.0 (wire 2026-10-07a, W-ENV-1) every signed request carries X-Reach-Env with the harness rEach is running under, the OS family, the OS release, the CPU architecture and the Ruby version, from Reach::Environment (memoized per process, each value limited to [A-Za-z0-9 ._()+-] and 64 characters, the header at most 320 bytes). It is descriptive only, never used for authorization; a failure computing it omits it without failing the request, and REACH_ENV_REPORT_DISABLE=1 omits it."
+  - id: STD-COMPAT-TESTED
+    text: "Since 0.42.0 the platform smoke report (reach.platform-smoke/v1) carries leg, reach_version, commit and the installed copy's Reach::Environment fields, and tools/platform_smoke/matrix.rb folds reports into compat-tested.json (reach.compat-tested/v1) and compat-tested.md: one cell per leg and harness group (core, claude-code, codex), pass or fail with the failed steps, a harness group blocked when core fails. The platforms workflow's matrix job builds and uploads it after every run. Its scope is rEach's commands and the harness hook command lines with no live agent session, and every artifact says so."
   - id: STD-SMOKE-REAL-PACKAGES
     text: "Since 0.20.5 the platform smoke opens real teach.package/v1 envelopes on every OS leg: a known-answer guardrails envelope sealed by Teach, and guardrails and workspace packages that fake_teach seals for the enrolled install, stores, and then answers with 304. R-DOC-GUARD is no longer an expected doctor finding."
   - id: STD-CLI-VERSION

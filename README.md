@@ -160,6 +160,10 @@ Every owned file carries an invisible seal and every session leaves a witness
 ledger; Teach reads both when it assesses a submission's provenance. A
 submission with `reach check` findings is sent back once with the findings and
 refused the second time, raising a hand to the instructors.
+Since 0.42.0 each request rEach signs also names the harness, operating system, CPU architecture and Ruby version
+it runs on, so your instructors can see which combinations work; it carries nothing about you or your files
+(`REACH_ENV_REPORT_DISABLE=1` turns it off).
+
 Since 0.41.0 README.md must keep its five template sections with at least 25 words each,
 written from the student's own answers: `reach check` reports CK-README, `reach qualify`
 stops at its check step and `reach submit` refuses until it does.
