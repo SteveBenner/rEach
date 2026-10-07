@@ -60,13 +60,6 @@ jobs:
           submodules: false
           persist-credentials: true
 
-      - name: Set the committer
-        timeout-minutes: 2
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
       - name: Push the hook notice
         if: ${{ needs.plan.outputs.action == 'notice' }}
         timeout-minutes: 5
