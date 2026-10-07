@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.40.1] - 2026-10-06
+
+### Fixed
+
+- `specs/release_gate.yml` keeps Teach opaque (`STD-TEACH-OPAQUE`). The public file is now the outcome-level contract:
+  it keeps the tables `tools/release_gate` reads (version homes, pinned paths, check ids, parts, repositories, classes
+  and severities) and names Teach only as the course server that answers facts, records runs and overrides and raises
+  alarms. Teach's desk schedule, settings file, alarm table, doctor, ops routes, token scopes, rate limit and default
+  port moved to the private superproject's copy of the contract. `README.md` and `STD-RELEASE-GATE` no longer name the
+  route or the token scopes.
+
 ## [0.40.0] - 2026-10-06
 
 ### Added

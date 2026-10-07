@@ -1573,7 +1573,10 @@ Teach's push, an alarm opened three times in 24 hours refused the push and the p
 elapsed, a terminal override let exactly one push through and the next was
 refused, `reach doctor` named the missing gate, and the four accepts cases behaved as specified in process. The hook's blind spot
 for a push named `HEAD:main` was found on the first live push and fixed before the tag. Not yet run on a live tag or release; `agent-control/agent-control.yml` is still the v2 copy, so CMP-PIN warns medium
-until it is re-pinned from Teach main.
+until it is re-pinned from Teach main. 0.40.1 moved Teach's schedule, settings, alarm names, routes, scopes, port and
+commands out of `specs/release_gate.yml` into the private superproject's copy (`STD-TEACH-OPAQUE`); the public file keeps
+the tables the gate reads. The ungated 0.40.0 push put four commits on GitHub `main` whose `specs/release_gate.yml` named
+the private Teach repository location and Teach internals; no tag or release carried them.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 
