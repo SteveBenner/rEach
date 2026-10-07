@@ -415,6 +415,14 @@ module Reach
       req["X-Teach-Nonce"] = nonce
       req["X-Teach-Signature"] = signature
       req["X-Reach-Version"] = Reach::VERSION
+      env_header = environment_header
+      req["X-Reach-Env"] = env_header if env_header
+    end
+
+    def environment_header
+      Reach::Environment.header
+    rescue StandardError
+      nil
     end
 
     def retry_after_seconds(response)
