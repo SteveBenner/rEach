@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.42.0
+version: 0.43.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1683,7 +1683,10 @@ auto_update:
       Since 0.16.14 every check lists both GitHub releases and tags and takes the newest version from either; a version
       present in both is recorded with source releases. A failed tag listing is tolerated when releases answered;
       when neither answers, the check fails and backs off. Before 0.16.14 tags were read only when releases were
-      unavailable or listed no version, so a newer tag after any version release was never offered.
+      unavailable or listed no version, so a newer tag after any version release was never offered. Since 0.43.0
+      (STD-STABLE-CADENCE) the candidates are capped at the version origin stable points at: the highest version tag
+      whose commit is refs/heads/stable's commit in the same tag listing. When stable is absent, matches no version tag
+      or the tag listing failed, no update is taken and update.log records why (phase stable).
     releases: >-
       GET https://api.github.com/repos/<owner>/<repo>/releases?per_page=30 with Accept application/vnd.github+json and
       If-None-Match from the stored ETag (a 304 does not count against GitHub's 60 per hour unauthenticated limit).
@@ -1691,8 +1694,10 @@ auto_update:
       releases, and the tags still decide.
     tags: >-
       GET https://github.com/<owner>/<repo>.git/info/refs?service=git-upload-pack (git's own smart-HTTP ref
-      advertisement, no git binary and no API limit). refs/tags/v?X.Y.Z entries are versions; peeled ^{} lines are
-      ignored.
+      advertisement, no git binary and no API limit). refs/tags/v?X.Y.Z entries are versions. Since 0.43.0 the same
+      listing also yields refs/heads/stable, each version tag's commit (a peeled ^{} line wins over the tag object) and
+      refs/tags/notice/hooks/vX.Y.Z/YYYY-MM-DD notices; a notice for a version newer than the local one is kept as
+      hook_notice in the update manifest, and on Codex the next prompt shows M-UPDATE-HOOKS-NOTICE once.
     archive: >-
       https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip, read with scripts/reach-install's own ZIP reader and
       completed with the Dovetail archive pinned in the release's dovetail-revision.txt. The unpacked VERSION must

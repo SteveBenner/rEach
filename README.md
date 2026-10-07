@@ -120,13 +120,17 @@ agent walk the student through `reach enroll` in a terminal window instead (`STD
 
 ### Updates
 
-An install at `~/reach-work/.reach-home/plugin` updates itself. rEach looks for the newest version among GitHub's releases and tags
+An install at `~/reach-work/.reach-home/plugin` updates itself. rEach looks for the version the `stable` branch points at
 when a session starts and once an hour while you work, downloads it in the background, and installs it
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
 `~/reach-work/.reach-home/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
 things stand and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
-is never updated. Marketplace installs follow the `stable` branch, which a maintainer moves only to the Latest release,
-with `ruby tools/release_stable.rb vX.Y.Z`.
+is never updated. Marketplace installs follow the `stable` branch too. `stable` moves only to the Latest release, at most
+once a day: the `stable` workflow (`.github/workflows/stable.yml`, 15:00 UTC) runs the platform smoke on the Latest tag
+and moves `stable` with `tools/stable_promote.rb` only when every leg passes; a failed smoke holds `stable` and opens a
+`stable-hold` issue. A release that changes `hooks/` first gets a notice ref, which rEach shows to Codex students
+(Codex asks them to approve changed hooks again), and reaches `stable` no sooner than the next day.
+`ruby tools/release_stable.rb vX.Y.Z` still moves `stable` by hand.
 
 Hermes keeps hooks and MCP servers in a profile's `config.yaml`, never per
 folder, so setup creates a Hermes profile named `reach` (`hermes profile create

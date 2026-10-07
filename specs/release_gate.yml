@@ -193,10 +193,10 @@ checks:
     part: B
     repos: [reach]
     class: warn_class
-    reads: origin refs/heads/stable; the Latest release tag's commit; active records whose checks name VER-STABLE
-    broken: stable is not at Latest and no hold names why
+    reads: origin refs/heads/stable; the Latest release tag's commit and published_at; origin refs/tags/notice/hooks/<Latest>/*; open issues labeled stable-hold; active records whose checks name VER-STABLE
+    broken: stable is not at Latest and either an open stable-hold issue exists or Latest was published more than 26 hours ago (50 hours when a notice ref names Latest), and no hold record names why
     severity: medium
-    clear: move stable with tools/release_stable.rb, or record a hold
+    clear: let the daily stable workflow promote Latest (fix the smoke a stable-hold issue names), run it by workflow_dispatch, or record a hold
   - id: KNOWN-ALARM
     part: B
     repos: [reach, teach]

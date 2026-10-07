@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.42.0 |
+| **Registry version** | 0.43.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1203,6 +1203,20 @@ folded this host's report and two hand-made ones into the expected cells. Not ve
 (the matrix job has never run), and the tested scope is commands and hook command lines, not a live agent session.
 
 Build ✅ · Deploy 🔵 (released with 0.42.0, no student has it yet) · Blocker: Human (release)
+
+### 4.7 · Stable cadence
+
+Since 0.43.0 (`STD-STABLE-CADENCE`) `stable`, the branch every student install follows, moves at most once a day and
+only after the platform smoke passes on the Latest tag: `.github/workflows/stable.yml` plans with
+`tools/stable_promote.rb` at 15:00 UTC, calls the platforms workflow on the tag, and promotes or holds (a `stable-hold`
+issue). A release that changes `hooks/` gets a dated notice ref a day before it can reach `stable`, and rEach shows Codex
+students `M-UPDATE-HOOKS-NOTICE` once. The managed updater now installs only the version `stable` points at (before,
+any newer tag). Verified in the scratchpad: the plan's four answers, notice, promote, prune and hold against a scratch
+bare origin with a stubbed gh; the updater's ceiling, missing-stable refusal and notice against canned ref listings;
+`ver_stable`'s windows with stubbed answers. Not verified: a run of the workflow on GitHub, and Ruby 2.6.10 (not
+installed here). Installs older than 0.43.0 keep taking the newest tag until they reach 0.43.0.
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push)
 
 ## 5 · Interview and profile
 

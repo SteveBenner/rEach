@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.0] - 2026-10-07
+
+### Added
+
+- A stable cadence (`STD-STABLE-CADENCE`): `.github/workflows/stable.yml` runs daily at 15:00 UTC, plans with the new
+  `tools/stable_promote.rb` (`plan`, `apply notice|promote`, `hold`), runs the platform smoke on the Latest tag through
+  `platforms.yml` (now also a `workflow_call` with `ref` and `vms`), and moves `stable` only when every leg passes. A
+  failed smoke holds `stable` and opens or updates one `stable-hold` issue.
+- Hook-change notice: a Latest release whose diff from `stable` touches `hooks/` first gets
+  `refs/tags/notice/hooks/vX.Y.Z/YYYY-MM-DD` and reaches `stable` no sooner than the next day; rEach reads the notice
+  from its existing tag listing and shows Codex students `M-UPDATE-HOOKS-NOTICE` once.
+
+### Changed
+
+- The managed updater (`lib/reach/update.rb`) installs only the version `origin/stable` points at, read from the same
+  `info/refs` listing; with no readable `stable` it takes no update and logs why. Before, it took the newest release or
+  any tag.
+- `VER-STABLE` in the release gate (`tools/release_gate/checks.rb`, `specs/release_gate.yml`) flags `stable` behind
+  Latest only when a `stable-hold` issue is open or Latest is older than 26 hours (50 with a hook notice).
+- `tools/release_stable.rb` gains `tag_commit` for the promote tool; its command line is unchanged.
+
 ## [0.42.0] - 2026-10-07
 
 ### Added
