@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A push named by `HEAD:main`, a sha or any local ref that is not `refs/heads/*` is still a release push: the gate
   now reads the branch from the remote ref. The first push of this version slipped through before this fix.
+- The public gate files name no private repository location, port, class, table or command of the course server
+  (`STD-TEACH-OPAQUE`); the private repository is recognised by its own spec file at the root.
 
 ## [0.38.10] - 2026-10-06
 
