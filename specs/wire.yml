@@ -139,7 +139,7 @@ request_authentication:
       current reach_version with the time it was reported, and keeps a history row whenever it changes. A missing or
       malformed header never refuses a request and never changes the recorded version. The version enrollment sent in
       its body stays the install's first record.
-  W-ENV-1:
+  W-AUTH-8:
     name: environment header
     since: 2026-10-07a
     rule: >-

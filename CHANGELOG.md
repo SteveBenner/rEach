@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Every signed request reports the environment rEach runs in (`STD-ENV-REPORT`, wire revision 2026-10-07a, W-ENV-1):
+- Every signed request reports the environment rEach runs in (`STD-ENV-REPORT`, wire revision 2026-10-07a, W-AUTH-8):
   the harness, OS family, OS release, CPU architecture and Ruby version in the `X-Reach-Env` header, from the new
   `Reach::Environment`. It is descriptive only; `REACH_ENV_REPORT_DISABLE=1` turns it off.
 - A tested compatibility matrix (`STD-COMPAT-TESTED`): the platform smoke report carries the leg, rEach version,
