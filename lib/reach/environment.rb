@@ -17,11 +17,14 @@ module Reach
       @report ||= build
     end
 
+    def fields
+      @fields ||= report.each_with_object({}) { |(key, value), acc| acc[key] = clean(value) }
+    end
+
     def header
       return nil if ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
 
-      data = report
-      value = %w[harness os os_release arch ruby].map { |key| "#{key}=#{clean(data[key])}" }.join(";")
+      value = %w[harness os os_release arch ruby].map { |key| "#{key}=#{fields[key]}" }.join(";")
       value.bytesize > HEADER_LIMIT ? nil : value
     rescue StandardError
       nil
