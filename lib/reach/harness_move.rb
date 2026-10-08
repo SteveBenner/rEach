@@ -105,32 +105,23 @@ module Reach
       result = Reach::Setup.run_harness(target, Reach::Runtime.root)
       unless result[:ok]
         outcome = refusal("failed", "M-HARNESS-MOVE-FAILED", app: display(target), reason: result[:message])
-        record(source, target, false)
+        record(source, target, false, via)
         return outcome.merge("to" => target, "from" => source)
       end
 
       Reach::Paths.ensure_workspace_dirs!
       configure_spaces
       lines = [Reach::Messages.text("M-HARNESS-MOVE-DONE", app: display(target), folder: Reach::Sandbox.course_folder, setup: result[:message])]
-      extra, question = codex_step(target, via)
+      extra = codex_step(target)
       lines << extra if extra
-      record(source, target, true)
-      payload = { "state" => "moved", "ok" => true, "text" => lines.join("\n\n"), "to" => target, "from" => source }
-      payload["question"] = question if question
-      payload
+      record(source, target, true, via)
+      { "state" => "moved", "ok" => true, "text" => lines.join("\n\n"), "to" => target, "from" => source }
     end
 
-    def codex_step(target, via)
+    def codex_step(target)
       return nil unless target == "codex" && Reach::CodexSetup.enabled? && !Reach::CodexSetup.satisfied?
 
-      if via == "chat"
-        asked = Reach::CodexSetup.ask_chat(mcp: true)
-        return [asked["question"], asked["question"]] if asked["question"]
-
-        return asked["state"] == "terminal" ? [asked["text"], nil] : nil
-      end
-
-      [Reach::Messages.text("M-HARNESS-MOVE-CODEX-NEXT", command: "reach codex configure"), nil]
+      Reach::Messages.text("M-HARNESS-MOVE-CODEX-NEXT", command: "reach codex configure")
     rescue StandardError
       nil
     end
@@ -156,8 +147,8 @@ module Reach
       nil
     end
 
-    def record(from, to, ok)
-      Reach::Debug.emit("command", "command" => "harness move", "from" => from, "to" => to, "ok" => ok)
+    def record(from, to, ok, via)
+      Reach::Debug.emit("command", "command" => "harness move", "from" => from, "to" => to, "ok" => ok, "via" => via)
     rescue StandardError
       nil
     end

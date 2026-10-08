@@ -2196,7 +2196,7 @@ module Reach
         refused = Reach::HarnessMove.check(to, from)
         if refused
           puts refused["text"]
-          return 1
+          return refused["state"] == "same" ? 0 : 1
         end
         unless yes
           puts Reach::HarnessMove.ask_text(to: to, from: from)
@@ -2204,7 +2204,7 @@ module Reach
           $stdout.flush
           unless Reach::Consent.yes?($stdin.gets.to_s)
             puts Reach::HarnessMove.declined_text
-            return 1
+            return 0
           end
         end
         result = Reach::HarnessMove.apply!(to: to, from: from, via: "terminal")

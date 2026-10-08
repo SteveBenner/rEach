@@ -412,7 +412,7 @@ messages:
   M-HARNESS-MOVE-FAILED: "rEach could not set itself up in {app}, so nothing else was changed: {reason}"
   M-HARNESS-MOVE-DECLINED: "Nothing was changed. rEach stays as it is."
   M-HARNESS-MOVE-SAME: "rEach is already running in {app}, so there is nothing to move."
-  M-HARNESS-MOVE-UNKNOWN: "rEach can move to Claude Code, Codex, Antigravity or Hermes. Which one do you want?"
+  M-HARNESS-MOVE-UNKNOWN: "rEach can move to Claude Code, Codex, Antigravity, or Hermes. Which one do you want?"
   M-CODEX-PROBE-OK: "Codex's sandbox lets rEach reach your course server and save to its folder."
   M-CODEX-PROBE-BLOCKED: "Codex's sandbox still blocks rEach: {what}. To fix it, call reach_setup with action configure and relay rEach's question to the student."
   M-CODEX-PROBE-WHAT-NETWORK: "the internet"
