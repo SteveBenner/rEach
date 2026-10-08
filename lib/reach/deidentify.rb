@@ -11,12 +11,14 @@ require "socket"
 module Reach
   module Deidentify
     SCHEMA = "reach.identity/v1"
-    TEXT_FIELDS = %w[text summary note].freeze
+    TEXT_FIELDS = %w[text summary note path scope].freeze
+    NAME_PART_LENGTH = 2
+    SCOPE_VALUE_LIMIT = 512
     DIGEST_KINDS = %w[prompt reply reasoning output code].freeze
     MIN_LENGTH = 3
     MAX_VALUE_BYTES = 1024
     TOKEN = /\[\[[a-z0-9-]{1,40}\]\]/.freeze
-    FIELD_LIMITS = { "text" => 131_072, "summary" => 2000, "note" => 200 }.freeze
+    FIELD_LIMITS = { "text" => 131_072, "summary" => 2000, "note" => 200, "path" => 2048, "scope" => 2048 }.freeze
     WORD = /[\p{L}\p{N}]/.freeze
 
     module_function
@@ -44,7 +46,13 @@ module Reach
         "restore_key" => SecureRandom.hex(Reach::Crypto::AES_KEY_BYTES)
       }
       FileUtils.mkdir_p(File.dirname(path))
-      File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(fresh)) }
+      tmp = "#{path}.tmp.#{Process.pid}.#{SecureRandom.hex(4)}"
+      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |file|
+        file.write(JSON.generate(fresh))
+        file.flush
+        file.fsync
+      end
+      File.rename(tmp, path)
       fresh
     end
 
@@ -107,7 +115,10 @@ module Reach
       list << ["[[home-folder-env]]", other] unless other.empty?
       list << ["[[computer-account]]", account_name]
       list << ["[[computer-name]]", computer_name]
-      list.select { |_token, value| value.length >= MIN_LENGTH && value.bytesize <= MAX_VALUE_BYTES }
+      list.select do |token, value|
+        floor = token.start_with?("[[student-name-") ? NAME_PART_LENGTH : MIN_LENGTH
+        value.length >= floor && value.bytesize <= MAX_VALUE_BYTES
+      end
     end
 
     def surfaces(token, value)
@@ -134,7 +145,7 @@ module Reach
           forms << back.gsub("\\", "\\\\\\\\")
         end
       end
-      forms.uniq.select { |form| form.length >= MIN_LENGTH }
+      forms.uniq.select { |form| form.length >= NAME_PART_LENGTH }
     end
 
     def scrubber(install, status)
@@ -224,6 +235,20 @@ module Reach
       result = entry.dup
       record = {}
       TEXT_FIELDS.each do |field|
+        if entry[field].is_a?(Hash)
+          scoped = entry[field].dup
+          entry[field].each do |name, value|
+            next unless value.is_a?(String)
+
+            scrubbed = scrub(value, scrubber, SCOPE_VALUE_LIMIT)
+            scoped[name] = scrubbed["text"]
+            next if scrubbed["originals"].empty? && scrubbed["tail"].nil?
+
+            record["#{field}.#{name}"] = { "o" => scrubbed["originals"], "t" => scrubbed["tail"] }
+          end
+          result[field] = scoped
+          next
+        end
         next unless entry[field].is_a?(String)
 
         limit = FIELD_LIMITS.fetch(field)

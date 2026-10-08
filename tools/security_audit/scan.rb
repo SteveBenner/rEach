@@ -30,6 +30,9 @@ module SecurityAuditScan
     /(?:\A|\/)teach\.env\z/
   ].freeze
 
+  LONG_LINE = 4000
+  LONG_OVERLAP = 400
+  LONG_FILES = /\.(?:min\.js|svg|json|map)\z/
   LOCK_FILE = /(?:\.lock|-lock\.json|\.lockb)\z/
   EMAIL = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/
   DIGITS = /(?<!\d)\d{6,9}(?!\d)/
@@ -78,17 +81,24 @@ module SecurityAuditScan
   end
 
   def diff(root, base, sha)
-    raw = git(root, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--no-renames", "--diff-filter=AMR", base, sha) || ""
+    raw = clean(git(root, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--no-renames", "--diff-filter=AMR", base, sha) || "")
     added = []
     file = nil
     line = 0
+    header = false
     raw.each_line do |row|
       row = row.chomp
-      if row.start_with?("+++ ")
+      if row.start_with?("diff --git ")
+        header = true
+        file = nil
+      elsif header && row.start_with?("+++ ")
         name = row[4..-1].to_s.sub(/\t.*\z/, "")
         file = name == "/dev/null" ? nil : name.sub(%r{\Ab/}, "")
       elsif row.start_with?("@@")
+        header = false
         line = row[/\+(\d+)/, 1].to_i
+      elsif header
+        next
       elsif row.start_with?("+") && file
         added << [file, line, row[1..-1].to_s]
         line += 1
@@ -96,6 +106,24 @@ module SecurityAuditScan
     end
     paths = (git(root, "diff", "--name-only", "--no-renames", "--diff-filter=AMR", base, sha) || "").split("\n")
     { raw: raw, added: added, paths: paths }
+  end
+
+  def clean(text)
+    text.to_s.dup.force_encoding(Encoding::UTF_8).scrub("?")
+  end
+
+  def windows(text, file)
+    return [text] unless text.length > LONG_LINE && file =~ LONG_FILES
+
+    out = []
+    offset = 0
+    while offset < text.length
+      out << text[offset, LONG_LINE]
+      break if offset + LONG_LINE >= text.length
+
+      offset += LONG_LINE - LONG_OVERLAP
+    end
+    out
   end
 
   def candidates(text)
@@ -139,52 +167,54 @@ module SecurityAuditScan
       add.call("critical", "secret-file", path, nil, "Secret-bearing file in release", "#{path} matches a file name that normally holds credentials or private data", path)
     end
 
-    diff[:added].each do |file, line, text|
-      next if text.length > 4000 && file =~ /\.(?:min\.js|svg|json|map)\z/
-
-      SECRET_PATTERNS.each do |name, pattern, group|
-        text.scan(pattern) do
-          match = Regexp.last_match
-          value = group.zero? ? match[0] : match[group]
-          add.call("critical", "secret", file, line, "Possible #{name}", "#{name} found, value #{mask(value)}", value)
+    diff[:added].each do |file, line, full|
+      chunked = full.length > LONG_LINE && file =~ LONG_FILES
+      windows(full, file).each do |piece|
+        text = clean(piece)
+        SECRET_PATTERNS.each do |name, pattern, group|
+          text.scan(pattern) do
+            match = Regexp.last_match
+            value = group.zero? ? match[0] : match[group]
+            add.call("critical", "secret", file, line, "Possible #{name}", "#{name} found, value #{mask(value)}", value)
+          end
         end
-      end
 
-      roster_hit = false
-      if index
-        candidates(text).each do |kind, value|
-          next unless index[:set][digest(index, value)]
+        roster_hit = false
+        if index
+          candidates(text).each do |kind, value|
+            next unless index[:set][digest(index, value)]
 
-          roster_hit = true
-          add.call("critical", "student-data", file, line, "Student identifier in release", "A #{kind} value #{mask(value)} matches the student roster", value)
+            roster_hit = true
+            add.call("critical", "student-data", file, line, "Student identifier in release", "A #{kind} value #{mask(value)} matches the student roster", value)
+          end
         end
-      end
 
-      unless roster_hit
-        text.scan(INSTITUTION_EMAIL) do
+        unless roster_hit
+          text.scan(INSTITUTION_EMAIL) do
+            value = Regexp.last_match[0]
+            add.call("high", "student-data-shape", file, line, "Student-style email address", "Address #{mask(value)} has the shape of a student address", value)
+          end
+          text.scan(STUDENT_ID) do
+            value = Regexp.last_match[1]
+            add.call("high", "student-data-shape", file, line, "Student ID near a number", "A student ID label is followed by #{mask(value)}", value)
+          end
+        end
+
+        unless file =~ LOCK_FILE || chunked
+          text.scan(QUOTED) do
+            value = Regexp.last_match[1]
+            next unless entropy(value) > 4.5
+
+            add.call("high", "entropy", file, line, "High-entropy quoted string", "A #{value.length}-character string #{mask(value)} looks like a generated secret", value)
+          end
+        end
+
+        text.scan(LOCAL_PATH) do
           value = Regexp.last_match[0]
-          add.call("high", "student-data-shape", file, line, "Student-style email address", "Address #{mask(value)} has the shape of a student address", value)
+          next if carried?(root, base, file, value)
+
+          add.call("medium", "local-path", file, line, "Absolute home path", "Path #{value} exposes a local account name", value)
         end
-        text.scan(STUDENT_ID) do
-          value = Regexp.last_match[1]
-          add.call("high", "student-data-shape", file, line, "Student ID near a number", "A student ID label is followed by #{mask(value)}", value)
-        end
-      end
-
-      unless file =~ LOCK_FILE
-        text.scan(QUOTED) do
-          value = Regexp.last_match[1]
-          next unless entropy(value) > 4.5
-
-          add.call("high", "entropy", file, line, "High-entropy quoted string", "A #{value.length}-character string #{mask(value)} looks like a generated secret", value)
-        end
-      end
-
-      text.scan(LOCAL_PATH) do
-        value = Regexp.last_match[0]
-        next if carried?(root, base, file, value)
-
-        add.call("medium", "local-path", file, line, "Absolute home path", "Path #{value} exposes a local account name", value)
       end
     end
 

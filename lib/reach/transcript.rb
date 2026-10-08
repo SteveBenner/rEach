@@ -267,55 +267,67 @@ module Reach
       slice = meta["slice"]
       assignment = meta["assignment"]
 
-      files = space == "slice" ? owned_files_absolute(workspace) : extracurricular_files(base_real)
-      files = files.first(SCAN_MAX_FILES)
+      listed = space == "slice" ? owned_files_absolute(workspace) : extracurricular_files(base_real)
+      files = listed.first(SCAN_MAX_FILES)
+      beyond = listed.drop(SCAN_MAX_FILES).map { |absolute| relative_under(absolute, base_real) }.compact
 
       digest_path = space_digest_path(base_real)
       previous = parse_json_file(digest_path) || {}
       current = {}
+      completed = false
 
-      files.each do |absolute|
-        next if File.symlink?(absolute)
+      begin
+        files.each do |absolute|
+          relative = relative_under(absolute, base_real)
+          begin
+            next if File.symlink?(absolute)
+            next if relative.nil? || relative.empty?
 
-        relative = relative_under(absolute, base_real)
-        next if relative.nil? || relative.empty?
+            prior = previous[relative]
+            size = safe_size(absolute)
+            mtime = safe_mtime(absolute)
 
-        prior = previous[relative]
-        size = safe_size(absolute)
-        mtime = safe_mtime(absolute)
+            if prior.is_a?(Hash) && size && mtime && prior["size"] == size && prior["mtime"] == mtime
+              current[relative] = prior
+              next
+            end
 
-        if prior.is_a?(Hash) && size && mtime && prior["size"] == size && prior["mtime"] == mtime
-          current[relative] = prior
-          next
+            fields = file_fields(absolute, large_limit: SCAN_LARGE_BYTES)
+            current[relative] = { "digest" => fields["digest"], "size" => size, "mtime" => mtime }
+            prior_digest = prior.is_a?(Hash) ? prior["digest"] : prior
+            next if prior_digest && prior_digest == fields["digest"]
+
+            entry_fields = fields.merge(
+              "category" => space == "slice" ? "assignment" : "extracurricular",
+              "scope" => space == "slice" ? { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice } : nil,
+              "path" => relative,
+              "origin" => "scan",
+              "reply_seq" => nil
+            )
+            record(session_id, kind: "code", harness: harness, cutout_id: cutout_id, slice: slice, space: space, fields: entry_fields)
+          rescue StandardError
+            current.delete(relative)
+            current[relative] = previous[relative] if relative && previous.key?(relative)
+          end
         end
 
-        fields = file_fields(absolute, large_limit: SCAN_LARGE_BYTES)
-        current[relative] = { "digest" => fields["digest"], "size" => size, "mtime" => mtime }
-        prior_digest = prior.is_a?(Hash) ? prior["digest"] : prior
-        next if prior_digest && prior_digest == fields["digest"]
+        beyond.each { |relative| current[relative] = previous[relative] if previous.key?(relative) }
 
-        entry_fields = fields.merge(
-          "category" => space == "slice" ? "assignment" : "extracurricular",
-          "scope" => space == "slice" ? { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice } : nil,
-          "path" => relative,
-          "origin" => "scan",
-          "reply_seq" => nil
-        )
-        record(session_id, kind: "code", harness: harness, cutout_id: cutout_id, slice: slice, space: space, fields: entry_fields)
+        (previous.keys - current.keys).each do |relative|
+          entry_fields = {
+            "category" => space == "slice" ? "assignment" : "extracurricular",
+            "scope" => space == "slice" ? { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice } : nil,
+            "path" => relative, "origin" => "scan", "deleted" => true, "binary" => false,
+            "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => nil, "reply_seq" => nil
+          }
+          record(session_id, kind: "code", harness: harness, cutout_id: cutout_id, slice: slice, space: space, fields: entry_fields)
+        end
+        completed = true
+      ensure
+        kept = completed ? current : previous.merge(current)
+        FileUtils.mkdir_p(File.dirname(digest_path))
+        File.write(digest_path, JSON.generate(kept))
       end
-
-      (previous.keys - current.keys).each do |relative|
-        entry_fields = {
-          "category" => space == "slice" ? "assignment" : "extracurricular",
-          "scope" => space == "slice" ? { "assignment" => assignment, "cutout_id" => cutout_id, "slice" => slice } : nil,
-          "path" => relative, "origin" => "scan", "deleted" => true, "binary" => false,
-          "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => nil, "reply_seq" => nil
-        }
-        record(session_id, kind: "code", harness: harness, cutout_id: cutout_id, slice: slice, space: space, fields: entry_fields)
-      end
-
-      FileUtils.mkdir_p(File.dirname(digest_path))
-      File.write(digest_path, JSON.generate(current))
     rescue StandardError
       nil
     end
@@ -1205,12 +1217,9 @@ module Reach
 
     def log_transcript_event(event, fields = {})
       Reach::Debug.emit("transcript", fields.merge("event" => event))
-      FileUtils.mkdir_p(Reach::Paths.logs_dir)
       record = { "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "event" => event }
       fields.each { |k, v| record[k.to_s] = v }
-      File.open(Reach::Paths.transcript_log, File::WRONLY | File::CREAT | File::APPEND, 0o644) do |file|
-        file.puts(JSON.generate(record))
-      end
+      Reach::Debug.append_log(Reach::Paths.transcript_log, record)
     rescue StandardError
       nil
     end

@@ -62,10 +62,10 @@ module Reach
         f.write(JSON.generate(record) + "\n")
         f.flush
         write_head(workspace, record)
+        split_if_large(workspace)
       end
       return nil if held == :busy
 
-      split_if_large(workspace)
       Reach::Sidecar.update_head(File.basename(workspace), record["tag"], record["n"])
       Reach::Progress.assignment_started(workspace)
       record
