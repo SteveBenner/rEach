@@ -169,7 +169,7 @@ module Reach
     end
 
     def diagnosis?(current = session)
-      !current.nil? && current["diagnosis"] == true
+      !current.nil? && current["diagnosis"] == true && read_state["diagnosis_consent"].is_a?(Hash)
     end
 
     def runner_alive?
@@ -284,7 +284,10 @@ module Reach
       if target == DIAGNOSIS
         return Reach::Messages.text("M-LIVE-DIAG-NO") unless answer == "yes"
 
-        update { |state| state["pending"] = { "type" => "request", "diagnosis" => true, "consent" => record, "queued_at" => stamp } }
+        update do |state|
+          state["pending"] = { "type" => "request", "diagnosis" => true, "consent" => record, "queued_at" => stamp }
+          state["diagnosis_consent"] = { "at" => stamp }
+        end
         spawn_runner
         return Reach::Messages.text("M-LIVE-DIAG-REQUESTED")
       end
@@ -596,7 +599,7 @@ module Reach
       text = event.is_a?(Hash) && event["prompt"].is_a?(String) ? event["prompt"] : ""
       entry = {
         "session_id" => Reach::Session.resolve_session_id(event), "gate" => "blocked", "text" => text, "seq" => nil,
-        "digest" => Digest::SHA256.hexdigest(text)
+        "digest" => Digest::SHA256.hexdigest(text), "transcript_path" => event.is_a?(Hash) ? event["transcript_path"] : nil
       }
       lines = []
       observed = Reach::Consent.observe_blocked(entry, kinds: KINDS)
@@ -740,6 +743,7 @@ module Reach
       update do |state|
         if current.nil?
           state["session"] = nil if previous && previous["state"] != "closed"
+          state.delete("diagnosis_consent") if previous
         else
           if fresh_session
             state["read"] = 0
@@ -754,12 +758,13 @@ module Reach
           asked = messages.select { |message| message["kind"] == "action" && !known.include?(message["id"]) }
           state["actions"] = Array(state["actions"]) + asked.map do |message|
             name = message["name"].to_s
-            known_status = current["diagnosis"] == true ? "approved" : "waiting"
+            known_status = current["diagnosis"] == true && state["diagnosis_consent"].is_a?(Hash) ? "approved" : "waiting"
             { "id" => message["id"], "name" => name, "at" => stamp, "status" => ACTIONS.include?(name) ? known_status : "unknown" }
           end
           if current["state"] == "closed"
             state["actions"] = []
             state["outgoing"] = nil
+            state.delete("diagnosis_consent")
           end
         end
       end
@@ -841,7 +846,7 @@ module Reach
         return [true, "Repaired #{count} Codex plugin cache folder#{count == 1 ? '' : 's'}."]
       end
       if name == "codex_configure"
-        result = Reach::CodexSetup.apply!(via: "live")
+        result = Reach::CodexSetup.apply!(mode: "workspace", via: "live")
         return [result["ok"] == true, [result["text"], Reach::CodexSetup.doctor_line].join("\n")]
       end
       if name == "sandbox_probe"

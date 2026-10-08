@@ -467,6 +467,8 @@ module Reach
           call_tool(id, params)
         when "shutdown"
           result(id, {})
+        when "ping"
+          id.nil? ? nil : result(id, {})
         else
           return nil if id.nil?
 

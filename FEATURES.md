@@ -10,7 +10,7 @@ agent harness.
 |---|---|
 | **Registry version** | 0.45.0 |
 | **Last audited** | 2026-10-05 |
-| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
+| **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
 | **Feature count** | 102 catalogued |
 
@@ -1546,6 +1546,30 @@ spool and planes, and a queued forget ran before the next admission; with no kit
 verified: macOS, Windows, Hermes and a real student session.
 
 Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer). · Blocker: -.
+
+### 2.52 · Audit hardening (2026-10-08 review)
+
+Since 0.46.1 rEach carries the fixes from the 2026-10-08 five-area review (`TODO.md` "Audit 2026-10-08", RAUD-01 to
+RAUD-67; `CHANGELOG.md` 0.46.1).
+- **Shell gate.** It fails closed: a command it cannot model is refused (`M-SHELL-UNMODELED`), wrappers are unwrapped, and run-a-string forms are refused. Every operand of a mutating command must be owned, and PowerShell commands are translated to the modeled forms. The five reproduced bypasses are closed.
+- **Consent.** It takes only `yes` or `y`, bound to the question shown, and a live diagnosis needs the consent recorded locally.
+- **Atomic, locked state.** `install.yml`, receipts, acks, packages and keys are written atomically, and `install.yml` changes happen under a lock.
+- **Student files.** A package refresh no longer locks the student's own files.
+- **Outbox.** Queued submissions replay in order, and a refused one is kept and reported.
+- **Release gate.** It reports a missing Teach URL instead of crashing.
+- **Privacy.** Debug uploads and code paths are de-identified.
+- **Updates.** They stop after the attempt limit and roll a failed migration back.
+
+Verified 2026-10-08 in scratch homes:
+- The reviewers' repros now pass: the three-writer `install.yml` race loses nothing, a corrupt receipt is moved aside, the symlink-chain archive writes nothing outside its folder, and a cp1252 byte gives findings.
+- The gate table runs 477 commands through `Reach::CLI.gate_dispatch` with 0 mismatches under Ruby 4.0.6 and Ruby 2.6.10 (Docker). That is 296 blocked, including every reviewer bypass and the Windows PowerShell rows, and 181 allowed.
+- A failed migration restores the previous plugin and stops at 5 attempts.
+- Six racing `update.json` writers lose no update.
+- `ruby -wc` is clean on every changed file under 2.6.10 and 4.0.6, and the tree loads under both.
+
+Not verified: a real Windows or macOS host (schtasks, launchctl, PowerShell), or a live harness session.
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (push and release; Teach re-pin of the gate files)
 
 ### 10.7 · Handout parity
 

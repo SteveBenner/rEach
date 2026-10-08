@@ -400,7 +400,7 @@ module Reach
 
     def wrong_folder_parts(message, lock, format, mcp)
       base = lock["locked"] ? locked_context(format, mcp: mcp) : login_context(nil, mcp: mcp)
-      [nil, message, message, framed("hello.wrongfolder", "#{base}\n- #{message}")]
+      [nil, message, message, framed(lock["locked"] ? "hello.locked" : "hello.login", "#{base}\n- #{message}")]
     end
 
     def hookless_login_context(mcp: false)

@@ -498,7 +498,7 @@ module Reach
           scrub.concat(index.lineage(row))
           chain.each do |link|
             source = index.source_for(link["s"])
-            scrub << source["id"] if source && source["p"].to_s.start_with?("notes/") && !remaining.include?(source["id"])
+            scrub << source["id"] if source && source["p"].to_s.start_with?("notes/", "prompts/") && !remaining.include?(source["id"])
           end
         end
       end

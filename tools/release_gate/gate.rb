@@ -107,6 +107,9 @@ module ReleaseGate
         where = row["file"] ? "#{row['file']}#{row['line'] ? ":#{row['line']}" : ''}" : "release"
         out << Checks.finding(id, row["severity"], "#{row['category']} #{where}: #{row['title']}", row["detail"], "remove the value from the release")
       end
+      if result[:status] == "blocked" && Array(result[:findings]).none? { |row| SecurityAuditGate::BLOCKING.fetch(settings["block_at"], SecurityAuditGate::BLOCKING["high"]).include?(row["severity"].to_s.downcase) }
+        out << Checks.finding("SEC-AUDIT", "critical", "The model audit answered fail", "the audit verdict was fail without a blocking finding to name", "read the audit report and remove the cause")
+      end
       if result[:status] == "error"
         text = "#{result[:error] || 'the security audit failed'}#{settings['on_error'] == 'allow' ? ' (on_error allow)' : ''}"
         out << { "id" => "SEC-AUDIT", "severity" => "error", "class" => settings["on_error"] == "allow" ? "warn_class" : "critical_class", "title" => "SEC-AUDIT could not run", "detail" => text, "clear" => nil }
@@ -117,7 +120,7 @@ module ReleaseGate
     def blocking?(row, block_at)
       return row["class"] == "critical_class" if row["severity"] == "error"
 
-      SecurityAuditGate::BLOCKING.fetch(block_at, SecurityAuditGate::BLOCKING["high"]).include?(row["severity"])
+      SecurityAuditGate::BLOCKING.fetch(block_at, SecurityAuditGate::BLOCKING["high"]).include?(row["severity"].to_s.downcase)
     end
 
     def decide(findings, block_at)

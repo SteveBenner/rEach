@@ -43,6 +43,9 @@ module Reach
       return nil unless File.file?(path)
 
       JSON.parse(File.read(path))
+    rescue JSON::ParserError
+      quarantine(path)
+      nil
     end
 
     def open(kind, version)
@@ -80,7 +83,20 @@ module Reach
       header, _plaintext = open_envelope(kind, envelope)
       dir = Reach::Paths.packages_dir(kind)
       FileUtils.mkdir_p(dir)
-      File.write(File.join(dir, "#{header['version']}.pkg"), JSON.generate(envelope))
+      final = File.join(dir, "#{header['version']}.pkg")
+      temp = "#{final}.tmp.#{Process.pid}"
+      File.open(temp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |handle|
+        handle.write(JSON.generate(envelope))
+        handle.flush
+        handle.fsync
+      end
+      File.rename(temp, final)
+    end
+
+    def quarantine(path)
+      File.rename(path, "#{path}.corrupt-#{Time.now.to_i}")
+    rescue SystemCallError
+      nil
     end
 
     def open_envelope(kind, envelope)

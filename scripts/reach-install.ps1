@@ -244,7 +244,7 @@ function Get-ReachHome {
 
 function Test-RubyOk([string]$Path) {
     try {
-        & $Path -e 'exit((RUBY_VERSION.split(''.'').map { |part| part.to_i } <=> [2, 6, 10]) >= 0 ? 0 : 1)' 2>$null | Out-Null
+        & $Path -e 'v = RUBY_VERSION.split(''.'').map { |part| part.to_i }; exit(((v <=> [2, 6, 10]) >= 0 && (v <=> [4, 1, 0]) < 0) ? 0 : 1)' 2>$null | Out-Null
         return ($LASTEXITCODE -eq 0)
     } catch {
         return $false

@@ -85,6 +85,10 @@ module Reach
     end
 
     def save_manifest(manifest)
+      with_manifest_lock { write_manifest(manifest) }
+    end
+
+    def write_manifest(manifest)
       manifest["updated_at"] = now_s
       file = Reach::Paths.update_manifest_file
       merge_session_records(manifest, file)
@@ -93,6 +97,28 @@ module Reach
       File.open(temp, "w", 0o600) { |handle| handle.write(JSON.pretty_generate(manifest)) }
       File.rename(temp, file)
       manifest
+    end
+
+    def with_manifest_lock
+      file = "#{Reach::Paths.update_manifest_file}.lock"
+      FileUtils.mkdir_p(File.dirname(file))
+      File.open(file, File::RDWR | File::CREAT, 0o600) do |handle|
+        handle.flock(File::LOCK_EX)
+        begin
+          yield
+        ensure
+          handle.flock(File::LOCK_UN)
+        end
+      end
+    end
+
+    def patch_manifest
+      with_manifest_lock do
+        manifest = load_manifest
+        changed = yield(manifest)
+        write_manifest(manifest) if changed
+        changed
+      end
     end
 
     def merge_session_records(manifest, file)
@@ -121,13 +147,15 @@ module Reach
     def record_session!(session_id)
       return if session_id.to_s.empty?
 
-      manifest = load_manifest
-      sessions = manifest["sessions"].is_a?(Hash) ? manifest["sessions"] : {}
-      return if sessions.key?(session_id.to_s)
+      patch_manifest do |manifest|
+        sessions = manifest["sessions"].is_a?(Hash) ? manifest["sessions"] : {}
+        next false if sessions.key?(session_id.to_s)
 
-      sessions[session_id.to_s] = now_s
-      manifest["sessions"] = sessions
-      save_manifest(manifest)
+        sessions[session_id.to_s] = now_s
+        manifest["sessions"] = sessions
+        true
+      end
+      nil
     end
 
     def session_started_before?(manifest, session_id, time)
@@ -426,7 +454,7 @@ module Reach
       manifest["last_check_at"] = now_s
       manifest["failures"] = 0
       manifest["next_check_at"] = (Time.now.utc + settings["interval_s"] + rand(settings["jitter_s"] + 1)).iso8601
-      resuming = manifest["applying"] == true || %w[swapped refreshed].include?(manifest["phase"])
+      resuming = (manifest["applying"] == true || %w[swapped refreshed].include?(manifest["phase"])) && !exhausted?(manifest)
       if !newer.empty?
         newest = newer.last
         if newest["version"] != manifest["target_version"] && !resuming
@@ -577,6 +605,7 @@ module Reach
         manifest["staging_dir"] = nil
         save_manifest(manifest)
         log("apply", "from" => from_version, "to" => manifest["target_version"], "result" => "completed")
+        Reach::Setup.refresh_copies
         Reach::Subscribe.spawn_ensure
         manifest
       else
@@ -642,6 +671,18 @@ module Reach
       nil
     end
 
+    def exhausted?(manifest)
+      manifest["attempts"].to_i >= config["max_attempts"]
+    end
+
+    def blocks_relocation?(manifest = load_manifest)
+      return true if installing?(manifest)
+
+      %w[swapped refreshed].include?(manifest["phase"]) && !exhausted?(manifest) && !disabled? && managed?
+    rescue StandardError
+      false
+    end
+
     def interrupted_swap?(manifest)
       return true if %w[swapped refreshed].include?(manifest["phase"])
       return false unless manifest["phase"] == "staged"
@@ -681,17 +722,17 @@ module Reach
     end
 
     def announce!(key, session_id)
-      manifest = load_manifest
-      announced = manifest["announced"]
-      announced = {} unless announced.is_a?(Hash)
-      sessions = Array(announced[key])
       id = session_id.to_s.empty? ? "-" : session_id.to_s
-      return false if sessions.include?(id)
+      patch_manifest do |manifest|
+        announced = manifest["announced"]
+        announced = {} unless announced.is_a?(Hash)
+        sessions = Array(announced[key])
+        next false if sessions.include?(id)
 
-      announced[key] = (sessions + [id]).last(ANNOUNCE_KEEP)
-      manifest["announced"] = announced
-      save_manifest(manifest)
-      true
+        announced[key] = (sessions + [id]).last(ANNOUNCE_KEEP)
+        manifest["announced"] = announced
+        true
+      end
     end
 
     def announced?(manifest, key, session_id)
@@ -728,7 +769,7 @@ module Reach
         return manifest["target_version"]
       end
 
-      if interrupted_swap?(manifest) && !lock_live?
+      if interrupted_swap?(manifest) && !lock_live? && !exhausted?(manifest)
         spawn_background(apply: true)
         announce!("updating:#{manifest['target_version']}", session_id)
         return manifest["target_version"]
@@ -805,7 +846,7 @@ module Reach
     def run_locked(apply, force, check = false)
       manifest = load_manifest
       managed = managed?
-      if managed && apply && interrupted_swap?(manifest)
+      if managed && apply && interrupted_swap?(manifest) && (force || !exhausted?(manifest))
         apply(manifest, resume: true)
         manifest = load_manifest
       end
@@ -818,7 +859,7 @@ module Reach
       due = check_due?(manifest) || ((force || check) && !offline?)
       manifest = check(manifest) if due
       attempts_left = manifest["attempts"].to_i < config["max_attempts"]
-      if !attempts_left && !force && %w[detected downloaded staged].include?(manifest["phase"])
+      if !attempts_left && !force && %w[detected downloaded staged swapped refreshed].include?(manifest["phase"])
         return { "held" => "too many attempts", "phase" => manifest["phase"], "target" => manifest["target_version"], "local" => manifest["local_version"] }
       end
       stage(manifest) if managed && %w[detected downloaded].include?(manifest["phase"])

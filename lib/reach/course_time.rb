@@ -76,7 +76,7 @@ module Reach
 
       def stamp_other(instant, zone_name)
         zoneinfo = "/usr/share/zoneinfo/#{zone_name}"
-        return instant.getlocal.strftime("%Y-%m-%d-%H%M-%Z") unless File.file?(zoneinfo)
+        return "#{instant.getutc.strftime("%Y-%m-%d-%H%M")}-UTC" unless File.file?(zoneinfo)
 
         had_tz = ENV.key?("TZ")
         previous_tz = ENV["TZ"]
@@ -104,7 +104,7 @@ module Reach
       end
 
       def render_pacific(instant, pattern, labelled)
-        utc = instant.utc
+        utc = instant.getutc
         dst = pacific_dst?(utc)
         shifted = (utc + ((dst ? -7 : -8) * 3600)).utc
         text = shifted.strftime(pattern)
@@ -133,7 +133,10 @@ module Reach
       def render_other(instant, zone_name, pattern, labelled)
         full = labelled ? "#{pattern} %Z" : pattern
         zoneinfo = "/usr/share/zoneinfo/#{zone_name}"
-        return instant.localtime.strftime(full) unless File.file?(zoneinfo)
+        unless File.file?(zoneinfo)
+          text = instant.getutc.strftime(pattern)
+          return labelled ? "#{text} UTC" : text
+        end
 
         had_tz = ENV.key?("TZ")
         previous_tz = ENV["TZ"]

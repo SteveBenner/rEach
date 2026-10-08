@@ -108,8 +108,9 @@ module Reach
         FileUtils.mkdir_p(Reach::Paths.receipt_acks_dir)
         Dir.glob(File.join(Reach::Paths.receipt_acks_dir, "*.json")).map do |path|
           begin
-            JSON.parse(File.read(path))
-          rescue JSON::ParserError
+            data = JSON.parse(File.read(path))
+            data.is_a?(Hash) ? data : nil
+          rescue JSON::ParserError, SystemCallError
             nil
           end
         end.compact.sort_by { |entry| entry["ack"].to_h["acknowledged_at"].to_s }.reverse
@@ -147,7 +148,7 @@ module Reach
           if e.code == "conflict"
             entry["state"] = "mismatch"
             entry["last_error"] = e.message
-          elsif e.code == "invalid_request"
+          elsif e.code == "invalid_request" || permanent_refusal?(e.status)
             entry["state"] = "refused"
             entry["last_error"] = e.message
           else
@@ -162,6 +163,10 @@ module Reach
         [entry["state"], unreachable]
       end
 
+      def permanent_refusal?(status)
+        status.is_a?(Integer) && status >= 400 && status < 500 && ![401, 408, 429].include?(status)
+      end
+
       def record_path(receipt_id)
         File.join(Reach::Paths.receipt_acks_dir, "#{receipt_id.to_s.gsub(/[^A-Za-z0-9_-]/, '_')}.json")
       end
@@ -170,8 +175,9 @@ module Reach
         path = record_path(receipt_id)
         return nil unless File.file?(path)
 
-        JSON.parse(File.read(path))
-      rescue JSON::ParserError
+        data = JSON.parse(File.read(path))
+        data.is_a?(Hash) ? data : nil
+      rescue JSON::ParserError, SystemCallError
         nil
       end
 
@@ -184,9 +190,7 @@ module Reach
           nil
         end
         path = record_path(receipt_id)
-        tmp = "#{path}.#{Process.pid}.tmp"
-        File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(entry)) }
-        File.rename(tmp, path)
+        Reach::StateFile.write_atomic(path, JSON.generate(entry))
       end
     end
   end

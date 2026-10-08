@@ -737,6 +737,7 @@ module Reach
           puts summary["transfer"]
           Reach::Transfer.mark_announced!
         end
+        Reach::Submit.rejected_notices.each { |text| puts text }
         Array(summary["warnings"]).each { |warning| puts warning }
         puts Reach::Messages.text("M-OFFLINE") if summary["state"] == "offline"
         puts Reach::Messages.text("M-GATE-REVOKED") if summary["state"] == "revoked"
@@ -744,6 +745,7 @@ module Reach
 
       def cmd_status(_args)
         puts Reach::Status.summary
+        Reach::Submit.rejected_notices.each { |text| puts text }
         0
       end
 
@@ -899,11 +901,14 @@ module Reach
           Reach::Gate.write(path: path, patch: patch, event: event, harness: options[:harness])
           0
         when "shell"
-          command = shell_text(options[:command] || tool_input["command"] || tool_input["cmd"])
-          if command.include?("*** Begin Patch")
-            Reach::Gate.write(patch: command, event: event, harness: options[:harness])
+          raw = options[:command] || tool_input["command"] || tool_input["cmd"]
+          command = shell_text(raw)
+          dialect = event["tool_name"] == "PowerShell" || !powershell_inner(raw).nil? ? "powershell" : nil
+          patch = Reach::Gate.apply_patch_payload(command, event)
+          if patch
+            Reach::Gate.write(patch: patch, event: event, harness: options[:harness])
           else
-            Reach::Gate.shell(command: command, event: event, harness: options[:harness])
+            Reach::Gate.shell(command: command, event: event, harness: options[:harness], dialect: dialect)
           end
           0
         when "read"
@@ -1377,7 +1382,53 @@ module Reach
         0
       end
 
+      POWERSHELL_PLAIN_FLAGS = %w[-noprofile -nologo -noninteractive -sta -mta].freeze
+
+      def powershell_inner(command)
+        if command.is_a?(Array)
+          parts = command.map(&:to_s)
+          return nil unless !parts.empty? && parts[0].downcase.tr("\\", "/").split("/").last.to_s.sub(/\.exe\z/, "") =~ /\A(?:powershell|pwsh)\z/
+
+          index = 1
+          while parts[index]
+            flag = parts[index].downcase
+            if POWERSHELL_PLAIN_FLAGS.include?(flag)
+              index += 1
+            elsif flag == "-executionpolicy"
+              index += 2
+            elsif %w[-command -c].include?(flag)
+              return parts[(index + 1)..-1].join(" ")
+            else
+              return nil
+            end
+          end
+          return nil
+        end
+        return nil unless command.is_a?(String)
+
+        match = command.match(/\A\s*"?(?:[^\s"]*[\\\/])?(?:powershell|pwsh)(?:\.exe)?"?\s+(.*)\z/mi)
+        return nil unless match
+
+        rest = match[1]
+        loop do
+          if rest =~ /\A(?:-NoProfile|-NoLogo|-NonInteractive|-Sta|-Mta)\s+/i
+            rest = Regexp.last_match.post_match
+          elsif rest =~ /\A-ExecutionPolicy\s+\S+\s+/i
+            rest = Regexp.last_match.post_match
+          else
+            break
+          end
+        end
+        return nil unless rest =~ /\A-(?:Command|c)\s+(.*)\z/mi
+
+        inner = Regexp.last_match(1).strip
+        inner = inner[1...-1] if inner.length > 1 && ["'", '"'].include?(inner[0]) && inner[-1] == inner[0]
+        inner
+      end
+
       def shell_text(command)
+        inner = powershell_inner(command)
+        return inner if inner
         return command.to_s unless command.is_a?(Array)
 
         parts = command.map(&:to_s)
@@ -1985,7 +2036,7 @@ module Reach
 
       def check_outbox
         dir = Reach::Paths.outbox_dir
-        waiting = File.directory?(dir) ? Dir.children(dir).size - Reach::Issues.queued_entries.size : 0
+        waiting = File.directory?(dir) ? Dir.children(dir).reject { |name| name == "rejected" }.size - Reach::Issues.queued_entries.size : 0
         empty = waiting <= 0
         empty ? [] : ["R-DOC-OUTBOX: the outbox is not empty - reach submit retries automatically; stay online"]
       rescue StandardError
@@ -2441,6 +2492,11 @@ module Reach
           if Reach::Sandbox.blocked?
             warn Reach::Sandbox.agent_text
             return 1
+          end
+          held_back = Reach::Update.disabled? ? "disabled" : (Reach::Update.offline? ? "offline" : nil)
+          if held_back
+            puts json ? JSON.pretty_generate("skipped" => held_back) : "update skipped: #{held_back}"
+            return 0
           end
           result = Reach::Update.with_lock { Reach::Update.check(Reach::Update.load_manifest) }
           if result == :locked

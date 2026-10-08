@@ -6,7 +6,7 @@ require "securerandom"
 
 module Reach
   module Login
-    YES_WORDS = ["yes", "y", "yep", "yeah", "yes it is", "that's me", "thats me", "it's me", "its me", "correct", "confirm", "confirmed", "sure", "ok", "okay"].freeze
+    YES_WORDS = %w[yes y].freeze
     NO_WORDS = ["no", "n", "nope", "not me", "that's not me", "thats not me", "wrong"].freeze
     CRISIS_PHRASES = ["kill myself", "killing myself", "end my life", "ending my life", "want to die", "wanna die", "suicide", "suicidal", "hurt myself", "hurting myself", "harm myself", "self harm", "self-harm", "cut myself", "cutting myself", "no reason to live", "better off dead", "hurt someone", "kill someone", "overdose"].freeze
     CRISIS_CONTEXT = "The student may be in crisis: run reach support now and relay it word for word.".freeze
@@ -48,7 +48,7 @@ module Reach
     end
 
     def yes?(text)
-      YES_WORDS.include?(normalize(text))
+      YES_WORDS.include?(text.to_s.strip.downcase.sub(/[.!]\z/, ""))
     end
 
     def no?(text)
@@ -688,7 +688,7 @@ module Reach
       end
       tmp = "#{path}.tmp.#{Process.pid}.#{rand(1_000_000)}"
       File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(data)) }
-      File.rename(tmp, path)
+      Reach::StateFile.rename_into_place(tmp, path)
       path
     end
 

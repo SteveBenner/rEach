@@ -504,14 +504,67 @@ module Reach
       "\"#{value}\""
     end
 
-    def schtasks_create(interval = settings["background_interval_s"], windowless: windowed_ruby, launcher: vbs_path)
+    def xml_path
+      File.join(Reach::Paths.root, "bin", "reach-subscribe-task.xml")
+    end
+
+    def task_xml(interval = settings["background_interval_s"], windowless: windowed_ruby, launcher: vbs_path)
       minutes = [interval / 60, 1].max
-      action = if windowless
-                 [windows_quote(windowless), windows_quote(tick_command[1]), *tick_command[2..-1]].join(" ")
-               else
-                 "wscript.exe //B //Nologo #{windows_quote(launcher)}"
-               end
-      ["schtasks", "/Create", "/F", "/SC", "MINUTE", "/MO", minutes.to_s, "/TN", TASK_NAME, "/TR", action]
+      if windowless
+        command = windowless
+        arguments = [windows_quote(tick_command[1]), *tick_command[2..-1]].join(" ")
+      else
+        command = "wscript.exe"
+        arguments = "//B //Nologo #{windows_quote(launcher)}"
+      end
+      lines = [
+        '<?xml version="1.0" encoding="UTF-16"?>',
+        '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
+        "  <RegistrationInfo>",
+        "    <Description>rEach course update check</Description>",
+        "  </RegistrationInfo>",
+        "  <Triggers>",
+        "    <TimeTrigger>",
+        "      <Repetition>",
+        "        <Interval>PT#{minutes}M</Interval>",
+        "        <StopAtDurationEnd>false</StopAtDurationEnd>",
+        "      </Repetition>",
+        "      <StartBoundary>2024-01-01T00:00:00</StartBoundary>",
+        "      <Enabled>true</Enabled>",
+        "    </TimeTrigger>",
+        "  </Triggers>",
+        "  <Principals>",
+        '    <Principal id="Author">',
+        "      <LogonType>InteractiveToken</LogonType>",
+        "      <RunLevel>LeastPrivilege</RunLevel>",
+        "    </Principal>",
+        "  </Principals>",
+        "  <Settings>",
+        "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>",
+        "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>",
+        "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>",
+        "    <AllowHardTerminate>true</AllowHardTerminate>",
+        "    <StartWhenAvailable>true</StartWhenAvailable>",
+        "    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>",
+        "    <AllowStartOnDemand>true</AllowStartOnDemand>",
+        "    <Enabled>true</Enabled>",
+        "    <Hidden>false</Hidden>",
+        "    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>",
+        "  </Settings>",
+        '  <Actions Context="Author">',
+        "    <Exec>",
+        "      <Command>#{xml_escape(command)}</Command>",
+        "      <Arguments>#{xml_escape(arguments)}</Arguments>",
+        "    </Exec>",
+        "  </Actions>",
+        "</Task>",
+        ""
+      ]
+      "\uFEFF#{lines.join("\r\n")}".encode("UTF-16LE").b
+    end
+
+    def schtasks_create(_interval = nil, windowless: nil, launcher: nil)
+      ["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/XML", xml_path]
     end
 
     def schtasks_delete
@@ -523,19 +576,21 @@ module Reach
       case platform
       when "windows"
         windowless = windowed_ruby
-        files = windowless ? {} : { vbs_path => vbs_content }
+        files = { xml_path => task_xml(interval, windowless: windowless, launcher: vbs_path) }
+        files[vbs_path] = vbs_content unless windowless
         {
           "files" => files,
           "install" => [schtasks_create(interval, windowless: windowless)],
           "uninstall" => [schtasks_delete],
-          "remove" => [vbs_path],
+          "remove" => [vbs_path, xml_path],
           "location" => TASK_NAME
         }
       when "macos"
         uid = Process.uid.to_s
         {
           "files" => { plist_path => plist_content(tick_command, interval) },
-          "install" => [["launchctl", "bootout", "gui/#{uid}/#{LAUNCH_LABEL}"], ["launchctl", "bootstrap", "gui/#{uid}", plist_path]],
+          "pre" => [["launchctl", "bootout", "gui/#{uid}/#{LAUNCH_LABEL}"]],
+          "install" => [["launchctl", "bootstrap", "gui/#{uid}", plist_path]],
           "fallback" => [["launchctl", "load", "-w", plist_path]],
           "uninstall" => [["launchctl", "bootout", "gui/#{uid}/#{LAUNCH_LABEL}"]],
           "uninstall_fallback" => [["launchctl", "unload", "-w", plist_path]],
@@ -561,7 +616,10 @@ module Reach
     end
 
     def plan_signature(plan)
-      Digest::SHA256.hexdigest(JSON.generate("files" => plan["files"], "install" => plan["install"]))
+      files = plan["files"].map { |path, content| [path, content.encoding == Encoding::BINARY ? Digest::SHA256.hexdigest(content) : content] }.to_h
+      identity = { "files" => files, "install" => plan["install"] }
+      identity["pre"] = plan["pre"] if plan["pre"]
+      Digest::SHA256.hexdigest(JSON.generate(identity))
     end
 
     def installed?
@@ -569,7 +627,7 @@ module Reach
       job = read_state["job"]
       return false unless job.is_a?(Hash) && job["installed"] && job["signature"] == plan_signature(plan)
 
-      plan["files"].all? { |path, content| File.file?(path) && File.read(path) == content }
+      plan["files"].all? { |path, content| File.file?(path) && File.binread(path) == content.to_s.b }
     rescue StandardError
       false
     end
@@ -584,16 +642,17 @@ module Reach
 
       changed = false
       plan["files"].each do |path, content|
-        next if File.file?(path) && File.read(path) == content
+        next if File.file?(path) && File.binread(path) == content.to_s.b
 
         FileUtils.mkdir_p(File.dirname(path))
-        File.write(path, content)
+        File.binwrite(path, content)
         changed = true
       end
       current = read_state["job"]
       known = current.is_a?(Hash) && current["installed"] && current["signature"] == signature
       return :unchanged if known && !changed
 
+      Array(plan["pre"]).each { |command| run_os(*command) }
       ok = run_plan(plan["install"], plan["fallback"])
       unless ok
         record_job("installed" => false, "platform" => platform, "signature" => signature, "error" => "operating system call failed")
@@ -632,11 +691,20 @@ module Reach
       commands = Array(commands)
       return true if commands.empty?
 
-      results = commands.map { |command| run_os(*command).first }
+      results = commands.map { |command| os_ok?(command) }
       return true if results.all?
       return false if Array(fallback).empty?
 
-      Array(fallback).map { |command| run_os(*command).first }.all?
+      Array(fallback).map { |command| os_ok?(command) }.all?
+    end
+
+    ABSENT_JOB = /No such process|Could not find (specified )?service|not (loaded|found)|Boot-out failed: 3\b/i.freeze
+
+    def os_ok?(command)
+      ok, output = run_os(*command)
+      return true if ok
+
+      command[0, 2] == %w[launchctl bootout] && output.to_s =~ ABSENT_JOB ? true : false
     end
 
     def record_job(job)

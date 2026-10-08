@@ -178,7 +178,13 @@ module Reach
     end
 
     def fetch!(quick: true)
-      base = Reach::Runtime.default_teach_url
+      install = begin
+        Reach::Enroll.current
+      rescue StandardError
+        nil
+      end
+      enrolled_url = install.is_a?(Hash) ? install["teach_url"].to_s : ""
+      base = enrolled_url.empty? ? Reach::Runtime.default_teach_url : enrolled_url
       return nil if base.to_s.empty?
       return reject!("insecure_url") if signing_keys.empty? && !base.to_s.start_with?("https://")
 

@@ -11,6 +11,7 @@ module Reach
     PREVIEW_ROUTE = "/api/v1/enrollment/preview"
     CONNECT_TIMEOUT_S = 5
     READ_TIMEOUT_S = 10
+    LOCK_WAIT_S = 10.0
 
     module_function
 
@@ -77,8 +78,8 @@ module Reach
       end
 
       Reach::Paths.ensure_home!
-      previous = current
-      FileUtils.rm_f(Reach::Paths.status_cache_file) if previous && previous["student_id"] != body["student_id"]
+      previous = readable_current
+      set_aside_previous_student if previous && previous["student_id"].to_s != body["student_id"].to_s
       write_private_key(key)
       write_install_file(body, teach_url, "shape" => "v2", "username" => username, "display_name" => body["display_name"])
       Reach::Fingerprint.store!(fingerprint)
@@ -162,9 +163,51 @@ module Reach
     end
 
     def current
-      return nil unless File.file?(Reach::Paths.install_file)
+      path = Reach::Paths.install_file
+      return nil unless File.file?(path)
 
-      YAML.safe_load(File.read(Reach::Paths.install_file))
+      data = YAML.safe_load(File.read(path))
+      return data if data.is_a?(Hash)
+
+      unreadable!(path)
+    rescue Psych::Exception
+      unreadable!(path)
+    end
+
+    def unreadable!(path)
+      return nil if Thread.current[:reach_install_unreadable]
+
+      Thread.current[:reach_install_unreadable] = true
+      begin
+        raise Reach::Refused, Reach::Messages.text("M-ENROLL-INSTALL-UNREADABLE", file: path)
+      ensure
+        Thread.current[:reach_install_unreadable] = nil
+      end
+    end
+
+    def readable_current
+      current
+    rescue Reach::Refused
+      nil
+    end
+
+    def set_aside_previous_student
+      stamp = Time.now.utc.strftime("%Y%m%dT%H%M%SZ")
+      [Reach::Paths.receipts_dir, Reach::Paths.status_cache_file].each do |target|
+        next unless File.exist?(target)
+
+        backup = File.join(File.dirname(target), ".backup")
+        FileUtils.mkdir_p(backup)
+        FileUtils.mv(target, File.join(backup, "#{File.basename(target)}-#{stamp}"))
+      end
+      FileUtils.mkdir_p(Reach::Paths.receipts_dir)
+    end
+
+    def with_install_lock(&block)
+      path = Reach::Paths.install_file
+      FileUtils.mkdir_p(File.dirname(path))
+      outcome = Reach::Locks.exclusive("#{path}.lock", wait_s: LOCK_WAIT_S, &block)
+      outcome == :busy ? block.call : outcome
     end
 
     def revoked?
@@ -175,24 +218,27 @@ module Reach
     end
 
     def update!(fields)
-      data = current || {}
-      merged = data.merge(stringify_keys(fields))
-      write_data(merged)
-      merged
+      with_install_lock do
+        data = current || {}
+        merged = data.merge(stringify_keys(fields))
+        write_data(merged)
+        merged
+      end
     end
 
     def mark_revoked!
-      data = current || {}
-      data["revoked"] = true
-      write_data(data)
+      with_install_lock do
+        data = current || {}
+        data["revoked"] = true
+        write_data(data)
+      end
       nil
     end
 
     def write_private_key(key)
       path = Reach::Paths.install_key_file
       FileUtils.mkdir_p(File.dirname(path))
-      File.write(path, key.to_pem)
-      File.chmod(0o600, path)
+      Reach::StateFile.write_atomic(path, key.to_pem)
       path
     end
 
@@ -217,9 +263,7 @@ module Reach
 
     def write_data(data)
       path = Reach::Paths.install_file
-      FileUtils.mkdir_p(File.dirname(path))
-      File.write(path, YAML.dump(data))
-      File.chmod(0o600, path)
+      Reach::StateFile.write_atomic(path, YAML.dump(data))
       data
     end
 

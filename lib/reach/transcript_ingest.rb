@@ -7,6 +7,7 @@ module Reach
     MAX_ENTRIES_PER_INGEST = 2000
     SEEN_UUID_LIMIT = 2000
     TOOL_NAME_LIMIT = 500
+    BATCH_LINES = 50
 
     module_function
 
@@ -85,38 +86,54 @@ module Reach
       }
 
       budget = MAX_ENTRIES_PER_INGEST
-      running_offset, used = ingest_file(transcript_path, offset, ctx, budget, subagent: false)
-      budget -= used
-
-      if harness.to_s == "claude-code"
-        subagent_files(transcript_path).each do |path|
-          break if budget <= 0
-
-          name = File.basename(path)
-          start = subagent_offsets[name].to_i
-          start = 0 if File.size(path) < start
-          subagent_offsets[name], used = ingest_file(path, start, ctx, budget, subagent: true)
-          budget -= used
-        end
+      progress = { "main" => offset }
+      save = lambda do
+        Reach::Transcript.merge_state(
+          session_id,
+          "transcript_path" => transcript_path, "transcript_offset" => progress["main"],
+          "seen_uuids" => seen_uuids.last(SEEN_UUID_LIMIT), "tool_names" => tool_names.to_a.last(TOOL_NAME_LIMIT).to_h,
+          "subagent_offsets" => subagent_offsets
+        )
       end
 
-      Reach::Transcript.merge_state(
-        session_id,
-        "transcript_path" => transcript_path, "transcript_offset" => running_offset,
-        "seen_uuids" => seen_uuids.last(SEEN_UUID_LIMIT), "tool_names" => tool_names.to_a.last(TOOL_NAME_LIMIT).to_h,
-        "subagent_offsets" => subagent_offsets
-      )
+      begin
+        running_offset, used = ingest_file(transcript_path, offset, ctx, budget, subagent: false) do |position|
+          progress["main"] = position
+          save.call
+        end
+        progress["main"] = running_offset
+        budget -= used
+
+        if harness.to_s == "claude-code"
+          subagent_files(transcript_path).each do |path|
+            break if budget <= 0
+
+            name = File.basename(path)
+            start = subagent_offsets[name].to_i
+            start = 0 if File.size(path) < start
+            subagent_offsets[name], used = ingest_file(path, start, ctx, budget, subagent: true) do |position|
+              subagent_offsets[name] = position
+              save.call
+            end
+            budget -= used
+          end
+        end
+      ensure
+        save.call
+      end
       nil
     end
 
     def ingest_file(path, offset, ctx, budget, subagent:)
       running_offset = offset
       processed_total = 0
-      read_line_records(path, offset).each do |raw_line, byte_len|
+      handled = 0
+      each_line_record(path, offset) do |raw_line, byte_len|
         break if processed_total >= budget
 
         parsed = safe_json(raw_line)
         if parsed
+          ctx[:line_key] = "#{File.basename(path)}@#{running_offset}"
           processed_total += case ctx[:harness].to_s
                              when "claude-code" then ingest_claude_line(parsed, ctx, subagent: subagent)
                              when "codex" then ingest_codex_line(parsed, ctx)
@@ -124,24 +141,21 @@ module Reach
                              end
         end
         running_offset += byte_len
+        handled += 1
+        yield(running_offset) if block_given? && (handled % BATCH_LINES).zero?
       end
       [running_offset, processed_total]
     end
 
-    def read_line_records(path, offset)
-      content = File.open(path, "rb") do |file|
+    def each_line_record(path, offset)
+      File.open(path, "rb") do |file|
         file.seek(offset)
-        file.read
-      end
-      return [] if content.nil? || content.empty?
+        file.each_line do |raw|
+          break unless raw.end_with?("\n")
 
-      records = []
-      content.each_line do |raw|
-        next unless raw.end_with?("\n")
-
-        records << [raw.chomp("\n"), raw.bytesize]
+          yield raw.chomp("\n"), raw.bytesize
+        end
       end
-      records
     end
 
     def ingest_claude_line(parsed, ctx, subagent: false)
@@ -193,6 +207,9 @@ module Reach
     def ingest_codex_line(parsed, ctx)
       return 0 unless parsed.is_a?(Hash) && parsed["type"] == "response_item"
 
+      key = ctx[:line_key]
+      return 0 if key && ctx[:seen_uuids].include?(key)
+
       payload = parsed["payload"].is_a?(Hash) ? parsed["payload"] : {}
       at = normalized_at(parsed["timestamp"] || payload["timestamp"])
       processed = 0
@@ -225,6 +242,7 @@ module Reach
         record_output(ctx, ctx[:tool_names][payload["call_id"].to_s], output_text(payload["output"]), nil, at)
         processed += 1
       end
+      ctx[:seen_uuids] << key if key && processed.positive?
       processed
     end
 
@@ -289,7 +307,7 @@ module Reach
     def action_summary(tool, input, base)
       input = input.is_a?(Hash) ? input : {}
       text = case tool
-             when "Bash", "shell", "exec_command", "terminal"
+             when "Bash", "PowerShell", "shell", "exec_command", "terminal"
                (input["command"] || input["cmd"]).to_s
              when "Read", "Grep", "Glob"
                relativize_path((input["path"] || input["pattern"] || input["file_path"]).to_s, base)

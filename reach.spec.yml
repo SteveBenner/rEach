@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.46.0
+version: 0.46.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1411,7 +1411,7 @@ subscription:
     next_due_at, failures, unsupported_until, last_sync_at, notices and job. state/subscribe.lock holds one tick at a
     time (non-blocking); state/sync.lock is Reach::Sync.run's exclusive lock.
   settings: >-
-    config.yml subscribe: {background: true, session_interval_s: 60, background_interval_s: 900}. REACH_OFFLINE=1 and
+    config.yml subscribe: {background: true, session_interval_s: 60, background_interval_s: 900}, capped at the transcript send interval (600 s by default). REACH_OFFLINE=1 and
     REACH_SUBSCRIBE=0 make every entry point a no-op.
   tick: >-
     reach subscribe tick --source session|background returns at once when a kill switch is set, when no install is
@@ -1549,8 +1549,8 @@ runtime_kit_auto: >-
 ruby_bootstrap: >-
   Since 0.20.7 (STD-RUBY-BOOTSTRAP) rEach no longer needs a Ruby already installed. hooks/hooks.json and .mcp.json run
   sh "${CLAUDE_PLUGIN_ROOT}/exe/reach-run" ARGS (Claude Code runs plugin hooks through Git Bash on Windows, with the
-  plugin root in forward-slash form). exe/reach-run picks, in order, REACH_RUBY, the Ruby on PATH when it is 2.6.10 or
-  newer, then the active kit's ruby (runtime/current, .complete present), and execs exe/reach with it. With none it
+  plugin root in forward-slash form). exe/reach-run picks, in order, REACH_RUBY, the Ruby on PATH when it is 2.6.10 to
+  4.0.x (since 0.46.1, matching Setup.check_ruby), then the active kit's ruby (runtime/current, .complete present), and execs exe/reach with it. With none it
   starts one detached bootstrap (a mkdir lock at ~/.reach/state/bootstrap.lock, stale after 15 minutes): it downloads
   the platform's kit bundle named in exe/runtime-pins from the pinned runtime release with curl (or wget), checks size
   and sha256 (sha256sum, shasum -a 256 or openssl), extracts runtime/ with tar into a staging folder, smoke-runs ruby -v
@@ -1730,8 +1730,8 @@ auto_update:
       release's update/apply.rb, swapped re-runs it with --resume (which skips the swap and finishes the refresh and
       migrations). If ~/.reach/plugin is missing, the shim completes the swap from staged_path or restores
       backup_path before loading Reach. Attempts are counted; after 5 failed attempts at one target the manifest
-      keeps the error and waits for the next newer release or a manual reach update run.
-    lock: ~/.reach/state/update.lock holds the pid and a heartbeat; a lock older than 900 s or whose pid is gone is stale.
+      keeps the error and waits for the next newer release or a manual reach update run. Since 0.46.1 the resume of an interrupted swap counts toward the same limit, the hold covers the swapped and refreshed phases, and a migration that fails restores the previous plugin from its backup (the failed tree is kept as .backup/failed-plugin-<timestamp>) and resets the manifest to detected.
+    lock: ~/.reach/state/update.lock is a non-blocking flock held for a whole run and holding the pid; the kernel frees it when the process ends, so it never goes stale. Since 0.46.1 every update.json write is serialized by a short blocking flock on update.json.lock that re-reads the manifest and writes it atomically.
   release_scripts: >-
     The old Reach only finds, downloads and stages a release; the release installs itself. It runs
     ruby <staged>/update/apply.rb --staged DIR --destination ~/.reach/plugin --manifest FILE --from X --to Y
@@ -2447,6 +2447,17 @@ shell_rules:
   - >-
     Unknown commands are allowed only when they take no path arguments outside the workspace and no redirection;
     otherwise refused with M-SHELL-BLOCKED.
+  - >-
+    Since 0.46.1 the shell gate fails closed. A command it cannot model is refused with M-SHELL-UNMODELED: command
+    substitution, process substitution, here-docs and here-strings, subshells and groups, reserved words, unterminated
+    quotes and dynamic command words. env, command, builtin, exec, nohup, nice, time, timeout, stdbuf, bundle exec, npx
+    and npm exec are unwrapped and the inner command is classified. eval, xargs, source, sudo, awk, a shell with -c or
+    -s or reading stdin, and pwsh or cmd inside a script are refused. Every operand and every redirect of a mutating
+    command must be owned or under a writable folder, whether or not it looks like a path. .claude, .codex, .mcp.json,
+    CLAUDE.md and AGENTS.md are never writable through the shell. cd takes one argument and is refused when piped,
+    backgrounded or chained after && or ||. A command reaches the write gate only as a recognized apply_patch form. On
+    Windows, powershell or pwsh -Command is unwrapped, and a fixed set of cmdlets maps to the modeled commands.
+    -EncodedCommand, -File and any other cmdlet are refused. The Claude Code matcher covers Bash and PowerShell.
   honesty: >-
     Shell rules catch ordinary mistakes and casual attempts; a student determined to bypass them on their own machine
     can; the submit-time check and Teach's grading are the backstop.

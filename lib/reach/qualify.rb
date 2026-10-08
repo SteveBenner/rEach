@@ -93,6 +93,7 @@ module Reach
         end
         readme = rows.count { |row| row["id"] == "CK-README" }
         record["next"] = Reach::Messages.text("M-QUALIFY-README", count: readme, min: Reach::ReadmeCheck::MIN_WORDS) if readme.positive?
+        record["files_digest"] = files_digest(workspace)
         rows.empty?
       end
 
@@ -119,7 +120,7 @@ module Reach
           feature_tags = []
           pending = []
           File.foreach(path, encoding: Encoding::UTF_8) do |raw|
-            line = raw.scrub
+            line = raw.scrub.sub(/\A\uFEFF/, "")
             stripped = line.strip
             if stripped.start_with?("@")
               pending.concat(stripped.split(/\s+/))
