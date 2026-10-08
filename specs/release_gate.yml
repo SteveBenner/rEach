@@ -25,7 +25,7 @@ blocking:
 classes:
   critical_class: a check that cannot run blocks (its finding has severity error and class critical_class)
   warn_class: a check that cannot run warns and is recorded
-statuses: [passed, warned, blocked, overridden, error]
+statuses: [passed, warned, blocked, overridden, leased, error]
 hook:
   path: .githooks/pre-push
   command: ruby tools/release_gate/gate.rb <remote name> <remote url>
@@ -57,6 +57,20 @@ commands:
   - ruby tools/release_gate/gate.rb overrides                                             the active override records
   - ruby tools/release_gate/gate.rb hold stable --reason TEXT [--hours N]                 a recorded reason for stable to stay behind Latest (an override whose checks are [VER-STABLE])
   - tools/release_gate/install                                                            sets core.hooksPath to .githooks and prints the token steps
+lease:
+  source: >-
+    ~/.config/release-gate/lease_source.yml (RELEASE_GATE_LEASE_SOURCE), keys url (an http or https lease route) and
+    console_url (where the operator manages leases). No file, an unreadable one or an invalid url means no lease
+    source, and the gate behaves exactly as without leases. The gate code names no lease owner.
+  query: GET <url>?repo=<repo> with 2 second open and read timeouts, on every recording run that would end blocked or error, and on a dry run to report whether a lease would apply
+  valid: >-
+    200 with JSON { lease } whose id matches gtl_ followed by 20 hexadecimal characters, whose repos include the repo,
+    and whose granted_at is not after and expires_at is after the gate's clock, at most 24 hours apart. Anything else,
+    a timeout or a refused connection is no lease.
+  effect: >-
+    A recording run that would end blocked or error ends leased with exit 0 and names the lease id. Every check still
+    runs and the run is still recorded. The lease is checked before overrides and never consumes one. A dry run
+    (check) says whether a lease would apply and records nothing.
 override:
   owner: the instructor, at an interactive terminal (stdin and stdout are terminals), typing the phrase "override <repo>" when asked
   record:
@@ -87,8 +101,8 @@ facts:
   installs: counts per reach_version over 30 days with the version's wire digest when known; never an identity
 runs:
   endpoint: the course server's release-gate run record, idempotent per run and rate limited per token
-  body: '{ repo, release_version, commit, tree, trigger, status, findings: [{id, severity, class, title, detail}], override_id, duration_s, error }'
-  record_everywhere: the course server records every run and alarms release_gate:<repo> on blocked or error until a later passed, warned or overridden run
+  body: '{ repo, release_version, commit, tree, trigger, status, findings: [{id, severity, class, title, detail}], override_id, lease_id, duration_s, error }'
+  record_everywhere: the course server records every run and alarms release_gate:<repo> on blocked or error until a later passed, warned, overridden or leased run
 version_homes:
   reach: [VERSION, plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, reach.spec.yml, specs/app.yml]
   teach: [VERSION, teach.spec.yml, specs/app.yml]
