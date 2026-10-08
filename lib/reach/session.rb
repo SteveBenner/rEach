@@ -1,3 +1,5 @@
+require "securerandom"
+
 module Reach
   module Session
     HARNESSES = %w[claude-code codex hermes unknown].freeze
@@ -7,7 +9,11 @@ module Reach
     def resolve_session_id(event)
       raw = event.is_a?(Hash) ? event["session_id"].to_s : ""
       cleaned = raw.gsub(/[^A-Za-z0-9._:-]/, "_")[0, 128]
-      cleaned.empty? ? "unknown-#{Time.now.utc.strftime('%Y%m%d')}" : cleaned
+      cleaned.empty? ? fallback_session_id : cleaned
+    end
+
+    def fallback_session_id
+      @fallback_session_id ||= "unknown-#{Time.now.utc.strftime('%Y%m%d')}-#{Process.pid}-#{SecureRandom.hex(4)}"
     end
 
     CODEX_ENV_KEYS = %w[CODEX_THREAD_ID CODEX_SESSION_ID CODEX_SHELL].freeze

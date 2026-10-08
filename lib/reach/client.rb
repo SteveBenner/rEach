@@ -7,6 +7,9 @@ require "fileutils"
 require "openssl"
 
 module Reach
+  class CertificateError < NetworkError
+  end
+
   class CircuitBreaker
     def initialize(failure_threshold: 5, cooldown_s: 60)
       @failure_threshold = failure_threshold
@@ -151,6 +154,8 @@ module Reach
     end
 
     DEADLINE_FLOOR_S = 0.5
+    CLOCK_SKEW_LIMIT_S = 300
+    LOOPBACK_HOSTS = %w[127.0.0.1 ::1 localhost].freeze
 
     @@breaker = CircuitBreaker.new(failure_threshold: 5, cooldown_s: 60)
     @deadline = nil
@@ -233,6 +238,7 @@ module Reach
     def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, bucket: nil, quiet: false, link: true)
       @track_link = link
       @base_url = base_url.to_s.sub(%r{/+\z}, "")
+      refuse_insecure_url!(@base_url)
       @install_id = install_id
       @install_private_key = install_private_key
       @quick = quick
@@ -254,6 +260,38 @@ module Reach
     end
 
     private
+
+    def refuse_insecure_url!(url)
+      uri = URI.parse(url)
+      return unless uri.scheme.to_s.downcase == "http"
+      return if LOOPBACK_HOSTS.include?(uri.host.to_s.downcase.delete("[]"))
+
+      raise Reach::Refused, Reach::Messages.text("M-TEACH-INSECURE-URL")
+    rescue URI::InvalidURIError
+      nil
+    end
+
+    def certificate_failure?(error)
+      error.is_a?(OpenSSL::SSL::SSLError) && error.message.to_s =~ /certificate verify failed|certificate has expired|self.signed|unable to get local issuer/i
+    end
+
+    def certificate_failure(method, path, error)
+      failure = Reach::CertificateError.new(Reach::Messages.text("M-TEACH-CERTIFICATE"))
+      failure.cause_name = "tls_certificate"
+      failure.detail = "#{method.to_s.upcase} #{path} tls_certificate: #{error.message}"
+      failure
+    end
+
+    def clock_skewed?(response)
+      return false unless @install_private_key && response.status == 401
+
+      date = response.headers["date"]
+      return false if date.to_s.empty?
+
+      (Time.httpdate(date) - Time.now).abs > CLOCK_SKEW_LIMIT_S
+    rescue ArgumentError
+      false
+    end
 
     def request(method, path, query: nil, body: nil, headers: {})
       if ENV["REACH_OFFLINE"] == "1"
@@ -321,12 +359,18 @@ module Reach
 
           self.class.breaker.record_success
           Reach::Link.restored! if @track_link
+          message = Reach::Messages.text("M-TEACH-CLOCK") if clock_skewed?(response)
           refusal = Reach::RemoteRefused.new(code, response.status, message)
           refusal.details = error["details"] || (parsed || {})["details"]
           raise refusal
         rescue Reach::Error
           raise
         rescue *RETRYABLE_EXCEPTIONS => e
+          if certificate_failure?(e)
+            log_request(method, target, 0, ((Time.now - began_at) * 1000).round, attempt - 1)
+            raise certificate_failure(method, path, e)
+          end
+
           self.class.breaker.record_failure
           duration_ms = ((Time.now - began_at) * 1000).round
           log_request(method, target, 0, duration_ms, attempt - 1)
@@ -429,10 +473,12 @@ module Reach
       value = response.headers["retry-after"]
       return nil unless value
 
-      seconds = Integer(value)
-      [seconds, 60].min
-    rescue ArgumentError, TypeError
-      nil
+      seconds = begin
+        Integer(value)
+      rescue ArgumentError, TypeError
+        0
+      end
+      [[seconds, 0].max, 60].min
     end
 
     def backoff_seconds(attempt)

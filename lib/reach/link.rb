@@ -42,7 +42,7 @@ module Reach
     def write_state(state)
       tmp = "#{state_file}.tmp.#{Process.pid}.#{rand(1_000_000)}"
       File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(state)) }
-      File.rename(tmp, state_file)
+      Reach::StateFile.rename_into_place(tmp, state_file)
       File.chmod(0o600, state_file)
     end
 

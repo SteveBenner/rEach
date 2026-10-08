@@ -34,23 +34,28 @@ module Reach
       end
 
       def verify!(receipt)
+        raise Reach::VerificationFailed, "reach: receipt is not a receipt" unless receipt.is_a?(Hash)
+
         signature = receipt["signature"]
-        raise Reach::VerificationFailed, "reach: receipt carries no signature" unless signature
+        raise Reach::VerificationFailed, "reach: receipt carries no signature" unless signature.is_a?(String) && !signature.empty?
 
         unsigned = receipt.reject { |key, _| key == "signature" }
         signable = Reach::Crypto.canonical_json(unsigned)
         key_id = receipt["signing_key_id"]
 
         public_key = signer_public_key_for(key_id)
-        unless public_key && Reach::Crypto.verify_pss(public_key, Base64.strict_decode64(signature), signable)
-          raise Reach::VerificationFailed, "reach: receipt signature does not verify"
+        verified = begin
+          public_key && Reach::Crypto.verify_pss(public_key, Base64.strict_decode64(signature), signable)
+        rescue ArgumentError, TypeError, OpenSSL::OpenSSLError
+          false
         end
+        raise Reach::VerificationFailed, "reach: receipt signature does not verify" unless verified
       end
 
       def store(receipt)
         FileUtils.mkdir_p(Reach::Paths.receipts_dir)
         id = receipt["receipt_id"]
-        File.write(File.join(Reach::Paths.receipts_dir, "#{id}.json"), JSON.generate(receipt))
+        Reach::StateFile.write_atomic(File.join(Reach::Paths.receipts_dir, "#{id}.json"), JSON.generate(receipt))
         begin
           Reach::ReceiptAcks.record(receipt)
         rescue StandardError
@@ -74,8 +79,9 @@ module Reach
 
       def list
         FileUtils.mkdir_p(Reach::Paths.receipts_dir)
-        Dir.glob(File.join(Reach::Paths.receipts_dir, "*.json")).map { |path| JSON.parse(File.read(path)) }
-          .sort_by { |receipt| receipt["issued_at"] || "" }
+        Dir.glob(File.join(Reach::Paths.receipts_dir, "*.json")).map { |path| read_receipt(path) }
+          .compact
+          .sort_by { |receipt| receipt["issued_at"].to_s }
           .reverse
       end
 
@@ -83,7 +89,7 @@ module Reach
         path = File.join(Reach::Paths.receipts_dir, "#{id}.json")
         return nil unless File.file?(path)
 
-        JSON.parse(File.read(path))
+        read_receipt(path)
       end
 
       def latest_for(cutout_id:, slice:)
@@ -103,18 +109,42 @@ module Reach
           next if submission_id.empty? || polled_recently?(submission_id, now)
 
           mark_polled(submission_id, now)
-          fetched = fetch_receipt(submission_id, "grade")
-          next unless fetched
+          begin
+            fetched = fetch_receipt(submission_id, "grade")
+            next unless fetched
 
-          verify!(fetched)
-          store(fetched)
-          record_in_corpus(fetched)
-          acknowledge(fetched)
-          announced << announce(fetched)
+            verify!(fetched)
+            store(fetched)
+            record_in_corpus(fetched)
+            acknowledge(fetched)
+            announced << announce(fetched)
+          rescue Reach::RemoteRefused, Reach::VerificationFailed
+            next
+          end
         end
       end
 
       private
+
+      def read_receipt(path)
+        data = JSON.parse(File.read(path))
+        return data if data.is_a?(Hash)
+
+        set_aside(path)
+      rescue JSON::ParserError
+        set_aside(path)
+      rescue SystemCallError
+        nil
+      end
+
+      def set_aside(path)
+        target = "#{path}.corrupt"
+        target = "#{path}.#{Time.now.utc.strftime('%Y%m%dT%H%M%S')}.corrupt" if File.exist?(target)
+        File.rename(path, target)
+        nil
+      rescue SystemCallError
+        nil
+      end
 
       def poll_marker(submission_id)
         File.join(Reach::Paths.state_dir, "grade-polls", "#{submission_id.gsub(/[^A-Za-z0-9_-]/, '_')}.at")

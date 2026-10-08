@@ -12,22 +12,23 @@ module Reach
     module_function
 
     def report(kind, detail:, workspace: nil, path: nil, once: true)
-      body = build_body(kind, detail: detail, workspace: workspace, path: path, once: once)
+      body, digest = build_body(kind, detail: detail, workspace: workspace, path: path, once: once)
       return nil unless body
 
-      send_or_queue(body)
+      send_or_queue(body, digest)
     rescue StandardError
       nil
     end
 
     def queue(kind, detail:, workspace: nil, path: nil, once: true)
-      body = build_body(kind, detail: detail, workspace: workspace, path: path, once: once)
+      body, digest = build_body(kind, detail: detail, workspace: workspace, path: path, once: once)
       return nil unless body
 
       install = Reach::Enroll.current
       return nil unless install
 
       write_outbox(SecureRandom.uuid, body)
+      remember(digest) if digest
       body
     rescue StandardError
       nil
@@ -53,16 +54,16 @@ module Reach
         "ledger_head" => workspace ? Reach::Ledger.head(workspace) : nil,
         "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
       }
-      remember(digest) if once
-      body
+      [body, once ? digest : nil]
     end
 
-    def send_or_queue(body)
+    def send_or_queue(body, digest = nil)
       install = Reach::Enroll.current
       return nil unless install
 
       idempotency_key = SecureRandom.uuid
       outbox_path = write_outbox(idempotency_key, body)
+      remember(digest) if digest
       begin
         response = Reach::Client.for_install(install, quick: true).post_json(ROUTE, body, idempotency_key: idempotency_key)
         FileUtils.rm_f(outbox_path)
@@ -80,7 +81,7 @@ module Reach
     def write_outbox(idempotency_key, body)
       FileUtils.mkdir_p(Reach::Paths.outbox_dir)
       path = File.join(Reach::Paths.outbox_dir, "#{idempotency_key}.json")
-      File.write(path, JSON.generate("kind" => "integrity", "route" => ROUTE, "idempotency_key" => idempotency_key, "body" => body))
+      Reach::StateFile.write_atomic(path, JSON.generate("kind" => "integrity", "route" => ROUTE, "idempotency_key" => idempotency_key, "body" => body))
       path
     end
 
