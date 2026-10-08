@@ -307,7 +307,7 @@ module Reach
     def action_summary(tool, input, base)
       input = input.is_a?(Hash) ? input : {}
       text = case tool
-             when "Bash", "shell", "exec_command", "terminal"
+             when "Bash", "PowerShell", "shell", "exec_command", "terminal"
                (input["command"] || input["cmd"]).to_s
              when "Read", "Grep", "Glob"
                relativize_path((input["path"] || input["pattern"] || input["file_path"]).to_s, base)

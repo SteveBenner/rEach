@@ -737,6 +737,7 @@ module Reach
           puts summary["transfer"]
           Reach::Transfer.mark_announced!
         end
+        Reach::Submit.rejected_notices.each { |text| puts text }
         Array(summary["warnings"]).each { |warning| puts warning }
         puts Reach::Messages.text("M-OFFLINE") if summary["state"] == "offline"
         puts Reach::Messages.text("M-GATE-REVOKED") if summary["state"] == "revoked"
@@ -744,6 +745,7 @@ module Reach
 
       def cmd_status(_args)
         puts Reach::Status.summary
+        Reach::Submit.rejected_notices.each { |text| puts text }
         0
       end
 
@@ -2034,7 +2036,7 @@ module Reach
 
       def check_outbox
         dir = Reach::Paths.outbox_dir
-        waiting = File.directory?(dir) ? Dir.children(dir).size - Reach::Issues.queued_entries.size : 0
+        waiting = File.directory?(dir) ? Dir.children(dir).reject { |name| name == "rejected" }.size - Reach::Issues.queued_entries.size : 0
         empty = waiting <= 0
         empty ? [] : ["R-DOC-OUTBOX: the outbox is not empty - reach submit retries automatically; stay online"]
       rescue StandardError

@@ -688,7 +688,7 @@ module Reach
       end
       tmp = "#{path}.tmp.#{Process.pid}.#{rand(1_000_000)}"
       File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(data)) }
-      File.rename(tmp, path)
+      Reach::StateFile.rename_into_place(tmp, path)
       path
     end
 
