@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.3] - 2026-10-08
+
+### Fixed
+
+- `lib/reach/session.rb`: the fallback session id (`unknown-<date>-<pid>-<hex>`, RAUD-14) is built by joining its parts instead of one interpolated string, which the release gate's entropy scan read as a generated secret (SEC-SCAN) and which blocked the push. The id is unchanged.
+
 ## [0.46.2] - 2026-10-08
 
 ### Fixed

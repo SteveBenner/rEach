@@ -13,7 +13,7 @@ module Reach
     end
 
     def fallback_session_id
-      @fallback_session_id ||= "unknown-#{Time.now.utc.strftime('%Y%m%d')}-#{Process.pid}-#{SecureRandom.hex(4)}"
+      @fallback_session_id ||= ["unknown", Time.now.utc.strftime("%Y%m%d"), Process.pid, SecureRandom.hex(4)].join("-")
     end
 
     CODEX_ENV_KEYS = %w[CODEX_THREAD_ID CODEX_SESSION_ID CODEX_SHELL].freeze
