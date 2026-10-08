@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.43.0 |
+| **Registry version** | 0.43.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -484,6 +484,19 @@ Re-verified 2026-10-01 against the real Teach 0.16.0 on a scratch database:
 Not verified: Codex, Hermes and Antigravity sessions, and macOS and Windows machine ids.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
+
+### 2.27.1 · A reinstall keeps the computer
+
+Since 0.43.1 (`STD-FINGERPRINT-SALT-KEPT`) the fingerprint salt is also kept in the per-computer sidecar
+(`seal.json`, field `fingerprint_salt`), and a fingerprint built with no `~/.reach/fingerprint.json` takes it from
+there. A student who deletes the rEach home and enrolls again from the same computer account sends the old salt, so
+Teach's same-computer check passes and no device move is recorded. Deleting the sidecar too still counts as a move.
+Verified in the scratchpad on Linux: enrolled-style build and store, home moved aside, rebuilt; the salt matched and
+Teach's own `Enrollment.same_computer?` (loaded from the Teach checkout) answered true, and false once the sidecar was
+also moved aside. Not verified: Windows or macOS, a real enrollment against Teach, and installs that enrolled before
+0.43.1 (their sidecar gets the salt at their next enrollment or persona enroll, not before).
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push)
 
 ### 2.28 · Platform smoke
 

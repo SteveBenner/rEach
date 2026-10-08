@@ -69,6 +69,21 @@ module Reach
       Array(read["installs"]).map { |entry| entry["install_id"] }.compact.reject { |id| id == current_install_id }
     end
 
+    def fingerprint_salt
+      value = read["fingerprint_salt"]
+      value.is_a?(String) && value.match?(/\A[0-9a-f]{32}\z/) ? value : nil
+    end
+
+    def keep_fingerprint_salt(salt)
+      return nil unless salt.is_a?(String) && salt.match?(/\A[0-9a-f]{32}\z/)
+
+      data = read
+      return data if File.file?(path) && data["fingerprint_salt"] == salt
+
+      data["fingerprint_salt"] = salt
+      write(data)
+    end
+
     def update_head(root, tag, n)
       data = read
       heads = data["heads"].is_a?(Hash) ? data["heads"] : {}

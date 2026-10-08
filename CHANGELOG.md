@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.1] - 2026-10-07
+
+### Added
+
+- A reinstall on the same computer enrolls as the same computer (`STD-FINGERPRINT-SALT-KEPT`).
+  `Reach::Fingerprint.store!` also writes the fingerprint salt into the per-computer sidecar (`seal.json`, field
+  `fingerprint_salt`; `Reach::Sidecar.keep_fingerprint_salt`). `Reach::Fingerprint.build` takes the salt from the
+  argument, then `~/.reach/fingerprint.json`, then the sidecar (`Reach::Sidecar.fingerprint_salt`), and only then
+  makes a new one. Before, deleting the rEach home made a new salt, and Teach recorded the next enrollment from the
+  same computer as a device move. The wire and Teach are unchanged.
+- `PRIVACY.md` says the random salt stays on the computer in that file after rEach's own folder is deleted.
+
 ## [0.43.0] - 2026-10-07
 
 ### Added

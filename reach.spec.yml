@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.43.0
+version: 0.43.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -307,7 +307,7 @@ library:
   - name: Reach::Identity
     role: Normalizes course codes, course ids, institutional usernames and student ids (W-ENR-1..3); since 0.16.0
   - name: Reach::Fingerprint
-    role: The salted, hashed computer, account and install-key fingerprint (W-ENR-4); since 0.16.0
+    role: The salted, hashed computer, account and install-key fingerprint (W-ENR-4); since 0.16.0. Since 0.43.1 its salt is also kept in the sidecar so a reinstall reuses it (STD-FINGERPRINT-SALT-KEPT)
   - name: Reach::Stamp
     role: Verifies and stores Teach's signed enrollment stamp (W-ENR-5); since 0.16.0
   - name: Reach::EnrollmentLock
@@ -2679,7 +2679,8 @@ seal:
   sidecar: >-
     macOS ~/Library/Application Support/reach/seal.json, Windows %LOCALAPPDATA%\reach\seal.json, Linux
     $XDG_STATE_HOME or ~/.local/state/reach/seal.json, REACH_SIDECAR overrides; records every install enrolled from
-    this computer.
+    this computer. Since 0.43.1 it also keeps fingerprint_salt, the W-ENR-4 salt of the last stored fingerprint
+    (STD-FINGERPRINT-SALT-KEPT).
   reports: >-
     vault_tampered, corrupt_mark, foreign_mark, ledger_break, sidecar_conflict, enrolled and directive_dump go to
     POST /api/v1/integrity, deduplicated, queued in the outbox when offline, and never shown to the student.

@@ -32,6 +32,7 @@ module Reach
 
     def build(install_public_key:, harness:, enrolled_via:, salt: nil)
       salt = (stored || {})["salt"] if salt.to_s.empty?
+      salt = Reach::Sidecar.fingerprint_salt if salt.to_s.empty?
       salt = SecureRandom.hex(16) if salt.to_s.empty?
       binding_hashes = binding_for(salt, install_public_key)
       hostname_hash = component(salt, "hostname", hostname)
@@ -98,6 +99,7 @@ module Reach
 
     def store!(document)
       write_private(Reach::Paths.fingerprint_file, document)
+      Reach::Sidecar.keep_fingerprint_salt(document["salt"]) if document.is_a?(Hash)
     end
 
     def changed_components(stored_document, live_value)
