@@ -3,6 +3,9 @@ require "fileutils"
 
 module Reach
   module StateFile
+    RENAME_RETRIES = 5
+    RENAME_RETRY_S = 0.05
+
     module_function
 
     def path(name)
@@ -20,15 +23,35 @@ module Reach
     end
 
     def write(name, data)
-      file = path(name)
+      write_atomic(path(name), JSON.generate(data))
+    end
+
+    def write_atomic(file, content, mode: 0o600)
       FileUtils.mkdir_p(File.dirname(file))
       tmp = "#{file}.tmp.#{Process.pid}.#{rand(1_000_000)}"
-      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |handle|
-        handle.write(JSON.generate(data))
+      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, mode) do |handle|
+        handle.write(content)
         handle.flush
         handle.fsync
       end
-      File.rename(tmp, file)
+      rename_into_place(tmp, file)
+      file
+    rescue StandardError
+      FileUtils.rm_f(tmp) if tmp
+      raise
+    end
+
+    def rename_into_place(tmp, file)
+      attempts = 0
+      begin
+        File.rename(tmp, file)
+      rescue Errno::EACCES, Errno::EBUSY
+        attempts += 1
+        raise if attempts >= RENAME_RETRIES
+
+        sleep(RENAME_RETRY_S * attempts)
+        retry
+      end
     end
 
     def update(name)
