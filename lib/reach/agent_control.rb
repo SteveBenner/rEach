@@ -81,7 +81,7 @@ module Reach
 
     def bundled_digest_ok?
       expected = File.read(BUNDLED_DIGEST_FILE).split.first.to_s
-      !expected.empty? && Digest::SHA256.hexdigest(File.binread(BUNDLED_FILE)) == expected
+      !expected.empty? && Digest::SHA256.hexdigest(File.binread(BUNDLED_FILE).gsub("\r\n", "\n")) == expected
     rescue StandardError
       false
     end

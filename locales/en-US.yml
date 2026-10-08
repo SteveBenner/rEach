@@ -153,6 +153,7 @@ messages:
   M-RELOCATING: "rEach is moving its own files into your reach-work folder. This takes a moment; nothing is lost."
   M-WRITE-OUTSIDE-EXTRA: "From your extracurricular folder, only files inside it can change. Coursework goes in your slice's files under deliverables/."
   M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."
+  M-SHELL-UNMODELED: "rEach stopped that command because it uses a shell feature rEach cannot check safely. Run each step as its own plain command."
   M-SHAPE-VISIBLE: "The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways to get close to it that fit."
   M-HAND-RAISED: "rEach got stuck on the same problem three times, so it asked your instructors for help. You'll see their answer here."
   M-HAND-REFUSED: "The course server didn't take this request for help: {reason}. Your instructors haven't been asked yet.{contact}"

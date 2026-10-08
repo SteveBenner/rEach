@@ -9,13 +9,62 @@ require "securerandom"
 module Reach
   module Gate
     READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff].freeze
-    WRITE_SINGLE = %w[cp mv rm mkdir touch tee truncate chmod npm npx bundle gem].freeze
+    STRICT_WRITE = %w[cp mv rm rmdir mkdir touch tee truncate chmod chown chgrp ln unlink shred install rsync dd patch tar zip unzip gzip gunzip bzip2 xz 7z cpio vi vim nvim nano emacs ed ex split del erase ri rd ren rni move mi copy cpi ni sc ac md].freeze
+    PACKAGE_WRITE = %w[npm npx bundle gem].freeze
+    WRITE_SINGLE = (STRICT_WRITE + PACKAGE_WRITE).freeze
+    FIND_WRITE_FLAGS = %w[-delete -exec -execdir -ok -okdir -fprint -fprint0 -fprintf -fls].freeze
+    PROTECTED_NAMES = %w[.claude .codex .mcp.json CLAUDE.md AGENTS.md].freeze
+    RUN_STRING_COMMANDS = %w[iex icm saps start ii sal nal ipmo foreach where % invoke-expression invoke-command start-process invoke-item set-alias new-alias import-module awk gawk mawk nawk eval xargs source . sudo doas su parallel watch setsid script chroot busybox pwsh powershell cmd wsl at batch flock ionice chrt taskset setarch unshare nsenter strace ltrace gdb].freeze
+    SHELL_COMMANDS = %w[sh bash zsh dash ksh csh tcsh fish].freeze
+    STDIN_INTERPRETERS = %w[ruby python python2 python3 node perl php lua irb].freeze
+    SHELL_RESERVED = %w[{ } if then else elif fi for while until do done case esac function select [[ ]] coproc].freeze
+    ENV_ASSIGN_DENY = /\A(?:PATH|IFS|ENV|BASH_ENV|SHELLOPTS|BASHOPTS|CDPATH|PROMPT_COMMAND|PS[0-4]|HOME|SHELL|RUBYOPT|RUBYLIB|NODE_OPTIONS|NODE_PATH|PYTHONSTARTUP|PYTHONPATH|PYTHONHOME|PERL5OPT|PERL5LIB|LD_.*|DYLD_.*|GIT_.*|REACH_.*|CLAUDE.*|CODEX.*)\z/.freeze
+    SHELL_WORD = Struct.new(:text, :dynamic)
+    SAFE_SED_COMMAND = /\A\s*(?:(?:\d+|\$|\/[^\/]*\/)(?:,(?:\d+|\$|\/[^\/]*\/))?)?\s*!?\s*(?:[pdqnNDlP=]|s(.)(?:(?!\1).)*\1(?:(?!\1).)*\1[gpiImM0-9]*)\s*\z/m.freeze
+    ShellUnmodeled = Class.new(StandardError)
+    PS_COMMON_VALUE = %w[erroraction warningaction].freeze
+    PS_COMMON_SWITCH = %w[verbose whatif debug].freeze
+    POWERSHELL_CMDLETS = {
+      "ls" => %w[get-childitem gci dir ls childitem],
+      "cat" => %w[get-content gc type cat],
+      "grep" => %w[select-string sls],
+      "pwd" => %w[get-location gl pwd],
+      "cd" => %w[set-location sl cd chdir],
+      "echo" => %w[write-output echo write],
+      "testpath" => %w[test-path],
+      "wc" => %w[measure-object measure],
+      "tee" => %w[set-content sc add-content ac out-file],
+      "touch" => %w[new-item ni],
+      "rm" => %w[remove-item ri rm del erase rd rmdir],
+      "mv" => %w[move-item mi mv move],
+      "cp" => %w[copy-item cp copy cpi],
+      "rename" => %w[rename-item rni ren]
+    }.freeze
+    PS_CMDLET_INDEX = POWERSHELL_CMDLETS.each_with_object({}) { |(canon, names), memo| names.each { |name| memo[name] = canon } }.freeze
+    PS_SPECS = {
+      "ls" => { path: %w[path literalpath], value: %w[filter include exclude depth], switch: %w[recurse force name file directory], positional: [:path], rest: :path },
+      "testpath" => { path: %w[path literalpath], value: %w[pathtype], switch: %w[isvalid], positional: [:path], rest: :path },
+      "cat" => { path: %w[path literalpath], value: %w[totalcount tail head first last encoding readcount delimiter], switch: %w[raw], positional: [:path], rest: :path },
+      "grep" => { path: %w[path literalpath], value: %w[pattern context encoding include exclude], switch: %w[simplematch casesensitive list quiet notmatch allmatches], positional: [:pattern, :path], rest: :path },
+      "pwd" => { path: [], value: [], switch: [], positional: [], rest: nil },
+      "cd" => { path: %w[path literalpath], value: [], switch: %w[passthru], positional: [:path], rest: nil },
+      "echo" => { path: [], value: %w[inputobject], switch: [], positional: [], rest: :arg },
+      "wc" => { path: [], value: %w[property], switch: %w[line word character sum average maximum minimum], positional: [], rest: nil },
+      "tee" => { path: %w[path literalpath filepath], value: %w[value encoding width], switch: %w[append force noclobber nonewline], positional: [:path, :ignore], rest: nil },
+      "touch" => { path: %w[path], value: %w[name itemtype value], switch: %w[force], positional: [:path], rest: nil },
+      "rm" => { path: %w[path literalpath], value: %w[filter include exclude], switch: %w[recurse force], positional: [:path], rest: :path },
+      "mv" => { path: %w[path literalpath], dest: %w[destination], value: %w[filter include exclude], switch: %w[force], positional: [:path, :dest], rest: nil },
+      "cp" => { path: %w[path literalpath], dest: %w[destination], value: %w[filter include exclude], switch: %w[recurse force container], positional: [:path, :dest], rest: nil },
+      "rename" => { path: %w[path literalpath], value: %w[newname], switch: %w[force], positional: [:path, :newname], rest: nil }
+    }.freeze
     WRITE_INPLACE_COMMANDS = %w[sed perl].freeze
-    NETWORK_COMMANDS = %w[curl wget ssh scp nc].freeze
+    NETWORK_COMMANDS = %w[curl wget ssh scp nc iwr irm].freeze
     INLINE_CODE_FLAGS = {
       /\Aruby[0-9.]*\z/ => %w[-e],
       /\Apython[0-9.]*\z/ => %w[-c],
       /\Anode\z/ => %w[-e -p --eval --print],
+      /\Aphp[0-9.]*\z/ => %w[-r],
+      /\Alua[0-9.]*\z/ => %w[-e],
       /\Aperl\z/ => %w[-e -E],
       /\A(ba|z)?sh\z/ => %w[-c]
     }.freeze
@@ -196,7 +245,7 @@ module Reach
       text = event["prompt"].is_a?(String) ? event["prompt"] : nil
       {
         "session_id" => Reach::Session.resolve_session_id(event), "gate" => "allowed", "text" => text, "seq" => nil,
-        "digest" => text ? Digest::SHA256.hexdigest(text) : nil
+        "digest" => text ? Digest::SHA256.hexdigest(text) : nil, "transcript_path" => event["transcript_path"]
       }
     rescue StandardError
       nil
@@ -479,15 +528,68 @@ module Reach
       end
     end
 
-    def shell(command:, event: nil, harness: nil)
+    APPLY_PATCH_NAMES = %w[apply_patch applypatch].freeze
+
+    def apply_patch_payload(command, event = nil)
       text = command.to_s
+      return whole_patch(text) if text.lstrip.start_with?("*** Begin Patch")
+
+      heredoc_patch(text, event) || argument_patch(text)
+    end
+
+    def whole_patch(text)
+      lines = text.strip.lines.map(&:chomp)
+      return nil unless lines.first == "*** Begin Patch" && lines.last == "*** End Patch"
+
+      text
+    end
+
+    def argument_patch(text)
+      lexed = lex_segment(text.strip)
+      words = lexed[:words]
+      return nil unless lexed[:outs].empty? && lexed[:ins].empty? && words.length == 2
+      return nil unless APPLY_PATCH_NAMES.include?(words[0].text) && !words[0].dynamic
+
+      whole_patch(words[1].text)
+    rescue ShellUnmodeled
+      nil
+    end
+
+    def heredoc_patch(text, event)
+      lines = text.lines.map(&:chomp)
+      head = lines.shift.to_s
+      match = head.match(/\A\s*(?:cd\s+([A-Za-z0-9_.\/-]+)\s*&&\s*)?(apply_patch|applypatch)\s*<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\4\s*\z/)
+      return nil unless match
+
+      delimiter = match[5]
+      close = lines.index { |line| (match[3] == "-" ? line.sub(/\A\t+/, "") : line) == delimiter }
+      return nil unless close
+      return nil unless lines[(close + 1)..-1].all? { |line| line.strip.empty? }
+
+      patch = whole_patch(lines[0...close].join("\n") + "\n")
+      return nil unless patch
+
+      match[1] ? rebase_patch(patch, File.expand_path(match[1], hook_cwd(event))) : patch
+    end
+
+    def rebase_patch(patch, base)
+      patch.each_line.map do |line|
+        prefix = PATCH_PREFIXES.find { |candidate| line.start_with?(candidate) }
+        prefix ? "#{prefix}#{File.expand_path(line[prefix.length..-1].to_s.strip, base)}\n" : line
+      end.join
+    end
+
+    def shell(command:, event: nil, harness: nil, dialect: nil)
+      @powershell = dialect.to_s == "powershell"
+      text = command.to_s
+      text = text.tr("\\", "/") if @powershell
       return nil if support_command?(text)
 
       check_enrolled!
       require_login!(event)
       Reach::Update.hold!
       Reach::Relocation.hold! unless relocation_exempt?(text)
-      raise_blocked!("M-SHELL-BLOCKED") if subshell_or_substitution?(text)
+      segments = shell_segments(text)
 
       space = current_space
       Reach::Controls.check_tool!("shell", space)
@@ -495,40 +597,61 @@ module Reach
       state = { cwd: hook_cwd(event) }
 
       if kind == "root"
-        shell_from_root(text, state, event)
+        shell_from_root(segments, state, event)
         return nil
       end
 
       workspace = space && space["path"]
       owned_test = shell_owned_test(kind, workspace)
 
-      split_segments(text).each do |segment|
+      segments.each do |segment, before, after|
+        cwd = state[:cwd]
+        check_cd_context!(segment, before, after)
         check_outside_segment!(segment, state, event)
-        check_segment!(segment, workspace, owned_test, kind)
+        check_segment!(segment, workspace, owned_test, kind, cwd)
       end
 
       witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
+    ensure
+      @powershell = false
     end
 
-    def shell_from_root(text, state, event)
-      split_segments(text).each do |segment|
-        here = Reach::Workspace.space_for(state[:cwd])
+    def shell_segments(text)
+      split_segments_with_seps(text)
+    rescue ShellUnmodeled
+      raise_blocked!("M-SHELL-UNMODELED")
+    end
+
+    def shell_from_root(segments, state, event)
+      segments.each do |segment, before, after|
+        cwd = state[:cwd]
+        here = Reach::Workspace.space_for(cwd)
         here_kind = here && here["kind"]
+        check_cd_context!(segment, before, after)
         check_outside_segment!(segment, state, event)
 
         case here_kind
         when "slice"
           workspace = here["path"]
-          check_segment!(segment, workspace, shell_owned_test("slice", workspace), "slice")
+          check_segment!(segment, workspace, shell_owned_test("slice", workspace), "slice", cwd)
           witness_in(workspace, "shell", { "command_digest" => Reach::Crypto.digest_hex(segment), "head" => segment[0, 200] })
         when "extracurricular"
           workspace = here["path"]
-          check_segment!(segment, workspace, shell_owned_test("extracurricular", workspace), "extracurricular")
+          check_segment!(segment, workspace, shell_owned_test("extracurricular", workspace), "extracurricular", cwd)
         else
           check_root_segment!(segment)
         end
       end
+    end
+
+    def check_cd_context!(segment, before, after)
+      words = parse_segment(segment)[:words]
+      return if words.empty?
+      return unless %w[cd pushd popd].include?(File.basename(words[0].text))
+
+      chained = %w[&& || | |& &].include?(before.to_s) || %w[| |& &].include?(after.to_s)
+      raise_blocked!("M-SHELL-UNMODELED") if chained
     end
 
     def relocation_exempt?(text)
@@ -540,7 +663,7 @@ module Reach
         index = shim_index(tokens)
         index && RELOCATION_EXEMPT_ARGS.include?(tokens[index + 1])
       end
-    rescue ArgumentError
+    rescue ArgumentError, ShellUnmodeled
       false
     end
 
@@ -741,17 +864,12 @@ module Reach
     end
 
     def check_outside_segment!(segment, state, event)
-      tokens = begin
-        Shellwords.split(segment)
-      rescue ArgumentError
-        raise_blocked!("M-SHELL-BLOCKED")
-      end
-      return if tokens.empty?
+      parsed = parse_segment(segment)
+      plain = parsed[:words].map(&:text)
+      redirects = (parsed[:ins] + parsed[:outs]).map(&:text)
+      return if plain.empty? && redirects.empty?
 
-      plain, redirects = split_redirects(tokens)
       command = plain[0]
-      return if command.nil?
-
       index = shim_index(plain)
       args = plain[((index || 0) + 1)..-1].to_a
       raise_outside!(event, "shell") if index && args.first == "import"
@@ -760,35 +878,13 @@ module Reach
       (args + redirects).each { |token| check_outside_token!(token, base, event) }
       check_search_exposes_home!(plain, base)
 
-      if %w[cd pushd].include?(command) && !index
+      if %w[cd pushd popd].include?(command) && !index
         target = args.first
-        raise_outside!(event, "shell") if target.nil? || target == "-"
+        raise_outside!(event, "shell") if target.nil? || target.start_with?("-") || args.length != 1 || command == "popd"
 
         resolved = real_resolve(target, base)
         state[:cwd] = resolved if resolved && File.directory?(resolved)
       end
-    end
-
-    def split_redirects(tokens)
-      plain = []
-      redirects = []
-      i = 0
-      while i < tokens.length
-        tok = tokens[i]
-        if tok =~ /\A\d*>&\d+\z/
-          i += 1
-        elsif tok =~ /\A\d*(?:&>>?|>>?|<)\z/
-          redirects << tokens[i + 1] if tokens[i + 1]
-          i += 2
-        elsif tok =~ /\A\d*(?:&>>?|>>?|<)(.+)\z/m
-          redirects << Regexp.last_match(1)
-          i += 1
-        else
-          plain << tok
-          i += 1
-        end
-      end
-      [plain, redirects]
     end
 
     def check_outside_token!(token, base, event)
@@ -873,35 +969,21 @@ module Reach
     end
 
     def check_root_segment!(segment)
-      tokens = begin
-        Shellwords.split(segment)
-      rescue ArgumentError
-        raise_blocked!("M-SHELL-BLOCKED")
-      end
-      return if tokens.empty?
+      parsed = parse_segment(segment)
+      words = parsed[:words]
+      raise_blocked!("M-SHELL-BLOCKED") unless parsed[:outs].all? { |target| !target.dynamic && OUTSIDE_ALLOWED.include?(target.text) }
+      return if words.empty?
 
+      tokens = words.map(&:text)
       cmd = tokens[0]
-      raise_blocked!("M-GATE-NOGIT") if cmd == "git"
-      return if cmd.nil?
-
-      raise_blocked!("M-SHELL-BLOCKED") if root_output_redirect?(tokens)
+      raise_blocked!("M-SHELL-UNMODELED") if words[0].dynamic || SHELL_RESERVED.include?(cmd)
+      raise_blocked!("M-GATE-NOGIT") if File.basename(cmd) == "git"
       return if cmd == "reach"
       return if %w[cd pushd].include?(cmd) && tokens.length == 2
+      forbid_command!(tokens, "slice")
       return if readonly_command?(tokens)
 
       raise_blocked!("M-SHELL-BLOCKED")
-    end
-
-    def root_output_redirect?(tokens)
-      tokens.each_with_index.any? do |token, index|
-        next false if token =~ /\A\d*>&\d+\z/
-
-        match = token.match(/\A\d*(?:&>>?|>>?)(.*)\z/m)
-        next false unless match
-
-        target = match[1].to_s.empty? ? tokens[index + 1].to_s : match[1]
-        !OUTSIDE_ALLOWED.include?(target)
-      end
     end
 
     def check_enrolled!
@@ -923,7 +1005,12 @@ module Reach
       rescue StandardError
         []
       end
-      raise_blocked!("M-GATE-NOGUARD") if slices.empty? && !module_choice_pending?
+      raise_blocked!("M-GATE-NOGUARD") if slices.empty? && !module_choice_pending? && !free_space?
+    end
+
+    def free_space?
+      space = current_space
+      space && %w[extracurricular root].include?(space["kind"]) ? true : false
     end
 
     def module_choice_pending?
@@ -1049,69 +1136,99 @@ module Reach
       RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|darwin/i ? true : false
     end
 
-    def subshell_or_substitution?(text)
-      quote = nil
-      chars = text.chars
-      i = 0
-      while i < chars.length
-        ch = chars[i]
-        if quote == "'"
-          quote = nil if ch == "'"
-        elsif ch == "\\"
-          i += 1
-        elsif quote == '"'
-          return true if ch == "`" || (ch == "$" && chars[i + 1] == "(")
-          quote = nil if ch == '"'
-        elsif ch == "'" || ch == '"'
-          quote = ch
-        elsif ch == "`" || ch == "("
-          return true
-        end
-        i += 1
-      end
-      false
+    def split_segments(text)
+      split_segments_with_seps(text).map(&:first)
     end
 
-    def split_segments(text)
-      segments = []
+    def split_segments_with_seps(text)
+      out = []
       current = +""
+      before = nil
       quote = nil
       chars = text.chars
       i = 0
+      cut = lambda do |sep|
+        stripped = current.strip
+        out << [stripped, before, sep] unless stripped.empty?
+        current = +""
+        before = sep
+      end
       while i < chars.length
         ch = chars[i]
-        if quote
+        nxt = chars[i + 1]
+        if quote == "'"
           current << ch
-          quote = nil if ch == quote
+          quote = nil if ch == "'"
+          i += 1
+          next
+        end
+        if quote == '"'
+          raise ShellUnmodeled if ch == "`" || (ch == "$" && nxt == "(")
+
+          if ch == "\\"
+            current << ch << nxt.to_s
+            i += 2
+            next
+          end
+          current << ch
+          quote = nil if ch == '"'
           i += 1
           next
         end
         case ch
+        when "\\"
+          current << ch << nxt.to_s
+          i += 2
         when "'", '"'
           quote = ch
           current << ch
           i += 1
-        when ";", "\n"
-          segments << current
-          current = +""
+        when "`", "(", ")"
+          raise ShellUnmodeled
+        when "$"
+          raise ShellUnmodeled if ["(", "'", '"'].include?(nxt)
+
+          current << ch
           i += 1
-        when "&"
-          if chars[i + 1] == "&"
-            segments << current
-            current = +""
-            i += 2
+        when "<"
+          raise ShellUnmodeled if nxt == "<"
+
+          current << ch
+          i += 1
+        when "#"
+          if current.empty? || [" ", "\t"].include?(current[-1])
+            i += 1
+            i += 1 while i < chars.length && chars[i] != "\n"
           else
             current << ch
             i += 1
           end
+        when ";"
+          cut.call(";")
+          i += 1
+        when "\n"
+          cut.call("\n")
+          i += 1
+        when "&"
+          if nxt == "&"
+            cut.call("&&")
+            i += 2
+          elsif nxt == ">" || [">", "<"].include?(current[-1])
+            current << ch
+            i += 1
+          else
+            cut.call("&")
+            i += 1
+          end
         when "|"
-          if chars[i + 1] == "|"
-            segments << current
-            current = +""
+          if nxt == "|"
+            cut.call("||")
+            i += 2
+          elsif nxt == "&"
+            cut.call("|&")
             i += 2
           else
-            segments << current
-            current = +""
+            cut.call("|")
             i += 1
           end
         else
@@ -1119,63 +1236,514 @@ module Reach
           i += 1
         end
       end
-      segments << current
-      segments.map(&:strip).reject(&:empty?)
+      raise ShellUnmodeled if quote
+
+      cut.call(nil)
+      out
     end
 
-    def check_segment!(segment, workspace, owned_test, kind = "slice")
-      tokens = begin
-        Shellwords.split(segment)
-      rescue ArgumentError
-        raise_blocked!("M-SHELL-BLOCKED")
-      end
-      return if tokens.empty?
-
-      plain_tokens, redirect_targets = extract_redirects(tokens)
-      cmd = plain_tokens[0]
-      return if cmd.nil?
-
-      check_vault_or_keys_reads!(plain_tokens + redirect_targets, workspace)
-      raise_blocked!("M-GATE-NOGIT") if cmd == "git" && kind != "extracurricular"
-      raise_blocked!("M-GATE-NOCODETOOL") if kind != "extracurricular" && inline_code?(plain_tokens)
-
-      if NETWORK_COMMANDS.include?(cmd)
-        raise_blocked!("M-SHELL-BLOCKED")
-      elsif readonly_command?(plain_tokens)
-        nil
-      elsif write_command?(plain_tokens)
-        redirect_targets.each { |target| ensure_owned_target!(target, workspace, owned_test) }
-        ensure_write_args_owned!(plain_tokens, workspace, owned_test)
-        check_ladder!(workspace) if kind == "slice"
-        check_time_and_module!(workspace) if kind == "slice"
-      else
-        ensure_unknown_allowed!(plain_tokens, redirect_targets, workspace)
-      end
-    end
-
-    def extract_redirects(tokens)
-      plain = []
-      redirects = []
+    def lex_segment(segment)
+      words = []
+      outs = []
+      ins = []
+      buf = nil
+      dynamic = false
+      literal_digits = true
+      pending = nil
+      chars = segment.chars
       i = 0
-      while i < tokens.length
-        tok = tokens[i]
-        if tok == ">" || tok == ">>"
-          target = tokens[i + 1]
-          redirects << target if target
+      finish = lambda do
+        unless buf.nil?
+          if @powershell && pending && buf == "$null"
+            buf = "/dev/null"
+            dynamic = false
+          end
+          word = SHELL_WORD.new(buf, dynamic)
+          if pending
+            (pending == :in ? ins : outs) << word
+            pending = nil
+          else
+            words << word
+          end
+        end
+        buf = nil
+        dynamic = false
+        literal_digits = true
+      end
+      append = lambda do |text, dyn, digits|
+        buf = +"" if buf.nil?
+        buf << text
+        dynamic ||= dyn
+        literal_digits &&= digits
+      end
+      while i < chars.length
+        ch = chars[i]
+        nxt = chars[i + 1]
+        case ch
+        when " ", "\t"
+          finish.call
+          i += 1
+        when "\\"
+          raise ShellUnmodeled if nxt.nil?
+
+          append.call(nxt, false, false) unless nxt == "\n"
           i += 2
+        when "'"
+          j = (i + 1...chars.length).find { |k| chars[k] == "'" }
+          raise ShellUnmodeled unless j
+
+          append.call(chars[(i + 1)...j].join, false, false)
+          i = j + 1
+        when '"'
+          i += 1
+          piece = +""
+          dyn = false
+          closed = false
+          while i < chars.length
+            c = chars[i]
+            if c == "\\" && i + 1 < chars.length
+              n = chars[i + 1]
+              if ["$", "`", '"', "\\"].include?(n)
+                piece << n
+              elsif n != "\n"
+                piece << c << n
+              end
+              i += 2
+            elsif c == '"'
+              closed = true
+              i += 1
+              break
+            else
+              raise ShellUnmodeled if c == "`" || (c == "$" && chars[i + 1] == "(")
+
+              dyn = true if c == "$" && chars[i + 1].to_s =~ /[A-Za-z_0-9{@*#?!$-]/
+              piece << c
+              i += 1
+            end
+          end
+          raise ShellUnmodeled unless closed
+
+          append.call(piece, dyn, false)
+        when "$"
+          raise ShellUnmodeled if ["(", "'", '"'].include?(nxt)
+
+          append.call(ch, nxt.to_s =~ /[A-Za-z_0-9{@*#?!$-]/ ? true : false, false)
+          i += 1
+        when "*", "?", "[", "{", "}"
+          append.call(ch, true, false)
+          i += 1
+        when "@"
+          append.call(ch, @powershell && buf.nil? ? true : false, false)
+          i += 1
+        when "~"
+          append.call(ch, buf.nil?, false)
+          i += 1
+        when "<", ">", "&"
+          if ch != "&" && !buf.nil? && literal_digits && buf =~ /\A\d+\z/ && !pending
+            buf = nil
+            dynamic = false
+            literal_digits = true
+          else
+            finish.call
+          end
+          op = ch
+          if ch == "&"
+            raise ShellUnmodeled unless nxt == ">"
+
+            op = "&>"
+            i += 2
+            if chars[i] == ">"
+              op = "&>>"
+              i += 1
+            end
+          else
+            i += 1
+            if chars[i] == ch && ch == ">"
+              op = ">>"
+              i += 1
+            elsif chars[i] == "&"
+              op = "#{ch}&"
+              i += 1
+            elsif chars[i] == "|" && ch == ">"
+              op = ">|"
+              i += 1
+            elsif chars[i] == ">" && ch == "<"
+              op = "<>"
+              i += 1
+            end
+          end
+          if op.end_with?("&") && op.length == 2
+            rest = chars[i..-1].join
+            if rest =~ /\A(\d+|-)(?=[ \t]|\z)/
+              i += Regexp.last_match(1).length
+              next
+            end
+          end
+          pending = op == "<" ? :in : :out
+        when ";", "|", "(", ")", "`", "\n"
+          raise ShellUnmodeled
         else
-          plain << tok
+          append.call(ch, false, ch =~ /\d/ ? true : false)
           i += 1
         end
       end
-      [plain, redirects]
+      finish.call
+      raise ShellUnmodeled if pending
+
+      { words: words, outs: outs, ins: ins }
     end
 
-    def check_vault_or_keys_reads!(tokens, workspace)
+    def parse_segment(segment)
+      lexed = lex_segment(segment)
+      words = unwrap_words(lexed[:words], 0)
+      words = translate_cmdlet(words) if @powershell && !words.empty?
+      lexed.merge(words: words)
+    rescue ShellUnmodeled
+      raise_blocked!("M-SHELL-UNMODELED")
+    end
+
+    def translate_cmdlet(words)
+      head = words[0].text.downcase.sub(/\.exe\z/, "")
+      canon = PS_CMDLET_INDEX[head]
+      return words unless canon
+
+      spec = PS_SPECS.fetch(canon)
+      found = { path: [], dest: [], arg: [], pattern: [], newname: [], name: [] }
+      positional = []
+      recurse = false
+      rest = words[1..-1]
+      i = 0
+      while i < rest.length
+        word = rest[i]
+        text = word.text
+        if text.start_with?("-") && text.length > 1 && text !~ /\A-\d/
+          key, colon, inline = text[1..-1].partition(":")
+          key = key.downcase
+          takes = (spec[:path] + Array(spec[:dest]) + spec[:value]).include?(key) || PS_COMMON_VALUE.include?(key)
+          if takes
+            if colon == ":" && !inline.empty?
+              value = SHELL_WORD.new(inline, word.dynamic)
+            else
+              i += 1
+              raise ShellUnmodeled if rest[i].nil?
+
+              value = rest[i]
+            end
+            if spec[:path].include?(key)
+              found[:path] << value
+            elsif Array(spec[:dest]).include?(key)
+              found[:dest] << value
+            elsif key == "pattern"
+              found[:pattern] << value
+            elsif key == "newname"
+              found[:newname] << value
+            elsif key == "name"
+              found[:name] << value
+            elsif key == "inputobject"
+              found[:arg] << value
+            end
+          elsif spec[:switch].include?(key) || PS_COMMON_SWITCH.include?(key)
+            recurse = true if key == "recurse"
+          else
+            raise ShellUnmodeled
+          end
+        else
+          positional << word
+        end
+        i += 1
+      end
+
+      positional.each_with_index do |word, index|
+        slot = spec[:positional][index] || spec[:rest]
+        raise ShellUnmodeled if slot.nil?
+
+        found[slot] << word unless slot == :ignore
+      end
+
+      words_for_powershell(canon, found, recurse)
+    end
+
+    def words_for_powershell(canon, found, recurse)
+      plain = ->(text) { SHELL_WORD.new(text, false) }
+      paths = found[:path]
+      (paths + found[:dest]).each { |word| raise ShellUnmodeled if word.text.include?(",") }
+      case canon
+      when "ls", "testpath"
+        [plain.call("ls")] + (recurse ? [plain.call("-R")] : []) + paths
+      when "cat"
+        [plain.call("cat")] + paths
+      when "grep"
+        raise ShellUnmodeled if found[:pattern].length != 1
+
+        [plain.call("grep"), plain.call("-e"), found[:pattern].first] + paths
+      when "pwd", "wc"
+        raise ShellUnmodeled unless paths.empty?
+
+        [plain.call(canon)]
+      when "cd"
+        raise ShellUnmodeled if paths.length > 1
+
+        [plain.call("cd")] + paths
+      when "echo"
+        [plain.call("echo")] + found[:arg]
+      when "tee"
+        raise ShellUnmodeled if paths.empty?
+
+        [plain.call("tee")] + paths
+      when "touch"
+        if found[:name].empty?
+          raise ShellUnmodeled if paths.empty?
+
+          [plain.call("touch")] + paths
+        else
+          bases = paths.empty? ? [plain.call(".")] : paths
+          [plain.call("touch")] + bases.product(found[:name]).map { |base, name| SHELL_WORD.new(File.join(base.text, name.text), base.dynamic || name.dynamic) }
+        end
+      when "rm"
+        raise ShellUnmodeled if paths.empty?
+
+        [plain.call("rm")] + (recurse ? [plain.call("-r")] : []) + paths
+      when "mv", "cp"
+        raise ShellUnmodeled if paths.empty? || found[:dest].empty?
+
+        [plain.call(canon)] + (recurse ? [plain.call("-r")] : []) + paths + found[:dest]
+      when "rename"
+        raise ShellUnmodeled if paths.length != 1 || found[:newname].length != 1
+
+        target = SHELL_WORD.new(File.join(File.dirname(paths.first.text), found[:newname].first.text), paths.first.dynamic || found[:newname].first.dynamic)
+        [plain.call("mv"), paths.first, target]
+      end
+    end
+
+    def strip_assignments(words)
+      rest = words.dup
+      while rest.first && rest.first.text =~ /\A([A-Za-z_][A-Za-z0-9_]*)=/
+        raise_blocked!("M-SHELL-UNMODELED") if Regexp.last_match(1) =~ ENV_ASSIGN_DENY
+        rest.shift
+      end
+      rest
+    end
+
+    def unwrap_words(words, depth)
+      raise ShellUnmodeled if depth > 8
+
+      words = strip_assignments(words)
+      return words if words.empty?
+
+      raise ShellUnmodeled if words[0].dynamic
+
+      name = File.basename(words[0].text).sub(/\.exe\z/i, "")
+      rest = words[1..-1]
+      case name
+      when "!", "builtin", "nohup"
+        unwrap_words(rest, depth + 1)
+      when "env"
+        unwrap_words(skip_env_options(rest), depth + 1)
+      when "command"
+        return words if rest.first && %w[-v -V].include?(rest.first.text)
+
+        rest = rest.drop_while { |word| %w[-p --].include?(word.text) }
+        raise ShellUnmodeled if rest.first && rest.first.text.start_with?("-")
+
+        unwrap_words(rest, depth + 1)
+      when "exec"
+        loop do
+          head = rest.first
+          break unless head && head.text.start_with?("-")
+
+          rest = rest.drop(head.text == "-a" ? 2 : 1)
+        end
+        unwrap_words(rest, depth + 1)
+      when "time"
+        rest = rest.drop(1) while rest.first && rest.first.text == "-p"
+        unwrap_words(rest, depth + 1)
+      when "nice"
+        head = rest.first
+        if head && head.text == "-n"
+          rest = rest.drop(2)
+        elsif head && head.text =~ /\A(-n\d+|-\d+|--adjustment=\d+)\z/
+          rest = rest.drop(1)
+        end
+        unwrap_words(rest, depth + 1)
+      when "timeout"
+        rest = skip_timeout_options(rest)
+        unwrap_words(rest, depth + 1)
+      when "stdbuf"
+        loop do
+          head = rest.first
+          break unless head && head.text.start_with?("-")
+
+          rest = rest.drop(%w[-i -o -e].include?(head.text) ? 2 : 1)
+        end
+        unwrap_words(rest, depth + 1)
+      else
+        words
+      end
+    end
+
+    def skip_env_options(words)
+      rest = words.dup
+      loop do
+        head = rest.first
+        break unless head
+
+        text = head.text
+        if text == "--"
+          rest.shift
+          break
+        elsif text =~ /\A-[i0v]+\z/ || %w[--ignore-environment --null --debug].include?(text)
+          rest.shift
+        elsif text == "-u" || text == "--unset"
+          rest = rest.drop(2)
+        elsif text =~ /\A(-u.+|--unset=.*)\z/
+          rest.shift
+        elsif text.start_with?("-")
+          raise ShellUnmodeled
+        elsif text =~ /\A([A-Za-z_][A-Za-z0-9_]*)=/
+          raise ShellUnmodeled if Regexp.last_match(1) =~ ENV_ASSIGN_DENY
+
+          rest.shift
+        else
+          break
+        end
+      end
+      rest
+    end
+
+    def skip_timeout_options(words)
+      rest = words.dup
+      loop do
+        head = rest.first
+        break unless head && head.text.start_with?("-")
+
+        rest = rest.drop(%w[-k -s].include?(head.text) ? 2 : 1)
+      end
+      rest.drop(1)
+    end
+
+    def check_segment!(segment, workspace, owned_test, kind = "slice", cwd = nil)
+      cwd ||= workspace || Reach::Paths.cwd
+      parsed = parse_segment(segment)
+      words = parsed[:words]
+      outs = parsed[:outs]
+      return if words.empty? && outs.empty? && parsed[:ins].empty?
+
+      plain = words.map(&:text)
+      check_vault_or_keys_reads!(plain + parsed[:ins].map(&:text) + outs.map(&:text), cwd)
+      if words.empty?
+        outs.each { |target| ensure_owned_target!(target, cwd, owned_test) }
+        return
+      end
+
+      check_command_words!(words, outs, workspace, owned_test, kind, cwd)
+    end
+
+    def check_command_words!(words, outs, workspace, owned_test, kind, cwd)
+      plain = words.map(&:text)
+      cmd = plain[0]
+      name = File.basename(cmd).sub(/\.exe\z/i, "")
+      raise_blocked!("M-SHELL-UNMODELED") if words[0].dynamic || SHELL_RESERVED.include?(cmd)
+      raise_blocked!("M-GATE-NOGIT") if name == "git" && kind != "extracurricular"
+      forbid_command!(plain, kind)
+
+      if readonly_command?(plain)
+        outs.each { |target| ensure_owned_target!(target, cwd, owned_test) }
+      elsif write_command?(plain)
+        outs.each { |target| ensure_owned_target!(target, cwd, owned_test) }
+        ensure_write_args_owned!(words, cwd, owned_test)
+        inner = runner_inner(words)
+        check_command_words!(inner, [], workspace, owned_test, kind, cwd) if inner
+        check_ladder!(workspace) if kind == "slice"
+        check_time_and_module!(workspace) if kind == "slice"
+      else
+        ensure_unknown_allowed!(words, outs, workspace, cwd)
+      end
+    end
+
+    def runner_inner(words)
+      name = File.basename(words[0].text)
+      rest = words[1..-1]
+      case name
+      when "bundle"
+        head = rest.drop_while { |word| word.text.start_with?("-") }.first
+        return nil unless head && head.text == "exec"
+
+        inner = rest.drop_while { |word| word.text.start_with?("-") }.drop(1).drop_while { |word| word.text.start_with?("-") }
+        inner.empty? ? nil : unwrap_words(inner, 0)
+      when "npx"
+        inner = rest.drop_while { |word| word.text.start_with?("-") }
+        inner.empty? ? nil : unwrap_words(inner, 0)
+      when "npm"
+        head = rest.first
+        return nil unless head && %w[exec x].include?(head.text)
+
+        inner = rest.drop(1).drop_while { |word| word.text.start_with?("-") }
+        inner.empty? ? nil : unwrap_words(inner, 0)
+      end
+    end
+
+    def forbid_command!(plain, kind)
+      name = File.basename(plain[0].to_s).sub(/\.exe\z/i, "")
+      args = plain[1..-1].to_a
+      if kind != "extracurricular"
+        raise_blocked!("M-SHELL-UNMODELED") if RUN_STRING_COMMANDS.include?(name) || name =~ /\A[A-Za-z]+(?:-[A-Za-z0-9]+)+\z/
+        raise_blocked!("M-GATE-NOCODETOOL") if inline_code?(plain)
+        check_shell_invocation!(name, args)
+        check_stdin_interpreter!(name, args)
+        check_sed_script!(args) if name == "sed"
+      end
+      raise_blocked!("M-SHELL-BLOCKED") if NETWORK_COMMANDS.include?(name)
+      raise_blocked!("M-SHELL-UNMODELED") if %w[export declare typeset readonly local].include?(name) && args.any? { |arg| arg.sub(/\A-+\w*/, "") =~ /\A(?:[^=]*\s)?([A-Za-z_]\w*)=?/ && Regexp.last_match(1) =~ ENV_ASSIGN_DENY }
+      raise_blocked!("M-SHELL-BLOCKED") if %w[rg grep].include?(name) && args.any? { |arg| arg.start_with?("--pre", "--hostname-bin") }
+    end
+
+    def check_sed_script!(args)
+      scripts = []
+      expression = false
+      operand = nil
+      i = 0
+      while i < args.length
+        arg = args[i]
+        if arg.start_with?("--expression=")
+          scripts << arg.sub("--expression=", "")
+          expression = true
+        elsif arg == "--expression" || arg =~ /\A-[A-Za-z]*e\z/
+          scripts << args[i + 1].to_s
+          expression = true
+          i += 1
+        elsif arg =~ /\A--file/ || arg =~ /\A-[A-Za-z]*f\z/
+          raise_blocked!("M-SHELL-UNMODELED")
+        elsif !arg.start_with?("-")
+          operand ||= arg
+        end
+        i += 1
+      end
+      scripts << operand.to_s unless expression || operand.nil?
+      safe = scripts.all? { |script| script.split(/;|\n/).all? { |part| part =~ SAFE_SED_COMMAND } }
+      raise_blocked!("M-SHELL-UNMODELED") unless safe
+    end
+
+    def check_shell_invocation!(name, args)
+      return unless SHELL_COMMANDS.include?(name)
+
+      options = args.take_while { |arg| arg.start_with?("-") }
+      operand = args[options.length]
+      allowed = options.all? { |option| option =~ /\A-[exuvnl]+\z/ || %w[--norc --noprofile --posix].include?(option) }
+      raise_blocked!("M-SHELL-UNMODELED") unless allowed && operand
+    end
+
+    def check_stdin_interpreter!(name, args)
+      return unless STDIN_INTERPRETERS.include?(name.sub(/[0-9.]+\z/, "")) || STDIN_INTERPRETERS.include?(name)
+      return if args.any? && args.all? { |arg| %w[-v -V --version -h --help].include?(arg) }
+
+      raise_blocked!("M-SHELL-UNMODELED") unless args.any? { |arg| !arg.start_with?("-") }
+    end
+
+    def check_vault_or_keys_reads!(tokens, base)
       tokens.each do |tok|
         next unless path_like?(tok)
 
-        resolved = resolve_arg(tok, workspace)
+        resolved = resolve_arg(tok, base)
         raise_blocked!("M-SHELL-BLOCKED") if within?(resolved, Reach::Paths.vault_dir) || within?(resolved, Reach::Paths.keys_dir)
         next if shim_index([tok]) == 0 && tok != "reach"
 
@@ -1183,33 +1751,110 @@ module Reach
       end
     end
 
-    def ensure_owned_target!(token, workspace, owned_test)
-      resolved = resolve_arg(token, workspace)
+    def protected_path?(resolved)
+      parts = resolved.to_s.split(File::SEPARATOR)
+      names = case_insensitive_fs? ? PROTECTED_NAMES.map(&:downcase) : PROTECTED_NAMES
+      parts = parts.map(&:downcase) if case_insensitive_fs?
+      parts.any? { |part| names.include?(part) }
+    end
+
+    def resolve_write_target(token, base)
+      resolved = resolve_target(File.expand_path(token.to_s, base))
+      resolved = File.realpath(resolved) if File.symlink?(resolved)
+      resolved
+    rescue SystemCallError, ArgumentError
+      raise_blocked!("M-SHELL-BLOCKED")
+    end
+
+    def ensure_owned_target!(word, base, owned_test)
+      token = word.respond_to?(:text) ? word.text : word.to_s
+      dynamic = word.respond_to?(:dynamic) && word.dynamic
+      return if !dynamic && OUTSIDE_ALLOWED.include?(token)
+
+      raise_blocked!("M-SHELL-BLOCKED") if dynamic || token.empty?
+
+      resolved = resolve_write_target(token, base)
+      raise_blocked!("M-SHELL-BLOCKED") if protected_path?(resolved)
       return if owned_test.call(resolved)
 
       raise_blocked!("M-SHELL-BLOCKED")
     end
 
-    def ensure_write_args_owned!(tokens, workspace, owned_test)
-      tokens[1..-1].to_a.each do |tok|
-        next if tok.start_with?("-")
-        next unless path_like?(tok)
+    def ensure_write_args_owned!(words, base, owned_test)
+      name = File.basename(words[0].text)
+      if PACKAGE_WRITE.include?(name)
+        words[1..-1].to_a.each do |word|
+          next if word.text.start_with?("-")
+          next unless path_like?(word.text)
 
-        resolved = resolve_arg(tok, workspace)
-        next if owned_test.call(resolved)
-
-        raise_blocked!("M-SHELL-BLOCKED")
+          ensure_owned_target!(word, base, owned_test)
+        end
+        return
       end
+
+      strict_write_operands(words, name).each { |word| ensure_owned_target!(word, base, owned_test) }
     end
 
-    def ensure_unknown_allowed!(tokens, redirect_targets, workspace)
-      raise_blocked!("M-SHELL-BLOCKED") unless redirect_targets.empty?
+    LONG_FLAGS_WITHOUT_PATH = %w[--size --mode --owner --group --suffix --backup --preserve --no-preserve --update --reflink --sparse --context].freeze
 
-      tokens[1..-1].to_a.each do |tok|
+    def strict_write_operands(words, name)
+      args = words[1..-1].to_a
+      operands = []
+      done = false
+      skip = 0
+      first_skipped = !%w[chmod chown chgrp].include?(name)
+      script_skipped = name != "sed"
+      script_flag = false
+      reference = args.any? { |word| word.text.start_with?("--reference") }
+      args.each do |word|
+        text = word.text
+        if skip > 0
+          skip -= 1
+          next
+        end
+        if !done && text == "--"
+          done = true
+        elsif !done && text.start_with?("-") && text != "-"
+          if text.start_with?("--")
+            flag, _, value = text.partition("=")
+            operands << SHELL_WORD.new(value, word.dynamic) if !value.empty? && !LONG_FLAGS_WITHOUT_PATH.include?(flag)
+            script_flag = true if %w[--expression --file].include?(flag)
+            skip = 1 if name == "truncate" && flag == "--size" && value.empty?
+          else
+            skip = 1 if name == "truncate" && text == "-s"
+            if %w[sed perl].include?(name) && text =~ /\A-[A-Za-z]*[ef]\z/
+              script_flag = true
+              skip = 1
+            end
+            match = %w[cp mv ln install].include?(name) ? text.match(/\A-[A-Za-z]*?t(.+)\z/) : nil
+            operands << SHELL_WORD.new(match[1], word.dynamic) if match
+            first_skipped = true if %w[chmod].include?(name) && text =~ /\A-[rwxXstugoa,=+-]+\z/
+          end
+        elsif name == "dd"
+          key, eq, value = text.partition("=")
+          operands << SHELL_WORD.new(value, word.dynamic) if eq == "=" && key == "of"
+        elsif !first_skipped && !reference
+          first_skipped = true
+        elsif !script_skipped && !script_flag
+          script_skipped = true
+        else
+          operands << word
+        end
+      end
+      operands
+    end
+
+    def ensure_unknown_allowed!(words, outs, workspace, cwd)
+      outs.each do |target|
+        raise_blocked!("M-SHELL-BLOCKED") if target.dynamic || !OUTSIDE_ALLOWED.include?(target.text)
+      end
+
+      words[1..-1].to_a.each do |word|
+        tok = word.text
         next if tok.start_with?("-")
         next unless path_like?(tok)
 
-        resolved = resolve_arg(tok, workspace)
+        resolved = resolve_arg(tok, cwd)
         raise_blocked!("M-SHELL-BLOCKED") unless workspace && within?(resolved, workspace)
       end
     end
@@ -1219,7 +1864,7 @@ module Reach
       return true if cmd == "reach"
       return true if reach_shim_call?(tokens)
       return true if cmd == "ruby" && tokens[1] == "-c"
-      return !(tokens.include?("-delete") || tokens.include?("-exec")) if cmd == "find"
+      return !tokens.any? { |token| FIND_WRITE_FLAGS.include?(token) } if cmd == "find"
 
       READONLY_SINGLE.include?(cmd)
     end
@@ -1243,11 +1888,14 @@ module Reach
     end
 
     def write_command?(tokens)
-      cmd = tokens[0]
-      return true if cmd == "find" && (tokens.include?("-delete") || tokens.include?("-exec"))
-      return true if WRITE_INPLACE_COMMANDS.include?(cmd) && tokens.any? { |t| t.start_with?("-i") }
+      name = File.basename(tokens[0])
+      args = tokens[1..-1].to_a
+      return true if name == "find" && args.any? { |token| FIND_WRITE_FLAGS.include?(token) }
+      return true if name == "sed" && args.any? { |token| token.start_with?("--in-place") || token =~ /\A-[nrsEzu]*i/ }
+      return true if name == "sort" && args.any? { |token| token == "--output" || token.start_with?("--output=") || token =~ /\A-[A-Za-z]*o/ }
+      return true if name == "perl" && args.any? { |token| token =~ /\A-[nplaswWtTuUx0-9]*i/ }
 
-      WRITE_SINGLE.include?(cmd)
+      WRITE_SINGLE.include?(name)
     end
 
     def path_like?(token)
