@@ -43,11 +43,28 @@ module Reach
     def due_for_meta(meta)
       meta = {} unless meta.is_a?(Hash)
       current = Reach::Pace.current_assignment
-      if current && current["id"].to_s == meta["assignment"].to_s
-        return parse_time(current["due"])
-      end
+      return parse_time(current["due"]) if current && current["id"].to_s == meta["assignment"].to_s
+
+      cached = cached_due(meta["assignment"])
+      return parse_time(cached) if cached
 
       parse_time(meta["due"])
+    end
+
+    def cached_due(assignment)
+      id = assignment.to_s
+      return nil if id.empty?
+
+      status = Reach::Pace.status_cache
+      listed = status.is_a?(Hash) && status["assignments"].is_a?(Array) ? status["assignments"] : []
+      row = listed.find { |item| item.is_a?(Hash) && item["id"].to_s == id && !item["due"].to_s.strip.empty? }
+      return row["due"] if row
+
+      seen = Reach::StateFile.read(Reach::DueChanges::FILE)["seen"]
+      value = seen.is_a?(Hash) ? seen[id] : nil
+      value.to_s.strip.empty? ? nil : value
+    rescue StandardError
+      nil
     end
 
     def due_for(workspace)

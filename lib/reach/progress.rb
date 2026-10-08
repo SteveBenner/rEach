@@ -110,12 +110,17 @@ module Reach
       return nil if pending.empty?
 
       body = { "checkpoints" => pending.map { |id, at| { "id" => id, "at" => at } } }
+      refused = false
       begin
         Reach::Client.for_install(install, quick: quick).post_json(ROUTE, body, idempotency_key: SecureRandom.uuid)
       rescue Reach::RemoteRefused
-        nil
+        refused = true
       end
-      write(read.merge("sent" => (data["sent"] + pending.map(&:first)).uniq))
+      current = read
+      ids = pending.map(&:first)
+      merged = current.merge("sent" => (data["sent"] + ids).uniq)
+      merged["refused"] = (Array(current["refused"]) + ids).uniq if refused
+      write(merged)
       pending.length
     rescue StandardError
       nil

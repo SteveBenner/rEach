@@ -10,6 +10,8 @@ module Reach
     SUITE_KIND = "suite"
     RUBY26_CEILING = Gem::Version.new("3.1.999")
     RUN_TIMEOUT_S = 300
+    PIPE_GRACE_S = 5
+    CHUNK_BYTES = 65_536
 
     class << self
       def gemfile_lock_for(ruby_version = RUBY_VERSION)
@@ -169,24 +171,45 @@ module Reach
         stderr = +""
         status = nil
         timed_out = false
-        Open3.popen3(env, *args, chdir: run_dir) do |stdin, out, err, wait_thr|
+        group = Reach::Untar.windows? ? { new_pgroup: true } : { pgroup: true }
+        Open3.popen3(env, *args, chdir: run_dir, **group) do |stdin, out, err, wait_thr|
           stdin.close
-          out_reader = Thread.new { out.read }
-          err_reader = Thread.new { err.read }
+          out_buffer = String.new
+          err_buffer = String.new
+          out_reader = Thread.new { pump(out, out_buffer) }
+          err_reader = Thread.new { pump(err, err_buffer) }
           unless wait_thr.join(RUN_TIMEOUT_S)
             timed_out = true
-            begin
-              Process.kill("KILL", wait_thr.pid)
-            rescue Errno::ESRCH, Errno::EPERM
-              nil
-            end
+            kill_tree(wait_thr.pid)
             wait_thr.join
           end
-          stdout = out_reader.value.to_s
-          stderr = err_reader.value.to_s
+          [out_reader, err_reader].each { |reader| reader.join(PIPE_GRACE_S) || reader.kill }
+          stdout = out_buffer.dup.force_encoding(Encoding::UTF_8).scrub
+          stderr = err_buffer.dup.force_encoding(Encoding::UTF_8).scrub
           status = wait_thr.value
         end
         { "stdout" => stdout, "stderr" => stderr, "status" => status && status.exitstatus, "timed_out" => timed_out, "command" => args }
+      end
+
+      def pump(stream, buffer)
+        loop { buffer << stream.readpartial(CHUNK_BYTES) }
+      rescue EOFError, IOError
+        nil
+      end
+
+      def kill_tree(pid)
+        if Reach::Untar.windows?
+          system("taskkill", "/PID", pid.to_s, "/T", "/F", out: File::NULL, err: File::NULL)
+        else
+          begin
+            Process.kill("KILL", -pid)
+          rescue Errno::ESRCH, Errno::EPERM
+            nil
+          end
+        end
+        Process.kill("KILL", pid)
+      rescue Errno::ESRCH, Errno::EPERM
+        nil
       end
 
       def report_rows(stdout)

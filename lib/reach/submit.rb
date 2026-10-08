@@ -44,6 +44,7 @@ module Reach
           "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
         outbox_path = write_outbox(idempotency_key, "submission", ROUTE, body, workspace: workspace)
+        supersede_queued(outbox_path, body)
 
         begin
           response = client(install).post_json(ROUTE, body, idempotency_key: idempotency_key)
@@ -83,8 +84,7 @@ module Reach
 
       def retry_outbox
         results = []
-        Dir.glob(File.join(Reach::Paths.outbox_dir, "*.json")).sort.each do |path|
-          entry = JSON.parse(File.read(path))
+        queued_in_order.each do |path, entry|
           next if entry["issue"]
 
           install = Reach::Enroll.current
@@ -114,13 +114,37 @@ module Reach
             end
             FileUtils.rm_f(path)
           rescue Reach::RemoteRefused => e
-            FileUtils.rm_f(path)
+            if entry["kind"] == "submission"
+              shelve_rejected(path, entry, e)
+            else
+              FileUtils.rm_f(path)
+            end
             results << { "state" => "rejected", "rejection" => { "code" => e.code, "reason" => e.message } }
           rescue Reach::Offline, Reach::NetworkError
             next
           end
         end
         results
+      end
+
+      def rejected_notices
+        notices = []
+        Dir.glob(File.join(rejected_dir, "*.json")).sort.each do |path|
+          entry = begin
+            JSON.parse(File.read(path))
+          rescue StandardError
+            next
+          end
+          next unless entry.is_a?(Hash) && !entry["reported"]
+
+          body = entry["body"].is_a?(Hash) ? entry["body"] : {}
+          rejection = entry["rejection"].is_a?(Hash) ? entry["rejection"] : {}
+          notices << Reach::Messages.text("M-SUBMIT-REJECTED-LATER", slice: body["slice"], cutout: body["cutout_id"], reason: rejection["reason"].to_s.strip.empty? ? rejection["code"] : rejection["reason"])
+          write_json_atomic(path, entry.merge("reported" => true))
+        end
+        notices
+      rescue StandardError
+        []
       end
 
       def student_text(result)
@@ -157,6 +181,71 @@ module Reach
       end
 
       private
+
+      def rejected_dir
+        File.join(Reach::Paths.outbox_dir, "rejected")
+      end
+
+      def queued_in_order
+        rows = Dir.glob(File.join(Reach::Paths.outbox_dir, "*.json")).map do |path|
+          entry = begin
+            JSON.parse(File.read(path))
+          rescue StandardError
+            nil
+          end
+          next unless entry.is_a?(Hash)
+
+          [path, entry, queued_time(path, entry)]
+        end
+        rows.compact.sort_by { |path, _entry, time| [time, path] }.map { |path, entry, _time| [path, entry] }
+      end
+
+      def queued_time(path, entry)
+        stamp = entry["queued_at"].to_s
+        return Time.parse(stamp) unless stamp.empty?
+
+        File.mtime(path)
+      rescue ArgumentError, SystemCallError
+        Time.at(0)
+      end
+
+      def supersede_queued(keep_path, body)
+        key = [body["cutout_id"], body["slice"], body["assignment"]]
+        Dir.glob(File.join(Reach::Paths.outbox_dir, "*.json")).each do |path|
+          next if path == keep_path
+
+          entry = begin
+            JSON.parse(File.read(path))
+          rescue StandardError
+            next
+          end
+          next unless entry.is_a?(Hash) && entry["kind"] == "submission" && entry["body"].is_a?(Hash)
+
+          other = [entry["body"]["cutout_id"], entry["body"]["slice"], entry["body"]["assignment"]]
+          FileUtils.rm_f(path) if other == key
+        end
+      end
+
+      def shelve_rejected(path, entry, error)
+        FileUtils.mkdir_p(rejected_dir)
+        record = entry.merge(
+          "rejection" => { "code" => error.code, "reason" => error.message, "status" => error.status },
+          "rejected_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+          "reported" => false
+        )
+        write_json_atomic(File.join(rejected_dir, File.basename(path)), record)
+        FileUtils.rm_f(path)
+      end
+
+      def write_json_atomic(path, data)
+        temp = "#{path}.tmp.#{Process.pid}"
+        File.open(temp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) do |handle|
+          handle.write(JSON.generate(data))
+          handle.flush
+          handle.fsync
+        end
+        File.rename(temp, path)
+      end
 
       def submitted_assignments
         Reach::Receipts.list.select { |receipt| receipt["kind"] == "ingest" }.map { |receipt| receipt["assignment"].to_s }.reject(&:empty?).uniq.sort
@@ -230,6 +319,10 @@ module Reach
 
         meta = Reach::Workspace.metadata(workspace)
         owned = Array(meta["owned_files"])
+        missing = owned.reject { |relative| File.file?(File.join(workspace, relative)) }
+        unless missing.empty?
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-MISSING", list: missing.map { |relative| "- #{relative}" }.join("\n"))
+        end
         findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) }
         readme = findings.select { |finding| finding[:id] == "CK-README" }
         unless readme.empty?
@@ -385,9 +478,9 @@ module Reach
       def write_outbox(idempotency_key, kind, route, body, workspace: nil)
         FileUtils.mkdir_p(Reach::Paths.outbox_dir)
         path = File.join(Reach::Paths.outbox_dir, "#{idempotency_key}.json")
-        entry = { "kind" => kind, "route" => route, "idempotency_key" => idempotency_key, "body" => body }
+        entry = { "kind" => kind, "route" => route, "idempotency_key" => idempotency_key, "body" => body, "queued_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%6NZ") }
         entry["workspace"] = workspace if workspace
-        File.write(path, JSON.generate(entry))
+        write_json_atomic(path, entry)
         path
       end
 

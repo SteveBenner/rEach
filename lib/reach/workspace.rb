@@ -12,6 +12,7 @@ module Reach
     NEVER_LOCKABLE_DIRS = %w[.reach .claude .codex].freeze
     NEVER_LOCKABLE_FILES = %w[.mcp.json].freeze
     WRITABLE_DIRS = %w[qualify/features qualify/step_definitions].freeze
+    GENERATED_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md README.md shape/brief.md].freeze
 
     DEFAULT_README_LINES = [
       "# {cutout_id} - {slice} slice",
@@ -67,12 +68,31 @@ module Reach
       write_rules_files(target)
       copy_brief(target, cutout_id)
       stamp(target)
-      write_delivered_digests(target, owned, kept_files)
-      lock_down(target, owned)
+      delivered = delivered_relatives(target, root, entries)
+      write_delivered_digests(target, owned, kept_files, delivered, stub_digests(root, entries, owned))
+      lock_down(target, owned, delivered)
 
       configure_harness(target)
 
       { "path" => target, "cutout_id" => cutout_id, "slice" => slice_name, "kept_files" => kept_files }
+    end
+
+    def package_relatives(root, entries)
+      prefix = "#{root}/"
+      entries.keys.select { |name| name.start_with?(prefix) && !name.end_with?("/") }.map { |name| name.sub(prefix, "") }.reject(&:empty?)
+    end
+
+    def delivered_relatives(target, root, entries)
+      generated = GENERATED_FILES.select { |relative| File.file?(File.join(target, relative)) }
+      (package_relatives(root, entries) + generated).uniq
+    end
+
+    def stub_digests(root, entries, owned)
+      prefix = "#{root}/"
+      owned.each_with_object({}) do |relative, map|
+        contents = entries["#{prefix}#{relative}"]
+        map[relative] = Reach::Crypto.digest_hex(contents) if contents
+      end
     end
 
     def prune_stale_kit(target, root, entries)
@@ -101,9 +121,9 @@ module Reach
 
         full_path = File.join(target, relative)
 
-        if owned_absolute.include?(File.expand_path(full_path))
-          if File.file?(full_path) && delivered_digest_for(target, relative) &&
-             Reach::Crypto.digest_hex(File.binread(full_path)) != delivered_digest_for(target, relative)
+        if owned_absolute.include?(File.expand_path(full_path)) && File.file?(full_path)
+          recorded = delivered_digest_for(target, relative)
+          if recorded.nil? || Reach::Crypto.digest_hex(File.binread(full_path)) != recorded
             kept_files << relative
             next
           end
@@ -420,9 +440,10 @@ module Reach
       )
     end
 
-    def write_delivered_digests(target, owned, kept_files = [])
+    def write_delivered_digests(target, owned, kept_files = [], delivered = [], stub_digests = {})
       owned_absolute = to_absolute(target, owned)
       marker_dir_absolute = File.expand_path(File.join(target, MARKER_DIR))
+      delivered_set = delivered.each_with_object({}) { |relative, map| map[relative] = true }
       readonly = {}
       owned_digests = {}
 
@@ -436,16 +457,23 @@ module Reach
         next if NEVER_LOCKABLE_DIRS.include?(top) || NEVER_LOCKABLE_FILES.include?(top)
         next if writable_path?(relative)
 
-        digest = Reach::Crypto.digest_hex(File.binread(absolute))
         if owned_absolute.include?(absolute)
-          owned_digests[relative] = kept_files.include?(relative) ? delivered_digest_for(target, relative) : digest
-        else
-          readonly[relative] = digest
+          digest = Reach::Crypto.digest_hex(File.binread(absolute))
+          owned_digests[relative] = kept_files.include?(relative) ? (delivered_digest_for(target, relative) || stub_digests[relative] || digest) : digest
+        elsif delivered_set[relative]
+          readonly[relative] = Reach::Crypto.digest_hex(File.binread(absolute))
         end
       end
 
       FileUtils.mkdir_p(File.join(target, MARKER_DIR))
-      File.write(File.join(target, MARKER_DIR, DELIVERED_FILE), JSON.generate("readonly" => readonly, "owned" => owned_digests))
+      final = File.join(target, MARKER_DIR, DELIVERED_FILE)
+      temp = "#{final}.tmp.#{Process.pid}"
+      File.open(temp, File::WRONLY | File::CREAT | File::TRUNC, 0o644) do |handle|
+        handle.write(JSON.generate("readonly" => readonly, "owned" => owned_digests))
+        handle.flush
+        handle.fsync
+      end
+      File.rename(temp, final)
     end
 
     def read_delivered_digests(workspace_path)
@@ -457,9 +485,19 @@ module Reach
       { "readonly" => {}, "owned" => {} }
     end
 
-    def lock_down(target, owned)
+    def lock_down(target, owned, delivered = [])
       owned_absolute = to_absolute(target, owned)
       owned_dirs = owned_absolute.map { |path| File.dirname(path) }
+      delivered_absolute = to_absolute(target, delivered)
+      delivered_set = delivered_absolute.each_with_object({}) { |path, map| map[path] = true }
+      delivered_dirs = {}
+      delivered_absolute.each do |path|
+        directory = File.dirname(path)
+        until delivered_dirs[directory] || directory == File.expand_path(target) || directory == File.dirname(directory)
+          delivered_dirs[directory] = true
+          directory = File.dirname(directory)
+        end
+      end
 
       Find.find(target) do |path|
         next if File.expand_path(path) == File.expand_path(target)
@@ -474,13 +512,30 @@ module Reach
         end
 
         if File.directory?(absolute)
-          mode = owned_dirs.include?(absolute) ? 0o755 : 0o555
-          safe_chmod(mode, absolute)
+          if owned_dirs.include?(absolute)
+            safe_chmod(0o755, absolute)
+          elsif delivered_dirs[absolute]
+            safe_chmod(0o555, absolute)
+          else
+            ensure_owner_access(absolute, 0o700)
+          end
+        elsif owned_absolute.include?(absolute)
+          safe_chmod(0o644, absolute)
+        elsif delivered_set[absolute]
+          safe_chmod(0o444, absolute)
         else
-          mode = owned_absolute.include?(absolute) ? 0o644 : 0o444
-          safe_chmod(mode, absolute)
+          ensure_owner_access(absolute, 0o600)
         end
       end
+    end
+
+    def ensure_owner_access(path, bits)
+      return if File.symlink?(path)
+
+      mode = File.stat(path).mode & 0o7777
+      safe_chmod(mode | bits, path) unless mode & bits == bits
+    rescue SystemCallError
+      nil
     end
 
     def safe_chmod(mode, path)

@@ -117,8 +117,45 @@ module Reach
 
       target = File.expand_path(relative, root)
       raise Reach::Error, "reach: the bundle holds a path outside its folder (#{relative}); it was not used" unless within?(root, target)
+      unless target == root || within?(physical(root), physical(File.dirname(target)))
+        raise Reach::Error, "reach: the bundle holds a path outside its folder (#{relative}); it was not used"
+      end
 
       target
+    end
+
+    def physical(path)
+      full = File.expand_path(path)
+      prefix = full[%r{\A(?:[A-Za-z]:)?/}]
+      pending = full[prefix.length..-1].split("/").reject(&:empty?)
+      current = prefix
+      hops = 0
+      until pending.empty?
+        part = pending.shift
+        next if part == "."
+
+        if part == ".."
+          current = File.dirname(current)
+          next
+        end
+
+        candidate = File.join(current, part)
+        if File.symlink?(candidate)
+          hops += 1
+          raise Reach::Error, "reach: the bundle holds too many nested links; it was not used" if hops > 40
+
+          link = File.readlink(candidate)
+          link_prefix = link[%r{\A(?:[A-Za-z]:)?/}]
+          if link_prefix
+            current = link_prefix
+            link = link[link_prefix.length..-1]
+          end
+          pending = link.split("/").reject(&:empty?) + pending
+        else
+          current = candidate
+        end
+      end
+      current
     end
 
     def within?(root, target)
@@ -128,8 +165,9 @@ module Reach
     def check_link(root, target, link, name)
       raise Reach::Error, "reach: the bundle holds an empty link (#{name}); it was not used" if link.empty?
 
-      resolved = File.expand_path(link, File.dirname(target))
-      raise Reach::Error, "reach: the bundle holds a link that points outside its folder (#{name}); it was not used" unless within?(root, resolved)
+      directory = physical(File.dirname(target))
+      resolved = physical(File.expand_path(link, directory))
+      raise Reach::Error, "reach: the bundle holds a link that points outside its folder (#{name}); it was not used" unless within?(physical(root), resolved)
     end
 
     def write_entry(entry, target)
