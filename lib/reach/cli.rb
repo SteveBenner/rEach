@@ -899,12 +899,14 @@ module Reach
           Reach::Gate.write(path: path, patch: patch, event: event, harness: options[:harness])
           0
         when "shell"
-          command = shell_text(options[:command] || tool_input["command"] || tool_input["cmd"])
+          raw = options[:command] || tool_input["command"] || tool_input["cmd"]
+          command = shell_text(raw)
+          dialect = event["tool_name"] == "PowerShell" || !powershell_inner(raw).nil? ? "powershell" : nil
           patch = Reach::Gate.apply_patch_payload(command, event)
           if patch
             Reach::Gate.write(patch: patch, event: event, harness: options[:harness])
           else
-            Reach::Gate.shell(command: command, event: event, harness: options[:harness])
+            Reach::Gate.shell(command: command, event: event, harness: options[:harness], dialect: dialect)
           end
           0
         when "read"
@@ -1378,7 +1380,53 @@ module Reach
         0
       end
 
+      POWERSHELL_PLAIN_FLAGS = %w[-noprofile -nologo -noninteractive -sta -mta].freeze
+
+      def powershell_inner(command)
+        if command.is_a?(Array)
+          parts = command.map(&:to_s)
+          return nil unless !parts.empty? && parts[0].downcase.tr("\\", "/").split("/").last.to_s.sub(/\.exe\z/, "") =~ /\A(?:powershell|pwsh)\z/
+
+          index = 1
+          while parts[index]
+            flag = parts[index].downcase
+            if POWERSHELL_PLAIN_FLAGS.include?(flag)
+              index += 1
+            elsif flag == "-executionpolicy"
+              index += 2
+            elsif %w[-command -c].include?(flag)
+              return parts[(index + 1)..-1].join(" ")
+            else
+              return nil
+            end
+          end
+          return nil
+        end
+        return nil unless command.is_a?(String)
+
+        match = command.match(/\A\s*"?(?:[^\s"]*[\\\/])?(?:powershell|pwsh)(?:\.exe)?"?\s+(.*)\z/mi)
+        return nil unless match
+
+        rest = match[1]
+        loop do
+          if rest =~ /\A(?:-NoProfile|-NoLogo|-NonInteractive|-Sta|-Mta)\s+/i
+            rest = Regexp.last_match.post_match
+          elsif rest =~ /\A-ExecutionPolicy\s+\S+\s+/i
+            rest = Regexp.last_match.post_match
+          else
+            break
+          end
+        end
+        return nil unless rest =~ /\A-(?:Command|c)\s+(.*)\z/mi
+
+        inner = Regexp.last_match(1).strip
+        inner = inner[1...-1] if inner.length > 1 && ["'", '"'].include?(inner[0]) && inner[-1] == inner[0]
+        inner
+      end
+
       def shell_text(command)
+        inner = powershell_inner(command)
+        return inner if inner
         return command.to_s unless command.is_a?(Array)
 
         parts = command.map(&:to_s)

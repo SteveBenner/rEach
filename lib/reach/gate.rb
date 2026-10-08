@@ -14,7 +14,7 @@ module Reach
     WRITE_SINGLE = (STRICT_WRITE + PACKAGE_WRITE).freeze
     FIND_WRITE_FLAGS = %w[-delete -exec -execdir -ok -okdir -fprint -fprint0 -fprintf -fls].freeze
     PROTECTED_NAMES = %w[.claude .codex .mcp.json CLAUDE.md AGENTS.md].freeze
-    RUN_STRING_COMMANDS = %w[awk gawk mawk nawk eval xargs source . sudo doas su parallel watch setsid script chroot busybox pwsh powershell cmd wsl at batch flock ionice chrt taskset setarch unshare nsenter strace ltrace gdb].freeze
+    RUN_STRING_COMMANDS = %w[iex icm saps start ii sal nal ipmo foreach where % invoke-expression invoke-command start-process invoke-item set-alias new-alias import-module awk gawk mawk nawk eval xargs source . sudo doas su parallel watch setsid script chroot busybox pwsh powershell cmd wsl at batch flock ionice chrt taskset setarch unshare nsenter strace ltrace gdb].freeze
     SHELL_COMMANDS = %w[sh bash zsh dash ksh csh tcsh fish].freeze
     STDIN_INTERPRETERS = %w[ruby python python2 python3 node perl php lua irb].freeze
     SHELL_RESERVED = %w[{ } if then else elif fi for while until do done case esac function select [[ ]] coproc].freeze
@@ -22,8 +22,43 @@ module Reach
     SHELL_WORD = Struct.new(:text, :dynamic)
     SAFE_SED_COMMAND = /\A\s*(?:(?:\d+|\$|\/[^\/]*\/)(?:,(?:\d+|\$|\/[^\/]*\/))?)?\s*!?\s*(?:[pdqnNDlP=]|s(.)(?:(?!\1).)*\1(?:(?!\1).)*\1[gpiImM0-9]*)\s*\z/m.freeze
     ShellUnmodeled = Class.new(StandardError)
+    PS_COMMON_VALUE = %w[erroraction warningaction].freeze
+    PS_COMMON_SWITCH = %w[verbose whatif debug].freeze
+    POWERSHELL_CMDLETS = {
+      "ls" => %w[get-childitem gci dir ls childitem],
+      "cat" => %w[get-content gc type cat],
+      "grep" => %w[select-string sls],
+      "pwd" => %w[get-location gl pwd],
+      "cd" => %w[set-location sl cd chdir],
+      "echo" => %w[write-output echo write],
+      "testpath" => %w[test-path],
+      "wc" => %w[measure-object measure],
+      "tee" => %w[set-content sc add-content ac out-file],
+      "touch" => %w[new-item ni],
+      "rm" => %w[remove-item ri rm del erase rd rmdir],
+      "mv" => %w[move-item mi mv move],
+      "cp" => %w[copy-item cp copy cpi],
+      "rename" => %w[rename-item rni ren]
+    }.freeze
+    PS_CMDLET_INDEX = POWERSHELL_CMDLETS.each_with_object({}) { |(canon, names), memo| names.each { |name| memo[name] = canon } }.freeze
+    PS_SPECS = {
+      "ls" => { path: %w[path literalpath], value: %w[filter include exclude depth], switch: %w[recurse force name file directory], positional: [:path], rest: :path },
+      "testpath" => { path: %w[path literalpath], value: %w[pathtype], switch: %w[isvalid], positional: [:path], rest: :path },
+      "cat" => { path: %w[path literalpath], value: %w[totalcount tail head first last encoding readcount delimiter], switch: %w[raw], positional: [:path], rest: :path },
+      "grep" => { path: %w[path literalpath], value: %w[pattern context encoding include exclude], switch: %w[simplematch casesensitive list quiet notmatch allmatches], positional: [:pattern, :path], rest: :path },
+      "pwd" => { path: [], value: [], switch: [], positional: [], rest: nil },
+      "cd" => { path: %w[path literalpath], value: [], switch: %w[passthru], positional: [:path], rest: nil },
+      "echo" => { path: [], value: %w[inputobject], switch: [], positional: [], rest: :arg },
+      "wc" => { path: [], value: %w[property], switch: %w[line word character sum average maximum minimum], positional: [], rest: nil },
+      "tee" => { path: %w[path literalpath filepath], value: %w[value encoding width], switch: %w[append force noclobber nonewline], positional: [:path, :ignore], rest: nil },
+      "touch" => { path: %w[path], value: %w[name itemtype value], switch: %w[force], positional: [:path], rest: nil },
+      "rm" => { path: %w[path literalpath], value: %w[filter include exclude], switch: %w[recurse force], positional: [:path], rest: :path },
+      "mv" => { path: %w[path literalpath], dest: %w[destination], value: %w[filter include exclude], switch: %w[force], positional: [:path, :dest], rest: nil },
+      "cp" => { path: %w[path literalpath], dest: %w[destination], value: %w[filter include exclude], switch: %w[recurse force container], positional: [:path, :dest], rest: nil },
+      "rename" => { path: %w[path literalpath], value: %w[newname], switch: %w[force], positional: [:path, :newname], rest: nil }
+    }.freeze
     WRITE_INPLACE_COMMANDS = %w[sed perl].freeze
-    NETWORK_COMMANDS = %w[curl wget ssh scp nc].freeze
+    NETWORK_COMMANDS = %w[curl wget ssh scp nc iwr irm].freeze
     INLINE_CODE_FLAGS = {
       /\Aruby[0-9.]*\z/ => %w[-e],
       /\Apython[0-9.]*\z/ => %w[-c],
@@ -544,8 +579,10 @@ module Reach
       end.join
     end
 
-    def shell(command:, event: nil, harness: nil)
+    def shell(command:, event: nil, harness: nil, dialect: nil)
+      @powershell = dialect.to_s == "powershell"
       text = command.to_s
+      text = text.tr("\\", "/") if @powershell
       return nil if support_command?(text)
 
       check_enrolled!
@@ -576,6 +613,8 @@ module Reach
 
       witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
+    ensure
+      @powershell = false
     end
 
     def shell_segments(text)
@@ -1215,6 +1254,10 @@ module Reach
       i = 0
       finish = lambda do
         unless buf.nil?
+          if @powershell && pending && buf == "$null"
+            buf = "/dev/null"
+            dynamic = false
+          end
           word = SHELL_WORD.new(buf, dynamic)
           if pending
             (pending == :in ? ins : outs) << word
@@ -1289,6 +1332,9 @@ module Reach
         when "*", "?", "[", "{", "}"
           append.call(ch, true, false)
           i += 1
+        when "@"
+          append.call(ch, @powershell && buf.nil? ? true : false, false)
+          i += 1
         when "~"
           append.call(ch, buf.nil?, false)
           i += 1
@@ -1350,9 +1396,123 @@ module Reach
     def parse_segment(segment)
       lexed = lex_segment(segment)
       words = unwrap_words(lexed[:words], 0)
+      words = translate_cmdlet(words) if @powershell && !words.empty?
       lexed.merge(words: words)
     rescue ShellUnmodeled
       raise_blocked!("M-SHELL-UNMODELED")
+    end
+
+    def translate_cmdlet(words)
+      head = words[0].text.downcase.sub(/\.exe\z/, "")
+      canon = PS_CMDLET_INDEX[head]
+      return words unless canon
+
+      spec = PS_SPECS.fetch(canon)
+      found = { path: [], dest: [], arg: [], pattern: [], newname: [], name: [] }
+      positional = []
+      recurse = false
+      rest = words[1..-1]
+      i = 0
+      while i < rest.length
+        word = rest[i]
+        text = word.text
+        if text.start_with?("-") && text.length > 1 && text !~ /\A-\d/
+          key, colon, inline = text[1..-1].partition(":")
+          key = key.downcase
+          takes = (spec[:path] + Array(spec[:dest]) + spec[:value]).include?(key) || PS_COMMON_VALUE.include?(key)
+          if takes
+            if colon == ":" && !inline.empty?
+              value = SHELL_WORD.new(inline, word.dynamic)
+            else
+              i += 1
+              raise ShellUnmodeled if rest[i].nil?
+
+              value = rest[i]
+            end
+            if spec[:path].include?(key)
+              found[:path] << value
+            elsif Array(spec[:dest]).include?(key)
+              found[:dest] << value
+            elsif key == "pattern"
+              found[:pattern] << value
+            elsif key == "newname"
+              found[:newname] << value
+            elsif key == "name"
+              found[:name] << value
+            elsif key == "inputobject"
+              found[:arg] << value
+            end
+          elsif spec[:switch].include?(key) || PS_COMMON_SWITCH.include?(key)
+            recurse = true if key == "recurse"
+          else
+            raise ShellUnmodeled
+          end
+        else
+          positional << word
+        end
+        i += 1
+      end
+
+      positional.each_with_index do |word, index|
+        slot = spec[:positional][index] || spec[:rest]
+        raise ShellUnmodeled if slot.nil?
+
+        found[slot] << word unless slot == :ignore
+      end
+
+      words_for_powershell(canon, found, recurse)
+    end
+
+    def words_for_powershell(canon, found, recurse)
+      plain = ->(text) { SHELL_WORD.new(text, false) }
+      paths = found[:path]
+      (paths + found[:dest]).each { |word| raise ShellUnmodeled if word.text.include?(",") }
+      case canon
+      when "ls", "testpath"
+        [plain.call("ls")] + (recurse ? [plain.call("-R")] : []) + paths
+      when "cat"
+        [plain.call("cat")] + paths
+      when "grep"
+        raise ShellUnmodeled if found[:pattern].length != 1
+
+        [plain.call("grep"), plain.call("-e"), found[:pattern].first] + paths
+      when "pwd", "wc"
+        raise ShellUnmodeled unless paths.empty?
+
+        [plain.call(canon)]
+      when "cd"
+        raise ShellUnmodeled if paths.length > 1
+
+        [plain.call("cd")] + paths
+      when "echo"
+        [plain.call("echo")] + found[:arg]
+      when "tee"
+        raise ShellUnmodeled if paths.empty?
+
+        [plain.call("tee")] + paths
+      when "touch"
+        if found[:name].empty?
+          raise ShellUnmodeled if paths.empty?
+
+          [plain.call("touch")] + paths
+        else
+          bases = paths.empty? ? [plain.call(".")] : paths
+          [plain.call("touch")] + bases.product(found[:name]).map { |base, name| SHELL_WORD.new(File.join(base.text, name.text), base.dynamic || name.dynamic) }
+        end
+      when "rm"
+        raise ShellUnmodeled if paths.empty?
+
+        [plain.call("rm")] + (recurse ? [plain.call("-r")] : []) + paths
+      when "mv", "cp"
+        raise ShellUnmodeled if paths.empty? || found[:dest].empty?
+
+        [plain.call(canon)] + (recurse ? [plain.call("-r")] : []) + paths + found[:dest]
+      when "rename"
+        raise ShellUnmodeled if paths.length != 1 || found[:newname].length != 1
+
+        target = SHELL_WORD.new(File.join(File.dirname(paths.first.text), found[:newname].first.text), paths.first.dynamic || found[:newname].first.dynamic)
+        [plain.call("mv"), paths.first, target]
+      end
     end
 
     def strip_assignments(words)
@@ -1526,7 +1686,7 @@ module Reach
       name = File.basename(plain[0].to_s).sub(/\.exe\z/i, "")
       args = plain[1..-1].to_a
       if kind != "extracurricular"
-        raise_blocked!("M-SHELL-UNMODELED") if RUN_STRING_COMMANDS.include?(name) || name =~ /\A[A-Za-z]+-[A-Za-z]+\z/
+        raise_blocked!("M-SHELL-UNMODELED") if RUN_STRING_COMMANDS.include?(name) || name =~ /\A[A-Za-z]+(?:-[A-Za-z0-9]+)+\z/
         raise_blocked!("M-GATE-NOCODETOOL") if inline_code?(plain)
         check_shell_invocation!(name, args)
         check_stdin_interpreter!(name, args)
