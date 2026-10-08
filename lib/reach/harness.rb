@@ -371,7 +371,7 @@ module Reach
 
       def write_protected(path, content)
         File.chmod(0o644, path) if File.exist?(path)
-        File.write(path, content)
+        Reach::StateFile.write_atomic(path, content, mode: 0o644)
         File.chmod(0o444, path)
       rescue NotImplementedError, Errno::ENOENT
         nil

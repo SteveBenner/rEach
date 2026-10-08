@@ -61,6 +61,8 @@ messages:
   M-ENR-PASSWORD-MISMATCH: "The two passwords didn't match. Please choose your password again."
   M-ENR-PASSWORD-TERMINAL: "To choose your password privately, finish enrolling in a terminal: run {command} and answer its questions there. Your typing stays hidden and the AI never sees it."
   M-ENR-PASSWORD-RETRY-FAILED: "rEach couldn't finish enrolling you: {reason} To try again, type your password again, or type start over to begin again."
+  M-ENR-LOCAL-SAVE-FAILED: "something went wrong on this computer ({error}), and it has been reported. Close any other rEach or Codex windows if you can."
+  M-ENR-STEP-FAILED: "Something went wrong on this computer while rEach was enrolling you, and it has been reported. {question}"
   M-ENR-PASSWORD-RETRY-OFFLINE: "rEach couldn't reach your course server just now. Check your internet connection, then type your password again to try again."
   M-ENR-PASSWORD-REMINDER: "Keep the password you chose written down somewhere safe."
   M-ENR-RESTART: "No problem, let's start over. Please type the course passkey your instructor gave you."

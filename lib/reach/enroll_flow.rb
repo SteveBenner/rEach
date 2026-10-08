@@ -30,8 +30,9 @@ module Reach
 
       begin
         step(text, lock, harness)
-      rescue StandardError
-        block(safe_ask)
+      rescue StandardError => e
+        Reach::Debug.fault(e, "enroll_flow:step", "M-ENR-STEP-FAILED")
+        block(Reach::Messages.text("M-ENR-STEP-FAILED", question: safe_ask))
       end
     rescue StandardError
       block(Reach::Messages.text("M-ENR-ASK-CODE"))
@@ -150,6 +151,10 @@ module Reach
       write_flow(next_flow)
       Reach::Progress.mark("enroll.code")
       ask_username(next_flow)
+    end
+
+    def local_error_name(error)
+      error.class.name.to_s.split("::").last
     end
 
     def reason_text(error)
@@ -332,6 +337,10 @@ module Reach
       rescue Reach::Error => e
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
         return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))
+      rescue StandardError => e
+        Reach::Debug.fault(e, "enroll_flow:register", "M-ENR-PASSWORD-RETRY-FAILED")
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: Reach::Messages.text("M-ENR-LOCAL-SAVE-FAILED", error: local_error_name(e)))
       end
 
       Reach::Progress.enrolled!(install["student_id"])

@@ -1180,7 +1180,23 @@ module Reach
       0
     end
 
+    def unparseable_config?(target)
+      [File.join(target, ".codex", "hooks.json"), File.join(target, ".claude", "settings.json")].any? do |path|
+        next false unless File.file?(path)
+
+        begin
+          !JSON.parse(File.read(path)).is_a?(Hash)
+        rescue JSON::ParserError
+          true
+        rescue StandardError
+          false
+        end
+      end
+    end
+
     def stale_ruby_target?(target)
+      return true if unparseable_config?(target)
+
       pairs = written_command_pairs(target)
       return false if pairs.empty?
 

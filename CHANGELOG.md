@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.2] - 2026-10-08
+
+### Fixed
+
+- Enrollment no longer loops on the password confirmation (`STD-ENROLL-PASSWORD`). An error on the computer after the
+  confirm, such as a Windows `EACCES` while saving the install files once Teach had accepted the student, used to be
+  swallowed by `Reach::EnrollFlow.evaluate`, which asked `M-ENR-ASK-PASSWORD-AGAIN` again while every confirm
+  registered a new install on Teach. `Reach::EnrollFlow.register` now records a fault (`enroll_flow:register`) and
+  answers `M-ENR-PASSWORD-RETRY-FAILED` with the new `M-ENR-LOCAL-SAVE-FAILED` naming the error, back at the first
+  password entry; any other step error records a fault (`enroll_flow:step`) and answers the new `M-ENR-STEP-FAILED`
+  with the current question.
+- A course folder's `.codex/hooks.json` can no longer be left empty or unparseable (`STD-STATE-FILE-REPLACE`).
+  `Reach::Harness.write_protected` now writes through `Reach::StateFile.write_atomic`, `Reach::Stamp.store!` renames
+  through `Reach::StateFile.rename_into_place`, and `Reach::Relocation.stale_ruby_target?` counts a `.codex/hooks.json`
+  or `.claude/settings.json` that does not parse as stale, so `repair_ruby_paths!` at session start rewrites it. Codex
+  had reported `expected value at line 1 column 1` for such a file.
+
 ## [0.46.1] - 2026-10-08
 
 Fixes from the 2026-10-08 audit (`TODO.md` "Audit 2026-10-08", RAUD-01 to RAUD-67).

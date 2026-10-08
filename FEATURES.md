@@ -1571,6 +1571,23 @@ Not verified: a real Windows or macOS host (schtasks, launchctl, PowerShell), or
 
 Build ✅ · Deploy ⚫ (not released) · Blocker: Human (push and release; Teach re-pin of the gate files)
 
+### 2.53 · Enrollment confirm loop and unreadable hooks.json (Windows)
+
+Since 0.46.2 a failure on the student's computer after the password confirm is reported with its error and a fault
+instead of asking for the password again, and a course folder's `.codex/hooks.json` is replaced atomically and
+rewritten at session start when it does not parse (`STD-ENROLL-PASSWORD`, `STD-STATE-FILE-REPLACE`; `CHANGELOG.md`
+0.46.2). Found on a Windows Codex app student on 0.38.10: Teach recorded a new install for every confirm while the
+student was asked to type the password again, and Codex reported the course folder's hooks.json unparseable.
+
+Verified 2026-10-08 in a scratch home under Ruby 4.0.6 with stubs: a confirm whose registration raised `EACCES`
+answered `M-ENR-PASSWORD-RETRY-FAILED` naming `EACCES`, went back to `awaiting_password`, dropped the stored digest and
+recorded the fault; a step error answered `M-ENR-STEP-FAILED` with the current question; an empty `.codex/hooks.json`
+counted as stale, `configure_all` rewrote it parseable and read-only with no temporary file left, and the rewritten
+folder was no longer stale; `Stamp.store!` succeeded after two refused renames. Not verified: a real Windows host or a
+live Codex session, and which save actually failed on the student's computer (no debug events were uploaded).
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (push and release)
+
 ### 10.7 · Handout parity
 
 Since 0.38.10 (`STD-HANDOUT-PARITY`) rEach does what the student setup and troubleshooting handout shows: the install
