@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-10-08
+
+### Added
+
+- Release gate leases (`STD-RELEASE-GATE-LEASE`): `tools/release_gate/lease.rb` reads the lease source file (`RELEASE_GATE_LEASE_SOURCE` or `~/.config/release-gate/lease_source.yml`), and `tools/release_gate/gate.rb` ends a recording run that would block as `leased` (exit 0, every check still run and recorded, `lease_id` on the run and the event, no override consumed) while a valid, unexpired lease for the repository answers. `specs/release_gate.yml` gains the `leased` status, `lease_id` and the `lease` clause. Maintainer tooling only; nothing a student runs changes.
+
 ## [0.45.0] - 2026-10-08
 
 ### Added
