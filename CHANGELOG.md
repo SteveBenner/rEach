@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.45.0] - 2026-10-08
+
+### Added
+
+- Issue closeout hook (`STD-ISSUE-CLOSEOUT-HOOK`): `.githooks/commit-msg` runs `tools/release_gate/closeout.rb`, which
+  sends the commit subject, message, branch and up to 200 staged paths to the course server and appends the
+  `Fixes-Issue:` and `Probably-Fixes:` trailers it answers. Identity evidence alone writes `Fixes-Issue`; scored
+  candidates only write `Probably-Fixes`. It never blocks a commit (3 s timeouts, two attempts, always exit 0);
+  `CLOSEOUT_DISABLE=1` or `git config closeout.enabled false` switches it off. `tools/release_gate/install` enables it.
+
 ## [0.44.2] - 2026-10-07
 
 ### Changed

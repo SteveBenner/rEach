@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.44.2 |
+| **Registry version** | 0.45.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 101 catalogued |
+| **Feature count** | 102 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 93 | 92% |
+| ✅ Shipped | 94 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 78 | 77% |
+| 🔵 Built, not enabled | 79 | 77% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -1645,6 +1645,19 @@ commands out of `specs/release_gate.yml` into the private superproject's copy (`
 the tables the gate reads; the 0.40.0 commits before this fix are superseded, and no tag or release carried them.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
+
+### 11.9 · Issue closeout trailers
+
+Since 0.45.0 (`STD-ISSUE-CLOSEOUT-HOOK`) `tools/release_gate/install` also enables `.githooks/commit-msg`, which asks
+the course server which open issues a commit fixes and appends `Fixes-Issue:` (identity evidence only: the issue id,
+the issue branch, or its ship subject) and `Probably-Fixes:` (scored candidates, never a state change) trailers. It
+sends the subject, message, branch and at most 200 staged path names, never diff content, and never blocks a commit;
+`CLOSEOUT_DISABLE=1` or `git config closeout.enabled false` turns it off. Maintainer tooling only; nothing students run
+changes. Checked on 2026-10-08 in a scratch repository against a stub server: trailers added as answered and not
+duplicated, a down server (0.46 s) and a hung one (6.6 s) left the commit unchanged, both switches and a `fixup!`
+subject sent no request. The merge, missing-token and non-http skips were not run.
+
+Build ✅ · Deploy 🔵 (live once the course server carries the match route and the clone runs the installer) · Blocker: -
 
 ## Appendix · Blocked by
 
