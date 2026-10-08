@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.1] - 2026-10-07
+
+### Fixed
+
+- The MCP bridge survives losing its working directory (iss_895a0a5f250729ab1914). `Reach::Paths.cwd`
+  (`lib/reach/paths.rb`) answers `Dir.pwd` while that directory exists and the user's home otherwise, and every
+  `Dir.pwd` read in `lib/reach` goes through it (hello, mcp_bridge, gate, known_issues, diagnose, codex_setup, cli;
+  setup_log already guarded its own). An update or reinstall that replaced the plugin copy left the running bridge in
+  a removed folder, and the next `reach_hello` failed with `Errno::ENOENT` (M-REACH-HICCUP-TOOL). The desk's fix
+  f5fe6d0, built on 0.40.1, lands on 0.44.0 here.
+- `PRIVACY.md` names everything `seal.json` keeps (the fingerprint salt, and per enrollment the install ID, student ID,
+  course server address and enrollment time) and where it lives on macOS, Windows and Linux.
+- `FEATURES.md` no longer names a course-server method or its checkout in the 0.43.1 verification note
+  (STD-TEACH-OPAQUE).
+
 ## [0.44.0] - 2026-10-07
 
 ### Added

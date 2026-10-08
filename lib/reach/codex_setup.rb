@@ -1262,7 +1262,7 @@ module Reach
         end
       end
 
-      cwd = File.directory?(workspace) ? workspace : Dir.pwd
+      cwd = File.directory?(workspace) ? workspace : Reach::Paths.cwd
       argv = [cli, "sandbox"] + probe_mode_args + ["--", Reach::Runtime.ruby_path, Reach::Runtime.exe_path, "codex", "probe-child"]
       out, err, code = run_limited(argv, probe_timeout_s, chdir: cwd)
       record = if code == :timeout

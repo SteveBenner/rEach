@@ -103,7 +103,7 @@ module Reach
     def codex_wrong_folder?(harness, cwd)
       return false unless harness.to_s == "codex"
 
-      path = cwd.to_s.empty? ? Dir.pwd : cwd.to_s
+      path = cwd.to_s.empty? ? Reach::Paths.cwd : cwd.to_s
       path = Reach::Paths.windows_slashes(path) if Reach::Paths.windows_host?
       base = Reach::Paths.realish(Reach::Paths.workspace_base)
       !Reach::Paths.path_within?(Reach::Paths.realish(path), base)
@@ -275,7 +275,7 @@ module Reach
     def signed_in_context(harness, session)
       student = safely { Reach::Login.student } || {}
       name = student["display_name"].to_s.empty? ? "the enrolled student" : student["display_name"]
-      hello = safely { Reach::Hello.context_text(harness: harness, cwd: Dir.pwd, source: "startup", session: session) }
+      hello = safely { Reach::Hello.context_text(harness: harness, cwd: Reach::Paths.cwd, source: "startup", session: session) }
       done = framed("gate.signin", Reach::Messages.text("M-LOGIN-DONE-AGENT", name: name))
       parts = Reach::AgentControl.flag?("render") ? [hello, done] : [done, hello]
       parts.compact.join("\n\n")
@@ -379,7 +379,7 @@ module Reach
       writable = ->(target) { owned.any? { |candidate| same_path?(candidate, target) } || qualify_target?(workspace, target) }
 
       if patch
-        base = workspace || Dir.pwd
+        base = workspace || Reach::Paths.cwd
         patch_targets(patch).each do |relative|
           target = resolve_target(File.expand_path(relative, base))
           next if writable.call(target)
@@ -405,7 +405,7 @@ module Reach
     end
 
     def write_from_root(path:, patch:)
-      base = File.realpath(Dir.pwd)
+      base = File.realpath(Reach::Paths.cwd)
       raw = patch ? patch_targets(patch) : [path.to_s]
       targets = raw.map { |entry| root_target(File.expand_path(entry, base)) }
 
@@ -600,9 +600,9 @@ module Reach
 
     def hook_cwd(event)
       cwd = event.is_a?(Hash) ? event["cwd"] : nil
-      cwd.is_a?(String) && File.directory?(cwd) ? File.realpath(cwd) : File.realpath(Dir.pwd)
+      cwd.is_a?(String) && File.directory?(cwd) ? File.realpath(cwd) : File.realpath(Reach::Paths.cwd)
     rescue StandardError
-      Dir.pwd
+      Reach::Paths.cwd
     end
 
     def real_resolve(path, base)
@@ -949,7 +949,7 @@ module Reach
     end
 
     def current_workspace_path
-      cwd = File.realpath(Dir.pwd)
+      cwd = File.realpath(Reach::Paths.cwd)
       slices = Reach::Workspace.current_slices
       slices.find do |workspace|
         real_workspace = File.realpath(workspace)
@@ -960,7 +960,7 @@ module Reach
     end
 
     def current_space
-      cwd = File.realpath(Dir.pwd)
+      cwd = File.realpath(Reach::Paths.cwd)
       Reach::Workspace.space_for(cwd)
     rescue StandardError
       nil
@@ -1257,7 +1257,7 @@ module Reach
     end
 
     def resolve_arg(token, workspace)
-      base = workspace || Dir.pwd
+      base = workspace || Reach::Paths.cwd
       resolve_target(File.expand_path(token, base))
     end
   end

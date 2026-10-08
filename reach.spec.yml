@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.44.0
+version: 0.44.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1384,7 +1384,11 @@ cli:
       Since 0.16.23 (STD-DEBUG-MODE), and it runs while Reach is locked. on turns local debug mode on, for MINUTES minutes or until off; off turns the local switch off (an instructor's remote request or an active persona still keeps it on, and the command says so). status prints whether it is on, the reason (persona, local or remote), the end time and the spool counts. show prints the latest events as an ASCII table, a Markdown table or JSON, by default the form the detected surface renders. flush sends the spool through W-API-DEBUG now. At the end of every turn, while debug is on, the Stop hook shows the turn's events as a hook systemMessage (never agent context) on Claude Code and Codex; Hermes has no user-visible hook output, so reach debug show is its way. Outside course folders, where only the plugin-level hooks run, the next prompt shows the pending events. A remote request on a real student prints M-DEBUG-NOTICE once per session. Since 0.35.0 (STD-SETUP-LOG) export writes reach-setup-report-<time>.json to the Downloads folder, enrolled or not, and prints its path and file:// link (M-SETUP-REPORT-MANUAL; json prints path, link and bytes; a failed write prints M-SETUP-REPORT-FAILED and exits 1), and status adds the setup log (active, streak, files, bytes; json key setup_log).
   - name: mcp
     synopsis: reach mcp
-    purpose: The stdio MCP bridge
+    purpose: >-
+      The stdio MCP bridge. It survives losing its working directory (Codex starts it inside the plugin copy, which an
+      update or a reinstall replaces): every tool reads the working directory through Reach::Paths.cwd, which answers
+      the user's home when the directory is gone, so reach_hello and the workspace-bound tools answer instead of a
+      hiccup.
   - name: reference
     synopsis: reach reference list | show <path> | search <words> | links | ingest [--force]
     purpose: >-

@@ -36,6 +36,12 @@ module Reach
       text.empty? || !File.directory?(text) ? nil : text
     end
 
+    def cwd
+      existing_directory(Dir.pwd) || user_home
+    rescue SystemCallError
+      user_home
+    end
+
     def known_folder_profile
       require "fiddle"
 

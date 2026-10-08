@@ -941,11 +941,11 @@ module Reach
       end
 
       def shape_workspace
-        return Dir.pwd unless Reach::Gate.root_kind?
+        return Reach::Paths.cwd unless Reach::Gate.root_kind?
 
         workspace = Reach::Gate.focus_workspace
         ensure_slice_choice!(workspace)
-        workspace || Dir.pwd
+        workspace || Reach::Paths.cwd
       end
 
       def reference_tool(arguments)
@@ -984,7 +984,7 @@ module Reach
         return given unless given.empty?
 
         slices = Reach::Workspace.current_slices
-        cwd = File.realpath(Dir.pwd)
+        cwd = File.realpath(Reach::Paths.cwd)
         here = slices.find do |workspace|
           real_workspace = File.realpath(workspace)
           cwd == real_workspace || cwd.start_with?(real_workspace + File::SEPARATOR)

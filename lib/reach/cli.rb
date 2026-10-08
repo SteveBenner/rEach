@@ -776,7 +776,7 @@ module Reach
           warn "reach: no supported harness found on PATH; pass --harness claude-code|codex|antigravity|hermes"
           return 1
         end
-        Reach::Harness.launch(harness_id, Dir.pwd, initial_prompt: "Hi rEach")
+        Reach::Harness.launch(harness_id, Reach::Paths.cwd, initial_prompt: "Hi rEach")
         0
       end
 
@@ -1236,7 +1236,7 @@ module Reach
       def codex_setup_answer(event)
         return nil if Reach::Instructor.mode?
 
-        cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
+        cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Reach::Paths.cwd
         kinds = []
         kinds << Reach::CodexSetup::KIND unless event["turn_id"].to_s.empty?
         kinds << Reach::HarnessMove::KIND
@@ -1256,7 +1256,7 @@ module Reach
       end
 
       def plugin_course_prompt(event)
-        cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
+        cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Reach::Paths.cwd
         return nil unless Reach::Workspace.space_for(cwd)
         return nil unless Reach::Gate.once!(event, "prompt")
 
@@ -1275,7 +1275,7 @@ module Reach
         return [nil, nil, codex] unless Reach::Login.required?
 
         unless codex
-          cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
+          cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Reach::Paths.cwd
           return nil if Reach::Workspace.space_for(cwd)
         end
         harness_id = "codex" if codex
@@ -1343,7 +1343,7 @@ module Reach
           nil
         end
         parts = []
-        parts << Reach::Hello.context_text(harness: "hermes", cwd: Dir.pwd, source: "startup", session: Reach::Session.resolve_session_id(event)) if event["is_first_turn"] == true && blocked.nil?
+        parts << Reach::Hello.context_text(harness: "hermes", cwd: Reach::Paths.cwd, source: "startup", session: Reach::Session.resolve_session_id(event)) if event["is_first_turn"] == true && blocked.nil?
         parts << context if context
         notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
         parts << Reach::Messages.text("M-TEACH-LINK-RELAY", text: notice) unless notice.empty?
@@ -1402,7 +1402,7 @@ module Reach
           return 1
         end
         options, _remaining = parse_flags(args, [:changed, :format, :slice])
-        workspace_path = resolve_workspace(options[:slice]) || (Reach::Gate.root_kind? ? pick_slice_if_ambiguous(Reach::Gate.focus_workspace) : nil) || Dir.pwd
+        workspace_path = resolve_workspace(options[:slice]) || (Reach::Gate.root_kind? ? pick_slice_if_ambiguous(Reach::Gate.focus_workspace) : nil) || Reach::Paths.cwd
         format = (options[:format] || "text").to_sym
         findings = Reach::Shape.check(workspace_path: workspace_path, changed: options[:changed], format: format)
         case format
@@ -2112,7 +2112,7 @@ module Reach
         background, args = parse_bare_flag(args, "background")
         options, _remaining = parse_flags(args, [:harness, :format, :source, :session])
         if background
-          Reach::Hello.background(session: options[:session], cwd: Dir.pwd)
+          Reach::Hello.background(session: options[:session], cwd: Reach::Paths.cwd)
           return 0
         end
         Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil)), "session") if (options[:format] || "hook") == "hook"
@@ -2120,7 +2120,7 @@ module Reach
           harness: options[:harness],
           source: options[:source],
           format: options[:format] || "hook",
-          cwd: Dir.pwd
+          cwd: Reach::Paths.cwd
         )
         0
       end
@@ -3183,7 +3183,7 @@ module Reach
       end
 
       def current_workspace_basename
-        cwd = File.realpath(Dir.pwd)
+        cwd = File.realpath(Reach::Paths.cwd)
         workspace_path = Reach::Workspace.current_slices.find do |workspace|
           real_workspace = File.realpath(workspace)
           cwd == real_workspace || cwd.start_with?(real_workspace + File::SEPARATOR)

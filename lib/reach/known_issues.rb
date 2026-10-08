@@ -317,7 +317,7 @@ module Reach
     end
 
     def course_hook_files
-      space = Reach::Workspace.space_for(Dir.pwd)
+      space = Reach::Workspace.space_for(Reach::Paths.cwd)
       files = Reach::CodexSetup.managed_hook_files
       return files unless space
 

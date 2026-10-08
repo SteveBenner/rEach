@@ -11,7 +11,7 @@ module Reach
 
     module_function
 
-    def run(harness: nil, source: nil, format: "hook", cwd: Dir.pwd, mcp: false)
+    def run(harness: nil, source: nil, format: "hook", cwd: Reach::Paths.cwd, mcp: false)
       Reach::Runtime.ensure_shim!
 
       event = {}
@@ -130,7 +130,7 @@ module Reach
       MINIMAL_CONTEXT
     end
 
-    def background(session: nil, cwd: Dir.pwd)
+    def background(session: nil, cwd: Reach::Paths.cwd)
       Reach::Locks.bound!
       ensure_hello_dir
       Reach::Locks.exclusive(background_lock_path, wait_s: 0) do

@@ -80,7 +80,7 @@ module Reach
         "reach_home" => Reach::CryptoProbe.display_path(root),
         "reach_home_set" => !ENV["REACH_HOME"].to_s.empty?,
         "reach_home_writable" => File.directory?(root) ? File.writable?(root) : nil,
-        "cwd" => Reach::CryptoProbe.display_path(Dir.pwd),
+        "cwd" => Reach::CryptoProbe.display_path(Reach::Paths.cwd),
         "set" => ENV_FLAGS.select { |name| !ENV[name].to_s.empty? },
         "harness" => safe { Reach::Transcript.resolve_harness(nil) }
       }

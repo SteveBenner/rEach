@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.44.0 |
+| **Registry version** | 0.44.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -509,8 +509,7 @@ Since 0.43.1 (`STD-FINGERPRINT-SALT-KEPT`) the fingerprint salt is also kept in 
 there. A student who deletes the rEach home and enrolls again from the same computer account sends the old salt, so
 Teach's same-computer check passes and no device move is recorded. Deleting the sidecar too still counts as a move.
 Verified in the scratchpad on Linux: enrolled-style build and store, home moved aside, rebuilt; the salt matched and
-Teach's own `Enrollment.same_computer?` (loaded from the Teach checkout) answered true, and false once the sidecar was
-also moved aside. Not verified: Windows or macOS, a real enrollment against Teach, and installs that enrolled before
+the course server's same-computer check answered true, and false once the sidecar was also moved aside. Not verified: Windows or macOS, a real enrollment against Teach, and installs that enrolled before
 0.43.1 (their sidecar gets the salt at their next enrollment or persona enroll, not before).
 
 Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push)
@@ -612,6 +611,11 @@ named the version, run started the detached updater and the next status showed i
 Since 0.28.2 M-SANDBOX-STUDENT names the course folder by its path on this computer and says it is the folder holding
 `deliverables` and `extracurricular`; a Windows Codex student had been told they had no course folder (2026-10-04).
 Verified on Linux in a scratch home with `CODEX_SANDBOX_NETWORK_DISABLED=1`; the Windows path separator was not run.
+Since 0.44.1 (iss_895a0a5f250729ab1914) a working directory that was removed under a running process is not a hiccup:
+`Reach::Paths.cwd` answers the user's home instead, so `reach_hello` and the workspace-bound MCP tools answer normally
+after an update or reinstall replaced the plugin copy the bridge started in. Verified on Linux in a scratch home:
+`Reach::Hello.run` from a removed directory raised `Errno::ENOENT` on 0.44.0 and answered its session context on 0.44.1.
+Not verified on the macOS Codex installs that reported it.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 
