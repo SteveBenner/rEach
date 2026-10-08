@@ -164,7 +164,7 @@ module Reach
       end
 
       def permanent_refusal?(status)
-        status.is_a?(Integer) && status >= 400 && status < 500 && ![408, 429].include?(status)
+        status.is_a?(Integer) && status >= 400 && status < 500 && ![401, 408, 429].include?(status)
       end
 
       def record_path(receipt_id)
