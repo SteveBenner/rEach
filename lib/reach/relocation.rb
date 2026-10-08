@@ -25,7 +25,6 @@ module Reach
     STRAY_EXCLUDED = [POINTER_NAME, "state/relocation.json", "state/relocation.jsonl", "state/relocation-manifest.json"].freeze
     MOVING_SUFFIX = ".reach-moving".freeze
     SCAN_MAX_BYTES = 5 * 1024 * 1024
-    UPDATE_BLOCKING_PHASES = %w[staged swapped refreshed].freeze
     REASONS = {
       "destination_occupied" => "something already in your reach-work folder is in the way",
       "no_space" => "there is not enough free disk space",
@@ -162,7 +161,7 @@ module Reach
 
     def deferral(_ctx)
       manifest = Reach::Update.load_manifest
-      if Reach::Update.installing?(manifest) || UPDATE_BLOCKING_PHASES.include?(manifest["phase"])
+      if Reach::Update.blocks_relocation?(manifest)
         return outcome("deferred", reason: "update_in_progress", line: "rEach will move its files after its update finishes. Nothing was changed.")
       end
       if Reach::RuntimeAuto.installing?
@@ -678,6 +677,8 @@ module Reach
     end
 
     def dest_matches?(ctx, entry, record)
+      return true if entry[:kind] == "special"
+
       dest = dest_for(ctx, entry)
       stat = File.lstat(dest)
       case entry[:kind]
@@ -737,6 +738,7 @@ module Reach
       files = 0
       dirs = 0
       links = 0
+      skipped = 0
       bytes = 0
       lines = []
       sources.each do |entry|
@@ -753,10 +755,12 @@ module Reach
           dirs += 1
         when "symlink"
           links += 1
+        when "special"
+          skipped += 1
         end
       end
       digest = Digest::SHA256.hexdigest(lines.sort.join("\n"))
-      manifest = { "files" => files, "dirs" => dirs, "symlinks" => links, "bytes" => bytes, "root_digest" => digest }
+      manifest = { "files" => files, "dirs" => dirs, "symlinks" => links, "skipped" => skipped, "bytes" => bytes, "root_digest" => digest }
       write_json_atomic(manifest_path(ctx), manifest)
       manifest
     end
@@ -1276,6 +1280,7 @@ module Reach
         end
         Reach::Harness.configure("hermes", nil)
       end
+      Reach::Setup.refresh_copies(plugin)
 
       refresh_harness_sources(ctx, plugin)
     rescue StandardError
@@ -1416,6 +1421,7 @@ module Reach
     def start(now = Time.now)
       return nil unless due?
       return nil if lock_live?
+      return nil if deferral(nil)
 
       state = load_auto_state
       return nil if state["attempts"].to_i >= AUTO_MAX_ATTEMPTS
