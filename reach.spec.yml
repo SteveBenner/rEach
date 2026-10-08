@@ -3138,7 +3138,7 @@ codex_hook_trust:
     keeps one marker per (session id, turn id) for a prompt and per (session id, start source) for a session start under
     <root>/state/hook_once, so an older course-folder gate prompt or gate session that still runs does nothing when the
     plugin did the work, and the reverse; markers older than a day are pruned by the writer. The plugin's gate enroll
-    stamps prompt_at and prompt_since, never work_at (KnownIssues.record_hook!), on every Codex run, before any gating. The course folder's
+    stamps prompt_at, never work_at (KnownIssues.record_hook!), on every Codex run, before any gating. The course folder's
     hooks.json keeps PreToolUse, PostToolUse and Stop in their old group order and text.
   trust_state: >-
     CodexSetup writes the entries only for a course hooks.json whose parsed content equals exactly what

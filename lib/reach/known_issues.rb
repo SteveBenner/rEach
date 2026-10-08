@@ -8,7 +8,7 @@ module Reach
     STALE_S = 3600
     HOOKS_QUIET_S = 900
     PROMPT_WITHOUT_WORK_S = 600
-    WORK_KEYS = %w[work_at prompt_at prompt_since session_at session_label].freeze
+    WORK_KEYS = %w[work_at prompt_at session_at session_label].freeze
     SESSION_SOURCES = %w[startup resume clear].freeze
     FAMILIES = %w[claude codex].freeze
     PROCESS_FAMILIES = { "codex" => "codex", "claude" => "claude" }.freeze
@@ -231,8 +231,8 @@ module Reach
     def hooks_stale?
       seen = read_json(hooks_seen_file) || {}
       work = stamp_time(seen["work_at"])
-      since = stamp_time(seen["prompt_since"])
-      return Time.now - since >= PROMPT_WITHOUT_WORK_S if since && (work.nil? || since > work)
+      prompted = stamp_time(seen["prompt_at"])
+      return Time.now - prompted >= PROMPT_WITHOUT_WORK_S if prompted && (work.nil? || prompted > work)
       return true if work.nil?
 
       Time.now - work > HOOKS_QUIET_S
@@ -418,25 +418,12 @@ module Reach
       []
     end
 
-    def prompt_run_open?(seen)
-      since = stamp_time(seen["prompt_since"])
-      return false unless since
-
-      %w[work_at session_at].all? do |key|
-        mark = stamp_time(seen[key])
-        mark.nil? || since > mark
-      end
-    end
-
     def record_hook!(harness_label, kind = "work")
       seen = read_json(hooks_seen_file) || {}
       data = { "at" => now_s, "label" => harness_label.to_s }
       WORK_KEYS.each { |key| data[key] = seen[key] if seen[key].is_a?(String) }
       data["work_at"] = data["at"] if kind == "work"
-      if kind == "prompt"
-        data["prompt_at"] = data["at"]
-        data["prompt_since"] = data["at"] unless prompt_run_open?(seen)
-      end
+      data["prompt_at"] = data["at"] if kind == "prompt"
       write_json(hooks_seen_file, data)
       nil
     rescue StandardError
