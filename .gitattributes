@@ -7,3 +7,4 @@
 /docs/assets/figures/08-deployment-topology-light.svg export-ignore
 /docs/assets/figures/08-deployment-topology-dark.svg export-ignore
 /runtime/locks/** text eol=lf
+/agent-control/** text eol=lf

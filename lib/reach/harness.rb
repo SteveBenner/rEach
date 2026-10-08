@@ -162,7 +162,7 @@ module Reach
             "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "claude-code"), 10)],
             "PreToolUse" => [
               hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("gate", "write", "--harness", "claude-code"), 10),
-              hook_entry("Bash", h("gate", "shell", "--harness", "claude-code"), 10),
+              hook_entry("Bash|PowerShell", h("gate", "shell", "--harness", "claude-code"), 10),
               hook_entry(CLAUDE_READ_MATCHER, h("gate", "read", "--harness", "claude-code"), 10)
             ],
             "PostToolUse" => post_tool_use,

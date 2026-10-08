@@ -347,9 +347,7 @@ module Reach
     end
 
     def on_path?(executable)
-      ENV["PATH"].to_s.split(File::PATH_SEPARATOR).any? do |dir|
-        File.executable?(File.join(dir, executable)) && !File.directory?(File.join(dir, executable))
-      end
+      !Reach::Harness.send(:which, executable).nil?
     end
 
     def capture(args)

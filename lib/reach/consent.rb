@@ -136,6 +136,7 @@ module Reach
 
       now = Time.now.utc
       return nil if now - Time.iso8601(pending["asked_at"]) > WINDOW_S
+      return nil unless question_shown?(entry["transcript_path"], pending["question"])
 
       text = entry["text"]
       answer = if yes?(text)
@@ -165,6 +166,60 @@ module Reach
         FileUtils.rm_f(claimed)
       end
       record.merge("subject" => pending["subject"], "replay" => pending["replay"] || {})
+    end
+
+    TRANSCRIPT_TAIL_BYTES = 2_000_000
+
+    def question_shown?(path, question)
+      return true if path.to_s.empty? || !File.file?(path)
+
+      wanted = squash(question)
+      return true if wanted.empty?
+
+      squash(latest_assistant_text(path)).include?(wanted)
+    rescue SystemCallError, IOError
+      false
+    end
+
+    def squash(text)
+      text.to_s.tr("\u2018\u2019\u201c\u201d", "''\"\"").gsub(/\s+/, " ").strip
+    end
+
+    def latest_assistant_text(path)
+      size = File.size(path)
+      chunk = File.open(path, "rb") do |file|
+        file.seek([size - TRANSCRIPT_TAIL_BYTES, 0].max)
+        file.read.to_s.force_encoding("UTF-8").scrub
+      end
+      chunk.lines.reverse_each do |line|
+        text = assistant_text(line)
+        return text unless text.nil?
+      end
+      ""
+    end
+
+    def assistant_text(line)
+      record = JSON.parse(line)
+      return nil unless record.is_a?(Hash)
+
+      payload = record["payload"].is_a?(Hash) ? record["payload"] : nil
+      message = record["message"].is_a?(Hash) ? record["message"] : nil
+      if record["type"] == "assistant" && message
+        collect_text(message["content"])
+      elsif payload && payload["type"] == "message" && payload["role"] == "assistant"
+        collect_text(payload["content"])
+      elsif payload && payload["type"] == "agent_message"
+        payload["message"].to_s
+      end
+    rescue JSON::ParserError
+      nil
+    end
+
+    def collect_text(content)
+      return content if content.is_a?(String)
+
+      parts = Array(content).map { |block| block.is_a?(Hash) && block["text"].is_a?(String) ? block["text"] : nil }.compact
+      parts.empty? ? nil : parts.join("\n")
     end
 
     def follow_up!(observed)

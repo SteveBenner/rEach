@@ -9,7 +9,7 @@ require "securerandom"
 module Reach
   module Gate
     READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff].freeze
-    STRICT_WRITE = %w[cp mv rm rmdir mkdir touch tee truncate chmod chown chgrp ln unlink shred install rsync dd patch tar zip unzip gzip gunzip bzip2 xz 7z cpio vi vim nvim nano emacs ed ex split].freeze
+    STRICT_WRITE = %w[cp mv rm rmdir mkdir touch tee truncate chmod chown chgrp ln unlink shred install rsync dd patch tar zip unzip gzip gunzip bzip2 xz 7z cpio vi vim nvim nano emacs ed ex split del erase ri rd ren rni move mi copy cpi ni sc ac md].freeze
     PACKAGE_WRITE = %w[npm npx bundle gem].freeze
     WRITE_SINGLE = (STRICT_WRITE + PACKAGE_WRITE).freeze
     FIND_WRITE_FLAGS = %w[-delete -exec -execdir -ok -okdir -fprint -fprint0 -fprintf -fls].freeze
@@ -210,7 +210,7 @@ module Reach
       text = event["prompt"].is_a?(String) ? event["prompt"] : nil
       {
         "session_id" => Reach::Session.resolve_session_id(event), "gate" => "allowed", "text" => text, "seq" => nil,
-        "digest" => text ? Digest::SHA256.hexdigest(text) : nil
+        "digest" => text ? Digest::SHA256.hexdigest(text) : nil, "transcript_path" => event["transcript_path"]
       }
     rescue StandardError
       nil
@@ -966,7 +966,12 @@ module Reach
       rescue StandardError
         []
       end
-      raise_blocked!("M-GATE-NOGUARD") if slices.empty? && !module_choice_pending?
+      raise_blocked!("M-GATE-NOGUARD") if slices.empty? && !module_choice_pending? && !free_space?
+    end
+
+    def free_space?
+      space = current_space
+      space && %w[extracurricular root].include?(space["kind"]) ? true : false
     end
 
     def module_choice_pending?
@@ -1521,7 +1526,7 @@ module Reach
       name = File.basename(plain[0].to_s).sub(/\.exe\z/i, "")
       args = plain[1..-1].to_a
       if kind != "extracurricular"
-        raise_blocked!("M-SHELL-UNMODELED") if RUN_STRING_COMMANDS.include?(name)
+        raise_blocked!("M-SHELL-UNMODELED") if RUN_STRING_COMMANDS.include?(name) || name =~ /\A[A-Za-z]+-[A-Za-z]+\z/
         raise_blocked!("M-GATE-NOCODETOOL") if inline_code?(plain)
         check_shell_invocation!(name, args)
         check_stdin_interpreter!(name, args)

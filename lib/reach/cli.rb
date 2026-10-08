@@ -2443,6 +2443,11 @@ module Reach
             warn Reach::Sandbox.agent_text
             return 1
           end
+          held_back = Reach::Update.disabled? ? "disabled" : (Reach::Update.offline? ? "offline" : nil)
+          if held_back
+            puts json ? JSON.pretty_generate("skipped" => held_back) : "update skipped: #{held_back}"
+            return 0
+          end
           result = Reach::Update.with_lock { Reach::Update.check(Reach::Update.load_manifest) }
           if result == :locked
             puts "reach: an update is already running"

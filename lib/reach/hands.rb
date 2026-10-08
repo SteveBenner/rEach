@@ -210,7 +210,12 @@ module Reach
             remove_open_hand(hand_id) if e.status.to_i == 404
             next
           end
-          update_open_hand(hand_id, current[:reply], Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"))
+          polled_at = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+          if current[:state].to_s.empty? || current[:state].to_s == "unknown"
+            update_open_hand(hand_id, record["reply"], polled_at)
+            next
+          end
+          update_open_hand(hand_id, current[:reply], polled_at)
           if current[:reply] && current[:reply] != record["reply"] && record["originator"] != "reach"
             changed << { hand_id: hand_id, state: current[:state], reply: current[:reply], from: reply_from(current[:reply]) }
             Reach::Ladder.reset_for_hand(hand_id)
