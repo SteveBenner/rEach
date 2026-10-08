@@ -58,9 +58,12 @@ module Reach
       owned = owned.select { |relative| changed.nil? || same_file?(File.join(workspace, relative), changed) } if changed
       owned.each do |relative|
         full = File.join(workspace, relative)
-        next unless File.file?(full)
+        unless File.file?(full)
+          findings << missing_finding(relative)
+          next
+        end
 
-        content = File.binread(full).force_encoding(Encoding::UTF_8)
+        content = File.binread(full).force_encoding(Encoding::UTF_8).scrub
         case File.extname(relative)
         when ".rb"
           findings.concat(check_ruby(workspace, meta, relative, full, content))
@@ -75,6 +78,10 @@ module Reach
       record(workspace, changed, findings)
       Reach::Debug.check(findings, owned.length)
       format == :text ? render_text(findings) : findings
+    end
+
+    def missing_finding(relative)
+      finding("CK-MISSING", relative, nil, Reach::Messages.text("M-CHECK-MISSING", file: relative), Reach::Messages.text("M-CHECK-MISSING-FIX", file: relative))
     end
 
     def readme_findings(relative, content)

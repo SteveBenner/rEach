@@ -159,9 +159,12 @@ module Reach
       prefix = carrier_text(relative, cutout_id, slice)
       payload = encode(expected)
       carrier = File.extname(relative) == ".rb" ? "#{prefix} #{payload}" : "#{prefix} #{payload} -->"
+      eol = content.include?("\r\n") ? "\r\n" : "\n"
       lines = content.lines.map { |line| line.chomp }
       lines = lines.reject { |line| line.start_with?(prefix) }
+      head = []
       if File.extname(relative) == ".rb"
+        head << lines.shift if lines.first.to_s.start_with?("#!")
         if lines.first.to_s.start_with?("# frozen_string_literal")
           lines.insert(1, carrier)
         else
@@ -171,7 +174,8 @@ module Reach
       else
         lines.unshift(carrier)
       end
-      File.open(full, "wb") { |f| f.write(lines.join("\n") + "\n") }
+      lines = head + lines
+      File.open(full, "wb") { |f| f.write(lines.join(eol) + eol) }
     end
   end
 end
