@@ -1,9 +1,10 @@
 #!/bin/sh
 root=$(cd "$(dirname "$0")/../.." && pwd)
 git -C "$root" config core.hooksPath .githooks
-chmod +x "$root/.githooks/pre-push"
+chmod +x "$root/.githooks/pre-push" "$root/.githooks/commit-msg"
 name=$(cd "$root" && ruby -e 'require "./tools/release_gate/repo"; r = ReleaseGate::Repo.detect(root: Dir.pwd); print(r ? r.name : "unknown")' 2>/dev/null)
 echo "Release gate enabled for $root ($name): .githooks/pre-push runs tools/release_gate/gate.rb on every release push."
+echo ".githooks/commit-msg writes Fixes-Issue and Probably-Fixes trailers from the course server's open issues into your commit messages and never blocks a commit; switch it off with CLOSEOUT_DISABLE=1 or git config closeout.enabled false."
 echo
 echo "Token setup:"
 echo "  1. On the course server, issue a service token named release-gate-$name with the scopes ops:release-gate,ops:security-audit (its CLI documents the verb)."
