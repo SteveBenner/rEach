@@ -900,8 +900,9 @@ module Reach
           0
         when "shell"
           command = shell_text(options[:command] || tool_input["command"] || tool_input["cmd"])
-          if command.include?("*** Begin Patch")
-            Reach::Gate.write(patch: command, event: event, harness: options[:harness])
+          patch = Reach::Gate.apply_patch_payload(command, event)
+          if patch
+            Reach::Gate.write(patch: patch, event: event, harness: options[:harness])
           else
             Reach::Gate.shell(command: command, event: event, harness: options[:harness])
           end
