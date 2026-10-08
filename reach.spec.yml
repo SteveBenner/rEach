@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.46.0
+version: 0.46.1
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -2447,6 +2447,17 @@ shell_rules:
   - >-
     Unknown commands are allowed only when they take no path arguments outside the workspace and no redirection;
     otherwise refused with M-SHELL-BLOCKED.
+  - >-
+    Since 0.46.1 the shell gate fails closed. A command it cannot model is refused with M-SHELL-UNMODELED: command
+    substitution, process substitution, here-docs and here-strings, subshells and groups, reserved words, unterminated
+    quotes and dynamic command words. env, command, builtin, exec, nohup, nice, time, timeout, stdbuf, bundle exec, npx
+    and npm exec are unwrapped and the inner command is classified. eval, xargs, source, sudo, awk, a shell with -c or
+    -s or reading stdin, and pwsh or cmd inside a script are refused. Every operand and every redirect of a mutating
+    command must be owned or under a writable folder, whether or not it looks like a path. .claude, .codex, .mcp.json,
+    CLAUDE.md and AGENTS.md are never writable through the shell. cd takes one argument and is refused when piped,
+    backgrounded or chained after && or ||. A command reaches the write gate only as a recognized apply_patch form. On
+    Windows, powershell or pwsh -Command is unwrapped, and a fixed set of cmdlets maps to the modeled commands.
+    -EncodedCommand, -File and any other cmdlet are refused. The Claude Code matcher covers Bash and PowerShell.
   honesty: >-
     Shell rules catch ordinary mistakes and casual attempts; a student determined to bypass them on their own machine
     can; the submit-time check and Teach's grading are the backstop.

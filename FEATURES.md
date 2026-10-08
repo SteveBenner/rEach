@@ -1547,6 +1547,30 @@ verified: macOS, Windows, Hermes and a real student session.
 
 Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer). · Blocker: -.
 
+### 2.52 · Audit hardening (2026-10-08 review)
+
+Since 0.46.1 rEach carries the fixes from the 2026-10-08 five-area review (`TODO.md` "Audit 2026-10-08", RAUD-01 to
+RAUD-67; `CHANGELOG.md` 0.46.1).
+- **Shell gate.** It fails closed: a command it cannot model is refused (`M-SHELL-UNMODELED`), wrappers are unwrapped, and run-a-string forms are refused. Every operand of a mutating command must be owned, and PowerShell commands are translated to the modeled forms. The five reproduced bypasses are closed.
+- **Consent.** It takes only `yes` or `y`, bound to the question shown, and a live diagnosis needs the consent recorded locally.
+- **Atomic, locked state.** `install.yml`, receipts, acks, packages and keys are written atomically, and `install.yml` changes happen under a lock.
+- **Student files.** A package refresh no longer locks the student's own files.
+- **Outbox.** Queued submissions replay in order, and a refused one is kept and reported.
+- **Release gate.** It reports a missing Teach URL instead of crashing.
+- **Privacy.** Debug uploads and code paths are de-identified.
+- **Updates.** They stop after the attempt limit and roll a failed migration back.
+
+Verified 2026-10-08 in scratch homes:
+- The reviewers' repros now pass: the three-writer `install.yml` race loses nothing, a corrupt receipt is moved aside, the symlink-chain archive writes nothing outside its folder, and a cp1252 byte gives findings.
+- The gate table runs 477 commands through `Reach::CLI.gate_dispatch` with 0 mismatches under Ruby 4.0.6 and Ruby 2.6.10 (Docker). That is 296 blocked, including every reviewer bypass and the Windows PowerShell rows, and 181 allowed.
+- A failed migration restores the previous plugin and stops at 5 attempts.
+- Six racing `update.json` writers lose no update.
+- `ruby -wc` is clean on every changed file under 2.6.10 and 4.0.6, and the tree loads under both.
+
+Not verified: a real Windows or macOS host (schtasks, launchctl, PowerShell), or a live harness session.
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (push and release; Teach re-pin of the gate files)
+
 ### 10.7 · Handout parity
 
 Since 0.38.10 (`STD-HANDOUT-PARITY`) rEach does what the student setup and troubleshooting handout shows: the install
