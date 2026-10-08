@@ -1,5 +1,139 @@
 # TODO
 
+## Audit 2026-10-08 (0.46.0, main b1b85d5)
+
+Five read-and-reproduce reviews (client, work, data, agent, install). Repros live outside the tree. Paths are under
+`lib/reach/` unless named otherwise.
+
+### Decisions (Sven, 2026-10-08)
+
+- Shell gate fails closed: a command the gate cannot fully parse and classify is refused, not allowed.
+- Consent accepts only an explicit yes (`yes`, `y`) and binds to the question that was actually shown.
+- A live session's `diagnosis` approval counts only when the diagnosis consent is recorded on the student's machine.
+- `codex_configure` from a live session uses the safe mode, never `full`.
+- Ship: merge to main, hold the push and the release; then one smoke run against a scratch Teach ($5 cap).
+
+### Client: transport, identity, enrollment
+
+- [ ] RAUD-01 HIGH `enroll.rb` `write_data`/`update!`: `install.yml` is written in place with no lock; racing syncs
+      (`sync.rb:236`) leave it empty, half-written or stripped of `install_id`, `teach_url` and keys (reproduced).
+- [ ] RAUD-02 HIGH `receipts.rb` `store`/`list`: one truncated receipt makes `list` raise forever and wedges grades,
+      `wait`, `ReceiptAcks.flush`, `status`, `submit` and `archive` (reproduced).
+- [ ] RAUD-03 `receipts.rb:45` `verify!` decodes with raw `strict_decode64`; a bad signature raises
+      ArgumentError/NoMethodError and aborts `ReceiptAcks.backfill` (reproduced).
+- [ ] RAUD-04 `receipts.rb` `refresh_grades` stops at the first 403/404 or VerificationFailed; older submissions are
+      never polled and collected announcements are dropped.
+- [ ] RAUD-05 `receipt_acks.rb` permanent refusals stay `pending`; 20 of them starve every newer ack.
+- [ ] RAUD-06 `enroll.rb:81` re-enrolling as another student keeps the previous student's receipts and acks.
+- [ ] RAUD-07 `enroll.rb` `write_private_key` writes at umask then chmods; not atomic with `install.yml`.
+- [ ] RAUD-08 `integrity.rb:249` events are remembered before delivery; one raised before enrollment or during a
+      disk error is suppressed forever. `write_outbox` uses a default-mode write.
+- [ ] RAUD-09 `instructor_keyring.rb:467` an unenrolled install accepts an unsigned keyring (fetched or dropped in),
+      so a self-made RINS1 code unlocks `EnrollmentLock`; an enrolled install fetches from the default URL.
+- [ ] RAUD-10 `client.rb` TLS errors are retried as network failures and shown as "offline"; no clock-skew hint when
+      Teach answers 401 for a timestamp out of window (W-AUTH-4).
+- [ ] RAUD-11 `enroll.rb:17` an `http://` Teach URL is accepted, so the enrollment password can travel in clear.
+- [ ] RAUD-12 `seal.rb` `write_carrier` puts the magic comment above a shebang and converts CRLF files to LF.
+- [ ] RAUD-13 `login.rb`, `fingerprint.rb`, `link.rb`, `enrollment_lock.rb` rename-into-place raises EACCES on
+      Windows when the target is open; `commit!` swallows it and state is lost.
+- [ ] RAUD-14 `client.rb` a negative Retry-After raises in `sleep`; `session.rb:10` gives every id-less session one
+      shared `unknown-YYYYMMDD` id.
+
+### Work: workspace, check, qualify, submit
+
+- [ ] RAUD-15 `workspace.rb` `write_delivered_digests`/`lock_down` lock every non-owned file, so `materials/`,
+      notes and agent scratch files become read-only course content; imports then fail and edits block `submit`
+      (reproduced).
+- [ ] RAUD-16 `submit.rb` `retry_outbox` replays queued submissions in random (UUID) order, so an older offline
+      package can supersede newer work; any RemoteRefused deletes the sealed package silently.
+- [ ] RAUD-17 `check.rb:105` and the svelte rules: an owned file that is not valid UTF-8 crashes check, qualify and
+      submit (reproduced).
+- [ ] RAUD-18 `submit.rb:355`, `check.rb:60`, `qualify.rb` a missing owned file is never refused locally, while
+      Teach 0.78.1 rejects it; `specs/wire.yml` (497, 569) still says "one entry per owned file that exists".
+- [ ] RAUD-19 `workspace.rb:104` `write_package_entries` overwrites a student's owned file with the stub when no
+      delivered digest is recorded; `delivered.json` is written non-atomically and a parse error reads as empty.
+- [ ] RAUD-20 `qualify.rb:42` `files_digest` is taken before `step_check` stamps owned files, so a fresh
+      qualification does not count and `submit` refuses as unqualified.
+- [ ] RAUD-21 `untar.rb:128` `check_link`, `unzip.rb:35`: a chain of symlink entries escapes the extraction root
+      (reproduced; reachable only through a signed release).
+- [ ] RAUD-22 `packages.rb:83` stored packages are written non-atomically; a corrupt `.pkg` is never recovered.
+- [ ] RAUD-23 `late_work.rb:50` non-current assignments use the due time frozen in the package, not the status cache.
+- [ ] RAUD-24 `course_time.rb` zones other than Pacific/UTC fall back to local time on Windows; `render_pacific`
+      mutates the caller's Time; `progress.rb:115` marks checkpoints sent after a 4xx.
+
+### Data: gate, scan, privacy, logs
+
+- [ ] RAUD-25 HIGH (Teach AUD-64) `tools/security_audit/gate.rb:188`, `tools/release_gate/repo.rb`: a nil Teach URL
+      crashes the pre-push gate; `teach` needs the 7400 default, and the `teach:`/`url:` regex is brittle. Then
+      re-pin Teach's copies and `PIN.yml` (reproduced).
+- [ ] RAUD-26 `tools/security_audit/scan.rb` one non-UTF-8 added line crashes the scan (reproduced).
+- [ ] RAUD-27 `scan.rb:143` added lines over 4000 characters in json/svg/map/min.js skip every check (reproduced).
+- [ ] RAUD-28 `scan.rb:87` an added line beginning `++ ` is read as a file header and skipped (reproduced).
+- [ ] RAUD-29 `tools/security_audit/gate.rb` `decide` ignores a "fail" verdict with no findings; severity match is
+      case-sensitive.
+- [ ] RAUD-30 `debug.rb` `scrub_string` keeps home paths, names and emails in uploaded debug text (reproduced).
+- [ ] RAUD-31 `deidentify.rb:14` `TEXT_FIELDS` skips `code.path` and `scope`, so file names reach the wire.
+- [ ] RAUD-32 `debug.rb` sent/rejected/stale archives are never pruned; `counts` rereads them all.
+- [ ] RAUD-33 `transcript.rb`, `brain_spool.rb`, `brain_planes.rb` logs never rotate; `transcript.jsonl` is 0644.
+- [ ] RAUD-34 `transcript.rb` `scan_space` records files past the 2000 cap as deleted, and a mid-loop error skips
+      saving the digests.
+- [ ] RAUD-35 `transcript_ingest.rb` offset and seen uuids are saved only at the end; a failure re-ingests.
+- [ ] RAUD-36 `transcript_ingest.rb` `read_line_records` reads the whole remaining transcript into memory.
+- [ ] RAUD-37 `brain.rb` `forget` of one finding keeps a grounding `prompts/` source, against PRIVACY.md.
+- [ ] RAUD-38 `tools/release_gate/checks.rb` `ver_collision` treats a failed `ls-remote` as no tags and has no
+      timeout.
+- [ ] RAUD-39 `ledger.rb` `split_if_large` rewrites after the lock; `brain_spool.rb` drops a record after 3
+      retries; `deidentify.rb` leaves 2-letter name parts; `pseudonym.json` is written non-atomically.
+
+### Agent: gate, hooks, consent, live
+
+- [ ] RAUD-40 CRITICAL `cli.rb:903` any shell command containing `*** Begin Patch` goes to the write gate and skips
+      every shell check (reproduced).
+- [ ] RAUD-41 CRITICAL `gate.rb:1075` `split_segments` keeps a lone `&` inside the segment (reproduced).
+- [ ] RAUD-42 CRITICAL `gate.rb:1075` `split_segments` ignores backslash escapes, so `echo \"; git push` passes
+      (reproduced).
+- [ ] RAUD-43 CRITICAL `gate.rb:1126` wrappers (`env`, `eval`, `command`, `xargs`, ...) hide the real command
+      (reproduced).
+- [ ] RAUD-44 HIGH `gate.rb:1193`/`:1160` ownership is checked only for path-looking args and spaced redirects;
+      `rm -rf .claude`, `tee CLAUDE.md`, `echo hi>CLAUDE.md` pass (reproduced).
+- [ ] RAUD-45 `hands.rb:176/200` a network blip overwrites a stored reply with nil, re-shows it and resets the ladder
+      (reproduced).
+- [ ] RAUD-46 `live.rb:844` live `codex_configure` applies the default mode (`full` on Windows) without the
+      sandbox-off question.
+- [ ] RAUD-47 `live.rb:757` `absorb` trusts the server's `diagnosis` flag to approve every requested action.
+- [ ] RAUD-48 `consent.rb`, `login.rb:9` "ok", "sure", "yeah" count as yes for 30 minutes with no proof the question
+      was shown.
+- [ ] RAUD-49 `harness_source.rb:349` `on_path?` ignores PATHEXT, so Windows students never move to `stable`.
+- [ ] RAUD-50 `harness.rb` Claude shell gate matches only `Bash`; check whether a PowerShell tool exists and gate it.
+- [ ] RAUD-51 `gate.rb:920` `check_has_workspace!` blocks prompts in `extracurricular/` before the first slice.
+- [ ] RAUD-52 `agent_control.rb:82` a CRLF checkout of `agent-control.yml` fails the digest; pin it to LF in
+      `.gitattributes` or hash normalized text (reproduced).
+- [ ] RAUD-53 `mcp_bridge.rb` answers `ping` with -32601; MCP expects an empty result.
+- [ ] RAUD-54 `FEATURES.md` says 26 MCP tools; `TOOLS` has 41.
+- [ ] RAUD-55 `hello.rb` uses `hello.wrongfolder`, which `agent-control.yml` does not declare.
+
+### Install: update, relocation, runtime, subscribe
+
+- [ ] RAUD-56 `update.rb:731`, `update/apply.rb` a failed migration leaves phase `swapped` and respawns forever,
+      ignoring `max_attempts`; relocation is deferred indefinitely (reproduced).
+- [ ] RAUD-57 `relocation.rb` a fifo, socket or device in the legacy home fails relocation with `source_busy`
+      (reproduced).
+- [ ] RAUD-58 `cli.rb:2440` `reach update check` ignores `REACH_OFFLINE` and `REACH_UPDATE_DISABLE` (reproduced).
+- [ ] RAUD-59 `relocation.rb` a stuck `staged` update defers relocation and burns its 5 auto attempts (reproduced).
+- [ ] RAUD-60 `update/apply.rb`, `runtime_kit.rb`, `sdk_kit.rb` superseded backups and kits are never pruned.
+- [ ] RAUD-61 `update.rb` `announce!`/`record_session!` save `update.json` without `update.lock`.
+- [ ] RAUD-62 `setup.rb` `link_target` on Windows copies, hides a failed copy, blocks a re-run, and is never
+      refreshed after an update.
+- [ ] RAUD-63 `subscribe.rb` `schtasks_create` keeps "AC power only" and can pass the 261-character `/TR` limit.
+- [ ] RAUD-64 `subscribe.rb` macOS plan runs `launchctl bootout` unconditionally and then a fallback load.
+- [ ] RAUD-65 drift: `update.lock` has no 900 s staleness as `reach.spec.yml` says; `INSTALL.md:39` says 15 minutes
+      (600 s); `exe/reach-run` accepts Ruby 4.1+ that `setup.rb:101` refuses.
+
+### Suspected, not confirmed
+
+- [ ] RAUD-66 `suite.rb:179` a timeout kills only `bundle`; a child holding stdout (Chrome) may hang the reader.
+- [ ] RAUD-67 `qualify.rb` `agent_scenarios` a UTF-8 BOM may hide the first line's tags.
+
 ## Compatibility matrix (0.42.0, wire revision 2026-10-07a)
 
 - [ ] The tested matrix covers commands and hook command lines only; no leg runs a live Claude Code, Codex or
