@@ -494,7 +494,7 @@ packages:
         tail, as hookless: under its unhooked-harness policy "note" (the default) the unwitnessed files become one note
         instead of review reasons; under "review" they stay reasons naming the harness. A seal without hooked is
         assessed as before this revision.
-      "files/<owned file>": One entry per owned file that exists, its bytes unchanged.
+      "files/<owned file>": One entry per owned file, its bytes unchanged; since 0.46.1 Reach refuses a submission locally (M-SUBMIT-MISSING) when an owned file is missing.
       ledger.jsonl: The last 2000 records of the slice's witness ledger (W-SEAL-2), verbatim; absent when the ledger is empty.
       "evidence/qualify/features/<path>": >-
         Since protocol 1 revision 2026-09-29d. The agent's scenario files for the slice (the workspace's
@@ -566,7 +566,7 @@ packages:
         {"schema": "reach.qualification/v1", course, assignment, cutout_id, slice, owned_files, digests, tests,
         attempt, reach_version, client_created_at}. digests maps each owned file to its W-CONV-4 digest or null, as in
         W-PKG-5; tests maps each qualify/ path sent to its digest. attempt is the slice's attempt number (W-QUAL-6).
-      "files/<owned file>": One entry per owned file that exists, its bytes unchanged.
+      "files/<owned file>": One entry per owned file, its bytes unchanged; since 0.46.1 Reach refuses a submission locally (M-SUBMIT-MISSING) when an owned file is missing.
       "qualify/features/<path>": Every file under the workspace's qualify/features (.keep excluded).
       "qualify/step_definitions/<path>": Every file under the workspace's qualify/step_definitions (.keep excluded).
     teach_checks:
