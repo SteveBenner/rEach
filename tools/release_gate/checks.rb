@@ -3,12 +3,14 @@ require "json"
 require "net/http"
 require "open3"
 require "time"
+require "timeout"
 require "uri"
 require "rubygems"
 
 module ReleaseGate
   class Context
     TIMEOUT_S = 10
+    REMOTE_TIMEOUT_S = 20
 
     attr_reader :repo
 
@@ -20,6 +22,30 @@ module ReleaseGate
     def git(*args)
       out, status = Open3.capture2("git", "-C", repo.root, "-c", "core.quotepath=false", *args, err: File::NULL)
       status.success? ? out : nil
+    rescue StandardError
+      nil
+    end
+
+    def git_timed(*args, limit: REMOTE_TIMEOUT_S)
+      Open3.popen3({ "GIT_TERMINAL_PROMPT" => "0" }, "git", "-C", repo.root, "-c", "core.quotepath=false", *args) do |stdin, stdout, stderr, waiter|
+        stdin.close
+        reader = Thread.new { stdout.read }
+        drain = Thread.new { stderr.read }
+        if waiter.join(limit).nil?
+          begin
+            Process.kill("KILL", waiter.pid)
+          rescue StandardError
+            nil
+          end
+          waiter.join
+          reader.kill
+          drain.kill
+          next nil
+        end
+        out = reader.value
+        drain.join
+        waiter.value.success? ? out : nil
+      end
     rescue StandardError
       nil
     end
@@ -303,7 +329,12 @@ module ReleaseGate
       end
       out = []
       out << finding("VER-COLLISION", "high", "Another line claims version #{mine}", same.uniq.join(", "), "re-version one line, or merge it") unless same.empty?
-      remote = ctx.git_lines("ls-remote", "--tags", "origin", "refs/tags/v#{mine}", "refs/tags/v#{mine}^{}")
+      listing = ctx.git_timed("ls-remote", "--tags", "origin", "refs/tags/v#{mine}", "refs/tags/v#{mine}^{}")
+      if listing.nil?
+        out << finding("VER-COLLISION", "critical", "Could not check the remote tags for v#{mine}", "git ls-remote against origin failed or timed out after #{Context::REMOTE_TIMEOUT_S} s, so a tag collision cannot be ruled out", "restore access to origin and push again")
+        return out
+      end
+      remote = listing.split("\n").map(&:strip).reject(&:empty?)
       peeled = remote.find { |line| line.end_with?("^{}") } || remote.first
       if peeled
         tag_sha = peeled.split(/\s+/).first

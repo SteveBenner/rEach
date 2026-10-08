@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
 require "json"
+require "yaml"
+require "date"
 require "time"
 require "net/http"
 require "uri"
@@ -151,14 +153,15 @@ module SecurityAuditGate
   end
 
   def teach_url
-    return repo.teach_url if repo
+    return repo.teach_url.to_s if repo
 
-    (ENV["TEACH_URL"].to_s.empty? ? configured_teach_url : ENV["TEACH_URL"]).sub(%r{/+\z}, "")
+    (ENV["TEACH_URL"].to_s.empty? ? configured_teach_url : ENV["TEACH_URL"]).to_s.sub(%r{/+\z}, "")
   end
 
   def configured_teach_url
-    text = File.read(File.join(root, "config.yml"))
-    text[/^teach:\s*\n\s+url:\s*(\S+)/, 1].to_s
+    data = YAML.safe_load(File.read(File.join(root, "config.yml")), permitted_classes: [Date], aliases: false)
+    teach = data.is_a?(Hash) ? data["teach"] : nil
+    teach.is_a?(Hash) ? teach["url"].to_s.strip : ""
   rescue StandardError
     ""
   end
@@ -185,12 +188,13 @@ module SecurityAuditGate
       self.last_http_error = "no token"
       return nil
     end
-    unless teach_url.start_with?("https://", "http://")
+    base = teach_url.to_s
+    unless base.start_with?("https://", "http://")
       self.last_http_error = "no Teach URL"
       return nil
     end
 
-    uri = URI.parse("#{teach_url}#{path}")
+    uri = URI.parse("#{base}#{path}")
     last = nil
     ATTEMPTS.times do |attempt|
       sleep(rand * 0.5 + 0.3 * attempt) if attempt.positive?
@@ -254,9 +258,10 @@ module SecurityAuditGate
     git("rev-parse", "#{tag}^{commit}") || SecurityAuditScan::EMPTY_TREE
   end
 
-  def decide(settings, findings, errors)
-    blocking = findings.select { |f| BLOCKING[settings["block_at"]].include?(f["severity"]) }
-    if settings["mode"] == "gate" && !blocking.empty?
+  def decide(settings, findings, errors, verdict = nil)
+    levels = BLOCKING[settings["block_at"]] || BLOCKING["high"]
+    blocking = findings.select { |f| levels.include?(f["severity"].to_s.downcase) }
+    if settings["mode"] == "gate" && (!blocking.empty? || verdict.to_s.downcase == "fail")
       return ["blocked", 1]
     end
     unless errors.empty?
@@ -342,7 +347,8 @@ module SecurityAuditGate
   end
 
   def clean_finding(f)
-    severity = SEVERITIES.include?(f["severity"].to_s) ? f["severity"].to_s : "info"
+    severity = f["severity"].to_s.strip.downcase
+    severity = "info" unless SEVERITIES.include?(severity)
     line = f["line"].is_a?(Integer) ? f["line"] : nil
     {
       "severity" => severity,
@@ -508,14 +514,14 @@ module SecurityAuditGate
     errors << "roster unavailable" if roster_on && SecurityAuditScan.roster_index(roster).nil?
     scan_findings = SecurityAuditScan.run(root, base, diff, roster, roster_on)
 
-    scan_blocks = settings["mode"] == "gate" && scan_findings.any? { |f| BLOCKING[settings["block_at"]].include?(f["severity"]) }
+    scan_blocks = settings["mode"] == "gate" && scan_findings.any? { |f| (BLOCKING[settings["block_at"]] || BLOCKING["high"]).include?(f["severity"].to_s.downcase) }
     audit_result = scan_blocks ? { summary: "Audit not run: the deterministic scan already blocks this release." } : audit(settings, base, commit, scan_findings, diff[:raw])
     cost = audit_result[:cost].to_f
     errors << audit_result[:error] if audit_result[:error]
     audit_findings = audit_result[:findings] || []
     findings = scan_findings + audit_findings
 
-    status, code = decide(settings, findings, errors)
+    status, code = decide(settings, findings, errors, audit_result[:verdict])
     duration = Time.now - started
     run = run_record(release, settings, base, tree, status, findings, scan_findings.length, cost, duration, "", errors.empty? ? nil : errors.join("; "))
     report_md = report(release, run, settings, findings, audit_result, errors)

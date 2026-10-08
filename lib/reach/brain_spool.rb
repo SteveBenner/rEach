@@ -97,8 +97,8 @@ module Reach
     def write_line(line)
       FileUtils.mkdir_p(dir)
       path = File.join(dir, "#{Time.now.utc.strftime('%Y-%m-%d')}.jsonl")
+      done = false
       3.times do
-        done = false
         File.open(path, File::WRONLY | File::APPEND | File::CREAT, 0o600) do |file|
           raise Reach::Locks::Busy, "brain spool is busy" unless Reach::Locks.acquire(file, path)
 
@@ -110,6 +110,10 @@ module Reach
           done = true
         end
         break if done
+      end
+      unless done
+        log("spool_write_dropped", "id" => line["id"], "operation_id" => line["operation_id"], "kind" => line["kind"])
+        return nil
       end
       path
     end
@@ -298,8 +302,7 @@ module Reach
     def log(event, fields = {})
       record = { "at" => Time.now.utc.iso8601, "event" => event }.merge(fields)
       begin
-        FileUtils.mkdir_p(Reach::Paths.logs_dir)
-        File.open(File.join(Reach::Paths.logs_dir, "brain.jsonl"), "a", 0o600) { |handle| handle.puts(JSON.generate(record)) }
+        Reach::Debug.append_log(File.join(Reach::Paths.logs_dir, "brain.jsonl"), record)
       rescue StandardError
         nil
       end

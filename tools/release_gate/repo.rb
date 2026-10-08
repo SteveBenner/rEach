@@ -126,13 +126,12 @@ module ReleaseGate
 
     def configured_teach_url
       if name == "reach"
-        text = File.read(File.join(root, "config.yml"))
-        text[/^teach:\s*\n\s+url:\s*(\S+)/, 1].to_s
+        data = YAML.safe_load(File.read(File.join(root, "config.yml")), permitted_classes: [Date], aliases: false)
+        teach = data.is_a?(Hash) ? data["teach"] : nil
+        teach.is_a?(Hash) ? teach["url"].to_s.strip : ""
       else
-        port = ENV["TEACH_PORT"].to_s
-        return nil if port.empty?
-
-        "http://127.0.0.1:#{port}"
+        port = ENV["TEACH_PORT"].to_s.strip
+        "http://127.0.0.1:#{port.empty? ? '7400' : port}"
       end
     rescue StandardError
       ""

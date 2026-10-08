@@ -12,6 +12,7 @@ module Reach
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
     RINS = /RINS1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.freeze
     PEM_BLOCK = /-----BEGIN [A-Z0-9 ]+-----.*?(?:-----END [A-Z0-9 ]+-----|\z)/m.freeze
+    EMAIL_ADDRESS = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+/.freeze
     COURSE_SHAPE = /[A-Z0-9]{3,}-[A-Z0-9]{4}-[A-Z0-9]{4}/.freeze
     MAX_STRING_BYTES = 1024
     MAX_KEYS = 64
@@ -25,6 +26,9 @@ module Reach
     DEFAULTS = { "render" => "auto", "spool_max_bytes" => 5_242_880, "batch_max_events" => 500, "show_max_rows" => 40 }.freeze
     PLUGIN_ROOT = File.expand_path("../..", __dir__)
     SCRUBBED = "[scrubbed]".freeze
+    ARCHIVE_DAYS = 14
+    LOG_MAX_BYTES = 5 * 1024 * 1024
+    LOG_KEEP = 5
     PHRASE_ON = ["enable debug", "enable debug mode", "enable debugging", "turn debug on", "turn debug mode on", "turn on debug",
                  "turn on debug mode", "turn on debugging", "debug on", "debug mode on", "start debug mode", "switch debug on",
                  "switch on debug mode"].freeze
@@ -321,11 +325,66 @@ module Reach
       []
     end
 
+    def rotate_log(path, max_bytes = LOG_MAX_BYTES, keep = LOG_KEEP)
+      return unless File.file?(path) && File.size(path) >= max_bytes
+
+      (keep - 1).downto(1) do |index|
+        older = "#{path}.#{index}"
+        File.rename(older, "#{path}.#{index + 1}") if File.file?(older)
+      end
+      File.rename(path, "#{path}.1")
+    rescue StandardError
+      nil
+    end
+
+    def append_log(path, record)
+      FileUtils.mkdir_p(File.dirname(path))
+      rotate_log(path)
+      File.open(path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
+      File.chmod(0o600, path)
+    end
+
+    def identity_words
+      file = Reach::Paths.install_file
+      stat = File.stat(file)
+      stamp = [file, stat.mtime.to_f, stat.size]
+      return @identity_words[1] if @identity_words && @identity_words[0] == stamp
+
+      @identity_words = [stamp, read_identity_words]
+      @identity_words[1]
+    rescue StandardError
+      []
+    end
+
+    def read_identity_words
+      install = Reach::Enroll.current
+      return [] unless install.is_a?(Hash)
+
+      name = install["display_name"].to_s.strip
+      username = install["username"].to_s.strip
+      words = [username, username.split("@", 2).first.to_s, name]
+      words.concat(name.split(/\s+/).map { |part| part.gsub(/\A[^\p{L}\p{N}]+|[^\p{L}\p{N}]+\z/, "") })
+      words.map(&:to_s).reject { |word| word.length < 2 }.uniq.sort_by { |word| -word.length }
+    rescue StandardError
+      []
+    end
+
+    def scrub_identity(value)
+      identity_words.each do |word|
+        head = word[0].match?(/[\p{L}\p{N}]/) ? "(?<![\\p{L}\\p{N}])" : ""
+        tail = word[-1].match?(/[\p{L}\p{N}]/) ? "(?![\\p{L}\\p{N}])" : ""
+        value = value.gsub(Regexp.new("#{head}#{Regexp.escape(word)}#{tail}", Regexp::IGNORECASE), SCRUBBED)
+      end
+      value.gsub(EMAIL_ADDRESS, SCRUBBED)
+    end
+
     def scrub_string(text)
       value = text.to_s.dup
       value = value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "?") unless value.encoding == Encoding::UTF_8 && value.valid_encoding?
       value = value.gsub(PEM_BLOCK, SCRUBBED).gsub(RINS, SCRUBBED).gsub(COURSE_SHAPE, SCRUBBED)
       identity_patterns.each { |pattern| value = value.gsub(pattern, SCRUBBED) }
+      value = Reach::SetupLog.scrub_homes(value)
+      value = scrub_identity(value)
       return value if value.bytesize <= MAX_STRING_BYTES
 
       value.byteslice(0, MAX_STRING_BYTES).scrub("")
@@ -771,9 +830,32 @@ module Reach
       list
     end
 
+    def count_lines(path)
+      return 0 unless File.file?(path)
+
+      File.foreach(path).count { |line| !line.strip.empty? }
+    end
+
+    def prune_archives!(days = ARCHIVE_DAYS)
+      return 0 unless File.directory?(dir)
+
+      cutoff = (Time.now.utc - (days * 86_400)).strftime("%Y%m%d")
+      removed = 0
+      Dir.children(dir).each do |name|
+        match = name.match(/\A(?:sent|rejected|stale)-(\d{8})\.jsonl\z/)
+        next unless match && match[1] < cutoff
+
+        File.delete(File.join(dir, name))
+        removed += 1
+      rescue StandardError
+        next
+      end
+      removed
+    end
+
     def counts
-      queued = read_lines(spool_file).length
-      sent = Dir.glob(File.join(dir, "sent-*.jsonl")).sum { |path| File.foreach(path).count }
+      queued = count_lines(spool_file)
+      sent = Dir.glob(File.join(dir, "sent-*.jsonl")).sum { |path| count_lines(path) }
       { "queued" => queued, "sent" => sent, "dropped" => load_state["dropped"].to_i }
     rescue StandardError
       { "queued" => 0, "sent" => 0, "dropped" => 0 }
@@ -854,6 +936,7 @@ module Reach
 
     def flush(quick: false)
       empty = { "sent" => 0, "batches" => 0, "stopped" => nil }
+      prune_archives!
       return stopped(empty, "empty") unless File.file?(spool_file) && File.size(spool_file).positive?
 
       retire_stale!
