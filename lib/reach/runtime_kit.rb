@@ -331,6 +331,58 @@ module Reach
         end
       end
       write_current(runtime_id)
+      prune_superseded(runtime_root, runtime_id)
+    end
+
+    def proc_link(pid, name)
+      File.readlink("/proc/#{pid}/#{name}")
+    rescue SystemCallError
+      nil
+    end
+
+    def proc_maps_include?(pid, prefix)
+      File.foreach("/proc/#{pid}/maps").any? { |line| line.include?(prefix) }
+    rescue SystemCallError
+      false
+    end
+
+    def in_use?(dir)
+      prefix = File.expand_path(dir) + File::SEPARATOR
+      if File.directory?("/proc/self")
+        Dir.children("/proc").grep(/\A\d+\z/).any? do |pid|
+          linked = %w[exe cwd].any? do |name|
+            target = proc_link(pid, name)
+            target && (target + File::SEPARATOR).start_with?(prefix)
+          end
+          linked || proc_maps_include?(pid, prefix)
+        end
+      elsif RbConfig::CONFIG["host_os"].to_s =~ /darwin/ && Reach::Harness.which("lsof")
+        out, _err, status = Timeout.timeout(5) { Open3.capture3("lsof", "-t", "+D", dir) }
+        status.success? && !out.to_s.strip.empty?
+      else
+        false
+      end
+    rescue StandardError
+      true
+    end
+
+    def prune_superseded(root, keep_id)
+      Dir.children(root).each do |name|
+        next if name.start_with?(".") || name == keep_id || name == "current"
+
+        path = File.join(root, name)
+        next unless File.directory?(path) && !File.symlink?(path)
+        next unless name.include?(".old-") || File.file?(File.join(path, ".complete"))
+        next if in_use?(path)
+
+        begin
+          FileUtils.rm_rf(path)
+        rescue SystemCallError
+          next
+        end
+      end
+    rescue SystemCallError
+      nil
     end
 
     def swap_components(stage, root)

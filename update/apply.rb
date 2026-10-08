@@ -47,9 +47,71 @@ end
 def save_manifest(file, manifest)
   manifest["updated_at"] = Time.now.utc.iso8601
   FileUtils.mkdir_p(File.dirname(file))
-  temp = "#{file}.tmp.#{Process.pid}.#{rand(1_000_000)}"
-  File.open(temp, "w", 0o600) { |handle| handle.write(JSON.pretty_generate(manifest)) }
-  File.rename(temp, file)
+  File.open("#{file}.lock", File::RDWR | File::CREAT, 0o600) do |lock|
+    lock.flock(File::LOCK_EX)
+    temp = "#{file}.tmp.#{Process.pid}.#{rand(1_000_000)}"
+    File.open(temp, "w", 0o600) { |handle| handle.write(JSON.pretty_generate(manifest)) }
+    File.rename(temp, file)
+  end
+end
+
+def restore_previous(destination, manifest, manifest_file)
+  backup = manifest["backup_path"].to_s
+  return false if backup.empty? || !File.directory?(backup)
+
+  failed = File.join(File.dirname(backup), "failed-#{File.basename(backup)}")
+  File.rename(destination, failed) if File.exist?(destination)
+  begin
+    File.rename(backup, destination)
+  rescue StandardError
+    File.rename(failed, destination) if File.exist?(failed) && !File.exist?(destination)
+    return false
+  end
+  manifest["phase"] = "detected"
+  manifest["applying"] = false
+  manifest["staged_path"] = nil
+  manifest["backup_path"] = nil
+  manifest["migrations_done"] = []
+  save_manifest(manifest_file, manifest)
+  true
+rescue StandardError
+  false
+end
+
+def refresh_copy(source, target)
+  return unless File.directory?(target) && !File.symlink?(target) && File.file?(File.join(target, ".reach-copy")) && File.directory?(source)
+
+  fresh = "#{target}.reach-new-#{Process.pid}"
+  aside = "#{target}.reach-old-#{Process.pid}"
+  FileUtils.rm_rf(fresh)
+  FileUtils.rm_rf(aside)
+  FileUtils.cp_r(source, fresh)
+  File.write(File.join(fresh, ".reach-copy"), "#{source}\n")
+  File.rename(target, aside)
+  begin
+    File.rename(fresh, target)
+  rescue SystemCallError
+    File.rename(aside, target) if File.exist?(aside) && !File.exist?(target)
+    raise
+  end
+  FileUtils.rm_rf(aside)
+rescue StandardError
+  FileUtils.rm_rf(fresh) if fresh
+end
+
+def prune_backups(manifest)
+  keep = manifest["backup_path"].to_s
+  return if keep.empty?
+
+  dir = File.dirname(keep)
+  Dir.glob(File.join(dir, "{plugin-*,failed-plugin-*}")).each do |path|
+    next if File.expand_path(path) == File.expand_path(keep)
+    next unless File.directory?(path)
+
+    FileUtils.rm_rf(path)
+  end
+rescue StandardError
+  nil
 end
 
 def on_path(name)
@@ -197,7 +259,8 @@ pending.each do |_version, name, path|
   next if migrations_done.include?(name)
 
   unless system(RbConfig.ruby, path, "--destination", destination, "--from", from, "--to", to)
-    warn "apply: migration #{name} failed"
+    restored = restore_previous(destination, manifest, manifest_file)
+    warn "apply: migration #{name} failed#{restored ? '; the previous version was restored' : ''}"
     exit 1
   end
   migrations_done << name
@@ -239,6 +302,23 @@ Dir.glob(File.join(Reach::Paths.codex_home, "plugins", "cache", "*", "reach", "*
     nil
   end
 end
+if RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/
+  config_path = begin
+    JSON.parse(File.read(File.join(home, "state", "hermes.json")))["config_path"]
+  rescue StandardError
+    nil
+  end
+  copies = [
+    [destination, File.join(Reach::Paths.gemini_dir, "config", "plugins", "reach")],
+    [destination, File.join(Reach::Paths.gemini_dir, "antigravity-cli", "plugins", "reach")]
+  ]
+  if config_path.is_a?(String) && !config_path.empty?
+    %w[reach-assistant reach-course].each do |name|
+      copies << [File.join(destination, "skills", name), File.join(File.dirname(config_path), "skills", name)]
+    end
+  end
+  copies.each { |source, target| refresh_copy(source, target) }
+end
 manifest["harness_results"] = results
 manifest["phase"] = "refreshed"
 save_manifest(manifest_file, manifest)
@@ -247,5 +327,6 @@ manifest["phase"] = "completed"
 manifest["completed_version"] = to
 manifest["completed_at"] = Time.now.utc.iso8601
 save_manifest(manifest_file, manifest)
+prune_backups(manifest)
 puts "rEach updated to #{to}"
 exit 0

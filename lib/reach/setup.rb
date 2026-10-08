@@ -7,6 +7,8 @@ require "stringio"
 
 module Reach
   module Setup
+    COPY_MARKER = ".reach-copy".freeze
+
     module_function
 
     def run(harness: "auto", source: nil, format: "text", runtime: false)
@@ -196,18 +198,24 @@ module Reach
       targets << File.join(antigravity_cli, "plugins", "reach") if File.directory?(antigravity_cli)
 
       blocked = nil
+      failed = nil
       targets.each do |target|
         FileUtils.mkdir_p(File.dirname(target))
         if File.exist?(target) || File.symlink?(target)
           next if File.symlink?(target) && File.readlink(target) == root
 
-          blocked ||= target
+          if refreshable_copy?(target)
+            failed ||= target unless link_target(root, target)
+          else
+            blocked ||= target
+          end
           next
         end
-        link_target(root, target)
+        failed ||= target unless link_target(root, target)
       end
 
       return { id: "antigravity", ok: false, message: "blocked: #{blocked} exists" } if blocked
+      return { id: "antigravity", ok: false, message: "Antigravity: rEach could not be copied to #{failed}" } if failed
 
       { id: "antigravity", ok: true, message: "Antigravity: rEach installed. Start a new Antigravity session to meet rEach." }
     end
@@ -223,6 +231,7 @@ module Reach
       skills_dir = File.join(File.dirname(config_path), "skills")
       root = Reach::Runtime.root
       blocked = nil
+      failed = nil
       %w[reach-assistant reach-course].each do |name|
         source_dir = File.join(root, "skills", name)
         target = File.join(skills_dir, name)
@@ -230,12 +239,17 @@ module Reach
         if File.exist?(target) || File.symlink?(target)
           next if File.symlink?(target) && File.readlink(target) == source_dir
 
-          blocked ||= target
+          if refreshable_copy?(target)
+            failed ||= target unless link_target(source_dir, target)
+          else
+            blocked ||= target
+          end
           next
         end
-        link_target(source_dir, target)
+        failed ||= target unless link_target(source_dir, target)
       end
       return { id: "hermes", ok: false, message: "blocked: #{blocked} exists" } if blocked
+      return { id: "hermes", ok: false, message: "Hermes: rEach could not be copied to #{failed}" } if failed
 
       Reach::Harness.configure("hermes", nil)
       { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with: #{Reach::Runtime.hook_command("work", "--harness", "hermes")}\n#{Reach::Messages.text("M-HERMES-APPROVE-ONCE")}" }
@@ -272,14 +286,58 @@ module Reach
       nil
     end
 
+    def refreshable_copy?(target)
+      Reach::Runtime.windows? && File.directory?(target) && !File.symlink?(target) && File.file?(File.join(target, COPY_MARKER))
+    end
+
     def link_target(root, target)
       if Reach::Runtime.windows?
-        FileUtils.cp_r(root, target)
+        copy_target(root, target)
       else
         File.symlink(root, target)
+        true
       end
     rescue StandardError
-      nil
+      false
+    end
+
+    def copy_target(root, target)
+      fresh = "#{target}.reach-new-#{Process.pid}"
+      aside = "#{target}.reach-old-#{Process.pid}"
+      FileUtils.rm_rf(fresh)
+      FileUtils.rm_rf(aside)
+      FileUtils.cp_r(root, fresh)
+      File.write(File.join(fresh, COPY_MARKER), "#{root}\n")
+      File.rename(target, aside) if File.exist?(target)
+      begin
+        File.rename(fresh, target)
+      rescue SystemCallError
+        File.rename(aside, target) if File.exist?(aside) && !File.exist?(target)
+        raise
+      end
+      FileUtils.rm_rf(aside)
+      true
+    rescue StandardError
+      FileUtils.rm_rf(fresh)
+      false
+    end
+
+    def refresh_copies(root = Reach::Runtime.root)
+      return [] unless Reach::Runtime.windows?
+
+      pairs = [
+        [root, File.join(Reach::Paths.gemini_dir, "config", "plugins", "reach")],
+        [root, File.join(Reach::Paths.gemini_dir, "antigravity-cli", "plugins", "reach")]
+      ]
+      config_path = Reach::Harness.hermes_config_path
+      if config_path
+        %w[reach-assistant reach-course].each do |name|
+          pairs << [File.join(root, "skills", name), File.join(File.dirname(config_path), "skills", name)]
+        end
+      end
+      pairs.select { |source, target| refreshable_copy?(target) && File.directory?(source) && copy_target(source, target) }.map(&:last)
+    rescue StandardError
+      []
     end
 
     def capture(args)

@@ -164,7 +164,7 @@ say() {
 }
 
 ruby_ok() {
-  "$1" -e 'exit((RUBY_VERSION.split(".").map { |part| part.to_i } <=> [2, 6, 10]) >= 0 ? 0 : 1)' </dev/null >/dev/null 2>&1
+  "$1" -e 'v = RUBY_VERSION.split(".").map { |part| part.to_i }; exit(((v <=> [2, 6, 10]) >= 0 && (v <=> [4, 1, 0]) < 0) ? 0 : 1)' </dev/null >/dev/null 2>&1
 }
 
 kit_ruby() {
@@ -511,7 +511,7 @@ fi
 
 fail_unavailable() {
   reason=$1
-  text="rEach needs Ruby 2.6.10 or newer and cannot install its own copy on this computer ($reason). Install Ruby from https://www.ruby-lang.org/en/downloads/ and start a new session."
+  text="rEach needs Ruby 2.6.10 to 4.0.x and cannot install its own copy on this computer ($reason). Install Ruby from https://www.ruby-lang.org/en/downloads/ and start a new session."
   blog "unavailable: $reason"
   printf '%s\n' "$text" >&2
   if [ -n "$hook" ]; then
@@ -584,5 +584,5 @@ done
 if pick_ruby; then
   exec "$RUBY" "$PLUGIN_ROOT/exe/reach" "$@"
 fi
-printf '%s\n' "rEach could not set up its Ruby. See $REACH_HOME/logs/bootstrap.log, or install Ruby 2.6.10 or newer from https://www.ruby-lang.org/en/downloads/." >&2
+printf '%s\n' "rEach could not set up its Ruby. See $REACH_HOME/logs/bootstrap.log, or install Ruby 2.6.10 to 4.0.x from https://www.ruby-lang.org/en/downloads/." >&2
 exit 1

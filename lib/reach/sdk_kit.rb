@@ -254,6 +254,7 @@ module Reach
         raise
       end
       write_current(sdk_id)
+      Reach::RuntimeKit.prune_superseded(sdk_root, sdk_id)
     end
 
     def write_current(sdk_id)
