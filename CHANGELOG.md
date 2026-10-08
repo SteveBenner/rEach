@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.2] - 2026-10-07
+
+### Changed
+
+- Wire revision 2026-10-07b (W-AUTH-8, `specs/wire.yml`): Teach keeps an install's harness at the harness of the last
+  valid `X-Reach-Env` header, unless it is `terminal` or `unknown`, so after a harness move (`STD-HARNESS-MOVE`) Teach
+  shows the app in use. rEach's behavior is unchanged; Teach 0.76.1 implements it and pins the same wire.
+
 ## [0.44.1] - 2026-10-07
 
 ### Fixed

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.44.1 |
+| **Registry version** | 0.44.2 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -84,10 +84,10 @@ scratchpad with stub claude, codex and agy on PATH: each target's install comman
 nothing else, unknown, same-app and declined moves did nothing, and a chat yes (fed to the consent follow-up and to the
 plugin hook's `codex_setup_answer`) moved rEach while a no did not; with no app detectable or a move from Antigravity the chat got the terminal command. Not verified: a real harness, a full `gate enroll`
 run signed in, Ruby 2.6.10, and Windows or macOS. A chat question asked before enrollment is not taken (the prompt hook
-runs enrollment first); the terminal command works then. Teach still shows the enrollment app on the install until wire
-revision 2026-10-07b, held until Teach implements 2026-10-06d.
+runs enrollment first); the terminal command works then. Since 0.44.2 (wire revision 2026-10-07b, Teach 0.76.1) Teach keeps the
+install's app at the last one reported, so the console shows the app in use.
 
-Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push; Teach half held)
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push; Teach 0.76.1 deploy)
 
 ### 1.4 · Automatic updates
 
