@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "transcripts"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "harness", "transcripts"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -368,6 +368,8 @@ module Reach
           cmd_known_issues(args)
         when "codex"
           cmd_codex(args)
+        when "harness"
+          cmd_harness(args)
         when "announcements"
           cmd_announcements(args)
         when "test"
@@ -433,6 +435,7 @@ module Reach
             guide [--path] [--format text|json]  the installation and setup guide, as text
             setup [--harness auto|claude-code|codex|antigravity|hermes] [--source ...] [--format ...] [--runtime]
             codex status|probe [--format text|json] | configure [--mode workspace|full] | off   set Codex's own settings so rEach works in its sandbox (asks the student first), test the sandbox, or stop putting the settings back
+            harness move --to claude-code|codex|antigravity|hermes [--from ...] [--yes]   set rEach up in another AI app on this computer (asks the student first); you stay enrolled
             runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
             subscribe status [--format text|json] | install | uninstall   the course server update check and its background job
@@ -1236,6 +1239,7 @@ module Reach
         cwd = event["cwd"].is_a?(String) && !event["cwd"].empty? ? event["cwd"] : Dir.pwd
         kinds = []
         kinds << Reach::CodexSetup::KIND unless event["turn_id"].to_s.empty?
+        kinds << Reach::HarnessMove::KIND
         kinds << "module_lock" unless Reach::Workspace.space_for(cwd)
         return nil if kinds.empty?
 
@@ -2174,6 +2178,38 @@ module Reach
           warn "usage: reach codex status|probe [--format text|json] | configure [--mode workspace|full] | off"
           1
         end
+      end
+
+      def cmd_harness(args)
+        sub = args.shift
+        unless sub == "move"
+          warn "usage: reach harness move --to <app> [--from <app>] [--yes]"
+          return 2
+        end
+        yes, args = parse_bare_flag(args, "yes")
+        options, _remaining = parse_flags(args, [:to, :from])
+        if options[:to].to_s.strip.empty?
+          warn "usage: reach harness move --to <app> [--from <app>] [--yes]"
+          return 2
+        end
+        to, from = Reach::HarnessMove.prepare(options[:to], options[:from])
+        refused = Reach::HarnessMove.check(to, from)
+        if refused
+          puts refused["text"]
+          return 1
+        end
+        unless yes
+          puts Reach::HarnessMove.ask_text(to: to, from: from)
+          $stdout.print "> "
+          $stdout.flush
+          unless Reach::Consent.yes?($stdin.gets.to_s)
+            puts Reach::HarnessMove.declined_text
+            return 1
+          end
+        end
+        result = Reach::HarnessMove.apply!(to: to, from: from, via: "terminal")
+        puts result["text"]
+        result["ok"] ? 0 : 1
       end
 
       def cmd_announcements(args)

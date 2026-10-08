@@ -335,12 +335,14 @@ module Reach
       },
       {
         "name" => "reach_setup",
-        "description" => "Sets Codex up so rEach's commands work in its sandbox: action status (the default) says whether Codex's settings hold what rEach needs, probe tests what a command inside Codex's sandbox can reach, and configure asks the student rEach's own question before anything changes; relay that question word for word and never answer it yourself; works before enrollment",
+        "description" => "Sets Codex up so rEach's commands work in its sandbox: action status (the default) says whether Codex's settings hold what rEach needs, probe tests what a command inside Codex's sandbox can reach, and configure asks the student rEach's own question before anything changes; action harness with to (and from) moves rEach into another AI app on this computer after the student's yes, keeping the enrollment; relay its question word for word and never answer it yourself; works before enrollment",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[status configure probe] },
-            "mode" => { "type" => "string", "enum" => %w[workspace full] }
+            "action" => { "type" => "string", "enum" => %w[status configure probe harness] },
+            "mode" => { "type" => "string", "enum" => %w[workspace full] },
+            "to" => { "type" => "string" },
+            "from" => { "type" => "string" }
           }
         }
       },
@@ -807,6 +809,10 @@ module Reach
           { "text" => found["text"], "network" => found["network"], "home_writable" => found["home_writable"], "available" => found["available"] }
         when "configure"
           result = Reach::CodexSetup.ask_chat(mode: arguments["mode"], mcp: true)
+          payload = { "text" => result["text"], "state" => result["state"] }
+          result.key?("question") ? payload.merge("question" => result["question"], "relay_verbatim" => true) : payload
+        when "harness"
+          result = Reach::HarnessMove.ask_chat(to: arguments["to"], from: arguments["from"])
           payload = { "text" => result["text"], "state" => result["state"] }
           result.key?("question") ? payload.merge("question" => result["question"], "relay_verbatim" => true) : payload
         else
