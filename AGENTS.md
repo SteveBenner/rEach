@@ -6,6 +6,9 @@ The course server is only what `reach` reports. `docs/`, `specs/` and `tools/` a
 
 [MICRODB] Read `.agents/directives/microdatabase.md` for corpus backup and mirror work when this plugin owns a corpus. The copied directive is dormant until then.
 
+[STUDENT1ST] audit every major feature against one principle: the student comes first   d/STUDENT1ST   ⚙ none   ⚡ task:feature-create, task:feature-change
+Read `.agents/directives/student-first.md` before you design, build, or ship a major feature; you judge what is major.
+
 reach is a plugin built on rplugin, the SDK for agent-harness plugins.
 `CLAUDE.md` links to this file, so every harness reads the same text.
 
