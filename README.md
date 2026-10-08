@@ -394,7 +394,9 @@ token minted for the release gate at `~/.config/release-gate/reach/token` (mode 
 `RELEASE_GATE_TOKEN`, and Teach's address from `config.yml` `teach.url` or `TEACH_URL`. `specs/release_gate.yml` names
 every check. `ruby tools/release_gate/gate.rb check` is the dry run. There is no skip switch; the instructor's
 one-push override is `ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks ID,ID]`, typed on
-a terminal and recorded on Teach. `reach doctor` reports `R-DOC-GATE` when a clone that pushes over SSH has no gate.
+a terminal and recorded on Teach. A lease is the other way through: with a lease source in
+`~/.config/release-gate/lease_source.yml`, a push that would block passes while a valid, unexpired lease for this
+repository answers, and the run is still checked and recorded as leased. `reach doctor` reports `R-DOC-GATE` when a clone that pushes over SSH has no gate.
 
 ## Smoke test
 

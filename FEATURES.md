@@ -1659,6 +1659,17 @@ subject sent no request. The merge, missing-token and non-http skips were not ru
 
 Build ✅ · Deploy 🔵 (live once the course server carries the match route and the clone runs the installer) · Blocker: -
 
+### 11.10 · Release gate leases
+
+Since 0.46.0 (`STD-RELEASE-GATE-LEASE`) a push that would block passes while the lease source in
+`~/.config/release-gate/lease_source.yml` answers a valid, unexpired lease for the repository (at most 24 hours long).
+Every check still runs, the run is recorded as leased with the lease id, and no override is consumed; with no lease
+source nothing changes. Checked on 2026-10-08 in a scratch clone against a stub lease server: a valid lease ended
+leased with exit 0 and left an active override unconsumed; no source, a closed port, 404, a lease for another
+repository, an expired lease, a 25 hour lease, malformed JSON and a 3 s delay all stayed blocked.
+
+Build ✅ · Deploy 🔵 (live once the course server accepts status leased and the clone has a lease source) · Blocker: -
+
 ## Appendix · Blocked by
 
 - **Access**: 1.2.

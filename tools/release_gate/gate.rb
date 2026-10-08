@@ -7,6 +7,7 @@ require "securerandom"
 require_relative "repo"
 require_relative "checks"
 require_relative "override"
+require_relative "lease"
 require_relative "../security_audit/gate"
 
 module ReleaseGate
@@ -137,7 +138,7 @@ module ReleaseGate
 
     def report(repo, release, run, findings, settings)
       lines = ["# Release gate: #{repo.name} #{release[:version]}", ""]
-      lines << "- Status: #{run['status']}#{run['override_id'] ? " (override #{run['override_id']})" : ''}"
+      lines << "- Status: #{run['status']}#{run['override_id'] ? " (override #{run['override_id']})" : ''}#{run['lease_id'] ? " (lease #{run['lease_id']})" : ''}"
       lines << "- Commit: #{run['commit']}"
       lines << "- Trigger: #{run['trigger']}#{release[:tag] ? " #{release[:tag]}" : ''}#{release[:branch] ? " #{release[:branch]}" : ''}"
       lines << "- Block at: #{settings ? settings['block_at'] : 'high'}"
@@ -192,7 +193,11 @@ module ReleaseGate
       decision = decide(findings, block_at)
       status = decision[:status]
       override = nil
-      if %w[blocked error].include?(status) && record
+      lease = nil
+      lease = Lease.active(repo.name) if %w[blocked error].include?(status)
+      if lease && record
+        status = "leased"
+      elsif %w[blocked error].include?(status) && record
         override = Override.covering(repo, decision[:ids])
         if override
           status = "overridden"
@@ -203,22 +208,23 @@ module ReleaseGate
       run = {
         "repo" => repo.name, "release_version" => release[:version].to_s, "commit" => commit, "tree" => tree, "trigger" => release[:trigger],
         "status" => status, "findings" => findings.first(200).map { |row| row.reject { |key, _| key == "clear" } },
-        "override_id" => override && override["id"], "duration_s" => duration,
+        "override_id" => override && override["id"], "lease_id" => record && lease ? lease["id"] : nil, "duration_s" => duration,
         "error" => findings.select { |row| row["severity"] == "error" }.map { |row| row["detail"] }.first(5).join("; ").then { |text| text.empty? ? nil : text[0, 2000] }
       }
       report_md = report(repo, release, run, findings, settings)
       report_path = File.join(repo.state_dir, "reports", "#{release[:version]}-#{tree[0, 12]}-gate.md")
       SecurityAuditGate.write_private(report_path, report_md)
       run_id = record ? SecurityAuditGate.post_run(run, RUNS_ROUTE) : nil
-      say("#{status}#{override ? " (override #{override['id']})" : ''}: #{counts(findings).empty? ? 'no findings' : counts(findings).map { |s, n| "#{n} #{s}" }.join(', ')}")
+      say("#{status}#{override ? " (override #{override['id']})" : ''}#{status == 'leased' ? " (lease #{lease['id']} until #{lease['expires_at']})" : ''}: #{counts(findings).empty? ? 'no findings' : counts(findings).map { |s, n| "#{n} #{s}" }.join(', ')}")
       findings.select { |row| blocking?(row, block_at) }.each { |row| say("#{row['severity']} #{row['id']}: #{row['title']}") }
+      say("a lease (#{lease['id']} until #{lease['expires_at']}) would let this push through; nothing is recorded") if lease && !record
       say("report #{report_path}")
       say("run #{repo.teach_url}/console/ops (#{run_id})") if run_id
       if record
-        kind = %w[blocked error].include?(status) ? status : "run"
+        kind = %w[blocked error leased].include?(status) ? status : "run"
         SecurityAuditGate.emit(kind, "Release gate #{repo.name} #{release[:version]} #{status}",
                                { "status" => status, "repo" => repo.name, "version" => release[:version], "commit" => commit, "trigger" => release[:trigger],
-                                 "findings" => findings.length, "blocking" => decision[:ids], "override_id" => run["override_id"], "duration_s" => duration }, prefix: "release_gate.")
+                                 "findings" => findings.length, "blocking" => decision[:ids], "override_id" => run["override_id"], "lease_id" => run["lease_id"], "duration_s" => duration }, prefix: "release_gate.")
         SecurityAuditGate.notify("#{repo.name} release gate #{status}", "#{release[:version]}: #{decision[:ids].join(', ')}") if %w[blocked error].include?(status)
       end
       %w[blocked error].include?(status) ? 1 : 0
