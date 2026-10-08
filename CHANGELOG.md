@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.0] - 2026-10-07
+
+### Added
+
+- Moving rEach to another AI app on the same computer without enrolling again (`STD-HARNESS-MOVE`):
+  `reach harness move --to claude-code|codex|antigravity|hermes [--from ...] [--yes]` and the `reach_setup` MCP action
+  `harness` (`to`, `from`). The chat path asks rEach's own question (consent kind `harness_move`,
+  `M-HARNESS-MOVE-ASK`), taken by the plugin prompt hook on every harness and by the course-folder hook. In an app that runs no rEach hooks
+  (Antigravity, or no app can be told), it gives the terminal command instead (`M-HARNESS-MOVE-TERMINAL`). On yes,
+  `Reach::HarnessMove` (`lib/reach/harness_move.rb`) runs `Reach::Setup.run_harness` for the target, rewrites every
+  course folder with `Reach::Harness.configure_all`, adds the `reach codex configure` step when the target is Codex
+  and its settings are not set up, and answers `M-HARNESS-MOVE-DONE`. rEach stays installed in the old app. A failed
+  install changes nothing else (`M-HARNESS-MOVE-FAILED`). Each move writes a `command` debug event (from, to, ok, via).
+  Teach's install record keeps the enrollment app until wire revision 2026-10-07b.
+
 ## [0.43.1] - 2026-10-07
 
 ### Added

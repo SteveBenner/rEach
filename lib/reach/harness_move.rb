@@ -31,14 +31,21 @@ module Reach
     end
 
     def current
-      label = Reach::Fingerprint.harness_label(nil).to_s
+      label = (Reach::KnownIssues.harness || Reach::Fingerprint.harness_label(nil)).to_s
       return "claude-code" if label.start_with?("claude-")
       return "codex" if label.start_with?("codex-")
       return "hermes" if label == "hermes"
+      return "antigravity" if label == "antigravity"
 
       nil
     rescue StandardError
       nil
+    end
+
+    def hookless?(source)
+      source == "antigravity" || Reach::KnownIssues.harness.nil?
+    rescue StandardError
+      false
     end
 
     def refusal(state, message_id, **fields)
@@ -74,6 +81,11 @@ module Reach
       target, source = prepare(to, from)
       refused = check(target, source)
       return refused if refused
+
+      if hookless?(source)
+        command = Reach::Hello.terminal_command("harness", "move", "--to", target)
+        return { "state" => "terminal", "ok" => false, "text" => Reach::Messages.text("M-HARNESS-MOVE-TERMINAL", app: display(target), command: command) }
+      end
 
       subject = { "to" => target, "from" => source }
       asked = Reach::Consent.ask!(

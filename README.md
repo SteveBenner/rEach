@@ -118,6 +118,9 @@ Installing from a link needs the repository and its pinned Dovetail archive to b
 Antigravity runs no hooks, so rEach cannot ask for enrollment details in its chat: a locked Antigravity session has the
 agent walk the student through `reach enroll` in a terminal window instead (`STD-NOHOOK-ENROLL`).
 
+A student who later changes AI app on the same computer runs `reach harness move --to <app>`, or asks rEach in a chat,
+and stays enrolled; rEach stays in the old app too (`STD-HARNESS-MOVE`).
+
 ### Updates
 
 An install at `~/reach-work/.reach-home/plugin` updates itself. rEach looks for the version the `stable` branch points at

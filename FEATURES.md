@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.43.1 |
+| **Registry version** | 0.44.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the 26 MCP bridge tools, doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -71,6 +71,23 @@ bootstrap download, the installer and setup as one command, so an app that sandb
 once; the macOS/Linux command ran end to end with `--harness codex` in a scratch home on 2026-10-01.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (Antigravity remains untested; the live Codex session ran 2026-09-29, see 10.3).
+
+### 1.3.1 · Moving rEach to another AI app
+
+Since 0.44.0 (`STD-HARNESS-MOVE`) a student moves rEach to Claude Code, Codex, Antigravity, or Hermes on the same
+computer without enrolling again: `reach harness move --to <app>` in a terminal, or `reach_setup` action `harness` in a
+chat, which asks rEach's own question (consent kind `harness_move`) that the plugin or course-folder prompt hook takes;
+in an app that runs no rEach hooks (Antigravity, or no app can be told) the chat gets the terminal command instead.
+On yes it runs the same install as `reach setup --harness <app>`, rewrites every course folder's harness files, adds
+the Codex settings step when the target is Codex, and says what to do next. rEach stays in the old app. Verified in the
+scratchpad with stub claude, codex and agy on PATH: each target's install commands ran, a failed install changed
+nothing else, unknown, same-app and declined moves did nothing, and a chat yes (fed to the consent follow-up and to the
+plugin hook's `codex_setup_answer`) moved rEach while a no did not; with no app detectable or a move from Antigravity the chat got the terminal command. Not verified: a real harness, a full `gate enroll`
+run signed in, Ruby 2.6.10, and Windows or macOS. A chat question asked before enrollment is not taken (the prompt hook
+runs enrollment first); the terminal command works then. Teach still shows the enrollment app on the install until wire
+revision 2026-10-07b, held until Teach implements 2026-10-06d.
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push; Teach half held)
 
 ### 1.4 · Automatic updates
 

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.43.1
+version: 0.44.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -409,6 +409,8 @@ library:
       A local stdio MCP server the harness connects to, proxying the permitted Teach tools with the install's credentials
   - name: Reach::Harness
     role: Detects Claude Code and Codex, installs hooks and configuration, and launches them
+  - name: Reach::HarnessMove
+    role: Moves rEach into another AI app on the same computer after the student's yes, keeping the enrollment (STD-HARNESS-MOVE); since 0.44.0
   - name: Reach::Status
     role: The status summary
   - name: Reach::Corpus
