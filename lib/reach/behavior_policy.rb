@@ -31,7 +31,7 @@ module Reach
     end
 
     def digest(value)
-      "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonical(value)))}"
+      "sha256:" + Digest::SHA256.hexdigest(JSON.generate(canonical(value)))
     end
 
     def freeze_tree(value)
@@ -213,7 +213,7 @@ module Reach
 
     def projection(row)
       front = row.reject { |key, _| key == "body" }
-      "#{YAML.dump(front)}---\n#{row.fetch('body')}"
+      YAML.dump(front) + "---\n" + row.fetch("body")
     end
 
     def problems
