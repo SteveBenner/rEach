@@ -220,7 +220,11 @@ module Reach
       live = blocked || (login_block && decision["stuck"]) ? safely { Reach::Live.blocked_prompt(event) } : nil
       blocked = Reach::GateBlocked.new(blocked.message_id, [blocked.message, live, toggled].compact.join("\n\n")) if blocked && (toggled || live)
       raise blocked if blocked
-      raise Reach::GateBlocked.new("M-LOGIN", framed("gate.login", [decision["message"].to_s, live, toggled].compact.join("\n\n"))) if login_block
+      if login_block
+        message = [decision["message"].to_s, live, toggled].compact.join("\n\n")
+        message = framed("gate.login", message) unless harness.to_s == "claude-code"
+        raise Reach::GateBlocked.new("M-LOGIN", message)
+      end
       return nil if elsewhere
 
       if recorded

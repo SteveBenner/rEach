@@ -138,6 +138,11 @@ module Reach
           if argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "codex"
             buffer.string = "#{JSON.generate("decision" => "block", "reason" => e.message)}\n"
             code = 0
+          elsif argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "claude-code" && !cowork_prompt_hook?(argv)
+            payload = { "decision" => "block", "reason" => e.message,
+                        "hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "suppressOriginalPrompt" => true } }
+            buffer.string = "#{JSON.generate(payload)}\n"
+            code = 0
           elsif argv.first == "gate" && %w[write shell read].include?(argv[1]) && hook_harness_flag(argv) == "codex"
             denial = { "hookEventName" => "PreToolUse", "permissionDecision" => "deny", "permissionDecisionReason" => e.message }
             buffer.string = "#{JSON.generate("hookSpecificOutput" => denial)}\n"

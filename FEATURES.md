@@ -214,7 +214,12 @@ Build ✅ · Deploy 🔵 · Blocker: -
 `reach gate` runs from harness hooks: owned files are writable, anything else is refused, and coursework before
 enrollment is blocked.
 
-Build ✅ · Deploy 🔵 · Blocker: -
+Since 0.50.1 the Claude Code hooks rEach writes on Windows run under PowerShell (`& ...; exit $LASTEXITCODE`), the
+`hello` repair pass rewrites existing Windows workspaces, and a blocked enroll or prompt on Claude Code answers with a
+JSON block instead of stderr. The fix was confirmed on a student's Windows computer against 0.48.1 and ships on test;
+the plugin's own `sh exe/reach-run` hooks are unchanged on Windows.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (0.50.1 on test, stable is the operator's; plugin hooks still need `sh` on Windows).
 
 ### 2.4 · Check
 

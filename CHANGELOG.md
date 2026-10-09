@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.1] - 2026-10-09
+
+### Fixed
+- Claude Code on Windows runs hook commands in PowerShell, which cannot run a command that starts with a quoted path. Every hook rEach writes to a workspace `.claude/settings.json` on Windows is now `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE`, so the gate, check, transcript and stop hooks run and their exit code reaches Claude Code. The `hello` repair pass treats a Windows workspace whose Claude hooks are not wrapped as stale and rewrites it, and the command parser reads the wrapped form, so a later Ruby path change is still noticed.
+- A blocked `gate enroll` or `gate prompt` on Claude Code (enrollment or sign-in needed) now answers with a JSON `decision: block` and the reason, instead of exit 2 with the message on stderr, which Claude Code showed behind an executable and error prefix. The Claude Cowork code-tab path is unchanged. The sign-in message reaches the student as written, without the framing meant for an agent.
+
+### Known
+- The plugin's own `hooks/hooks.json` and `.mcp.json` still start `sh exe/reach-run`. A Windows computer where PowerShell cannot find `sh` cannot run them; this release does not change them.
+
 ## [0.50.0] - 2026-10-09
 
 ### Added

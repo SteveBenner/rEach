@@ -149,25 +149,25 @@ module Reach
 
       def claude_settings_content(space_kind = "slice")
         post_tool_use = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit", h("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
+        post_tool_use << hook_entry("Write|Edit|MultiEdit", claude_command("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
 
         stop_hooks = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("transcript", "code", "--harness", "claude-code"), 15)
-        stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "claude-code"), 30)
-        stop_hooks << wake_entry(h("live", "watch", "--harness", "claude-code")) if claude_wake?
+        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", claude_command("transcript", "code", "--harness", "claude-code"), 15)
+        stop_hooks << hook_entry(nil, claude_command("hook", "stop", "--harness", "claude-code"), 30)
+        stop_hooks << wake_entry(claude_command("live", "watch", "--harness", "claude-code")) if claude_wake?
 
         {
           "hooks" => {
-            "SessionStart" => [hook_entry(nil, h("gate", "session", "--harness", "claude-code"), 10)],
-            "UserPromptSubmit" => [hook_entry(nil, h("gate", "prompt", "--harness", "claude-code"), 10)],
+            "SessionStart" => [hook_entry(nil, claude_command("gate", "session", "--harness", "claude-code"), 10)],
+            "UserPromptSubmit" => [hook_entry(nil, claude_command("gate", "prompt", "--harness", "claude-code"), 10)],
             "PreToolUse" => [
-              hook_entry("Write|Edit|MultiEdit|NotebookEdit", h("gate", "write", "--harness", "claude-code"), 10),
-              hook_entry("Bash|PowerShell", h("gate", "shell", "--harness", "claude-code"), 10),
-              hook_entry(CLAUDE_READ_MATCHER, h("gate", "read", "--harness", "claude-code"), 10)
+              hook_entry("Write|Edit|MultiEdit|NotebookEdit", claude_command("gate", "write", "--harness", "claude-code"), 10),
+              hook_entry("Bash|PowerShell", claude_command("gate", "shell", "--harness", "claude-code"), 10),
+              hook_entry(CLAUDE_READ_MATCHER, claude_command("gate", "read", "--harness", "claude-code"), 10)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks,
-            "SessionEnd" => [hook_entry(nil, h("hook", "stop", "--final", "--harness", "claude-code"), 30)]
+            "SessionEnd" => [hook_entry(nil, claude_command("hook", "stop", "--final", "--harness", "claude-code"), 30)]
           },
           "permissions" => {
             "deny" => [
@@ -177,6 +177,11 @@ module Reach
           },
           "enableAllProjectMcpServers" => true
         }
+      end
+
+      def claude_command(*args)
+        command = h(*args)
+        Reach::Runtime.windows? ? "& #{command}; exit $LASTEXITCODE" : command
       end
 
       def claude_mcp_content

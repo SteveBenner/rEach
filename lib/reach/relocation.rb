@@ -1196,6 +1196,7 @@ module Reach
 
     def stale_ruby_target?(target)
       return true if unparseable_config?(target)
+      return true if Reach::Runtime.windows? && unwrapped_claude_hooks?(target)
 
       pairs = written_command_pairs(target)
       return false if pairs.empty?
@@ -1203,6 +1204,24 @@ module Reach
       ruby = Reach::Runtime.ruby_path
       shim = Reach::Runtime.shim_path
       pairs.any? { |pair_ruby, pair_shim| pair_ruby != ruby || pair_shim != shim }
+    end
+
+    def unwrapped_claude_hooks?(target)
+      path = File.join(target, ".claude", "settings.json")
+      return false unless File.file?(path)
+
+      data = JSON.parse(File.read(path))
+      hooks = data.is_a?(Hash) && data["hooks"].is_a?(Hash) ? data["hooks"] : {}
+      hooks.each_value.any? do |entries|
+        Array(entries).any? do |entry|
+          Array(entry.is_a?(Hash) ? entry["hooks"] : nil).any? do |hook|
+            command = hook.is_a?(Hash) ? hook["command"] : nil
+            command.is_a?(String) && command.start_with?("\"") && !command_pair(command).nil?
+          end
+        end
+      end
+    rescue StandardError
+      false
     end
 
     def written_command_pairs(target)
@@ -1238,6 +1257,7 @@ module Reach
     def command_pair(command)
       return nil unless command.is_a?(String)
 
+      command = command.sub(/\A&\s+/, "").sub(/;\s*exit \$LASTEXITCODE\s*\z/, "")
       tokens = command.start_with?("\"") ? command.scan(/"([^"]*)"/).flatten : Shellwords.shellsplit(command)
       return nil if tokens.length < 3
 
