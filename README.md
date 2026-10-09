@@ -86,7 +86,8 @@ until a student is enrolled, every session tells the agent to read it and finish
 ## Runtime
 
 Ruby 2.6.10 to 4.0.x, standard library only, no native gems. macOS's built-in
-`/usr/bin/ruby` is enough.
+`/usr/bin/ruby` is enough to run rEach; local checks (`reach qualify`) need Ruby 3.2 or newer and otherwise use the
+runtime kit's Ruby, which rEach installs by itself.
 A computer with no Ruby needs nothing first: the plugin's hooks run `sh exe/reach-run`, which downloads
 and verifies the runtime kit's Ruby in the background and then runs Reach with it (on Windows,
 `scripts/reach-install.ps1` does the same for the install and adds it to the user PATH).
@@ -204,7 +205,12 @@ real backup to another drive and stops imports until it is done. What rEach has 
 
 ```
 reach storage [status | measure | compact] [--format json]   how much space rEach uses, and compacting it
+reach transcripts export | forget                            save your conversations as a ZIP, or delete every local copy
 ```
+
+Saved conversations are deleted from this computer 180 days after the course ends (unsent ones after 30), and the
+ZIP export after the course is made only when `transcripts.auto_export` is true. `PRIVACY.md` lists every copy and
+how long it is kept.
 
 ### Importing another AI's history
 

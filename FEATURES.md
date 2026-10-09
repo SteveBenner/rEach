@@ -1788,3 +1788,31 @@ Verification on 2026-10-08: plugin package/check and policy drift checks report 
 Local installation on 2026-10-08: rplugin check and doctor report zero findings; reach policy reports 13 directives, 49 native bindings, four declarative controls, four advisory entries, and no policy problems. The local corpus index was rebuilt and six derived embeddings of already-retired sources received retirement markers through the corpus API; source records and journal history were preserved. The full model audit was rerun after packaging corrections: no high security finding in that run, with existing fleet alarms blocking the overall release gate and public-documentation warnings retained for review. The development policy remains versioned for host-side resolution; its paths are generic home-relative defaults and its roster is development configuration, not student policy. Stable was not moved, and no matching formal verifier exists for this change in the local attestation corpus.
 
 Publication status: the main push was refused at 2026-10-09T02:23:39Z by the existing KNOWN-ALARM and INST-FLAP checks, with no active reach lease. main was pushed at 2eac996 on 2026-10-09 under reach lease gtl_d8bf3d4dfae14f2c2948 (rEach now holds its own gate app); the gate still reported KNOWN-ALARM and INST-FLAP. No release was created and stable was not moved.
+
+## Security and privacy audit remediation — 0.47.3
+
+Fixes all ten findings of the 2026-10-08 audit (~/rstack/FINDINGS.md). F01 private tool calls and extracurricular reads
+are withheld from transcripts; F02 every collector reads owned files through Reach::SafeFiles; F03 credential-shaped text
+is redacted before storage and upload; F04 consent fails closed without proof the question was shown; F05 profile
+sharing needs a native one-use consent; F06 local transcript retention, opt-in auto export and `reach transcripts
+forget` (server half: Teach 0.80.4 STD-TRANSCRIPT-RETENTION); F07 import approval bound to content digests; F08
+updates pinned to the discovered commit; F09 Gemfile.lock patched and the Ruby 2.6 suite lock retired; F10 bounded
+JSON, ZIP, tar and response processing.
+
+Student-first audit:
+1. Learning: n/a, no coaching or assignment behavior changed.
+2. Agency and honesty: yes, profile sharing and forgetting are asked by Reach in plain words, and PRIVACY.md states every copy and period.
+3. Wellbeing and safety: yes, support and wellbeing paths are untouched; no new alarms.
+4. Privacy and dignity: yes, private profile, memory, extracurricular files and credentials no longer leave the device, and copies expire.
+5. Fairness and access: partly, Hermes cannot answer a consent question outside a captured assignment session (fails closed), and Ruby 2.6 to 3.1 computers run local checks on the auto-installed runtime kit.
+6. Friction: yes, one consent question only where the student's data leaves the computer.
+7. Failure: yes, refusals delete nothing and say what to do; a mismatched update stays on the installed version.
+8. Recovery: partial, forgetting and expiry are irreversible by design; nothing is deleted before the course ends.
+
+Verification on 2026-10-09: each finding's acceptance was exercised with throwaway scripts against the real modules
+(temporary HOME, REACH_OFFLINE=1, synthetic data), then re-run together on the merged tree: all passed. A real GitHub
+`archive/<sha>.zip` carries the commit as its ZIP comment. rplugin check, install and doctor (scratch HOME) report zero
+findings; `tools/policy.rb check` is ok. Not verified: a Ruby 2.6.10 interpreter run, a live Teach round trip, Windows
+and macOS hosts.
+
+Build ✅ Built · Deploy ⬜ Not released (needs Teach 0.80.4 live first: CMP-WIRE-LIVE) · Blocker Human (Teach stable promotion, rEach release)

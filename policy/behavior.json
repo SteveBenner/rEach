@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v1",
-  "digest": "sha256:9d6a159167521f49c19230135467c5f9bc0d8b96851484d0c2b685223139b5e1",
+  "digest": "sha256:8005c05330d502a3575b84e5b4b1f374d02f2f73d5cd3436055c711a1b4fdfa5",
   "policy": {
     "authority": {
       "authentication": "release",
@@ -207,8 +207,7 @@
         ]
       },
       "course_defaults": {
-        "enrollment": {
-        },
+        "enrollment": {},
         "limits": {
           "corpus_max_bytes": 52428800,
           "import_max_bytes": 20971520,
@@ -229,17 +228,14 @@
           "count": 2,
           "mode": "instructor",
           "opens_at": null,
-          "options": [
-
-          ],
+          "options": [],
           "slices": [
             "backend",
             "panel"
           ]
         },
         "student_part": {
-          "questions": {
-          },
+          "questions": {},
           "required": true
         },
         "support": {
@@ -530,6 +526,14 @@
         "event": "submit.check_closed",
         "failure": "deny",
         "id": "N-SUBMIT-CHECK-CLOSED",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.owned_bytes",
+        "description": "Native submit guard: owned_bytes",
+        "event": "submit.owned_bytes",
+        "failure": "deny",
+        "id": "N-SUBMIT-OWNED-BYTES",
         "mode": "native"
       },
       {

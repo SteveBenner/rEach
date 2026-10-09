@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.3] - 2026-10-09
+
+Remediation of the 2026-10-08 security and privacy audit, findings F01 to F10.
+
+### Fixed
+- F01: private data no longer enters assignment transcripts. Calls to `reach_profile_show`, `reach_profile_save`, `reach_profile_forget`, `reach_recall`, `reach_remember`, `reach_memory_forget` and `reach_import`, the matching `reach profile|recall|remember|memory|import` shell commands, and reads of the extracurricular folder or Reach's profile and brain state are kept only as withheld placeholders (`lib/reach/transcript_ingest.rb`, `lib/reach/redact.rb`), by call id across ingests; `Transcript.wire_entry` and `Deidentify.entry` drop such text from older spool records too. `Gate.read` refuses an extracurricular read from a slice or the course root (`M-GATE-EXTRACURRICULAR-READ`).
+- F02: hand bundles, qualifications and submissions read owned and test files through the new `Reach::SafeFiles` (`lib/reach/safe_files.rb`): traversal, absolute paths, symlinked leaves and ancestors, non-regular files and a file swapped between check and read (NOFOLLOW open, dev/ino match) are refused. A hand bundle leaves such a file out and lists it in a new top-level `skipped` array; a submission refuses (`M-SUBMIT-UNSAFE`).
+- F03: `Reach::Redact` irreversibly replaces credential-shaped text (authorization headers, password, secret, token and key values, PEM private keys, JWTs, `ghp_`/`sk-`/`AKIA`/`xox*` and similar prefixes, URLs with user info, connection strings) with `[redacted:<class>]` before the spool is written, before de-identification and at egress, so the restore record never holds a secret; digests are over the redacted text and the note records what was redacted.
+- F04: `Consent.question_shown?` fails closed. A missing transcript or an empty question no longer counts; Reach's own spooled assistant reply for the same session after the question was asked is accepted as the receipt for harnesses without a transcript path.
+- F05: `reach hand raise --include-profile` needs a one-use, session-bound `profile_share` consent naming the fields, or a yes typed in a terminal; an agent-supplied flag alone attaches nothing (`lib/reach/hands.rb`, `lib/reach/cli.rb`, `skills/reach-help/SKILL.md`).
+- F06: transcript lifecycle. Acknowledged spool and archives are deleted 180 days and unacknowledged or rejected files 30 days after the course stamp expires, never before (`Limits.enforce_retention`, `config.yml` `transcripts.archive_retention_days_after_course`, `unacked_retention_days_after_course`). Automatic export after the course is opt-in (`transcripts.auto_export: false`). New `reach transcripts forget` (CLI after a terminal yes; `reach_transcripts` action `forget` after a `transcripts_forget` consent) deletes every local copy after waiting out an upload and writes a receipt. PRIVACY.md gained a retention section, including Teach's server retention (Teach 0.80.4).
+- F07: an import approval is bound to a streaming SHA-256 of the selected files' content; the worker processes only a private snapshot that matches it (`source_changed` otherwise) and records per-file digests that every later read of the original export checks.
+- F08: updates are pinned to the commit seen at discovery. The check stores `target_commit`, the stage downloads `archive/<commit>.zip` and requires its ZIP comment to match, and the refs are re-read right before `update/apply.rb` runs; a moved tag or a different archive stops in phase `error` before anything executes. `scripts/reach-install` resolves tags and the stable branch to a commit the same way (`--commit SHA`).
+- F09: `Gemfile.lock` selects rack 2.2.24 and nokogiri 1.19.4 (outside CVE-2026-25500 and CVE-2026-57235).
+- F10: bounded processing: JSON elements at most 64 MiB and depth 64 (`lib/reach/json_stream.rb`), ZIP entries checked while inflating against their declared size, 2 GiB per entry, 4 GiB total and 100000 entries (`lib/reach/unzip.rb`), tar members checked by header before reading (`lib/reach/tarball.rb`), Teach responses at most 64 MiB (`lib/reach/client.rb`), and wall-clock deadlines on extraction, digesting and import runs.
+
+### Removed
+- F09: the Ruby 2.6 to 3.1 suite lock path (`Gemfile.ruby26.lock`, `Suite::RUBY26_CEILING`, `gemfile_lock_for`). Local checks need Ruby 3.2 or newer or the runtime kit; otherwise `reach qualify` refuses with `M-QUALIFY-NORUNTIME` and starts the runtime install.
+
 ## [0.47.2] - 2026-10-08
 
 ### Fixed

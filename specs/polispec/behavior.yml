@@ -801,6 +801,12 @@ rules:
   mode: native
   binding: Reach::Submit.check_closed!
   failure: deny
+- id: N-SUBMIT-OWNED-BYTES
+  description: 'Native submit guard: owned_bytes'
+  event: submit.owned_bytes
+  mode: native
+  binding: Reach::Submit.owned_bytes
+  failure: deny
 - id: N-QUALIFY-RUN
   description: 'Native qualify guard: run'
   event: qualify.run
