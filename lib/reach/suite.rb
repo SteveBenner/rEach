@@ -8,16 +8,12 @@ require "timeout"
 module Reach
   module Suite
     SUITE_KIND = "suite"
-    RUBY26_CEILING = Gem::Version.new("3.1.999")
+    SYSTEM_RUBY_FLOOR = Gem::Version.new("3.2.0")
     RUN_TIMEOUT_S = 300
     PIPE_GRACE_S = 5
     CHUNK_BYTES = 65_536
 
     class << self
-      def gemfile_lock_for(ruby_version = RUBY_VERSION)
-        Gem::Version.new(ruby_version) <= RUBY26_CEILING ? "Gemfile.ruby26.lock" : "Gemfile.lock"
-      end
-
       def reference_panel_dir(module_id)
         return nil if module_id.to_s.empty?
 
@@ -38,15 +34,13 @@ module Reach
         nil
       end
 
-      def select_lock!(run_dir)
+      def select_lock!(run_dir, ruby_version = RUBY_VERSION)
         runtime = Reach::RuntimeKit.active
         return if runtime && runtime["ruby_exe"]
+        return if Gem::Version.new(ruby_version) >= SYSTEM_RUBY_FLOOR
 
-        chosen = gemfile_lock_for
-        return if chosen == "Gemfile.lock"
-
-        source = File.join(run_dir, chosen)
-        FileUtils.cp(source, File.join(run_dir, "Gemfile.lock")) if File.file?(source)
+        Reach::RuntimeAuto.start
+        raise Reach::Refused, Reach::Messages.text("M-QUALIFY-NORUNTIME", ruby: ruby_version)
       end
 
       def install_gems(run_dir)

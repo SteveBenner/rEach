@@ -27,10 +27,14 @@ module Reach
     DONE_WINDOW_S = 3600
     ACTIVE_PHASES = %w[detected downloaded staged swapped refreshed].freeze
     VERSION_TAG = /\Av?(\d+\.\d+\.\d+)\z/.freeze
+    COMMIT_SHA = /\A(?:\h{40}|\h{64})\z/.freeze
     NETWORK_ERRORS = [
       Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNRESET, Errno::ECONNREFUSED,
       Errno::EHOSTUNREACH, OpenSSL::SSL::SSLError, EOFError
     ].freeze
+
+    class CommitMismatch < Reach::Error
+    end
 
     module_function
 
@@ -42,6 +46,7 @@ module Reach
         "source" => "none",
         "target_version" => nil,
         "target_tag" => nil,
+        "target_commit" => nil,
         "phase" => "idle",
         "applying" => false,
         "staged_path" => nil,
@@ -378,6 +383,11 @@ module Reach
       parsed["tags"]
     end
 
+    def ref_commit(version)
+      commit = @ref_info && @ref_info["commits"][version]
+      commit.to_s =~ COMMIT_SHA ? commit.to_s.downcase : nil
+    end
+
     def stable_version(info)
       return nil unless info && info["stable"]
 
@@ -460,10 +470,15 @@ module Reach
         if newest["version"] != manifest["target_version"] && !resuming
           manifest["target_version"] = newest["version"]
           manifest["target_tag"] = newest["tag"]
+          manifest["target_commit"] = ref_commit(newest["version"])
           manifest["phase"] = "detected"
           manifest["attempts"] = 0
           manifest["last_error"] = nil
           manifest["staged_path"] = nil
+        elsif newest["version"] == manifest["target_version"] && !resuming && manifest["phase"] == "detected" && manifest["target_commit"].to_s.empty?
+          manifest["target_commit"] = ref_commit(newest["version"])
+          manifest["attempts"] = 0
+          manifest["last_error"] = nil
         end
       elsif !ACTIVE_PHASES.include?(manifest["phase"])
         manifest["phase"] = "idle"
@@ -494,12 +509,17 @@ module Reach
       owner, repo, host = owner_repo
       tag = manifest["target_tag"]
       target = manifest["target_version"]
-      url = "https://#{host}/#{owner}/#{repo}/archive/refs/tags/#{tag}.zip"
+      commit = manifest["target_commit"].to_s
+      unless commit =~ COMMIT_SHA
+        raise CommitMismatch, "release #{tag} has no verified commit, so it was not downloaded"
+      end
+
+      url = "https://#{host}/#{owner}/#{repo}/archive/#{commit}.zip"
       load File.join(Reach::Runtime.root, "scripts", "reach-install") unless defined?(::ReachInstall)
       FileUtils.mkdir_p(Reach::Paths.updates_dir, mode: 0o700)
       Dir[File.join(Reach::Paths.updates_dir, "staging-*")].each { |orphan| remove_staging(orphan) }
       temp = File.join(Reach::Paths.updates_dir, "staging-#{target}-#{SecureRandom.hex(3)}")
-      reach_root = ReachInstall.stage(url: url, temp: temp)
+      reach_root = ReachInstall.stage(url: url, temp: temp, commit: commit)
       manifest["staging_dir"] = temp
       manifest["phase"] = "downloaded"
       save_manifest(manifest)
@@ -518,9 +538,37 @@ module Reach
       manifest["staging_dir"] = nil
       manifest["attempts"] = manifest["attempts"].to_i + 1
       manifest["last_error"] = e.message
+      manifest["phase"] = "error" if commit_mismatch?(e)
       save_manifest(manifest)
       log("error", "phase" => "stage", "message" => e.message, "attempts" => manifest["attempts"])
       raise
+    end
+
+    def commit_mismatch?(error)
+      error.class.name.to_s.end_with?("CommitMismatch")
+    end
+
+    def confirm_target_commit!(manifest)
+      commit = manifest["target_commit"].to_s
+      version = manifest["target_version"].to_s
+      current = nil
+      if commit =~ COMMIT_SHA
+        @ref_info = nil
+        list_tags
+        current = ref_commit(version)
+        return true if current == commit.downcase
+      end
+      message = "release #{version} no longer matches the commit chosen at discovery, so it was not applied"
+      remove_staging(manifest["staging_dir"])
+      manifest["staging_dir"] = nil
+      manifest["staged_path"] = nil
+      manifest["phase"] = "error"
+      manifest["applying"] = false
+      manifest["attempts"] = manifest["attempts"].to_i + 1
+      manifest["last_error"] = message
+      save_manifest(manifest)
+      log("error", "phase" => "apply", "message" => message, "expected" => commit, "found" => current)
+      raise CommitMismatch, message
     end
 
     def remove_staging(path)
@@ -570,6 +618,8 @@ module Reach
           raise Reach::Error, "staged release vanished"
         end
       end
+
+      confirm_target_commit!(manifest) unless resuming
 
       manifest["applying"] = true
       manifest["started_at"] ||= now_s
