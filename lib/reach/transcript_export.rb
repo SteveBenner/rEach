@@ -480,12 +480,45 @@ module Reach
       )
     end
 
+    FORGET_LOCK_WAIT_S = 10
+
+    def forget_subject(inventory)
+      { "counts" => inventory.transform_values(&:length) }
+    end
+
+    def forget_via_consent!
+      inventory = forget_inventory
+      return { "state" => "none", "message" => Reach::Messages.text("M-TRANSCRIPTS-FORGET-NONE") } if inventory.values.flatten.empty?
+
+      subject = forget_subject(inventory)
+      return forget!(confirm: true) if Reach::Consent.take!(kind: "transcripts_forget", subject: subject)
+
+      question = Reach::Consent.ask!(
+        kind: "transcripts_forget", subject: subject, message_id: "M-TRANSCRIPTS-FORGET-ASK",
+        fields: {
+          spool: inventory["spool"].length, archive: inventory["archive"].length, rejected: inventory["rejected"].length,
+          exports: inventory["exports"].length, bytes: size_text(forget_bytes(inventory))
+        }
+      )
+      { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => question, "text" => question }
+    end
+
     def forget!(confirm: false)
       inventory = forget_inventory
       total = inventory.values.flatten.length
       return { "state" => "none", "message" => Reach::Messages.text("M-TRANSCRIPTS-FORGET-NONE") } if total.zero?
       return { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => forget_ask_text(inventory) } unless confirm
 
+      FileUtils.mkdir_p(Reach::Paths.state_dir)
+      outcome = Reach::Locks.exclusive(Reach::Transcript.stream_lock_file, wait_s: FORGET_LOCK_WAIT_S) do
+        Reach::Locks.exclusive(Reach::Paths.flush_lock_file, wait_s: FORGET_LOCK_WAIT_S) { forget_locked!(forget_inventory) }
+      end
+      return outcome unless outcome == :busy
+
+      { "state" => "busy", "message" => Reach::Messages.text("M-TRANSCRIPTS-FORGET-BUSY") }
+    end
+
+    def forget_locked!(inventory)
       deleted = {}
       bytes = 0
       inventory.each do |kind, paths|

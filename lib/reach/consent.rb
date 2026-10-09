@@ -6,7 +6,7 @@ require "rbconfig"
 module Reach
   module Consent
     SCHEMA = "reach.consent/v1".freeze
-    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup harness_move profile_share].freeze
+    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup harness_move profile_share transcripts_forget].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
 
@@ -268,6 +268,10 @@ module Reach
         return observed["answer"] == "yes" ? Reach::Messages.text("M-PROFILE-SHARE-YES-AGENT") : Reach::Messages.text("M-PROFILE-SHARE-DECLINED")
       end
 
+      if observed["kind"] == "transcripts_forget"
+        return observed["answer"] == "yes" ? Reach::Messages.text("M-TRANSCRIPTS-FORGET-YES-AGENT") : Reach::Messages.text("M-TRANSCRIPTS-FORGET-DECLINED")
+      end
+
       if observed["kind"] == "compaction"
         return observed["answer"] == "yes" ? Reach::Messages.text("M-STORAGE-COMPACT-YES-AGENT") : Reach::Messages.text("M-STORAGE-COMPACT-DECLINED")
       end
@@ -294,7 +298,7 @@ module Reach
     end
 
     def agent_context(observed, done)
-      return done if %w[submission compaction export_import profile_share].include?(observed["kind"]) && observed["answer"] == "yes"
+      return done if %w[submission compaction export_import profile_share transcripts_forget].include?(observed["kind"]) && observed["answer"] == "yes"
       return Reach::Live.agent_context(observed, done) if Reach::Live::KINDS.include?(observed["kind"])
 
       Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: done)
