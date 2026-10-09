@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `specs/polispec/policy.yml`: test and prod run under polispec `hermetic` isolation (RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME and REACH_WORKSPACE_ROOT point into scratch) with `~/.corpora/reach`, `~/.reach`, `~/.local/state/rplugin/reach` and `~/reach-work` as protected roots, so any write there fails the deploy. `to_stable` gains the preflight (G-LEASE, G-WIRE-PROD), G-WIRE-PROD, G-SOAK (24 h on test with health ok), `flip_latest: deferred`, and the F-LIVE freeze from Teach live activity. These keys need polispec 0.13.0.
 - The platform smoke's doctor step reports `background job not installed` as a skipped capability, not a failure, when `systemctl --user show-environment` fails on a Linux runner (no systemd user manager). When the manager is present, that line still fails.
+- The platform smoke sets `REACH_SYSTEMD_USER_DIR` to a directory in its scratch, so on Linux the subscribe job's units are written there and no `systemctl --user` call is made. Before, every Linux run (a developer's, CI's, and polispec's rEach test deploy health check) installed and started a real `reach-subscribe.timer` in `~/.config/systemd/user`, aimed at the scratch runtime. Once the scratch was deleted, it failed every 10 minutes with status 203/EXEC. On CI runners the started timer could also leave doctor reporting `background job not installed`, which failed the linux-x64 leg intermittently.
 
 ## [0.47.6] - 2026-10-09
 

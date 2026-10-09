@@ -102,6 +102,7 @@ module PlatformSmoke
       env["REACH_WORKSPACE_ROOT"] = File.join(@scratch, "work")
       env["RPLUGIN_HOME"] = File.join(@scratch, "rplugin")
       env["XDG_STATE_HOME"] = File.join(@scratch, "state")
+      env["REACH_SYSTEMD_USER_DIR"] = File.join(@scratch, "systemd-user")
       env["REACH_UPDATE_DISABLE"] = "1"
       env
     end
