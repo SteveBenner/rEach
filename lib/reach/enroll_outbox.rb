@@ -175,6 +175,8 @@ module Reach
         "course_code" => head["course_code"], "public_key" => provisional.public_key.to_pem, "reach_version" => Reach::VERSION,
         "harness" => head["harness"].to_s.empty? ? "unknown" : head["harness"], "platform" => Reach::Enroll.platform
       }
+      return :stop unless File.file?(file)
+
       reply = client(data).post_json(OPEN_ROUTE, body).json
       id = reply.is_a?(Hash) ? reply["attempt_id"].to_s : ""
       return :stop if id.empty?
@@ -191,6 +193,8 @@ module Reach
       body = { "step" => head["step"], "at" => head["at"] }
       body["username"] = head["username"] if head["username"]
       body["student_id"] = head["student_id"] if head["student_id"]
+      return :stop unless File.file?(file)
+
       attempt_client(data, provisional).post_json("#{OPEN_ROUTE}/#{data["attempt_id"]}/steps", body)
       advance(head) { |held| held }
       :next

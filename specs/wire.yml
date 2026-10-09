@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-09'
-revision: 2026-10-09a
+revision: 2026-10-09b
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -716,12 +716,12 @@ routes:
     since: 2026-10-09a
     request:
       step: {type: string, enum: [username, student_id, confirmed, password_chosen]}
-      username: {type: string, required: false, note: "normalized and validated by the W-ENR-3 rules of the attempt's course"}
+      username: {type: string, required: false, note: "only on the confirmed or password_chosen step, after the student confirmed it (since revision 2026-10-09b); normalized and validated by the W-ENR-3 rules of the attempt's course"}
       student_id: {type: string, required: false, note: "as username"}
       at: {type: string, note: "W-CONV-3 timestamp of when the student reached the step"}
     response_200: {attempt_id: string, step: string}
     errors:
-      400 invalid_request: "a malformed body, or a username or student_id the W-ENR-3 rules refuse; the same errors as W-API-ENROLL"
+      400 invalid_request: "a malformed body, a username or student_id on a step before confirmed, or a username or student_id the W-ENR-3 rules refuse; the same errors as W-API-ENROLL"
       401 unauthenticated: "no such attempt, the signature does not verify against the attempt's public_key, or the timestamp or nonce is refused"
       409 attempt_completed: "the attempt already ended in an enrollment"
     notes: >-

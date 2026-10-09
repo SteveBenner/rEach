@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.1] - 2026-10-09
+
+Wire revision 2026-10-09b.
+
+### Fixed
+- Enrollment progress no longer sends the typed email and student ID before the student confirms them: the username and student_id steps carry only their time, and both values travel with the confirmed step (release-gate privacy finding).
+- A background push can no longer send a step after the student cancels or starts over: each post first checks the queue still exists.
+- PRIVACY.md, the student guide, `reach login reset` help and reach.spec.yml describe the instructor-only reset and what enrollment progress sends.
+
 ## [0.48.0] - 2026-10-09
 
 Wire revision 2026-10-09a.
