@@ -232,6 +232,7 @@ module Reach
         File.write(Reach::Paths.status_cache_file, JSON.generate(cache))
         Reach::Live.note_status(status)
         Reach::DueChanges.note(status)
+        Reach::Password.note_status!(status["password"], install)
 
         Reach::Enroll.update!(
           "signing_public_keys" => status["signing_public_keys"],

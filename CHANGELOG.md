@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-10-09
+
+Wire revision 2026-10-09a.
+
+### Added
+- Instructor-owned password reset. When the instructor presses Reset password in Teach, rEach picks the reset up from the status document, the reset state route or the verify answer, removes the local verifier at the next sign-in and asks for a new password twice (`M-LOGIN-RESET-REQUIRED`); cancel is refused while it is pending. The verifier now records Teach's `password_set_at` and is dropped when `state/login/password_state.json` contradicts it.
+- Partial enrollment tracking. After the course code is accepted rEach generates the install key at once and queues each enrollment step in `state/enroll/outbox.json`; `Reach::EnrollOutbox` (`lib/reach/enroll_outbox.rb`) opens an attempt and posts the steps from a detached process, signed with the provisional key and `X-Reach-Attempt` (W-AUTH-9). Enrollment sends `attempt_id`. No password is ever queued or sent.
+- `specs/wire.yml` revision 2026-10-09a: W-API-ENROLL-ATTEMPT-OPEN, W-API-ENROLL-ATTEMPT-STEP, W-AUTH-9, and changes to W-API-ENROLL, W-API-PASSWORD-VERIFY, W-API-PASSWORD-RESET-STATE, W-API-PASSWORD-RESET, W-API-STATUS and W-ID-5.
+
+### Changed
+- A 409 `password_not_set` no longer signs a student in; it requires a new password.
+- Messages that told a student to type forgot password or ask for an allowance now point to the instructor's Reset password button.
+
+### Removed
+- Every student self-service reset path: the forgot-password branch at sign-in, `reach login reset` as a way to start a reset, and the forgot-password words at enrollment steps (`M-LOGIN-RESET-BY-INSTRUCTOR` and `M-ENR-RESET-BY-INSTRUCTOR` answer instead). `M-LOGIN-RESET-ASK`, `M-LOGIN-RESET-ASK-TERMINAL` and `M-LOGIN-RENEW` are retired.
+
 ## [0.47.4] - 2026-10-09
 
 ### Fixed

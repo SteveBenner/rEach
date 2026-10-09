@@ -1,7 +1,8 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-06'
+recorded: '2026-10-09'
+revision: 2026-10-09a
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -89,6 +90,7 @@ request_authentication:
     X-Teach-Timestamp: W-CONV-3 timestamp of when the request was signed.
     X-Teach-Nonce: 32 lowercase hexadecimal characters, 16 bytes from a secure random source (SecureRandom.hex(16)), fresh for every attempt including retries.
     X-Teach-Signature: W-CONV-5 base64 of the W-CONV-6 RSA-PSS signature, by the install's private key, over the signed payload.
+    X-Reach-Attempt: "Since revision 2026-10-09a, only on POST /api/v1/enroll/attempts/{attempt_id}/steps (W-AUTH-9): the attempt id, sent in place of X-Teach-Install."
   W-AUTH-1:
     name: signed payload
     rule: >-
@@ -155,6 +157,19 @@ request_authentication:
       keeps the install's harness at the harness value of the last valid header, unless that value is terminal or
       unknown, so an install whose student moved rEach to another app shows the app in use rather than the one it
       enrolled from; this too is descriptive only.
+  W-AUTH-9:
+    name: attempt requests
+    since: 2026-10-09a
+    rule: >-
+      Since protocol 1 revision 2026-10-09a a request to POST /api/v1/enroll/attempts/{attempt_id}/steps (W-API-ENROLL-ATTEMPT-STEP)
+      is signed exactly as W-AUTH-1 to W-AUTH-5 describe, with two differences: the X-Teach-Install header is absent and
+      X-Reach-Attempt carries the attempt id in its place, and the private key is the provisional enrollment key whose
+      public half was sent when the attempt was opened (W-API-ENROLL-ATTEMPT-OPEN). Teach looks the attempt up by the
+      X-Reach-Attempt value, which must equal the attempt id in the path, verifies the signature against the attempt's
+      public_key and applies the same timestamp and nonce rules, recording nonces per attempt. An unknown attempt and a signature that
+      does not verify are both 401 unauthenticated. X-Reach-Version and X-Reach-Env travel as on
+      any signed request. The provisional key becomes the install key when the enrollment completes, so one keypair
+      signs the attempt's steps and, later, the install's requests.
   instructor_requests: >-
     Instructor API requests use the same scheme with X-Teach-Instructor in place of X-Teach-Install. Reach never sends
     them; the rule is recorded so both flows share one verifier.
@@ -632,9 +647,11 @@ routes:
       reach_version: {type: string}
       platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
       ruby_version: {type: string, note: RUBY_VERSION}
+      attempt_id: {type: string, required: false, note: "shape v2 only, since revision 2026-10-09a: the id from W-API-ENROLL-ATTEMPT-OPEN. When present, public_key_pem must equal the attempt's public_key (403 attempt_key_mismatch otherwise)"}
     response_200:
       install_id: string
       student_id: string
+      password_set_at: "shape v2 only, since 2026-10-09a, optional: W-CONV-3 timestamp of when the student's password was set by this enrollment or already stood; Reach stores it in the login verifier (W-ID-5)"
       course: {id: string, title: string, term: string, timezone: string}
       signing_public_keys: "[{key_id, pem}]"
       encryption_key: "{key_id, pem}"
@@ -653,6 +670,7 @@ routes:
       403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
       400 password_required: "shape v2, since 2026-10-01e: password is missing, not a string, shorter than 8 or longer than 256 characters; checked before the course code is looked up, and the message tells an older Reach to update and enroll again"
       403 password_wrong: "shape v2, since 2026-10-04d: the student already has a password, no reset is allowed and password does not match it (W-ID-5); checked after the roster match and before any device move, so nothing is stored; 5 within 15 minutes for one student answer 429 until the window passes"
+      403 attempt_key_mismatch: "shape v2, since 2026-10-09a: attempt_id names an attempt whose public_key differs from public_key_pem"
       429 rate_limited: "too many attempts"
     notes: >-
       Spelled /api/v1/enroll since protocol 1 revision 2026-09-29c. Since the same revision Teach compares reach_version
@@ -665,6 +683,54 @@ routes:
       request's, creates the install, stores the fingerprint and answers with a signed enrollment stamp. Teach keeps
       answering shape v1 until an operator retires per-student codes. Reach checks that response student_id equals
       the student_id it sent and refuses the enrollment (M-ENROLL-INCOMPLETE) when it does not.
+      Since revision 2026-10-09a a body may carry attempt_id (W-API-ENROLL-ATTEMPT-OPEN). On success Teach marks the
+      attempt step enrolled and records completed_at and the new install_id. A replay of the same body for a completed
+      attempt whose install is still active answers the original 200 shape for that install, with no second install and
+      no second audit record, so a response lost on the way back is safe to retry. The password is never part of an
+      attempt: only this route receives it.
+  - id: W-API-ENROLL-ATTEMPT-OPEN
+    method: POST
+    path: /api/v1/enroll/attempts
+    auth: none (rate limited per client IP with the same limiter class as W-API-ENROLL)
+    since: 2026-10-09a
+    request:
+      course_code: {type: string, note: "resolved and normalized exactly as W-API-ENROLL-PREVIEW does"}
+      public_key: {type: string, note: "PEM of the provisional key, the same format as public_key_pem in the W-API-ENROLL body"}
+      reach_version: string
+      harness: string
+      platform: {type: string, enum: [macos, windows, linux]}
+    response_201: {attempt_id: "\"att_\" + 24 lowercase hex characters", course_id: string}
+    response_200: "a second open with the same public_key returns the existing attempt in the same shape"
+    errors:
+      400 course_code_unknown: "as W-API-ENROLL-PREVIEW"
+      429 rate_limited: "too many attempts"
+    notes: >-
+      An attempt is the record of one enrollment in progress. It never carries a password and never creates or changes a
+      roster or student record. Teach keeps it so an instructor can see where a student stands; attempts not completed
+      after 14 days are hidden from the console, not deleted. Reach opens an attempt after the course code is accepted and
+      queues the call, so an unreachable Teach never delays the student.
+  - id: W-API-ENROLL-ATTEMPT-STEP
+    method: POST
+    path: /api/v1/enroll/attempts/{attempt_id}/steps
+    auth: "attempt (W-AUTH-9): W-AUTH-1 signed payload, X-Reach-Attempt in place of X-Teach-Install, the provisional key"
+    since: 2026-10-09a
+    request:
+      step: {type: string, enum: [username, student_id, confirmed, password_chosen]}
+      username: {type: string, required: false, note: "normalized and validated by the W-ENR-3 rules of the attempt's course"}
+      student_id: {type: string, required: false, note: "as username"}
+      at: {type: string, note: "W-CONV-3 timestamp of when the student reached the step"}
+    response_200: {attempt_id: string, step: string}
+    errors:
+      400 invalid_request: "a malformed body, or a username or student_id the W-ENR-3 rules refuse; the same errors as W-API-ENROLL"
+      401 unauthenticated: "no such attempt, the signature does not verify against the attempt's public_key, or the timestamp or nonce is refused"
+      409 attempt_completed: "the attempt already ended in an enrollment"
+    notes: >-
+      No password is ever sent on this route. Steps may arrive out of order or repeat; the attempt keeps the furthest
+      step in the fixed order code < username < student_id < confirmed < password_chosen < enrolled, together with the
+      latest username and student_id and a timestamp per step. When the username or student id resolves to a roster
+      student of the course, Teach records the match on the attempt. Reach queues every step locally before it asks the
+      next question and sends them in order from a background process, removing a step only after a 2xx; a 400 drops
+      that step, any other failure leaves it queued.
   - id: W-API-ENROLL-PREVIEW
     method: GET
     path: /api/v1/enrollment/preview
@@ -783,6 +849,11 @@ routes:
         Since 2026-10-03f. {session_id, state: "requested | offered | open", started_by: "student | instructor"} for
         the install's live session that is not closed (W-LIVE-1), or null. Absent from an older Teach and from a Teach
         with live sessions switched off, which Reach reads as null.
+      password: >-
+        Since 2026-10-09a. {pending: boolean, password_set_at: "W-CONV-3 timestamp or null"}: whether an instructor reset
+        is waiting for this install's student (W-API-PASSWORD-RESET-STATE) and when the current password was set. Absent
+        from an older Teach, which Reach reads as no information. Reach stores the block in
+        state/login/password_state.json (W-ID-5).
   - id: W-API-PACKAGE
     method: GET
     path: /api/v1/packages/:kind
@@ -985,10 +1056,10 @@ routes:
       password: {type: string, minLength: 8, maxLength: 256, note: "what the student typed at sign-in, trimmed (W-ID-5)"}
     response_200:
       verified: "true"
-      password_set_at: W-CONV-3 timestamp of when the password was set
+      password_set_at: "W-CONV-3 timestamp of when the password was set; Reach stores it in the login verifier (W-ID-5)"
     errors:
       403: password_wrong when it does not match the stored hash
-      409: password_not_set when the install's student has no password (enrolled before 2026-10-01e); Reach then signs the student in without one
+      409: "password_not_set when the install's student has no password, including after an instructor reset; since 2026-10-09a details is {pending: boolean}, true while an instructor reset is waiting for Reach to pick it up. Reach does not sign the student in on this answer: it requires a new password (W-ID-5)"
       429: rate_limited after 5 wrong passwords for one student within 15 minutes, counted together with enrollment's
     notes: >-
       Teach compares against its scrypt hash and stores nothing. The password is never logged, audited or returned;
@@ -999,9 +1070,17 @@ routes:
     auth: install
     since: 2026-10-04d
     response_200:
-      allowed: boolean, whether an instructor has allowed this student to choose a new password and the allowance has not run out or been used
-      expires_at: W-CONV-3 timestamp or null
+      allowed: "boolean; since 2026-10-09a true when pending, when the student has no password, or while a legacy allowance is open"
+      pending: "boolean, since 2026-10-09a: an instructor pressed Reset password in Teach and the student has not yet chosen the new password"
+      requested_at: "W-CONV-3 timestamp of the instructor's press, or null, since 2026-10-09a"
       password_set: boolean
+      password_set_at: "W-CONV-3 timestamp of when the current password was set, or null, since 2026-10-09a"
+      expires_at: "W-CONV-3 timestamp or null; only for a legacy allowance (an allowance opened before 2026-10-09a that has not run out)"
+    notes: >-
+      Since revision 2026-10-09a the only way a reset becomes allowed is the instructor's Reset password button in Teach,
+      which clears the stored password at once and leaves the reset pending until the student chooses a new one. There
+      is no student-initiated reset. Reach reads pending here, from the W-API-STATUS password block and from the 409 of
+      W-API-PASSWORD-VERIFY, and keeps it until its own W-API-PASSWORD-RESET succeeds.
   - id: W-API-PASSWORD-RESET
     method: POST
     path: /api/v1/password/reset
@@ -1010,14 +1089,16 @@ routes:
     request:
       password: {type: string, minLength: 8, maxLength: 256, note: "the new password the student chose, typed twice, trimmed"}
     response_200:
-      password_set_at: W-CONV-3 timestamp
+      password_set_at: "W-CONV-3 timestamp; since 2026-10-09a it is also the value Reach stores in the login verifier"
     errors:
       400: password_required when it is missing or not 8 to 256 characters
-      403: password_reset_not_allowed when no allowance is open for the student
+      403: "password_reset_not_allowed when the student has a password, no instructor reset is pending and no legacy allowance is open"
     notes: >-
-      Replaces the stored hash and uses up the allowance in one transaction. An instructor opens an allowance for one
-      student, for 24 hours, and may cancel it; opening, cancelling and using it are each audited. There is no way to
-      read a password back: recovery is always a new password.
+      Replaces the stored hash in one transaction when a reset is pending, when the student has no password, or while a
+      legacy allowance is still open. An instructor presses Reset password in Teach for one student; pressing, and using
+      it, are each audited. Allowances of 24 hours that an instructor opened before revision 2026-10-09a are honored
+      until they expire and are never created again. There is no way to read a password back: recovery is always a new
+      password.
   - id: W-API-EXTRA-CREDIT-LIST
     method: GET
     path: /api/v1/extra-credit
@@ -2383,16 +2464,37 @@ alignment:
       failure like a wrong id (M-LOGIN-PASSWORD-WRONG) and counts toward the same lockout. The password is never
       written to disk, a transcript, the microbrain, a debug event or a log; every prompt of these steps is blocked,
       so the agent never sees it.
-      A forgot-password prompt (after W-ID-4 normalizing: forgot, forgot password, forgot my password, i forgot, i
-      forgot it, i forgot my password, reset, reset password, reset my password) in awaiting_password asks
-      W-API-PASSWORD-RESET-STATE. Not allowed: M-LOGIN-RESET-ASK, which tells the student to ask their instructor.
-      Allowed: awaiting_new_password (M-LOGIN-RESET-NEW) -> awaiting_new_password_again (M-LOGIN-RESET-AGAIN), under
-      the W-ENR-7 rules for length, the salted digest held between the two prompts and a mismatch; cancel, go back
-      or back returns to awaiting_password. The matching second entry posts W-API-PASSWORD-RESET, writes the verifier
-      and confirms the session (M-LOGIN-RESET-OK). Nobody, Teach and the instructors included, can read a password
-      back; a student who forgot it always chooses a new one.
-      Enrollment: since the same revision W-API-ENROLL requires the existing password when the student already has
-      one, and sets a new one only for a student who has none or for whom a reset is allowed.
+      No student self-service (since revision 2026-10-09a). A student has no way to start a password reset. A
+      forgot-password prompt (after W-ID-4 normalizing: forgot, forgot password, forgot my password, i forgot, i forgot
+      it, i forgot my password, reset, reset password, reset my password) at the sign-in password prompt answers
+      M-LOGIN-RESET-BY-INSTRUCTOR and leaves the session unchanged, and the same words at any enrollment step answer
+      M-ENR-RESET-BY-INSTRUCTOR plus the current question and leave the enrollment state unchanged, so the words are
+      never read as an email or an id. The reset is the instructor's: Reset password in Teach clears the stored
+      password and marks the reset pending (W-API-PASSWORD-RESET-STATE).
+      Pickup. Reach learns the pending reset from the W-API-STATUS password block (stored in
+      ~/.reach/state/login/password_state.json, 0600: {install_id, pending, password_set_at, at}), from
+      W-API-PASSWORD-RESET-STATE asked once when the student answers yes in awaiting_confirm, and from the 409 of
+      W-API-PASSWORD-VERIFY. When any of them says pending, Reach removes verifier.json and moves the session to
+      awaiting_new_password with M-LOGIN-RESET-REQUIRED (a Hermes chat is sent to the terminal instead);
+      awaiting_new_password -> awaiting_new_password_again (M-LOGIN-RESET-AGAIN) follow the W-ENR-7 rules for length, the
+      salted digest held between the two prompts and a mismatch. Cancel, go back and back are refused while the reset
+      is pending. Reaching Teach later never clears pending locally: only a successful W-API-PASSWORD-RESET does (or a
+      403 password_reset_not_allowed, which means the reset no longer exists). The matching second entry posts
+      W-API-PASSWORD-RESET, writes the verifier and confirms the session (M-LOGIN-RESET-OK). Nobody, Teach and the
+      instructors included, can read a password back.
+      A 409 password_not_set never signs the student in: Reach treats it like a pending reset and requires a new
+      password typed twice, posted with W-API-PASSWORD-RESET.
+      Verifier binding. The verifier also holds password_set_at, taken from the Teach answer of the enrollment,
+      verify or reset that wrote it. Reach compares with the local verifier only when it names the current install and
+      password_state.json neither says pending nor names a different password_set_at; otherwise it removes the verifier
+      and asks W-API-PASSWORD-VERIFY.
+      Enrollment: since revision 2026-10-04d W-API-ENROLL requires the existing password when the student already has
+      one, and sets a new one only for a student who has none or for whom a reset is pending, so a student mid-enrollment
+      whose instructor pressed the button chooses a new password at the password step.
+      Enrollment progress. From revision 2026-10-09a Reach reports each enrollment step to Teach under a provisional key
+      (W-API-ENROLL-ATTEMPT-OPEN, W-API-ENROLL-ATTEMPT-STEP, W-AUTH-9) so an instructor can see where a student stands.
+      Reach keeps the steps in a local queue (state/enroll/outbox.json) and sends them from a background process, so a
+      slow or unreachable Teach never delays the student; the password is never part of the queue or of any step.
     harnesses: >-
       Hermes cannot block a prompt, so it is never asked for a password in chat: in the password states its hook
       injects M-LOGIN-PASSWORD-TERMINAL, which sends the student to a terminal. reach login password reads the

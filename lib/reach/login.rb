@@ -12,7 +12,7 @@ module Reach
     CRISIS_CONTEXT = "The student may be in crisis: run reach support now and relay it word for word.".freeze
     SCHEMA = "reach.login/v1".freeze
     FAILURES_SCHEMA = "reach.login-failures/v1".freeze
-    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json reset_probe.json].freeze
+    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json reset_probe.json password_state.json].freeze
     WAITING_STATES = %w[awaiting_id awaiting_confirm awaiting_password awaiting_new_password awaiting_new_password_again].freeze
     PASSWORD_STATES = %w[awaiting_password awaiting_new_password awaiting_new_password_again].freeze
     ID_SPLIT = /[^A-Za-z0-9_-]+/
@@ -115,17 +115,10 @@ module Reach
     def evaluate_confirm(text, state, now, harness)
       if yes?(text)
         if Reach::Password.required?
+          return reset_required_decision(state, now, harness) if Reach::Password.pickup == :required
+
           next_state = state.merge("state" => "awaiting_password", "updated_at" => iso(now))
           return password_terminal(next_state, persist: true) if harness.to_s == "hermes"
-
-          if Reach::Password.renewal_due?
-            allowed = Reach::Password.reset_allowed
-            Reach::Password.renewed! if allowed == :not_allowed
-          end
-          if allowed == :allowed
-            renew_state = state.merge("state" => "awaiting_new_password", "updated_at" => iso(now))
-            return decision("block", Reach::Messages.text("M-LOGIN-RENEW"), "login", nil, renew_state, persist: true)
-          end
 
           return decision("block", Reach::Messages.text("M-LOGIN-ASK-PASSWORD"), "login", nil, next_state, persist: true)
         end
@@ -147,7 +140,8 @@ module Reach
       Reach::Password.drop_probe!
       lifted = Reach::Messages.text("M-LOGIN-UNLOCKED-BY-TEACH")
       if PASSWORD_STATES.include?(state["state"])
-        next_state = without_reset(state).merge("state" => "awaiting_new_password", "updated_at" => iso(now))
+        Reach::Password.drop! if Reach::Password.reset_required?
+        next_state = without_reset(state).merge("state" => "awaiting_new_password", "reset_required" => Reach::Password.reset_required?, "updated_at" => iso(now))
         prompt = if harness.to_s == "hermes"
           Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
         else
@@ -175,8 +169,22 @@ module Reach
       Reach::Messages.text("M-LOGIN-UNLOCKED-BY-TEACH")
     end
 
+    def reset_required_decision(state, now, harness)
+      Reach::Password.drop!
+      next_state = without_reset(state).merge("state" => "awaiting_new_password", "reset_required" => true, "updated_at" => iso(now))
+      text = harness.to_s == "hermes" ? Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password")) : Reach::Messages.text("M-LOGIN-RESET-REQUIRED")
+      decision("block", text, "login", nil, next_state, persist: true)
+    end
+
+    def require_reset_sessions(states, now)
+      Reach::Password.drop!
+      states.each do |held|
+        write_session(held["session_id"], without_reset(held).merge("state" => "awaiting_new_password", "reset_required" => true, "updated_at" => iso(now)))
+      end
+    end
+
     def confirmed_session_state(state, now)
-      without_reset(state).merge(
+      without_reset(state).reject { |key, _| key == "reset_required" }.merge(
         "state" => "confirmed", "confirmed_at" => precise(now), "expires_at" => iso(now + (max_hours * 3600)),
         "updated_at" => iso(now)
       )
@@ -218,19 +226,13 @@ module Reach
 
     def evaluate_password(text, state, failures, window, now, harness)
       if Reach::Password.forgot?(text)
-        case Reach::Password.reset_allowed
-        when :allowed
-          next_state = state.merge("state" => "awaiting_new_password", "updated_at" => iso(now))
-          return decision("block", Reach::Messages.text("M-LOGIN-RESET-NEW"), "login", nil, next_state, persist: true)
-        when :not_allowed
-          return decision("block", Reach::Messages.text("M-LOGIN-RESET-ASK"), "login", nil, state, persist: false)
-        else
-          return decision("block", Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE"), "login", nil, state, persist: false)
-        end
+        return decision("block", Reach::Messages.text("M-LOGIN-RESET-BY-INSTRUCTOR"), "login", nil, state, persist: false)
       end
+      return reset_required_decision(state, now, harness) if Reach::Password.reset_required?
 
       case Reach::Password.check(Reach::Password.trimmed(text))
-      when :ok, :unset then confirm(state, now, "M-LOGIN-OK")
+      when :ok then confirm(state, now, "M-LOGIN-OK")
+      when :unset then reset_required_decision(state, now, harness)
       when :wrong then failed(state, failures, window, now, harness, "M-LOGIN-PASSWORD-WRONG")
       when :limited then decision("block", Reach::Messages.text("M-LOGIN-LOCKED", minutes: lockout_minutes), "login", nil, state, persist: false)
       else decision("block", Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE"), "login", nil, state, persist: false)
@@ -239,6 +241,10 @@ module Reach
 
     def evaluate_new_password(text, state, now)
       if Reach::Password.cancel?(text)
+        if state["reset_required"] || Reach::Password.reset_required?
+          return decision("block", Reach::Messages.text("M-LOGIN-RESET-REQUIRED"), "login", nil, state, persist: false)
+        end
+
         next_state = without_reset(state).merge("state" => "awaiting_password", "updated_at" => iso(now))
         return decision("block", Reach::Messages.text("M-LOGIN-ASK-PASSWORD"), "login", nil, next_state, persist: true)
       end
@@ -265,7 +271,7 @@ module Reach
       when :ok then confirm(state, now, "M-LOGIN-RESET-OK")
       when :not_allowed
         back = without_reset(state).merge("state" => "awaiting_password", "updated_at" => iso(now))
-        decision("block", Reach::Messages.text("M-LOGIN-RESET-ASK"), "login", nil, back, persist: true)
+        decision("block", Reach::Messages.text("M-LOGIN-RESET-BY-INSTRUCTOR"), "login", nil, back, persist: true)
       else decision("block", Reach::Messages.text("M-LOGIN-RESET-OFFLINE"), "login", nil, again, persist: true)
       end
     end
@@ -280,7 +286,10 @@ module Reach
       return [false, Reach::Messages.text("M-LOGIN-TERMINAL-NONE")] if waiting.empty?
 
       case Reach::Password.check(Reach::Password.trimmed(password))
-      when :ok, :unset
+      when :unset
+        require_reset_sessions(waiting, now)
+        [false, Reach::Messages.text("M-LOGIN-RESET-REQUIRED")]
+      when :ok
         waiting.each do |state|
           out = confirm(state, now, "M-LOGIN-OK")
           write_session(state["session_id"], out["state"])
@@ -312,7 +321,11 @@ module Reach
       end
 
       case Reach::Password.check(Reach::Password.trimmed(password))
-      when :ok, :unset
+      when :unset
+        held = fresh_state(sid, "cli").merge("session_id" => sid)
+        require_reset_sessions([held], now)
+        [false, Reach::Messages.text("M-LOGIN-RESET-REQUIRED")]
+      when :ok
         sign_in_session(sid, "cli")
         clear_failures
         Reach::Progress.mark("setup.signin")
@@ -330,9 +343,11 @@ module Reach
       waiting = sessions.select { |state| PASSWORD_STATES.include?(state["state"]) }
       return [:none, Reach::Messages.text("M-LOGIN-TERMINAL-NONE")] if waiting.empty?
 
+      return [:allowed, lift_lockout_for_reset] if Reach::Password.reset_required?
+
       case Reach::Password.reset_allowed
       when :allowed then [:allowed, lift_lockout_for_reset]
-      when :not_allowed then [:refused, Reach::Messages.text("M-LOGIN-RESET-ASK-TERMINAL")]
+      when :not_allowed then [:refused, Reach::Messages.text("M-LOGIN-RESET-BY-INSTRUCTOR")]
       else [:refused, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
       end
     end
@@ -349,7 +364,7 @@ module Reach
         clear_failures
         Reach::Progress.mark("setup.signin")
         [true, Reach::Messages.text("M-LOGIN-TERMINAL-RESET-OK")]
-      when :not_allowed then [false, Reach::Messages.text("M-LOGIN-RESET-ASK-TERMINAL")]
+      when :not_allowed then [false, Reach::Messages.text("M-LOGIN-RESET-BY-INSTRUCTOR")]
       else [false, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
       end
     end

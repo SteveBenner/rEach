@@ -55,10 +55,43 @@ module Reach
       File.join(Reach::Login.state_dir, "renewed.json")
     end
 
-    def renewal_due?
-      !File.file?(renewed_file)
+    def state_file
+      File.join(Reach::Login.state_dir, "password_state.json")
+    end
+
+    def read_state(install = Reach::Enroll.current)
+      data = Reach::Login.read_json(state_file)
+      return nil unless install && data.is_a?(Hash) && data["install_id"] == install["install_id"]
+
+      data
     rescue StandardError
-      false
+      nil
+    end
+
+    def note_state!(pending:, password_set_at:, install: Reach::Enroll.current, sticky: true)
+      return nil unless install
+
+      prior = read_state(install)
+      held = sticky && prior && prior["pending"] == true
+      Reach::Login.write_json(
+        state_file,
+        "install_id" => install["install_id"], "pending" => (pending == true || held ? true : false),
+        "password_set_at" => password_set_at.nil? ? (prior && prior["password_set_at"]) : password_set_at,
+        "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+      )
+    rescue StandardError
+      nil
+    end
+
+    def note_status!(block, install = Reach::Enroll.current)
+      return nil unless block.is_a?(Hash)
+
+      note_state!(pending: block["pending"] == true, password_set_at: block["password_set_at"], install: install)
+    end
+
+    def reset_required?(install = Reach::Enroll.current)
+      state = read_state(install)
+      !state.nil? && state["pending"] == true
     end
 
     def renewed!
@@ -71,14 +104,15 @@ module Reach
       OpenSSL::PKCS5.pbkdf2_hmac(password, salt, iterations, LENGTH, OpenSSL::Digest::SHA256.new).unpack1("H*")
     end
 
-    def store!(password, install = Reach::Enroll.current)
+    def store!(password, install = Reach::Enroll.current, password_set_at: nil)
       return nil unless install
 
       salt = SecureRandom.hex(16)
       Reach::Login.write_json(
         verifier_file,
         "schema" => SCHEMA, "student_id" => install["student_id"], "install_id" => install["install_id"],
-        "salt" => salt, "iterations" => ITERATIONS, "digest" => derive(password, salt, ITERATIONS)
+        "salt" => salt, "iterations" => ITERATIONS, "digest" => derive(password, salt, ITERATIONS),
+        "password_set_at" => password_set_at
       )
       renewed!
     rescue StandardError
@@ -99,9 +133,21 @@ module Reach
       nil
     end
 
+    def contradicted?(held, install = Reach::Enroll.current)
+      state = read_state(install)
+      return false unless state
+      return true if state["pending"] == true
+
+      !state["password_set_at"].nil? && state["password_set_at"] != held["password_set_at"]
+    end
+
     def check(password)
       install = Reach::Enroll.current
       held = stored(install)
+      if held && contradicted?(held, install)
+        drop!
+        held = nil
+      end
       if held
         actual = derive(password, held["salt"], held["iterations"].to_i)
         return Reach::EnrollFlow.digest_equal?(actual, held["digest"]) ? :ok : :wrong
@@ -119,13 +165,17 @@ module Reach
     end
 
     def remote_check(password, install)
-      client(install).post_json(VERIFY_ROUTE, { "password" => password })
-      store!(password, install)
+      body = client(install).post_json(VERIFY_ROUTE, { "password" => password }).json
+      set_at = body.is_a?(Hash) ? body["password_set_at"] : nil
+      store!(password, install, password_set_at: set_at)
+      note_state!(pending: false, password_set_at: set_at, install: install, sticky: false)
       :ok
     rescue Reach::RemoteRefused => e
       case e.code
       when "password_wrong" then :wrong
-      when "password_not_set" then :unset
+      when "password_not_set"
+        note_state!(pending: true, password_set_at: nil, install: install) if e.details.is_a?(Hash) && e.details["pending"] == true
+        :unset
       when "rate_limited" then :limited
       else :offline
       end
@@ -133,11 +183,24 @@ module Reach
       :offline
     end
 
-    def reset_allowed
+    def reset_state
       body = client(Reach::Enroll.current).get(RESET_ROUTE).json
-      body.is_a?(Hash) && body["allowed"] == true ? :allowed : :not_allowed
+      return :offline unless body.is_a?(Hash)
+
+      note_state!(pending: body["pending"] == true, password_set_at: body["password_set_at"])
+      body
     rescue Reach::Error
       :offline
+    end
+
+    def reset_answer(state)
+      return :offline unless state.is_a?(Hash)
+
+      state["allowed"] == true || state["pending"] == true || state["password_set"] == false ? :allowed : :not_allowed
+    end
+
+    def reset_allowed
+      reset_answer(reset_state)
     end
 
     def probe_file
@@ -171,13 +234,32 @@ module Reach
       :offline
     end
 
+    def pickup
+      install = Reach::Enroll.current
+      return :clear unless install
+
+      reset_state
+      required = reset_required?(install)
+      drop! if required
+      required ? :required : :clear
+    rescue StandardError
+      :clear
+    end
+
     def reset!(password)
       install = Reach::Enroll.current
-      client(install).post_json(RESET_ROUTE, { "password" => password })
-      store!(password, install)
+      body = client(install).post_json(RESET_ROUTE, { "password" => password }).json
+      set_at = body.is_a?(Hash) ? body["password_set_at"] : nil
+      store!(password, install, password_set_at: set_at)
+      note_state!(pending: false, password_set_at: set_at, install: install, sticky: false)
       :ok
     rescue Reach::RemoteRefused => e
-      e.code == "password_reset_not_allowed" ? :not_allowed : :offline
+      if e.code == "password_reset_not_allowed"
+        note_state!(pending: false, password_set_at: nil, install: install, sticky: false)
+        :not_allowed
+      else
+        :offline
+      end
     rescue Reach::Error
       :offline
     end

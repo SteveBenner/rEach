@@ -27,7 +27,7 @@ module Reach
       body
     end
 
-    def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, password:, key: nil, fingerprint: nil)
+    def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, password:, key: nil, fingerprint: nil, attempt_id: nil)
       identity = { "course_code" => course_code, "username" => username, "student_id" => student_id }
       pending = key ? nil : load_pending(identity)
       key, fingerprint = pending[:key], pending[:fingerprint] if pending
@@ -47,6 +47,7 @@ module Reach
         "platform" => platform,
         "ruby_version" => RUBY_VERSION
       }
+      body_fields["attempt_id"] = attempt_id unless attempt_id.to_s.empty?
 
       begin
         response = post_enroll(flow_client(teach_url), body_fields)
@@ -87,7 +88,8 @@ module Reach
       Reach::Fingerprint.clear_cache!
       Reach::EnrollmentLock.clear_moved!
       clear_pending
-      Reach::Password.store!(password, current)
+      Reach::Password.store!(password, current, password_set_at: body["password_set_at"])
+      Reach::Password.note_state!(pending: false, password_set_at: body["password_set_at"], install: current, sticky: false)
       write_notice(body)
       announce_sidecar(current)
       Reach::Subscribe.spawn_ensure
