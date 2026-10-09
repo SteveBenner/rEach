@@ -61,6 +61,7 @@ promotion:
       - { id: G-SOAK, builtin: soaked, env: test, hours: 24 }
       - { id: G-RCHECK, run: "$HOME/.rplugin/bin/rplugin check reach", pass: exit_zero, hermetic: false }
       - { id: G-RDOCTOR, run: "$HOME/.rplugin/bin/rplugin doctor reach", pass: exit_zero, hermetic: false }
+    after: ["polispec deploy {project} canary --tag v{VERSION}"]
 hermetic:
   test:
     isolate: [RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME, REACH_WORKSPACE_ROOT]

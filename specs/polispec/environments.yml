@@ -52,4 +52,4 @@ environments:
     data_classes: [operational]
     deploy:
       steps: []
-      health: { run: "ruby tools/platform_smoke/run.rb --leg stable" }
+      health: { run: "ruby tools/platform_smoke/run.rb --leg canary" }
