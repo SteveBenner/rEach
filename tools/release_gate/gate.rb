@@ -17,7 +17,7 @@ module ReleaseGate
     RUNS_ROUTE = "/api/v1/ops/release-gate/runs".freeze
     OVERRIDES_ROUTE = "/api/v1/ops/release-gate/overrides".freeze
     USAGE = <<~TEXT.freeze
-      usage: ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z] [--no-security]
+      usage: ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z] [--no-security] [--as-push]
              ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks ID,ID]
              ruby tools/release_gate/gate.rb overrides
              ruby tools/release_gate/gate.rb hold stable --reason TEXT [--hours N]
@@ -168,7 +168,7 @@ module ReleaseGate
       end.join("\n") + "\n"
     end
 
-    def run_release(repo, release, security:, record:)
+    def run_release(repo, release, security:, record:, as_push: false)
       started = Time.now
       commit = SecurityAuditGate.git("rev-parse", "#{release[:sha]}^{commit}") || release[:sha]
       tree = SecurityAuditGate.git("rev-parse", "#{commit}^{tree}") || commit
@@ -198,20 +198,20 @@ module ReleaseGate
       override = nil
       lease = nil
       lease = Lease.active(repo.name) if %w[blocked error].include?(status)
-      if lease && record
+      if lease && (record || as_push)
         status = "leased"
-      elsif %w[blocked error].include?(status) && record
+      elsif %w[blocked error].include?(status) && (record || as_push)
         override = Override.covering(repo, decision[:ids])
         if override
           status = "overridden"
-          Override.consume!(repo, override, "release_version" => release[:version], "commit" => commit, "trigger" => release[:trigger], "at" => Override.stamp)
+          Override.consume!(repo, override, "release_version" => release[:version], "commit" => commit, "trigger" => release[:trigger], "at" => Override.stamp) if record
         end
       end
       duration = (Time.now - started).round
       run = {
         "repo" => repo.name, "release_version" => release[:version].to_s, "commit" => commit, "tree" => tree, "trigger" => release[:trigger],
         "status" => status, "findings" => findings.first(200).map { |row| row.reject { |key, _| key == "clear" } },
-        "override_id" => override && override["id"], "lease_id" => record && lease ? lease["id"] : nil, "duration_s" => duration,
+        "override_id" => override && override["id"], "lease_id" => status == "leased" ? lease["id"] : nil, "duration_s" => duration,
         "error" => findings.select { |row| row["severity"] == "error" }.map { |row| row["detail"] }.first(5).join("; ").then { |text| text.empty? ? nil : text[0, 2000] }
       }
       report_md = report(repo, release, run, findings, settings)
@@ -220,7 +220,8 @@ module ReleaseGate
       run_id = record ? SecurityAuditGate.post_run(run, RUNS_ROUTE) : nil
       say("#{status}#{override ? " (override #{override['id']})" : ''}#{status == 'leased' ? " (lease #{lease['id']} until #{lease['expires_at']})" : ''}: #{counts(findings).empty? ? 'no findings' : counts(findings).map { |s, n| "#{n} #{s}" }.join(', ')}")
       findings.select { |row| blocking?(row, block_at) }.each { |row| say("#{row['severity']} #{row['id']}: #{row['title']}") }
-      say("a lease (#{lease['id']} until #{lease['expires_at']}) would let this push through; nothing is recorded") if lease && !record
+      say("a lease (#{lease['id']} until #{lease['expires_at']}) would let this push through; nothing is recorded") if lease && !record && !as_push
+      say("override #{override['id']} would let this push through; the push consumes it, this check does not") if override && !record
       say("report #{report_path}")
       say("run #{repo.teach_url}/console/ops (#{run_id})") if run_id
       if record
@@ -250,7 +251,7 @@ module ReleaseGate
       branch = SecurityAuditGate.git("rev-parse", "--abbrev-ref", "HEAD")
       release = { sha: sha, trigger: tag ? "tag" : "version", version: version, tag: tag, branch: branch }
       say("dry run of #{repo.name} #{version} at #{sha[0, 12]}; nothing is recorded")
-      code = run_release(repo, release, security: !argv.include?("--no-security"), record: false)
+      code = run_release(repo, release, security: !argv.include?("--no-security"), record: false, as_push: argv.include?("--as-push"))
       report = Dir.glob(File.join(repo.state_dir, "reports", "#{version}-*-gate.md")).max_by { |path| File.mtime(path) }
       puts File.read(report) if report
       code

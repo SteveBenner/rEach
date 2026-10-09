@@ -53,6 +53,7 @@ hook:
     ignored and says so. The instructor's override below is the one way through a block.
 commands:
   - ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z] [--no-security]   dry run of every check against a commit; prints the findings and the verdict, records nothing
+  - ruby tools/release_gate/gate.rb check ... --as-push                                   the same dry run, exiting as the push would: zero when an active lease or a covering override would let the push through; it consumes no override, so the push that follows consumes it
   - ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks IDS]    the instructor's one-push override, at an interactive terminal only
   - ruby tools/release_gate/gate.rb overrides                                             the active override records
   - ruby tools/release_gate/gate.rb hold stable --reason TEXT [--hours N]                 a recorded reason for stable to stay behind Latest (an override whose checks are [VER-STABLE])

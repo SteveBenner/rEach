@@ -392,7 +392,7 @@ A release push (a tag `v*`, or a branch whose `VERSION` changes) runs `tools/rel
 `.githooks/pre-push`. `tools/release_gate/install` sets `core.hooksPath` and prints the token steps: a Teach service
 token minted for the release gate at `~/.config/release-gate/reach/token` (mode 0600) or
 `RELEASE_GATE_TOKEN`, and Teach's address from `config.yml` `teach.url` or `TEACH_URL`. `specs/release_gate.yml` names
-every check. `ruby tools/release_gate/gate.rb check` is the dry run. There is no skip switch; the instructor's
+every check. `ruby tools/release_gate/gate.rb check` is the dry run; with `--as-push` it exits as the push would, passing when a lease or a covering override would let the push through without consuming the override. There is no skip switch; the instructor's
 one-push override is `ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks ID,ID]`, typed on
 a terminal and recorded on Teach. A lease is the other way through: with a lease source in
 `~/.config/release-gate/lease_source.yml`, a push that would block passes while a valid, unexpired lease for this

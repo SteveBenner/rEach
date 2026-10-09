@@ -1688,6 +1688,9 @@ Since 0.47.1 INST-FLAP skips the gate's own `release_gate:*` and `release_gate_o
 so a refused push no longer keeps the gate refusing for 24 hours. Checked on 2026-10-08 in process with the live
 flapping facts: the gate's own alarms (8 and 7 openings) produced no finding, and `doctor` (3 openings) still did.
 Teach's pinned copies of `checks.rb` and `specs/release_gate.yml` still need re-pinning.
+Since 0.47.2 `gate.rb check --as-push` exits as the push would: zero when an active lease or a covering override would
+let the push through, consuming nothing. Polispec's G-GATE runs it, because a plain `check` ignored every override and
+lease, so no override could unblock `polispec promote` while fleet-state findings (CMP-INSTALLS, KNOWN-ALARM) stood.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 

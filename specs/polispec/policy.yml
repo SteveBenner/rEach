@@ -46,7 +46,7 @@ promotion:
     release: { github_prerelease: true }
     drift: "main must contain stable's tip (operator hotfix back-merge) or promotion is denied"
     gates:
-      - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION}", pass: exit_zero }
+      - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
       - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero }
       - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
@@ -59,7 +59,7 @@ promotion:
     fast_forward_only: true
     phrase: "promote {project} to stable"
     gates:
-      - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION}", pass: exit_zero }
+      - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
       - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero }
       - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
