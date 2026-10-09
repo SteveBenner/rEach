@@ -31,6 +31,12 @@ module ReachInstall
   LOG_FAILURES_KEPT = 10
   LOG_LOCK_WAIT_S = 2.0
 
+  class CommitMismatch < StandardError
+  end
+
+  COMMIT_SHA = /\A(?:\h{40}|\h{64})\z/.freeze
+  ARCHIVE_REF_URL = %r{\Ahttps://([^/]+)/([^/]+)/([^/]+)/archive/refs/(tags|heads)/([^/]+)\.zip\z}.freeze
+
   class << self
     def run(argv)
       log_begin(argv)
@@ -54,7 +60,12 @@ module ReachInstall
       FileUtils.mkdir_p(parent)
 
       Dir.mktmpdir("reach-install-", parent) do |temp|
-        reach_root = stage(url: options[:url], temp: temp, archive: options[:archive], revision: options[:revision])
+        url = options[:url]
+        commit = options[:commit]
+        if !options[:archive] && commit.nil?
+          url, commit = resolve_pin(url, temp)
+        end
+        reach_root = stage(url: url, temp: temp, archive: options[:archive], revision: options[:revision], commit: commit)
         install(reach_root, destination)
       end
       record_destination(destination)
@@ -67,11 +78,12 @@ module ReachInstall
       1
     end
 
-    def stage(url:, temp:, archive: nil, revision: nil)
+    def stage(url:, temp:, archive: nil, revision: nil, commit: nil)
       raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !archive
 
       FileUtils.mkdir_p(temp)
       reach_archive = archive || download(url, temp, "reach.zip")
+      verify_archive_commit(reach_archive, commit) if commit
       reach_root = logged_extract(reach_archive, File.join(temp, "reach"))
       revision_value = read_revision(revision || File.join(reach_root, "dovetail-revision.txt"))
       dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision_value}.zip"
@@ -498,11 +510,75 @@ module ReachInstall
       OptionParser.new do |parser|
         parser.on("--archive PATH") { |value| options[:archive] = File.expand_path(value) }
         parser.on("--url URL") { |value| options[:url] = value }
+        parser.on("--commit SHA") { |value| options[:commit] = value.strip.downcase }
         parser.on("--destination PATH") { |value| options[:destination] = value }
         parser.on("--dovetail-revision PATH") { |value| options[:revision] = File.expand_path(value) }
       end.parse!(argv)
       raise "--archive does not exist: #{options[:archive]}" if options[:archive] && !File.file?(options[:archive])
+      raise "--commit must be a full commit id" if options[:commit] && !options[:commit].match?(COMMIT_SHA)
       options
+    end
+
+    def resolve_pin(url, temp)
+      match = ARCHIVE_REF_URL.match(url.to_s)
+      raise "cannot pin #{url} to a commit; give an archive/refs/tags or archive/refs/heads URL or pass --commit" unless match
+
+      host, owner, repo, kind, name = match.captures
+      refs_url = "https://#{host}/#{owner}/#{repo}.git/info/refs?service=git-upload-pack"
+      body = File.binread(download(refs_url, temp, "refs"))
+      commit = ref_commit(body, kind == "tags" ? name : nil, kind == "heads" ? name : nil)
+      raise "#{kind == 'tags' ? 'tag' : 'branch'} #{name} was not found in #{owner}/#{repo}" unless commit
+
+      [ "https://#{host}/#{owner}/#{repo}/archive/#{commit}.zip", commit ]
+    end
+
+    def ref_commit(body, tag, branch)
+      data = body.to_s.dup.force_encoding(Encoding::BINARY)
+      refs = {}
+      position = 0
+      while position + 4 <= data.bytesize
+        length = data.byteslice(position, 4).to_i(16)
+        if length.zero?
+          position += 4
+          next
+        end
+        break if length < 4
+
+        line = data.byteslice(position + 4, length - 4).to_s.sub(/\0.*\z/m, "").chomp
+        sha, name = line.split(" ", 2)
+        refs[name.strip] = sha.downcase if sha && name && sha.match?(COMMIT_SHA)
+        position += length
+      end
+      found = tag ? (refs["refs/tags/#{tag}^{}"] || refs["refs/tags/#{tag}"]) : refs["refs/heads/#{branch}"]
+      found
+    end
+
+    def verify_archive_commit(archive, commit)
+      expected = commit.to_s.downcase
+      raise CommitMismatch, "no commit id to verify the archive against" unless expected.match?(COMMIT_SHA)
+
+      began = log_clock
+      size = File.size(archive)
+      tail = File.open(archive, "rb") do |file|
+        file.seek([size - 65_557, 0].max)
+        file.read
+      end
+      index = tail.bytesize - 22
+      comment = nil
+      while index >= 0
+        index = tail.rindex("PK\x05\x06".b, index)
+        break unless index
+
+        if index + 22 <= tail.bytesize && tail.byteslice(index + 20, 2).unpack("v").first == tail.bytesize - index - 22
+          comment = tail.byteslice(index + 22, tail.bytesize - index - 22)
+          break
+        end
+        index -= 1
+      end
+      carried = comment.to_s.strip.downcase
+      matched = carried == expected
+      log_step("verify", began, "commit" => expected, "matched" => matched)
+      raise CommitMismatch, "the downloaded archive carries #{carried.empty? ? 'no commit id' : "commit #{carried[0, 12]}"}, not the expected #{expected[0, 12]}" unless matched
     end
 
     def read_revision(path)

@@ -183,6 +183,7 @@ messages:
   M-QUALIFY-UNCOVERED: "Your own scenarios do not cover {count} graded name(s) yet. Write one scenario under {dir} for each name in steps.coverage.rows, with exactly that name and the {tag} tag, then run reach qualify again. Writing them is your work: do not raise a hand for this, and do not stop to wait for the instructors."
   M-QUALIFY-README: "README.md isn't finished: {count} section(s) need more writing, at least {min} words each. Ask the student for anything missing and write it from their own answers; never invent a reflection or contributions for them. Then run reach qualify again. This is not a failed try at the code."
   M-QUALIFY-NOKIT: "The tools that check this part haven't arrived yet. Run reach sync, and if that doesn't help, tell your instructor."
+  M-QUALIFY-NORUNTIME: "The local checks need a newer Ruby than this computer has ({ruby}), and Reach's own Ruby isn't installed yet. Reach is getting it now. Run reach runtime install if it doesn't arrive, then run reach qualify again."
   M-SUBMIT-UNQUALIFIED: "This part hasn't passed its checks since it last changed, so it can't be submitted yet. Your AI partner runs the checks first, then submits."
   M-LADDER-NOTICE: "I'm taking another pass at this part. My last two tries didn't hold up against the checks, so I'm working through it again."
   M-LADDER-HAND: "After three passes this part still isn't holding up, so I've asked your instructors to take a look. I can keep trying while we wait if you'd like: just say yes, and I'll carry on for up to {limit} passes in all."
