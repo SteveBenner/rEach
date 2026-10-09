@@ -6,6 +6,9 @@ module Reach
   module Tarball
     MAX_TOTAL_BYTES = 200 * 1024 * 1024
     MAX_ENTRIES = 20_000
+    MAX_MEMBER_BYTES = MAX_TOTAL_BYTES
+    READ_CHUNK_BYTES = 1_048_576
+    READ_DEADLINE_S = 120
     GZIP_MAGIC = "\x1F\x8B".b.freeze
 
     module_function
@@ -37,9 +40,12 @@ module Reach
       result = {}
       total_bytes = 0
       entry_count = 0
+      deadline = Time.now + READ_DEADLINE_S
 
       Gem::Package::TarReader.new(io) do |tar|
         tar.each do |entry|
+          raise Reach::VerificationFailed, "reach: package archive rejected (took too long to read)" if Time.now > deadline
+
           next if entry.directory?
 
           unless entry.file?
@@ -52,11 +58,14 @@ module Reach
           entry_count += 1
           raise Reach::VerificationFailed, "reach: package archive rejected (too many entries)" if entry_count > MAX_ENTRIES
 
-          data = entry.read.to_s
-          total_bytes += data.bytesize
-          raise Reach::VerificationFailed, "reach: package archive rejected (archive too large)" if total_bytes > MAX_TOTAL_BYTES
+          declared = entry.header.size.to_i
+          raise Reach::VerificationFailed, "reach: package archive rejected (entry too large)" if declared > MAX_MEMBER_BYTES
+          raise Reach::VerificationFailed, "reach: package archive rejected (archive too large)" if total_bytes + declared > MAX_TOTAL_BYTES
 
-          result[name] = data.dup.force_encoding(Encoding::ASCII_8BIT)
+          data = read_member(entry, declared, deadline)
+          total_bytes += data.bytesize
+
+          result[name] = data
         end
       end
 
@@ -65,6 +74,19 @@ module Reach
       raise
     rescue StandardError => e
       raise Reach::VerificationFailed, "reach: package archive rejected (#{e.message})"
+    end
+
+    def read_member(entry, declared, deadline)
+      data = String.new.force_encoding(Encoding::ASCII_8BIT)
+      while data.bytesize < declared
+        raise Reach::VerificationFailed, "reach: package archive rejected (took too long to read)" if Time.now > deadline
+
+        piece = entry.read([READ_CHUNK_BYTES, declared - data.bytesize].min)
+        break if piece.nil? || piece.empty?
+
+        data << piece.force_encoding(Encoding::ASCII_8BIT)
+      end
+      data
     end
 
     def validate_name!(name)

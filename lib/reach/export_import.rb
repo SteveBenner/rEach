@@ -24,6 +24,11 @@ module Reach
     CATALOG_BYTES_PER_CONVERSATION = 1500
     LIVE_STATES = %w[starting running].freeze
     RUNNABLE_STATES = %w[starting running failed].freeze
+    FAILURE_MESSAGES = {
+      "source_changed" => ["M-IMPORT-SOURCE-CHANGED", {}],
+      "time_limit" => ["M-IMPORT-TIME-LIMIT", {}],
+      "element_limit" => ["M-IMPORT-ELEMENT-LIMIT", { max_mb: Reach::JsonStream::MAX_ELEMENT_BYTES / MB, max_depth: Reach::JsonStream::MAX_DEPTH }]
+    }.freeze
 
     module_function
 
@@ -245,7 +250,10 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-IMPORT-COPY-TOO-LARGE") if mode == "copy" && total + detected["total_bytes"] >= limit
 
       added = mode == "copy" ? detected["total_bytes"] : conversations * CATALOG_BYTES_PER_CONVERSATION
-      subject = { "path" => Reach::Crypto.digest_hex(source.path), "mode" => mode, "size" => detected["total_bytes"] }
+      content_digest = source.content_digest(detected["files"].map { |file| file["name"] })
+      raise Reach::Refused, Reach::Messages.text("M-IMPORT-UNKNOWN") unless content_digest
+
+      subject = { "path" => Reach::Crypto.digest_hex(source.path), "mode" => mode, "size" => detected["total_bytes"], "digest" => content_digest }
       fields = {
         vendor: Render.vendor_name(detected["vendor"]), size_mb: Reach::Storage.mb_text(detected["total_bytes"]),
         conversations: round_estimate(conversations), note: crossing_note(total, added)
@@ -255,16 +263,16 @@ module Reach
       pending = approve!(subject, replay, message_id, fields)
       return pending if pending
 
-      start_job(source, detected, mode, conversations)
+      start_job(source, detected, mode, conversations, content_digest)
     end
 
-    def start_job(source, detected, mode, conversations)
+    def start_job(source, detected, mode, conversations, content_digest)
       ensure_dir!
       id = new_id
       stamp = now_s
       job = {
         "schema" => SCHEMA, "id" => id, "vendor" => detected["vendor"], "mode" => mode, "source" => source.path,
-        "source_kind" => source.kind, "source_digest" => source.digest, "files" => detected["files"],
+        "source_kind" => source.kind, "source_digest" => content_digest, "files" => detected["files"],
         "total_bytes" => detected["total_bytes"], "estimate" => conversations, "state" => "starting", "phase" => "queued",
         "seen" => 0, "done" => 0, "skipped" => 0, "bytes" => 0, "file_index" => 0, "file_elements" => 0,
         "catalog_bytes" => 0, "requested_at" => stamp, "updated_at" => stamp, "resumes" => 0, "announced" => false, "error" => nil
@@ -364,6 +372,11 @@ module Reach
       Reach::Messages.text("M-IMPORT-FINISHED", vendor: Render.vendor_name(job["vendor"]), conversations: job["done"].to_i, size_mb: Reach::Storage.mb_text(job["total_bytes"]))
     end
 
+    def failed_text(job)
+      id, fields = FAILURE_MESSAGES.fetch(job["error"].to_s, ["M-IMPORT-FAILED", {}])
+      Reach::Messages.text(id, **fields)
+    end
+
     def prompt_notices(_session_id = nil)
       return [] unless File.directory?(dir)
 
@@ -374,7 +387,7 @@ module Reach
           next unless fresh && !fresh["announced"]
 
           write_job(job["id"], fresh.merge("announced" => true))
-          notices << (fresh["state"] == "finished" ? finished_text(fresh) : Reach::Messages.text("M-IMPORT-FAILED"))
+          notices << (fresh["state"] == "finished" ? finished_text(fresh) : failed_text(fresh))
         elsif interrupted?(job)
           resume(job)
         end

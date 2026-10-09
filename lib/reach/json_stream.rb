@@ -1,6 +1,8 @@
 module Reach
   module JsonStream
     CHUNK_BYTES = 1_048_576
+    MAX_ELEMENT_BYTES = 64 * 1_048_576
+    MAX_DEPTH = 64
     STRING_STOP = /["\\]/n.freeze
     STRUCTURAL = /["\[\]{}]/n.freeze
     BACKSLASH = 0x5C
@@ -9,6 +11,12 @@ module Reach
     CLOSE_BRACE = 0x7D
     OPEN_BRACKET = 0x5B
     CLOSE_BRACKET = 0x5D
+
+    class LimitExceeded < Reach::Refused
+      def initialize(message = nil)
+        super(message || Reach::Messages.text("M-IMPORT-ELEMENT-LIMIT", max_mb: MAX_ELEMENT_BYTES / 1_048_576, max_depth: MAX_DEPTH))
+      end
+    end
 
     module_function
 
@@ -27,8 +35,10 @@ module Reach
     class Parser
       attr_reader :elements, :position, :last_end
 
-      def initialize(skip: 0)
+      def initialize(skip: 0, max_element_bytes: MAX_ELEMENT_BYTES, max_depth: MAX_DEPTH)
         @skip = skip
+        @max_element_bytes = max_element_bytes
+        @max_depth = max_depth
         @elements = 0
         @position = 0
         @started = false
@@ -56,6 +66,7 @@ module Reach
         index = 0
         mark = 0
         while index < size && !@finished
+          check_extent(base + index)
           if @escaped
             @escaped = false
             index += 1
@@ -107,6 +118,7 @@ module Reach
               @depth = 1
             else
               @depth += 1
+              raise LimitExceeded if @depth > @max_depth
             end
           when CLOSE_BRACE, CLOSE_BRACKET
             if @depth.positive?
@@ -120,11 +132,16 @@ module Reach
             end
           end
         end
+        check_extent(@position)
         @buffer << data.byteslice(mark, size - mark) if @active && @collecting && size > mark
         self
       end
 
       private
+
+      def check_extent(upto)
+        raise LimitExceeded if @active && upto - @start > @max_element_bytes
+      end
 
       def begin_element(found, base)
         @active = true
