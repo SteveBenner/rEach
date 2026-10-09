@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.5] - 2026-10-09
+
+### Fixed
+- `tools/platform_smoke/run.rb` now sets `RPLUGIN_HOME` and `XDG_STATE_HOME` to paths inside its scratch directory. `exe/reach` loads `~/.rplugin/lib/rplugin.rb` whenever it exists, so on a machine with rplugin installed the smoke ran brain planes in process against the real `~/.corpora/reach`: polispec's test deploy step (`run.rb --leg test`) failed its doctor step on `R-DOC-BRAIN-PLANES: planes: in-process` for v0.47.2 and v0.47.4, and each run wrote the smoke's `platform-smoke-codex` prompt into the real corpus. Spool mode would still have written to the real `~/.local/state/rplugin`, which `XDG_STATE_HOME` now also keeps in scratch. CI runners have no rplugin and are unaffected.
+
 ## [0.47.4] - 2026-10-09
 
 ### Fixed
