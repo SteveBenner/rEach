@@ -39,3 +39,17 @@ environments:
     deploy:
       steps: []
       health: { run: "ruby tools/platform_smoke/run.rb --leg stable" }
+  canary:
+    branch: canary
+    checkout: "~/.polispec/envs/reach/canary"
+    tier: prod
+    audience: ["opted-in students"]
+    exposure: none
+    operators: [operator]
+    rollback: "polispec deploy reach canary --tag vPREV"
+    notes: "The ring of opted-in students who install the #canary channel. Empty until the instructor opts one in. Students follow stable by default."
+    runs: tag
+    data_classes: [operational]
+    deploy:
+      steps: []
+      health: { run: "ruby tools/platform_smoke/run.rb --leg stable" }

@@ -1825,6 +1825,7 @@ module Reach
         puts relocation_line unless relocation_failed
         enroll_line = doctor_enroll_line
         puts enroll_line if enroll_line
+        puts Reach::Update.doctor_line
         puts doctor_runtime_line
         puts doctor_planes_line
         puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"

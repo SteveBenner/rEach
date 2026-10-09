@@ -20,6 +20,7 @@ module Reach
       Reach::Runtime.bake_teach_url!
 
       resolved_source = source || Reach::Runtime.root
+      Reach::Update.record_channel(resolved_source)
       candidates = harness.to_s == "auto" ? detected_harnesses : [harness.to_s]
 
       results = candidates.map { |id| run_harness(id, resolved_source) }

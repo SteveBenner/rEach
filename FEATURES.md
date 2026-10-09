@@ -1844,3 +1844,10 @@ Build ✅ Built · Deploy ⬜ Not released (needs Teach 0.80.4 live first: CMP-W
 rEach 0.49.2 moves the environments out of `specs/polispec/policy.yml` into `specs/polispec/environments.yml`, adding audience, exposure, operators, rollback, freezes and notes for each environment. polispec renders the `[ENVS]` row in AGENTS.md and `.agents/directives/envs.md`, and the plugin manifest declares `serves: real_users`. No runtime behavior changes. Verified with `polispec validate`, merge parity against the old inline block, `polispec agents render --check` and `rplugin check reach`.
 
 Build ✅ Built · Deploy ⚪ Not deployed (main only) · Blocker Human (promote to test, then `polispec promote reach --to stable`)
+
+## Canary update channel and promotion hop — 0.50.0
+
+rEach 0.50.0 adds the `canary` update channel for opted-in students and the polispec hop that feeds it. `updates.channel` (or `REACH_UPDATE_CHANNEL`) selects stable or canary; setup records canary from a `#canary` or `@canary` harness source; the updater's ceiling is the highest version tag on the channel branch's tip, falls back to stable with a log line when origin has no canary branch, and never downgrades. `reach doctor` prints the channel and its ceiling. `specs/polispec/environments.yml` declares the canary env and `promotion.to_canary` (from test, operator, G-GATE, G-TESTED, 24-hour G-SOAK, G-RCHECK, G-RDOCTOR, F-CLASS, F-DUE); `to_stable` keeps `from: test` and gains F-CLASS and F-DUE. No student is in the ring and no canary branch exists until the operator's first `polispec promote reach --to canary`.
+
+Build ✅ Built · Deploy ⚪ Not deployed (branch canary-ring only) · Blocker Human (land on main, promote to test, create canary)
+

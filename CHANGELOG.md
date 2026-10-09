@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.0] - 2026-10-09
+
+### Added
+- Canary update channel. An install follows `updates.channel` (`stable` or `canary`; `REACH_UPDATE_CHANNEL` overrides it; stable is the default). `reach setup` records `canary` in the install's own `config.yml` when its harness source ends in `#canary` or `@canary`, and the harness pin leaves that ref alone. The updater reads both `refs/heads/stable` and `refs/heads/canary`; the ceiling is the highest version tag on the channel branch's tip. With no canary branch on origin a canary install follows stable and logs why, and an install never downgrades. `update.json` records `channel`, `channel_ceiling` and `channel_note`, and `reach doctor` prints `channel: <name> (ceiling <version>)` or the fallback reason.
+- polispec environment `canary` (branch `canary`, tier prod, audience opted-in students, empty until the instructor opts one in) and `promotion.to_canary` from `test`: operator only, phrase "promote reach to canary", gates G-GATE, G-TESTED (sha ran on test), G-SOAK (24 hours on test), G-RCHECK, G-RDOCTOR, and freezes F-CLASS and F-DUE. `to_stable` still moves from `test`; it gains F-CLASS and F-DUE (project teach).
+
+### Changed
+- G-RCHECK and G-RDOCTOR run `$HOME/.rplugin/bin/rplugin`, so a shell without `~/.rplugin/bin` on PATH no longer fails them with exit 127.
+
 ## [0.49.2] - 2026-10-09
 
 ### Changed

@@ -26,8 +26,8 @@ promotion:
     drift: "main must contain stable's tip (operator hotfix back-merge) or promotion is denied"
     gates:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
-      - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero, hermetic: false }
-      - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero, hermetic: false }
+      - { id: G-RCHECK, run: "$HOME/.rplugin/bin/rplugin check reach", pass: exit_zero, hermetic: false }
+      - { id: G-RDOCTOR, run: "$HOME/.rplugin/bin/rplugin doctor reach", pass: exit_zero, hermetic: false }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
       - { id: G-CLEAN, builtin: clean_tree }
       - { id: G-VHOMES, builtin: version_homes_agree }
@@ -44,13 +44,23 @@ promotion:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
       - { id: G-WIRE-PROD, run: "ruby tools/release_gate/gate.rb wire-live --ref {sha}", pass: exit_zero }
       - { id: G-SOAK, builtin: soaked, hours: 24 }
-      - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero, hermetic: false }
-      - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero, hermetic: false }
+      - { id: G-RCHECK, run: "$HOME/.rplugin/bin/rplugin check reach", pass: exit_zero, hermetic: false }
+      - { id: G-RDOCTOR, run: "$HOME/.rplugin/bin/rplugin doctor reach", pass: exit_zero, hermetic: false }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
       - { id: G-TESTED, builtin: sha_ran_on_test }
       - { id: G-FREEZE, builtin: not_frozen }
     release: { flip_latest: deferred }
     after: ["polispec deploy {project} stable --tag v{VERSION}"]
+  to_canary:
+    from: test
+    actor: [operator]
+    phrase: "promote reach to canary"
+    gates:
+      - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
+      - { id: G-TESTED, builtin: sha_ran_on, env: test }
+      - { id: G-SOAK, builtin: soaked, env: test, hours: 24 }
+      - { id: G-RCHECK, run: "$HOME/.rplugin/bin/rplugin check reach", pass: exit_zero, hermetic: false }
+      - { id: G-RDOCTOR, run: "$HOME/.rplugin/bin/rplugin doctor reach", pass: exit_zero, hermetic: false }
 hermetic:
   test:
     isolate: [RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME, REACH_WORKSPACE_ROOT]
@@ -59,6 +69,8 @@ hermetic:
     isolate: [RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME, REACH_WORKSPACE_ROOT]
     protected_roots: ["~/.corpora/reach", "~/.reach", "~/.local/state/rplugin/reach", "~/reach-work"]
 freezes:
+  - { id: F-CLASS, applies_to: [promote.to_stable, promote.to_canary], source: teach.calendar, project: teach, kind: class_session, lead_minutes: 30 }
+  - { id: F-DUE, applies_to: [promote.to_stable, promote.to_canary], source: teach.calendar, project: teach, kind: assignment_due, lead_hours: 24 }
   - { id: F-LIVE, applies_to: [promote.to_stable], source: teach.activity, project: teach }
   - { id: F-MANUAL, applies_to: [promote.to_stable], rrule: null, from: null, until: null }
 data_classes:

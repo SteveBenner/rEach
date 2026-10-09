@@ -1,4 +1,5 @@
 require "json"
+require "yaml"
 require "net/http"
 require "openssl"
 require "open3"
@@ -28,6 +29,8 @@ module Reach
     ACTIVE_PHASES = %w[detected downloaded staged swapped refreshed].freeze
     VERSION_TAG = /\Av?(\d+\.\d+\.\d+)\z/.freeze
     COMMIT_SHA = /\A(?:\h{40}|\h{64})\z/.freeze
+    CHANNELS = %w[stable canary].freeze
+    DEFAULT_CHANNEL = "stable".freeze
     NETWORK_ERRORS = [
       Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNRESET, Errno::ECONNREFUSED,
       Errno::EHOSTUNREACH, OpenSSL::SSL::SSLError, EOFError
@@ -65,6 +68,9 @@ module Reach
         "announced" => {},
         "sessions" => {},
         "stable_version" => nil,
+        "channel" => DEFAULT_CHANNEL,
+        "channel_ceiling" => nil,
+        "channel_note" => nil,
         "completed_version" => nil,
         "completed_at" => nil
       }
@@ -188,8 +194,74 @@ module Reach
         "repository" => repository,
         "interval_s" => setting_int(section["interval_s"], DEFAULT_INTERVAL_S),
         "jitter_s" => setting_int(section["jitter_s"], DEFAULT_JITTER_S),
-        "max_attempts" => setting_int(section["max_attempts"], DEFAULT_MAX_ATTEMPTS)
+        "max_attempts" => setting_int(section["max_attempts"], DEFAULT_MAX_ATTEMPTS),
+        "channel" => channel
       }
+    end
+
+    def install_config_file
+      File.join(Reach::Paths.root, "config.yml")
+    end
+
+    def install_config
+      path = install_config_file
+      return {} unless File.file?(path)
+
+      parsed = YAML.safe_load(File.read(path))
+      parsed.is_a?(Hash) ? parsed : {}
+    rescue StandardError
+      {}
+    end
+
+    def channel
+      requested = ENV["REACH_UPDATE_CHANNEL"].to_s.strip.downcase
+      if requested.empty?
+        section = install_config["updates"]
+        requested = section["channel"].to_s.strip.downcase if section.is_a?(Hash)
+      end
+      if requested.to_s.empty?
+        section = Reach::Runtime.load_config["updates"]
+        requested = section["channel"].to_s.strip.downcase if section.is_a?(Hash)
+      end
+      return DEFAULT_CHANNEL if requested.to_s.empty?
+      return requested if CHANNELS.include?(requested)
+
+      log("channel", "message" => "unknown update channel #{requested.inspect}; following stable")
+      DEFAULT_CHANNEL
+    end
+
+    def doctor_line
+      wanted = channel
+      manifest = load_manifest
+      detail = if manifest["channel"] != wanted || manifest["last_check_at"].nil?
+                 "ceiling unknown until the next update check"
+               elsif manifest["channel_note"]
+                 manifest["channel_note"]
+               elsif manifest["channel_ceiling"]
+                 "ceiling #{manifest['channel_ceiling']}"
+               else
+                 "no ceiling known"
+               end
+      "channel: #{wanted} (#{detail})"
+    rescue StandardError
+      "channel: #{DEFAULT_CHANNEL} (ceiling unknown)"
+    end
+
+    def record_channel(source)
+      text = source.to_s
+      return nil unless text.end_with?("#canary", "@canary")
+
+      data = install_config
+      section = data["updates"].is_a?(Hash) ? data["updates"] : {}
+      section["channel"] = "canary"
+      data["updates"] = section
+      FileUtils.mkdir_p(File.dirname(install_config_file))
+      temp = "#{install_config_file}.tmp.#{Process.pid}.#{rand(1_000_000)}"
+      File.open(temp, "w", 0o600) { |handle| handle.write(YAML.dump(data)) }
+      File.rename(temp, install_config_file)
+      "canary"
+    rescue StandardError
+      nil
     end
 
     def disabled?
@@ -350,6 +422,7 @@ module Reach
       commits = {}
       notices = []
       stable = nil
+      canary = nil
       parse_pkt_lines(body).each do |line|
         sha, name = line.split(" ", 2)
         next unless sha =~ /\A\h+\z/ && name
@@ -357,6 +430,8 @@ module Reach
         name = name.strip
         if name == "refs/heads/stable"
           stable = sha
+        elsif name == "refs/heads/canary"
+          canary = sha
         elsif (match = TAG_REF.match(name))
           version = VERSION_TAG.match(match[1])[1]
           if match[2]
@@ -369,7 +444,7 @@ module Reach
           notices << { "version" => VERSION_TAG.match(match[1])[1], "date" => match[2] }
         end
       end
-      { "tags" => list, "stable" => stable, "commits" => commits, "notices" => notices }
+      { "tags" => list, "stable" => stable, "canary" => canary, "commits" => commits, "notices" => notices }
     end
 
     def list_tags
@@ -388,11 +463,29 @@ module Reach
       commit.to_s =~ COMMIT_SHA ? commit.to_s.downcase : nil
     end
 
-    def stable_version(info)
-      return nil unless info && info["stable"]
+    def branch_version(info, branch)
+      return nil unless info && info[branch]
 
-      matching = info["tags"].select { |entry| info["commits"][entry["version"]] == info["stable"] }
+      matching = info["tags"].select { |entry| info["commits"][entry["version"]] == info[branch] }
       matching.map { |entry| entry["version"] }.max_by { |version| Gem::Version.new(version) }
+    end
+
+    def stable_version(info)
+      branch_version(info, "stable")
+    end
+
+    def channel_ceiling(info, wanted)
+      note = nil
+      branch = wanted
+      if wanted == "canary" && !(info && info["canary"])
+        branch = "stable"
+        note = "origin has no canary branch; following stable"
+      end
+      ceiling = branch_version(info, branch)
+      if ceiling.nil? && note.nil? && branch == "canary"
+        note = "origin canary matches no version tag"
+      end
+      { "channel" => wanted, "branch" => branch, "ceiling" => ceiling, "note" => note }
     end
 
     def hook_notice(info, local)
@@ -429,18 +522,25 @@ module Reach
         log("error", "phase" => "tags", "message" => e.message)
         []
       end
-      ceiling = listing_error ? nil : stable_version(@ref_info)
+      wanted = settings["channel"]
+      resolved = listing_error ? { "channel" => wanted, "branch" => wanted, "ceiling" => nil, "note" => nil } : channel_ceiling(@ref_info, wanted)
+      log("channel", "channel" => wanted, "message" => resolved["note"]) if resolved["note"]
+      ceiling = resolved["ceiling"]
       unless ceiling
+        branch = resolved["branch"]
         reason = if listing_error
-                   "the tag listing failed, so no stable version is known"
-                 elsif @ref_info.nil? || @ref_info["stable"].nil?
-                   "origin has no stable branch"
+                   "the tag listing failed, so no #{branch} version is known"
+                 elsif @ref_info.nil? || @ref_info[branch].nil?
+                   "origin has no #{branch} branch"
                  else
-                   "origin stable matches no version tag"
+                   "origin #{branch} matches no version tag"
                  end
-        log("error", "phase" => "stable", "message" => reason)
+        log("error", "phase" => branch, "message" => reason)
       end
       manifest["stable_version"] = ceiling
+      manifest["channel"] = wanted
+      manifest["channel_ceiling"] = ceiling
+      manifest["channel_note"] = resolved["note"]
       notice = listing_error ? nil : hook_notice(@ref_info, local)
       if notice
         manifest["hook_notice"] = notice
