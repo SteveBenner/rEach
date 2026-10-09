@@ -1,6 +1,7 @@
 require "json"
 require "time"
 require "fileutils"
+require_relative "redact"
 
 module Reach
   module TranscriptIngest
@@ -67,6 +68,7 @@ module Reach
       offset = same ? state["transcript_offset"].to_i : 0
       seen_uuids = Array(state["seen_uuids"])
       tool_names = state["tool_names"].is_a?(Hash) ? state["tool_names"].dup : {}
+      private_calls = Array(state["private_calls"]).map(&:to_s)
       subagent_offsets = same && state["subagent_offsets"].is_a?(Hash) ? state["subagent_offsets"].dup : {}
 
       if File.size(transcript_path) < offset
@@ -82,7 +84,7 @@ module Reach
       ctx = {
         session_id: session_id, harness: harness, cutout_id: cutout_id, slice: slice, space: space,
         category: category, scope: scope, category_root: category_root,
-        base: Reach::Transcript.space_base(space.to_s, workspace), seen_uuids: seen_uuids, tool_names: tool_names
+        base: Reach::Transcript.space_base(space.to_s, workspace), seen_uuids: seen_uuids, tool_names: tool_names, private_calls: private_calls
       }
 
       budget = MAX_ENTRIES_PER_INGEST
@@ -91,7 +93,7 @@ module Reach
         Reach::Transcript.merge_state(
           session_id,
           "transcript_path" => transcript_path, "transcript_offset" => progress["main"],
-          "seen_uuids" => seen_uuids.last(SEEN_UUID_LIMIT), "tool_names" => tool_names.to_a.last(TOOL_NAME_LIMIT).to_h,
+          "seen_uuids" => seen_uuids.last(SEEN_UUID_LIMIT), "tool_names" => tool_names.to_a.last(TOOL_NAME_LIMIT).to_h, "private_calls" => private_calls.last(TOOL_NAME_LIMIT),
           "subagent_offsets" => subagent_offsets
         )
       end
@@ -178,7 +180,7 @@ module Reach
           next unless block["type"] == "tool_result"
 
           notes = [note_subagent ? "subagent" : nil, block["is_error"] == true ? "error" : nil].compact
-          record_output(ctx, ctx[:tool_names][block["tool_use_id"].to_s], output_text(block["content"]), notes.empty? ? nil : notes.join(", "), at)
+          record_output(ctx, ctx[:tool_names][block["tool_use_id"].to_s], output_text(block["content"]), notes.empty? ? nil : notes.join(", "), at, block["tool_use_id"].to_s)
           processed += 1
           next
         end
@@ -196,7 +198,8 @@ module Reach
           processed += 1
         when "tool_use"
           ctx[:tool_names][block["id"].to_s] = block["name"].to_s unless block["id"].to_s.empty?
-          record_action(ctx[:session_id], block["name"], block["input"] || {}, note_subagent, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at, base: ctx[:base])
+          mark_private(ctx, block["id"], block["name"], block["input"])
+          record_action(ctx[:session_id], block["name"], block["input"] || {}, note_subagent, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at, base: ctx[:base], withheld: private_call?(ctx, block["id"]))
           processed += 1
         end
       end
@@ -236,10 +239,11 @@ module Reach
         tool = (payload["name"] || payload["tool"] || payload["type"]).to_s
         ctx[:tool_names][payload["call_id"].to_s] = tool unless payload["call_id"].to_s.empty?
         input = parse_maybe_json(payload["arguments"] || payload["input"])
-        record_action(ctx[:session_id], tool, input, false, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at, base: ctx[:base])
+        mark_private(ctx, payload["call_id"], tool, input)
+        record_action(ctx[:session_id], tool, input, false, harness: ctx[:harness], cutout_id: ctx[:cutout_id], slice: ctx[:slice], space: ctx[:space], at: at, base: ctx[:base], withheld: private_call?(ctx, payload["call_id"]))
         processed += 1
       when "function_call_output", "custom_tool_call_output"
-        record_output(ctx, ctx[:tool_names][payload["call_id"].to_s], output_text(payload["output"]), nil, at)
+        record_output(ctx, ctx[:tool_names][payload["call_id"].to_s], output_text(payload["output"]), nil, at, payload["call_id"].to_s)
         processed += 1
       end
       ctx[:seen_uuids] << key if key && processed.positive?
@@ -278,10 +282,31 @@ module Reach
       { "kind" => kind, "at" => at }.merge(ctx_fields).merge(fields)
     end
 
-    def record_output(ctx, tool_name, text, note, at)
+    def mark_private(ctx, call_id, tool_name, input)
+      id = call_id.to_s
+      return if id.empty?
+      return unless Reach::Redact.private_call?(tool_name, input, ctx[:base])
+
+      ctx[:private_calls] ||= []
+      ctx[:private_calls] << id unless ctx[:private_calls].include?(id)
+    end
+
+    def private_call?(ctx, call_id)
+      id = call_id.to_s
+      !id.empty? && Array(ctx[:private_calls]).include?(id)
+    end
+
+    def record_output(ctx, tool_name, text, note, at, call_id = nil)
       common = { "harness" => ctx[:harness].to_s, "cutout_id" => ctx[:cutout_id], "slice" => ctx[:slice], "space" => ctx[:space] }
       tool = tool_label(tool_name)
-      drafts = Reach::Transcript.text_parts(text).map { |fields| draft(common, "output", at, fields.merge("tool" => tool, "note" => note)) }
+      if Reach::Redact.private_tool?(tool_name) || private_call?(ctx, call_id)
+        withheld = { "tool" => tool, "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => Reach::Redact::PRIVATE_OUTPUT_NOTE, "withheld" => true }
+        return Reach::Transcript.record_batch(ctx[:session_id], [draft(common, "output", at, withheld)])
+      end
+
+      drafts = Reach::Transcript.text_parts(text).map do |fields|
+        draft(common, "output", at, fields.merge("tool" => tool, "note" => Reach::Redact.join_notes(note, fields["note"])))
+      end
       Reach::Transcript.record_batch(ctx[:session_id], drafts)
     end
 
@@ -292,12 +317,19 @@ module Reach
       Reach::Transcript.record_batch(session_id, parts.map { |fields| draft(common, "reasoning", at, fields) })
     end
 
-    def record_action(session_id, tool_name, input, note_subagent, harness:, cutout_id:, slice:, space:, at:, base:)
+    def record_action(session_id, tool_name, input, note_subagent, harness:, cutout_id:, slice:, space:, at:, base:, withheld: false)
       common = { "harness" => harness.to_s, "cutout_id" => cutout_id, "slice" => slice, "space" => space }
       tool = tool_label(tool_name)
-      pieces = Reach::Transcript.split_bytes(action_summary(tool, input, base))
+      if withheld || Reach::Redact.private_tool?(tool_name)
+        fields = { "tool" => tool, "summary" => Reach::Redact::PRIVATE_SUMMARY, "note" => note_subagent ? "subagent" : nil, "withheld" => true }
+        return Reach::Transcript.record_batch(session_id, [draft(common, "action", at, fields)])
+      end
+
+      summary, counts = Reach::Redact.text(action_summary(tool, input, base))
+      redaction_note = Reach::Redact.note(counts)
+      pieces = Reach::Transcript.split_bytes(summary)
       drafts = pieces.each_with_index.map do |piece, index|
-        fields = { "tool" => tool, "summary" => piece, "note" => note_subagent ? "subagent" : nil }
+        fields = { "tool" => tool, "summary" => piece, "note" => Reach::Redact.join_notes(note_subagent ? "subagent" : nil, redaction_note) }
         fields["part"] = [index + 1, pieces.length] if pieces.length > 1
         draft(common, "action", at, fields)
       end
