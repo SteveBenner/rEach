@@ -9,7 +9,6 @@ environments:
     tier: dev
     audience: [operator]
     exposure: loopback
-    host: SVEN-F1L1
     operators: [agent, operator]
     worktrees: [".rEach-wt/*", ".reach-wt/*"]
   test:
