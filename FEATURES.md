@@ -1763,7 +1763,7 @@ Build ✅ Shipped · Deploy 🟢 Live (0.37.0, 2026-10-06) · Blocker -
 
 ## Polispec migration — 0.47.0
 
-Build: implemented and locally verified. Deploy: merged into local main and installed locally in Codex; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
+Build: implemented and locally verified. Deploy: merged into main (pushed) and installed locally in Codex; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
 
 - Thirteen existing engineering directives now have one canonical policy source, compiled runtime data, and generated readable views.
 - Native enforcement bindings, four declarative control predicates, and advisory guidance have explicit coverage modes. Doctor and the pre-push gate detect artifact/view drift and missing guard bindings.
@@ -1780,4 +1780,4 @@ Verification on 2026-10-08: plugin package/check and policy drift checks report 
 
 Local installation on 2026-10-08: rplugin check and doctor report zero findings; reach policy reports 13 directives, 49 native bindings, four declarative controls, four advisory entries, and no policy problems. The local corpus index was rebuilt and six derived embeddings of already-retired sources received retirement markers through the corpus API; source records and journal history were preserved. The full model audit was rerun after packaging corrections: no high security finding in that run, with existing fleet alarms blocking the overall release gate and public-documentation warnings retained for review. The development policy remains versioned for host-side resolution; its paths are generic home-relative defaults and its roster is development configuration, not student policy. Stable was not moved, and no matching formal verifier exists for this change in the local attestation corpus.
 
-Publication status: the runtime candidate is on the polispec-runtime branch. The main push was refused by the existing KNOWN-ALARM and INST-FLAP checks; the lease endpoint returned no active reach lease at 2026-10-09T02:23:39Z. No gate was bypassed, no release was created, and stable was not moved.
+Publication status: the main push was refused at 2026-10-09T02:23:39Z by the existing KNOWN-ALARM and INST-FLAP checks, with no active reach lease. main was pushed at 2eac996 on 2026-10-09 under reach lease gtl_d8bf3d4dfae14f2c2948 (rEach now holds its own gate app); the gate still reported KNOWN-ALARM and INST-FLAP. No release was created and stable was not moved.
