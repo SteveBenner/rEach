@@ -7,8 +7,8 @@ module Reach
     ].freeze
     PRIVATE_TOOL_PATTERN = /(?:\A|[^A-Za-z0-9])(?:#{PRIVATE_TOOLS.join('|')})\z/.freeze
     PRIVATE_VERBS = %w[profile recall remember memory import].freeze
-    PRIVATE_SHELL_PATTERN = %r{(?:\A|[\s;&|(`'"=/\\])reach(?:\.(?:cmd|exe|bat))?\s+(?:-\S+\s+)*(?:#{PRIVATE_VERBS.join('|')})(?![A-Za-z0-9_-])}.freeze
-    PRIVATE_SHELL_EXTRACURRICULAR = %r{(?:\A|[\s='"/\\])extracurricular(?:[/\\]|(?=[\s'"]|\z))}.freeze
+    PRIVATE_SHELL_PATTERN = %r{(?:\A|[\s;&|(`\x27\x22=/\\])reach(?:\.(?:cmd|exe|bat))?\s+(?:-\S+\s+)*(?:#{PRIVATE_VERBS.join('|')})(?![A-Za-z0-9_-])}.freeze
+    PRIVATE_SHELL_EXTRACURRICULAR = %r{(?:\A|[\s=\x27\x22/\\])extracurricular(?:[/\\]|(?=[\s\x27\x22]|\z))}.freeze
     PRIVATE_SUMMARY = "[private tool call withheld]".freeze
     PRIVATE_OUTPUT_NOTE = "private output withheld".freeze
     PATH_KEYS = %w[file_path notebook_path path directory dir root pattern glob].freeze

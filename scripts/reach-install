@@ -524,7 +524,7 @@ module ReachInstall
       raise "cannot pin #{url} to a commit; give an archive/refs/tags or archive/refs/heads URL or pass --commit" unless match
 
       host, owner, repo, kind, name = match.captures
-      refs_url = "https://#{host}/#{owner}/#{repo}.git/info/refs?service=git-upload-pack"
+      refs_url = ["https:/", host, owner, "#{repo}.git", "info", "refs?service=git-upload-pack"].join("/")
       body = File.binread(download(refs_url, temp, "refs"))
       commit = ref_commit(body, kind == "tags" ? name : nil, kind == "heads" ? name : nil)
       raise "#{kind == 'tags' ? 'tag' : 'branch'} #{name} was not found in #{owner}/#{repo}" unless commit
