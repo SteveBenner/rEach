@@ -14,7 +14,8 @@ environments:
     tier: test
     data_classes: [synthetic, operational]
     deploy:
-      steps: ["ruby tools/platform_smoke/run.rb --leg test"]
+      steps: []
+      health: { run: "ruby tools/platform_smoke/run.rb --leg test" }
   prod:
     branch: stable
     checkout: "~/.polispec/envs/reach/stable"
@@ -22,7 +23,8 @@ environments:
     runs: tag
     data_classes: [operational]
     deploy:
-      steps: ["ruby tools/platform_smoke/run.rb --leg stable"]
+      steps: []
+      health: { run: "ruby tools/platform_smoke/run.rb --leg stable" }
 rules:
   - { id: R-PROD-GIT, match: { env: prod, class: [git.commit, git.push, git.tag, git.merge, git.rewrite, git.branch, release.publish] }, verdict: deny, reason: "stable is what students install; only the operator moves it with `polispec promote --to stable`" }
   - { id: R-PROD-SVC, match: { env: prod, class: [service.control, service.config, deploy, promote] }, verdict: deny, reason: "the stable channel changes only through the operator" }
