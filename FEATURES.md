@@ -1763,7 +1763,7 @@ Build ✅ Shipped · Deploy 🟢 Live (0.37.0, 2026-10-06) · Blocker -
 
 ## Polispec migration — 0.47.0
 
-Build: implemented and locally verified. Deploy: source candidate published; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
+Build: implemented and locally verified. Deploy: merged into main and installed locally in Codex; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
 
 - Thirteen existing engineering directives now have one canonical policy source, compiled runtime data, and generated readable views.
 - Native enforcement bindings, four declarative control predicates, and advisory guidance have explicit coverage modes. Doctor and the pre-push gate detect artifact/view drift and missing guard bindings.
@@ -1777,3 +1777,5 @@ Student-first audit: learning and assignment ownership are preserved; student ag
 No tests were added under NOTEST. Validation evidence and any release blockers are recorded in the change history; a policy declaration is not proof that its prose is fully enforced.
 
 Verification on 2026-10-08: plugin package/check and policy drift checks report zero findings. The existing Linux artifact smoke produced 12 passes, one doctor failure, and three skips on both baseline b0df42e and candidate c9cc74e. The shared failure lists R-DOC-CODEX, R-DOC-BRAIN-PLANES, and R-DOC-SUBSCRIBE; runtime download checks were skipped, and the macOS-only sandbox check was inapplicable. Later adapter changes preserve serialization bytes and use only course-supplied enforcement pointers; policy validation and the deterministic secret scan pass. Full model release audit and cross-platform runs are separate evidence. The release gate reports existing Teach/rEach wire alignment and alarm findings; the current operator lease is reported by the gate, not a clean-release verdict.
+
+Local installation on 2026-10-08: rplugin check and doctor report zero findings; reach policy reports 13 directives, 49 native bindings, four declarative controls, four advisory entries, and no policy problems. The local corpus index was rebuilt and six derived embeddings of already-retired sources received retirement markers through the corpus API; source records and journal history were preserved. The full model audit was rerun after packaging corrections: no high security finding in that run, with existing fleet alarms blocking the overall release gate and public-documentation warnings retained for review. The development policy remains versioned for host-side resolution; its paths are generic home-relative defaults and its roster is development configuration, not student policy. Stable was not moved, and no matching formal verifier exists for this change in the local attestation corpus.

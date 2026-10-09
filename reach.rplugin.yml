@@ -53,7 +53,7 @@ native:
   keywords: [education, course, students, assistant]
   author: { name: PatḗrasAI }
 compatibility:
-  ruby: ">= 2.6"
+  ruby: ">= 2.6.10, < 4.1"
   harnesses: { claude-code: supported, codex: supported, hermes: unsupported }
 repository:
   remote: "git@github.com:SteveBenner/rEach.git"
