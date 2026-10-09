@@ -4,6 +4,7 @@ require "rbconfig"
 require "fileutils"
 require "securerandom"
 require "openssl"
+require_relative "enroll_outbox"
 
 module Reach
   module EnrollFlow
@@ -94,8 +95,13 @@ module Reach
 
       if RESTART_WORDS.include?(Reach::Login.normalize(text))
         Reach::Enroll.clear_pending
+        Reach::EnrollOutbox.clear!
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
         return block(Reach::Messages.text("M-ENR-RESTART"))
+      end
+
+      if Reach::Password.forgot?(text)
+        return block("#{Reach::Messages.text("M-ENR-RESET-BY-INSTRUCTOR")} #{ask(flow)}")
       end
 
       message = case flow["state"]
@@ -105,12 +111,12 @@ module Reach
                 when "awaiting_move" then step_move(flow, text, now, harness)
                 when "awaiting_password" then step_password(flow, text)
                 when "awaiting_password_again" then step_password_again(flow, text, now, harness)
-                else step_code(flow, text)
+                else step_code(flow, text, harness)
                 end
       block(message)
     end
 
-    def step_code(flow, text)
+    def step_code(flow, text, harness = nil)
       parsed = Reach::Identity.parse_course_code(text)
       if parsed.nil? && Reach::Login.yes?(text) && flow["pending_code"]
         parsed = Reach::Identity.parse_course_code(flow["pending_code"])
@@ -148,7 +154,7 @@ module Reach
         "student_id" => nil,
         "updated_at" => iso(Time.now.utc)
       )
-      write_flow(next_flow)
+      write_flow(next_flow.merge("attempt_pending" => !Reach::EnrollOutbox.begin!(course_code: parsed["code"], teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s).nil?))
       Reach::Progress.mark("enroll.code")
       ask_username(next_flow)
     end
@@ -187,6 +193,7 @@ module Reach
 
       next_flow = flow.merge("state" => "awaiting_student_id", "username" => username, "updated_at" => iso(Time.now.utc))
       write_flow(next_flow)
+      Reach::EnrollOutbox.push_step!("username")
       Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(rules), hint: Reach::Identity.id_hint(rules))
     end
 
@@ -197,12 +204,14 @@ module Reach
 
       next_flow = flow.merge("state" => "awaiting_confirm", "student_id" => student_id, "updated_at" => iso(Time.now.utc))
       write_flow(next_flow)
+      Reach::EnrollOutbox.push_step!("student_id")
       confirm_text(next_flow)
     end
 
     def step_confirm(flow, text, now, harness)
       if Reach::Login.yes?(text)
         Reach::Progress.mark("enroll.identity")
+        Reach::EnrollOutbox.push_step!("confirmed", username: flow["username"], student_id: flow["student_id"])
         if harness.to_s == "hermes"
           Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("enroll"))
         else
@@ -210,6 +219,7 @@ module Reach
           password_prompt
         end
       elsif Reach::Login.no?(text)
+        Reach::EnrollOutbox.clear!
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
         Reach::Messages.text("M-ENR-RESTART")
       else
@@ -223,6 +233,7 @@ module Reach
         password_prompt
       elsif Reach::Login.no?(text)
         Reach::Enroll.clear_pending
+        Reach::EnrollOutbox.clear!
         write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
         Reach::Messages.text("M-ENR-RESTART")
       else
@@ -292,6 +303,7 @@ module Reach
         return Reach::Messages.text("M-ENR-PASSWORD-MISMATCH")
       end
 
+      Reach::EnrollOutbox.push_step!("password_chosen")
       register(flow, now, harness, password)
     end
 
@@ -303,11 +315,12 @@ module Reach
         return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: "This copy of rEach has no course server configured. Run reach update, then try again.")
       end
 
+      held_attempt = Reach::EnrollOutbox.attempt
       begin
         install = Reach::Enroll.register_v2(
           course_code: flow["code"], username: flow["username"], student_id: flow["student_id"],
           teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s, enrolled_via: "chat",
-          password: password
+          password: password, key: held_attempt&.key, attempt_id: held_attempt&.id
         )
       rescue Reach::RemoteRefused => e
         return refused(flow, now) if e.code == "enrollment_refused"
@@ -343,6 +356,7 @@ module Reach
         return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: Reach::Messages.text("M-ENR-LOCAL-SAVE-FAILED", error: local_error_name(e)))
       end
 
+      Reach::EnrollOutbox.clear!
       Reach::Progress.enrolled!(install["student_id"])
       finish("chat")
       spawn_sync

@@ -236,7 +236,15 @@ module Reach
       new(base_url: base_url, install_id: nil, install_private_key: nil, quick: quick, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries, link: link)
     end
 
-    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, bucket: nil, quiet: false, link: true)
+    def self.for_attempt(base_url, attempt_id, private_key, connect_timeout: nil, read_timeout: nil, max_retries: 0)
+      new(
+        base_url: base_url, install_id: nil, install_private_key: private_key, attempt_id: attempt_id, connect_timeout: connect_timeout,
+        read_timeout: read_timeout, max_retries: max_retries, quiet: true, link: false
+      )
+    end
+
+    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, bucket: nil, quiet: false, link: true, attempt_id: nil)
+      @attempt_id = attempt_id
       @track_link = link
       @base_url = base_url.to_s.sub(%r{/+\z}, "")
       refuse_insecure_url!(@base_url)
@@ -482,7 +490,11 @@ module Reach
       signature = Reach::Crypto.sign_request(
         @install_private_key, method: method, target: target, timestamp: timestamp, nonce: nonce, body: body.to_s
       )
-      req["X-Teach-Install"] = @install_id.to_s
+      if @attempt_id
+        req["X-Reach-Attempt"] = @attempt_id.to_s
+      else
+        req["X-Teach-Install"] = @install_id.to_s
+      end
       req["X-Teach-Timestamp"] = timestamp
       req["X-Teach-Nonce"] = nonce
       req["X-Teach-Signature"] = signature

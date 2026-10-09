@@ -24,9 +24,10 @@ Teach keeps only a one-way hash of the password; `tools/fake_teach` is a local s
 
 That password is also the last step of every sign-in: after the
 student ID and the yes, rEach's prompt hook asks for it and keeps every gate
-closed until it is right. Nobody can look a password up. A student who forgot
-it types `forgot password`, and once their instructor has allowed a reset they
-choose a new one (`specs/wire.yml`, W-ID-5).
+closed until it is right. Nobody can look a password up, and a student cannot
+reset it: only their instructor can, with Reset password in Teach, and rEach
+then asks the student for a new one at the next sign-in (`specs/wire.yml`,
+W-ID-5).
 
 rEach then introduces itself and runs a short intake
 interview, saved on the student's computer only. It enrolls with Teach, receives

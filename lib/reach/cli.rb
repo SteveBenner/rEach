@@ -464,7 +464,7 @@ module Reach
             login status                         whether this session is signed in
             relocate [--format text|json]        move rEach's own files into your reach-work folder, or show where that stands
             login password                       type your password here, hidden, to finish signing in
-            login reset                          choose a new password, once your instructor allowed a reset
+            login reset                          choose a new password, after your instructor pressed Reset password in Teach
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)

@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.49.0] - 2026-10-09
 
-0.48.0 is held by unpushed work on another branch, so this release skips it.
-
 ### Added
 - `tools/release_gate/gate.rb wire-live [--ref SHA]`: exits 0 only when `specs/wire.yml` at SHA has the digest live Teach serves (read from the same release-gate facts as CMP-WIRE-LIVE). No lease or override applies, so polispec's G-WIRE-PROD enforces that live Teach carries the wire before rEach moves stable. Today it exits 1 (live Teach serves 093f2d, main declares b10d99).
 - `gate.rb check --as-push --min-lease-minutes N`: fails when the push would pass only through a lease that expires within N minutes, and prints the expiry. It is polispec's G-LEASE preflight, so an operator is not asked for the stable phrase under a lease that will expire mid-promote.
@@ -20,6 +18,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The platform smoke's doctor step reports `background job not installed` as a skipped capability, not a failure, when `systemctl --user show-environment` fails on a Linux runner (no systemd user manager). When the manager is present, that line still fails.
 - The platform smoke sets `REACH_SYSTEMD_USER_DIR` to a directory in its scratch, so on Linux the subscribe job's units are written there and no `systemctl --user` call is made. Before, every Linux run (a developer's, CI's, and polispec's rEach test deploy health check) installed and started a real `reach-subscribe.timer` in `~/.config/systemd/user`, aimed at the scratch runtime. Once the scratch was deleted, it failed every 10 minutes with status 203/EXEC. On CI runners the started timer could also leave doctor reporting `background job not installed`, which failed the linux-x64 leg intermittently.
 
+## [0.48.1] - 2026-10-09
+
+Wire revision 2026-10-09b.
+
+### Fixed
+- Enrollment progress no longer sends the typed email and student ID before the student confirms them: the username and student_id steps carry only their time, and both values travel with the confirmed step (release-gate privacy finding).
+- A background push can no longer send a step after the student cancels or starts over: each post first checks the queue still exists.
+- PRIVACY.md, the student guide, `reach login reset` help and reach.spec.yml describe the instructor-only reset and what enrollment progress sends.
+
+## [0.48.0] - 2026-10-09
+
+Wire revision 2026-10-09a.
+
+### Added
+- Instructor-owned password reset. When the instructor presses Reset password in Teach, rEach picks the reset up from the status document, the reset state route or the verify answer, removes the local verifier at the next sign-in and asks for a new password twice (`M-LOGIN-RESET-REQUIRED`); cancel is refused while it is pending. The verifier now records Teach's `password_set_at` and is dropped when `state/login/password_state.json` contradicts it.
+- Partial enrollment tracking. After the course code is accepted rEach generates the install key at once and queues each enrollment step in `state/enroll/outbox.json`; `Reach::EnrollOutbox` (`lib/reach/enroll_outbox.rb`) opens an attempt and posts the steps from a detached process, signed with the provisional key and `X-Reach-Attempt` (W-AUTH-9). Enrollment sends `attempt_id`. No password is ever queued or sent.
+- `specs/wire.yml` revision 2026-10-09a: W-API-ENROLL-ATTEMPT-OPEN, W-API-ENROLL-ATTEMPT-STEP, W-AUTH-9, and changes to W-API-ENROLL, W-API-PASSWORD-VERIFY, W-API-PASSWORD-RESET-STATE, W-API-PASSWORD-RESET, W-API-STATUS and W-ID-5.
+
+### Changed
+- A 409 `password_not_set` no longer signs a student in; it requires a new password.
+- Messages that told a student to type forgot password or ask for an allowance now point to the instructor's Reset password button.
+
+### Removed
+- Every student self-service reset path: the forgot-password branch at sign-in, `reach login reset` as a way to start a reset, and the forgot-password words at enrollment steps (`M-LOGIN-RESET-BY-INSTRUCTOR` and `M-ENR-RESET-BY-INSTRUCTOR` answer instead). `M-LOGIN-RESET-ASK`, `M-LOGIN-RESET-ASK-TERMINAL` and `M-LOGIN-RENEW` are retired.
 ## [0.47.6] - 2026-10-09
 
 ### Changed
