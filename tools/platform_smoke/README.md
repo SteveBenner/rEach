@@ -20,7 +20,7 @@ The scratch workspace root is `<scratch>/work` (`REACH_WORKSPACE_ROOT`), so prov
 | package_known_answer | the installed copy's `Reach::Crypto.open_envelope` and `Reach::Tarball.read` open `fixtures/known-answer/envelope.json`, sealed by real Teach's crypto, with the committed test keys; the content digest and the `hello.txt` digest equal `expected.json`; a failure prints the exception class and message |
 | fake_teach | the fixture answers `GET /api/v1/health` with 200 |
 | hook_session_start | the SessionStart command from the installed `hooks/hooks.json` exits 0 |
-| hook_prompt_locked | the UserPromptSubmit gate blocks before enrollment: exit 2, a message on stderr, nothing on stdout |
+| hook_prompt_locked | the UserPromptSubmit gate blocks before enrollment: exit 0 with {"decision":"block","reason":...} on stdout (since 0.50.1, STD-CLAUDE-WINDOWS-HOOKS) |
 | hook_codex | the same block through the command from `hooks/codex.json`: exit 0 and `{"decision":"block","reason":...}` on stdout (STD-CODEX-PROMPT-JSON-BLOCK) |
 | enroll | `reach enroll` against the fixture connects the student to the course |
 | machine_id | `Reach::Fingerprint.machine_id` is not `unknown` and has the platform's form |

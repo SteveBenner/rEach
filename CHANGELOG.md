@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.2] - 2026-10-09
+
+### Fixed
+- Platform smoke: `hook_prompt_locked` expects the Claude Code prompt hook to block with exit 0 and a JSON `decision: block` on stdout (the 0.50.1 contract), and `hook_prompt_open` counts either block form as still blocked. 0.50.1's test promote failed its health run on the old exit 2 expectation.
+
 ## [0.50.1] - 2026-10-09
 
 ### Fixed

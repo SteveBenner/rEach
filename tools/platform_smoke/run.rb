@@ -398,15 +398,15 @@ module PlatformSmoke
     end
 
     def blocked?(code, out, err)
-      code == BLOCK_EXIT && !err.strip.empty? && out.strip.empty?
+      (code == BLOCK_EXIT && !err.strip.empty? && out.strip.empty?) || !codex_block_reason(code, out).nil?
     end
 
     def hook_prompt_locked_step
       @prompt_command = hook_command("hooks.json", "CLAUDE_PLUGIN_ROOT", "UserPromptSubmit")
       code, out, err = run_hook(@prompt_command, prompt_payload)
-      return [:pass, "blocked with exit #{BLOCK_EXIT} and a message on stderr"] if blocked?(code, out, err)
+      return [:pass, "blocked with exit 0 and a JSON block on stdout"] if codex_block_reason(code, out)
 
-      [:fail, "expected exit #{BLOCK_EXIT} with a stderr message and empty stdout, got exit #{code.inspect}: #{tail(out, err)}"]
+      [:fail, "expected exit 0 with {\"decision\":\"block\",\"reason\":...} on stdout, got exit #{code.inspect}: #{tail(out, err)}"]
     end
 
     def hook_codex_step
