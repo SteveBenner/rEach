@@ -12,6 +12,7 @@ module Reach
       TOKEN_MAX_CHARS = 24
       PART_BYTES = 1_000_000
       SPOOL_SCHEMA = "rcorpus.spool/v1".freeze
+      RUN_DEADLINE_S = 12 * 3600
       RANK_WEIGHTS = { recency: 0.6, length: 0.2, overlap: 0.2 }.freeze
 
       def self.debug_fields(job)
@@ -24,6 +25,7 @@ module Reach
         @catalog = nil
         @spool = nil
         @cancelled = false
+        @deadline = Time.now + RUN_DEADLINE_S
       end
 
       def run
@@ -32,13 +34,13 @@ module Reach
         @job["spool_file"] ||= "#{Time.now.utc.strftime('%Y-%m-%d')}.jsonl" if copy?
         save
         begin
-          @source = Sources.open(@job["source"])
-          unless @source.digest == @job["source_digest"]
-            fail_with("source_changed")
-            return result
-          end
-
           unless @job["reading_done"]
+            @source = approved_snapshot
+            unless @source
+              fail_with("source_changed")
+              return result
+            end
+
             prepare_outputs
             unless @job["started_logged"]
               @job["started_logged"] = true
@@ -53,15 +55,61 @@ module Reach
           end
           close_outputs
           finish
+        rescue Reach::JsonStream::LimitExceeded => e
+          close_outputs
+          Reach::BrainSpool.log("import.failed", "error" => e.class.name)
+          fail_with("element_limit")
+        rescue Sources::TimeLimit => e
+          close_outputs
+          Reach::BrainSpool.log("import.failed", "error" => e.class.name)
+          fail_with("time_limit")
+        rescue Sources::SourceChanged => e
+          close_outputs
+          Reach::BrainSpool.log("import.failed", "error" => e.class.name)
+          fail_with("source_changed")
         rescue StandardError => e
           close_outputs
           Reach::BrainSpool.log("import.failed", "error" => e.class.name)
           fail_with(e.class.name)
+        ensure
+          discard_snapshot
         end
         result
       end
 
       private
+
+      def snapshot_dir
+        File.join(ExportImport.job_dir(@id), "snapshot")
+      end
+
+      def discard_snapshot
+        FileUtils.rm_rf(snapshot_dir) if File.exist?(snapshot_dir)
+      rescue SystemCallError
+        nil
+      end
+
+      def approved_snapshot
+        approved = @job["source_digest"].to_s
+        names = @job["files"].map { |file| file["name"] }
+        dir = snapshot_dir
+        if File.directory?(dir)
+          held = Sources::Folder.new(dir)
+          return held if held.content_digest(names) == approved
+
+          discard_snapshot
+        end
+        original = Sources.open(@job["source"])
+        ExportImport.ensure_dir!(ExportImport.job_dir(@id))
+        FileUtils.mkdir_p(dir, mode: 0o700)
+        File.chmod(0o700, dir)
+        original.copy_into(dir, names)
+        copy = Sources::Folder.new(dir)
+        return copy if copy.content_digest(names) == approved
+
+        discard_snapshot
+        nil
+      end
 
       def copy?
         @job["mode"] == "copy"
@@ -149,6 +197,8 @@ module Reach
           catch(:stop) do
             @source.each_chunk(file["name"]) do |chunk|
               parser.feed(chunk) do |text, offset|
+                raise Sources::TimeLimit if Time.now > @deadline
+
                 handle(file, text, offset, base)
                 progress!(every)
                 if cancelled?

@@ -132,6 +132,7 @@ module Reach
       Errno::ECONNABORTED, Errno::EPIPE, Errno::EADDRNOTAVAIL,
       Net::OpenTimeout, Net::ReadTimeout, SocketError, OpenSSL::SSL::SSLError, EOFError
     ].freeze
+    MAX_RESPONSE_BYTES = 64 * 1024 * 1024
     LOG_MAX_BYTES = 5 * 1024 * 1024
     LOG_KEEP = 5
     SCRUB_MARKER = "requests-log-scrubbed.json".freeze
@@ -438,12 +439,39 @@ module Reach
       sign!(req, method: method, target: target, body: body)
       req.body = body if body
 
-      http_response = http.request(req)
+      http_response = nil
+      body_text = nil
+      http.request(req) do |streamed|
+        http_response = streamed
+        body_text = read_bounded(streamed)
+      end
       Response.new(
         status: http_response.code.to_i,
         headers: http_response.to_hash.each_with_object({}) { |(k, v), acc| acc[k.downcase] = v.first },
-        body: http_response.body
+        body: body_text
       )
+    end
+
+    def read_bounded(streamed)
+      declared = streamed["content-length"].to_s
+      too_large! if declared.match?(/\A\d+\z/) && declared.to_i > MAX_RESPONSE_BYTES
+      return nil unless streamed.class.body_permitted?
+
+      buffer = String.new
+      total = 0
+      streamed.read_body do |segment|
+        total += segment.bytesize
+        too_large! if total > MAX_RESPONSE_BYTES
+        buffer << segment
+      end
+      buffer
+    end
+
+    def too_large!
+      error = Reach::NetworkError.new(Reach::Messages.text("M-TEACH-RESPONSE-TOO-LARGE"))
+      error.cause_name = "response_too_large"
+      error.detail = "response larger than #{MAX_RESPONSE_BYTES} bytes"
+      raise error
     end
 
     def sign!(req, method:, target:, body:)

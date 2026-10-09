@@ -1,6 +1,7 @@
 require "json"
 require "digest"
 require "zlib"
+require "fileutils"
 
 module Reach
   module ExportImport
@@ -11,6 +12,21 @@ module Reach
       CONVERSATIONS = /\Aconversations(-\d+)?\.json\z/i.freeze
       ACTIVITY = /\Amyactivity\.json\z/i.freeze
       HTML_EXPORT = /\A(chat|conversations|myactivity)\.html\z/i.freeze
+      DIGEST_DEADLINE_S = 1800
+      SNAPSHOT_DEADLINE_S = 3600
+      NOFOLLOW = defined?(File::NOFOLLOW) ? File::NOFOLLOW : 0
+
+      class TimeLimit < Reach::Refused
+        def initialize(message = nil)
+          super(message || Reach::Messages.text("M-IMPORT-TIME-LIMIT"))
+        end
+      end
+
+      class SourceChanged < Reach::Refused
+        def initialize(message = nil)
+          super(message || Reach::Messages.text("M-IMPORT-SOURCE-CHANGED"))
+        end
+      end
 
       module_function
 
@@ -73,9 +89,45 @@ module Reach
           (parser.elements * total.to_f / parser.last_end).round
         end
 
-        def digest
-          listing = @entries.map { |entry| [entry["name"], entry["size"]] }.sort
-          Digest::SHA256.hexdigest(JSON.generate([self.class.name.split("::").last, listing]))
+        def content_digest(names, deadline_s: DIGEST_DEADLINE_S)
+          deadline = Time.now + deadline_s
+          digest = Digest::SHA256.new
+          names.map(&:to_s).sort.each do |name|
+            size = size_of(name)
+            digest.update("#{name}\0#{size}\0")
+            seen = 0
+            each_chunk(name) do |chunk|
+              seen += chunk.bytesize
+              digest.update(chunk)
+              raise TimeLimit if Time.now > deadline
+            end
+            digest.update("!#{seen}\0") unless seen == size
+          end
+          digest.hexdigest
+        rescue SystemCallError, KeyError
+          nil
+        end
+
+        def copy_into(dir, names, deadline_s: SNAPSHOT_DEADLINE_S)
+          deadline = Time.now + deadline_s
+          names.map(&:to_s).sort.each do |name|
+            target = Reach::Untar.safe_path(dir, name)
+            FileUtils.mkdir_p(File.dirname(target), mode: 0o700)
+            limit = size_of(name)
+            written = 0
+            File.open(target, File::WRONLY | File::CREAT | File::EXCL, 0o600) do |out|
+              each_chunk(name) do |chunk|
+                written += chunk.bytesize
+                raise SourceChanged if written > limit
+                raise TimeLimit if Time.now > deadline
+
+                out.write(chunk)
+              end
+            end
+            File.chmod(0o600, target)
+          end
+        rescue SystemCallError, KeyError
+          raise SourceChanged
         end
       end
 
@@ -103,8 +155,15 @@ module Reach
           found
         end
 
+        def size_of(name)
+          File.lstat(File.join(@root, name)).size
+        rescue SystemCallError
+          0
+        end
+
         def each_chunk(name)
-          File.open(File.join(@root, name), "rb") do |file|
+          File.open(File.join(@root, name), File::RDONLY | NOFOLLOW) do |file|
+            file.binmode
             chunk = +""
             while file.read(Reach::JsonStream::CHUNK_BYTES, chunk)
               yield chunk

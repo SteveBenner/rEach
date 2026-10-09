@@ -4,6 +4,10 @@ require "fileutils"
 module Reach
   module Unzip
     CHUNK_BYTES = 1_048_576
+    MAX_ENTRY_BYTES = 2 * 1024 * 1_048_576
+    MAX_EXTRACT_BYTES = 4 * 1024 * 1_048_576
+    MAX_ENTRIES = 100_000
+    EXTRACT_DEADLINE_S = 900
     EOCD_SIG = 0x06054b50
     EOCD64_SIG = 0x06064b50
     LOCATOR64_SIG = 0x07064b50
@@ -16,35 +20,53 @@ module Reach
 
     module_function
 
-    def extract(zip_path, into:)
+    def extract(zip_path, into:, max_total_bytes: MAX_EXTRACT_BYTES, deadline_s: EXTRACT_DEADLINE_S)
       root = File.expand_path(into)
+      fresh = !File.exist?(root)
       FileUtils.mkdir_p(root)
       count = 0
-      File.open(zip_path, "rb") do |io|
-        entries = central_directory(io)
-        entries.each do |entry|
-          name = entry[:name]
-          relative = name.sub(%r{\A\./}, "")
-          next if relative.empty?
+      written = []
+      budget = { used: 0, max: max_total_bytes, deadline: Time.now + deadline_s }
+      begin
+        File.open(zip_path, "rb") do |io|
+          entries = central_directory(io)
+          raise Reach::Error, "reach: the archive holds too many entries" if entries.length > MAX_ENTRIES
+          declared = entries.inject(0) { |sum, entry| sum + entry[:usize].to_i }
+          raise Reach::Error, "reach: the archive would expand past the allowed size" if declared > max_total_bytes
 
-          target = Reach::Untar.safe_path(root, relative)
-          mode = entry[:mode]
-          if name.end_with?("/") || (mode && (mode & S_IFMT) == S_IFDIR)
-            FileUtils.mkdir_p(target)
-          elsif mode && (mode & S_IFMT) == S_IFLNK
-            raise Reach::Error, "reach: symlinks cannot be extracted on this platform" if Reach::Untar.windows?
+          entries.each do |entry|
+            name = entry[:name]
+            relative = name.sub(%r{\A\./}, "")
+            next if relative.empty?
 
-            link = read_small(io, entry)
-            Reach::Untar.check_link(root, target, link, name)
-            FileUtils.mkdir_p(File.dirname(target))
-            FileUtils.rm_f(target)
-            File.symlink(link, target)
-          else
-            FileUtils.mkdir_p(File.dirname(target))
-            write_entry(io, entry, target)
-            count += 1
+            target = Reach::Untar.safe_path(root, relative)
+            mode = entry[:mode]
+            if name.end_with?("/") || (mode && (mode & S_IFMT) == S_IFDIR)
+              FileUtils.mkdir_p(target)
+            elsif mode && (mode & S_IFMT) == S_IFLNK
+              raise Reach::Error, "reach: symlinks cannot be extracted on this platform" if Reach::Untar.windows?
+
+              link = read_small(io, entry)
+              Reach::Untar.check_link(root, target, link, name)
+              FileUtils.mkdir_p(File.dirname(target))
+              FileUtils.rm_f(target)
+              File.symlink(link, target)
+              written << target
+            else
+              FileUtils.mkdir_p(File.dirname(target))
+              written << target
+              write_entry(io, entry, target, budget)
+              count += 1
+            end
           end
         end
+      rescue StandardError
+        if fresh
+          FileUtils.rm_rf(root)
+        else
+          written.each { |path| FileUtils.rm_f(path) }
+        end
+        raise
       end
       count
     end
@@ -134,8 +156,11 @@ module Reach
       entry[:offset] + 30 + nlen + elen
     end
 
-    def each_chunk(io, entry)
+    def each_chunk(io, entry, max_bytes: MAX_ENTRY_BYTES, deadline: nil, budget: nil)
       raise Reach::Error, "reach: an archive entry is encrypted (#{entry[:name]})" if entry[:flags] & 1 == 1
+
+      declared = entry[:usize].to_i
+      raise Reach::Error, "reach: an archive entry is larger than allowed (#{entry[:name]})" if declared > max_bytes
 
       io.seek(data_start(io, entry))
       remaining = entry[:csize]
@@ -144,34 +169,52 @@ module Reach
 
       crc = 0
       produced = 0
-      while remaining > 0
-        raw = io.read([remaining, CHUNK_BYTES].min)
-        raise Reach::Error, "reach: an archive entry is cut short (#{entry[:name]})" if raw.nil? || raw.empty?
+      begin
+        while remaining > 0
+          raw = io.read([remaining, CHUNK_BYTES].min)
+          raise Reach::Error, "reach: an archive entry is cut short (#{entry[:name]})" if raw.nil? || raw.empty?
 
-        remaining -= raw.bytesize
-        if inflater
-          inflater.inflate(raw) do |piece|
-            crc = Zlib.crc32(piece, crc)
-            produced += piece.bytesize
-            yield piece
+          remaining -= raw.bytesize
+          if inflater
+            inflater.inflate(raw) do |piece|
+              produced = account!(entry, produced, piece.bytesize, declared, deadline, budget)
+              crc = Zlib.crc32(piece, crc)
+              yield piece
+            end
+          else
+            produced = account!(entry, produced, raw.bytesize, declared, deadline, budget)
+            crc = Zlib.crc32(raw, crc)
+            yield raw
           end
-        else
-          crc = Zlib.crc32(raw, crc)
-          produced += raw.bytesize
-          yield raw
         end
+        inflater.finish if inflater
+      ensure
+        inflater.close if inflater && !inflater.closed?
       end
-      if inflater
-        inflater.finish
-        inflater.close
-      end
-      raise Reach::Error, "reach: an archive entry failed its checksum (#{entry[:name]})" unless crc == entry[:crc] && produced == entry[:usize]
+      raise Reach::Error, "reach: an archive entry failed its checksum (#{entry[:name]})" unless crc == entry[:crc] && produced == declared
     end
 
-    def write_entry(io, entry, target)
+    def account!(entry, produced, added, declared, deadline, budget)
+      produced += added
+      raise Reach::Error, "reach: an archive entry expands past its declared size (#{entry[:name]})" if produced > declared
+      raise Reach::Error, "reach: unpacking the archive took longer than allowed" if deadline && Time.now > deadline
+      if budget
+        budget[:used] += added
+        raise Reach::Error, "reach: the archive expands past the allowed size" if budget[:used] > budget[:max]
+        raise Reach::Error, "reach: unpacking the archive took longer than allowed" if budget[:deadline] && Time.now > budget[:deadline]
+      end
+      produced
+    end
+
+    def write_entry(io, entry, target, budget = nil)
       FileUtils.rm_f(target)
-      File.open(target, "wb") do |file|
-        each_chunk(io, entry) { |piece| file.write(piece) }
+      begin
+        File.open(target, "wb") do |file|
+          each_chunk(io, entry, budget: budget) { |piece| file.write(piece) }
+        end
+      rescue StandardError
+        FileUtils.rm_f(target)
+        raise
       end
       mode = entry[:mode]
       executable = mode ? (mode & 0o111) != 0 : target =~ /\.(exe|dll|bat|cmd|com)\z/i ? true : false
@@ -182,7 +225,7 @@ module Reach
       raise Reach::Error, "reach: an archive link is too large (#{entry[:name]})" if entry[:usize] > 4096
 
       buffer = +""
-      each_chunk(io, entry) { |piece| buffer << piece }
+      each_chunk(io, entry, max_bytes: 4096) { |piece| buffer << piece }
       buffer
     end
   end
