@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.46.3] - 2026-10-08
 
+### Added
+
+- `reach.rstack_component.yml`: rEach is an rstack component (distribution public, relation consumer, role productivity, kind external, no processes) whose `gates:` block declares its own release gate, so its pushes take their own lease instead of riding on Teach's. The file is `export-ignore` and never reaches a student. Its `version:` is kept by hand; it is not a release-gate version home.
+
 ### Fixed
 
 - `lib/reach/session.rb`: the fallback session id (`unknown-<date>-<pid>-<hex>`, RAUD-14) is built by joining its parts instead of one interpolated string, which the release gate's entropy scan read as a generated secret (SEC-SCAN) and which blocked the push. The id is unchanged.
