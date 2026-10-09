@@ -32,6 +32,11 @@ module PlatformSmoke
   PACKAGE_KINDS = %w[guardrails workspace].freeze
   KNOWN_ANSWER_DIR = File.join(ROOT, "tools", "platform_smoke", "fixtures", "known-answer").freeze
   CHROME_FINDING = "R-DOC-CHROME".freeze
+  EXPECTED_DOCTOR_LINES = {
+    "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(SDK not installed\)\z/,
+    "R-DOC-SUBSCRIBE" => /\Abackground job installed; last check never\z/,
+    "R-DOC-CODEX" => /\ACodex's sandbox blocks rEach \(internet \w+, folder \w+\) - run reach codex configure\z/
+  }.freeze
 
   Step = Struct.new(:name, :result, :detail, :duration)
 
@@ -655,10 +660,11 @@ RUBY
 
     def doctor_step
       code, out, err = reach("doctor")
-      findings = out.lines.map { |line| line[/\A(R-[A-Z0-9-]+):/, 1] }.compact.uniq
+      pairs = out.lines.map { |line| line.strip.match(/\A(R-[A-Z0-9-]+):\s*(.*)\z/) }.compact.map { |m| [m[1], m[2]] }
+      findings = pairs.map(&:first).uniq
       allowed = EXPECTED_DOCTOR_FINDINGS.dup
       allowed << CHROME_FINDING unless @kit_installed
-      unexpected = findings - allowed
+      unexpected = pairs.reject { |code, text| allowed.include?(code) || EXPECTED_DOCTOR_LINES[code]&.match?(text) }.map(&:first).uniq
       if code.nil?
         return [:fail, "doctor did not finish: #{tail(out, err)}"]
       end

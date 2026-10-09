@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.4] - 2026-10-09
+
+### Fixed
+- `tools/platform_smoke/run.rb` doctor step no longer fails every OS leg of `platforms.yml`. `reach doctor` always prints `R-DOC-BRAIN-PLANES` and `R-DOC-SUBSCRIBE` status lines, and prints `R-DOC-CODEX` when Codex is installed and its sandbox blocks rEach before `reach codex configure` has run; the step counted each as an unexpected finding. It now tolerates each only in the one wording a bare runner produces (`planes: spool mode (SDK not installed)`, `background job installed; last check never`, the sandbox-blocked line) through `EXPECTED_DOCTOR_LINES`; any other wording of those codes, such as `could not be checked`, `not checked` or `settings no longer hold`, still fails.
+
 ## [0.47.3] - 2026-10-09
 
 Remediation of the 2026-10-08 security and privacy audit, findings F01 to F10.

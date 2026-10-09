@@ -40,6 +40,14 @@ Hook commands run through `sh -c` on Linux and macOS and through Git for Windows
 | --- | --- |
 | R-DOC-HARNESS | the smoke installs no agent harness by design (commands-only smoke) |
 
+`EXPECTED_DOCTOR_LINES` in `run.rb` holds codes that are expected only in one exact wording; any other wording of the same code fails the step.
+
+| Code | Tolerated wording | Reason |
+| --- | --- | --- |
+| R-DOC-BRAIN-PLANES | `planes: spool mode (SDK not installed)` | doctor prints this status line on every run; the smoke installs the runtime kit but not the pinned SDK kit, so spool mode is the correct state. `could not be checked` fails |
+| R-DOC-SUBSCRIBE | `background job installed; last check never` | doctor prints this status line on every run; a fresh runner has installed the job and has not yet checked. `not installed` and `not checked` fail |
+| R-DOC-CODEX | `Codex's sandbox blocks rEach (internet ..., folder ...) - run reach codex configure` | macOS runners ship Codex and the smoke never runs `reach codex configure`, so its sandbox correctly blocks rEach. `settings no longer hold what rEach set` fails |
+
 `R-DOC-CHROME` is expected only when the runtime step did not install a kit: with `--skip-runtime`, or on a platform outside `Reach::RuntimeKit::PLATFORMS` such as Windows arm64. When a kit was installed, doctor must find the runtime's Chrome (`check_chrome` reads `chrome_exe` from the active runtime) and the finding fails the step.
 
 Any other finding fails the step and is printed in full.

@@ -1691,6 +1691,9 @@ Teach's pinned copies of `checks.rb` and `specs/release_gate.yml` still need re-
 Since 0.47.2 `gate.rb check --as-push` exits as the push would: zero when an active lease or a covering override would
 let the push through, consuming nothing. Polispec's G-GATE runs it, because a plain `check` ignored every override and
 lease, so no override could unblock `polispec promote` while fleet-state findings (CMP-INSTALLS, KNOWN-ALARM) stood.
+Since 0.47.4 the platform smoke's doctor step tolerates `R-DOC-BRAIN-PLANES`, `R-DOC-SUBSCRIBE` and the unconfigured-Codex
+`R-DOC-CODEX` only in the wording a bare runner produces, so `platforms.yml` can pass again on every OS leg; a different
+wording of those codes still fails the step. Run locally on Linux; no GitHub run yet.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 
