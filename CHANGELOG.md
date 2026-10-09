@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.49.0] - 2026-10-09
+
+0.48.0 is held by unpushed work on another branch, so this release skips it.
+
+### Added
+- `tools/release_gate/gate.rb wire-live [--ref SHA]`: exits 0 only when `specs/wire.yml` at SHA has the digest live Teach serves (read from the same release-gate facts as CMP-WIRE-LIVE). No lease or override applies, so polispec's G-WIRE-PROD enforces that live Teach carries the wire before rEach moves stable. Today it exits 1 (live Teach serves 093f2d, main declares b10d99).
+- `gate.rb check --as-push --min-lease-minutes N`: fails when the push would pass only through a lease that expires within N minutes, and prints the expiry. It is polispec's G-LEASE preflight, so an operator is not asked for the stable phrase under a lease that will expire mid-promote.
+- `gate.rb channel --reach-home PATH`: exits 0 only when that install's `install.yml` stores `teach.test_url`, the new `config.yml` key for the Teach test instance (`https://sven-f1l1.tail062fd2.ts.net:7497`), and names the live Teach when it points there.
+- `tools/stable_promote.rb latest-status [--json]`: reports whether the stable tag is eligible for GitHub Latest (at least `LATEST_SOAK_HOURS`, 24 by default, since it was published; not a prerelease; no stable-hold issue since). `stable.yml` writes it to the job summary. Nothing in CI changes Latest: the operator runs the printed `gh release edit` command.
+
+### Changed
+- `specs/polispec/policy.yml`: test and prod run under polispec `hermetic` isolation (RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME and REACH_WORKSPACE_ROOT point into scratch) with `~/.corpora/reach`, `~/.reach`, `~/.local/state/rplugin/reach` and `~/reach-work` as protected roots, so any write there fails the deploy. `to_stable` gains the preflight (G-LEASE, G-WIRE-PROD), G-WIRE-PROD, G-SOAK (24 h on test with health ok), `flip_latest: deferred`, and the F-LIVE freeze from Teach live activity. These keys need polispec 0.13.0.
+- The platform smoke's doctor step reports `background job not installed` as a skipped capability, not a failure, when `systemctl --user show-environment` fails on a Linux runner (no systemd user manager). When the manager is present, that line still fails.
+
 ## [0.47.6] - 2026-10-09
 
 ### Changed

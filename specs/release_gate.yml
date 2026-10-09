@@ -54,6 +54,9 @@ hook:
 commands:
   - ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z] [--no-security]   dry run of every check against a commit; prints the findings and the verdict, records nothing
   - ruby tools/release_gate/gate.rb check ... --as-push                                   the same dry run, exiting as the push would: zero when an active lease or a covering override would let the push through; it consumes no override, so the push that follows consumes it
+  - ruby tools/release_gate/gate.rb check ... --as-push --min-lease-minutes N          as --as-push, but exits 1 when the push would pass only through a lease that expires in fewer than N minutes (polispec preflight G-LEASE)
+  - ruby tools/release_gate/gate.rb wire-live [--ref SHA]                                exits 0 only when specs/wire.yml at SHA has the digest live Teach serves; no lease or override applies (polispec G-WIRE-PROD)
+  - ruby tools/release_gate/gate.rb channel --reach-home PATH                             exits 0 only when the install at PATH stores config.yml teach.test_url, the Teach test instance; names the live Teach when it points there
   - ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks IDS]    the instructor's one-push override, at an interactive terminal only
   - ruby tools/release_gate/gate.rb overrides                                             the active override records
   - ruby tools/release_gate/gate.rb hold stable --reason TEXT [--hours N]                 a recorded reason for stable to stay behind Latest (an override whose checks are [VER-STABLE])

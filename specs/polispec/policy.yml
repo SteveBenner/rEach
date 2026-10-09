@@ -60,16 +60,29 @@ promotion:
     actor: [operator]
     fast_forward_only: true
     phrase: "promote {project} to stable"
+    preflight:
+      - { id: G-LEASE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push --min-lease-minutes 20", pass: exit_zero }
+      - { id: G-WIRE-PROD, run: "ruby tools/release_gate/gate.rb wire-live --ref {sha}", pass: exit_zero }
     gates:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
+      - { id: G-WIRE-PROD, run: "ruby tools/release_gate/gate.rb wire-live --ref {sha}", pass: exit_zero }
+      - { id: G-SOAK, builtin: soaked, hours: 24 }
       - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero }
       - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
       - { id: G-TESTED, builtin: sha_ran_on_test }
       - { id: G-FREEZE, builtin: not_frozen }
-    release: { flip_latest: true }
+    release: { flip_latest: deferred }
     after: ["polispec deploy {project} stable --tag v{VERSION}"]
+hermetic:
+  test:
+    isolate: [RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME, REACH_WORKSPACE_ROOT]
+    protected_roots: ["~/.corpora/reach", "~/.reach", "~/.local/state/rplugin/reach", "~/reach-work"]
+  prod:
+    isolate: [RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME, REACH_WORKSPACE_ROOT]
+    protected_roots: ["~/.corpora/reach", "~/.reach", "~/.local/state/rplugin/reach", "~/reach-work"]
 freezes:
+  - { id: F-LIVE, applies_to: [promote.to_stable], source: teach.activity, project: teach }
   - { id: F-MANUAL, applies_to: [promote.to_stable], rrule: null, from: null, until: null }
 data_classes:
   synthetic: { allowed_in: [dev, test, prod] }

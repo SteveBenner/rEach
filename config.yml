@@ -4,6 +4,7 @@ corpus:
   id: reach
 teach:
   url: https://sven-f1l1.tail062fd2.ts.net
+  test_url: https://sven-f1l1.tail062fd2.ts.net:7497
 enrollment:
   lockout_refusals: 5
   lockout_minutes: 15

@@ -41,6 +41,9 @@ module PlatformSmoke
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(no runtime kit\)\z/
   }.freeze
 
+  SYSTEMD_SKIP = "skipped capability: systemd user manager unavailable".freeze
+  SUBSCRIBE_UNINSTALLED = /\Abackground job not installed/.freeze
+
   Step = Struct.new(:name, :result, :detail, :duration)
 
   class Run
@@ -663,13 +666,24 @@ RUBY
       [:pass, "names #{STUDENT_NAME}, no fingerprint_mismatch"]
     end
 
+    def systemd_user_available?
+      return true if windows? || macos?
+
+      _out, _err, status = Open3.capture3("systemctl", "--user", "show-environment")
+      status.success?
+    rescue SystemCallError
+      false
+    end
+
     def doctor_step
+      systemd_skipped = !systemd_user_available?
       code, out, err = reach("doctor")
       pairs = out.lines.map { |line| line.strip.match(/\A(R-[A-Z0-9-]+):\s*(.*)\z/) }.compact.map { |m| [m[1], m[2]] }
       findings = pairs.map(&:first).uniq
       allowed = EXPECTED_DOCTOR_FINDINGS.dup
       allowed << CHROME_FINDING unless @kit_installed
       tolerated = @kit_installed ? EXPECTED_DOCTOR_LINES : EXPECTED_DOCTOR_LINES.merge(NO_KIT_DOCTOR_LINES) { |_code, kit, bare| Regexp.union(kit, bare) }
+      tolerated = tolerated.merge("R-DOC-SUBSCRIBE" => Regexp.union(tolerated["R-DOC-SUBSCRIBE"], SUBSCRIBE_UNINSTALLED)) if systemd_skipped
       unexpected = pairs.reject { |code, text| allowed.include?(code) || tolerated[code]&.match?(text) }.map(&:first).uniq
       if code.nil?
         return [:fail, "doctor did not finish: #{tail(out, err)}"]
@@ -679,7 +693,9 @@ RUBY
       end
       return [:fail, "doctor exited #{code} with no findings: #{tail(out, err)}"] if code != 0 && findings.empty?
 
-      [:pass, findings.empty? ? "no findings" : "only expected findings: #{findings.join(', ')}"]
+      detail = findings.empty? ? "no findings" : "only expected findings: #{findings.join(', ')}"
+      detail += "; #{SYSTEMD_SKIP}" if systemd_skipped && pairs.any? { |code, text| code == "R-DOC-SUBSCRIBE" && SUBSCRIBE_UNINSTALLED.match?(text) }
+      [:pass, detail]
     end
 
     def runtime_step

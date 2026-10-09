@@ -1701,6 +1701,11 @@ Run 37914351415 on 9b7e4fa then passed all five legs. linux-x64 passed only on a
 Since 0.47.5 the smoke points `RPLUGIN_HOME` and `XDG_STATE_HOME` into its scratch directory, so polispec's local test
 deploy step no longer loads the machine's own rplugin, fails on `planes: in-process` or writes into the real
 `~/.corpora/reach`.
+Since 0.49.0 polispec runs that smoke hermetically, with rplugin, XDG and rEach homes pointed at scratch and the real corpus,
+`~/.reach` and `~/reach-work` fingerprinted as protected roots. A runner with no systemd user manager skips the subscribe check.
+`to_stable` now also needs 24 h on test (G-SOAK), live Teach serving this wire (`gate.rb wire-live`), a lease with 20 minutes
+left (`--min-lease-minutes`) and no live student activity (F-LIVE). Latest is flipped by the operator once
+`stable_promote.rb latest-status` says the tag is eligible. Build: built on branch prod-safety-r. Deploy: not on main yet.
 Since 0.47.6 the smoke is the polispec `deploy.health.run` of the test and prod environments (polispec 0.12.0), so a
 passing test deploy records health `ok` and satisfies G-TESTED for `polispec promote reach --to stable`.
 

@@ -34,6 +34,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: ruby tools/stable_promote.rb plan
 
+      - name: Report Latest eligibility
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ruby tools/stable_promote.rb latest-status | tee -a "${GITHUB_STEP_SUMMARY}"
+
   smoke:
     name: platform smoke
     needs: plan

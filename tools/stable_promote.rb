@@ -8,7 +8,8 @@ require_relative "release_stable"
 module StablePromote
   LABEL = "stable-hold".freeze
   NOTICE_PREFIX = "refs/tags/notice/hooks".freeze
-  USAGE = "usage: ruby tools/stable_promote.rb plan [--json] | apply notice|promote|ready --tag vX.Y.Z [--sha COMMIT] [--dry-run] | hold --tag vX.Y.Z --run-url URL [--dry-run]".freeze
+  USAGE = "usage: ruby tools/stable_promote.rb plan [--json] | apply notice|promote|ready --tag vX.Y.Z [--sha COMMIT] [--dry-run] | hold --tag vX.Y.Z --run-url URL [--dry-run] | latest-status [--json]".freeze
+  LATEST_SOAK_HOURS = (ENV["LATEST_SOAK_HOURS"] || "24").to_i
 
   module_function
 
@@ -228,6 +229,45 @@ module StablePromote
     0
   end
 
+  def latest_status(now = Time.now.utc)
+    name = ReleaseStable.slug
+    stable = ReleaseStable.remote_sha("refs/heads/#{ReleaseStable::BRANCH}")
+    tag = version_tags.select { |_tag, sha| sha == stable }.keys.max_by { |found| version_of(found) }
+    return { "eligible" => false, "tag" => nil, "reasons" => ["origin #{ReleaseStable::BRANCH} tip carries no version tag"] } unless tag
+
+    release = JSON.parse(run_command("gh", "release", "view", tag, "--repo", name, "--json", "tagName,isPrerelease,publishedAt"))
+    latest = JSON.parse(run_command("gh", "release", "view", "--repo", name, "--json", "tagName"))["tagName"]
+    published = Time.parse(release["publishedAt"].to_s)
+    age_hours = ((now - published) / 3600.0).floor(1)
+    holds = JSON.parse(run_command("gh", "issue", "list", "--repo", name, "--label", LABEL, "--state", "all", "--json", "number,createdAt", "--limit", "100"))
+    later_holds = holds.select { |issue| Time.parse(issue["createdAt"].to_s) > published }.map { |issue| issue["number"] }
+
+    reasons = []
+    reasons << "#{tag} is already Latest" if latest == tag
+    reasons << "#{tag} is a prerelease" if release["isPrerelease"]
+    reasons << "#{tag} was published #{age_hours} h ago, under the #{LATEST_SOAK_HOURS} h soak" if age_hours < LATEST_SOAK_HOURS
+    reasons << "stable-hold issue(s) opened since #{tag} was published: #{later_holds.map { |n| "##{n}" }.join(', ')}" unless later_holds.empty?
+    { "eligible" => reasons.empty?, "tag" => tag, "latest" => latest, "age_hours" => age_hours, "soak_hours" => LATEST_SOAK_HOURS,
+      "reasons" => reasons, "unchecked" => ["desk faults per version are not in the release-gate facts"],
+      "flip" => reasons.empty? ? "gh release edit #{tag} --repo #{name} --latest" : nil }
+  end
+
+  def command_latest_status(argv)
+    json = argv.delete("--json")
+    return usage unless argv.empty?
+
+    status = latest_status
+    if json
+      puts JSON.generate(status)
+    elsif status["eligible"]
+      puts "#{status['tag']} is eligible for Latest (published #{status['age_hours']} h ago, no stable-hold since). The operator flips it: #{status['flip']}"
+    else
+      puts "#{status['tag'] || 'stable'} is not eligible for Latest: #{status['reasons'].join('; ')}"
+    end
+    puts "not checked: #{status['unchecked'].join('; ')}" if status["unchecked"] && !json
+    0
+  end
+
   def usage
     warn USAGE
     2
@@ -250,6 +290,8 @@ module StablePromote
       when "ready" then apply_ready(options)
       else apply_promote(options)
       end
+    when "latest-status"
+      command_latest_status(argv)
     when "hold"
       options = tag_options(argv, run_url: true)
       return usage unless argv.empty? && options[:tag].to_s.match?(ReleaseStable::TAG)

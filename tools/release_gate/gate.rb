@@ -18,6 +18,9 @@ module ReleaseGate
     OVERRIDES_ROUTE = "/api/v1/ops/release-gate/overrides".freeze
     USAGE = <<~TEXT.freeze
       usage: ruby tools/release_gate/gate.rb check [--ref REF] [--tag vX.Y.Z] [--no-security] [--as-push]
+             ruby tools/release_gate/gate.rb check ... --as-push --min-lease-minutes N
+             ruby tools/release_gate/gate.rb wire-live [--ref SHA]
+             ruby tools/release_gate/gate.rb channel --reach-home PATH
              ruby tools/release_gate/gate.rb override --reason TEXT [--hours N] [--checks ID,ID]
              ruby tools/release_gate/gate.rb overrides
              ruby tools/release_gate/gate.rb hold stable --reason TEXT [--hours N]
@@ -46,6 +49,8 @@ module ReleaseGate
     def main(argv)
       case argv.first
       when "check" then check(argv.drop(1))
+      when "wire-live" then wire_live(argv.drop(1))
+      when "channel" then channel(argv.drop(1))
       when "override" then override(argv.drop(1))
       when "overrides" then list_overrides
       when "hold" then hold(argv.drop(1))
@@ -168,7 +173,7 @@ module ReleaseGate
       end.join("\n") + "\n"
     end
 
-    def run_release(repo, release, security:, record:, as_push: false)
+    def run_release(repo, release, security:, record:, as_push: false, min_lease_minutes: nil)
       started = Time.now
       commit = SecurityAuditGate.git("rev-parse", "#{release[:sha]}^{commit}") || release[:sha]
       tree = SecurityAuditGate.git("rev-parse", "#{commit}^{tree}") || commit
@@ -198,8 +203,16 @@ module ReleaseGate
       override = nil
       lease = nil
       lease = Lease.active(repo.name) if %w[blocked error].include?(status)
+      lease_short = false
       if lease && (record || as_push)
         status = "leased"
+        if min_lease_minutes
+          expires = Lease.parse_time(lease["expires_at"])
+          remaining = expires ? ((expires - Time.now.utc) / 60.0) : 0
+          say("lease #{lease['id']} expires #{lease['expires_at']} (#{remaining.floor} minutes from now)")
+          lease_short = remaining < min_lease_minutes
+          say("lease has #{remaining.floor} minutes left, fewer than the required #{min_lease_minutes}") if lease_short
+        end
       elsif %w[blocked error].include?(status) && (record || as_push)
         override = Override.covering(repo, decision[:ids])
         if override
@@ -231,7 +244,73 @@ module ReleaseGate
                                  "findings" => findings.length, "blocking" => decision[:ids], "override_id" => run["override_id"], "lease_id" => run["lease_id"], "duration_s" => duration }, prefix: "release_gate.")
         SecurityAuditGate.notify("#{repo.name} release gate #{status}", "#{release[:version]}: #{decision[:ids].join(', ')}") if %w[blocked error].include?(status)
       end
+      return 1 if lease_short
+
       %w[blocked error].include?(status) ? 1 : 0
+    end
+
+    def wire_live(argv)
+      repo = setup
+      if repo.nil?
+        say("this folder is neither the rEach nor the Teach repository (set RELEASE_GATE_REPO for a scratch clone)")
+        return 2
+      end
+      ref = option(argv, "--ref") || "HEAD"
+      sha = SecurityAuditGate.git("rev-parse", "--verify", "--quiet", "#{ref}^{commit}")
+      if sha.nil?
+        say("unknown ref #{ref}")
+        return 2
+      end
+      mine = Checks.release_wire_digest(Context.new(repo), sha)
+      if mine.nil?
+        say("specs/wire.yml is not in #{sha[0, 12]}")
+        return 1
+      end
+      facts, facts_error = fetch_facts(repo)
+      if facts.nil?
+        say("wire-live: #{facts_error}")
+        return 1
+      end
+      live = facts.dig("teach", "wire_sha256").to_s
+      if live.empty?
+        say("wire-live: Teach reported no wire digest")
+        return 1
+      end
+      if mine == live
+        say("wire-live: specs/wire.yml #{mine} matches the live Teach #{facts.dig('teach', 'version_tree')}")
+        return 0
+      end
+      say("wire-live: specs/wire.yml at #{sha[0, 12]} is #{mine}, the live Teach #{facts.dig('teach', 'version_tree')} serves #{live}")
+      1
+    end
+
+    def channel(argv)
+      home = option(argv, "--reach-home")
+      if home.nil? || home.empty?
+        say("usage: ruby tools/release_gate/gate.rb channel --reach-home PATH")
+        return 2
+      end
+      config = YAML.safe_load(File.read(File.expand_path("../../config.yml", __dir__)), permitted_classes: [Date], aliases: false) || {}
+      teach = config["teach"].is_a?(Hash) ? config["teach"] : {}
+      expected = teach["test_url"].to_s.strip.sub(%r{/+\z}, "")
+      live = teach["url"].to_s.strip.sub(%r{/+\z}, "")
+      if expected.empty?
+        say("channel: config.yml has no teach.test_url")
+        return 1
+      end
+      install = File.join(File.expand_path(home), "install.yml")
+      unless File.file?(install)
+        say("channel: #{install} does not exist; enroll the test install first")
+        return 1
+      end
+      stored = ((YAML.safe_load(File.read(install), permitted_classes: [Date, Time], aliases: false) || {})["teach_url"]).to_s.strip.sub(%r{/+\z}, "")
+      if stored == expected
+        say("channel: the install at #{home} talks to the Teach test instance #{expected}")
+        return 0
+      end
+      where = if stored == live then "the LIVE Teach #{live}" elsif stored.empty? then "no Teach URL" else stored end
+      say("channel: the install at #{home} talks to #{where}, not the Teach test instance #{expected}")
+      1
     end
 
     def check(argv)
@@ -251,7 +330,8 @@ module ReleaseGate
       branch = SecurityAuditGate.git("rev-parse", "--abbrev-ref", "HEAD")
       release = { sha: sha, trigger: tag ? "tag" : "version", version: version, tag: tag, branch: branch }
       say("dry run of #{repo.name} #{version} at #{sha[0, 12]}; nothing is recorded")
-      code = run_release(repo, release, security: !argv.include?("--no-security"), record: false, as_push: argv.include?("--as-push"))
+      code = run_release(repo, release, security: !argv.include?("--no-security"), record: false, as_push: argv.include?("--as-push"),
+                         min_lease_minutes: option(argv, "--min-lease-minutes")&.to_i)
       report = Dir.glob(File.join(repo.state_dir, "reports", "#{version}-*-gate.md")).max_by { |path| File.mtime(path) }
       puts File.read(report) if report
       code
