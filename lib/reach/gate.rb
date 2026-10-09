@@ -688,6 +688,7 @@ module Reach
       base = hook_cwd(event)
       read_paths(tool, input, base).each do |candidate|
         raise_outside!(event, tool) if outside_path?(candidate, base)
+        raise_blocked!("M-GATE-EXTRACURRICULAR-READ") if (kind == "slice" || kind == "root") && extracurricular_path?(candidate, base)
       end
       check_recursive_read!(input, base) if RECURSIVE_READ_TOOLS.include?(tool)
       nil
@@ -742,6 +743,14 @@ module Reach
       File.join(real, *rest)
     rescue SystemCallError, ArgumentError
       nil
+    end
+
+    def extracurricular_path?(path, base)
+      resolved = real_resolve(path, base)
+      return false if resolved.nil?
+
+      root = real_resolve(Reach::Paths.extracurricular_root, base)
+      !root.nil? && within?(resolved, root)
     end
 
     def outside_path?(path, base)

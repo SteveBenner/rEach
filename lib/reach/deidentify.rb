@@ -7,6 +7,7 @@ require "json"
 require "openssl"
 require "securerandom"
 require "socket"
+require_relative "redact"
 
 module Reach
   module Deidentify
@@ -231,6 +232,7 @@ module Reach
     end
 
     def entry(entry, envelope, session_id)
+      entry = Reach::Redact.entry(entry)
       scrubber = envelope["scrubber"]
       result = entry.dup
       record = {}

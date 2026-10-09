@@ -2,6 +2,7 @@ require "fileutils"
 require "json"
 require "time"
 require "find"
+require_relative "redact"
 
 module Reach
   module Transcript
@@ -108,7 +109,7 @@ module Reach
       remember_context(session_id, harness, space, workspace)
       drafts = prompt_parts(event, gate: gate).map do |fields|
         { "kind" => "prompt", "harness" => harness.to_s, "cutout_id" => cutout_id, "slice" => slice, "space" => space, "at" => nil }
-          .merge(note ? fields.merge("note" => note) : fields)
+          .merge(note ? fields.merge("note" => Reach::Redact.join_notes(note, fields["note"])) : fields)
       end
       first = record_batch(session_id, drafts).first
       first && first["whole_digest"] ? first.merge("digest" => first["whole_digest"]) : first
@@ -123,8 +124,8 @@ module Reach
         return [{ "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "gate" => gate, "note" => "no prompt in the hook payload" }]
       end
 
-      scrubbed = prompt.dup.force_encoding("UTF-8").scrub("�")
-      parts = text_parts(scrubbed).map { |fields| fields.merge("gate" => gate) }
+      scrubbed, = Reach::Redact.text(prompt.dup.force_encoding("UTF-8").scrub("�"))
+      parts = text_parts(prompt).map { |fields| fields.merge("gate" => gate) }
       return parts if parts.length == 1
 
       whole = Reach::Crypto.digest_hex(scrubbed)
@@ -146,10 +147,11 @@ module Reach
     end
 
     def text_parts(text)
-      scrubbed = text.to_s.dup.force_encoding("UTF-8").scrub("�")
+      scrubbed, counts = Reach::Redact.text(text.to_s.dup.force_encoding("UTF-8").scrub("�"))
+      redaction_note = Reach::Redact.note(counts)
       pieces = split_bytes(scrubbed)
       pieces.each_with_index.map do |piece, index|
-        fields = { "text" => piece, "bytes" => piece.bytesize, "truncated" => false, "digest" => Reach::Crypto.digest_hex(piece), "note" => nil }
+        fields = { "text" => piece, "bytes" => piece.bytesize, "truncated" => false, "digest" => Reach::Crypto.digest_hex(piece), "note" => redaction_note }
         pieces.length > 1 ? fields.merge("part" => [index + 1, pieces.length]) : fields
       end
     end
@@ -472,7 +474,7 @@ module Reach
       entries = []
       drafts.each do |draft|
         seq += 1
-        entry = { "seq" => seq, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft)
+        entry = Reach::Redact.entry({ "seq" => seq, "session_id" => session_id, "student_id" => enrolled_student_id }.merge(draft))
         entry["at"] ||= now_iso
         entries << entry
         file.write(JSON.generate(entry) + "\n")
@@ -518,7 +520,9 @@ module Reach
       reply_seq = seq + 1
       student_id = enrolled_student_id
 
-      plain_text, blocks = split_reply(params["raw_text"], reply_seq: reply_seq, category_root: params["category_root"])
+      raw_text, reply_counts = Reach::Redact.text(params["raw_text"])
+      reply_note = Reach::Redact.note(reply_counts)
+      plain_text, blocks = split_reply(raw_text, reply_seq: reply_seq, category_root: params["category_root"])
       seq = reply_seq - 1
       text_parts(plain_text).each do |fields|
         seq += 1
@@ -526,7 +530,7 @@ module Reach
           "seq" => seq, "session_id" => session_id, "at" => params["at"], "harness" => params["harness"].to_s,
           "cutout_id" => params["cutout_id"], "slice" => params["slice"], "space" => params["space"], "kind" => "reply",
           "student_id" => student_id
-        }.merge(fields).merge("note" => params["note"])
+        }.merge(fields).merge("note" => Reach::Redact.join_notes(params["note"], reply_note))
         file.write(JSON.generate(reply_entry) + "\n")
         entries << reply_entry
       end
@@ -639,12 +643,13 @@ module Reach
     end
 
     def code_text_fields(text)
-      scrubbed = text.to_s.dup.force_encoding("UTF-8").scrub("�")
+      scrubbed, counts = Reach::Redact.text(text.to_s.dup.force_encoding("UTF-8").scrub("�"))
+      redaction_note = Reach::Redact.note(counts)
       bytes = scrubbed.bytesize
       if bytes <= MAX_TEXT_BYTES
-        { "text" => scrubbed, "bytes" => bytes, "truncated" => false, "digest" => Reach::Crypto.digest_hex(scrubbed), "note" => nil }
+        { "text" => scrubbed, "bytes" => bytes, "truncated" => false, "digest" => Reach::Crypto.digest_hex(scrubbed), "note" => redaction_note }
       else
-        { "text" => truncate_to_bytes(scrubbed, MAX_TEXT_BYTES), "bytes" => bytes, "truncated" => true, "digest" => Reach::Crypto.digest_hex(scrubbed), "note" => nil }
+        { "text" => truncate_to_bytes(scrubbed, MAX_TEXT_BYTES), "bytes" => bytes, "truncated" => true, "digest" => Reach::Crypto.digest_hex(scrubbed), "note" => redaction_note }
       end
     end
 
@@ -1207,6 +1212,7 @@ module Reach
     end
 
     def wire_entry(entry, parts = false)
+      entry = Reach::Redact.entry(entry)
       kind = entry["kind"].to_s
       fields = KIND_FIELDS[kind] || []
       wire = { "seq" => entry["seq"], "at" => entry["at"], "kind" => kind }
