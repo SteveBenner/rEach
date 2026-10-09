@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.49.1] - 2026-10-09
+
+### Fixed
+- `specs/polispec/policy.yml`: G-RCHECK and G-RDOCTOR set `hermetic: false` (polispec 0.15.1) in both the test and stable gate lists. Under `hermetic`, `rplugin check reach` could not find the plugin home in the isolated RPLUGIN_HOME. `rplugin doctor reach` appends to `~/.corpora/reach/data/.events.jsonl` and `~/.local/state/rplugin/reach/events.jsonl`, which the protected-root fingerprint counts as a write. So `polispec promote reach --to test` for 0.49.0 always failed at G-RCHECK. Both gates only read the installed plugin; the platform smoke (the health run) and the other gates keep the isolation.
+
 ## [0.49.0] - 2026-10-09
 
 ### Added

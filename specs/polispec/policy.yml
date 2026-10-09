@@ -49,8 +49,8 @@ promotion:
     drift: "main must contain stable's tip (operator hotfix back-merge) or promotion is denied"
     gates:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
-      - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero }
-      - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero }
+      - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero, hermetic: false }
+      - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero, hermetic: false }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
       - { id: G-CLEAN, builtin: clean_tree }
       - { id: G-VHOMES, builtin: version_homes_agree }
@@ -67,8 +67,8 @@ promotion:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
       - { id: G-WIRE-PROD, run: "ruby tools/release_gate/gate.rb wire-live --ref {sha}", pass: exit_zero }
       - { id: G-SOAK, builtin: soaked, hours: 24 }
-      - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero }
-      - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero }
+      - { id: G-RCHECK, run: "rplugin check reach", pass: exit_zero, hermetic: false }
+      - { id: G-RDOCTOR, run: "rplugin doctor reach", pass: exit_zero, hermetic: false }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
       - { id: G-TESTED, builtin: sha_ran_on_test }
       - { id: G-FREEZE, builtin: not_frozen }

@@ -1707,7 +1707,10 @@ Since 0.49.0 polispec runs that smoke hermetically, with rplugin, XDG and rEach 
 `~/.reach` and `~/reach-work` fingerprinted as protected roots. A runner with no systemd user manager skips the subscribe check.
 `to_stable` now also needs 24 h on test (G-SOAK), live Teach serving this wire (`gate.rb wire-live`), a lease with 20 minutes
 left (`--min-lease-minutes`) and no live student activity (F-LIVE). Latest is flipped by the operator once
-`stable_promote.rb latest-status` says the tag is eligible. Build: built on branch prod-safety-r. Deploy: not on main yet.
+`stable_promote.rb latest-status` says the tag is eligible. The smoke keeps the subscribe job's systemd units in its
+scratch (`REACH_SYSTEMD_USER_DIR`), so no run installs a real `reach-subscribe.timer`. Since 0.49.1 G-RCHECK and G-RDOCTOR
+run outside the isolation (`hermetic: false`, polispec 0.15.1), because they read the installed plugin and its event logs.
+Build: on main (0.49.1). Deploy: test after `polispec promote reach --to test`.
 Since 0.47.6 the smoke is the polispec `deploy.health.run` of the test and prod environments (polispec 0.12.0), so a
 passing test deploy records health `ok` and satisfies G-TESTED for `polispec promote reach --to stable`.
 
