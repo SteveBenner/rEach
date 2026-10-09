@@ -166,16 +166,10 @@ module Reach
     end
 
     def course_rule(row)
-      bindings = {
-        "G-SCOPE-1" => "Reach::Gate.write", "G-SCOPE-3" => "Reach::Gate.check_time_and_module!",
-        "G-SHAPE-1" => "Reach::Check.run", "G-SHAPE-2" => "Reach::Ladder.blocked_message",
-        "G-PART-1" => "Reach::Submit.require_part!", "G-TEST-1" => "Reach::Qualify.run"
-      }
-      binding = bindings[row["id"]]
-      binding ||= case row["enforce"]
-                  when "gate:write" then "Reach::Gate.write"
-                  when "gate:shell" then "Reach::Gate.shell"
-                  end
+      binding = case row["enforce"]
+                when "gate:write" then "Reach::Gate.write"
+                when "gate:shell" then "Reach::Gate.shell"
+                end
       {
         "id" => row["id"], "description" => row["rule"], "event" => "course.directive",
         "mode" => binding ? "native" : "advisory", "binding" => binding || "Reach::Guardrails.render_rules",
