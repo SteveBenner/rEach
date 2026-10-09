@@ -1763,7 +1763,7 @@ Build ✅ Shipped · Deploy 🟢 Live (0.37.0, 2026-10-06) · Blocker -
 
 ## Polispec migration — 0.47.0
 
-Build: implemented and locally verified. Deploy: built; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
+Build: implemented and locally verified. Deploy: source candidate published; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
 
 - Thirteen existing engineering directives now have one canonical policy source, compiled runtime data, and generated readable views.
 - Native enforcement bindings, four declarative control predicates, and advisory guidance have explicit coverage modes. Doctor and the pre-push gate detect artifact/view drift and missing guard bindings.
@@ -1775,3 +1775,5 @@ Build: implemented and locally verified. Deploy: built; student stable rollout a
 Student-first audit: learning and assignment ownership are preserved; student agency and authored answers remain unchanged; wellbeing/support precedence stays with Teach; no new private-data disclosure; Ruby 2.6 and offline support remain; existing refusals retain their recovery routes; no work or receipt is deleted; reinstall/sync restores the appropriate policy. Existing native guards are retained, not replaced by model judgment. Hookless-host and planned NOTICE limitations remain as previously documented.
 
 No tests were added under NOTEST. Validation evidence and any release blockers are recorded in the change history; a policy declaration is not proof that its prose is fully enforced.
+
+Verification on 2026-10-08: plugin package/check and policy drift checks report zero findings. The existing Linux artifact smoke produced 12 passes, one doctor failure, and three skips on both baseline b0df42e and candidate c9cc74e. The shared failure lists R-DOC-CODEX, R-DOC-BRAIN-PLANES, and R-DOC-SUBSCRIBE; runtime download checks were skipped, and the macOS-only sandbox check was inapplicable. Later adapter changes preserve serialization bytes and use only course-supplied enforcement pointers; policy validation and the deterministic secret scan pass. Full model release audit and cross-platform runs are separate evidence. The release gate reports existing Teach/rEach wire alignment and alarm findings; the current operator lease is reported by the gate, not a clean-release verdict.

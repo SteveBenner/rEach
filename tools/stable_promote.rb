@@ -46,7 +46,9 @@ module StablePromote
 
   def plan
     tested = ReleaseStable.remote_sha("refs/heads/#{ReleaseStable::TEST_BRANCH}")
-    raise "origin has no #{ReleaseStable::TEST_BRANCH} branch" unless tested
+    unless tested
+      return { "action" => "wait", "tag" => nil, "target" => nil, "stable" => ReleaseStable.remote_sha("refs/heads/#{ReleaseStable::BRANCH}"), "hooks_changed" => false, "notice_ref" => nil, "reason" => "Polispec test-channel onboarding is pending; stable stays where it is" }
+    end
 
     tag = version_tags.select { |_name, sha| sha == tested }.keys.max_by { |name| version_of(name) }
     raise "origin #{ReleaseStable::TEST_BRANCH} tip #{tested[0, 12]} carries no version tag" unless tag
@@ -93,6 +95,8 @@ module StablePromote
     write_output(result)
     if options[:json]
       puts JSON.generate(result)
+    elsif result["action"] == "wait"
+      puts result.fetch("reason")
     else
       stable = result["stable"] ? result["stable"][0, 12] : "absent"
       puts "#{result['action']} #{result['tag']} (stable #{stable}, target #{result['target'][0, 12]}, hooks changed: #{result['hooks_changed']})"
