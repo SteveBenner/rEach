@@ -95,7 +95,10 @@ module Reach
         dir = snapshot_dir
         if File.directory?(dir)
           held = Sources::Folder.new(dir)
-          return held if held.content_digest(names) == approved
+          if held.content_digest(names) == approved
+            record_file_digests(held, names)
+            return held
+          end
 
           discard_snapshot
         end
@@ -105,10 +108,24 @@ module Reach
         File.chmod(0o700, dir)
         original.copy_into(dir, names)
         copy = Sources::Folder.new(dir)
-        return copy if copy.content_digest(names) == approved
+        if copy.content_digest(names) == approved
+          record_file_digests(copy, names)
+          return copy
+        end
 
         discard_snapshot
         nil
+      end
+
+      def record_file_digests(snapshot, names)
+        return if @job["file_digests"].is_a?(Hash) && names.all? { |name| @job["file_digests"][name] }
+
+        digests = {}
+        names.each do |name|
+          digests[name] = snapshot.file_digest(name) || raise(Sources::SourceChanged)
+        end
+        @job["file_digests"] = digests
+        save
       end
 
       def copy?

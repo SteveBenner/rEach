@@ -129,7 +129,10 @@ module Reach
         end
 
         source = Sources.open(job["source"])
+        Sources.verify_original!(source, job, entry["src"])
+        stamp = source.stamp(entry["src"])
         raw = source.read_range(entry["src"], entry["off"].to_i, entry["len"].to_i)
+        Sources.unchanged_since!(source, entry["src"], stamp)
         file = job["files"].find { |item| item["name"] == entry["src"] } || {}
         conversation = Vendors.normalize(file["kind"], job["vendor"], JSON.parse(raw.force_encoding(Encoding::UTF_8)), 0)
         raise Reach::Refused, "reach: this conversation could not be read from the export again" unless conversation

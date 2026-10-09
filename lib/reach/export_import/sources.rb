@@ -108,6 +108,25 @@ module Reach
           nil
         end
 
+        def file_digest(name, deadline_s: DIGEST_DEADLINE_S)
+          deadline = Time.now + deadline_s
+          digest = Digest::SHA256.new
+          each_chunk(name) do |chunk|
+            digest.update(chunk)
+            raise TimeLimit if Time.now > deadline
+          end
+          digest.hexdigest
+        rescue SystemCallError, KeyError
+          nil
+        end
+
+        def stamp(name)
+          info = File.lstat(stamp_path(name))
+          [info.size, info.mtime.to_i, info.mtime.nsec]
+        rescue SystemCallError
+          nil
+        end
+
         def copy_into(dir, names, deadline_s: SNAPSHOT_DEADLINE_S)
           deadline = Time.now + deadline_s
           names.map(&:to_s).sort.each do |name|
@@ -155,6 +174,10 @@ module Reach
           found
         end
 
+        def stamp_path(name)
+          File.join(@root, name)
+        end
+
         def size_of(name)
           File.lstat(File.join(@root, name)).size
         rescue SystemCallError
@@ -199,6 +222,10 @@ module Reach
           "zip"
         end
 
+        def stamp_path(_name)
+          @path
+        end
+
         def each_chunk(name)
           entry = @zip.fetch(name)
           File.open(@path, "rb") do |io|
@@ -224,6 +251,29 @@ module Reach
           end
           out
         end
+      end
+
+      VERIFIED = {}
+
+      def verify_original!(source, job, name)
+        expected = (job["file_digests"] || {})[name.to_s]
+        raise SourceChanged unless expected
+
+        before = source.stamp(name)
+        raise SourceChanged unless before
+
+        key = [source.path, name.to_s, before]
+        return true if VERIFIED[key] == expected
+
+        actual = source.file_digest(name)
+        raise SourceChanged unless actual == expected && source.stamp(name) == before
+
+        VERIFIED[key] = expected
+        true
+      end
+
+      def unchanged_since!(source, name, before)
+        raise SourceChanged unless source.stamp(name) == before
       end
 
       def basename(name)
