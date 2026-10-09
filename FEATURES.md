@@ -1684,6 +1684,10 @@ for a push named `HEAD:main` was found on the first live push and fixed before t
 until it is re-pinned from Teach main. 0.40.1 moved Teach's schedule, settings, alarm names, routes, scopes, port and
 commands out of `specs/release_gate.yml` into the private superproject's copy (`STD-TEACH-OPAQUE`); the public file keeps
 the tables the gate reads; the 0.40.0 commits before this fix are superseded, and no tag or release carried them.
+Since 0.47.1 INST-FLAP skips the gate's own `release_gate:*` and `release_gate_override:*` alarms, as KNOWN-ALARM does,
+so a refused push no longer keeps the gate refusing for 24 hours. Checked on 2026-10-08 in process with the live
+flapping facts: the gate's own alarms (8 and 7 openings) produced no finding, and `doctor` (3 openings) still did.
+Teach's pinned copies of `checks.rb` and `specs/release_gate.yml` still need re-pinning.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 

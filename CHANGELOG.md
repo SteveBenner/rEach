@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.1] - 2026-10-08
+
+### Fixed
+- Release gate INST-FLAP (`tools/release_gate/checks.rb`, `specs/release_gate.yml`) no longer counts the gate's own `release_gate:*` and `release_gate_override:*` alarms, as KNOWN-ALARM already did; each blocked run opened one more, so the gate kept itself blocked for 24 hours after every refusal.
+
 ## [0.47.0] - 2026-10-08
 
 ### Added

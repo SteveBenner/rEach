@@ -492,7 +492,7 @@ module ReleaseGate
     end
 
     def inst_flap(_repo, _release, facts, _ctx, _overrides)
-      rows = Array(facts["flapping"]).select { |row| row.is_a?(Hash) }
+      rows = Array(facts["flapping"]).select { |row| row.is_a?(Hash) && !(row["check_name"].to_s =~ SELF_ALARMS) }
       return nil if rows.empty?
 
       finding("INST-FLAP", "high", "Flapping alarms (3 or more openings in 24 h)",

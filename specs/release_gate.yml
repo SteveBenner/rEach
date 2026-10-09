@@ -247,7 +247,7 @@ checks:
     part: B
     repos: [reach, teach]
     class: critical_class
-    reads: "facts.flapping: alarm names with at least 3 alarm openings within the last 24 hours (the course server's flap threshold 3 and window 24 h), each with its newest severity"
+    reads: "facts.flapping: alarm names with at least 3 alarm openings within the last 24 hours (the course server's flap threshold 3 and window 24 h), each with its newest severity, except release_gate:* and release_gate_override:*"
     broken: an alarm that opened and cleared repeatedly, meaning 3 or more openings within 24 hours
     severity: high
     clear: 24 hours pass without a new opening of that alarm
