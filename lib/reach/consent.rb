@@ -6,7 +6,7 @@ require "rbconfig"
 module Reach
   module Consent
     SCHEMA = "reach.consent/v1".freeze
-    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup harness_move].freeze
+    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup harness_move profile_share].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
 
@@ -136,7 +136,7 @@ module Reach
 
       now = Time.now.utc
       return nil if now - Time.iso8601(pending["asked_at"]) > WINDOW_S
-      return nil unless question_shown?(entry["transcript_path"], pending["question"])
+      return nil unless question_shown?(entry["transcript_path"], pending["question"], session_id: pending["session_id"], asked_at: pending["asked_at"])
 
       text = entry["text"]
       answer = if yes?(text)
@@ -170,14 +170,47 @@ module Reach
 
     TRANSCRIPT_TAIL_BYTES = 2_000_000
 
-    def question_shown?(path, question)
-      return true if path.to_s.empty? || !File.file?(path)
-
+    def question_shown?(path, question, session_id: nil, asked_at: nil)
       wanted = squash(question)
-      return true if wanted.empty?
+      return false if wanted.empty?
 
-      squash(latest_assistant_text(path)).include?(wanted)
+      return true if !path.to_s.empty? && File.file?(path) && squash(latest_assistant_text(path)).include?(wanted)
+
+      spooled_question?(session_id, wanted, asked_at)
     rescue SystemCallError, IOError
+      spooled_question?(session_id, squash(question), asked_at)
+    end
+
+    def spooled_question?(session_id, wanted, asked_at)
+      sid = session_id.to_s
+      return false if wanted.to_s.empty? || sid.empty? || sid =~ %r{[/\\\0]} || sid.include?("..")
+
+      since = Time.iso8601(asked_at.to_s)
+      path = Reach::Transcript.entries_path(sid)
+      return false unless File.file?(path)
+
+      replies = []
+      File.foreach(path) do |line|
+        entry = begin
+          JSON.parse(line)
+        rescue JSON::ParserError
+          nil
+        end
+        next unless entry.is_a?(Hash) && entry["kind"] == "reply" && entry["text"].is_a?(String)
+
+        recorded = begin
+          Time.iso8601(entry["at"].to_s)
+        rescue ArgumentError
+          nil
+        end
+        next unless recorded && recorded >= since
+
+        replies << entry["text"]
+      end
+      return false if replies.empty?
+
+      squash(replies.join(" ")).include?(wanted) || squash(replies.join).include?(wanted) || replies.any? { |text| squash(text).include?(wanted) }
+    rescue ArgumentError, SystemCallError, IOError
       false
     end
 
@@ -231,6 +264,10 @@ module Reach
         return observed["answer"] == "yes" ? Reach::Messages.text("M-SUBMIT-YES-AGENT", slice_id: replay["slice_id"]) : Reach::Messages.text("M-CONSENT-DECLINED")
       end
 
+      if observed["kind"] == "profile_share"
+        return observed["answer"] == "yes" ? Reach::Messages.text("M-PROFILE-SHARE-YES-AGENT") : Reach::Messages.text("M-PROFILE-SHARE-DECLINED")
+      end
+
       if observed["kind"] == "compaction"
         return observed["answer"] == "yes" ? Reach::Messages.text("M-STORAGE-COMPACT-YES-AGENT") : Reach::Messages.text("M-STORAGE-COMPACT-DECLINED")
       end
@@ -257,7 +294,7 @@ module Reach
     end
 
     def agent_context(observed, done)
-      return done if %w[submission compaction export_import].include?(observed["kind"]) && observed["answer"] == "yes"
+      return done if %w[submission compaction export_import profile_share].include?(observed["kind"]) && observed["answer"] == "yes"
       return Reach::Live.agent_context(observed, done) if Reach::Live::KINDS.include?(observed["kind"])
 
       Reach::Messages.text("M-CONSENT-DONE", answer: observed["answer"], text: done)

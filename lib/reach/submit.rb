@@ -2,6 +2,7 @@ require "json"
 require "time"
 require "fileutils"
 require "securerandom"
+require_relative "safe_files"
 
 module Reach
   module Submit
@@ -320,6 +321,10 @@ module Reach
 
         meta = Reach::Workspace.metadata(workspace)
         owned = Array(meta["owned_files"])
+        unsafe = owned.reject { |relative| Reach::SafeFiles.safe?(workspace, relative) }
+        unless unsafe.empty?
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNSAFE", list: unsafe.map { |relative| "- #{relative}" }.join("\n"))
+        end
         missing = owned.reject { |relative| File.file?(File.join(workspace, relative)) }
         unless missing.empty?
           raise Reach::Refused, Reach::Messages.text("M-SUBMIT-MISSING", list: missing.map { |relative| "- #{relative}" }.join("\n"))
@@ -365,11 +370,17 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-SUBMIT-BLOCKED-CHECK", hand: hand_id ? Reach::Messages.text("M-HAND-RAISED") : Reach::Messages.text("M-OFFLINE"))
       end
 
+      def owned_bytes(workspace, relative_path)
+        Reach::SafeFiles.read(workspace, relative_path)
+      rescue Reach::SafeFiles::Unsafe => e
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNSAFE", list: "- #{e.relative}")
+      end
+
       def owned_digests(workspace, meta)
         digests = {}
         Array(meta["owned_files"]).each do |relative_path|
-          full_path = File.join(workspace, relative_path)
-          digests[relative_path] = File.file?(full_path) ? Reach::Crypto.digest_hex(File.binread(full_path)) : nil
+          data = owned_bytes(workspace, relative_path)
+          digests[relative_path] = data ? Reach::Crypto.digest_hex(data) : nil
         end
         digests
       end
@@ -445,10 +456,10 @@ module Reach
         Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data }
         entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" })
         Array(manifest["owned_files"]).each do |relative_path|
-          full_path = File.join(workspace, relative_path)
-          next unless File.file?(full_path)
+          data = owned_bytes(workspace, relative_path)
+          next unless data
 
-          entries["files/#{relative_path}"] = File.binread(full_path)
+          entries["files/#{relative_path}"] = data
         end
         entries["ledger.jsonl"] = tail unless tail.to_s.empty?
         entries

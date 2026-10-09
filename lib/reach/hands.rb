@@ -2,6 +2,7 @@ require "json"
 require "time"
 require "fileutils"
 require "securerandom"
+require_relative "safe_files"
 
 module Reach
   module Hands
@@ -31,6 +32,7 @@ module Reach
     SECRET_LABEL = /(\b(?:password|passkey|passcode|pwd)\b\s*(?:\bis\b\s*)?[:=]?\s*)(["'`]?)([^\s"'`]+)\2/i.freeze
     CODE_WORD = /[A-Za-z0-9]+/.freeze
     CODE_WINDOW_MAX = 3
+    PROFILE_SHARE = "profile_share".freeze
 
     class << self
       def raise_hand(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {}, last_step: nil, saw: nil)
@@ -38,6 +40,7 @@ module Reach
                               originator: originator, details: details, last_step: last_step, saw: saw)
         refused = record["refused"]
         raise Reach::Refused, refused_text(refused["message"]) if refused
+        raise Reach::Refused, consent_pending_text(record["consent_pending"]) if record["consent_pending"]
 
         record["hand_id"]
       end
@@ -59,6 +62,23 @@ module Reach
         Reach::Messages.text("M-HAND-SENT", hand_id: hand_id)
       end
 
+      def consent_pending_text(question)
+        Reach::Messages.text("M-CONSENT-NEEDED", question: question)
+      end
+
+      def profile_subject(fields)
+        { "profile_fields" => fields }
+      end
+
+      def profile_fields
+        return nil unless defined?(Reach::Profile)
+
+        fields = Reach::Profile.load["fields"]
+        fields.is_a?(Hash) && !fields.empty? ? fields : nil
+      rescue StandardError
+        nil
+      end
+
       def validate_type!(type)
         return type.to_s if TYPES.include?(type.to_s)
 
@@ -73,7 +93,7 @@ module Reach
         [STUDENT_REQUEST, "[#{type}] #{summary}"]
       end
 
-      def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {}, last_step: nil, saw: nil)
+      def raise_record(trigger:, summary:, slice:, include_profile: false, originator: "student", details: {}, last_step: nil, saw: nil, profile_confirmed: false)
         details = (details || {}).merge("technical" => TECHNICAL_TYPES.include?(trigger.to_s),
                                         "last_step" => last_step, "saw" => saw)
         trigger, summary = wire_type(trigger, summary)
@@ -82,7 +102,21 @@ module Reach
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
-        bundle = build_bundle(workspace, meta, trigger, summary, include_profile, originator, details || {})
+        shared = nil
+        if include_profile
+          fields = profile_fields
+          if fields
+            if profile_confirmed || Reach::Consent.take!(kind: PROFILE_SHARE, subject: profile_subject(fields))
+              shared = fields
+            else
+              question = Reach::Consent.ask!(kind: PROFILE_SHARE, subject: profile_subject(fields), message_id: "M-PROFILE-SHARE-ASK",
+                                             fields: { fields: fields.keys.join(", ") })
+              return { "hand_id" => nil, "hand_ref" => nil, "queued" => false, "consent_pending" => question }
+            end
+          end
+        end
+
+        bundle = build_bundle(workspace, meta, trigger, summary, include_profile, originator, details || {}, approved_profile: shared)
         tar_bytes = Reach::Tarball.write("bundle.json" => JSON.generate(bundle))
         envelope = seal_hand(install, meta, tar_bytes)
         idempotency_key = SecureRandom.uuid
@@ -225,19 +259,18 @@ module Reach
         changed
       end
 
-      def build_bundle(workspace, meta, trigger, summary, include_profile, originator, details)
-        files = {}
-        Array(meta["owned_files"]).each do |relative_path|
-          full_path = File.join(workspace, relative_path)
-          files[relative_path] = File.file?(full_path) ? File.read(full_path) : nil
-        end
+      def build_bundle(workspace, meta, trigger, summary, include_profile, originator, details, approved_profile: nil)
+        files, skipped = Reach::SafeFiles.collect(workspace, meta["owned_files"])
+        files = files.map { |relative, data| [relative, data && data.force_encoding(Encoding::UTF_8)] }.to_h
+        tests, test_skipped = Reach::Qualify.collect_test_files(workspace)
+        skipped += test_skipped
 
         profile = nil
-        if include_profile && defined?(Reach::Profile)
-          begin
-            profile = Reach::Profile.load["fields"]
-          rescue StandardError
-            profile = nil
+        if include_profile
+          profile = approved_profile
+          if profile.nil?
+            fields = profile_fields
+            profile = fields if fields && Reach::Consent.take!(kind: PROFILE_SHARE, subject: profile_subject(fields))
           end
         end
 
@@ -268,7 +301,8 @@ module Reach
             "history" => Array(details["history"] || ladder["history"])
           },
           "code" => files,
-          "tests" => Reach::Qualify.test_files(workspace).map { |relative, data| [relative, data.dup.force_encoding(Encoding::UTF_8).scrub] }.to_h,
+          "tests" => tests.map { |relative, data| [relative, data.dup.force_encoding(Encoding::UTF_8).scrub] }.to_h,
+          "skipped" => skipped,
           "last_output" => last_output(qualification),
           "agent_summary" => cut(details["agent_summary"] || summary.to_s, 4000),
           "last_step_ok" => field_text(details["last_step"]),

@@ -2,6 +2,7 @@ require "json"
 require "time"
 require "fileutils"
 require "securerandom"
+require_relative "safe_files"
 
 module Reach
   module Qualify
@@ -252,7 +253,7 @@ module Reach
 
       def owned_contents(workspace, meta, stub:)
         owned = Array(meta["owned_files"])
-        return owned.map { |relative| [relative, read_or_nil(File.join(workspace, relative))] }.to_h unless stub
+        return owned.map { |relative| [relative, Reach::SafeFiles.read_or_skip(workspace, relative).first] }.to_h unless stub
 
         starting = starting_copies(workspace, meta)
         owned.map { |relative| [relative, starting[relative]] }.to_h
@@ -352,7 +353,7 @@ module Reach
         digests = {}
         entries = {}
         owned.each do |relative|
-          data = read_or_nil(File.join(workspace, relative))
+          data = Reach::SafeFiles.read_or_skip(workspace, relative).first
           digests[relative] = data ? Reach::Crypto.digest_hex(data) : nil
           entries["files/#{relative}"] = data if data
         end
@@ -442,26 +443,38 @@ module Reach
       end
 
       def test_files(workspace)
+        collect_test_files(workspace).first
+      end
+
+      def collect_test_files(workspace)
         files = {}
+        skipped = []
         [FEATURES_DIR, STEPS_DIR].each do |dir|
           base = File.join(workspace, dir)
-          next unless File.directory?(base)
+          next unless Reach::SafeFiles.safe_dir?(workspace, dir)
 
           Dir.glob(File.join(base, "**", "*"), File::FNM_DOTMATCH).sort.each do |path|
-            next unless File.file?(path) && !File.symlink?(path)
             next if File.basename(path) == ".keep"
 
-            files["#{dir}/#{path.sub("#{base}/", '')}"] = File.binread(path)
+            relative = "#{dir}/#{path.sub("#{base}/", '')}"
+            next if File.directory?(path) && !File.symlink?(path)
+
+            data, reason = Reach::SafeFiles.read_or_skip(workspace, relative)
+            if reason
+              skipped << { "path" => relative, "reason" => "unsafe path" }
+            elsif data
+              files[relative] = data
+            end
           end
         end
-        files
+        [files, skipped]
       end
 
       def files_digest(workspace)
         meta = Reach::Workspace.metadata(workspace)
         map = {}
         Array(meta["owned_files"]).each do |relative|
-          data = read_or_nil(File.join(workspace, relative))
+          data = Reach::SafeFiles.read_or_skip(workspace, relative).first
           map[relative] = data ? Reach::Crypto.digest_hex(data) : nil
         end
         Reach::Crypto.digest_hex(Reach::Crypto.canonical_json(map))

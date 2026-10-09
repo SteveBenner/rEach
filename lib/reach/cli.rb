@@ -1622,6 +1622,20 @@ module Reach
         end
       end
 
+      def confirm_profile_share
+        return false unless $stdin.tty? && $stdout.tty?
+
+        fields = Reach::Hands.profile_fields
+        return false unless fields
+
+        puts Reach::Messages.text("M-PROFILE-SHARE-CONFIRM", fields: fields.keys.join(", "))
+        print "> "
+        $stdout.flush
+        Reach::Consent.yes?($stdin.gets)
+      rescue StandardError
+        false
+      end
+
       def cmd_hand(args)
         sub = args.shift
         case sub
@@ -1632,16 +1646,23 @@ module Reach
             warn "usage: reach hand raise --summary <text> [--type student_request] [--slice <id>] [--last-step <text>] [--saw <text>] [--include-profile]"
             return 1
           end
+          confirmed = include_profile && confirm_profile_share
           record = Reach::Hands.raise_record(
             trigger: options[:type] || options[:trigger] || Reach::Hands::STUDENT_REQUEST,
             summary: options[:summary],
             slice: default_slice_id(options[:slice]),
             include_profile: include_profile,
+            profile_confirmed: confirmed,
             last_step: options[:last_step],
             saw: options[:saw]
           )
           if record["refused"]
             raise Reach::Refused, Reach::Hands.refused_text(record["refused"]["message"])
+          end
+
+          if record["consent_pending"]
+            puts Reach::Hands.consent_pending_text(record["consent_pending"])
+            return 1
           end
 
           if record["queued"]
