@@ -1,12 +1,14 @@
 ---
+alias: B
+enforce: check:CK-RUBY
 id: R-RUBY
 opcode: RUBY
-alias: B
-tier: public
+rule: 'plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal,
+  no gems'
 slice: backend
-rule: "plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal, no gems"
-when: [path:**/*.rb]
-enforce: check:CK-RUBY
+tier: public
+when:
+- path:**/*.rb
 ---
 # RUBY: one dialect for every module
 

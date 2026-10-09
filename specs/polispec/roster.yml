@@ -1,0 +1,29 @@
+schema: polispec.roster/v1
+project: reach
+harness_effort:
+  claude: [low, medium, high, xhigh, max]
+  codex: [low, medium, high, xhigh]
+roles:
+  blueprint:
+    default: {harness: codex, model: astra, effort: xhigh, agent: architect}
+    bounds: {harnesses: [claude, codex], models: [fable, astra], effort: {min: xhigh, max: xhigh}}
+  engineering:
+    default: {harness: codex, model: astra, effort: xhigh, agent: linus}
+    bounds: {harnesses: [claude, codex], models: [fable, astra], effort: {min: xhigh, max: xhigh}}
+  coding-worker:
+    default: {harness: codex, model: luna, effort: medium, agent: bob}
+    bounds: {harnesses: [claude, codex], models: [haiku, luna, sonnet, fable, astra], effort: {min: medium, max: xhigh}}
+  reviewer:
+    default: {harness: codex, model: astra, effort: xhigh}
+    bounds: {harnesses: [claude, codex], models: [fable, astra], effort: {min: xhigh, max: xhigh}}
+workflows:
+  feature: {build_role: coding-worker, verify_role: reviewer, min_effort: medium}
+  bug: {build_role: coding-worker, verify_role: reviewer, min_effort: medium}
+  is: {author_role: engineering}
+environments:
+  dev: {roles: ["*"], pipelines: []}
+  test: {roles: [coding-worker, reviewer], pipelines: []}
+  prod: {roles: [], pipelines: []}
+budgets:
+  per_run_usd_max: 40
+  per_day_usd: {interactive: 150}

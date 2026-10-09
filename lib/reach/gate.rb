@@ -987,6 +987,7 @@ module Reach
     end
 
     def check_enrolled!
+      Reach::BehaviorPolicy.ensure!
       Reach::EnrollmentLock.check!
     rescue Reach::GateBlocked => e
       log_refusal(e.message_id, e.message)

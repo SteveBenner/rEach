@@ -1760,3 +1760,18 @@ Build ✅ Shipped · Deploy 🟢 Live (0.37.0, 2026-10-06) · Blocker -
 ### AF-TEST-ASSIST
 Rule: During a test never hint, answer, write files, run commands or browse; show each question word for word and clarify its wording only. Enforced by test mode. Since rEach 0.37.0.
 Build ✅ Shipped · Deploy 🟢 Live (0.37.0, 2026-10-06) · Blocker -
+
+## Polispec migration — 0.47.0
+
+Build: implemented and locally verified. Deploy: built; student stable rollout and host-ledger activation pending. This entry does not re-audit the older registry totals.
+
+- Thirteen existing engineering directives now have one canonical policy source, compiled runtime data, and generated readable views.
+- Native enforcement bindings, four declarative control predicates, and advisory guidance have explicit coverage modes. Doctor and the pre-push gate detect artifact/view drift and missing guard bindings.
+- Course settings and directives are normalized from the existing Teach package with separate authority; no private bodies or student data enter the public policy.
+- Instructor-owned wellbeing, precedence, and channel policy remains in its pinned control contract, declared by digest in the application policy.
+- `reach policy` reports authorities and coverage without exposing private content. Damaged installed policy refuses governed mutations while recovery and support remain available.
+- The development policy carries persona model/effort bounds. CI checks the exact planned test commit, and stable promotion is operator-only.
+
+Student-first audit: learning and assignment ownership are preserved; student agency and authored answers remain unchanged; wellbeing/support precedence stays with Teach; no new private-data disclosure; Ruby 2.6 and offline support remain; existing refusals retain their recovery routes; no work or receipt is deleted; reinstall/sync restores the appropriate policy. Existing native guards are retained, not replaced by model judgment. Hookless-host and planned NOTICE limitations remain as previously documented.
+
+No tests were added under NOTEST. Validation evidence and any release blockers are recorded in the change history; a policy declaration is not proof that its prose is fully enforced.

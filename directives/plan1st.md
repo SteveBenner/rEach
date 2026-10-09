@@ -1,12 +1,15 @@
 ---
+alias: A
+enforce: ledger
 id: R-PLAN1ST
 opcode: PLAN1ST
-alias: A
-tier: public
+rule: save a slice plan with reach plan save before any edit; read it back at session
+  start
 slice: all
-rule: save a slice plan with reach plan save before any edit; read it back at session start
-when: [task:build, event:SessionStart]
-enforce: ledger
+tier: public
+when:
+- task:build
+- event:SessionStart
 ---
 # PLAN1ST: the plan comes before the code
 

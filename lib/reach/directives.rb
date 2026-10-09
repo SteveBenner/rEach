@@ -29,12 +29,12 @@ module Reach
     end
 
     def public_rows
-      public_files.map { |path| parse_file(path, "public") }.compact
+      Reach::BehaviorPolicy.directive_rows.map { |row| normalize(row.merge("path" => File.join(public_dir, "#{row.fetch('opcode').downcase}.md"))) }
     end
 
     def private_rows(guardrails = nil)
       data = guardrails || Reach::Guardrails.load
-      Array(data["directives"]).select { |entry| entry.is_a?(Hash) && entry["opcode"] }.map { |entry| normalize(entry.merge("tier" => "private")) }
+      Array(Reach::BehaviorPolicy.course(data)["directives"]).select { |entry| entry.is_a?(Hash) && entry["opcode"] }.map { |entry| normalize(entry.merge("tier" => "private")) }
     rescue StandardError
       []
     end
@@ -100,8 +100,7 @@ module Reach
     end
 
     def public_body(row)
-      _front, body = split_frontmatter(File.read(row["path"]))
-      body
+      Reach::BehaviorPolicy.directive_rows.find { |entry| entry["opcode"] == row["opcode"] }.fetch("body")
     end
 
     REFUSAL_CODES = %w[revoked forbidden unauthenticated not_enrolled].freeze

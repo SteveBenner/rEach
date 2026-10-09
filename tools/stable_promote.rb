@@ -8,7 +8,7 @@ require_relative "release_stable"
 module StablePromote
   LABEL = "stable-hold".freeze
   NOTICE_PREFIX = "refs/tags/notice/hooks".freeze
-  USAGE = "usage: ruby tools/stable_promote.rb plan [--json] | apply notice|promote --tag vX.Y.Z [--dry-run] | hold --tag vX.Y.Z --run-url URL [--dry-run]".freeze
+  USAGE = "usage: ruby tools/stable_promote.rb plan [--json] | apply notice|promote|ready --tag vX.Y.Z [--sha COMMIT] [--dry-run] | hold --tag vX.Y.Z --run-url URL [--dry-run]".freeze
 
   module_function
 
@@ -33,14 +33,26 @@ module StablePromote
     end.compact
   end
 
+  def version_tags
+    commits = {}
+    run_command("git", "ls-remote", "--tags", "origin", "refs/tags/v*").lines.map(&:split).each do |sha, ref|
+      match = %r{\Arefs/tags/(v\d+\.\d+\.\d+)(\^\{\})?\z}.match(ref.to_s)
+      next unless match
+
+      commits[match[1]] = sha if match[2] || !commits.key?(match[1])
+    end
+    commits
+  end
+
   def plan
-    name = ReleaseStable.slug
-    tag = ReleaseStable.latest_tag(name)
-    raise "Latest release #{tag.inspect} is not a version tag" unless tag.match?(ReleaseStable::TAG)
+    tested = ReleaseStable.remote_sha("refs/heads/#{ReleaseStable::TEST_BRANCH}")
+    raise "origin has no #{ReleaseStable::TEST_BRANCH} branch" unless tested
+
+    tag = version_tags.select { |_name, sha| sha == tested }.keys.max_by { |name| version_of(name) }
+    raise "origin #{ReleaseStable::TEST_BRANCH} tip #{tested[0, 12]} carries no version tag" unless tag
 
     stable = ReleaseStable.remote_sha("refs/heads/#{ReleaseStable::BRANCH}")
-    target = ReleaseStable.tag_commit(tag)
-    raise "origin has no tag #{tag}" if target.to_s.empty?
+    target = tested
 
     result = { "action" => "promote", "tag" => tag, "stable" => stable, "target" => target, "hooks_changed" => false, "notice_ref" => nil }
     if stable == target
@@ -69,7 +81,7 @@ module StablePromote
     path = ENV["GITHUB_OUTPUT"].to_s
     return if path.empty?
 
-    File.open(path, "a") { |handle| handle.puts("action=#{result['action']}", "tag=#{result['tag']}") }
+    File.open(path, "a") { |handle| handle.puts("action=#{result['action']}", "tag=#{result['tag']}", "target=#{result['target']}") }
   end
 
   def command_plan(argv)
@@ -93,6 +105,7 @@ module StablePromote
     parser = OptionParser.new do |opts|
       opts.on("--tag TAG") { |value| options[:tag] = value }
       opts.on("--dry-run") { options[:dry_run] = true }
+      opts.on("--sha SHA") { |value| options[:sha] = value }
       opts.on("--run-url URL") { |value| options[:run_url] = value } if run_url
     end
     parser.parse!(argv)
@@ -102,7 +115,7 @@ module StablePromote
   def apply_notice(options)
     tag = options[:tag]
     result = plan
-    raise "#{tag} is not the Latest release (Latest is #{result['tag']})" unless result["tag"] == tag
+    raise "#{tag} is not the tag at #{ReleaseStable::TEST_BRANCH}'s tip (#{result['tag']})" unless result["tag"] == tag
     raise "plan says #{result['action']} for #{tag}, not notice; refusing to push a notice" unless result["action"] == "notice"
 
     ref = "#{NOTICE_PREFIX}/#{tag}/#{today}"
@@ -149,15 +162,42 @@ module StablePromote
     stable = ReleaseStable.remote_sha("refs/heads/#{ReleaseStable::BRANCH}")
     return "absent" unless stable
 
-    commits = {}
-    run_command("git", "ls-remote", "--tags", "origin", "refs/tags/v*").lines.map(&:split).each do |sha, ref|
-      match = %r{\Arefs/tags/(v\d+\.\d+\.\d+)(\^\{\})?\z}.match(ref.to_s)
-      next unless match
-
-      commits[match[1]] = sha if match[2] || !commits.key?(match[1])
-    end
-    found = commits.select { |_tag, sha| sha == stable }.keys.max_by { |name| version_of(name) }
+    found = version_tags.select { |_tag, sha| sha == stable }.keys.max_by { |name| version_of(name) }
     found || stable[0, 12]
+  end
+
+  READY_LABEL = "stable-ready".freeze
+
+  def open_ready(name)
+    run_command("gh", "issue", "list", "--repo", name, "--label", READY_LABEL, "--state", "open", "--json", "number", "--jq", ".[].number").lines.map(&:strip).reject(&:empty?)
+  end
+
+  def apply_ready(options)
+    tag = options[:tag]
+    result = plan
+    raise "#{tag} is not the tag at #{ReleaseStable::TEST_BRANCH}'s tip (#{result['tag']})" unless result["tag"] == tag
+    raise "plan says #{result['action']} for #{tag}, not promote; no stable-ready issue" unless result["action"] == "promote"
+    tested = options[:sha].to_s
+    raise "the smoke result does not name the exact planned commit" unless tested.match?(/\A[0-9a-f]{40}\z/) && tested == result["target"]
+
+    name = ReleaseStable.slug
+    sha = result["target"][0, 12]
+    title = "stable-ready: #{tag} passed the platform smoke on test"
+    body = "test is at #{sha} (#{tag}) and the platform smoke passed. Stable moves only when the operator runs `polispec promote reach --to stable`."
+    existing = open_ready(name).first
+    if options[:dry_run]
+      puts(existing ? "would update issue ##{existing}: #{title}" : "would open issue #{title.inspect} labeled #{READY_LABEL}")
+      return 0
+    end
+
+    if existing
+      run_command("gh", "issue", "edit", existing, "--repo", name, "--title", title, "--body", body)
+      puts "updated issue ##{existing}"
+    else
+      run_command("gh", "label", "create", READY_LABEL, "--repo", name, "--description", "test passed the smoke; waiting for the operator", "--force")
+      puts run_command("gh", "issue", "create", "--repo", name, "--title", title, "--body", body, "--label", READY_LABEL)
+    end
+    0
   end
 
   def command_hold(options)
@@ -167,7 +207,7 @@ module StablePromote
 
     name = ReleaseStable.slug
     title = "stable held at #{stable_name}: smoke failed for #{tag}"
-    body = "The platform smoke did not pass on #{tag}, so stable stays where it is. Run: #{url}"
+    body = "The platform smoke did not pass on test at #{tag}, so stable stays where it is. Run: #{url}"
     existing = open_holds(name).first
     if options[:dry_run]
       puts(existing ? "would comment on issue ##{existing}: #{body}" : "would open issue #{title.inspect} labeled #{LABEL}")
@@ -178,7 +218,7 @@ module StablePromote
       run_command("gh", "issue", "comment", existing, "--repo", name, "--body", body)
       puts "commented on issue ##{existing}"
     else
-      run_command("gh", "label", "create", LABEL, "--repo", name, "--description", "stable is held behind Latest", "--force")
+      run_command("gh", "label", "create", LABEL, "--repo", name, "--description", "stable is held behind test", "--force")
       puts run_command("gh", "issue", "create", "--repo", name, "--title", title, "--body", body, "--label", LABEL)
     end
     0
@@ -196,12 +236,16 @@ module StablePromote
       command_plan(argv)
     when "apply"
       kind = argv.shift
-      return usage unless %w[notice promote].include?(kind)
+      return usage unless %w[notice promote ready].include?(kind)
 
       options = tag_options(argv)
       return usage unless argv.empty? && options[:tag].to_s.match?(ReleaseStable::TAG)
 
-      kind == "notice" ? apply_notice(options) : apply_promote(options)
+      case kind
+      when "notice" then apply_notice(options)
+      when "ready" then apply_ready(options)
+      else apply_promote(options)
+      end
     when "hold"
       options = tag_options(argv, run_url: true)
       return usage unless argv.empty? && options[:tag].to_s.match?(ReleaseStable::TAG)

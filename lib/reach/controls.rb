@@ -7,8 +7,6 @@ module Reach
     FILE = "controls.json".freeze
     UNSUPPORTED_WAIT_S = 21_600
     KINDS = %w[pause_course_work hold_submissions test].freeze
-    PAUSE_SPACES = %w[slice root].freeze
-    TEST_TOOLS = %w[reach_test reach_support reach_status].freeze
     TEST_STATE_FILE = "exam.json".freeze
 
     module_function
@@ -161,12 +159,13 @@ module Reach
     end
 
     def check_pause!(space, check)
-      return nil unless space.is_a?(Hash) && PAUSE_SPACES.include?(space["kind"])
+      return nil unless space.is_a?(Hash)
 
       row = active("pause_course_work").last
-      return nil unless row
+      rule = Reach::BehaviorPolicy.decision("control.pause", "space" => space["kind"], "active" => !row.nil?)
+      return nil unless rule
 
-      refuse!("M-CONTROL-PAUSED", check, "pause_course_work", row["ends_at"])
+      refuse!(rule.fetch("message_id"), check, "pause_course_work", row["ends_at"])
     end
 
     def check_prompt!(space)
@@ -180,7 +179,8 @@ module Reach
       return nil unless enabled?
 
       lock = test_lock
-      refuse!("M-CONTROL-TEST-LOCKED", kind.to_s, "test", lock) if lock
+      rule = Reach::BehaviorPolicy.decision("control.tool", "locked" => !lock.nil?)
+      refuse!(rule.fetch("message_id"), kind.to_s, "test", lock) if rule
       check_pause!(space, kind.to_s)
       nil
     end
@@ -189,26 +189,29 @@ module Reach
       return nil unless enabled?
 
       row = active("hold_submissions").last
-      return nil unless row
+      rule = Reach::BehaviorPolicy.decision("control.submit", "active" => !row.nil?)
+      return nil unless rule
 
-      refuse!("M-CONTROL-HOLD", "submit", "hold_submissions", row["ends_at"])
+      refuse!(rule.fetch("message_id"), "submit", "hold_submissions", row["ends_at"])
     end
 
     def allowed_tools
       doc = Reach::AgentControl.load
       section = doc.is_a?(Hash) && doc["controls"].is_a?(Hash) ? doc["controls"]["test"] : nil
       listed = section.is_a?(Hash) ? section["allowed_tools"] : nil
-      listed.is_a?(Array) && !listed.empty? ? listed.map(&:to_s) : TEST_TOOLS
+      listed.is_a?(Array) && !listed.empty? ? listed.map(&:to_s) : Reach::BehaviorPolicy.parameters("control").fetch("test_tools")
     rescue StandardError
-      TEST_TOOLS
+      Reach::BehaviorPolicy.parameters("control").fetch("test_tools")
     end
 
     def tool_allowed?(name)
       return true unless enabled?
-      return true unless test_lock
-      return true if allowed_tools.include?(name.to_s)
+      rule = Reach::BehaviorPolicy.decision("control.mcp", "locked" => !test_lock.nil?, "allowed" => allowed_tools.include?(name.to_s))
+      return true unless rule
 
       Reach::Debug.emit("control", "check" => "mcp", "outcome" => "block", "control_kind" => "test", "message_id" => "M-CONTROL-TEST-LOCKED")
+      false
+    rescue Reach::BehaviorPolicy::Invalid
       false
     rescue StandardError
       true

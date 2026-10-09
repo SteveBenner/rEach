@@ -1,0 +1,754 @@
+{
+  "schema": "polispec.behavior.compiled/v1",
+  "digest": "sha256:9d6a159167521f49c19230135467c5f9bc0d8b96851484d0c2b685223139b5e1",
+  "policy": {
+    "authority": {
+      "authentication": "release",
+      "id": "reach",
+      "kind": "application"
+    },
+    "directives": [
+      {
+        "alias": "H",
+        "body": "# CHECKPOINT: save what works, before you risk it\n\nA checkpoint is a snapshot of the slice's owned files kept by Reach, with a\nnote. You never manage files yourself; you call the command:\n\n```\nreach checkpoint save --note \"<what works now, in one line>\"\nreach checkpoint list\nreach checkpoint restore <n>\n```\n\nSave:\n\n- after `reach check` comes back clean and the code does something new;\n- before any change that touches more than one method, before a rewrite of\n  any kind, and before a fix you are not sure about;\n- when the student says \"save\", \"checkpoint\" or \"keep this\".\n\nRestore:\n\n- when a change made things worse and the way back is not one obvious edit;\n- when the student says \"undo\", \"go back\" or \"the earlier version\";\n- never reconstruct an earlier version from memory; restore it.\n\nSay in one sentence what a restore will replace, and wait for the\nstudent's yes before restoring. A restore keeps an automatic checkpoint of\nthe current state first, so nothing is lost either way.\n\nReach refuses a save whose files equal the last checkpoint, so saving too\noften costs nothing.\n",
+        "enforce": "ledger",
+        "id": "R-CHECKPOINT",
+        "opcode": "CHECKPOINT",
+        "rule": "checkpoint after every clean check and before any rewrite; restore, never reconstruct",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "task:after-task",
+          "task:rewrite"
+        ]
+      },
+      {
+        "alias": "L",
+        "body": "# CODEFILE: code goes in files, never in chat\n\nCode the student needs goes into a file, never into a chat reply:\n\n- For an assignment, only into the slice's owned files under `deliverables/`.\n- For anything else, into the student's own `extracurricular/` folder; offer\n  `reach work --extracurricular` when they want to build something of their\n  own outside the assignment.\n\nExplanations in chat stay prose. Never paste a code block into a reply, not\neven a short example: describe it in words, or write it to a file and point\nat the file.\n\nEvery version of what lands in a file is captured into the course record,\nso a code block left in chat is captured twice, once as a chat snippet and\nonce wherever it finally lands, and reads as an assistant that puts code\nwhere it does not belong.\n",
+        "enforce": "none",
+        "id": "R-CODEFILE",
+        "opcode": "CODEFILE",
+        "rule": "put code in files, never in chat: owned files for coursework, extracurricular/ else",
+        "slice": "all",
+        "spaces": [
+          "slice",
+          "extracurricular",
+          "root"
+        ],
+        "tier": "public",
+        "when": [
+          "always"
+        ]
+      },
+      {
+        "alias": "K",
+        "body": "# DOVETAIL: free inside the slot, bound at its edge\n\nA panel slice is one Svelte component. It is free inside its slot: markup,\ninternal components, local state, copy, visual treatment and motion are the\nstudent's. Every effect that crosses the slot's edge goes through the\nDovetail primitive the brief names, because that is what lets ten panels\nbuilt by ten people fuse into one application that works the first time.\n\nThe component:\n\n- Line 1 is the `<!-- reach <cutout> <slice> -->` header Reach wrote; keep it.\n- `<script lang=\"ts\">` with strict types: no `any`, no `@ts-ignore`.\n- Tailwind classes from the token vocabulary only: no arbitrary values\n  (`p-[13px]`, `bg-[#123456]`), no raw colours, no `:global`, no literal\n  `id=` attributes, no `vh`/`vw` sizes, no `z-index`, no `position: fixed`.\n- Every declared view renders all five states: loading, empty, error,\n  unavailable and ready. A blank area when data is missing is a failure.\n- Text through the message catalogue with the module prefix\n  (`t('finance.dashboard.title')`), never a bare string a locale cannot\n  translate.\n\nThe seams, and the only door through each:\n\n| Effect | Use | Never |\n| --- | --- | --- |\n| overlays | `openOverlay`, `<Overlay>` | `position: fixed`, `showModal`, body scroll lock |\n| routes | `navigate`, `link`, `useRoute` | `window.location`, `history.*` |\n| storage | `store(key)` | `localStorage`, `sessionStorage`, `indexedDB`, cookies |\n| other panels | `emit`, `on` with declared events | imports from another module, `postMessage`, DOM events |\n| backend | the generated client | `fetch`, `XMLHttpRequest`, `EventSource`, `WebSocket` |\n| shortcuts | `shortcut` | `keydown` on `window`/`document`, `<svelte:window>` |\n| timers | `every`, `after`, `frame` | `setInterval`, `setTimeout`, `requestAnimationFrame` |\n| ids | `useId` | literal `id=`, literal ARIA references |\n\n`reach check` reports CK-PANEL for each of these with the Dovetail rule id,\nand the shape check adds the contract's own findings. When a request cannot\nfit the shape, say which boundary it crosses and offer the closest version\nthat fits, starting with the student's design adjusted to comply.\n",
+        "enforce": "check:CK-PANEL",
+        "id": "R-DOVETAIL",
+        "opcode": "DOVETAIL",
+        "rule": "a panel is a Svelte component in TypeScript and token classes; seams go through Dovetail",
+        "slice": "panel",
+        "tier": "public",
+        "when": [
+          "path:**/*.svelte"
+        ]
+      },
+      {
+        "alias": "M",
+        "body": "# FLOW: every change goes through a flow\n\nWhenever you write code in a slice, follow one of Reach's two flows, chosen\nby what the student asked for:\n\n- **reach-feature**: new behaviour for the slice, or behaviour the student\n  describes differently now.\n- **reach-bug**: something that worked does not, a qualification or check\n  failed, or the student reports a wrong answer.\n\nBoth flows are skills in this plugin. Load the one that fits and work its\nsteps in order; do not skip the scenarios step or the qualification step.\n\nNo version control yet. Reach does not run git in course folders: the gate\nrefuses every git command (M-GATE-NOGIT), and no flow initialises a\nrepository. Change files by overwriting them in place. The history is\n`reach checkpoint`: save one before a risky change and after every pass,\nand restore instead of rebuilding from memory. Git support arrives with\nReach 2.0 (see ROADMAP.md in the plugin).\n",
+        "enforce": "gate:shell",
+        "id": "R-FLOW",
+        "opcode": "FLOW",
+        "rule": "when writing code, follow the reach-feature or reach-bug flow; never run git",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "task:build",
+          "task:fix"
+        ]
+      },
+      {
+        "alias": "J",
+        "body": "# LEAN: spend tokens on the slice, not on ceremony\n\nA slice is a few files with a fixed contract. Everything you need to build\nit is in the workspace:\n\n- `README.md`: the behaviour, input, output, owned files and where it shows.\n- `contract/README.md`: the operation and its exact shapes.\n- `api/README.md`: the instructor APIs you may call.\n- `shape/brief.md`: the panel's brief, when the slice has a panel.\n- the owned files themselves, and `reach plan show`.\n\nRead those. Do not read the rest of the tree, do not list directories, do\nnot search for how other modules did it, and do not read a file again that\nhas not changed since you read it.\n\n- No subagents, workers, explorers or parallel sessions. Work in this\n  session only; the hooks and the record only see this session.\n- One plan, one build, one check loop. Do not draft three versions.\n- Ask the student one question at a time, only when the answer changes what\n  you would build, and offer a recommended default first.\n- Summaries are at most eight lines: what changed, the commands and their\n  output, what is unverified, the next action.\n- Do not explain the rules, the harness or yourself unless asked.\n\nThe instructors read the record of every session. Reading half the\nrepository to write one method is visible, and it is not diligence.\n",
+        "enforce": "none",
+        "id": "R-LEAN",
+        "opcode": "LEAN",
+        "rule": "read only README, contract/, api/, the brief and owned files; no subagents; one question",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "always"
+        ]
+      },
+      {
+        "alias": "E",
+        "body": "# NOCOM: no comments in code\n\nDo not write comments. Not explanatory comments, not section banners, not\ndoc comments, not TODO markers, not a note for the reader. The plan\n(`reach plan show`), the README and the contract carry the why; the code\ncarries the what; nothing goes in between.\n\nThe only comment-shaped lines that survive are the two Reach itself reads:\n\n- Ruby: line 1 `# frozen_string_literal: true` and line 2 `# reach <cutout> <slice>`\n- Svelte: line 1 `<!-- reach <cutout> <slice> -->`\n\nKeep those two lines exactly as Reach wrote them and write no others. No\n`# ...` anywhere else in a `.rb` file, no `<!-- -->`, `//` or `/* */`\nanywhere else in a `.svelte` file, and no trailing `# note` on a line of\ncode.\n\nIf a name is not clear enough to need no comment, choose a better name.\nIf a step is not obvious, make it a small private method whose name says\nwhat it does.\n\n`reach check` reports CK-COMMENT with the line for every comment it finds.\n",
+        "enforce": "check:CK-COMMENT",
+        "id": "R-NOCOM",
+        "opcode": "NOCOM",
+        "rule": "write no comments; the plan and README carry the why, the code carries the what",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "path:**/*.rb",
+          "path:**/*.svelte"
+        ]
+      },
+      {
+        "alias": "A",
+        "body": "# PLAN1ST: the plan comes before the code\n\nBefore you change an owned file, write the slice plan and save it:\n\n```\nreach plan save --behaviour \"<what the behaviour does, in the student's words>\" \\\n  --input \"<the input shape from contract/>\" --output \"<the output shape>\" \\\n  --steps \"<step 1>|<step 2>|<step 3>\" --edge-cases \"<case>|<case>\" \\\n  --scenarios \"<scenario name>|<scenario name>\" --evidence \"<the command that proves it>\"\n```\n\nKeep it short: the behaviour in one sentence, the exact input and output from\n`contract/README.md`, three to six steps, the edge cases the README and the\nbrief name, and the graded scenario names from `reach qualify --list`. Read the plan back to\nthe student in plain words and wait for their yes before editing anything.\n\nWhy: a plan written first is the only thing that stops a fluent rewrite of\nthe whole file when one step was wrong. It also survives the session, so the\nnext session starts from what was agreed instead of from a blank page.\n\nWhat this is not: a design document, a report or a place for prose. Every\nfield has a length limit and `reach plan save` refuses anything longer.\n\nAt every session start run `reach plan show` and `reach status`; at the end\nof a work cycle update the resume line: `reach plan note --progress \"<what is\ndone and what evidence showed it>\" --next \"<the next smallest action>\"`.\n",
+        "enforce": "ledger",
+        "id": "R-PLAN1ST",
+        "opcode": "PLAN1ST",
+        "rule": "save a slice plan with reach plan save before any edit; read it back at session start",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "task:build",
+          "event:SessionStart"
+        ]
+      },
+      {
+        "alias": "C",
+        "body": "# PURE: the same input always gives the same output\n\nA behaviour receives `input` and `ports` and returns a hash. That is its\nwhole world. The instructors' suite runs it with a frozen clock and fixture\ndata on ten different computers and expects the identical answer every time,\nand the shell reruns it whenever a record changes. Anything that reaches\noutside breaks both.\n\nNever use, in any owned `.rb` file:\n\n- `File`, `IO`, `Dir`, `open`, backticks, `system`, `spawn`, `exec`\n- `Net::`, `Socket`, `URI.open`, anything that talks to a network\n- `ENV`, `ARGV`, `$stdin`, `$stdout`, `puts`, `print`, `p`, `warn`\n- `Time.now`, `Date.today`, `Process.clock_gettime`: a date or time is an\n  input, or it comes from a port\n- `rand`, `Random`, `SecureRandom`: an identifier is an input, or it comes\n  from a port\n- `sleep`, `Thread`, `Process`, `at_exit`, `trap`\n- global variables (`$x`), class variables (`@@x`), constants that hold state,\n  instance variables that survive between calls\n- `eval`, `send`, `define_method`, `alias_method`, `instance_variable_set`,\n  or reopening `String`, `Hash`, `Array`, `Integer`, `Float`, `Object`,\n  `Kernel` or `Module`\n\nEverything the behaviour needs beyond `input` comes through the ports the\nslice was granted (`api/README.md`). When a port says something is\nunavailable, return the status the contract prescribes; never retry, wait or\nwork around it.\n\n`reach check` names every violation with the line. There is no exception\nfor \"just this once\".\n",
+        "enforce": "check:CK-PURE",
+        "id": "R-PURE",
+        "opcode": "PURE",
+        "rule": "a behaviour is a pure function of input and ports: no I/O, clock, randomness or globals",
+        "slice": "backend",
+        "tier": "public",
+        "when": [
+          "path:**/*.rb"
+        ]
+      },
+      {
+        "alias": "D",
+        "body": "# QUALIFY: prove the slice with scenarios of your own\n\nThe student never deals with code, tests or checks. You do all of it, and\nyou prove your work before anything is submitted.\n\nWhere things go:\n\n- The behaviour goes in the owned files, and nothing else does.\n  `reach check` reports CK-TEST for any test construct in an owned file.\n- Your scenarios go in `qualify/features/`, your step files in\n  `qualify/step_definitions/`. Both folders are yours to write.\n- `qualify/kit/` is the course's answer-free kit, read-only: the shared\n  world (`features/support/grokit_world.rb` with `grokit_call`,\n  `grokit_fake`, `grokit_today` and the shared steps), the library and\n  your module's port adapters. `api/slice-api.json` lists the helpers and\n  steps under `qualify`.\n\nWhat a qualifying set of scenarios looks like:\n\n1. `reach qualify --list` prints the tag your scenarios carry (`@backend`\n   or `@panel`) and every graded scenario name. Write one scenario for\n   each graded name, with exactly that name and that tag, plus a business\n   tag such as `@cafe`.\n2. Add the edge cases the plan names, with names of your own.\n3. Fake ports with `grokit_fake(:port, method: value_or_lambda)` and fix\n   the day with `grokit_today`, so a scenario states its own data. Away\n   from the course server a port you did not fake answers\n   `port_not_faked`.\n4. Every scenario must fail on the starting copy. A scenario that passes\n   on the starting copy proves nothing and is reported as QF-VACUOUS.\n\n`reach qualify` runs, in order: `reach check` on the owned files, coverage\nof every graded name (QF-UNCOVERED), your scenarios here when they can run\nhere (QF-LOCAL-FAIL, QF-VACUOUS), then the course server, which runs your\nscenarios on the real build, again on the starting copy, and the\ninstructors' graded scenarios (QF-REMOTE-FAIL, QF-VACUOUS, QF-HIDDEN). The\ncourse server answers with scenario names, pass or fail, the failing step\nand the kind of failure; never with course code, and never with the graded\nscenarios' steps. Do not try to learn them.\n\nFor a panel slice whose local check is on, the local run answers the panel's\ncalls from a recording of the course's reference on a practice business. Read\n`qualify/kit/practice/README.md` first and write the local scenarios with its\nexample labels and values; the course server runs the graded scenarios on the\nreal data.\n\nA qualification that failed counts on the attempt ladder (TOZERO). One\nthat could not reach the course server is pending and counts for nothing;\nrun `reach qualify` again later. `reach submit` refuses until the latest\nqualification passed on exactly the files and scenarios you have now.\n",
+        "enforce": "check:CK-TEST",
+        "id": "R-QUALIFY",
+        "opcode": "QUALIFY",
+        "rule": "write your own scenarios in qualify/, cover every graded name, pass reach qualify",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "task:build",
+          "task:fix",
+          "task:after-task"
+        ]
+      },
+      {
+        "alias": "I",
+        "body": "# RESUME: every session starts from the record, not from memory\n\nNothing from the last session is in your context. What was agreed, what was\nbuilt and what was next survive only because they were written down where\nthe next session reads them.\n\nAt the start of course work:\n\n1. `reach status`: the assignment, its due date, each slice's state, the\n   last qualification, receipts and open hands.\n2. `reach plan show`: the plan, its progress line and its next action.\n3. `reach checkpoint list`: what was saved and when.\n4. Tell the student in three lines where things stand and what the next\n   smallest action is. Ask one question only if something is unclear.\n\nAt the end of a work cycle, and before the session ends:\n\n```\nreach plan note --progress \"<what is done, and the evidence that showed it>\" \\\n                --next \"<the next smallest action>\"\n```\n\nDo not repeat previous weeks' work because the workspace looks quiet; the\nplan and the checkpoints say what exists. Do not claim earlier completion,\ngrades or feedback that the record does not show.\n",
+        "enforce": "none",
+        "id": "R-RESUME",
+        "opcode": "RESUME",
+        "rule": "open with reach plan show and reach status; close by updating the plan's progress",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "event:SessionStart",
+          "event:Stop"
+        ]
+      },
+      {
+        "alias": "B",
+        "body": "# RUBY: one dialect for every module\n\nYour behaviour runs inside Grokit on Ruby 4.0 and inside `reach qualify` on the\nstudent's own Ruby, which on a Mac is the built-in 2.6.10. Write the\nintersection, and nothing else:\n\n- No endless methods (`def x = 1`), no pattern matching (`case ... in`), no\n  numbered block parameters (`_1`), no `it`, no hash shorthand (`{x:}`), no\n  argument forwarding (`...`), no `filter_map`, no `Hash#except`.\n- `require \"set\"` before using `Set`. Only `bigdecimal`, `date`, `json`,\n  `set` and `time` may be required at all; never `require_relative`.\n- Line 1 is `# frozen_string_literal: true`; line 2 is the `# reach` header\n  Reach wrote. Keep both exactly as they are.\n- One file, one class: `Grokit::<Module>::Behaviours::<Name>`, a plain class\n  with no superclass, with `def call(input, ports)` (`_input` or `_ports` when\n  the argument is unused). Nothing else at the top level.\n- `snake_case` methods and variables, `CamelCase` for the class, two-space\n  indentation, double-quoted strings, no trailing whitespace.\n- The hash you return uses string keys exactly as `contract/README.md` names\n  them; a missing value is `nil` with the status the contract prescribes,\n  never an exception.\n- Money is a `BigDecimal` with a currency, never a `Float`; never divide\n  without checking for zero; never compare floats for equality.\n- Small private methods for each step of the plan; no method longer than\n  about twenty lines; no metaprogramming of any kind.\n\n`reach check` runs `ruby -wc` and looks for every construct above. Fix what\nit names before anything else.\n",
+        "enforce": "check:CK-RUBY",
+        "id": "R-RUBY",
+        "opcode": "RUBY",
+        "rule": "plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal, no gems",
+        "slice": "backend",
+        "tier": "public",
+        "when": [
+          "path:**/*.rb"
+        ]
+      },
+      {
+        "alias": "G",
+        "body": "# TOZERO: a finding is work, not a report\n\nWhen `reach check`, the shape check or `reach qualify` reports something,\nwork it. Then look again. Keep going until nothing is reported, or the\nattempt ladder stops you.\n\nThe loop, every time:\n\n1. Look at the actual output: finding ids, QF codes, scenario names.\n2. Sort it: a real finding (something that ran and said so) or not a\n   finding (a worry, a style preference, an idea nobody asked for).\n   Never invent a finding to keep working.\n3. Fix the smallest thing that resolves it, in owned files or in your\n   scenarios under qualify/.\n4. Run `reach qualify` again.\n5. Back to 1 with the new output.\n\nThe attempt ladder counts failed qualifications for the slice; Reach keeps\nthe count and says what to do:\n\n- First failure: keep working, say nothing to the student.\n- Second failure: tell the student the one sentence `reach qualify`\n  prints, then keep working.\n- Third failure: Reach raises a hand with your code, your scenarios and\n  the last output, and prints what to tell the student. Ask the student\n  whether to keep trying. Only after they say yes, run\n  `reach attempts continue`; Reach accepts it only when the student has\n  written since the hand went up.\n- Fourth to ninth: Reach prints a one-line notice before each pass; pass\n  it on.\n- Tenth failure: stop. Reach refuses further passes and writes until an\n  instructor replies. Tell the student plainly and wait.\n\nA pass, or an instructor's reply, resets the count.\n\nStop and ask the student instead of working when the fix would change\nsomething they can see or chose (a visible shape finding, a wording, a\nlayout), or when the finding is about the meaning of the business rule\nrather than the code.\n",
+        "enforce": "gate:write",
+        "id": "R-TOZERO",
+        "opcode": "TOZERO",
+        "rule": "work findings to zero; the attempt ladder bounds retries; never invent findings",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "task:after-task"
+        ]
+      },
+      {
+        "alias": "F",
+        "body": "# VERIFY: evidence, not fluency\n\n\"It works\" is a claim. Evidence is the command you ran and what it printed.\nNever call something done without both of these behind it:\n\n```\nreach check          -> No findings.\nreach qualify        -> Qualified. (every step, by name)\n```\n\nRules:\n\n- Never infer success from silence, from an empty output, from a run that\n  did not finish, or from code that \"should\" work. Run it.\n- A clean `reach check` means the code obeys the rules, and a passing\n  `reach qualify` means your scenarios and the instructors' graded ones\n  pass. Neither means the business answer is right. Say what is verified\n  and what is not (a case no scenario covers, a figure you could not\n  confirm against the business's own numbers).\n- Tell the student in business terms, never in terms of code or scenarios:\n  what the business can now rely on, with one case in their words.\n- Compare the result with a known case from the README or the brief in\n  plain words: \"for a revenue of 10,000 and costs of 6,500 the profit is\n  3,500, which is what the café's owner would expect\".\n- Separate four things in every report: what you observed, what the student\n  told you, what you assumed, and what remains unverified.\n- When a check fails, quote the finding or the scenario reason exactly; do\n  not paraphrase it into something softer.\n\nThe ledger records every check and qualification you run, so a report with no\nrun behind it is visible as such.\n",
+        "enforce": "ledger",
+        "id": "R-VERIFY",
+        "opcode": "VERIFY",
+        "rule": "done carries the command and its output; a green check is not yet business meaning",
+        "slice": "all",
+        "tier": "public",
+        "when": [
+          "task:after-task"
+        ]
+      }
+    ],
+    "id": "reach.engineering",
+    "parameters": {
+      "agent_control_contract": {
+        "authority": "teach",
+        "binding": "Reach::AgentControl.selected",
+        "schema": "teach.agent-control/v1",
+        "sha256": "cee0ce41283a352c0c1e1906442eab9b4823fa3a8ba3a0edd182e8669d9f2612",
+        "source": "agent-control/agent-control.yml"
+      },
+      "control": {
+        "test_tools": [
+          "reach_test",
+          "reach_support",
+          "reach_status"
+        ]
+      },
+      "course_defaults": {
+        "enrollment": {
+        },
+        "limits": {
+          "corpus_max_bytes": 52428800,
+          "import_max_bytes": 20971520,
+          "import_max_per_prompt": 5,
+          "materials_max_bytes": 209715200,
+          "transcript_spool_max_bytes": 209715200
+        },
+        "login": {
+          "lockout_failures": 3,
+          "lockout_minutes": 15,
+          "max_hours": 12,
+          "password": true,
+          "required": true
+        },
+        "module_selection": {
+          "capacity_per_module": null,
+          "closes_at": null,
+          "count": 2,
+          "mode": "instructor",
+          "opens_at": null,
+          "options": [
+
+          ],
+          "slices": [
+            "backend",
+            "panel"
+          ]
+        },
+        "student_part": {
+          "questions": {
+          },
+          "required": true
+        },
+        "support": {
+          "text": ""
+        }
+      },
+      "directive_table": {
+        "rule_width": 88,
+        "table_limit": 6000
+      }
+    },
+    "rules": [
+      {
+        "binding": "Reach::Gate.require_login!",
+        "description": "Native gate guard: require_login!",
+        "event": "gate.require_login",
+        "failure": "deny",
+        "id": "N-GATE-REQUIRE-LOGIN",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.code_tool!",
+        "description": "Native gate guard: code_tool!",
+        "event": "gate.code_tool",
+        "failure": "deny",
+        "id": "N-GATE-CODE-TOOL",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.write",
+        "description": "Native gate guard: write",
+        "event": "gate.write",
+        "failure": "deny",
+        "id": "N-GATE-WRITE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.write_from_root",
+        "description": "Native gate guard: write_from_root",
+        "event": "gate.write_from_root",
+        "failure": "deny",
+        "id": "N-GATE-WRITE-FROM-ROOT",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_ladder!",
+        "description": "Native gate guard: check_ladder!",
+        "event": "gate.check_ladder",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-LADDER",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.shell_segments",
+        "description": "Native gate guard: shell_segments",
+        "event": "gate.shell_segments",
+        "failure": "deny",
+        "id": "N-GATE-SHELL-SEGMENTS",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_cd_context!",
+        "description": "Native gate guard: check_cd_context!",
+        "event": "gate.check_cd_context",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-CD-CONTEXT",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.read",
+        "description": "Native gate guard: read",
+        "event": "gate.read",
+        "failure": "deny",
+        "id": "N-GATE-READ",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_recursive_read!",
+        "description": "Native gate guard: check_recursive_read!",
+        "event": "gate.check_recursive_read",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-RECURSIVE-READ",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.raise_outside!",
+        "description": "Native gate guard: raise_outside!",
+        "event": "gate.raise_outside",
+        "failure": "deny",
+        "id": "N-GATE-RAISE-OUTSIDE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_time_and_module!",
+        "description": "Native gate guard: check_time_and_module!",
+        "event": "gate.check_time_and_module",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-TIME-AND-MODULE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_search_exposes_home!",
+        "description": "Native gate guard: check_search_exposes_home!",
+        "event": "gate.check_search_exposes_home",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-SEARCH-EXPOSES-HOME",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_root_segment!",
+        "description": "Native gate guard: check_root_segment!",
+        "event": "gate.check_root_segment",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-ROOT-SEGMENT",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_guardrails!",
+        "description": "Native gate guard: check_guardrails!",
+        "event": "gate.check_guardrails",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-GUARDRAILS",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_has_workspace!",
+        "description": "Native gate guard: check_has_workspace!",
+        "event": "gate.check_has_workspace",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-HAS-WORKSPACE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.raise_pick_slice!",
+        "description": "Native gate guard: raise_pick_slice!",
+        "event": "gate.raise_pick_slice",
+        "failure": "deny",
+        "id": "N-GATE-RAISE-PICK-SLICE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.parse_segment",
+        "description": "Native gate guard: parse_segment",
+        "event": "gate.parse_segment",
+        "failure": "deny",
+        "id": "N-GATE-PARSE-SEGMENT",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.strip_assignments",
+        "description": "Native gate guard: strip_assignments",
+        "event": "gate.strip_assignments",
+        "failure": "deny",
+        "id": "N-GATE-STRIP-ASSIGNMENTS",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_command_words!",
+        "description": "Native gate guard: check_command_words!",
+        "event": "gate.check_command_words",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-COMMAND-WORDS",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.forbid_command!",
+        "description": "Native gate guard: forbid_command!",
+        "event": "gate.forbid_command",
+        "failure": "deny",
+        "id": "N-GATE-FORBID-COMMAND",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_sed_script!",
+        "description": "Native gate guard: check_sed_script!",
+        "event": "gate.check_sed_script",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-SED-SCRIPT",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_shell_invocation!",
+        "description": "Native gate guard: check_shell_invocation!",
+        "event": "gate.check_shell_invocation",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-SHELL-INVOCATION",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_stdin_interpreter!",
+        "description": "Native gate guard: check_stdin_interpreter!",
+        "event": "gate.check_stdin_interpreter",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-STDIN-INTERPRETER",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.check_vault_or_keys_reads!",
+        "description": "Native gate guard: check_vault_or_keys_reads!",
+        "event": "gate.check_vault_or_keys_reads",
+        "failure": "deny",
+        "id": "N-GATE-CHECK-VAULT-OR-KEYS-READS",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.resolve_write_target",
+        "description": "Native gate guard: resolve_write_target",
+        "event": "gate.resolve_write_target",
+        "failure": "deny",
+        "id": "N-GATE-RESOLVE-WRITE-TARGET",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.ensure_owned_target!",
+        "description": "Native gate guard: ensure_owned_target!",
+        "event": "gate.ensure_owned_target",
+        "failure": "deny",
+        "id": "N-GATE-ENSURE-OWNED-TARGET",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.ensure_unknown_allowed!",
+        "description": "Native gate guard: ensure_unknown_allowed!",
+        "event": "gate.ensure_unknown_allowed",
+        "failure": "deny",
+        "id": "N-GATE-ENSURE-UNKNOWN-ALLOWED",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Controls.refuse!",
+        "description": "Native controls guard: refuse!",
+        "event": "controls.refuse",
+        "failure": "deny",
+        "id": "N-CONTROLS-REFUSE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.submit",
+        "description": "Native submit guard: submit",
+        "event": "submit.submit",
+        "failure": "deny",
+        "id": "N-SUBMIT-SUBMIT",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.archive_again",
+        "description": "Native submit guard: archive_again",
+        "event": "submit.archive_again",
+        "failure": "deny",
+        "id": "N-SUBMIT-ARCHIVE-AGAIN",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.resolve_workspace",
+        "description": "Native submit guard: resolve_workspace",
+        "event": "submit.resolve_workspace",
+        "failure": "deny",
+        "id": "N-SUBMIT-RESOLVE-WORKSPACE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.run_preconditions",
+        "description": "Native submit guard: run_preconditions",
+        "event": "submit.run_preconditions",
+        "failure": "deny",
+        "id": "N-SUBMIT-RUN-PRECONDITIONS",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.check_gate!",
+        "description": "Native submit guard: check_gate!",
+        "event": "submit.check_gate",
+        "failure": "deny",
+        "id": "N-SUBMIT-CHECK-GATE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.require_part!",
+        "description": "Native submit guard: require_part!",
+        "event": "submit.require_part",
+        "failure": "deny",
+        "id": "N-SUBMIT-REQUIRE-PART",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.check_closed!",
+        "description": "Native submit guard: check_closed!",
+        "event": "submit.check_closed",
+        "failure": "deny",
+        "id": "N-SUBMIT-CHECK-CLOSED",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Qualify.run",
+        "description": "Native qualify guard: run",
+        "event": "qualify.run",
+        "failure": "deny",
+        "id": "N-QUALIFY-RUN",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Qualify.starting_copies",
+        "description": "Native qualify guard: starting_copies",
+        "event": "qualify.starting_copies",
+        "failure": "deny",
+        "id": "N-QUALIFY-STARTING-COPIES",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Qualify.step_remote",
+        "description": "Native qualify guard: step_remote",
+        "event": "qualify.step_remote",
+        "failure": "deny",
+        "id": "N-QUALIFY-STEP-REMOTE",
+        "mode": "native"
+      },
+      {
+        "all": {
+          "active": [
+            true
+          ],
+          "space": [
+            "slice",
+            "root"
+          ]
+        },
+        "binding": "Reach::Controls.check_pause!",
+        "description": "Instructor pause applies to coursework spaces",
+        "event": "control.pause",
+        "failure": "deny",
+        "id": "C-PAUSE",
+        "message_id": "M-CONTROL-PAUSED",
+        "mode": "declarative"
+      },
+      {
+        "all": {
+          "locked": [
+            true
+          ]
+        },
+        "binding": "Reach::Controls.check_tool!",
+        "description": "An active test attempt refuses ordinary tool actions",
+        "event": "control.tool",
+        "failure": "deny",
+        "id": "C-TEST",
+        "message_id": "M-CONTROL-TEST-LOCKED",
+        "mode": "declarative"
+      },
+      {
+        "all": {
+          "active": [
+            true
+          ]
+        },
+        "binding": "Reach::Controls.check_submit!",
+        "description": "Instructor submission hold refuses submission",
+        "event": "control.submit",
+        "failure": "deny",
+        "id": "C-HOLD",
+        "message_id": "M-CONTROL-HOLD",
+        "mode": "declarative"
+      },
+      {
+        "all": {
+          "allowed": [
+            false
+          ],
+          "locked": [
+            true
+          ]
+        },
+        "binding": "Reach::Controls.tool_allowed?",
+        "description": "Only approved test and support tools run during a test",
+        "event": "control.mcp",
+        "failure": "deny",
+        "id": "C-TEST-TOOL",
+        "message_id": "M-CONTROL-TEST-LOCKED",
+        "mode": "declarative"
+      },
+      {
+        "binding": "Reach::Ledger.append",
+        "description": "checkpoint after every clean check and before any rewrite; restore, never reconstruct",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-CHECKPOINT",
+        "mode": "native"
+      },
+      {
+        "binding": "reach directive CODEFILE",
+        "description": "put code in files, never in chat: owned files for coursework, extracurricular/ else",
+        "event": "directive.apply",
+        "failure": "instruct",
+        "id": "D-CODEFILE",
+        "mode": "advisory"
+      },
+      {
+        "binding": "Reach::Check.run",
+        "description": "a panel is a Svelte component in TypeScript and token classes; seams go through Dovetail",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-DOVETAIL",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.shell",
+        "description": "when writing code, follow the reach-feature or reach-bug flow; never run git",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-FLOW",
+        "mode": "native"
+      },
+      {
+        "binding": "reach directive LEAN",
+        "description": "read only README, contract/, api/, the brief and owned files; no subagents; one question",
+        "event": "directive.apply",
+        "failure": "instruct",
+        "id": "D-LEAN",
+        "mode": "advisory"
+      },
+      {
+        "binding": "Reach::Check.run",
+        "description": "write no comments; the plan and README carry the why, the code carries the what",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-NOCOM",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Ledger.append",
+        "description": "save a slice plan with reach plan save before any edit; read it back at session start",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-PLAN1ST",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Check.run",
+        "description": "a behaviour is a pure function of input and ports: no I/O, clock, randomness or globals",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-PURE",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Check.run",
+        "description": "write your own scenarios in qualify/, cover every graded name, pass reach qualify",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-QUALIFY",
+        "mode": "native"
+      },
+      {
+        "binding": "reach directive RESUME",
+        "description": "open with reach plan show and reach status; close by updating the plan's progress",
+        "event": "directive.apply",
+        "failure": "instruct",
+        "id": "D-RESUME",
+        "mode": "advisory"
+      },
+      {
+        "binding": "Reach::Check.run",
+        "description": "plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal, no gems",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-RUBY",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Gate.write",
+        "description": "work findings to zero; the attempt ladder bounds retries; never invent findings",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-TOZERO",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Ledger.append",
+        "description": "done carries the command and its output; a green check is not yet business meaning",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-VERIFY",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::AgentControl.document_problems",
+        "description": "Validate the instructor-owned precedence, channels, and control document before selecting it",
+        "event": "context.select",
+        "failure": "report",
+        "id": "N-AGENT-CONTROL",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::AgentControl.rules_section",
+        "description": "Wellbeing, student agency, privacy, and honest assistance follow the instructor control document",
+        "event": "context.render",
+        "failure": "instruct",
+        "id": "A-STUDENT-CARE",
+        "mode": "advisory"
+      }
+    ],
+    "schema": "polispec.behavior/v1",
+    "scope": {
+      "application": "reach",
+      "spaces": [
+        "slice",
+        "root",
+        "extracurricular"
+      ]
+    },
+    "version": 1
+  }
+}

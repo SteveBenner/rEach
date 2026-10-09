@@ -1,12 +1,14 @@
 ---
+alias: E
+enforce: check:CK-COMMENT
 id: R-NOCOM
 opcode: NOCOM
-alias: E
-tier: public
-slice: all
 rule: write no comments; the plan and README carry the why, the code carries the what
-when: [path:**/*.rb, path:**/*.svelte]
-enforce: check:CK-COMMENT
+slice: all
+tier: public
+when:
+- path:**/*.rb
+- path:**/*.svelte
 ---
 # NOCOM: no comments in code
 

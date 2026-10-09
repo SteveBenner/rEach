@@ -1,12 +1,14 @@
 ---
+alias: K
+enforce: check:CK-PANEL
 id: R-DOVETAIL
 opcode: DOVETAIL
-alias: K
-tier: public
+rule: a panel is a Svelte component in TypeScript and token classes; seams go through
+  Dovetail
 slice: panel
-rule: a panel is a Svelte component in TypeScript and token classes; seams go through Dovetail
-when: [path:**/*.svelte]
-enforce: check:CK-PANEL
+tier: public
+when:
+- path:**/*.svelte
 ---
 # DOVETAIL: free inside the slot, bound at its edge
 

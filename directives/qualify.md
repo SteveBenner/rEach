@@ -1,12 +1,15 @@
 ---
+alias: D
+enforce: check:CK-TEST
 id: R-QUALIFY
 opcode: QUALIFY
-alias: D
-tier: public
-slice: all
 rule: write your own scenarios in qualify/, cover every graded name, pass reach qualify
-when: [task:build, task:fix, task:after-task]
-enforce: check:CK-TEST
+slice: all
+tier: public
+when:
+- task:build
+- task:fix
+- task:after-task
 ---
 # QUALIFY: prove the slice with scenarios of your own
 

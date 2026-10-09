@@ -1,12 +1,14 @@
 ---
+alias: I
+enforce: none
 id: R-RESUME
 opcode: RESUME
-alias: I
-tier: public
-slice: all
 rule: open with reach plan show and reach status; close by updating the plan's progress
-when: [event:SessionStart, event:Stop]
-enforce: none
+slice: all
+tier: public
+when:
+- event:SessionStart
+- event:Stop
 ---
 # RESUME: every session starts from the record, not from memory
 

@@ -1,12 +1,13 @@
 ---
+alias: F
+enforce: ledger
 id: R-VERIFY
 opcode: VERIFY
-alias: F
-tier: public
-slice: all
 rule: done carries the command and its output; a green check is not yet business meaning
-when: [task:after-task]
-enforce: ledger
+slice: all
+tier: public
+when:
+- task:after-task
 ---
 # VERIFY: evidence, not fluency
 

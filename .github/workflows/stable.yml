@@ -16,6 +16,7 @@ jobs:
     outputs:
       action: ${{ steps.plan.outputs.action }}
       tag: ${{ steps.plan.outputs.tag }}
+      target: ${{ steps.plan.outputs.target }}
     steps:
       - name: Check out
         timeout-minutes: 5
@@ -39,7 +40,7 @@ jobs:
     if: ${{ needs.plan.outputs.action == 'promote' }}
     uses: ./.github/workflows/platforms.yml
     with:
-      ref: ${{ needs.plan.outputs.tag }}
+      ref: ${{ needs.plan.outputs.target }}
       vms: ${{ vars.REACH_VM_RUNNERS == 'on' }}
 
   act:
@@ -69,14 +70,15 @@ jobs:
           TAG: ${{ needs.plan.outputs.tag }}
         run: ruby tools/stable_promote.rb apply notice --tag "${TAG}"
 
-      - name: Promote stable
+      - name: Open the stable-ready issue
         if: ${{ needs.plan.outputs.action == 'promote' && needs.smoke.result == 'success' }}
         timeout-minutes: 5
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.plan.outputs.tag }}
-        run: ruby tools/stable_promote.rb apply promote --tag "${TAG}"
+          TESTED_SHA: ${{ needs.plan.outputs.target }}
+        run: ruby tools/stable_promote.rb apply ready --tag "${TAG}" --sha "${TESTED_SHA}"
 
       - name: Hold stable
         if: ${{ needs.plan.outputs.action == 'promote' && needs.smoke.result != 'success' }}

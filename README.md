@@ -441,3 +441,11 @@ ruby tools/platform_smoke/run.rb
 ```
 ruby tools/figures/build.rb
 ```
+
+## Policy sources and enforcement
+
+rEach's public engineering rules and runtime policy parameters live in `specs/polispec/behavior.yml`. The released plugin reads compiled `policy/behavior.json` using its own standard-library adapter. Student machines do not need Polispec or rStack. Teach remains the authority for course rules, assignments, and instructor controls; existing course packages work without a server migration.
+
+`reach policy --json` reports policy authorities, digests, coverage modes, and drift without private directive bodies. `reach doctor` checks the generated directive views, native enforcement bindings, and pinned instructor-control baseline. Existing shell, ownership, qualification, submission, privacy, and support behavior remains in rEach's native code; advisory instructions are labeled honestly.
+
+For developers, edit the source and run `ruby tools/policy.rb build`, then `ruby tools/policy.rb check`. Polispec is an authoring tool only. Development/release policy and persona routing use the separate `specs/polispec/policy.yml` and `roster.yml`; they require host-ledger activation. Stable readiness checks the planned commit, and promotion remains an operator action through `polispec promote reach --to stable`.

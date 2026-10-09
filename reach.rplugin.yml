@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.46.3
+version: 0.47.0
 rplugin: ">= 1.6.5"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
@@ -30,6 +30,9 @@ contents:
     - { id: reach, path: agents/reach.md }
   specs:
     - { path: specs/app.yml }
+    - { path: specs/polispec/behavior.yml }
+    - { path: specs/polispec/policy.yml }
+    - { path: specs/polispec/roster.yml }
   hooks: hooks/reach.hooks.yml
   mcp:
     - id: reach

@@ -4,4 +4,5 @@ if ! command -v ruby >/dev/null 2>&1; then
   echo "release gate: ruby not found, the gate cannot run; refusing the push" >&2
   exit 1
 fi
+ruby "$root/tools/policy.rb" check || exit $?
 exec ruby "$root/tools/release_gate/gate.rb" "$@"

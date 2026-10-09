@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "harness", "transcripts"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "harness", "transcripts"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -328,6 +328,8 @@ module Reach
           cmd_checkpoint(args)
         when "plan"
           cmd_plan(args)
+        when "policy"
+          cmd_policy(args)
         when "directive"
           cmd_directive(args)
         when "reference"
@@ -425,6 +427,7 @@ module Reach
             extra-credit CODE ANSWER... | extra-credit CODE --answer TEXT | extra-credit list [--format text|json]   turn in an extra-credit answer, or list what was turned in
             transcripts export [--format text|json]   save a ZIP of the student's recorded assignment conversations to Downloads (works after the course has ended)
             watch [--slice ...]                  polling shape-check backstop for Codex
+            policy [--json]                    inspect policy authorities, digest, and enforcement coverage
             doctor [--install-chromium]          check the local install, one line per problem
             doctor --report [--offline] [--format json]  print every diagnostic fact (Ruby, OpenSSL, kit, crypto self-tests, package opening stage by stage), never secrets
             lock                                 wipe the decrypted vault
@@ -1761,6 +1764,7 @@ module Reach
         problems.concat(check_persona)
         problems.concat(check_agent_control)
         problems.concat(check_directives)
+        problems.concat(Reach::BehaviorPolicy.problems)
         problems.concat(check_taste)
         problems.concat(check_sidecar)
         problems.concat(check_storage)
@@ -1805,6 +1809,26 @@ module Reach
         codex_status ? Reach::CodexSetup.doctor_line(codex_status) : "codex: could not be checked"
       rescue StandardError
         "codex: could not be checked"
+      end
+
+      def cmd_policy(args)
+        raise Reach::Error, "usage: reach policy [--json]" unless args.empty? || args == ["--json"]
+        data = Reach::BehaviorPolicy.summary
+        if args == ["--json"]
+          puts JSON.pretty_generate(data)
+        else
+          app = data.fetch("application")
+          puts "Policy: #{app['id']} v#{app['version']} (#{app.dig('authority', 'authentication')})"
+          puts "Digest: #{app['digest']}"
+          puts "Engineering directives: #{app['directives']}"
+          puts "Enforcement: #{app['enforcement'].map { |mode, count| "#{count} #{mode}" }.join(', ')}"
+          puts "Course: #{data['course']['state'] || data['course']['format']}"
+          data.fetch("problems").each { |problem| puts problem }
+        end
+        data.fetch("problems").empty? ? 0 : 1
+      rescue Reach::BehaviorPolicy::Invalid => e
+        warn "R-DOC-POLICY: #{e.message}"
+        1
       end
 
       def check_directives

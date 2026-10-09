@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.46.3
+version: 0.47.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -3205,3 +3205,21 @@ smoke_test:
   safety: >-
     One conversation at a time, a per-turn timeout, a per-session and a whole-run spending ceiling, and a kill switch
     (REACH_SMOKE_DISABLE=1, or a STOP file in the run folder).
+
+polispec:
+  since: 0.47.0
+  engineering_source: specs/polispec/behavior.yml (polispec.behavior/v1)
+  runtime_artifact: policy/behavior.json (polispec.behavior.compiled/v1)
+  authoring: ruby tools/policy.rb build; ruby tools/policy.rb check
+  diagnosis: reach policy --json reports authorities, digests, enforcement modes, and projection drift without private bodies.
+  authorities:
+    application: The released package owns engineering directives, fallback settings, and the native binding inventory.
+    course: Teach owns course directives, assignment scope, and binding settings; existing authenticated guardrails are normalized locally.
+    control: Teach owns its pinned agent-control contract and runtime control state; student settings do not become a policy document.
+  enforcement: Four deny-only control predicates consume native facts; shell parsing, file ownership, qualification, deadlines, and submission remain native bindings.
+  advisory: Prompt instructions remain advisory wherever no code enforces them; a binding inventory does not prove every sentence is enforced.
+  packaging: Public Markdown directives derive from the source. Doctor and the pre-push gate check their content, compiled digest, native guard inventory, and pinned control baseline.
+  recovery: An invalid installed policy refuses governed writes with M-POLICY-INVALID; doctor, policy inspection, reinstall, update, and instructor support remain available.
+  compatibility: Ruby 2.6 compatible and offline; no new student dependency, service, model call, or runtime rStack wire.
+  development: specs/polispec/policy.yml and roster.yml govern main, test, and stable when the host ledger is activated.
+  stable: The readiness workflow smokes the planned immutable commit and verifies it still matches test; only the operator promotes stable through Polispec.

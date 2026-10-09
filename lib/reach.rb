@@ -46,6 +46,7 @@ require_relative "reach/picker"
 require_relative "reach/export_import"
 
 require_relative "reach/runtime"
+require_relative "reach/behavior_policy"
 require_relative "reach/profile"
 require_relative "reach/greetings"
 

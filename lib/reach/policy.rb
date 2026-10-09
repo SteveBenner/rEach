@@ -2,29 +2,6 @@ module Reach
   module Policy
     SECTIONS = %w[login limits support student_part module_selection enrollment].freeze
 
-    DEFAULTS = {
-      "login" => { "required" => true, "password" => true, "max_hours" => 12, "lockout_failures" => 3, "lockout_minutes" => 15 },
-      "limits" => {
-        "corpus_max_bytes" => 52_428_800,
-        "transcript_spool_max_bytes" => 209_715_200,
-        "materials_max_bytes" => 209_715_200,
-        "import_max_bytes" => 20_971_520,
-        "import_max_per_prompt" => 5
-      },
-      "support" => { "text" => "" },
-      "enrollment" => {},
-      "student_part" => { "required" => true, "questions" => {} },
-      "module_selection" => {
-        "mode" => "instructor",
-        "count" => 2,
-        "options" => [],
-        "opens_at" => nil,
-        "closes_at" => nil,
-        "capacity_per_module" => nil,
-        "slices" => %w[backend panel]
-      }
-    }.freeze
-
     module_function
 
     def all
@@ -92,7 +69,7 @@ module Reach
     end
 
     def build
-      course = Reach::Guardrails.load["course"]
+      course = Reach::BehaviorPolicy.course(Reach::Guardrails.load).fetch("parameters").fetch("course")
       course = {} unless course.is_a?(Hash)
       merged = defaults
       SECTIONS.each do |section|
@@ -107,9 +84,7 @@ module Reach
     end
 
     def defaults
-      SECTIONS.each_with_object({}) do |section, memo|
-        memo[section] = Marshal.load(Marshal.dump(DEFAULTS[section]))
-      end
+      Reach::BehaviorPolicy.parameters("course_defaults")
     end
 
     def guardrails_version

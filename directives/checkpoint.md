@@ -1,12 +1,14 @@
 ---
+alias: H
+enforce: ledger
 id: R-CHECKPOINT
 opcode: CHECKPOINT
-alias: H
-tier: public
-slice: all
 rule: checkpoint after every clean check and before any rewrite; restore, never reconstruct
-when: [task:after-task, task:rewrite]
-enforce: ledger
+slice: all
+tier: public
+when:
+- task:after-task
+- task:rewrite
 ---
 # CHECKPOINT: save what works, before you risk it
 

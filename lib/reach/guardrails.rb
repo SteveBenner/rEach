@@ -69,11 +69,9 @@ module Reach
       directives = YAML.safe_load(File.read(directives_path), permitted_classes: [Symbol]) || []
       course = YAML.safe_load(File.read(course_path)) || {}
 
-      {
-        "version" => unpacked_version,
-        "directives" => directives,
-        "course" => course
-      }
+      data = { "version" => unpacked_version, "directives" => directives, "course" => course }
+      policy = Reach::BehaviorPolicy.course(data)
+      data.merge("directives" => policy.fetch("directives"), "course" => policy.fetch("parameters").fetch("course"))
     end
 
     def version

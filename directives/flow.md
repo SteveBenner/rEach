@@ -1,12 +1,14 @@
 ---
+alias: M
+enforce: gate:shell
 id: R-FLOW
 opcode: FLOW
-alias: M
-tier: public
-slice: all
 rule: when writing code, follow the reach-feature or reach-bug flow; never run git
-when: [task:build, task:fix]
-enforce: gate:shell
+slice: all
+tier: public
+when:
+- task:build
+- task:fix
 ---
 # FLOW: every change goes through a flow
 

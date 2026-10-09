@@ -1,6 +1,7 @@
 schema: reach.locale/v1
 locale: en-US
 messages:
+  M-POLICY-INVALID: "rEach cannot verify its installed rules, so it has paused changes to your work. Your files are safe. Run reach doctor, then reinstall or update rEach. You can still contact your instructor for help."
   M-GATE-NOENROLL: "rEach is locked until you enroll in your course. Type anything in a chat with your AI partner and rEach will walk you through it, or run reach enroll in a terminal."
   M-ENROLL-NO-HOOK: "rEach can't enroll you in this chat yet, because Codex isn't running rEach's hooks on this computer. Please don't type your course passkey, email, student ID or password in this chat. Quit Codex completely and open it again. If Codex shows a notice about hooks to review or trust, open it and allow rEach's hooks, then start a new chat and say hi. Or open a terminal window, run reach enroll, and type your answers there. If neither works, tell your instructor."
   M-ENROLL-ALREADY: "rEach is already connected to your course, so there is nothing to enroll. {next}"

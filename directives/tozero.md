@@ -1,12 +1,13 @@
 ---
+alias: G
+enforce: gate:write
 id: R-TOZERO
 opcode: TOZERO
-alias: G
-tier: public
+rule: work findings to zero; the attempt ladder bounds retries; never invent findings
 slice: all
-rule: "work findings to zero; the attempt ladder bounds retries; never invent findings"
-when: [task:after-task]
-enforce: gate:write
+tier: public
+when:
+- task:after-task
 ---
 # TOZERO: a finding is work, not a report
 

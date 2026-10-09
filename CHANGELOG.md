@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-10-08
+
+### Added
+- Canonical Polispec engineering policy, compiled runtime data, generated directive views, and authority-aware course policy normalization.
+- Policy diagnostics and drift checks for directive content, runtime bindings, and the instructor-control baseline.
+
+### Changed
+- Existing pause, submission-hold, and test-tool conditions consume declarative deny rules; native workspace and assessment guards remain in place.
+- Development/release policy and persona bounds are integrated from the earlier Polispec migration. Stable readiness checks the planned commit; legacy scripts cannot move stable outside the operator command.
+
 ## [0.46.3] - 2026-10-08
 
 ### Fixed

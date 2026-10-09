@@ -1,12 +1,14 @@
 ---
+alias: J
+enforce: none
 id: R-LEAN
 opcode: LEAN
-alias: J
-tier: public
+rule: read only README, contract/, api/, the brief and owned files; no subagents;
+  one question
 slice: all
-rule: read only README, contract/, api/, the brief and owned files; no subagents; one question
-when: [always]
-enforce: none
+tier: public
+when:
+- always
 ---
 # LEAN: spend tokens on the slice, not on ceremony
 

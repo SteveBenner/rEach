@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.46.3
+version: 0.47.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -268,3 +268,21 @@ standards:
 
   - id: STD-BRAND-IDENTITY
     text: "rEach uses an adult, restrained cosmic identity: docs/assets/reach-logo.svg is a legible four-point AI sparkle constellation, with no fingers. docs/assets/reach-banner.svg carries realistic adult forearms and hands approaching a luminous connection in a deep cosmos, inspired by The Creation of Adam. The SVG is self-contained, with no remote fonts or image dependencies. Consumers use the same shared sparkle silhouette. Artwork provenance is recorded in docs/assets/provenance.json. Since 0.38.5 the rEach logo is the wordmark in assets/logo/: reach-logo-blue.png for light backgrounds and reach-logo-white.png for dark ones (transparent PNGs), and five hands pictures (a human hand and a robotic hand reaching toward each other across dark stone) carry it at the bottom center, bottom right or top left, in white or blue. README.md opens with reach-hands-white-bottom-center.png. The maintainer generated them with AI image generation (no third-party stock images); the files are the maintainer's PNGs recompressed losslessly, pixel for pixel the same. reach-logo.svg and reach-banner.svg stay in docs/assets/ for their existing consumers."
+
+polispec:
+  since: 0.47.0
+  engineering_source: specs/polispec/behavior.yml (polispec.behavior/v1)
+  runtime_artifact: policy/behavior.json (polispec.behavior.compiled/v1)
+  authoring: ruby tools/policy.rb build; ruby tools/policy.rb check
+  diagnosis: reach policy --json reports authorities, digests, enforcement modes, and projection drift without private bodies.
+  authorities:
+    application: The released package owns engineering directives, fallback settings, and the native binding inventory.
+    course: Teach owns course directives, assignment scope, and binding settings; existing authenticated guardrails are normalized locally.
+    control: Teach owns its pinned agent-control contract and runtime control state; student settings do not become a policy document.
+  enforcement: Four deny-only control predicates consume native facts; shell parsing, file ownership, qualification, deadlines, and submission remain native bindings.
+  advisory: Prompt instructions remain advisory wherever no code enforces them; a binding inventory does not prove every sentence is enforced.
+  packaging: Public Markdown directives derive from the source. Doctor and the pre-push gate check their content, compiled digest, native guard inventory, and pinned control baseline.
+  recovery: An invalid installed policy refuses governed writes with M-POLICY-INVALID; doctor, policy inspection, reinstall, update, and instructor support remain available.
+  compatibility: Ruby 2.6 compatible and offline; no new student dependency, service, model call, or runtime rStack wire.
+  development: specs/polispec/policy.yml and roster.yml govern main, test, and stable when the host ledger is activated.
+  stable: The readiness workflow smokes the planned immutable commit and verifies it still matches test; only the operator promotes stable through Polispec.

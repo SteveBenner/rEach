@@ -1,13 +1,18 @@
 ---
+alias: L
+enforce: none
 id: R-CODEFILE
 opcode: CODEFILE
-alias: L
-tier: public
+rule: 'put code in files, never in chat: owned files for coursework, extracurricular/
+  else'
 slice: all
-spaces: [slice, extracurricular, root]
-rule: "put code in files, never in chat: owned files for coursework, extracurricular/ else"
-when: [always]
-enforce: none
+spaces:
+- slice
+- extracurricular
+- root
+tier: public
+when:
+- always
 ---
 # CODEFILE: code goes in files, never in chat
 

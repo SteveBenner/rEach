@@ -9,6 +9,7 @@ module Reach
 
     class << self
       def submit(slice:)
+        Reach::BehaviorPolicy.ensure!
         Reach::Login.require_active!
         Reach::KnownIssues.require_hooks!
         workspace = resolve_workspace(slice)

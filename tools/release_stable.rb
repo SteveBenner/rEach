@@ -7,6 +7,7 @@ require "optparse"
 module ReleaseStable
   ROOT = File.expand_path("..", __dir__)
   BRANCH = "stable".freeze
+  TEST_BRANCH = "test".freeze
   TAG = /\Av\d+\.\d+\.\d+\z/.freeze
 
   module_function
@@ -59,9 +60,12 @@ module ReleaseStable
       return 2
     end
 
+    unless options[:dry_run]
+      warn "stable is an operator action: run polispec promote reach --to stable from your terminal"
+      return 2
+    end
+
     name = slug
-    latest = latest_tag(name)
-    raise "#{tag} is not the Latest release of #{name} (Latest is #{latest}); stable moves only to the Latest release" unless latest == tag
 
     current = remote_sha("refs/heads/#{BRANCH}")
     refspecs = ["refs/tags/#{tag}:refs/tags/#{tag}"]
@@ -69,6 +73,10 @@ module ReleaseStable
     run_command("git", "fetch", "--quiet", "origin", *refspecs)
     target = run_command("git", "rev-parse", "#{tag}^{commit}")
     raise "the remote tag #{tag} is not #{target}" unless remote_sha("refs/tags/#{tag}^{}") == target || remote_sha("refs/tags/#{tag}") == target
+
+    tested = remote_sha("refs/heads/#{TEST_BRANCH}")
+    raise "origin #{TEST_BRANCH} is absent; stable moves only to test's tip" unless tested
+    raise "#{tag} (#{target[0, 12]}) is not origin #{TEST_BRANCH}'s tip (#{tested[0, 12]}); stable moves only to test's tip" unless tested == target
 
     if current == target
       puts "#{BRANCH} already at #{tag} (#{target[0, 12]})"
@@ -82,12 +90,6 @@ module ReleaseStable
       return 0
     end
 
-    run_command("git", "push", "origin", "#{target}:refs/heads/#{BRANCH}")
-    moved = remote_sha("refs/heads/#{BRANCH}")
-    raise "origin #{BRANCH} is #{moved.to_s[0, 12]} after the push, not #{target[0, 12]}" unless moved == target
-
-    puts "moved origin #{BRANCH} #{from} -> #{target[0, 12]} (#{tag}, Latest)"
-    0
   rescue RuntimeError, OptionParser::ParseError, SystemCallError => e
     warn e.message
     1

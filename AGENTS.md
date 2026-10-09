@@ -30,11 +30,8 @@ reach is a plugin built on rplugin, the SDK for agent-harness plugins.
   vendored `skills/design-taste-frontend`; its command, when installed, is
   `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo
   root.
-- `directives/` holds the public engineering directives (one file per opcode,
-  frontmatter plus body). Course directives live in Teach's `directives/` and
-  reach a student only inside the encrypted guardrails package. Keep every
-  `rule:` at or under 88 characters and quote it when it contains `: `;
-  `reach doctor` reports R-DOC-DIRECTIVES otherwise.
+- `specs/polispec/behavior.yml` owns the public engineering directives and runtime policy parameters. `policy/behavior.json` is compiled data, and `directives/*.md` are generated views. Edit the source, run `ruby tools/policy.rb build` with Polispec available, then `ruby tools/policy.rb check`. Do not hand-edit the views. Course directives remain Teach-owned and arrive in the existing authenticated guardrails package; private bodies stay in protected retrieval.
+- Development policy and persona routing are in `specs/polispec/policy.yml` and `roster.yml`. They take effect through the host's trusted ledger, separately from student runtime policy. Stable moves only when the operator runs `polispec promote reach --to stable`; the agent never runs that operator action.
 - If it owns a corpus, rplugin created it for the plugin. Read and write it
   only through the plugin or `rcorpus`, never by editing its files.
 - This repository carries no course material, encrypted or not. Course

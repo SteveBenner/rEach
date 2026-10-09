@@ -1,12 +1,14 @@
 ---
+alias: C
+enforce: check:CK-PURE
 id: R-PURE
 opcode: PURE
-alias: C
-tier: public
+rule: 'a behaviour is a pure function of input and ports: no I/O, clock, randomness
+  or globals'
 slice: backend
-rule: "a behaviour is a pure function of input and ports: no I/O, clock, randomness or globals"
-when: [path:**/*.rb]
-enforce: check:CK-PURE
+tier: public
+when:
+- path:**/*.rb
 ---
 # PURE: the same input always gives the same output
 
