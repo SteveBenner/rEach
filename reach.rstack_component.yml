@@ -1,0 +1,17 @@
+name: reach
+version: 0.46.3
+author: "Sven"
+distribution: public
+relation: consumer
+roles: [productivity]
+kind: external
+paths:
+  install: ~/github/foss/rEach
+description: >
+  Student course client for Claude Code and Codex: enrollment, assignment workspaces, checks, submission and grades.
+  It runs on student machines and is never supervised; this manifest declares its release gate.
+gates:
+  - id: release-gate
+    repo: reach
+    blocks: [push]
+    reads: GET /api/gates/lease?repo=reach

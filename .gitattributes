@@ -2,6 +2,7 @@
 /.github export-ignore
 /assets export-ignore
 /tools export-ignore
+/reach.rstack_component.yml export-ignore
 /docs/smoke-assignment-1.md export-ignore
 /docs/deploy-and-test.md export-ignore
 /docs/assets/figures/08-deployment-topology-light.svg export-ignore
