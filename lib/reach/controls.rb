@@ -166,6 +166,8 @@ module Reach
       return nil unless rule
 
       refuse!(rule.fetch("message_id"), check, "pause_course_work", row["ends_at"])
+    rescue Reach::BehaviorPolicy::Invalid
+      Reach::Gate.raise_blocked!("M-POLICY-INVALID")
     end
 
     def check_prompt!(space)
@@ -183,6 +185,8 @@ module Reach
       refuse!(rule.fetch("message_id"), kind.to_s, "test", lock) if rule
       check_pause!(space, kind.to_s)
       nil
+    rescue Reach::BehaviorPolicy::Invalid
+      Reach::Gate.raise_blocked!("M-POLICY-INVALID")
     end
 
     def check_submit!
@@ -193,6 +197,8 @@ module Reach
       return nil unless rule
 
       refuse!(rule.fetch("message_id"), "submit", "hold_submissions", row["ends_at"])
+    rescue Reach::BehaviorPolicy::Invalid
+      Reach::Gate.raise_blocked!("M-POLICY-INVALID")
     end
 
     def allowed_tools
