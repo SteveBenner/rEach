@@ -138,7 +138,7 @@ module Reach
           if argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "codex"
             buffer.string = "#{JSON.generate("decision" => "block", "reason" => e.message)}\n"
             code = 0
-          elsif argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "claude-code" && !cowork_prompt_hook?(argv)
+          elsif argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "claude-code"
             payload = { "decision" => "block", "reason" => e.message,
                         "hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "suppressOriginalPrompt" => true } }
             buffer.string = "#{JSON.generate(payload)}\n"

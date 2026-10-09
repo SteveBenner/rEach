@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.3] - 2026-10-09
+
+### Fixed
+- Claude Cowork: a blocked `gate enroll` or `gate prompt` raised outside the Code tab hold now answers with the same JSON `decision: block` as Claude Code, as the confirmed repair intended, instead of the M-COWORK-RELAY context. 0.50.1 had kept Cowork on the relay (`lib/reach/cli.rb`). The Code tab hold for a locked or signed-out Cowork session is unchanged. STD-COWORK-CODE-TAB and STD-CLAUDE-WINDOWS-HOOKS updated.
+
 ## [0.50.2] - 2026-10-09
 
 ### Fixed
