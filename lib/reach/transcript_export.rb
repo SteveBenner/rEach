@@ -22,9 +22,9 @@ module Reach
 
     def auto_enabled?
       section = Reach::Runtime.load_config["transcripts"]
-      !(section.is_a?(Hash) && section["auto_export"] == false)
+      section.is_a?(Hash) && section["auto_export"] == true
     rescue StandardError
-      true
+      false
     end
 
     def course_id
@@ -370,6 +370,7 @@ module Reach
         "state" => "saved", "path" => final, "name" => File.basename(final), "bytes" => File.size(final),
         "sessions" => summaries.length, "entries" => summaries.sum { |item| item[:entries] }
       }
+      record_export(result)
       record_auto(result) if auto
       result
     rescue NothingToExport
@@ -438,6 +439,88 @@ module Reach
         }
         state["auto"] = auto
       end
+    rescue StandardError
+      nil
+    end
+
+    def record_export(result)
+      with_state do |state|
+        list = state["exports"].is_a?(Array) ? state["exports"] : []
+        list << { "path" => result["path"], "bytes" => result["bytes"], "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
+        state["exports"] = list
+      end
+    rescue StandardError
+      nil
+    end
+
+    def forget_inventory
+      dir = Reach::Paths.transcripts_dir
+      live = Dir.glob(File.join(dir, "*")).select { |path| File.file?(path) }
+      archive = Dir.glob(File.join(Reach::Paths.transcripts_archive_dir, "*")).select { |path| File.file?(path) }
+      recorded = state_read["exports"]
+      exports = recorded.is_a?(Array) ? recorded.map { |item| item.is_a?(Hash) ? item["path"].to_s : "" }.select { |path| !path.empty? && File.file?(path) && !File.symlink?(path) }.uniq : []
+      {
+        "spool" => live.select { |path| path.end_with?(".jsonl") && !path.end_with?(".rejected.jsonl") },
+        "state" => live.select { |path| path.end_with?(".state.json") },
+        "rejected" => live.select { |path| path.end_with?(".rejected.jsonl") },
+        "archive" => archive.select { |path| path.end_with?(".jsonl.gz") },
+        "exports" => exports
+      }
+    end
+
+    def forget_bytes(inventory)
+      inventory.values.flatten.sum { |path| File.size(path) rescue 0 }
+    end
+
+    def forget_ask_text(inventory)
+      Reach::Messages.text(
+        "M-TRANSCRIPTS-FORGET-ASK",
+        spool: inventory["spool"].length, archive: inventory["archive"].length, rejected: inventory["rejected"].length,
+        exports: inventory["exports"].length, bytes: size_text(forget_bytes(inventory))
+      )
+    end
+
+    def forget!(confirm: false)
+      inventory = forget_inventory
+      total = inventory.values.flatten.length
+      return { "state" => "none", "message" => Reach::Messages.text("M-TRANSCRIPTS-FORGET-NONE") } if total.zero?
+      return { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => forget_ask_text(inventory) } unless confirm
+
+      deleted = {}
+      bytes = 0
+      inventory.each do |kind, paths|
+        deleted[kind] = []
+        paths.each do |path|
+          size = File.size(path)
+          File.delete(path)
+          bytes += size
+          deleted[kind] << path
+        rescue SystemCallError
+          nil
+        end
+      end
+      with_state { |state| state["exports"] = [] }
+      receipt = write_forget_receipt(deleted, bytes)
+      files = deleted.values.flatten.length
+      {
+        "state" => "forgotten", "files" => files, "bytes" => bytes, "receipt" => receipt, "counts" => deleted.transform_values(&:length),
+        "message" => Reach::Messages.text("M-TRANSCRIPTS-FORGOT", files: files, bytes: size_text(bytes), receipt: receipt.to_s)
+      }
+    end
+
+    def write_forget_receipt(deleted, bytes)
+      dir = File.join(Reach::Paths.state_dir, "transcripts-forget")
+      FileUtils.mkdir_p(dir)
+      FileUtils.chmod(0o700, dir)
+      at = Time.now.utc
+      path = File.join(dir, "forget-#{at.strftime('%Y%m%dT%H%M%SZ')}-#{Process.pid}.json")
+      record = {
+        "schema" => "reach.transcripts-forget/v1", "at" => at.strftime("%Y-%m-%dT%H:%M:%SZ"), "bytes" => bytes,
+        "counts" => deleted.transform_values(&:length), "paths" => deleted,
+        "server_copies" => "kept by the course under Teach retention; erased by the instructor on request"
+      }
+      File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(JSON.pretty_generate(record)) }
+      path
     rescue StandardError
       nil
     end

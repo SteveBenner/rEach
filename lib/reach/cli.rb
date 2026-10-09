@@ -426,6 +426,7 @@ module Reach
             grade [--format text|json]           the points recorded for the student in Teach
             extra-credit CODE ANSWER... | extra-credit CODE --answer TEXT | extra-credit list [--format text|json]   turn in an extra-credit answer, or list what was turned in
             transcripts export [--format text|json]   save a ZIP of the student's recorded assignment conversations to Downloads (works after the course has ended)
+            transcripts forget                       delete every local conversation copy after a yes, and save a receipt
             watch [--slice ...]                  polling shape-check backstop for Codex
             policy [--json]                    inspect policy authorities, digest, and enforcement coverage
             doctor [--install-chromium]          check the local install, one line per problem
@@ -1500,8 +1501,10 @@ module Reach
 
       def cmd_transcripts(args)
         sub = args.shift
+        return cmd_transcripts_forget(args) if sub == "forget"
+
         unless sub == "export"
-          warn "usage: reach transcripts export [--format text|json]"
+          warn "usage: reach transcripts export [--format text|json] | reach transcripts forget"
           return 1
         end
         auto, args = parse_bare_flag(args, "auto")
@@ -1515,6 +1518,28 @@ module Reach
           puts result["path"] if result["state"] == "saved"
         end
         result["state"] == "failed" ? 1 : 0
+      end
+
+      def cmd_transcripts_forget(args)
+        inventory = Reach::TranscriptExport.forget_inventory
+        if inventory.values.flatten.empty?
+          puts Reach::Messages.text("M-TRANSCRIPTS-FORGET-NONE")
+          return 0
+        end
+        unless $stdin.tty? && $stdout.tty?
+          warn Reach::Messages.text("M-TRANSCRIPTS-FORGET-NEEDS-TTY")
+          return 1
+        end
+        puts Reach::TranscriptExport.forget_ask_text(inventory)
+        print "yes/no: "
+        answer = $stdin.gets.to_s.strip.downcase
+        unless %w[yes y].include?(answer)
+          puts Reach::Messages.text("M-TRANSCRIPTS-FORGET-DECLINED")
+          return 1
+        end
+        result = Reach::TranscriptExport.forget!(confirm: true)
+        puts result["message"]
+        0
       end
 
       def cmd_grade(args)

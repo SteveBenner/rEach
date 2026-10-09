@@ -104,7 +104,9 @@ codex:
   heal: true
   probe_timeout_s: 20
 transcripts:
-  auto_export: true
+  auto_export: false
+  archive_retention_days_after_course: 180
+  unacked_retention_days_after_course: 30
 agent_control:
   render: true
   controls: true
