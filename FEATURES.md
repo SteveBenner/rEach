@@ -1693,7 +1693,9 @@ let the push through, consuming nothing. Polispec's G-GATE runs it, because a pl
 lease, so no override could unblock `polispec promote` while fleet-state findings (CMP-INSTALLS, KNOWN-ALARM) stood.
 Since 0.47.4 the platform smoke's doctor step tolerates `R-DOC-BRAIN-PLANES`, `R-DOC-SUBSCRIBE` and the unconfigured-Codex
 `R-DOC-CODEX` only in the wording a bare runner produces, so `platforms.yml` can pass again on every OS leg; a different
-wording of those codes still fails the step. Run locally on Linux; no GitHub run yet.
+wording of those codes still fails the step. On a leg with no runtime kit (Windows arm64) it also tolerates
+`planes: spool mode (no runtime kit)`. GitHub run 37913694151 on the branch passed linux-x64, macos-x64, macos-arm64
+and windows-x64 and failed windows-arm64 on that no-kit wording, which this change covers.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 

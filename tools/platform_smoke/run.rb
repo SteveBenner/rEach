@@ -37,6 +37,9 @@ module PlatformSmoke
     "R-DOC-SUBSCRIBE" => /\Abackground job installed; last check never\z/,
     "R-DOC-CODEX" => /\ACodex's sandbox blocks rEach \(internet \w+, folder \w+\) - run reach codex configure\z/
   }.freeze
+  NO_KIT_DOCTOR_LINES = {
+    "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(no runtime kit\)\z/
+  }.freeze
 
   Step = Struct.new(:name, :result, :detail, :duration)
 
@@ -664,7 +667,8 @@ RUBY
       findings = pairs.map(&:first).uniq
       allowed = EXPECTED_DOCTOR_FINDINGS.dup
       allowed << CHROME_FINDING unless @kit_installed
-      unexpected = pairs.reject { |code, text| allowed.include?(code) || EXPECTED_DOCTOR_LINES[code]&.match?(text) }.map(&:first).uniq
+      tolerated = @kit_installed ? EXPECTED_DOCTOR_LINES : EXPECTED_DOCTOR_LINES.merge(NO_KIT_DOCTOR_LINES) { |_code, kit, bare| Regexp.union(kit, bare) }
+      unexpected = pairs.reject { |code, text| allowed.include?(code) || tolerated[code]&.match?(text) }.map(&:first).uniq
       if code.nil?
         return [:fail, "doctor did not finish: #{tail(out, err)}"]
       end

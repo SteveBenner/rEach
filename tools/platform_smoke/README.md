@@ -48,6 +48,8 @@ Hook commands run through `sh -c` on Linux and macOS and through Git for Windows
 | R-DOC-SUBSCRIBE | `background job installed; last check never` | doctor prints this status line on every run; a fresh runner has installed the job and has not yet checked. `not installed` and `not checked` fail |
 | R-DOC-CODEX | `Codex's sandbox blocks rEach (internet ..., folder ...) - run reach codex configure` | macOS runners ship Codex and the smoke never runs `reach codex configure`, so its sandbox correctly blocks rEach. `settings no longer hold what rEach set` fails |
 
+`NO_KIT_DOCTOR_LINES` adds one wording that is tolerated only when the runtime step did not install a kit: `R-DOC-BRAIN-PLANES` `planes: spool mode (no runtime kit)`, which Windows arm64 prints because it has no runtime kit and so no Ruby for the planes. With a kit installed that wording fails.
+
 `R-DOC-CHROME` is expected only when the runtime step did not install a kit: with `--skip-runtime`, or on a platform outside `Reach::RuntimeKit::PLATFORMS` such as Windows arm64. When a kit was installed, doctor must find the runtime's Chrome (`check_chrome` reads `chrome_exe` from the active runtime) and the finding fails the step.
 
 Any other finding fails the step and is printed in full.
