@@ -20,6 +20,15 @@ Wire revision 2026-10-09a.
 
 ### Removed
 - Every student self-service reset path: the forgot-password branch at sign-in, `reach login reset` as a way to start a reset, and the forgot-password words at enrollment steps (`M-LOGIN-RESET-BY-INSTRUCTOR` and `M-ENR-RESET-BY-INSTRUCTOR` answer instead). `M-LOGIN-RESET-ASK`, `M-LOGIN-RESET-ASK-TERMINAL` and `M-LOGIN-RENEW` are retired.
+## [0.47.6] - 2026-10-09
+
+### Changed
+- `specs/polispec/policy.yml` runs the platform smoke (`tools/platform_smoke/run.rb --leg test|stable`) as the test and prod `deploy.health.run` instead of a deploy step (polispec 0.12.0). As a step it passed but left the deploy recorded with health `unchecked`, which never satisfies polispec's G-TESTED gate, so no rEach version could be promoted to stable. A passing smoke now records health `ok`.
+
+## [0.47.5] - 2026-10-09
+
+### Fixed
+- `tools/platform_smoke/run.rb` now sets `RPLUGIN_HOME` and `XDG_STATE_HOME` to paths inside its scratch directory. `exe/reach` loads `~/.rplugin/lib/rplugin.rb` whenever it exists, so on a machine with rplugin installed the smoke ran brain planes in process against the real `~/.corpora/reach`: polispec's test deploy step (`run.rb --leg test`) failed its doctor step on `R-DOC-BRAIN-PLANES: planes: in-process` for v0.47.2 and v0.47.4, and each run wrote the smoke's `platform-smoke-codex` prompt into the real corpus. Spool mode would still have written to the real `~/.local/state/rplugin`, which `XDG_STATE_HOME` now also keeps in scratch. CI runners have no rplugin and are unaffected.
 
 ## [0.47.4] - 2026-10-09
 

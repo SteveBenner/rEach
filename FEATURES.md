@@ -1700,6 +1700,11 @@ wording of those codes still fails the step. On a leg with no runtime kit (Windo
 and windows-x64 and failed windows-arm64 on that no-kit wording, which this change covers.
 Run 37914351415 on 9b7e4fa then passed all five legs. linux-x64 passed only on a re-run: its first attempt printed
 `background job not installed`, which still fails by design (the runner had no systemd user manager that time).
+Since 0.47.5 the smoke points `RPLUGIN_HOME` and `XDG_STATE_HOME` into its scratch directory, so polispec's local test
+deploy step no longer loads the machine's own rplugin, fails on `planes: in-process` or writes into the real
+`~/.corpora/reach`.
+Since 0.47.6 the smoke is the polispec `deploy.health.run` of the test and prod environments (polispec 0.12.0), so a
+passing test deploy records health `ok` and satisfies G-TESTED for `polispec promote reach --to stable`.
 
 Build ✅ · Deploy 🔵 (no tag, release or `stable` move until the instructor approves) · Blocker: Human
 
