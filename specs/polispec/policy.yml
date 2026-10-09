@@ -75,6 +75,6 @@ data_classes:
 observability: { events: rlogs, digest: daily }
 agents:
   instructions:
-    - "rEach stable is what students install. Ship to main, then promote to test with `polispec promote reach --to test`; ask Sven to run `polispec promote reach --to stable`."
+    - "rEach stable is what students install. Ship to main, then promote to test with `polispec promote reach --to test`; ask the operator to run `polispec promote reach --to stable`."
     - "Architect and Linus use the session harness on Fable or Astra at xhigh; never max or ultracode. Resolve role overrides within the current harness. Linus asks for the Bob worker model each work phase; the inexpensive default is Haiku or Luna at medium. No automatic cross-harness dispatch."
   roster: specs/polispec/roster.yml
