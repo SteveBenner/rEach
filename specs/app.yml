@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.50.3
+version: 0.50.4
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -290,3 +290,26 @@ polispec:
   compatibility: Ruby 2.6 compatible and offline; no new student dependency, service, model call, or runtime rStack wire.
   development: specs/polispec/policy.yml and roster.yml govern main, test, and stable when the host ledger is activated.
   stable: The readiness workflow smokes the planned immutable commit and verifies it still matches test; only the operator promotes stable through Polispec.
+heal:
+  doctor: null
+  test: null
+  build: null
+  version_files: [VERSION, specs/app.yml, reach.rplugin.yml, reach.spec.yml, reach.rstack_component.yml]
+  hooks: [commit-msg, pre-push]
+  push:
+    remote: origin
+    branch: main
+    recipe: Push one exact commit (git push origin <sha>:refs/heads/main). The pre-push release gate needs a lease or an operator override per version. Move test only with polispec promote reach --to test, which creates the version tag.
+  envs:
+    dev:
+      ready_when: ["rplugin check reach", "rplugin doctor reach", "ruby tools/policy.rb check"]
+      deploy: null
+      live: false
+    test:
+      ready_when: ["ruby tools/platform_smoke/run.rb --leg test"]
+      deploy: polispec promote reach --to test
+      live: false
+    prod:
+      ready_when: ["operator: ruby tools/platform_smoke/run.rb --leg stable"]
+      deploy: "operator: polispec promote reach --to stable"
+      live: true

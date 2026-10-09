@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.4] - 2026-10-09
+
+### Added
+- `heal:` block in `specs/app.yml` for the operator's repository health tool: version files, the commit-msg and pre-push hooks, the one-commit push recipe, and per-environment readiness. dev is ready on `rplugin check reach`, `rplugin doctor reach` and `ruby tools/policy.rb check`; test on the test-leg platform smoke, moved only by `polispec promote reach --to test`; prod (stable) is live and operator-only, so its readiness run and promote are marked for the operator. No runtime behavior changes.
+
 ## [0.50.3] - 2026-10-09
 
 ### Fixed
