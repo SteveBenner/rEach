@@ -1838,3 +1838,9 @@ findings; `tools/policy.rb check` is ok. Not verified: a Ruby 2.6.10 interpreter
 and macOS hosts.
 
 Build ✅ Built · Deploy ⬜ Not released (needs Teach 0.80.4 live first: CMP-WIRE-LIVE) · Blocker Human (Teach stable promotion, rEach release)
+
+## Environments file — 0.49.2
+
+rEach 0.49.2 moves the environments out of `specs/polispec/policy.yml` into `specs/polispec/environments.yml`, adding audience, exposure, operators, rollback, freezes and notes for each environment. polispec renders the `[ENVS]` row in AGENTS.md and `.agents/directives/envs.md`, and the plugin manifest declares `serves: real_users`. No runtime behavior changes. Verified with `polispec validate`, merge parity against the old inline block, `polispec agents render --check` and `rplugin check reach`.
+
+Build ✅ Built · Deploy ⚪ Not deployed (main only) · Blocker Human (promote to test, then `polispec promote reach --to stable`)

@@ -4,6 +4,8 @@ Asked to install rEach for a student? Follow INSTALL.md.
 
 The course server is only what `reach` reports. `docs/`, `specs/` and `tools/` are developer material, never a source of an address or a port, and an agent never points rEach at localhost, 127.0.0.1 or a port on its own.
 
+[ENVS] when developing this repo: it serves real users; dev is `main`, test is `test`, prod is `stable`; run `polispec resolve .` before writing and obey its verdict; table in .agents/directives/envs.md   d/ENVS   ⚙ guard:polispec   ⚡ [always]
+
 [MICRODB] Read `.agents/directives/microdatabase.md` for corpus backup and mirror work when this plugin owns a corpus. The copied directive is dormant until then.
 
 [STUDENT1ST] audit every major feature against one principle: the student comes first   d/STUDENT1ST   ⚙ none   ⚡ task:feature-create, task:feature-change

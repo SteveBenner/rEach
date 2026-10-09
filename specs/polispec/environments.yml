@@ -1,0 +1,42 @@
+schema: polispec.environments/v1
+project: reach
+recorded: 2026-10-09
+summary: "rEach ships to student machines. main is dev, test is the pre-release students never follow, stable is the channel students install and moves only by the operator."
+environments:
+  dev:
+    branch: main
+    checkout: repo
+    tier: dev
+    audience: [operator]
+    exposure: loopback
+    host: SVEN-F1L1
+    operators: [agent, operator]
+    worktrees: [".rEach-wt/*", ".reach-wt/*"]
+  test:
+    branch: test
+    checkout: "~/.polispec/envs/reach/test"
+    tier: test
+    audience: [operator]
+    exposure: none
+    operators: [agent, operator]
+    rollback: "polispec deploy reach test --tag vPREV"
+    notes: "Published as a GitHub prerelease. The operator's machines and the platform smoke install the #test channel, pointed at the Teach test instance. Students follow stable."
+    data_classes: [synthetic, operational]
+    deploy:
+      steps: []
+      health: { run: "ruby tools/platform_smoke/run.rb --leg test" }
+  prod:
+    branch: stable
+    checkout: "~/.polispec/envs/reach/stable"
+    tier: prod
+    audience: [students, instructor]
+    exposure: none
+    operators: [operator]
+    rollback: "polispec deploy reach stable --tag vPREV"
+    freezes: [F-LIVE, F-MANUAL]
+    notes: "Distributed: students install the stable channel on their own machines. The operator flips the GitHub release to Latest."
+    runs: tag
+    data_classes: [operational]
+    deploy:
+      steps: []
+      health: { run: "ruby tools/platform_smoke/run.rb --leg stable" }

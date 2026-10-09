@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.49.2] - 2026-10-09
+
+### Changed
+- Environments moved out of `specs/polispec/policy.yml` into `specs/polispec/environments.yml`, with audience, exposure, operators, rollback, freezes and notes added for each environment. The `[ENVS]` row in AGENTS.md and `.agents/directives/envs.md` are rendered by polispec, and `reach.rplugin.yml` declares `serves: real_users`. No runtime behavior changes.
+
 ## [0.49.1] - 2026-10-09
 
 ### Fixed
