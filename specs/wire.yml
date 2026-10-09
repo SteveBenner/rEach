@@ -442,7 +442,7 @@ packages:
         owned_path of a cutout was stubbed whatever the slice.
       Gemfile: Since 2026-09-28d, the course repository's features/Gemfile.
       Gemfile.lock: Since 2026-09-28d, the course repository's features/Gemfile.lock (Ruby 3.2 and later).
-      Gemfile.ruby26.lock: Since 2026-09-28d, the course repository's features/Gemfile.ruby26.lock (Ruby 2.6 to 3.1).
+      Gemfile.ruby26.lock: Since 2026-09-28d, the course repository's features/Gemfile.ruby26.lock (Ruby 2.6 to 3.1). Reach 0.47.3 and later never select it (security audit F09).
       suite.yml: >-
         Since 2026-09-28d: {suite_version, fixture_version, modules}. suite_version is the course repository's commit
         (12 hex characters); fixture_version is the course repository's fixtures/VERSION, or null.
@@ -470,7 +470,9 @@ packages:
     gems: >-
       BUNDLE_GEMFILE is the directory's Gemfile. The lockfile is Gemfile.ruby26.lock on Ruby 3.1 and earlier and
       Gemfile.lock on Ruby 3.2 and later; the runner copies the chosen lock to Gemfile.lock before bundling when they
-      differ. When the suite carries no Gemfile, Reach falls back to its own gem set.
+      differ. Since Reach 0.47.3 Reach's own local run always uses Gemfile.lock: it needs Ruby 3.2 or newer or its
+      runtime kit, and on an older Ruby without the kit it refuses (M-QUALIFY-NORUNTIME), starts the runtime install
+      and substitutes no lock. When the suite carries no Gemfile, Reach falls back to its own gem set.
     command: >-
       bundle exec cucumber --format json --tags @<cutout_id> --tags @<slice>, run from the directory root, with
       REACH_CHROME naming a Chrome or Chromium binary when one is known and CUPRITE_NO_SANDBOX=1 inside a container.
@@ -549,7 +551,11 @@ packages:
         attempts is {count, notice_from: 2, hand_at: 3, hard_stop: 10, history: [{n, at, passed, steps,
         files_digest}]}, the slice's qualifications since the last pass or instructor reply. code maps every owned file
         to its full text or null. tests maps every file under the workspace's qualify/features and
-        qualify/step_definitions (.keep excluded) to its full text. last_output is {local: [plain lines], agent, stub,
+        qualify/step_definitions (.keep excluded) to its full text. Since Reach 0.47.3 (security audit F02) code and
+        tests are read through Reach::SafeFiles: a symlinked leaf or ancestor, traversal, an absolute path, a
+        non-regular file or a file swapped between check and read is left out (code maps it to null), and the optional
+        top-level skipped array lists each as {path, reason}. profile is present only with a one-use profile_share
+        consent (W-CONSENT-1) or the student's yes typed in a terminal (F05). last_output is {local: [plain lines], agent, stub,
         hidden} from the last qualification, the three row lists as W-API-QUALIFICATION returns them, the whole object
         cut to 65536 bytes of JSON. agent_summary is the agent's plain account of what failed and what it tried
         (at most 4000 bytes); student_last_request the student's last prompt in the slice (at most 4000 bytes) or
@@ -2336,6 +2342,11 @@ alignment:
       of the prompt, read as it arrives and not kept. Commands accept only a yes whose subject_digest matches their
       own subject and whose answered_at is at most 30 minutes old, and use it once.
     kinds: [module_lock, transfer_request, live_session]
+    evidence: >-
+      Since Reach 0.47.3 (security audit F04) an answer counts only when the question is proven shown: it appears in
+      the harness transcript the hook names (Claude Code, Codex), or in an assistant reply Reach spooled for the same
+      session after asked_at (Hermes and any harness without a transcript path). Missing evidence or an empty
+      question never counts. Local kinds added since: profile_share (F05) and transcripts_forget (F06).
   W-ID-1:
     name: login
     rule: >-

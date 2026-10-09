@@ -2,7 +2,6 @@ require "fileutils"
 require "json"
 require "time"
 require "find"
-require_relative "redact"
 
 module Reach
   module Transcript

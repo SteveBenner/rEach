@@ -7,7 +7,6 @@ require "json"
 require "openssl"
 require "securerandom"
 require "socket"
-require_relative "redact"
 
 module Reach
   module Deidentify

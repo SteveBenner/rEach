@@ -2,7 +2,6 @@ require "json"
 require "time"
 require "fileutils"
 require "securerandom"
-require_relative "safe_files"
 
 module Reach
   module Qualify

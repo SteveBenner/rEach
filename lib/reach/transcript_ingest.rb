@@ -1,7 +1,6 @@
 require "json"
 require "time"
 require "fileutils"
-require_relative "redact"
 
 module Reach
   module TranscriptIngest

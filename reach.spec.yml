@@ -118,8 +118,9 @@ runtime:
     linux: Any distribution with a packaged Ruby 2.6 to 4.0; otherwise Reach's installer offers a pinned Ruby 4.0.x
       build
   lockfile_selection: >-
-    Ruby 2.6 to 3.1 uses Gemfile.ruby26.lock; Ruby 3.2 and newer uses Gemfile.lock. Reach picks by RUBY_VERSION
-    and installs the gems into its own directory, never the system gem path.
+    Since 0.47.3 the local suite run uses Gemfile.lock only. It needs Ruby 3.2 or newer or the Reach runtime kit
+    (Ruby 4.0.x); Ruby 2.6 to 3.1 without the kit is refused with M-QUALIFY-NORUNTIME while the runtime install
+    starts. Reach installs the gems into its own directory, never the system gem path.
 plugin_manifest:
   file: reach.rplugin.yml
   content:
@@ -972,7 +973,7 @@ course_alignment:
     - Each assignment's questions only the student can answer come from the course policy (W-PART-1). reach part lists them; reach part record <id> takes the student's latest typed prompt (at most 30 minutes old, at least min_words words, never a bare yes or no; M-PART-NO-ANSWER when there is none, M-PART-NO-HOOK since 0.28.1 when the prompt hook has not run for 30 minutes) verbatim, and stores it with its digest and no session or sequence number. The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the root that has at least the smallest min_words of any question and is not a consent yes or no, in ~/.reach/state/part/pending.json (0600); reach part record takes it, then deletes the file.
     - reach submit refuses with M-SUBMIT-NO-PART until every question is answered, and sends part.json. Teach stores the answers as sent and runs no check against any conversation.
   sandbox:
-    - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access.
+    - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), since 0.47.3 a read of the extracurricular folder from a slice or the course root (M-GATE-EXTRACURRICULAR-READ), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access.
     - "Imports: a file the student drags into the chat (its path in the prompt) is copied into <folder>/materials/ within limits: at most 5 per prompt, 20 MB each, 200 MB per folder, common document, data and image types only. reach import <path> does the same from the student's own terminal and is refused to the agent. materials/ is never submitted or scanned into the course record."
   pace: Writes in a slice are refused (M-GATE-NOT-CURRENT) when it is not the current assignment or its due time has passed by Teach's clock (W-PACE-1). extracurricular/ is outside the time gate.
   coaching:
@@ -1705,9 +1706,15 @@ auto_update:
       refs/tags/notice/hooks/vX.Y.Z/YYYY-MM-DD notices; a notice for a version newer than the local one is kept as
       hook_notice in the update manifest, and on Codex the next prompt shows M-UPDATE-HOOKS-NOTICE once.
     archive: >-
-      https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip, read with scripts/reach-install's own ZIP reader and
-      completed with the Dovetail archive pinned in the release's dovetail-revision.txt. The unpacked VERSION must
-      equal the tag's version or the stage is refused.
+      Since 0.47.3 (security audit F08) https://github.com/<owner>/<repo>/archive/<commit>.zip, where commit is the
+      peeled commit the check recorded for the target tag (target_commit; a target with no known commit is never
+      staged), read with scripts/reach-install's own ZIP reader and completed with the Dovetail archive pinned in the
+      release's dovetail-revision.txt. The ZIP comment (the commit id git archive writes) must equal target_commit
+      before anything is read, the unpacked VERSION must equal the tag's version, and the refs are listed again right
+      before update/apply.rb runs and the tag must still peel to target_commit; any mismatch moves the update to phase
+      error and nothing executes. scripts/reach-install resolves a tag or the stable branch to its commit through
+      info/refs and checks the archive the same way (--commit SHA). The pin does not protect against a compromised
+      publishing account. Before 0.47.3 the archive was archive/refs/tags/<tag>.zip.
     repository: >-
       config.yml updates.repository (default https://github.com/SteveBenner/rEach), overridable by
       REACH_UPDATE_REPOSITORY. Only https URLs are accepted.
@@ -1720,7 +1727,7 @@ auto_update:
     file: ~/.reach/state/update.json (0600, written to a tmp file then renamed)
     fields: >-
       schema reach.update/v1, local_version, remote_versions (every remote version ahead of local, ascending, with
-      tag and source), source (releases|tags), target_version, target_tag, phase, staged_path, backup_path,
+      tag and source), source (releases|tags), target_version, target_tag, target_commit (since 0.47.3), phase, staged_path, backup_path,
       started_at, updated_at, attempts, last_check_at, next_check_at, failures, last_error, etag, harness_results,
       announced (which session ids were told what), completed_version, completed_at
     phases: idle -> detected -> downloaded -> staged -> swapped -> refreshed -> completed
