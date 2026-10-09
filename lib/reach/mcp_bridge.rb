@@ -348,10 +348,13 @@ module Reach
       },
       {
         "name" => "reach_transcripts",
-        "description" => "Save a ZIP of the student's saved conversations (prompts, replies, reasoning, actions and code, by assignment and part) to their Downloads folder (action export, the default). It works after the course has ended; the ZIP stays on this computer",
+        "description" => "Save a ZIP of the student's saved conversations (prompts, replies, reasoning, actions and code, by assignment and part) to their Downloads folder (action export, the default). It works after the course has ended; the ZIP stays on this computer. Action forget deletes every local conversation copy (spool, archives, unsent files and exports rEach wrote) and saves a receipt: call it without confirm first and relay Reach's warning word for word, then call it again with confirm true only after the student's own yes. Copies on the course server are kept by the course and erased by the instructor on request",
         "inputSchema" => {
           "type" => "object",
-          "properties" => { "action" => { "type" => "string", "enum" => %w[export] } }
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[export forget] },
+            "confirm" => { "type" => "boolean", "description" => "For forget: true only after the student said yes to Reach's warning" }
+          }
         }
       },
       {
@@ -715,7 +718,8 @@ module Reach
 
       def transcripts_tool(arguments)
         action = arguments["action"].to_s
-        raise Reach::Error, "reach: unknown transcripts action" unless action.empty? || action == "export"
+        raise Reach::Error, "reach: unknown transcripts action" unless action.empty? || %w[export forget].include?(action)
+        return Reach::TranscriptExport.forget!(confirm: arguments["confirm"] == true) if action == "forget"
 
         result = Reach::TranscriptExport.write!
         result.merge("message" => Reach::TranscriptExport.result_text(result))

@@ -1,4 +1,5 @@
 require "json"
+require "time"
 require "fileutils"
 require "zlib"
 require "openssl"
@@ -10,6 +11,12 @@ module Reach
       "transcript_spool_max_bytes" => 209_715_200,
       "materials_max_bytes" => 209_715_200
     }.freeze
+
+    RETENTION_DEFAULTS = {
+      "archive_retention_days_after_course" => 180,
+      "unacked_retention_days_after_course" => 30
+    }.freeze
+    RETENTION_STATE_NAME = "transcripts-retention.json".freeze
 
     module_function
 
@@ -98,10 +105,101 @@ module Reach
       0
     end
 
+    def retention_days(key)
+      section = Reach::Runtime.load_config["transcripts"]
+      value = section.is_a?(Hash) ? section[key] : nil
+      value.is_a?(Numeric) && value >= 0 ? value : RETENTION_DEFAULTS.fetch(key)
+    rescue StandardError
+      RETENTION_DEFAULTS.fetch(key)
+    end
+
+    def retention_state_path
+      File.join(Reach::Paths.state_dir, RETENTION_STATE_NAME)
+    end
+
+    def course_end
+      stamp = Reach::Stamp.current
+      found = stamp.is_a?(Hash) ? parse_time(stamp["expires_at"]) : nil
+      if found
+        remember_course_end(found)
+        return found
+      end
+
+      recorded = File.file?(retention_state_path) ? JSON.parse(File.read(retention_state_path)) : nil
+      recorded.is_a?(Hash) ? parse_time(recorded["course_end"]) : nil
+    rescue StandardError
+      nil
+    end
+
+    def parse_time(value)
+      Time.iso8601(value.to_s)
+    rescue ArgumentError
+      nil
+    end
+
+    def remember_course_end(time)
+      path = retention_state_path
+      stamped = time.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+      current = File.file?(path) ? JSON.parse(File.read(path)) : {}
+      return if current.is_a?(Hash) && current["course_end"] == stamped
+
+      FileUtils.mkdir_p(Reach::Paths.state_dir)
+      tmp = "#{path}.tmp.#{Process.pid}"
+      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate("course_end" => stamped)) }
+      File.rename(tmp, path)
+    rescue StandardError
+      nil
+    end
+
+    def retention_due?(ended, days, now)
+      ended && now >= ended + (days * 86_400)
+    end
+
+    def expire_file(path, deleted)
+      bytes = File.size(path)
+      File.delete(path)
+      deleted << { "path" => path, "bytes" => bytes }
+      true
+    rescue SystemCallError
+      false
+    end
+
+    def enforce_retention(now = Time.now.utc)
+      ended = course_end
+      deleted = []
+      return { "state" => "course not ended", "deleted" => 0 } unless ended && now >= ended
+
+      archive_due = retention_due?(ended, retention_days("archive_retention_days_after_course"), now)
+      unacked_due = retention_due?(ended, retention_days("unacked_retention_days_after_course"), now)
+      if archive_due
+        Dir.glob(File.join(Reach::Paths.transcripts_archive_dir, "*.jsonl.gz")).each { |path| expire_file(path, deleted) }
+      end
+      remaining = {}
+      spool_files.each do |path|
+        name = File.basename(path)
+        if name.end_with?(".rejected.jsonl")
+          remaining[name.sub(/\.rejected\.jsonl\z/, "")] = true unless unacked_due && expire_file(path, deleted)
+        elsif name.end_with?(".state.json")
+          remaining[name.sub(/\.state\.json\z/, "")] ||= false
+        elsif name.end_with?(".jsonl")
+          session = File.basename(name, ".jsonl")
+          due = fully_acknowledged?(session) ? archive_due : unacked_due
+          remaining[session] = true unless due && expire_file(path, deleted)
+        end
+      end
+      if unacked_due
+        remaining.each do |session, kept|
+          expire_file(Reach::Transcript.state_path(session), deleted) if kept == false
+        end
+      end
+      { "state" => deleted.empty? ? "nothing expired" : "expired", "deleted" => deleted.length, "bytes" => deleted.sum { |item| item["bytes"] } }
+    end
+
     def enforce_transcripts
+      expired = guarded { enforce_retention }
       cap = cap_for("transcript_spool_max_bytes")
       total = spool_bytes
-      return { "state" => "within cap", "bytes" => total } if total <= cap
+      return { "state" => "within cap", "bytes" => total, "retention" => expired } if total <= cap
 
       archived = []
       sessions = spool_files.select { |path| path.end_with?(".jsonl") && !path.end_with?(".rejected.jsonl") }
@@ -117,7 +215,7 @@ module Reach
         total -= freed
         archived << session
       end
-      { "state" => archived.empty? ? "nothing to archive" : "archived", "sessions" => archived, "bytes" => spool_bytes }
+      { "state" => archived.empty? ? "nothing to archive" : "archived", "sessions" => archived, "bytes" => spool_bytes, "retention" => expired }
     end
 
     def fully_acknowledged?(session)
