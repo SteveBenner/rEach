@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.6] - 2026-10-09
+
+### Fixed
+
+- A student's yes to carrying on after three failed passes at a part is now recognised when the chat was opened in the course folder rather than inside the part's folder, so reach attempts continue no longer keeps refusing.
+
 ## [0.50.5] - 2026-10-09
 
 ### Changed
