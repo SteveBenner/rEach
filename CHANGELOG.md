@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.5] - 2026-10-09
+
+### Changed
+
+- The Codex hooks-not-running check now measures its 10-minute quiet window from the latest prompt hook, and hooks_seen.json no longer keeps prompt_since.
+
+### Fixed
+
+- reach part record, qualify and submit no longer refuse with the hooks-not-running message while a student is still discussing or revising an answer in chat and the prompt hook is running.
+
 ## [0.50.4] - 2026-10-09
 
 ### Added
