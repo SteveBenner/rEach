@@ -17,6 +17,7 @@ module Reach
     MAX_POLLS = 36
     REMOTE_BUDGET_S = 20
     STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
+    NOT_THE_CODE = %w[QF-README QF-NOBROWSER].freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
     class << self
@@ -72,8 +73,8 @@ module Reach
       end
 
       def finish(workspace, record, local_only)
-        readme_only = !record["findings"].empty? && record["findings"].all? { |finding| finding["code"] == "QF-README" }
-        record["ladder"] = if record["pending"] || local_only || readme_only
+        not_the_code = !record["findings"].empty? && record["findings"].all? { |finding| NOT_THE_CODE.include?(finding["code"]) }
+        record["ladder"] = if record["pending"] || local_only || not_the_code
                              nil
                            else
                              Reach::Ladder.record(workspace, record)
@@ -203,7 +204,10 @@ module Reach
           failing = rows.reject { |row| row["result"] == "passed" }
           record["steps"][id] = { "ran" => true, "passed" => failing.empty?, "rows" => rows.map { |row| row.slice("name", "result", "step", "message") } }
           failing.each do |row|
-            if practice_miss?(row, output)
+            if browser_missing?(row)
+              record["findings"] << { "code" => "QF-NOBROWSER", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
+              record["next"] ||= Reach::Messages.text("M-QUALIFY-NOBROWSER")
+            elsif practice_miss?(row, output)
               record["findings"] << { "code" => "QF-PRACTICE", "name" => row["name"], "step" => row["step"], "detail" => PRACTICE_DETAIL }
             else
               record["findings"] << { "code" => "QF-LOCAL-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
@@ -211,6 +215,10 @@ module Reach
           end
           failing.empty?
         end
+      end
+
+      def browser_missing?(row)
+        row["message"].to_s.include?("Ferrum::BinaryNotFoundError")
       end
 
       def practice_miss?(row, output)

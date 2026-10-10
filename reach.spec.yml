@@ -785,7 +785,7 @@ qualification:
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
     QF-VACUOUS). A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
-    agent at qualify/kit/practice/README.md (since 0.14.5). Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
+    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README or QF-NOBROWSER is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,

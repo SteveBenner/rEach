@@ -276,7 +276,9 @@ against a scratch Teach 0.11.0 and Grokit 0.5.0, a backend slice (context.a1) an
 `reach tips`, which is gone. Since 0.14.5 a panel slice's local run that asks the practice recording for an answer it
 does not hold gives QF-PRACTICE instead of QF-LOCAL-FAIL, naming `qualify/kit/practice/README.md`, and the record
 carries `practice_readme`; checked on 2026-10-01 with one such row and one ordinary failure, which gave QF-PRACTICE and
-QF-LOCAL-FAIL. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
+QF-LOCAL-FAIL. A panel scenario that fails because the browser cannot be found gives QF-NOBROWSER with the remedy `reach doctor --install-chromium`
+and spends no attempt-ladder rung; checked on 2026-10-10 against a scratch run of the context.a1 reference build with and without Chrome, built on
+the dev branch and not yet released. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
 qualify whose local steps outlast the 25-second tool budget still reaches Teach; verified on 2026-10-03 in the slice-build
 smoke (run 20261002_215550, context.a4s2, on the same change over 0.20.5), where both qualifications reached the scratch
 Teach and finished, against none in the run before. Since 0.33.5 (`STD-KIT-CLEAN-ENV`) every launch of the kit Ruby unsets
