@@ -75,6 +75,7 @@ module Reach
     OUTSIDE_REFUSAL_LIMIT = 3
     RECURSIVE_READ_TOOLS = %w[Glob Grep LS list_files search_files list_directory].freeze
     RELOCATION_EXEMPT_ARGS = %w[status doctor relocate].freeze
+    SKILL_READERS = %w[sed nl].freeze
 
     module_function
 
@@ -767,8 +768,21 @@ module Reach
       root = Reach::Paths.workspace_root
       root_real = File.exist?(root) ? File.realpath(root) : File.expand_path(root)
       return true if Reach::Paths.inside_home?(resolved)
+      return false if plugin_skill_path?(resolved)
 
       !within?(resolved, root_real)
+    end
+
+    def plugin_skill_path?(resolved)
+      plugin_skill_roots.any? { |root| within?(resolved, root) }
+    end
+
+    def plugin_skill_roots
+      candidates = [File.join(Reach::Runtime.root, "skills")]
+      candidates.concat(Dir.glob(File.join(Reach::Paths.codex_home, "plugins", "cache", "*", "reach", "*", "skills")))
+      candidates.select { |dir| File.directory?(dir) }.map { |dir| File.realpath(dir) }
+    rescue StandardError
+      []
     end
 
     def raise_outside!(event, tool)
@@ -1870,6 +1884,7 @@ module Reach
         next unless path_like?(tok)
 
         resolved = resolve_arg(tok, cwd)
+        next if SKILL_READERS.include?(File.basename(words[0].text)) && plugin_skill_path?(real_resolve(tok, cwd))
         raise_blocked!("M-SHELL-BLOCKED") unless workspace && within?(resolved, workspace)
       end
     end
