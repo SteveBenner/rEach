@@ -100,12 +100,14 @@ mid-download, a crash after the swap and both crashes between the renames all co
 plugin cache moved from 0.12.9 to 0.13.0 through the refresh. Students on 0.12.0 or earlier have no updater and need
 one manual reinstall; only tagged versions are offered.
 
-Since the next release a copy that lives only in a harness plugin cache (no managed `~/.reach/plugin`, so no session-start
-install) is no longer silent about a pending update: the prompt hook runs the hourly check for it and tells the agent once
-per chat (`M-UPDATE-RUN`) to start the refresh with `reach_update` or `reach update run --apply`. Verified 2026-10-11 in a
-scratch home with a fake Claude Code plugin cache and a stub `claude`; not seen on a student's Mac.
+Since 0.50.10 a copy that lives only in a harness plugin cache (no managed install, so no session-start
+install) schedules a due check from the prompt hook and tells the agent once per chat (`M-UPDATE-RUN`) to start
+the refresh with `reach_update` or `reach update run --apply`. Verified 2026-10-11 through the actual Claude Code
+prompt hook in an isolated course workspace: detected and downloaded notices, session deduplication, scheduled
+check without application, updater disablement, and applying-state suppression. Refresh subprocesses were
+replaced; no real cache refresh or student outcome was observed.
 
-Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release; no student install has received a real release through the updater yet; Codex refresh and Windows unverified).
+Build ✅ · Deploy 🔵 · Blocker: Engineering (native test promotion and successful deployment), then Human (stable promotion; student refresh, Codex refresh, and Windows remain unverified).
 
 ### 1.4.1 · The agent updates only through Reach
 
@@ -1867,7 +1869,7 @@ Build ✅ Built · Deploy ⚪ Not deployed (branch canary-ring only) · Blocker 
 
 ## Recovery checkpoint for approved main fixes — 0.50.10
 
-The approved fixes in 0.50.5 through 0.50.9 are built and published on main at c31487e: prompt-hook liveness, continuing after failed passes, reading installed skills through the Codex gate, missing-browser qualification guidance, and resolving the only slice from an MCP server started elsewhere. This checkpoint advances the eight release version declarations so native test promotion can create a new tag instead of rejecting the already tagged 0.50.9. Existing tags and releases are retained; runtime source is unchanged from c31487e.
+The approved fixes in 0.50.5 through 0.50.9 are built and published on main at c31487e: prompt-hook liveness, continuing after failed passes, reading installed skills through the Codex gate, missing-browser qualification guidance, and resolving the only slice from an MCP server started elsewhere. This checkpoint advances the eight release version declarations so native test promotion can create a new tag instead of rejecting the already tagged 0.50.9. It also carries the approved plugin-cache update prompt fix, preserved from its reviewed commit. Existing tags and releases are retained.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (review and push this checkpoint), then Engineering (native test promotion and successful deployment). This checkpoint is prepared locally; it has not been pushed, tagged, or deployed. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
+Build ✅ · Deploy 🔵 · Blocker: Engineering (main push, native test promotion, and successful deployment). Preparation status: this checkpoint and the approved updater fix are committed locally; no promotion or deployment has run yet. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
 

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prepare a new version checkpoint for native test promotion of the approved fixes already on main in 0.50.5 through 0.50.9. All eight release version declarations agree on 0.50.10; existing tags and releases are retained. Test promotion and successful deployment remain pending.
 
+### Fixed
+
+- A rEach copy installed only in a harness plugin cache now schedules its due update check from the prompt hook and tells the assistant once per chat to start a pending refresh with reach_update or reach update run --apply. The preserved fix was verified through the actual Claude Code prompt hook in an isolated course workspace; refresh subprocesses were replaced, so no real installation outcome is claimed.
+
 ## [0.50.9] - 2026-10-10
 
 ### Fixed
