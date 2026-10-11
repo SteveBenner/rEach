@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.12] - 2026-10-11
+
+### Fixed
+
+- Qualification coverage guidance explicitly assigns missing technical scenarios to the assistant and preserves the student's authorship of explanations and contributions. The feature and bug flows require coverage repair and requalification within the existing attempt ladder instead of stopping at a readiness summary. Coverage rules, behavior checks, submission gates, and ladder limits are unchanged.
+
 ## [0.50.11] - 2026-10-11
 
 ### Added
