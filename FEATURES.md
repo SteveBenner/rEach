@@ -107,7 +107,7 @@ prompt hook in an isolated course workspace: detected and downloaded notices, se
 check without application, updater disablement, and applying-state suppression. Refresh subprocesses were
 replaced; no real cache refresh or student outcome was observed.
 
-Build ✅ · Deploy 🔵 · Blocker: Engineering (native test promotion and successful deployment), then Human (stable promotion; student refresh, Codex refresh, and Windows remain unverified).
+Build ✅ · Deploy 🟣 (native test, fixture smoke) · Blocker: Human (operator stable promotion; student refresh, Codex refresh, and Windows remain unverified). Native test deployment of v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 has health ok and verified receipt dpl_5620455813cd40d27a13.
 
 ### 1.4.1 · The agent updates only through Reach
 
@@ -1871,5 +1871,5 @@ Build ✅ Built · Deploy ⚪ Not deployed (branch canary-ring only) · Blocker 
 
 The approved fixes in 0.50.5 through 0.50.9 are built and published on main at c31487e: prompt-hook liveness, continuing after failed passes, reading installed skills through the Codex gate, missing-browser qualification guidance, and resolving the only slice from an MCP server started elsewhere. This checkpoint advances the eight release version declarations so native test promotion can create a new tag instead of rejecting the already tagged 0.50.9. It also carries the approved plugin-cache update prompt fix, preserved from its reviewed commit. Existing tags and releases are retained.
 
-Build ✅ · Deploy 🔵 · Blocker: Engineering (native test promotion and successful deployment), then Human (operator stable promotion). The recovery checkpoint and approved updater fix are pushed to main at d772b50; test promotion and deployment are pending. The approved closeout trailer becomes eligible only after a fresh successful stable deployment receipt; main and test leave the issue and hands open. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
+Build ✅ · Deploy 🟣 (native test, fixture smoke) · Blocker: Human (operator stable promotion). The recovery checkpoint, approved updater fix, and closeout trailer are published in v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 on main and test. Native test deployment dpl_5620455813cd40d27a13 has health ok; its receipt matches the latest attempt, source SHA, and release tag, with verified true. Stable promotion remains operator-only. The approved closeout trailer becomes eligible only after a fresh successful stable deployment receipt; main and test leave the issue and hands open. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
 
