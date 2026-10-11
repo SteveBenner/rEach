@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.50.10 |
+| **Registry version** | 0.50.11 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -107,7 +107,7 @@ prompt hook in an isolated course workspace: detected and downloaded notices, se
 check without application, updater disablement, and applying-state suppression. Refresh subprocesses were
 replaced; no real cache refresh or student outcome was observed.
 
-Build ✅ · Deploy 🟣 (native test, fixture smoke) · Blocker: Human (operator stable promotion; student refresh, Codex refresh, and Windows remain unverified). Native test deployment of v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 has health ok and verified receipt dpl_5620455813cd40d27a13.
+Build ✅ · Deploy 🟣 (native fixture smoke; stable artifact published) · Blocker: Human (student refresh, Codex refresh, and Windows remain unverified). Native test deployment of v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 has health ok and verified receipt dpl_5620455813cd40d27a13. The operator also deployed that release to stable with health ok and verified receipt dpl_6c27331c726476c79381; no student refresh outcome is claimed.
 
 ### 1.4.1 · The agent updates only through Reach
 
@@ -1871,5 +1871,14 @@ Build ✅ Built · Deploy ⚪ Not deployed (branch canary-ring only) · Blocker 
 
 The approved fixes in 0.50.5 through 0.50.9 are built and published on main at c31487e: prompt-hook liveness, continuing after failed passes, reading installed skills through the Codex gate, missing-browser qualification guidance, and resolving the only slice from an MCP server started elsewhere. This checkpoint advances the eight release version declarations so native test promotion can create a new tag instead of rejecting the already tagged 0.50.9. It also carries the approved plugin-cache update prompt fix, preserved from its reviewed commit. Existing tags and releases are retained.
 
-Build ✅ · Deploy 🟣 (native test, fixture smoke) · Blocker: Human (operator stable promotion). The recovery checkpoint, approved updater fix, and closeout trailer are published in v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 on main and test. Native test deployment dpl_5620455813cd40d27a13 has health ok; its receipt matches the latest attempt, source SHA, and release tag, with verified true. Stable promotion remains operator-only. The approved closeout trailer becomes eligible only after a fresh successful stable deployment receipt; main and test leave the issue and hands open. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
+Build ✅ · Deploy 🟣 (native fixture smoke; stable artifact published) · Blocker: Human (student outcome unverified). The recovery checkpoint, approved updater fix, and closeout trailer are published in v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 on main, test, and stable. Native test deployment dpl_5620455813cd40d27a13 and operator stable deployment dpl_6c27331c726476c79381 have health ok and verified receipts for that source SHA and release tag. Stable promotion remains operator-only. A closeout trailer is eligible only while a fresh successful stable deployment receipt and current stable/tag containment agree; publication to main or test alone does not close an issue or hand. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
 
+
+
+## Codex root chat working folders and terminal guidance — 0.50.11
+
+Since 0.50.11 a shell tool call with a workdir is judged in that course space. A chat opened at the course root can run an owned slice command with the slice as its working folder; shell-routed patches resolve relative file paths against the same folder. Outside working folders and symlink escapes remain refused, and slice ownership, pace, and active controls still apply. Without a terminal, reach work prints the folder to open as a new chat in Codex, Claude Code, or Hermes and exits without starting the harness.
+
+Verified on 2026-10-11 through the actual Codex gate CLI with synthetic enrollment and workspace JSON payloads: owned writes and relative patches passed; unowned writes, outside and symlink working folders, escaping patches, root writes without a workdir, and wrong-assignment writes were refused. The native nonterminal Codex launch printed the folder and returned 0. These checks ran on Linux with network and background subprocess boundaries; no Windows student session or student outcome was observed.
+
+Build ✅ · Deploy 🟣 (native test, fixture smoke) · Blocker: Human (operator stable promotion and student outcome). Native standby published v0.50.11 at 2e7d89e9d9ca8b8e817fd5c0dd0145b6158de6a8 to main and test. Test deployment dpl_b6673acdcd3827e7c50c has health ok and a successful receipt; all six native promotion gates passed. Stable promotion remains operator-only, and the approved issue awaits verified stable deployment. This documentation update does not change the release version or tag, and the older registry totals have not been re-audited.
