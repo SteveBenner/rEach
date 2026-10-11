@@ -850,6 +850,10 @@ module Reach
 
       def update_tool(arguments)
         if arguments["action"].to_s == "run"
+          if Reach::Update.app_only?
+            result = Reach::Update.run(apply: true, force: true)
+            return { "text" => result["app_only"] ? Reach::Messages.text("M-UPDATE-APP-ONLY") : Reach::Update.status_lines.join("\n") }
+          end
           pid = Reach::Update.spawn_background(apply: true, now: true)
           return { "text" => Reach::Messages.text(pid ? "M-UPDATE-STARTED" : "M-UPDATE-NOT-STARTED") }
         end

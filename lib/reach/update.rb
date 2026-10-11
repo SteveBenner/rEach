@@ -281,6 +281,10 @@ module Reach
       !managed? && !cache_harness.nil?
     end
 
+    def app_only?
+      !managed? && cache_harness.nil?
+    end
+
     def local_version
       return Reach::VERSION unless managed?
 
@@ -1030,6 +1034,7 @@ module Reach
       cache = apply_cache_install(manifest) if apply && !managed
       outcome = { "phase" => manifest["phase"], "target" => manifest["target_version"], "local" => manifest["local_version"] || local_version }
       outcome["cache"] = cache if cache
+      outcome["app_only"] = true if apply && app_only? && pending_version(manifest)
       outcome["error"] = manifest["last_error"] if manifest["failures"].to_i > 0 && manifest["last_error"].to_s != ""
       outcome
     rescue StandardError => e
@@ -1162,6 +1167,7 @@ module Reach
       if results.is_a?(Hash) && !results.empty?
         lines << "harness results: #{results.map { |id, result| "#{id}=#{result}" }.join(', ')}"
       end
+      lines << Reach::Messages.text("M-UPDATE-APP-ONLY") if app_only? && pending_version(manifest)
       lines << Reach::Messages.text("M-SANDBOX-UPDATE-STALE", last_check: manifest["last_check_at"] || "never") if Reach::Sandbox.network_blocked?
       lines
     end

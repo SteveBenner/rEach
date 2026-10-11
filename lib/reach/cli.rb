@@ -2624,6 +2624,8 @@ module Reach
             puts JSON.pretty_generate(result)
           elsif result["cache"]
             puts result["cache"]["message"]
+          elsif result["app_only"]
+            puts Reach::Messages.text("M-UPDATE-APP-ONLY")
           elsif result["skipped"]
             puts "update skipped: #{result['skipped']}"
           elsif result["held"]
@@ -2633,7 +2635,7 @@ module Reach
           else
             puts "update phase: #{result['phase']} (local #{result['local']}, target #{result['target'] || 'none'})"
           end
-          result["cache"] && result["cache"]["ok"] != true ? 1 : 0
+          (result["cache"] && result["cache"]["ok"] != true) || result["app_only"] ? 1 : 0
         when "source"
           results = Reach::HarnessSource.ensure_stable!
           if json
