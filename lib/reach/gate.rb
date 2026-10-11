@@ -538,9 +538,9 @@ module Reach
 
     def apply_patch_payload(command, event = nil)
       text = command.to_s
-      return whole_patch(text) if text.lstrip.start_with?("*** Begin Patch")
-
-      heredoc_patch(text, event) || argument_patch(text)
+      patch = text.lstrip.start_with?("*** Begin Patch") ? whole_patch(text) : (heredoc_patch(text, event) || argument_patch(text))
+      workdir = tool_workdir(event)
+      patch && workdir ? rebase_patch(patch, workdir) : patch
     end
 
     def whole_patch(text)
@@ -575,7 +575,7 @@ module Reach
       patch = whole_patch(lines[0...close].join("\n") + "\n")
       return nil unless patch
 
-      match[1] ? rebase_patch(patch, File.expand_path(match[1], hook_cwd(event))) : patch
+      match[1] ? rebase_patch(patch, File.expand_path(match[1], command_cwd(event))) : patch
     end
 
     def rebase_patch(patch, base)
@@ -597,10 +597,10 @@ module Reach
       Reach::Relocation.hold! unless relocation_exempt?(text)
       segments = shell_segments(text)
 
-      space = current_space
+      space, workdir = shell_space(event)
       Reach::Controls.check_tool!("shell", space)
       kind = space && space["kind"]
-      state = { cwd: hook_cwd(event) }
+      state = { cwd: workdir || hook_cwd(event) }
 
       if kind == "root"
         shell_from_root(segments, state, event)
@@ -617,10 +617,20 @@ module Reach
         check_segment!(segment, workspace, owned_test, kind, cwd)
       end
 
-      witness("shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
+      witness_in(workspace, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
     ensure
       @powershell = false
+    end
+
+    def shell_space(event)
+      space = current_space
+      workdir = space ? tool_workdir(event) : nil
+      return [space, nil] unless workdir
+
+      target = Reach::Workspace.space_for(workdir)
+      raise_outside!(event, "shell") unless target
+      [target, workdir]
     end
 
     def shell_segments(text)
@@ -733,6 +743,19 @@ module Reach
       cwd.is_a?(String) && File.directory?(cwd) ? File.realpath(cwd) : File.realpath(Reach::Paths.cwd)
     rescue StandardError
       Reach::Paths.cwd
+    end
+
+    def command_cwd(event)
+      tool_workdir(event) || hook_cwd(event)
+    end
+
+    def tool_workdir(event)
+      input = event.is_a?(Hash) ? event["tool_input"] : nil
+      given = input.is_a?(Hash) ? input["workdir"] : nil
+      return nil unless given.is_a?(String) && !given.strip.empty?
+
+      resolved = real_resolve(given, hook_cwd(event))
+      resolved && File.directory?(resolved) ? resolved : nil
     end
 
     def real_resolve(path, base)

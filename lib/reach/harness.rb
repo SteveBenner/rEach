@@ -382,7 +382,16 @@ module Reach
         nil
       end
 
+      def terminal?
+        $stdin.tty? && $stdout.tty?
+      end
+
       def exec_harness(harness_id, workspace_path, initial_prompt)
+        if %w[claude-code codex hermes].include?(harness_id.to_s) && !terminal?
+          puts Reach::Messages.text("M-WORK-NO-TERMINAL", app: Reach::HarnessMove.display(harness_id), folder: workspace_path)
+          return 0
+        end
+
         case harness_id.to_s
         when "claude-code"
           Dir.chdir(workspace_path) { Kernel.exec(*["claude", initial_prompt].compact) }
