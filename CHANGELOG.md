@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.8] - 2026-10-10
+
+### Fixed
+
+- A panel slice's local qualification on a computer where the browser cannot be found is now reported as QF-NOBROWSER with the remedy reach doctor --install-chromium, instead of QF-LOCAL-FAIL against the student's code.
+- A missing browser no longer spends an attempt-ladder rung or raises a hand, so it can no longer lead to the continue-consent question.
+
 ## [0.50.7] - 2026-10-10
 
 ### Fixed
