@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.48.0 |
+| **Registry version** | 0.50.10 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1859,4 +1859,10 @@ Build ✅ Built · Deploy ⚪ Not deployed (main only) · Blocker Human (promote
 rEach 0.50.0 adds the `canary` update channel for opted-in students and the polispec hop that feeds it. `updates.channel` (or `REACH_UPDATE_CHANNEL`) selects stable or canary; setup records canary from a `#canary` or `@canary` harness source; the updater's ceiling is the highest version tag on the channel branch's tip, falls back to stable with a log line when origin has no canary branch, and never downgrades. `reach doctor` prints the channel and its ceiling. `specs/polispec/environments.yml` declares the canary env and `promotion.to_canary` (from test, operator, G-GATE, G-TESTED, 24-hour G-SOAK, G-RCHECK, G-RDOCTOR, F-CLASS, F-DUE); `to_stable` keeps `from: test` and gains F-CLASS and F-DUE. No student is in the ring and no canary branch exists until the operator's first `polispec promote reach --to canary`.
 
 Build ✅ Built · Deploy ⚪ Not deployed (branch canary-ring only) · Blocker Human (land on main, promote to test, create canary)
+
+## Recovery checkpoint for approved main fixes — 0.50.10
+
+The approved fixes in 0.50.5 through 0.50.9 are built and published on main at c31487e: prompt-hook liveness, continuing after failed passes, reading installed skills through the Codex gate, missing-browser qualification guidance, and resolving the only slice from an MCP server started elsewhere. This checkpoint advances the eight release version declarations so native test promotion can create a new tag instead of rejecting the already tagged 0.50.9. Existing tags and releases are retained; runtime source is unchanged from c31487e.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (review and push this checkpoint), then Engineering (native test promotion and successful deployment). This checkpoint is prepared locally; it has not been pushed, tagged, or deployed. No student stable outcome is claimed, and the older registry entries and totals have not been re-audited.
 

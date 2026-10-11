@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.10] - 2026-10-10
+
+### Changed
+
+- Prepare a new version checkpoint for native test promotion of the approved fixes already on main in 0.50.5 through 0.50.9. All eight release version declarations agree on 0.50.10; existing tags and releases are retained. Test promotion and successful deployment remain pending.
+
 ## [0.50.9] - 2026-10-10
 
 ### Fixed
