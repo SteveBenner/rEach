@@ -277,6 +277,10 @@ module Reach
       File.file?(File.join(dir, "VERSION")) && !File.exist?(File.join(dir, ".git"))
     end
 
+    def agent_updatable?
+      !managed? && !cache_harness.nil?
+    end
+
     def local_version
       return Reach::VERSION unless managed?
 
@@ -942,6 +946,10 @@ module Reach
         Reach::Messages.text(message_id, version: version)
     end
 
+    def run_sentence(version)
+      "rEach update: " + Reach::Messages.text("M-UPDATE-RUN", version: version)
+    end
+
     def codex_harness?
       Reach::KnownIssues.family_of(Reach::KnownIssues.harness) == "codex"
     rescue StandardError
@@ -952,7 +960,8 @@ module Reach
       return [] if disabled?
 
       manifest = load_manifest
-      spawn_background(apply: false) if check_due?(manifest) && !lock_live? && managed?
+      updatable = managed? || agent_updatable?
+      spawn_background(apply: false) if check_due?(manifest) && !lock_live? && updatable
       pending = pending_version(manifest)
       applying = manifest["applying"] == true
       done = manifest["completed_version"].to_s
@@ -970,6 +979,9 @@ module Reach
       if pending && manifest["last_error"].to_s != "" && !applying && manifest["attempts"].to_i >= 1
         candidates << ["retry:#{pending}", "M-UPDATE-RETRY", pending]
       end
+      if pending && agent_updatable? && %w[detected downloaded].include?(manifest["phase"]) && !applying
+        candidates << ["run:#{pending}", "M-UPDATE-RUN", pending]
+      end
       notice = manifest["hook_notice"]
       if notice.is_a?(Hash) && notice["version"].to_s != "" && codex_harness? &&
          Gem::Version.new(notice["version"].to_s) > Gem::Version.new(Reach::VERSION)
@@ -979,7 +991,7 @@ module Reach
         next if announced?(manifest, key, session_id)
         next unless announce!(key, session_id)
 
-        return [notice_sentence(message_id, version)]
+        return [message_id == "M-UPDATE-RUN" ? run_sentence(version) : notice_sentence(message_id, version)]
       end
       []
     rescue StandardError

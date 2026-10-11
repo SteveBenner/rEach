@@ -12,6 +12,7 @@ messages:
   M-GATE-STALE: "rEach hasn't been able to check in with your course for over a day. Connect to the internet and run reach sync."
   M-UPDATE-INSTALLING: "rEach is installing an update (version {version}) that you need to keep using it. Give it a minute, then try again; your work is safe."
   M-UPDATE-READY: "A rEach update (version {version}) is ready. It installs the next time you start a session, so nothing changes in the middle of your work."
+  M-UPDATE-RUN: "version {version} is available and this copy of rEach does not update itself. When you finish your current answer, start the update with the reach_update tool (action run) or with reach update run --apply, then give the student the reply it returns, word for word."
   M-UPDATE-DONE: "rEach is up to date (version {version}). Start a new session when it suits you to load everything."
   M-SUBSCRIBE-UPDATES: "rEach picked up new course updates since your last message: {updates}. Tell the student in plain words if it helps their work."
   M-ANNOUNCE-NOTICE: "{title}\n{body}"

@@ -1756,6 +1756,10 @@ auto_update:
     mid_session: >-
       A release found mid-session is downloaded and staged in the background; the agent is told once, after its
       current answer, to give the student M-UPDATE-READY. Nothing is swapped mid-session.
+    cache_only: >-
+      A copy that lives only in a harness plugin cache (no managed ~/.reach/plugin) checks hourly from the prompt hook
+      like a managed install but stages nothing; when a newer version is pending the prompt hook tells the agent once
+      per chat (M-UPDATE-RUN) to start the refresh with the reach_update tool or reach update run --apply.
     hold: >-
       While an install is actually running (a live update lock in phase staged or swapped), the prompt gate and the
       write and shell gates refuse with M-UPDATE-INSTALLING, and reach qualify, submit and sync refuse the same way.
@@ -2111,6 +2115,8 @@ student_messages:
     text: rEach is installing an update (version {version}) that you need to keep using it. Give it a minute, then try again; your work is safe.
   - id: M-UPDATE-READY
     text: A rEach update (version {version}) is ready. It installs the next time you start a session, so nothing changes in the middle of your work.
+  - id: M-UPDATE-RUN
+    text: version {version} is available and this copy of rEach does not update itself. When you finish your current answer, start the update with the reach_update tool (action run) or with reach update run --apply, then give the student the reply it returns, word for word.
   - id: M-UPDATE-DONE
     text: rEach is up to date (version {version}). Start a new session when it suits you to load everything.
   - id: M-UPDATE-RETRY

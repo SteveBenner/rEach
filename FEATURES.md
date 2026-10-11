@@ -100,7 +100,12 @@ mid-download, a crash after the swap and both crashes between the renames all co
 plugin cache moved from 0.12.9 to 0.13.0 through the refresh. Students on 0.12.0 or earlier have no updater and need
 one manual reinstall; only tagged versions are offered.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (no student install has received a real release through it yet; Codex refresh and Windows unverified).
+Since the next release a copy that lives only in a harness plugin cache (no managed `~/.reach/plugin`, so no session-start
+install) is no longer silent about a pending update: the prompt hook runs the hourly check for it and tells the agent once
+per chat (`M-UPDATE-RUN`) to start the refresh with `reach_update` or `reach update run --apply`. Verified 2026-10-11 in a
+scratch home with a fake Claude Code plugin cache and a stub `claude`; not seen on a student's Mac.
+
+Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release; no student install has received a real release through the updater yet; Codex refresh and Windows unverified).
 
 ### 1.4.1 · The agent updates only through Reach
 
