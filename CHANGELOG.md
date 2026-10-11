@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.11] - 2026-10-11
+
+### Added
+
+- reach work run without a terminal now prints the slice folder to open as a new chat in the harness (M-WORK-NO-TERMINAL) instead of failing.
+
+### Changed
+
+- The write-refusal message at the course root now says a slice file can be written by its full path and shell commands run in a slice by naming it as the working folder.
+
+### Fixed
+
+- A Codex chat opened at the course root can run commands and apply patches in a slice by giving the slice as the tool's workdir; the shell and patch gates judge the call in the workdir's space instead of refusing it as a root command, and refuse a workdir outside every course space.
+- reach work no longer dies with an interactive-terminal error when run from an agent's shell.
+
 ## [0.50.10] - 2026-10-10
 
 ### Changed
