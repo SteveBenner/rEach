@@ -656,7 +656,7 @@ module Reach
           workspace = here["path"]
           check_segment!(segment, workspace, shell_owned_test("extracurricular", workspace), "extracurricular", cwd)
         else
-          check_root_segment!(segment)
+          check_root_segment!(segment, cwd)
         end
       end
     end
@@ -790,8 +790,8 @@ module Reach
 
       root = Reach::Paths.workspace_root
       root_real = File.exist?(root) ? File.realpath(root) : File.expand_path(root)
-      return true if Reach::Paths.inside_home?(resolved)
       return false if plugin_skill_path?(resolved)
+      return true if Reach::Paths.inside_home?(resolved)
 
       !within?(resolved, root_real)
     end
@@ -801,7 +801,7 @@ module Reach
     end
 
     def plugin_skill_roots
-      candidates = [File.join(Reach::Runtime.root, "skills")]
+      candidates = [File.join(Reach::Runtime.root, "skills"), File.join(Reach::Paths.managed_install_dir, "skills")]
       candidates.concat(Dir.glob(File.join(Reach::Paths.codex_home, "plugins", "cache", "*", "reach", "*", "skills")))
       candidates.select { |dir| File.directory?(dir) }.map { |dir| File.realpath(dir) }
     rescue StandardError
@@ -1019,7 +1019,7 @@ module Reach
       end
     end
 
-    def check_root_segment!(segment)
+    def check_root_segment!(segment, cwd)
       parsed = parse_segment(segment)
       words = parsed[:words]
       raise_blocked!("M-SHELL-BLOCKED") unless parsed[:outs].all? { |target| !target.dynamic && OUTSIDE_ALLOWED.include?(target.text) }
@@ -1033,8 +1033,17 @@ module Reach
       return if %w[cd pushd].include?(cmd) && tokens.length == 2
       forbid_command!(tokens, "slice")
       return if readonly_command?(tokens)
+      return if skill_read_command?(words, parsed[:outs], cwd)
 
       raise_blocked!("M-SHELL-BLOCKED")
+    end
+
+    def skill_read_command?(words, outs, cwd)
+      tokens = words.map(&:text)
+      return false unless outs.empty? && SKILL_READERS.include?(File.basename(tokens[0])) && !write_command?(tokens)
+
+      operands = tokens[1..-1].select { |token| path_like?(token) && !token.start_with?("-") }
+      !operands.empty? && operands.all? { |token| plugin_skill_path?(real_resolve(token, cwd)) }
     end
 
     def check_enrolled!

@@ -2486,9 +2486,12 @@ shell_rules:
     Unknown commands are allowed only when they take no path arguments outside the workspace and no redirection;
     otherwise refused with M-SHELL-BLOCKED.
   - >-
-    The read and shell gates leave reach's own installed skills readable (Runtime.root/skills and the Codex plugin
-    cache skills directories of reach, resolved by realpath), because Codex loads a skill by reading its SKILL.md;
-    sed and nl may read them too. Nothing else outside the workspace opens, and writing there stays refused.
+    The read and shell gates leave reach's own installed skills readable (Runtime.root/skills, the managed copy's
+    skills directory under the reach home, and the Codex plugin cache skills directories of reach, resolved by
+    realpath), because Codex loads a skill by reading its SKILL.md; sed and nl may read them too, in the course root
+    as well as in a slice. The skills directories are judged before the reach-home refusal, so the rest of the reach
+    home (state, keys, vault, plugin code) stays refused. Nothing else outside the workspace opens, and writing there
+    stays refused.
   - >-
     Since 0.46.1 the shell gate fails closed. A command it cannot model is refused with M-SHELL-UNMODELED: command
     substitution, process substitution, here-docs and here-strings, subshells and groups, reserved words, unterminated
