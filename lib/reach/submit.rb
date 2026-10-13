@@ -298,13 +298,7 @@ module Reach
       def resolve_workspace(slice)
         return slice if slice.is_a?(String) && File.directory?(File.join(slice, ".reach"))
 
-        slices = Reach::Workspace.current_slices
-        match = slices.find { |path| File.basename(path) == slice.to_s }
-        suffixed = slices.select { |path| File.basename(path).end_with?("-#{slice}") }
-        match ||= suffixed.first if suffixed.size == 1
-        raise Reach::Refused, "reach: no workspace found for slice #{slice.inspect}" unless match
-
-        match
+        Reach::Workspace.named_slice!(slice)
       end
 
       def run_preconditions(workspace)
