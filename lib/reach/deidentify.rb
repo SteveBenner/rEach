@@ -74,7 +74,14 @@ module Reach
     end
 
     def account_name
-      (Etc.getlogin || ENV["USER"] || ENV["USERNAME"]).to_s
+      entry = begin
+        Etc.getpwuid(Process.uid)
+      rescue StandardError
+        nil
+      end
+      name = entry && entry.name.to_s
+      name = nil if name.to_s.empty?
+      (name || Etc.getlogin || ENV["USER"] || ENV["USERNAME"]).to_s
     rescue StandardError
       ""
     end
