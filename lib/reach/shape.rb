@@ -113,7 +113,10 @@ module Reach
     def check_panel(check_dir, shape_file, panel_relative, workspace_path, workspace_panel)
       args = checker_command + ["check", check_dir, "--shape", shape_file, "--require-signed", "--format", "json"]
       args.push("--changed", panel_relative) if panel_relative
-      env = { "DOVETAIL_PUBLIC_KEYS" => signing_key_files.join(File::PATH_SEPARATOR) }
+      env = {
+        "DOVETAIL_PUBLIC_KEYS" => signing_key_files.join(File::PATH_SEPARATOR),
+        "RUBYOPT" => "-EUTF-8"
+      }
       stdout, stderr, status = Open3.capture3(env, *args)
       report = parse_report(stdout, stderr, status)
       @ran = true
