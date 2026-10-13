@@ -83,7 +83,10 @@ module Reach
       binding_hashes = binding_for(salt, load_install_public_key)
       hostname_hash = component(salt, "hostname", hostname)
       digests = digests_for(binding_hashes, hostname_hash)
-      value = { "digest" => digests[0], "strict_digest" => digests[1], "binding" => binding_hashes, "hostname" => hostname_hash }
+      value = {
+        "digest" => digests[0], "strict_digest" => digests[1], "binding" => binding_hashes, "hostname" => hostname_hash,
+        "alternates" => alternate_digests(salt, binding_hashes, hostname_hash)
+      }
       write_cache("key" => key, "computed_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "value" => value)
       value
     end
@@ -115,6 +118,28 @@ module Reach
 
     def digest_for(value, strict)
       strict ? value["strict_digest"] : value["digest"]
+    end
+
+    def candidates(value)
+      [[value["digest"], value["strict_digest"]]] + Array(value["alternates"])
+    end
+
+    def matches?(value, wanted, strict)
+      return false if wanted.to_s.empty?
+
+      candidates(value).any? { |pair| pair[strict ? 1 : 0] == wanted }
+    end
+
+    def header_digest(value, stamp)
+      wanted = stamp.is_a?(Hash) ? stamp["fingerprint_digest"].to_s : ""
+      pair = candidates(value).find { |candidate| !wanted.empty? && candidate[0] == wanted }
+      (pair || candidates(value).first)[0]
+    end
+
+    def alternate_digests(salt, binding_hashes, hostname_hash)
+      os_user_alternates.map do |value|
+        digests_for(binding_hashes.merge("os_user" => component(salt, "os_user", value)), hostname_hash)
+      end
     end
 
     def clear_cache!
@@ -180,6 +205,20 @@ module Reach
       name = ENV["USERNAME"] if name.to_s.empty?
       name = UNKNOWN if name.to_s.empty?
       windows? ? name.to_s : "#{name}:#{Process.uid}"
+    end
+
+    def os_user_alternates
+      return [] if windows?
+
+      primary = os_user
+      [account_name, "root"].compact.map { |name| "#{name}:#{Process.uid}" }.uniq.reject { |value| value == primary }
+    end
+
+    def account_name
+      name = Etc.getpwuid(Process.uid).name.to_s
+      name.empty? ? nil : name
+    rescue StandardError
+      nil
     end
 
     def os_version

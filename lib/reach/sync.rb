@@ -254,12 +254,13 @@ module Reach
       end
 
       def fingerprint_headers
-        return {} unless Reach::Stamp.current
+        stamp = Reach::Stamp.current
+        return {} unless stamp
 
         stored = Reach::Fingerprint.stored
         return {} unless stored
 
-        { "X-Reach-Fingerprint" => Reach::Fingerprint.live(salt: stored["salt"])["digest"] }
+        { "X-Reach-Fingerprint" => Reach::Fingerprint.header_digest(Reach::Fingerprint.live(salt: stored["salt"]), stamp) }
       rescue StandardError
         {}
       end

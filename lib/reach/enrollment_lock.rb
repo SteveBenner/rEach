@@ -82,7 +82,7 @@ module Reach
       live = Reach::Fingerprint.live(salt: stored["salt"])
       strict = Reach::Policy.enrollment["fingerprint_match"] == "strict"
       wanted = strict ? stamp["fingerprint_strict_digest"] : stamp["fingerprint_digest"]
-      return nil if Reach::Fingerprint.digest_for(live, strict) == wanted
+      return nil if Reach::Fingerprint.matches?(live, wanted, strict)
 
       mark_moved!(Reach::Fingerprint.changed_components(stored, live))
       "moved"

@@ -813,8 +813,12 @@ module Reach
         binding_hashes = Reach::Fingerprint.binding_for(salt, key)
         hostname_hash = Reach::Fingerprint.component(salt, "hostname", Reach::Fingerprint.hostname)
         digests = Reach::Fingerprint.digests_for(binding_hashes, hostname_hash)
-        snapshot["loose_match"] = digests[0] == stamp["fingerprint_digest"]
-        snapshot["strict_match"] = digests[1] == stamp["fingerprint_strict_digest"]
+        value = {
+          "digest" => digests[0], "strict_digest" => digests[1],
+          "alternates" => Reach::Fingerprint.alternate_digests(salt, binding_hashes, hostname_hash)
+        }
+        snapshot["loose_match"] = Reach::Fingerprint.matches?(value, stamp["fingerprint_digest"], false)
+        snapshot["strict_match"] = Reach::Fingerprint.matches?(value, stamp["fingerprint_strict_digest"], true)
       rescue StandardError => e
         snapshot["error"] = e.class.name
       end
