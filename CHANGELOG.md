@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.51.9] - 2026-10-13
+## [0.51.10] - 2026-10-13
 
 ### Added
 
@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reach work` inside a Codex chat whose sandbox keeps the folder's Codex settings read-only no longer reports a problem.
 - On Linux, the sign-in and enrollment window opens with ptyxis and with a plain gnome-terminal.
 - rEach's scheduled course check no longer waits forever for a system command's output after the command has finished (`Subscribe.run_os`).
+
+## [0.51.9] - 2026-10-13
+
+### Changed
+
+- Wire revision 2026-10-13c (`specs/wire.yml`). W-API-KNOWN-ISSUES states that Teach serves the known issue `reach-out-of-date` with `applies.reach_max` set to the reference release plus `.a` (for 0.51.0, `0.51.0.a`), so every older Reach's agent learns that its rEach is out of date and is offered the `update` remedy. W-KI-1 states that versions compare as RubyGems orders them, and every rEach since 0.35.23 already compares them that way. W-COMPAT-6 adds W-API-KNOWN-ISSUES and the known_issues revision to the update path an outdated Reach is owed. No rEach code changes: installs as old as 0.35.23 read the entry as it is served.
 
 ## [0.51.8] - 2026-10-13
 

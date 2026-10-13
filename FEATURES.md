@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.51.9 |
+| **Registry version** | 0.51.10 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -106,11 +106,11 @@ the refresh with `reach_update` or `reach update run --apply`. Verified 2026-10-
 prompt hook in an isolated course workspace: detected and downloaded notices, session deduplication, scheduled
 check without application, updater disablement, and applying-state suppression. Refresh subprocesses were
 replaced; no real cache refresh or student outcome was observed.
-Since 0.51.9 a copy of rEach that cannot update itself says so instead of claiming that an update is running in the
+Since 0.51.10 a copy of rEach that cannot update itself says so instead of claiming that an update is running in the
 background (iss_7c1c10db).
-Since 0.51.9 a rEach that is locked before enrollment completes still checks for updates at session start, so a fixed
+Since 0.51.10 a rEach that is locked before enrollment completes still checks for updates at session start, so a fixed
 version reaches a student whose enrollment keeps failing (`STD-AUTO-UPDATE`).
-Since 0.51.9 asking rEach to update when it is already current says that nothing changed and that the student keeps
+Since 0.51.10 asking rEach to update when it is already current says that nothing changed and that the student keeps
 working in the same chat (`M-UPDATE-NOTHING`).
 
 Build ✅ · Deploy 🟣 (native fixture smoke; stable artifact published) · Blocker: Human (student refresh, Codex refresh, and Windows remain unverified). Native test deployment of v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 has health ok and verified receipt dpl_5620455813cd40d27a13. The operator also deployed that release to stable with health ok and verified receipt dpl_6c27331c726476c79381; no student refresh outcome is claimed.
@@ -212,7 +212,7 @@ is a password the student chooses twice (at least 8 characters) and is told to w
 the agent, Hermes students finish in a terminal, and Teach keeps only its scrypt hash. Since 0.18.2 `reach setup`
 and `update/apply.rb` write `teach.url` to `~/.reach/state/teach.json`, read after `REACH_TEACH_URL` and `config.yml`,
 so an install whose `config.yml` is missing or broken still enrolls against Teach; verified in a scratch `REACH_HOME`. Since 0.21.11 `Reach::Runtime::TEACH_URL` builds the same URL in as the last resort, and a terminal enroll that cannot reach Teach names the URL and the network cause instead of saying the work is saved. Since 0.21.13 enrollment requests leave the Teach connection state alone, so that message is the only line; verified against live Teach from a scratch home (one line on failure, no `link.json` written, no reconnect line after a successful preview). Since 0.35.2 (`STD-ENROLL-NO-RELAY`) `reach enroll <code>` and the `reach_enroll` tool enroll nothing: the pre-v2 request they sent (`Reach::Enroll.generate_and_register`) was refused by Teach as `invalid_request` every time, which students saw as "That course passkey wasn't accepted" (live Teach, 2026-10-05). The tool takes no arguments and answers `M-GATE-NOENROLL`, `M-ENROLL-NO-HOOK` (Codex not running a sign-in prompt hook) or, once enrolled, `M-ENROLL-ALREADY` with the `reach_next` step; a bare passkey on the command line answers `M-ENROLL-POSITIONAL`. Verified 2026-10-05 in a scratch home against a dead Teach port: the real MCP server over stdio (schema has no properties; Claude unenrolled, Codex with hooks silent, Codex after `gate enroll`), an enrolled install with the lock stubbed open, and the CLI with a bare passkey (exit 1, no request), no arguments (usage) and the flag form (still reaches preview).
-Since 0.51.9 the rEach commands asked of the student in a terminal on Windows (to sign in, to choose or reset the password, or to open a course folder in Hermes) are written so that they run when pasted into PowerShell (`Runtime.terminal_command`), while the lines the assistant runs itself keep the plain form in Claude Code, whose shell on Windows is Git Bash (`Runtime.agent_command`).
+Since 0.51.10 the rEach commands asked of the student in a terminal on Windows (to sign in, to choose or reset the password, or to open a course folder in Hermes) are written so that they run when pasted into PowerShell (`Runtime.terminal_command`), while the lines the assistant runs itself keep the plain form in Claude Code, whose shell on Windows is Git Bash (`Runtime.agent_command`).
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -234,11 +234,11 @@ JSON block instead of stderr. The fix was confirmed on a student's Windows compu
 the plugin's own `sh exe/reach-run` hooks are unchanged on Windows.
 
 Since 0.50.3 Claude Cowork gets the same JSON block for a prompt blocked outside the Code tab hold.
-Since 0.51.9 every course hook rEach writes for Codex on Windows runs as
+Since 0.51.10 every course hook rEach writes for Codex on Windows runs as
 `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE` in PowerShell (`Harness.hook_line`, `STD-CODEX-WINDOWS-HOOKS`), where it
 had been a PowerShell parse error that left Windows Codex students with no gates, and a platform smoke step proves the
 form through powershell.exe and pwsh.exe.
-Since 0.51.9 a course whose rules are in place but whose named slice is not on this computer gets a message that says
+Since 0.51.10 a course whose rules are in place but whose named slice is not on this computer gets a message that says
 so and lists the slices (`M-GATE-NOSLICE`, `M-GATE-NOSLICE-NAMED`) instead of "Your course rules haven't arrived yet".
 
 Build ✅ · Deploy 🔵 · Blocker: Human (0.50.3 on test, stable is the operator's; plugin hooks still need `sh` on Windows).
@@ -306,16 +306,16 @@ the computer's own Ruby and Bundler variables (`RUBYLIB`, `RUBYOPT`, `GEM_*`, `B
 exported `RUBYLIB`, so the kit Ruby 4.0.7 died at start and qualify never ran; reported on 2026-10-05. Checked on
 Linux with those variables set: `Reach::Suite.install_gems` and `cucumber` on a Grokit kit fail with the student's
 error on 0.33.4 and run (exit 0) on 0.33.5; the student's own machine and macOS/Windows not yet run.
-Since 0.51.9 a failed graded case says whether, on the course's data, the call raised an error or a value differed
+Since 0.51.10 a failed graded case says whether, on the course's data, the call raised an error or a value differed
 (`M-QUALIFY-KIND-RAISED`, `M-QUALIFY-KIND-DIFFERED`, instructor decision 2026-10-13), and no step text or values are
 shown.
-Since 0.51.9 on Windows files are compared by file id, because Ruby's `lstat` and `fstat` disagree on `st_dev` and
+Since 0.51.10 on Windows files are compared by file id, because Ruby's `lstat` and `fstat` disagree on `st_dev` and
 made rEach treat every file of a part as changed while reading it, so qualification skipped each file as an unsafe
 path and still used a try; a qualification that cannot read a file now names it and stops without using a try
 (`QF-UNREADABLE`).
-Since 0.51.9 `reach qualify` explains the likely cause when a graded case fails while the assistant's scenario of the
+Since 0.51.10 `reach qualify` explains the likely cause when a graded case fails while the assistant's scenario of the
 same name passes (`M-QUALIFY-HIDDEN`).
-Since 0.51.9 a local check that cannot start shows the real error instead of bundler's "failed to load command" line.
+Since 0.51.10 a local check that cannot start shows the real error instead of bundler's "failed to load command" line.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -338,9 +338,9 @@ Reach counts failed qualifications per slice: the second prints a notice for the
 hand and holds further passes and writes until `reach attempts continue` records the student's yes (accepted only
 after a student prompt typed since the hand; only the time of the last slice prompt is kept), and the tenth stops everything until an instructor replies. A pass or a reply
 resets it. Verified end to end on 2026-09-29.
-Since 0.51.9 a failed live qualification on files identical to the last counted failed attempt uses no try and raises
+Since 0.51.10 a failed live qualification on files identical to the last counted failed attempt uses no try and raises
 no ladder hand when the course server marks it not counted (`M-QUALIFY-IDENTICAL`, instructor decision 2026-10-13).
-Since 0.51.9 a run that fails in the local checks, before it reaches the course server, on owned files and scenarios
+Since 0.51.10 a run that fails in the local checks, before it reaches the course server, on owned files and scenarios
 identical to the last counted failed attempt of the slice, local or live, uses no try and raises no ladder hand either
 (`M-QUALIFY-IDENTICAL-LOCAL`, instructor decision 2026-10-13); a ladder state without stored digests, or a passing run,
 counts as before.
@@ -375,7 +375,7 @@ held the student's name, ID, username and home folder arrived with none of them 
 lookup still matched, and an older client was told to update and kept its queue. Since 0.26.1 (wire revision
 2026-10-04b) re-identification is exact: each entry carries an encrypted record of the strings its placeholders
 replaced and of any text that no longer fit, so the key holder gets back the text as recorded, capitals included.
-Since 0.51.9 a transcript sent from the Codex app or Claude desktop on a Mac hides the computer account name instead
+Since 0.51.10 a transcript sent from the Codex app or Claude desktop on a Mac hides the computer account name instead
 of the word "root" (`lib/reach/deidentify.rb`).
 Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-04 as v0.26.0, exact restore in v0.26.1, GitHub Latest; Teach 0.40.1 hands out the key and accepts the entries). No real student session has been recorded yet.
 
@@ -423,7 +423,7 @@ workspaces there and never deletes one) and `extracurricular/`, the student's ow
 submitted, opened with `reach work --extracurricular`. Each folder, the root included, gets its own rules and
 hooks: extracurricular allows writes only inside itself, the root refuses every write, and the public directive
 CODEFILE tells the agent to put code in files, never in chat.
-Since 0.51.9 every generated rules file (slice, course root, and extracurricular) carries a paragraph saying that
+Since 0.51.10 every generated rules file (slice, course root, and extracurricular) carries a paragraph saying that
 rEach's own tools are how the course's work is done, that reading a directive with `reach_directive` is never
 inspecting protected materials, and that only rEach's own folder, vault, and package files are protected
 (`Reach::Guardrails::TOOLS_RULE`).
@@ -454,9 +454,9 @@ Since 0.28.0 (`STD-SIGNIN-PASSWORD`, wire revision 2026-10-04d) the yes is follo
 Since 0.48.0 (`STD-PASSWORD-RESET-QUEUE`, wire revision 2026-10-09a) no student can reset a password: forgot or reset words answer `M-LOGIN-RESET-BY-INSTRUCTOR` and only the instructor's Reset password button in Teach starts a reset, which rEach picks up from the status document, removes the local verifier and asks for a new password twice before it signs the student in. Built, exercised in a scratch home against a stand-in Teach; not yet deployed.
 
 Since 0.21.5 the plugin's own prompt hook signs the student in too (`STD-SIGNIN-PLUGIN-HOOK`): in Codex in every folder, keyed on Codex's `turn_id` so that when a course folder's hook also runs, only one of them judges the prompt; in Claude Code outside the course folders. Before, the sign-in lived only in each course folder's `.codex/hooks.json`, which Codex never runs until the student trusts it, so a Codex student on Windows (hand 2026-10-03, Reach 0.21.1) was told to wait for a question nothing asked. Verified by the platform smoke on Linux (15 passed): ask, confirm, yes, a second hook on the same turn silent, the signed-in context on the next turn, then the gate open. Not verified: a live Codex session on Windows.
-Since 0.51.9 (`STD-SIGNIN-ONCE`, instructor decision 2026-10-13) one sign-in covers every new chat on the computer, in any AI app, for 12 hours (`policy login.max_hours`) instead of one sign-in per chat; it is stored in `state/login/signin.json` and tied to the enrolled student and the install (a test student keeps its own); switching student, re-enrolling, "no, not me", a wrong-password lockout (also a rate-limited password check), and `reach login out` end it (`lib/reach/login.rb`).
-Since 0.51.9 `reach login out` signs the student out on this computer, so every chat then asks for the sign-in again; it touches only the active student (the enrolled student, or the test student on an instructor's computer) and is safe to run when already signed out.
-Since 0.51.9 on Hermes, signing in from a separate terminal signs the chat in, and after a password reset the chat names `reach login reset` instead of looping on `reach login password` (iss_39127440).
+Since 0.51.10 (`STD-SIGNIN-ONCE`, instructor decision 2026-10-13) one sign-in covers every new chat on the computer, in any AI app, for 12 hours (`policy login.max_hours`) instead of one sign-in per chat; it is stored in `state/login/signin.json` and tied to the enrolled student and the install (a test student keeps its own); switching student, re-enrolling, "no, not me", a wrong-password lockout (also a rate-limited password check), and `reach login out` end it (`lib/reach/login.rb`).
+Since 0.51.10 `reach login out` signs the student out on this computer, so every chat then asks for the sign-in again; it touches only the active student (the enrolled student, or the test student on an instructor's computer) and is safe to run when already signed out.
+Since 0.51.10 on Hermes, signing in from a separate terminal signs the chat in, and after a password reset the chat names `reach login reset` instead of looping on `reach login password` (iss_39127440).
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -475,8 +475,8 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.20 · Sandbox and drag-and-drop files
 
 Since 0.12.0 the read and shell gates refuse paths outside the workspace and web lookups in course folders, on Claude Code, Codex and Hermes. A dropped file is copied into `materials/` within size and type limits. Driven with hook events on Claude Code; the Codex and Hermes hooks are configured but not run live. Since the fix for iss_83205c76aa1c the gates leave reach's own installed skills readable (the plugin's skills directory and the Codex plugin cache's reach skills), because Codex has no Skill tool and loads reach-feature by reading its SKILL.md; verified in a scratch state: Read, cat, sed -n and nl of the skill pass while /etc, `..`, a symlink out, plugin.json, the vault, and writes onto the skill stay refused. The managed copy's skills (`.reach-home/plugin/skills`) were still refused as inside the reach home, and sed or nl of a skill was refused in the course root; both are fixed after iss_b60398d3b34a and verified in a scratch state with the same refusals kept (state, keys, plugin code, `..`, symlinks out, sed -i, redirects). A Codex plugin-cache copy older than 0.50.7 has no skill exemption at all and is replaced only by the cache refresh and a new chat. Not verified: a live Codex session. Re-verified 2026-10-01: Read, Grep, Glob, shell cat, ls of the home folder, cp and both web tools were refused outside the workspace; a .txt drop was copied, an .exe and an oversized file were refused; live, Sonnet declined to search Documents, and the dropped file was copied into materials/ and read there.
-Since 0.51.9 the managed copy's skills are readable and `sed`, `nl`, and `cat` of an installed skill pass inside a slice (iss_b60398d3, iss_7b90ff43).
-Since 0.51.9 Claude Code's Glob with a full-path pattern from the course folder is judged by the pattern's own folder, searches that reach rEach's folder stay refused, and a `$W/**` Glob from a slice is now refused.
+Since 0.51.10 the managed copy's skills are readable and `sed`, `nl`, and `cat` of an installed skill pass inside a slice (iss_b60398d3, iss_7b90ff43).
+Since 0.51.10 Claude Code's Glob with a full-path pattern from the course folder is judged by the pattern's own folder, searches that reach rEach's folder stay refused, and a `$W/**` Glob from a slice is now refused.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -532,7 +532,7 @@ doctor, support, update, guide and the hooks, and every MCP tool, refuses while 
 fails, the course ends, or the fingerprint stops matching, locally or on Teach's status check. The crisis check runs
 before every step. `reach enroll --course-passkey ... --username ... --student-id ...` does the same from a terminal
 (`--course-code` stays as an unlisted alias).
-Since 0.51.9 (`STD-FINGERPRINT-OS-USER`) a Mac no longer locks itself as moved when the student enrolled in Terminal
+Since 0.51.10 (`STD-FINGERPRINT-OS-USER`) a Mac no longer locks itself as moved when the student enrolled in Terminal
 and then opened the Codex app or Claude, or the other way round: an app-launched process reports the account as
 `root`, so the live fingerprint also carries the uid's account-name and `root` forms for the same uid
 (`Fingerprint.matches?`).
@@ -601,7 +601,7 @@ Build ✅ · Deploy 🟡 · Hosted legs green in CI; the Windows 10 and 11 VM ru
 ### 2.29 · Microbrain learning and recall
 
 Since 0.16.15 Reach learns about the student and their work and uses it, all on this computer. Since 2026-10-03 `Reach::Brain.capture_prompt`, called from the prompt hook, turns every gate-allowed prompt the student types, in any folder, into a private `source` spool line (never a blocked prompt, a secret-looking prompt or one holding the student's ID; `capture_min_chars` is 1; AI replies are not ingested), kept only on the computer; the host agent distils durable findings with `reach remember` (or `reach_remember`); a novelty gate (cosine at least 0.85 within the category only reinforces), a per-hour and per-day write budget, a secret and student-ID refusal and a backing-off nudge stop floods. Session start injects the profile (at most 1500 bytes) and each prompt the matching memories (at most 800 bytes) from `Reach::BrainIndex`, a BM25 and cosine read model over the spool, with decay and reinforcement salience. `reach memory list|show|forget|export` and the `reach_recall` and `reach_memory_forget` tools show and erase it; forgetting scrubs Reach's spool. Verified 2026-10-01 in scratch homes on Ruby 3.3.8 and in `ruby:2.6.10-slim`: three turns captured as source lines, a save, a reinforcement, a related save, a refused password, a held write at `per_hour: 2`, the profile in `reach hello`, matching memory and the nudge in `reach gate prompt`, forget by id and `--all --yes` leaving no claim text in the spool, the three MCP tools, a locked install refusing both commands, and brain work in 43 to 54 ms (cold 118 to 130 ms) with 2000 findings and 2000 sources in the spool. Not verified: the in-process `Rcorpus::Context` recall and `Rcorpus::Consolidate` paths, which need rcorpus 0.9.0, and a real harness session on Codex or Hermes.
-Since 0.51.9 inside Codex's sandbox, where the memory spool is not writable, `reach remember` from the terminal no longer faults: it changes nothing, exits 1, and says to use the `reach_remember` tool (`M-BRAIN-SANDBOX`, iss_880fa940).
+Since 0.51.10 inside Codex's sandbox, where the memory spool is not writable, `reach remember` from the terminal no longer faults: it changes nothing, exits 1, and says to use the `reach_remember` tool (`M-BRAIN-SANDBOX`, iss_880fa940).
 
 Build ✅ · Deploy 🔵 · Blocker: Engineering. Verified on Ruby 2.6.10 and 3.3 (capture, remember, novelty, budget, recall, forget, spool cap) and end to end with rplugin 1.4.0 and rcorpus 0.9.0 (admission, audit 0, check 0). A student computer has no rplugin, so it runs on the spool and Reach's own recall; shipping rplugin and rcorpus in the runtime kit is deferred (TODO.md).
 
@@ -751,9 +751,9 @@ with no course gate. With one harness found it uses it, with several it asks. He
 `~/.reach/bin/reach work --harness hermes` command because `reach` may not be on the PATH. Verified: Hermes (2026-09-29
 and 2026-09-30) and the real-Claude smoke's workspace sessions. Unverified: `reach work` for Codex and Antigravity, and
 `reach start` (built in 0.2.0, no separate run recorded).
-Since 0.51.9 in the Codex app `reach work` keeps the work in the current chat (`M-WORK-HERE`, `M-WORK-CODEX-PROJECT`)
+Since 0.51.10 in the Codex app `reach work` keeps the work in the current chat (`M-WORK-HERE`, `M-WORK-CODEX-PROJECT`)
 instead of asking the student to open the slice's folder as a new chat.
-Since 0.51.9 `reach work` inside a Codex chat whose sandbox keeps the folder's Codex settings read-only skips the
+Since 0.51.10 `reach work` inside a Codex chat whose sandbox keeps the folder's Codex settings read-only skips the
 rewrite and no longer reports a problem.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (Codex and Antigravity launches not run).
@@ -811,11 +811,11 @@ command substitution and, since 0.11.3, reads quotes as the shell does and refus
 24 hours on a verified cached package. Verified: Claude Code, Codex argv and patch forms (0.2.0), Hermes (0.11.1 and
 0.11.3). Unverified: Windows hook-command quoting (TODO.md), and Codex's and Hermes' read and web gates, which are
 configured but not run live.
-Since 0.51.9 in a slice chat where `reach` is not on the PATH (Codex on a Mac, for example), the shell gate no longer
+Since 0.51.10 in a slice chat where `reach` is not on the PATH (Codex on a Mac, for example), the shell gate no longer
 refuses rEach's own commands as "would change files outside your slice": checking work, `reach qualify --list`,
 opening work, saving own-part answers, and reading directives through rEach's runtime Ruby now run
 (`Gate.check_vault_or_keys_reads!`, `ruby.exe` recognised; iss_3c176307, iss_8bfc0e0c, iss_9bd140bb, hand_11dd6ea8).
-Since 0.51.9 a shell command the gate cannot check, such as a loop, gets a message saying that nothing is broken and
+Since 0.51.10 a shell command the gate cannot check, such as a loop, gets a message saying that nothing is broken and
 how to keep going in the same chat (`M-SHELL-UNMODELED`, iss_f4c2d035).
 
 Build ✅ · Deploy 🔵 · Blocker: Human (Windows quoting unproven).
@@ -846,7 +846,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 ### 2.39 · Teach subscription
 
 Since 0.22.0 (wire revision 2026-10-03e, Teach 0.30.0; STD-TEACH-SUBSCRIBE) Reach checks Teach's signed W-API-REVISION probe, about every 60 seconds from its MCP server while a harness session runs and about every 15 minutes from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task), and runs one `reach sync` only when a part changed, so rebuilt packages, assignments, policy, grades, hand replies, extra credit, receipts and known issues arrive without the student asking. `reach subscribe status|tick|install|uninstall` manage it, `reach doctor` prints R-DOC-SUBSCRIBE, and the prompt hook adds one plain line (M-SUBSCRIBE-UPDATES) naming what changed. `REACH_OFFLINE=1`, `REACH_SUBSCRIBE=0` and `subscribe.background: false` switch it off. Unverified: the macOS LaunchAgent and the Windows Task Scheduler job were generated as text only and never run on those systems; the Linux unit files were written to a scratch folder with no `systemctl` call.
-Since 0.51.9 on Windows every detached rEach process (update checks, sync, report flushes, the live watch, and the scheduled course check) starts through `Runtime.spawn_background` with `CREATE_NO_WINDOW`, the scheduled check relaunches itself windowless, and free disk space comes from `GetDiskFreeSpaceExW` instead of PowerShell.
+Since 0.51.10 on Windows every detached rEach process (update checks, sync, report flushes, the live watch, and the scheduled course check) starts through `Runtime.spawn_background` with `CREATE_NO_WINDOW`, the scheduled check relaunches itself windowless, and free disk space comes from `GetDiskFreeSpaceExW` instead of PowerShell.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.22.0, GitHub Latest; Teach 0.30.0 serves the route). The macOS and Windows operating system jobs are generated and reviewed but have not yet run on those systems.
 
@@ -1334,9 +1334,9 @@ Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push)
 course's own interview question, goal, explanation style, creative lead, work times, deadline reminders) and stores
 the answers in `~/.reach/profile.yml` only — never synced to Teach, never in a workspace. `reach profile
 show|save|forget` and the matching MCP tools manage it directly.
-Since 0.51.9 the interview is offered once per install: a student who skips it is saved as `skipped` (a new profile
+Since 0.51.10 the interview is offered once per install: a student who skips it is saved as `skipped` (a new profile
 status), and a partial profile is offered the resume greeting once (`state/interview.json`).
-Since 0.51.9 the interview welcome no longer comes back in every new chat after the student answered or skipped it.
+Since 0.51.10 the interview welcome no longer comes back in every new chat after the student answered or skipped it.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
@@ -1353,12 +1353,12 @@ The MCP bridge (`.mcp.json`, Claude Code and Cowork) exposes 27 tools beyond `re
 the `reach` CLI. The five 0.14.3 tools were driven over stdio against a scratch Teach on 2026-10-01: the transfer tool
 returned Reach's own question and sent nothing until a captured yes, then one pending request reached Teach; the support
 tool returned 911/988 and Teach held a hand; the part tool listed the A1 questions.
-Since 0.51.9 the tools carry MCP annotations (`MCPBridge::LISTED_TOOLS`), so in Codex only the four tools that can
+Since 0.51.10 the tools carry MCP annotations (`MCPBridge::LISTED_TOOLS`), so in Codex only the four tools that can
 delete the student's data (`reach_profile_forget`, `reach_memory_forget`, `reach_transcripts`, and `reach_storage`)
 and the three that send work or a request to the course server (`reach_submit`, `reach_qualify`, and
 `reach_raise_hand`) still go to Codex's approval review, and read-only tools such as `reach_directive` and
 `reach_status` no longer do.
-Since 0.51.9 `reach_plan`, `reach_check`, `reach_checkpoint`, `reach_shape_check`, and `reach_part` take a `slice`
+Since 0.51.10 `reach_plan`, `reach_check`, `reach_checkpoint`, `reach_shape_check`, and `reach_part` take a `slice`
 argument, and every `--slice` (submit and hand raise included) resolves a slice by exact name, dashed form, or a
 unique `-<name>` ending, listing the slices when the name is unclear or unknown (`Workspace.named_slice!`).
 
@@ -1386,7 +1386,7 @@ stderr), under Ruby 2.6.10, and against a revoked and a damaged `install.yml` (b
 Build ✅ · Deploy 🔵 · Blocker: -.
 
 Since 0.37.0 doctor also runs `R-DOC-AGENT-CONTROL` (2.47): the bundled `agent-control.yml` matches its digest and carries every channel rEach uses.
-Since 0.51.9 `reach doctor` no longer says the qualification tools are missing when rEach's own Ruby already carries them (`R-DOC-GEMS`, iss_8bfc0e0c).
+Since 0.51.10 `reach doctor` no longer says the qualification tools are missing when rEach's own Ruby already carries them (`R-DOC-GEMS`, iss_8bfc0e0c).
 
 ### 7.2 · Diagnostic report and kit Ruby fallback
 
@@ -1432,7 +1432,7 @@ Since 0.14.6 shape findings are kept only for the workspace's owned files: Teach
 instructors' Panel.svelte is absent and the checker reported S-STATE-001 on it. Verified on a copy of a peer's
 finance.a3s2 panel workspace: the two Panel.svelte findings are gone, status reads "shape: ok", and a literal colour
 put into the student's own cutout is still reported.
-Since 0.51.9 the panel shape check no longer stops with "dovetail check returned no report" when a panel file holds a
+Since 0.51.10 the panel shape check no longer stops with "dovetail check returned no report" when a panel file holds a
 character such as … or ’ and the app runs commands with no language setting (Codex on a Mac): the checker runs with
 `RUBYOPT=-EUTF-8` (iss_91a2cfaa).
 
@@ -1457,7 +1457,7 @@ student's computer: `reach directive <OPCODE>` asks `GET /api/v1/directives/<OPC
 directive --list` lists the table. Teach holds the only read log and derives `directive_dump` events itself
 (STD-DIRECTIVES-CARRY-NO-SECRETS). Verified in 0.4.1 and 0.5.0 against a scratch Teach. Unverified: the course-private
 rows have not run against the live Teach with a real class.
-Since 0.51.9 `reach directive COACH FOCUS LANG` prints every directive named, not only the first.
+Since 0.51.10 `reach directive COACH FOCUS LANG` prints every directive named, not only the first.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no class has used it).
 
@@ -1548,10 +1548,10 @@ fixture Teach. The maintainer confirmed it working in real Codex Desktop on Wind
 app's marketplace box is still untested. Since 0.35.20 `CODEX_CLI_PATH` is used only when it names `codex` or
 `codex.exe`, and `tools/release_stable.rb` moves `stable` to a Latest release (fast-forward only).
 
-Since 0.51.9 Codex's automatic approval review no longer refuses rEach's own course steps, such as reading a course
+Since 0.51.10 Codex's automatic approval review no longer refuses rEach's own course steps, such as reading a course
 directive, as protected-material access (iss_0db3ea38, iss_62145750, iss_ed5705ca).
-Since 0.51.9 in the Codex app rEach works on each part of the assignment from the course project chat (iss_00788df8).
-Since 0.51.9 a yes to a question asked through rEach's tools (in the Codex app, or in Claude Code after `/clear`) is
+Since 0.51.10 in the Codex app rEach works on each part of the assignment from the course project chat (iss_00788df8).
+Since 0.51.10 a yes to a question asked through rEach's tools (in the Codex app, or in Claude Code after `/clear`) is
 recorded in the chat that shows the question, whether that chat is in the course folder or any other folder, and also
 when another chat asked the question (instructor decision 2026-10-13) or the assistant added a short note after it;
 the assistant's own text never counts (iss_26e0e026).
@@ -1699,7 +1699,7 @@ passwords and the student ID left out, adding the course's support contact from 
 on 2026-10-06 in scratch homes against fake Teach (platform smoke 12 passed, the one doctor failure is this machine's
 Codex sandbox and also fails on 0.38.8). The terminal windows ran on Linux only; macOS and Windows windows are
 unverified.
-Since 0.51.9 on Linux the sign-in and enrollment window opens with ptyxis and with a plain gnome-terminal
+Since 0.51.10 on Linux the sign-in and enrollment window opens with ptyxis and with a plain gnome-terminal
 (`Reach::Desktop.terminal`).
 
 Build ✅ · Deploy 🔵 · Blocker: Engineering (macOS and Windows terminal windows unverified)
