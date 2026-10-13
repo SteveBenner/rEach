@@ -61,3 +61,11 @@ A qualification that failed counts on the attempt ladder (TOZERO). One
 that could not reach the course server is pending and counts for nothing;
 run `reach qualify` again later. `reach submit` refuses until the latest
 qualification passed on exactly the files and scenarios you have now.
+
+Qualifying is slow, so tell the student before you start it, in a calm
+sentence or two: it usually takes a few minutes, longer the first time, and
+closing the app (or the chat) before it finishes stops it on their
+computer. The course server may still finish its run, but the result will
+not show here. Say the same before `reach submit`, which takes up to half a
+minute: if the app closes first, the work stays saved on this computer and
+goes out the next time rEach syncs.

@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.12] - 2026-10-13
+
+### Added
+
+- Before any step that takes more than a few seconds, the student is told roughly how long to expect and what closing the app (or the chat) does, worded for what really happens (STD-WAIT-NOTICE, instructor request 2026-10-13). The note is in the descriptions of `reach_qualify`, `reach_submit`, `reach_enroll`, `reach_sync`, `reach_import`, `reach_packet`, `reach_update`, `reach_live`, `reach_storage` and `reach_setup` (`Reach::MCPBridge::TOOLS`), in a new line in every generated rules file (`Reach::Guardrails::WAIT_RULE`), and in the QUALIFY and LEAN directive bodies (`specs/polispec/behavior.yml`; `directives/qualify.md`, `directives/lean.md` and `policy/behavior.json` regenerated with `ruby tools/policy.rb build`).
+
+### Changed
+
+- The messages rEach already prints at the start of a long step carry the wait and the closing note too: M-SUBMIT-ASK, M-UPDATE-STARTED, M-UPDATE-INSTALLING, M-ENR-SYNCING, M-RELOCATING, M-LIVE-REQUESTED, M-IMPORT-STARTED and M-STORAGE-COMPACT-STARTED (`locales/en-US.yml`). Rules files already in a workspace gain the new line the next time rEach rewrites them.
+
 ## [0.51.11] - 2026-10-13
 
 ### Fixed
