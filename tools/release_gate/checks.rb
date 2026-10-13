@@ -279,7 +279,10 @@ module ReleaseGate
       mine = release_wire_digest(ctx, release[:sha])
       minimum = version(facts.dig("teach", "minimum_reach_version"))
       rows = Array(facts.dig("installs", "by_version")).select { |row| row.is_a?(Hash) && row["count"].to_i.positive? }
+      reference = facts.dig("installs", "reference").to_s.empty? ? nil : version(facts.dig("installs", "reference"))
+      reference ||= rows.map { |row| version(row["reach_version"]) }.compact.max
       below = []
+      outdated = []
       silenced = []
       degraded = []
       unknown = []
@@ -291,6 +294,10 @@ module ReleaseGate
           next
         end
         below << label if minimum && ver < minimum
+        if reference && ver < reference
+          outdated << label
+          next
+        end
         theirs = row["wire_sha256"].to_s
         if theirs.empty?
           unknown << "#{label} (digest #{row['digest_state'] || 'unknown'})"
@@ -303,6 +310,7 @@ module ReleaseGate
       out << finding("CMP-INSTALLS", "high", "Active installs whose fault reporting this release would silence", "#{silenced.join('; ')} run a contract other than #{short(mine)} on a rEach older than #{ACCEPTS_FLOOR}", "installs update to rEach #{ACCEPTS_FLOOR} or newer") unless silenced.empty?
       out << finding("CMP-INSTALLS", "medium", "Active installs this release degrades", "#{degraded.join('; ')} run a contract other than #{short(mine)}; typed reporting degrades through accepts", "installs update") unless degraded.empty?
       out << finding("CMP-INSTALLS", "info", "Active installs with an unknown wire digest", unknown.join("; "), "the desk fills digests from the tag list") unless unknown.empty?
+      out << finding("CMP-INSTALLS", "info", "Outdated installs, owed only the update path", "#{outdated.join('; ')} run a rEach older than the reference release #{reference}; their wire is not compared (W-COMPAT-6)", "installs update") unless outdated.empty?
       out
     end
 

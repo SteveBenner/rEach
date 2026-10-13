@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.5] - 2026-10-13
+
+### Changed
+
+- Wire revision 2026-10-13a adds W-COMPAT-6 (`specs/wire.yml`). A rEach older than the reference release is owed backward compatibility only on its update path: the v<X.Y.Z> tags, the GitHub releases and the stable branch its update check reads, so it jumps straight to the newest release, and the plugin manifests a harness refreshes its cache from, plus Teach's `minimum_reach_version` and its `reach_outdated` refusal. A plugin-cache install that cannot update itself still moves only when its harness refreshes the plugin. Every other section may change without keeping an outdated install working. W-COMPAT-1 points to it. The reference release is Teach's configured current rEach version, or else the newest version among active installs.
+
+### Fixed
+
+- The release gate's CMP-INSTALLS check no longer raises a high finding for outdated installs. An install older than the reference release (`facts.installs.reference`, or the newest version listed when an older course server omits it) is still reported when it is below `minimum_reach_version`. Its wire digest is no longer compared, so a release no longer reports that it would silence the fault reporting of an install on rEach 0.35.23 or 0.38.1. Such installs are listed as info instead (`tools/release_gate/checks.rb`, `specs/release_gate.yml`).
+
 ## [0.51.4] - 2026-10-13
 
 ### Fixed

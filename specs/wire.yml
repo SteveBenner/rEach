@@ -1,8 +1,8 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-09'
-revision: 2026-10-09b
+recorded: '2026-10-13'
+revision: 2026-10-13a
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -2094,7 +2094,8 @@ compatibility:
   W-COMPAT-1:
     rule: >-
       Teach reports minimum_reach_version (default "0.2.0"). A Reach older than that blocks course work with
-      M-REACH-OUTDATED and keeps working for enrollment, sync and status.
+      M-REACH-OUTDATED and keeps working for enrollment, sync and status. Since revision 2026-10-13a W-COMPAT-6
+      bounds what an outdated Reach is owed.
   W-COMPAT-2:
     rule: >-
       Teach reports wire_contract_sha256, the W-CONV-4 digest of the bytes of its specs/wire.yml. Reach computes the same
@@ -2121,6 +2122,21 @@ compatibility:
       no Reach path sends shape v1, and reach enroll <code> sends nothing. An install enrolled with shape v1
       carries no stamp; it keeps working unless the course policy sets enrollment.require_stamp, in which case Reach
       locks into the enrollment flow until the student enrolls with shape v2.
+  W-COMPAT-6:
+    rule: >-
+      Since revision 2026-10-13a. A Reach older than the reference release is owed backward compatibility on its
+      update path only. The reference release is Teach's configured current Reach version, or else the newest version
+      among the active installs of the last 30 days. The update path is what such a Reach needs to learn that it is
+      outdated and to install the newest release in one step. The rEach repository keeps every tagged release as a
+      v<X.Y.Z> tag and a published, non-draft, non-prerelease GitHub release, and keeps the plugin manifests at the
+      root of its stable and main branches. A managed install's update check therefore finds the newest release and
+      jumps straight to it without installing the versions between, and a harness that refreshes its plugin cache
+      installs the newest commit of the branch it tracks. A plugin-cache install of a Reach that cannot update itself
+      moves only when its harness refreshes the plugin. Teach keeps answering W-API-STATUS with minimum_reach_version
+      and refusing a Reach below that minimum with 400 reach_outdated (W-COMPAT-1), so the student is told to update.
+      Every other section may change without keeping an outdated Reach working. Teach does not compare an outdated
+      install's wire digest against its own and raises no alarm for it; the drift that matters is that of installs on
+      the reference release or newer.
 reach_client_safety:
   W-SAFE-1: {name: timeouts, rule: "connect 5 s, read 30 s, upload read 120 s; quick mode (hooks) connect 2 s, read 2 s, no retries"}
   W-SAFE-2: {name: rate limit, rule: "a token bucket of 20 requests per minute shared by every Reach process on the machine through ~/.reach/state/bucket.json under an exclusive file lock; Teach allows 30"}
