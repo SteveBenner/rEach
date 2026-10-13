@@ -213,7 +213,7 @@ module Reach
         Reach::Progress.mark("enroll.identity")
         Reach::EnrollOutbox.push_step!("confirmed", username: flow["username"], student_id: flow["student_id"])
         if harness.to_s == "hermes"
-          Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("enroll"))
+          Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.terminal_command("enroll"))
         else
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
           password_prompt
@@ -371,7 +371,7 @@ module Reach
         Reach::Messages.text("M-ENR-DONE", course_title: (install["course"] || {})["title"], first_name: first_name),
         Reach::Messages.text("M-ENR-SYNCING")
       ]
-      parts << Reach::Messages.text("M-ENR-DONE-LAUNCH", launch: Reach::Runtime.hook_command("work", "--harness", "hermes")) if LAUNCH_HARNESSES.include?(harness.to_s)
+      parts << Reach::Messages.text("M-ENR-DONE-LAUNCH", launch: Reach::Runtime.terminal_command("work", "--harness", "hermes")) if LAUNCH_HARNESSES.include?(harness.to_s)
       parts.join(" ")
     end
 
@@ -399,7 +399,7 @@ module Reach
       notice = Reach::Messages.text("M-ENR-AGENT-ENROLLED", course_title: title || "the course")
       return notice unless LAUNCH_HARNESSES.include?(harness.to_s)
 
-      "#{notice} #{Reach::Messages.text("M-ENR-DONE-LAUNCH", launch: Reach::Runtime.hook_command("work", "--harness", "hermes"))}"
+      "#{notice} #{Reach::Messages.text("M-ENR-DONE-LAUNCH", launch: Reach::Runtime.terminal_command("work", "--harness", "hermes"))}"
     rescue StandardError
       nil
     end

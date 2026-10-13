@@ -160,6 +160,11 @@ module Reach
       end
     end
 
+    def terminal_command(*args)
+      command = hook_command(*args)
+      windows? ? "& #{command}" : command
+    end
+
     def windows?
       RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
     end

@@ -392,14 +392,13 @@ module Reach
     end
 
     def terminal_command(*args)
-      command = Reach::Runtime.hook_command(*args)
-      Reach::Runtime.windows? ? "& #{command}" : command
+      Reach::Runtime.terminal_command(*args)
     end
 
     def hookless_context(mcp: false)
       guide = Reach::Messages.text(
         "M-ENR-AGENT-NOHOOK-GUIDE",
-        command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"), window_command: terminal_command("enroll", "--window")
+        command: terminal_command("guide"), enroll_command: terminal_command("enroll"), window_command: terminal_command("enroll", "--window")
       )
       ["#{Reach::Messages.text("M-ENR-AGENT-NOHOOK-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
     end
@@ -417,7 +416,7 @@ module Reach
     end
 
     def locked_context(format = "hook", mcp: false)
-      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.hook_command("guide"), enroll_command: terminal_command("enroll"))
+      guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: terminal_command("guide"), enroll_command: terminal_command("enroll"))
       text = ["#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
       return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
 
@@ -694,7 +693,7 @@ module Reach
       else
         entries << ["hello.session", "- This session continues an earlier one. Do not greet again."]
       end
-      entries << ["hello.session", "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."]
+      entries << ["hello.session", "- Wherever the skills say `reach <command>`, run `#{terminal_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."]
       entries << ["hello.update", update_line(updating)] if updating
       entries << ["hello.profile", profile_line]
       interview = interview_line(session)
