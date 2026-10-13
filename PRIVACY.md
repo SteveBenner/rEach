@@ -36,6 +36,7 @@ rEach also asks your course server whether anything changed (new course material
 ## What stays on your computer
 
 - A one-way scrambled check value for your rEach password, so rEach can check it when you sign in without sending it. The password itself is never stored, recorded in a conversation or shown to your AI assistant.
+- Your sign-in. One sign-in covers every new chat on this computer, in any AI app, for 12 hours. Anyone who uses your computer account during that time is treated as you, and their assignment conversations are recorded as yours. On a shared computer, run `reach login out` when you finish. rEach also ends the sign-in when you switch student, enroll again, or say it is not you.
 - Your profile: the answers you give rEach in its short interview. It is shared with your instructors only if you say yes when rEach asks them for help. Say "forget my profile" to delete it.
 - What rEach learns about how you like to work, from what you type, including the organized copy of that memory it keeps in its own folder (`~/reach-work/.reach-home/corpora`). Ask rEach "what do you know about me?" to see it, or ask it to forget; forgetting removes it from that copy too.
 - A copy of each submission, saved in your Downloads folder, and your submission receipts.
