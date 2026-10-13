@@ -358,7 +358,7 @@ Five read-and-reproduce reviews (client, work, data, agent, install). Repros liv
 
 - [ ] Re-pin `agent-control/agent-control.yml` from Teach main (Teach carries v3, the bundled copy is v2) and refresh its
   bundled digest; until then the release gate's CMP-PIN warns medium on every rEach push.
-- [x] Decide the licence (currently `undecided` in `reach.spec.yml`) before any public release; `exe/reach` and `lib/reach.rb` already carry an MIT SPDX line from 0.1.0.
+- [x] Decide the licence before any public release: MIT since 0.51.7 (`LICENSE`, `reach.spec.yml`, the plugin manifests); `exe/reach` and `lib/reach.rb` already carry an MIT SPDX line from 0.1.0.
 
 ## rEach Sidecar import (Teach 0.84.0)
 
