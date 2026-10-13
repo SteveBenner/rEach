@@ -94,6 +94,7 @@ rEach runs inside an AI app the student chooses, and that app's terms and its pr
 - [Platform smoke](#platform-smoke)
 - [Figures](#figures)
 - [Policy sources and enforcement](#policy-sources-and-enforcement)
+- [License](#license)
 
 ## How it fits together
 
@@ -509,3 +510,7 @@ rEach's public engineering rules and runtime policy parameters live in `specs/po
 `reach policy --json` reports policy authorities, digests, coverage modes, and drift without private directive bodies. `reach doctor` checks the generated directive views, native enforcement bindings, and pinned instructor-control baseline. Existing shell, ownership, qualification, submission, privacy, and support behavior remains in rEach's native code; advisory instructions are labeled honestly.
 
 For developers, edit the source and run `ruby tools/policy.rb build`, then `ruby tools/policy.rb check`. Polispec is an authoring tool only. Development/release policy and persona routing use the separate `specs/polispec/policy.yml` and `roster.yml`; they require host-ledger activation. Stable readiness checks the planned commit, and promotion remains an operator action through `polispec promote reach --to stable`.
+
+## License
+
+rEach is released under the [MIT License](LICENSE). The [Dovetail](https://github.com/SteveBenner/dovetail) submodule in `dovetail/` is a separate program under its own license, the GNU AGPL-3.0 ([dovetail/LICENSE](dovetail/LICENSE)); rEach runs it as a separate process and does not link it. `skills/design-taste-frontend` carries its own MIT license.

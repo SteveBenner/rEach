@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.51.6 |
+| **Registry version** | 0.51.8 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1660,10 +1660,11 @@ Build ⚪ · Deploy ⚫ · Blocker: Engineering.
 
 ### 11.6 · Licence
 
-The licence is `undecided` in `reach.spec.yml`; it must be decided before a public release (TODO.md). `exe/reach` and
-`lib/reach.rb` carry an MIT SPDX line.
+Since 0.51.7 rEach is MIT-licensed: `LICENSE` at the root (copyright PatḗrasAI), `licence: MIT` in `reach.spec.yml`,
+`"license": "MIT"` in the three plugin manifests, and a License section in the README naming Dovetail's own
+AGPL-3.0 (run as a separate process) and the MIT tasteskill. `exe/reach` and `lib/reach.rb` carry an MIT SPDX line.
 
-Build ⚪ · Deploy ⚫ · Blocker: Human.
+Build ✅ Shipped · Deploy 🔵 on main; students get it with the next stable promotion.
 
 ### 11.7 · Security audit mode for releases
 

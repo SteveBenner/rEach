@@ -9,6 +9,7 @@
   },
   "homepage": "https://github.com/SteveBenner/rEach",
   "repository": "https://github.com/SteveBenner/rEach",
+  "license": "MIT",
   "keywords": [
     "education",
     "course",

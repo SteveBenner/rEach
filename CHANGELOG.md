@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.8] - 2026-10-13
+
+### Fixed
+
+- The installer listing `directory/plugin.json` also carries `"license": "MIT"`, so every published manifest states the license. The ticked licence item in `TODO.md` names MIT instead of saying it is still undecided.
+
+## [0.51.7] - 2026-10-13
+
+### Added
+
+- rEach is released under the MIT License. `LICENSE` holds the text (copyright PatḗrasAI). `reach.spec.yml` says `licence: MIT` instead of `undecided`. `plugin.json`, `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` carry `"license": "MIT"`. A new README License section names the Dovetail submodule's own GNU AGPL-3.0, which rEach runs as a separate process, and the tasteskill's own MIT license.
+
 ## [0.51.6] - 2026-10-13
 
 ### Fixed
