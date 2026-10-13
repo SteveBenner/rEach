@@ -479,6 +479,7 @@ messages:
   M-UPDATE-CURRENT: "rEach {version} is installed and up to date."
   M-UPDATE-AVAILABLE: "rEach {version} is installed. Version {newer} is ready: type update reach to get it."
   M-UPDATE-NOT-STARTED: "rEach could not start its update just now. Tell the student in plain words that rEach will try again on its own, and offer to let their instructor know if it keeps happening."
+  M-UPDATE-NOTHING: "No rEach update was waiting: version {version} is installed, so nothing has changed. Tell the student that in plain words and keep working in this chat; they do not need a new chat. rEach still looks for a newer version on its own and says so when it finds one."
   M-SANDBOX-UPDATE-STALE: "Codex's sandbox blocks the internet here, so these results are from rEach's last check ({last_check}), not a new one."
   M-REACH-HICCUP-CLI: "rEach couldn't finish that command and has let your instructor know. Your work is saved. Try again, or run reach doctor if it keeps happening."
   M-TEACH-LINK-RELAY: "Tell the student this rEach notice, then carry on: {text}"

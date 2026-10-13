@@ -874,7 +874,10 @@ module Reach
             result = Reach::Update.run(apply: true, force: true)
             return { "text" => result["app_only"] ? Reach::Messages.text("M-UPDATE-APP-ONLY") : Reach::Update.status_lines.join("\n") }
           end
+          manifest = Reach::Update.load_manifest
           pid = Reach::Update.spawn_background(apply: true, now: true)
+          return { "text" => Reach::Messages.text("M-UPDATE-NOTHING", version: Reach::Update.local_version) } unless Reach::Update.waiting?(manifest)
+
           return { "text" => Reach::Messages.text(pid ? "M-UPDATE-STARTED" : "M-UPDATE-NOT-STARTED") }
         end
         { "text" => Reach::Update.status_lines.join("\n") }

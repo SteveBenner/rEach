@@ -860,6 +860,14 @@ module Reach
       nil
     end
 
+    def waiting?(manifest)
+      return true if pending_version(manifest) || installing?(manifest) || interrupted_swap?(manifest)
+
+      Gem::Version.new(local_version) > Gem::Version.new(Reach::VERSION)
+    rescue StandardError
+      true
+    end
+
     def spawn_background(apply:, now: false)
       return nil if disabled?
 
@@ -1074,7 +1082,10 @@ module Reach
       steps = {}
       ok = harness == "codex" ? refresh_codex_cache(steps) : refresh_claude_cache(steps)
       version = cached_version(harness)
-      message = if ok
+      current = ok && version && Gem::Version.new(version) <= Gem::Version.new(Reach::VERSION)
+      message = if current
+                  Reach::Messages.text("M-UPDATE-NOTHING", version: Reach::VERSION)
+                elsif ok
                   "rEach was refreshed through #{harness == 'codex' ? 'Codex' : 'Claude Code'}#{version ? " (newest copy now on this computer: #{version})" : ''}. The student needs to start a new chat to use it."
                 elsif steps.empty?
                   Reach::Messages.text("M-UPDATE-APP-ONLY")
