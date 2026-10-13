@@ -102,7 +102,7 @@ facts:
   freshness: fetched on every run; never served from a cache, because a stale fact defeats a broken-state check
   keys: [generated_at, teach, units, alarms, flapping, issues, backup_line, installs, overrides]
   teach: '{ version_loaded, version_tree, started_at, wire_sha256, minimum_reach_version, main: { sha, version, wire_sha256, fetched_at } }'
-  installs: counts per reach_version over 30 days with the version's wire digest when known, and reference, the reference rEach release (W-COMPAT-6; absent from an older course server, when the gate takes the newest version listed); never an identity
+  installs: counts per reach_version over 30 days with the version's wire digest when known, and reference, the reference rEach release (W-COMPAT-6; absent from an older course server, when the gate takes the newest listed version whose digest was found at its tag); never an identity
 runs:
   endpoint: the course server's release-gate run record, idempotent per run and rate limited per token
   body: '{ repo, release_version, commit, tree, trigger, status, findings: [{id, severity, class, title, detail}], override_id, lease_id, duration_s, error }'

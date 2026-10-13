@@ -280,7 +280,7 @@ module ReleaseGate
       minimum = version(facts.dig("teach", "minimum_reach_version"))
       rows = Array(facts.dig("installs", "by_version")).select { |row| row.is_a?(Hash) && row["count"].to_i.positive? }
       reference = facts.dig("installs", "reference").to_s.empty? ? nil : version(facts.dig("installs", "reference"))
-      reference ||= rows.map { |row| version(row["reach_version"]) }.compact.max
+      reference ||= rows.select { |row| row["digest_state"] == "found" }.map { |row| version(row["reach_version"]) }.compact.max
       below = []
       outdated = []
       silenced = []

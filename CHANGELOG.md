@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.6] - 2026-10-13
+
+### Fixed
+
+- A version an install merely reports can no longer become the reference release and mark every real install outdated, which would have hidden real wire drift. Wire revision 2026-10-13b states that the reference release, when Teach names none, is the newest active version that has a v<X.Y.Z> tag in this repository. Without `facts.installs.reference`, the release gate's CMP-INSTALLS takes the newest listed version whose digest was found at its tag (`tools/release_gate/checks.rb`, `specs/release_gate.yml`).
+
 ## [0.51.5] - 2026-10-13
 
 ### Changed
@@ -13,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The release gate's CMP-INSTALLS check no longer raises a high finding for outdated installs. An install older than the reference release (`facts.installs.reference`, or the newest version listed when an older course server omits it) is still reported when it is below `minimum_reach_version`. Its wire digest is no longer compared, so a release no longer reports that it would silence the fault reporting of an install on rEach 0.35.23 or 0.38.1. Such installs are listed as info instead (`tools/release_gate/checks.rb`, `specs/release_gate.yml`).
+- The release gate's CMP-INSTALLS check no longer raises a high finding for outdated installs. An install older than the reference release (`facts.installs.reference`, or the newest version listed when an older course server omits it) is still reported when it is below `minimum_reach_version`. Its wire digest is no longer compared, so a release no longer reports that it would silence the fault reporting of an install on an old rEach. Such installs are listed as info instead (`tools/release_gate/checks.rb`, `specs/release_gate.yml`).
 
 ## [0.51.4] - 2026-10-13
 
