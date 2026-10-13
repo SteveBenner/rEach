@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.1] - 2026-10-13
+
+### Added
+
+- `README.md` has a Disclaimer section after the introduction: rEach is provided as is, with no warranty and no liability for damages. It also says AI output can be wrong and that instructors and institutions decide course outcomes and own their privacy and education-law obligations. It links to the Terms of Service and the Privacy Policy.
+- `README.md` has a Contents list, two levels deep, after the Disclaimer.
+- `docs/DISCLAIMER.md`, the full disclaimer and limitation of liability that the README section points to. It covers course and academic decisions, AI output and third-party AI apps, recording and the institution's obligations, security, files and backups, and jurisdictions that limit disclaimers.
+
 ## [0.51.0] - 2026-10-12
 
 ### Added

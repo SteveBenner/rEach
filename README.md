@@ -61,6 +61,40 @@ computer. The agent puts code in files, never in chat. The Stop and SessionEnd
 hooks run `reach hook stop`, which only flushes debug events and shows the link
 notice and the debug block.
 
+## Disclaimer
+
+rEach is provided "as is", without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose and non-infringement. To the fullest extent the law allows, PatḗrasAI and the contributors to rEach are not liable for any damages from using or being unable to use it: direct, indirect, incidental, special, consequential or punitive. That includes lost or late work, missed deadlines, grades, academic integrity findings, exposure or loss of data, and damage to a computer or its files.
+
+rEach runs inside an AI app the student chooses, and that app's terms and its provider's terms also apply. AI output can be wrong, and nothing rEach checks or reports is a grade. Instructors and their institutions decide each course's rules, grades and integrity outcomes. They are also responsible for telling students what is recorded and for meeting the privacy and education laws that apply to them. The full text is in [docs/DISCLAIMER.md](docs/DISCLAIMER.md). Use of rEach is also governed by the [Terms of Service](TERMS.md) and the [Privacy Policy](PRIVACY.md).
+
+## Contents
+
+- [Disclaimer](#disclaimer)
+- [How it fits together](#how-it-fits-together)
+- [Runtime](#runtime)
+- [Install](#install)
+  - [Updates](#updates)
+- [Directives, check, plan and checkpoints](#directives-check-plan-and-checkpoints)
+- [Memory](#memory)
+  - [Storage](#storage)
+  - [Importing another AI's history](#importing-another-ais-history)
+  - [Importing work from the rEach Sidecar](#importing-work-from-the-reach-sidecar)
+- [Instructors](#instructors)
+  - [Submitting](#submitting)
+  - [Late work and grades](#late-work-and-grades)
+  - [Announcements and course updates](#announcements-and-course-updates)
+  - [Course controls and tests](#course-controls-and-tests)
+  - [Extra credit](#extra-credit)
+  - [When Teach can't be reached](#when-teach-cant-be-reached)
+- [Course reference](#course-reference)
+- [Doctor](#doctor)
+- [Release gate (maintainers)](#release-gate-maintainers)
+- [Smoke test](#smoke-test)
+- [Unit tests](#unit-tests)
+- [Platform smoke](#platform-smoke)
+- [Figures](#figures)
+- [Policy sources and enforcement](#policy-sources-and-enforcement)
+
 ## How it fits together
 
 rEach is half of a system; Teach, the instructors' private course server, is the other half. On its own rEach is a
