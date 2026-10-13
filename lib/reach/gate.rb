@@ -899,11 +899,15 @@ module Reach
 
       shims = [File.expand_path(Reach::Runtime.shim_path), File.expand_path(File.join(Reach::Paths.legacy_home, "bin", "reach"))]
       return 0 if tokens[0] == "reach" || shims.include?(File.expand_path(tokens[0].to_s))
-      return 1 if File.basename(tokens[0].to_s) =~ /\Aruby[0-9.]*\z/ && tokens[1] && shims.include?(File.expand_path(tokens[1].to_s))
+      return 1 if ruby_command?(tokens[0]) && tokens[1] && shims.include?(File.expand_path(tokens[1].to_s))
 
       nil
     rescue StandardError
       nil
+    end
+
+    def ruby_command?(token)
+      File.basename(token.to_s).sub(/\.exe\z/i, "") =~ /\Aruby[0-9.]*\z/ ? true : false
     end
 
     def support_command?(text)
@@ -1801,14 +1805,16 @@ module Reach
     end
 
     def check_vault_or_keys_reads!(tokens, base)
-      tokens.each do |tok|
+      runner = shim_index(tokens) == 1 && within?(resolve_arg(tokens[0], base), Reach::Paths.runtime_dir)
+      tokens.each_with_index do |tok, index|
         next unless path_like?(tok)
 
         resolved = resolve_arg(tok, base)
         raise_blocked!("M-SHELL-BLOCKED") if within?(resolved, Reach::Paths.vault_dir) || within?(resolved, Reach::Paths.keys_dir)
         next if shim_index([tok]) == 0 && tok != "reach"
+        next if runner && index.zero?
 
-        raise_blocked!("M-SHELL-BLOCKED") if Reach::Paths.inside_home?(resolved)
+        raise_blocked!("M-SHELL-BLOCKED") if Reach::Paths.inside_home?(resolved) && !plugin_skill_path?(real_resolve(tok, base))
       end
     end
 
@@ -1942,7 +1948,7 @@ module Reach
     end
 
     def reach_shim_call?(tokens)
-      return false unless File.basename(tokens[0].to_s) =~ /\Aruby[0-9.]*\z/ && tokens[1]
+      return false unless ruby_command?(tokens[0]) && tokens[1]
 
       File.expand_path(tokens[1]) == File.expand_path(Reach::Runtime.shim_path)
     rescue StandardError
