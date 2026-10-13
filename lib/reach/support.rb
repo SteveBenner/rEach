@@ -75,8 +75,7 @@ module Reach
 
       def spawn_flush
         exe = File.expand_path("../../exe/reach", __dir__)
-        pid = Process.spawn(RbConfig.ruby, exe, "support", "--flush", in: File::NULL, out: File::NULL, err: File::NULL, **Reach::Runtime.detach_group)
-        Process.detach(pid)
+        Reach::Runtime.spawn_background(RbConfig.ruby, exe, "support", "--flush")
       rescue StandardError
         nil
       end

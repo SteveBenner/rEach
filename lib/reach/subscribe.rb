@@ -144,6 +144,18 @@ module Reach
       false
     end
 
+    WINDOWLESS_ENV = "REACH_WINDOWLESS".freeze
+
+    def relaunch_windowless(argv)
+      return nil unless argv[0, 2] == %w[subscribe tick] && Reach::Runtime.windows?
+      return nil if ENV[WINDOWLESS_ENV] == "1" || Reach::Runtime.windows_console? != false
+
+      command = [{ WINDOWLESS_ENV => "1" }, RbConfig.ruby, File.expand_path($PROGRAM_NAME), *argv]
+      Reach::Runtime.spawn_windowless(command) ? 0 : nil
+    rescue StandardError
+      nil
+    end
+
     def tick(source: "background")
       return { "skipped" => "disabled" } if disabled?
 

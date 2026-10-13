@@ -25,6 +25,9 @@ module Reach
 
     class << self
       def run(argv)
+        relaunched = Reach::Subscribe.relaunch_windowless(argv)
+        return relaunched if relaunched
+
         started = Reach::Debug.clock
         code = nil
         failure = nil

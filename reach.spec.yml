@@ -1463,8 +1463,9 @@ subscription:
     for it could not run, so no Linux job was ever installed). macOS:
     ~/Library/LaunchAgents/reach.subscribe.plist loaded with launchctl bootstrap gui/<uid> or launchctl load -w.
     Windows: schtasks task rEach\Update check for the current user, run through rubyw.exe or, when absent, wscript.exe
-    on ~/.reach/bin/reach-subscribe.vbs. Every operating system call times out at 10 s and never prompts; a failure is
-    recorded in subscribe.json and Reach::Debug.fault.
+    on ~/.reach/bin/reach-subscribe.vbs; a tick that finds itself without a console (rubyw) starts itself again through
+    Reach::Runtime.spawn_windowless with REACH_WINDOWLESS=1, so its own console children open no window. Every operating
+    system call times out at 10 s and never prompts; a failure is recorded in subscribe.json and Reach::Debug.fault.
   ensure: >-
     Reach::Subscribe.ensure! does nothing while a kill switch is set (REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 pause checks
     but never remove the job), and otherwise installs the job when the install is enrolled and not revoked and settings
@@ -2036,7 +2037,9 @@ live_sessions:
   standard: STD-LIVE (specs/app.yml); wire W-LIVE-1 to W-LIVE-9 and W-API-LIVE routes, revision 2026-10-03f. Since 0.23.0.
   runner_start: >-
     Since 0.33.2 the runner and every other detached reach process start with Reach::Runtime.detach_group
-    (new_pgroup on Windows, pgroup elsewhere). A request made while an answer is still queued returns M-LIVE-SENDING
+    (new_pgroup on Windows, pgroup elsewhere). They start through Reach::Runtime.spawn_background: on Windows
+    CreateProcessW with CREATE_NO_WINDOW and a new process group, so none opens a console window, falling back to
+    Process.spawn with detach_group. A request made while an answer is still queued returns M-LIVE-SENDING
     and starts the runner; it does not ask the student again.
   diagnosis: >-
     STD-LIVE-DIAGNOSIS, wire W-LIVE-10, revision 2026-10-04c, since 0.27.0. Reach::Live.diagnose! (reach instructor

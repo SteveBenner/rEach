@@ -866,15 +866,7 @@ module Reach
       exe = File.join(Reach::Runtime.root, "exe", "reach")
       arguments = [RbConfig.ruby, exe, "update", "run", now ? "--force" : "--scheduled"]
       arguments << "--apply" if apply
-      options = { in: File::NULL, out: File::NULL, err: File::NULL }
-      if Reach::Runtime.windows?
-        options[:new_pgroup] = true
-      else
-        options[:pgroup] = true
-      end
-      pid = Process.spawn(*arguments, options)
-      Process.detach(pid)
-      pid
+      Reach::Runtime.spawn_background(*arguments)
     rescue StandardError
       nil
     end
@@ -903,13 +895,7 @@ module Reach
       return nil unless Reach::HarnessSource.pending?
 
       exe = File.join(Reach::Runtime.root, "exe", "reach")
-      options = { in: File::NULL, out: File::NULL, err: File::NULL }
-      if Reach::Runtime.windows?
-        options[:new_pgroup] = true
-      else
-        options[:pgroup] = true
-      end
-      Process.detach(Process.spawn(RbConfig.ruby, exe, "update", "source", options))
+      Reach::Runtime.spawn_background(RbConfig.ruby, exe, "update", "source")
     rescue StandardError
       nil
     end
