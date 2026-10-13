@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.3] - 2026-10-13
+
+### Changed
+
+- `TERMS.md` carries a "Last updated" date and makes [docs/DISCLAIMER.md](docs/DISCLAIMER.md) part of the Terms, so the Terms that control where the two conflict now include the full disclaimer. Every change to the Terms is listed in this changelog.
+- The `dovetail` submodule and `dovetail-revision.txt` move to Dovetail 0.2.2 (`5b9ec25`). Its README no longer says that no licence file ships.
+
 ## [0.51.2] - 2026-10-13
 
 ### Fixed

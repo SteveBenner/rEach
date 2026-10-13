@@ -1,5 +1,7 @@
 # rEach Terms of Service
 
+Last updated: 2026-10-13.
+
 These terms cover rEach, the academic assistant for students in a course run on Teach, and the "rEach" listing in the ChatGPT and Codex plugin directory, which only installs rEach. rEach is published by PatḗrasAI.
 
 ## Using rEach
@@ -20,9 +22,11 @@ rEach works inside an AI app you choose, such as Codex. That app and its AI prov
 
 rEach is provided as is, without warranties of any kind. PatḗrasAI is not liable for lost work, missed deadlines or other damages from using rEach, to the extent the law allows. rEach saves a copy of each submission in your Downloads folder; keep your own copies of anything important.
 
+The full [Disclaimer and Limitation of Liability](docs/DISCLAIMER.md) is part of these terms and gives this section in detail.
+
 ## Changes
 
-These terms may change as rEach changes. The current version is always at https://github.com/SteveBenner/rEach/blob/main/TERMS.md.
+These terms may change as rEach changes. Each change updates the "Last updated" date above and is listed in [CHANGELOG.md](CHANGELOG.md) under the release that made it. The current version is always at https://github.com/SteveBenner/rEach/blob/main/TERMS.md.
 
 ## Contact
 
