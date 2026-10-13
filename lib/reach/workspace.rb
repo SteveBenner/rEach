@@ -214,6 +214,17 @@ module Reach
       slices.select { |path| wanted.any? { |word| File.basename(path).end_with?("-#{word}") } }
     end
 
+    def named_slice!(name)
+      found = named_slices(name)
+      return found.first if found.length == 1
+
+      names = current_slices.map { |path| File.basename(path) }
+      raise Reach::Refused, Reach::Messages.text("M-GATE-NOSLICE") if names.empty?
+      raise Reach::Refused, Reach::Gate.pick_slice_text if found.length > 1 || name.to_s.strip.empty?
+
+      raise Reach::Refused, Reach::Messages.text("M-GATE-NOSLICE-NAMED", slice: name.to_s.strip, choices: names.join(", "))
+    end
+
     CURRENT_SLICES_SKIP_DIRS = %w[.git node_modules vendor .bundle tmp .claude .codex].freeze
     CURRENT_SLICES_MAX_DEPTH = 4
 

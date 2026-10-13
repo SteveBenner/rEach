@@ -515,12 +515,12 @@ module Reach
       end
 
       def resolve_workspace(slice_hint)
-        slices = Reach::Workspace.current_slices
-        return nil if slices.nil? || slices.empty?
-        return slices.first if slice_hint.nil? && slices.length == 1
-        return nil if slice_hint.nil?
+        return Reach::Workspace.named_slice!(slice_hint) unless slice_hint.to_s.strip.empty?
 
-        slices.find { |workspace_path| File.basename(workspace_path).include?(slice_hint) }
+        slices = Reach::Workspace.current_slices
+        slices.length == 1 ? slices.first : nil
+      rescue Reach::Refused
+        raise
       rescue StandardError
         nil
       end

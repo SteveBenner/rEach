@@ -585,7 +585,9 @@ harness_integration:
       --harness codex); AGENTS.md carries the
       guardrails. Reach rewrites these files, and so picks up a changed timeout, whenever it configures a workspace
       (sync, update, the session start).
-      Written in every space (slice, extracurricular, root) as for Claude Code.
+      Written in every space (slice, extracurricular, root) as for Claude Code. Since 0.51.5, when the folder refuses
+      the rewrite (Codex's sandbox keeps a writable root's own .codex read-only), reach work skips it with a debug note,
+      leaves the files read-only as they were and goes on.
     launcher_gate: >-
       reach work runs the gate before starting Codex and refuses to start it when the gate fails; Codex is always
       started through reach work for course workspaces.
@@ -3101,7 +3103,8 @@ home_in_workspace:
   home_refused: >-
     In every kind of space, a read, write, listing, search, redirect or cd whose target resolves inside the home (or a
     persona home, .reach-home.relocating, .reach-home.failed-* or .reach-home.pre-*), and a recursive search or listing
-    whose base is an ancestor of the home, is refused the way vault and keys reads are; reach's own commands through the
+    whose base is an ancestor of the home (a Glob with an absolute pattern searches from the pattern's own base folder, not
+    the working folder), is refused the way vault and keys reads are; reach's own commands through the
     shim are the only way in. Workspace.current_slices, Workspace.migrate_layout!, Archive and the student-work walks
     prune the home; Reach::Workspace.space_for returns nil inside it; storage measure counts it as rEach's own storage.
   target_spaces: >-

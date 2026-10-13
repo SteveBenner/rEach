@@ -706,14 +706,27 @@ module Reach
         raise_outside!(event, tool) if outside_path?(candidate, base)
         raise_blocked!("M-GATE-EXTRACURRICULAR-READ") if (kind == "slice" || kind == "root") && extracurricular_path?(candidate, base)
       end
-      check_recursive_read!(input, base) if RECURSIVE_READ_TOOLS.include?(tool)
+      check_recursive_read!(tool, input, base) if RECURSIVE_READ_TOOLS.include?(tool)
       nil
     end
 
-    def check_recursive_read!(input, base)
+    def check_recursive_read!(tool, input, base)
+      pattern = tool == "Glob" ? input["pattern"] : nil
       given = PATH_INPUT_KEYS.map { |key| input[key] }.find { |value| value.is_a?(String) && !value.empty? }
+      given = absolute_glob_base(pattern) if pattern.is_a?(String) && absolute_pattern?(pattern)
       resolved = given ? real_resolve(given, base) : base
       raise_blocked!("M-GATE-OUTSIDE") if resolved.nil? || Reach::Paths.ancestor_of_home?(resolved)
+    end
+
+    def absolute_pattern?(pattern)
+      pattern.start_with?("/", "\\") || pattern.match?(%r{\A[A-Za-z]:[\\/]})
+    end
+
+    def absolute_glob_base(pattern)
+      prefix = glob_prefix(pattern)
+      cut = [prefix.rindex("/"), prefix.rindex("\\")].compact.max.to_i
+      dir = cut.zero? ? prefix[0, 1] : prefix[0...cut]
+      dir.match?(/\A[A-Za-z]:\z/) ? "#{dir}/" : dir
     end
 
     def read_paths(tool, input, base)

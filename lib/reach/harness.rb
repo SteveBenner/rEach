@@ -66,12 +66,19 @@ module Reach
         if is_workspace
           Reach::Gate.session(harness: harness_id)
           refresh_rules_files(workspace_path)
-          configure(harness_id, workspace_path)
+          configure_space(harness_id, workspace_path)
         end
         exec_harness(harness_id, workspace_path, initial_prompt)
       end
 
       private
+
+      def configure_space(harness_id, workspace_path)
+        configure(harness_id, workspace_path)
+      rescue *Reach::Sandbox::WRITE_ERRORS => e
+        Reach::Debug.error(e, "harness:configure")
+        nil
+      end
 
       def prepare_hermes
         Reach::Setup.ensure_hermes_profile if hermes_config_path.nil? && which("hermes")
@@ -379,6 +386,15 @@ module Reach
         Reach::StateFile.write_atomic(path, content, mode: 0o644)
         File.chmod(0o444, path)
       rescue NotImplementedError, Errno::ENOENT
+        nil
+      rescue *Reach::Sandbox::WRITE_ERRORS
+        keep_read_only(path)
+        raise
+      end
+
+      def keep_read_only(path)
+        File.chmod(0o444, path) if File.exist?(path)
+      rescue NotImplementedError, SystemCallError
         nil
       end
 
