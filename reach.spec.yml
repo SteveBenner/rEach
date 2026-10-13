@@ -2078,7 +2078,9 @@ live_sessions:
   runner_start: >-
     Since 0.33.2 the runner and every other detached reach process start with Reach::Runtime.detach_group
     (new_pgroup on Windows, pgroup elsewhere). They start through Reach::Runtime.spawn_background: on Windows
-    CreateProcessW with CREATE_NO_WINDOW and a new process group, so none opens a console window, falling back to
+    CreateProcessW with CREATE_NO_WINDOW and a new process group, so none opens a console window, with its own handle
+    for each of standard input, output and error (one shared handle let the child's dup2 close it under the other
+    two, so a pipe it read from never ended and subscribe ensure hung before installing the job), falling back to
     Process.spawn with detach_group. A request made while an answer is still queued returns M-LIVE-SENDING
     and starts the runner; it does not ask the student again.
   diagnosis: >-
