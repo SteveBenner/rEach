@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.0] - 2026-10-12
+
+### Added
+
+- `reach packet import FOLDER` and the `reach_packet` tool (STD-PACKET-IMPORT): bring the work done in the rEach Sidecar folder the instructor handed out into the student's workspace. `Reach::Packet` verifies the folder's manifest and signature against `config.yml` `sidecar.allowed_signers` (or `--allowed-signers PATH`), matches the student's email and course to the install, checkpoints any work already here, replays the sidecar's checkpoints as rEach checkpoints, copies the owned files, qualify scenarios and plan, records the student's answers through `Reach::Part.import!`, keeps the bundle's offline receipt at `.reach/sidecar-receipt.json`, writes `.reach/sidecar-import.json`, then runs `reach check` and `reach qualify` (`--no-qualify` skips it). `reach submit` carries the receipt as `evidence/sidecar-receipt.json`. New skill `reach-sidecar` and messages `M-PACKET-*`.
+
 ## [0.50.12] - 2026-10-11
 
 ### Fixed

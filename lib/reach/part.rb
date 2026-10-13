@@ -91,6 +91,40 @@ module Reach
         answer
       end
 
+      def import!(question_id, text:, recorded_at:, digest:, workspace:)
+        meta = Reach::Workspace.metadata(workspace)
+        assignment = meta["assignment"].to_s
+        question = questions(assignment).find { |item| item["id"] == question_id.to_s }
+        return nil unless question
+
+        words = word_count(text)
+        return nil if words < question["min_words"].to_i
+
+        stamp = begin
+          Time.iso8601(recorded_at).utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        rescue ArgumentError
+          Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end
+        state = load_state(assignment, meta["course"])
+        existing = state["answers"][question["id"]]
+        return nil if existing.is_a?(Hash) && existing["recorded_at"].to_s > stamp
+
+        answer = {
+          "question_id" => question["id"],
+          "text" => text,
+          "words" => words,
+          "session_id" => nil,
+          "seq" => nil,
+          "digest" => digest.to_s.empty? ? Reach::Crypto.digest_hex(text) : digest.to_s,
+          "recorded_at" => stamp,
+          "student_id" => student_id
+        }
+        state["answers"][question["id"]] = answer
+        write_state(assignment, meta["course"], state)
+        Reach::Ledger.append(workspace, "part", "question_id" => question["id"], "digest" => answer["digest"], "seq" => nil, "session_id" => nil, "origin" => "sidecar")
+        answer
+      end
+
       def observe_prompt(space, text, recorded = nil)
         return nil unless space.is_a?(Hash) && %w[slice root].include?(space["kind"])
         return nil unless text.is_a?(String) && !text.strip.empty?

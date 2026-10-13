@@ -226,6 +226,24 @@ reach import status|cancel|list [JOB]                follow or stop an import
 reach import next|done|search|show ...               what the agent reads to learn from it
 ```
 
+### Importing work from the rEach Sidecar
+
+The rEach Sidecar is a signed offline folder the instructor hands out so a student can work on their assignments
+before rEach is installed. Once rEach works, the student asks their AI partner to bring that work in, once:
+
+```
+reach packet import FOLDER [--bundle ZIP] [--allowed-signers PATH] [--no-qualify] [--format text|json]
+```
+
+rEach checks the folder first: every signed file must match the manifest and the signature must verify against the
+signer rEach carries in `config.yml` (`sidecar.allowed_signers`), the sidecar's student email must be the enrolled
+student's and its course the enrolled course. Then, for each started slice assigned here, it checkpoints any work
+already in the workspace, replays the sidecar's checkpoints as rEach checkpoints, copies the owned files, the qualify
+scenarios and the plan, records the student's own answers in their words, keeps the offline bundle's receipt so
+`reach submit` carries it as evidence, and runs `reach check` and `reach qualify`. Nothing is sent by the import;
+submitting stays the student's step. The agent uses the `reach_packet` tool for a folder in Downloads, since the shell
+gate refuses a command that names a folder outside the course spaces.
+
 ## Instructors
 
 An instructor can try rEach without enrolling. Mint a code on the Teach console's Instructor codes page, then
@@ -317,7 +335,8 @@ files, plus the receipts and the student's own part) in the Downloads folder as
 may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
 by rEach before it asks and by Teach. rEach says plainly, before and after every submission, that the ZIP in
 Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (the
-course names that system); `reach submit archive` makes the ZIP again.
+course names that system); `reach submit archive` makes the ZIP again. Work brought in from the rEach Sidecar carries
+its offline receipt as `evidence/sidecar-receipt.json` in the submission.
 
 ### Late work and grades
 

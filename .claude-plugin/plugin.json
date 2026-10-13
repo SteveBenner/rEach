@@ -1,7 +1,7 @@
 {
   "name": "reach",
   "displayName": "rEach",
-  "version": "0.50.12",
+  "version": "0.51.0",
   "description": "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts.",
   "author": {
     "name": "PatḗrasAI"
@@ -25,6 +25,7 @@
     "./skills/reach-checkpoint",
     "./skills/reach-storage",
     "./skills/reach-import",
+    "./skills/reach-sidecar",
     "./skills/design-taste-frontend"
   ],
   "agents": [

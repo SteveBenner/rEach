@@ -454,6 +454,8 @@ module Reach
         entries["part.json"] = JSON.generate(Reach::Part.document(assignment)) unless Reach::Part.questions(assignment).empty?
         Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data }
         entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" })
+        receipt = File.join(workspace, Reach::Workspace::MARKER_DIR, Reach::Packet::RECEIPT_FILE)
+        entries["evidence/sidecar-receipt.json"] = File.binread(receipt) if File.file?(receipt)
         Array(manifest["owned_files"]).each do |relative_path|
           data = owned_bytes(workspace, relative_path)
           next unless data

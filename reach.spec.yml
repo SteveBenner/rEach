@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.50.12
+version: 0.51.0
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -450,6 +450,8 @@ library:
     role: The per-computer state file that ties installs together
   - name: Reach::Integrity
     role: Silent integrity reports to Teach (vault, marks, ledger, sidecar), deduplicated and queued offline
+  - name: Reach::Packet
+    role: Verifies a rEach Sidecar folder and imports its slices, checkpoints, answers and receipt into the workspace (0.51.0)
   style: >-
     Every module is plain Ruby 2.6 - no refinements beyond 2.6, no endless methods, no pattern matching, no numbered
     parameters, no Hash shorthand.
@@ -1233,6 +1235,16 @@ cli:
       conversation (at most import.next_max_bytes) and done advances the queue; search and show read the catalog and,
       in copy mode, the saved conversations. run --job ID is the worker the job and the next prompt start. Refused
       while Reach is locked.
+  - name: packet
+    synopsis: reach packet import FOLDER [--bundle ZIP] [--allowed-signers PATH] [--no-qualify] [--format text|json]
+    purpose: >-
+      Since 0.51.0 (STD-PACKET-IMPORT), brings the work done in the rEach Sidecar folder the instructor handed out
+      into the student's workspace: verifies the folder's manifest and signature against config.yml
+      sidecar.allowed_signers, matches the student's email and course to the install, copies each started slice with
+      its checkpoints (replayed as rEach checkpoints), qualify scenarios and plan, records the student's answers,
+      keeps the bundle's offline receipt for reach submit, then runs reach check and reach qualify. Exits 0 when every
+      started slice came in, 2 when one was left out; refusals exit 1 with one plain sentence. The reach_packet tool
+      is the same for the agent.
   - name: storage
     synopsis: reach storage [status | measure | compact] [--format text|json]
     purpose: >-

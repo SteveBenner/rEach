@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.50.12 |
+| **Registry version** | 0.51.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 102 catalogued |
+| **Feature count** | 103 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 94 | 92% |
+| ✅ Shipped | 95 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 79 | 77% |
+| 🔵 Built, not enabled | 80 | 78% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -1890,3 +1890,11 @@ The QF-UNCOVERED next action names the assistant as the author of the technical 
 Build ✅ (published on main as 0.50.12) · Deploy 🔵 (native test promotion blocked; stable not promoted) · Blocker: Access (installed-plugin doctor gate), Human (corpus maintenance authorization and student session verification). The guidance fix is published at 8a0b94478646495dc457688d3ed5409cadd868e5. Native test promotion stopped before publication at G-RDOCTOR: the installed rEach corpus spool holds eight unadmitted records older than 24 hours. No v0.50.12 test tag or deployment receipt was created; test, stable, and GitHub Latest remain 0.50.11. Synthetic native coverage runs reproduce three missing cases, retain rejection of the wrong tag, and pass coverage only with exact names and the correct tag. No student files or answers were accessed or changed, and no student qualification pass is claimed. The older registry totals have not been re-audited.
 
 Student-first audit: learning preserves the student's business decisions and reflections; agency states the assistant's next action clearly; wellbeing adds no pressure and retains existing human escalation; privacy adds no data collection; fairness uses the same guidance in every harness; friction assigns the technical repair without another student task; failure retains all checks and ladder stops; recovery uses the existing checkpoint and bug flow.
+
+## rEach Sidecar import — 0.51.0
+
+`reach packet import FOLDER` and the `reach_packet` tool bring the work a student did in the rEach Sidecar (the signed offline folder the instructor hands out) into their real workspace: `Reach::Packet` verifies the manifest and the signature against `config.yml` `sidecar.allowed_signers`, matches the student's email and course to the install, checkpoints existing work, replays the sidecar's checkpoints, copies the owned files, qualify scenarios and plan, records the answers in the student's words (`Reach::Part.import!`, unverifiable by the prompt hook by design), keeps the bundle's offline receipt for `reach submit` as `evidence/sidecar-receipt.json`, and runs `reach check` and `reach qualify`. Skill `reach-sidecar`; standard STD-PACKET-IMPORT.
+
+Build ✅ (on branch packet-import, 0.51.0) · Deploy 🔵 (not promoted; `sidecar.allowed_signers` carries the live signer line only once the instructor's key exists) · Blocker: Human (signer line, promotion). Verified on a transport-smoke install against a scratch course server: a packet built from that server, worked in the packet (start, implementation, two checkpoints, four answers), imported with five files, two replayed checkpoints and four answers, `reach check` clean; the run log is in the session scratchpad. Not covered: a real Windows host (ssh-keygen lookup through PATHEXT is untested there), Ruby 2.6 execution (syntax kept to the floor by reading, no 2.6 interpreter on this host).
+
+Student-first audit: learning keeps the offline work and its history; agency says what came in and leaves submit to the student; wellbeing sends nothing and names the next step on every refusal; privacy reads the student's own folder and writes only their workspace and state; fairness works in every harness through the tool; friction is one command with the folder; failure checkpoints before any overwrite and leaves out a slice without stopping the others; recovery is `reach checkpoint restore`.

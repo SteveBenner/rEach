@@ -132,6 +132,7 @@ require_relative "reach/issues"
 require_relative "reach/live"
 require_relative "reach/ladder"
 require_relative "reach/qualify"
+require_relative "reach/packet"
 
 require_relative "reach/update"
 require_relative "reach/harness_source"

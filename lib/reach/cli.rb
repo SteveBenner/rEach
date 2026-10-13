@@ -351,6 +351,8 @@ module Reach
           cmd_transcript(args)
         when "import"
           cmd_import(args)
+        when "packet"
+          cmd_packet(args)
         when "modules"
           cmd_modules(args)
         when "transfer"
@@ -480,6 +482,7 @@ module Reach
             import status | cancel | list [--job ID] [--format text|json]   progress of the background import, stop it, or list imports
             import next [--job ID] | done CONVERSATION [--part N] [--job ID]   the next queued conversation to learn from, and mark it worked
             import search QUERY [--job ID] | show CONVERSATION [--part N] [--job ID]   search the imported conversations, or print one from the saved copy
+            packet import FOLDER [--bundle ZIP] [--allowed-signers PATH] [--no-qualify] [--format text|json]   bring the work done in the rEach Sidecar folder the instructor handed out into your workspace: checks the folder's signature, your email and course, copies each started slice with its checkpoints and your answers, keeps the offline receipt for the submission, then runs reach check and reach qualify
         USAGE
       end
 
@@ -1908,6 +1911,24 @@ module Reach
         Reach::Limits.report
       rescue StandardError
         ["R-DOC-LIMITS the local size limits could not be checked"]
+      end
+
+      def cmd_packet(args)
+        sub = args.shift
+        no_qualify, args = parse_bare_flag(args, "no-qualify")
+        options, remaining = parse_flags(args, [:bundle, :allowed_signers, :format])
+        folder = remaining.first
+        unless sub == "import" && folder
+          warn "usage: reach packet import FOLDER [--bundle ZIP] [--allowed-signers PATH] [--no-qualify] [--format text|json]"
+          return 1
+        end
+        result = Reach::Packet.import!(folder, allowed_signers: options[:allowed_signers], bundle: options[:bundle], qualify: !no_qualify)
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(result.reject { |key, _| key == "text" })
+        else
+          puts result["text"]
+        end
+        result["ok"] ? 0 : 2
       end
 
       def cmd_import(args)

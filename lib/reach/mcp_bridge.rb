@@ -270,6 +270,20 @@ module Reach
         }
       },
       {
+        "name" => "reach_packet",
+        "description" => "Bring the work the student did in the rEach Sidecar folder the instructor handed out (an unzipped reach-sidecar folder, usually in Downloads) into their real workspace. action import with folder: checks the folder's signature and that it belongs to this student and course, copies each started slice with its checkpoints and the student's own answers, keeps the offline bundle's receipt for the submission, then runs reach check and reach qualify; bundle names a specific bundle ZIP, qualify false skips the qualify run. Relay the result to the student in plain words; submit is still their step",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[import] },
+            "folder" => { "type" => "string" },
+            "bundle" => { "type" => "string" },
+            "qualify" => { "type" => "boolean" }
+          },
+          "required" => %w[action folder]
+        }
+      },
+      {
         "name" => "reach_grade",
         "description" => "The points recorded for the student in Teach for each assignment, and the total; says plainly when grades are not available yet. The course grade of record is in the course's learning system, not here",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -693,6 +707,8 @@ module Reach
           update_tool(arguments)
         when "reach_transcripts"
           transcripts_tool(arguments)
+        when "reach_packet"
+          packet_tool(arguments)
         when "reach_grade"
           Reach::Grades.fetch
         when "reach_extra_credit"
@@ -722,6 +738,13 @@ module Reach
 
         result = Reach::TranscriptExport.write!
         result.merge("message" => Reach::TranscriptExport.result_text(result))
+      end
+
+      def packet_tool(arguments)
+        raise Reach::Error, "reach: unknown packet action" unless arguments["action"].to_s == "import"
+
+        result = Reach::Packet.import!(arguments["folder"].to_s, bundle: arguments["bundle"], qualify: arguments["qualify"] != false)
+        result.merge("message" => result["text"])
       end
 
       def import_tool(arguments)

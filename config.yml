@@ -72,6 +72,8 @@ rstack:
     mirrors: []
 submit:
   archive_max_mb: 256
+sidecar:
+  allowed_signers: []
 live:
   enabled: true
   wake: true
