@@ -42,7 +42,6 @@ module Reach
         "schema" => IMPORT_SCHEMA,
         "folder" => root,
         "packet" => packet,
-        "student" => { "name" => student["name"], "email" => student["email"] },
         "course" => enrolled_course_id(install),
         "warnings" => [],
         "slices" => [],
