@@ -49,7 +49,7 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves the ZIP of an already submitted assignment to Downloads again (assignment names it; the student must still upload the ZIP to the course's learning system). Submitting takes up to half a minute: before calling it, tell the student that and that if the app closes first the work stays saved on this computer and goes out the next time rEach syncs",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves the ZIP of an already submitted assignment to Downloads again (assignment names it; the student must still upload the ZIP to the course's learning system). Submitting takes up to half a minute: before calling it, tell the student that, that the work counts as received when it reaches the course server so the app should stay open until the receipt shows, and that if the app closes first the work stays saved on this computer and rEach sends it at the next sync, when it is received, even if that is after the due time",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
