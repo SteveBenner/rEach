@@ -365,9 +365,9 @@ module Reach
     end
 
     def instructions_line
-      return "Then connect rEach to the student's course. If the reach-assistant skill is not loaded in this session yet, run `#{Reach::Runtime.terminal_command("hello", "--format", "text")}` and follow what it prints. Do not start the first-run interview until the student is enrolled and signed in." unless enrolled?
+      return "Then connect rEach to the student's course. If the reach-assistant skill is not loaded in this session yet, run `#{Reach::Runtime.agent_command("hello", "--format", "text")}` and follow what it prints. Do not start the first-run interview until the student is enrolled and signed in." unless enrolled?
 
-      "Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `#{Reach::Runtime.terminal_command("hello", "--format", "text")}` and follow what it prints."
+      "Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `#{Reach::Runtime.agent_command("hello", "--format", "text")}` and follow what it prints."
     end
 
     def relocate_after_install
