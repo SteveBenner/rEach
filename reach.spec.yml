@@ -813,12 +813,18 @@ qualification:
     20-second deadline, started after the local steps, so an MCP tool budget spent on the local steps cannot starve
     the upload; polls that run out leave the qualification pending with its id. When a hidden scenario fails whose
     agent scenario of the same name passed on Teach, next is M-QUALIFY-HIDDEN: Reach builds it from the names and
-    results alone and tells the agent its fakes likely differ from the real port, that an unchanged rerun still
-    counts, and to tell the student when the course materials do not say what the port returns.
+    results alone and tells the agent its fakes likely differ from the real port, that an unchanged rerun does not
+    help, and to tell the student when the course materials do not say what the port returns. A QF-HIDDEN finding
+    adds the row's failure kind in plain words (M-QUALIFY-KIND-RAISED, M-QUALIFY-KIND-DIFFERED). When Teach answers
+    counted false (instructor decision 2026-10-13: the run failed with the same owned files and test files as the
+    student's last counted failed qualification of the slice), the record keeps counted false and identical_to, next
+    starts with M-QUALIFY-IDENTICAL, the text output says the run was not counted and names the earlier attempt, and
+    the run is not counted on the attempt ladder, so it raises no ladder hand.
   answers_from_teach: >-
     Per row: name, result, the failing step only when it is verbatim a line of the agent's own feature files, and an
-    error class from a fixed whitelist (else other). Never messages or output, because the run directory holds course
-    code the student does not own.
+    error class from a fixed whitelist (else other); a failed hidden row may add kind, raised or differed, with no
+    step and no values. Never messages or output, because the run directory holds course code the student does not
+    own. A finished qualification also answers counted and identical_to.
   record: >-
     .reach/qualification.json in the workspace (files_digest and tests_digest over canonical JSON, steps, findings,
     passed, suite_version), a corpus record of kind qualification and a ledger event qualify.
@@ -828,7 +834,7 @@ qualification:
     scenarios, and sends the scenarios and the record as evidence (W-PKG-5 evidence/).
   limits: Teach allows 12 qualifications per slice per hour and 2 in flight per student, and 60 scenarios per package.
 attempt_ladder:
-  unit: Failed qualifications per slice (a pending one does not count), in ~/.reach/state/ladder/<slice>.json.
+  unit: Failed qualifications per slice (a pending one, and one Teach answers counted false, do not count), in ~/.reach/state/ladder/<slice>.json.
   rungs:
     '1': Silent; the agent tries again.
     '2': M-LADDER-NOTICE for the student.
