@@ -122,9 +122,7 @@ module Reach
     def spawn_drain
       script = 'begin; require "reach/ca_roots"; Reach::CaRoots.apply!; rescue ScriptError, StandardError; nil; end; require "reach"; Reach::EnrollOutbox.drain!'
       lib = File.expand_path("..", __dir__)
-      pid = Process.spawn(RbConfig.ruby, "-I", lib, "-e", script, in: File::NULL, out: File::NULL, err: File::NULL, **Reach::Runtime.detach_group)
-      Process.detach(pid)
-      pid
+      Reach::Runtime.spawn_background(RbConfig.ruby, "-I", lib, "-e", script)
     rescue StandardError
       nil
     end

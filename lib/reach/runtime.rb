@@ -168,6 +168,175 @@ module Reach
       windows? ? { new_pgroup: true } : { pgroup: true }
     end
 
+    CREATE_NEW_PROCESS_GROUP = 0x00000200
+    CREATE_UNICODE_ENVIRONMENT = 0x00000400
+    CREATE_NO_WINDOW = 0x08000000
+    EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+    PROC_THREAD_ATTRIBUTE_HANDLE_LIST = 0x00020002
+    STARTF_USESTDHANDLES = 0x00000100
+    NUL_ACCESS = 0x0012019F
+    LOG_ACCESS = 0x00100084
+    SHARE_ALL = 0x00000007
+    OPEN_EXISTING = 3
+    OPEN_ALWAYS = 4
+    FILE_ATTRIBUTE_NORMAL = 0x00000080
+
+    def spawn_background(*command, out: File::NULL, err: File::NULL)
+      if windows?
+        pid = spawn_windowless(command, out, err)
+        return pid if pid
+      end
+      pid = Process.spawn(*command, { in: File::NULL, out: out, err: err }.merge(detach_group))
+      Process.detach(pid)
+      pid
+    end
+
+    def spawn_windowless(command, out = File::NULL, err = File::NULL)
+      env = command.first.is_a?(Hash) ? command.first : nil
+      argv = (env ? command.drop(1) : command).map(&:to_s)
+      log = windowless_log(out, err)
+      return nil if argv.empty? || log == false
+
+      api = windows_api
+      return nil unless api
+
+      inherit = windows_handle_attributes
+      nul = api[:create_file].call(wide("NUL"), NUL_ACCESS, SHARE_ALL, inherit, OPEN_EXISTING, 0, 0)
+      return nil if nul <= 0
+
+      sink = log ? api[:create_file].call(wide(log.tr("/", "\\")), LOG_ACCESS, SHARE_ALL, inherit, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0) : nul
+      list = nil
+      begin
+        return nil if sink <= 0
+
+        list = windows_handle_list(api, [nul, sink].uniq)
+        return nil unless list
+
+        program = argv.first.tr("/", "\\")
+        info = "\0".b * (Fiddle::SIZEOF_VOIDP * 2 + 8)
+        flags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | EXTENDED_STARTUPINFO_PRESENT | (env ? CREATE_UNICODE_ENVIRONMENT : 0)
+        block = env ? windows_environment(env) : nil
+        ok = api[:create_process].call(File.file?(program) ? wide(program) : nil, wide(windows_command_line(argv)), nil, nil, 1, flags, block, nil,
+                                       windows_startup_info(nul, sink, list.first), info)
+        return nil if ok.zero?
+
+        process, thread, pid = info.unpack("JJL")
+        api[:close].call(process)
+        api[:close].call(thread)
+        pid
+      ensure
+        api[:attribute_delete].call(list.first) if list
+        api[:close].call(sink) if log && sink > 0
+        api[:close].call(nul)
+      end
+    rescue StandardError, LoadError, ScriptError
+      nil
+    end
+
+    def windowless_log(out, err)
+      return nil if out == File::NULL && err == File::NULL
+
+      path = out.is_a?(Array) && out[1].to_s == "a" ? out[0] : nil
+      path && (err == [:child, :out] || err == out) ? path.to_s : false
+    end
+
+    def windows_command_line(argv)
+      argv.each_with_index.map do |arg, index|
+        text = index.zero? ? arg.tr("/", "\\") : arg
+        next text unless text.empty? || text =~ /[\s"']/
+
+        escaped = text.gsub(/(\\*)"/) { "#{Regexp.last_match(1) * 2}\\\"" }
+        escaped = escaped.sub(/(\\+)\z/) { Regexp.last_match(1) * 2 }
+        "\"#{escaped}\""
+      end.join(" ")
+    end
+
+    def windows_environment(env)
+      merged = ENV.to_h
+      env.each do |name, value|
+        merged.delete_if { |key, _| key.casecmp(name.to_s).zero? }
+        merged[name.to_s] = value.to_s unless value.nil?
+      end
+      "#{merged.sort_by { |key, _| key.upcase }.map { |key, value| "#{key}=#{value}\0" }.join}\0".encode(Encoding::UTF_16LE).b
+    end
+
+    def windows_handle_list(api, handles)
+      size = "\0".b * Fiddle::SIZEOF_VOIDP
+      api[:attribute_init].call(nil, 1, 0, size)
+      bytes = size.unpack("J").first
+      return nil if bytes.zero?
+
+      list = Fiddle::Pointer.malloc(bytes, Fiddle::RUBY_FREE)
+      return nil if api[:attribute_init].call(list, 1, 0, size).zero?
+
+      packed = handles.pack("J*")
+      values = Fiddle::Pointer.malloc(packed.bytesize, Fiddle::RUBY_FREE)
+      values[0, packed.bytesize] = packed
+      return [list, values] unless api[:attribute_update].call(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, values, packed.bytesize, nil, nil).zero?
+
+      api[:attribute_delete].call(list)
+      nil
+    end
+
+    def windows_startup_info(input, output, attributes)
+      pointer = Fiddle::SIZEOF_VOIDP
+      template = pointer == 8 ? "Lx4JJJL8SSx4JJJJJ" : "LJJJL8SSJJJJJ"
+      size = pointer == 8 ? 112 : 72
+      [size, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, STARTF_USESTDHANDLES, 0, 0, 0, input, output, output, attributes.to_i].pack(template)
+    end
+
+    def windows_handle_attributes
+      pointer = Fiddle::SIZEOF_VOIDP
+      pointer == 8 ? [24, 0, 1].pack("Lx4JLx4") : [12, 0, 1].pack("LJL")
+    end
+
+    def wide(text)
+      "#{text}\0".encode(Encoding::UTF_16LE).b
+    end
+
+    def windows_console?
+      api = windows_api
+      api ? !api[:console_cp].call.zero? : nil
+    rescue StandardError
+      nil
+    end
+
+    def windows_free_bytes(path)
+      api = windows_api
+      return nil unless api
+
+      free = "\0".b * 8
+      ok = api[:free_space].call(wide(path.to_s.tr("/", "\\")), free, nil, nil)
+      ok.zero? ? nil : free.unpack("Q").first
+    rescue StandardError
+      nil
+    end
+
+    def windows_api
+      return @windows_api if defined?(@windows_api)
+
+      @windows_api = begin
+        require "fiddle"
+        kernel = Fiddle.dlopen("kernel32.dll")
+        call = Fiddle::SIZEOF_VOIDP == 4 && defined?(Fiddle::Function::STDCALL) ? Fiddle::Function::STDCALL : Fiddle::Function::DEFAULT
+        pointer = Fiddle::TYPE_VOIDP
+        handle = Fiddle::TYPE_INTPTR_T
+        int = Fiddle::TYPE_INT
+        {
+          create_file: Fiddle::Function.new(kernel["CreateFileW"], [pointer, int, int, pointer, int, int, handle], handle, call),
+          create_process: Fiddle::Function.new(kernel["CreateProcessW"], [pointer, pointer, pointer, pointer, int, int, pointer, pointer, pointer, pointer], int, call),
+          close: Fiddle::Function.new(kernel["CloseHandle"], [handle], int, call),
+          console_cp: Fiddle::Function.new(kernel["GetConsoleCP"], [], int, call),
+          free_space: Fiddle::Function.new(kernel["GetDiskFreeSpaceExW"], [pointer, pointer, pointer, pointer], int, call),
+          attribute_init: Fiddle::Function.new(kernel["InitializeProcThreadAttributeList"], [pointer, int, int, pointer], int, call),
+          attribute_update: Fiddle::Function.new(kernel["UpdateProcThreadAttribute"], [pointer, int, handle, pointer, Fiddle::TYPE_SIZE_T, pointer, pointer], int, call),
+          attribute_delete: Fiddle::Function.new(kernel["DeleteProcThreadAttributeList"], [pointer], Fiddle::TYPE_VOID, call)
+        }
+      rescue StandardError, LoadError, ScriptError
+        nil
+      end
+    end
+
     def default_teach_url
       value = ENV["REACH_TEACH_URL"]
       return value if value && !value.empty?

@@ -506,6 +506,9 @@ module Reach
 
     def free_bytes(path)
       if Reach::Runtime.windows?
+        native = Reach::Runtime.windows_free_bytes(path)
+        return native if native
+
         letter = path[0, 1]
         out, _err, status = Open3.capture3("powershell", "-NoProfile", "-Command", "(Get-PSDrive #{letter}).Free")
         return status.success? && out.strip =~ /\A\d+\z/ ? out.strip.to_i : nil
@@ -1484,15 +1487,7 @@ module Reach
 
     def spawn_detached
       exe = File.join(Reach::Runtime.root, "exe", "reach")
-      options = { in: File::NULL, out: File::NULL, err: File::NULL }
-      if Reach::Runtime.windows?
-        options[:new_pgroup] = true
-      else
-        options[:pgroup] = true
-      end
-      pid = Process.spawn(RbConfig.ruby, exe, "relocate", options)
-      Process.detach(pid)
-      pid
+      Reach::Runtime.spawn_background(RbConfig.ruby, exe, "relocate")
     end
   end
 end

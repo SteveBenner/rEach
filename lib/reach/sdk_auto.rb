@@ -128,10 +128,7 @@ module Reach
 
     def spawn_install
       exe = File.join(Reach::Runtime.root, "exe", "reach")
-      options = { in: File::NULL, out: File::NULL, err: File::NULL }.merge(Reach::Runtime.detach_group)
-      pid = Process.spawn(RbConfig.ruby, exe, "sdk", "install", "--auto", options)
-      Process.detach(pid)
-      pid
+      Reach::Runtime.spawn_background(RbConfig.ruby, exe, "sdk", "install", "--auto")
     end
 
     def run

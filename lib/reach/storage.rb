@@ -234,9 +234,7 @@ module Reach
 
     def spawn_detached(args)
       exe = File.expand_path("../../exe/reach", __dir__)
-      pid = Process.spawn(RbConfig.ruby, exe, *args, in: File::NULL, out: File::NULL, err: File::NULL, **Reach::Runtime.detach_group)
-      Process.detach(pid)
-      pid
+      Reach::Runtime.spawn_background(RbConfig.ruby, exe, *args)
     rescue StandardError
       nil
     end

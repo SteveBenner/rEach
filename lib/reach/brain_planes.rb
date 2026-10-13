@@ -106,9 +106,7 @@ module Reach
       interpreter = ruby
       FileUtils.mkdir_p(Reach::Paths.logs_dir)
       Reach::Debug.rotate_log(log_path)
-      pid = Process.spawn(env, interpreter, exe, *args.map(&:to_s), in: File::NULL, out: [log_path, "a", 0o600], err: [:child, :out], **Reach::Runtime.detach_group)
-      Process.detach(pid)
-      pid
+      Reach::Runtime.spawn_background(env, interpreter, exe, *args.map(&:to_s), out: [log_path, "a", 0o600], err: %i[child out])
     rescue StandardError
       nil
     end
