@@ -75,7 +75,7 @@ module Reach
 
       def finish(workspace, record, local_only)
         not_the_code = !record["findings"].empty? && record["findings"].all? { |finding| NOT_THE_CODE.include?(finding["code"]) }
-        record["ladder"] = if record["pending"] || local_only || not_the_code
+        record["ladder"] = if record["pending"] || local_only || not_the_code || record["counted"] == false
                              nil
                            else
                              Reach::Ladder.record(workspace, record)
@@ -435,14 +435,34 @@ module Reach
           record["findings"] << { "code" => "QF-VACUOUS", "name" => row["name"], "detail" => "passed on the course server with the starting copy" }
         end
         hidden.reject { |row| row["result"] == "passed" }.each do |row|
-          record["findings"] << { "code" => "QF-HIDDEN", "name" => row["name"], "detail" => row["reason"] }
+          record["findings"] << { "code" => "QF-HIDDEN", "name" => row["name"], "detail" => hidden_detail(row) }
         end
         passed_here = agent.select { |row| row["result"] == "passed" }.map { |row| row["name"] }
         own_passed = hidden.reject { |row| row["result"] == "passed" }.map { |row| row["name"] }.select { |name| passed_here.include?(name) }
         record["next"] ||= Reach::Messages.text("M-QUALIFY-HIDDEN", names: own_passed.map { |name| "\"#{name}\"" }.join(", ")) unless own_passed.empty?
         passed = record["findings"].empty?
+        judge_counted(record, result) unless passed
         record["steps"]["remote"] = { "ran" => true, "passed" => passed, "rows" => { "agent" => agent, "stub" => stub, "hidden" => hidden } }
         passed
+      end
+
+      def hidden_detail(row)
+        kind = { "raised" => "M-QUALIFY-KIND-RAISED", "differed" => "M-QUALIFY-KIND-DIFFERED" }[row["kind"]]
+        [row["reason"], kind && Reach::Messages.text(kind)].compact.join(" ")
+      end
+
+      def judge_counted(record, result)
+        return unless result["counted"] == false
+
+        record["counted"] = false
+        record["identical_to"] = result["identical_to"].is_a?(Hash) ? result["identical_to"] : {}
+        same = Reach::Messages.text("M-QUALIFY-IDENTICAL", earlier: earlier_attempt(record))
+        record["next"] = [same, record["next"]].compact.join(" ")
+      end
+
+      def earlier_attempt(record)
+        attempt = (record["identical_to"] || {})["attempt"]
+        attempt ? "attempt #{attempt}" : "an earlier attempt"
       end
 
       def seal(install, meta, tar_bytes)
@@ -577,7 +597,11 @@ module Reach
         lines = [summary_line(record)]
         lines << record["notice"] if record["notice"]
         lines << record["next"] if record["next"]
-        lines << "Qualification attempt #{record['attempt']} for #{record['slice']}"
+        lines << if record["counted"] == false
+                   "Qualification run for #{record['slice']}, not counted: identical to #{earlier_attempt(record)}"
+                 else
+                   "Qualification attempt #{record['attempt']} for #{record['slice']}"
+                 end
         STEP_IDS.each do |id|
           step = record["steps"][id]
           next unless step
