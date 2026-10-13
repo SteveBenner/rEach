@@ -745,7 +745,7 @@ module Reach
       collector = Thread.new { reader.read.to_s }
       waiter = Process.detach(pid)
       if waiter.join(OS_TIMEOUT_S)
-        [waiter.value.success?, collector.value]
+        [waiter.value.success?, collector.join(OS_TIMEOUT_S) ? collector.value : ""]
       else
         begin
           Process.kill("KILL", pid)
