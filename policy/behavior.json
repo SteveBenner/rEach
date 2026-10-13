@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v1",
-  "digest": "sha256:8005c05330d502a3575b84e5b4b1f374d02f2f73d5cd3436055c711a1b4fdfa5",
+  "digest": "sha256:c1fe1b4ebac069af957ccae467eee2a9dd2982a9b6cf9990ef3975944c350565",
   "policy": {
     "authority": {
       "authentication": "release",
@@ -196,7 +196,7 @@
         "authority": "teach",
         "binding": "Reach::AgentControl.selected",
         "schema": "teach.agent-control/v1",
-        "sha256": "cee0ce41283a352c0c1e1906442eab9b4823fa3a8ba3a0edd182e8669d9f2612",
+        "sha256": "84f0fff52c9a8a79a551d24ec9bc2730e2f3ab4b94864b026555c91821bab7d0",
         "source": "agent-control/agent-control.yml"
       },
       "control": {

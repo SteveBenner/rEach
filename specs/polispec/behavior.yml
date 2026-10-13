@@ -588,7 +588,7 @@ parameters:
     authority: teach
     schema: teach.agent-control/v1
     source: agent-control/agent-control.yml
-    sha256: cee0ce41283a352c0c1e1906442eab9b4823fa3a8ba3a0edd182e8669d9f2612
+    sha256: 84f0fff52c9a8a79a551d24ec9bc2730e2f3ab4b94864b026555c91821bab7d0
     binding: Reach::AgentControl.selected
 rules:
 - id: N-GATE-REQUIRE-LOGIN
