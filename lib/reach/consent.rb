@@ -119,7 +119,7 @@ module Reach
 
     def answering_session(pending, entry)
       return pending["session_id"].to_s if asked_by?(pending, entry)
-      return nil unless pending["session_id"].to_s.empty? && entry["gate"] == "allowed"
+      return nil unless entry["gate"] == "allowed"
 
       raw = entry["session_id"].to_s
       raw.empty? ? nil : Reach::Session.resolve_session_id("session_id" => raw)
@@ -189,7 +189,7 @@ module Reach
       wanted = squash(question)
       return false if wanted.empty?
 
-      return true if !path.to_s.empty? && File.file?(path) && squash(latest_assistant_text(path)).include?(wanted)
+      return true if !path.to_s.empty? && File.file?(path) && turn_assistant_texts(path).any? { |text| squash(text).include?(wanted) }
 
       spooled_question?(session_id, wanted, asked_at)
     rescue SystemCallError, IOError
@@ -233,23 +233,52 @@ module Reach
       text.to_s.tr("\u2018\u2019\u201c\u201d", "''\"\"").gsub(/\s+/, " ").strip
     end
 
-    def latest_assistant_text(path)
+    def turn_assistant_texts(path)
       size = File.size(path)
       chunk = File.open(path, "rb") do |file|
         file.seek([size - TRANSCRIPT_TAIL_BYTES, 0].max)
         file.read.to_s.force_encoding("UTF-8").scrub
       end
+      texts = []
       chunk.lines.reverse_each do |line|
-        text = assistant_text(line)
-        return text unless text.nil?
+        record = transcript_record(line)
+        next unless record
+
+        if user_prompt?(record)
+          return texts unless texts.empty?
+
+          next
+        end
+        text = assistant_text(record)
+        texts << text unless text.nil?
       end
-      ""
+      texts.first(1)
     end
 
-    def assistant_text(line)
+    def transcript_record(line)
       record = JSON.parse(line)
-      return nil unless record.is_a?(Hash)
+      record.is_a?(Hash) ? record : nil
+    rescue JSON::ParserError
+      nil
+    end
 
+    def user_prompt?(record)
+      payload = record["payload"].is_a?(Hash) ? record["payload"] : nil
+      message = record["message"].is_a?(Hash) ? record["message"] : nil
+      if record["type"] == "user" && message
+        return false if record["isMeta"] == true
+        return true if message["content"].is_a?(String)
+
+        blocks = Array(message["content"]).select { |block| block.is_a?(Hash) }
+        blocks.any? { |block| block["type"] == "text" } && blocks.none? { |block| block["type"] == "tool_result" }
+      elsif payload
+        (payload["type"] == "message" && payload["role"] == "user") || payload["type"] == "user_message"
+      else
+        false
+      end
+    end
+
+    def assistant_text(record)
       payload = record["payload"].is_a?(Hash) ? record["payload"] : nil
       message = record["message"].is_a?(Hash) ? record["message"] : nil
       if record["type"] == "assistant" && message
@@ -259,8 +288,6 @@ module Reach
       elsif payload && payload["type"] == "agent_message"
         payload["message"].to_s
       end
-    rescue JSON::ParserError
-      nil
     end
 
     def collect_text(content)
