@@ -1,10 +1,10 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.51.6
+version: 0.51.7
 status: draft
 recorded: '2026-09-29'
-licence: undecided
+licence: MIT
 repository: github.com/SteveBenner/rEach (canonical since 0.7.2; the Bitbucket checkout was archived)
 summary: >
   Reach is the student's side of the course software. It is an rplugin plugin that installs into Claude Code or
