@@ -17,7 +17,7 @@ module Reach
     MAX_POLLS = 36
     REMOTE_BUDGET_S = 20
     STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
-    NOT_THE_CODE = %w[QF-README QF-NOBROWSER].freeze
+    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE].freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
     class << self
@@ -60,6 +60,7 @@ module Reach
       end
 
       def run_steps(workspace, meta, qualify, record, local_only)
+        return unless step_readable(workspace, meta, record)
         return unless step_check(workspace, record)
         return unless step_coverage(workspace, meta, qualify, record)
 
@@ -82,6 +83,19 @@ module Reach
         write_record(workspace, record) unless local_only
         Reach::Debug.qualify(record, local_only)
         record
+      end
+
+      def step_readable(workspace, meta, record)
+        rows = Array(meta["owned_files"]).map do |relative|
+          reason = Reach::SafeFiles.read_or_skip(workspace, relative).last
+          reason ? { "path" => relative.to_s, "reason" => reason } : nil
+        end.compact
+        rows.concat(collect_test_files(workspace).last)
+        return true if rows.empty?
+
+        rows.each { |row| record["findings"] << { "code" => "QF-UNREADABLE", "name" => nil, "detail" => "#{row['path']}: #{row['reason']}" } }
+        record["next"] = Reach::Messages.text("M-QUALIFY-UNREADABLE", list: rows.map { |row| "#{row['path']} (#{row['reason']})" }.join(", "))
+        false
       end
 
       def step_check(workspace, record)
@@ -468,7 +482,7 @@ module Reach
 
             data, reason = Reach::SafeFiles.read_or_skip(workspace, relative)
             if reason
-              skipped << { "path" => relative, "reason" => "unsafe path" }
+              skipped << { "path" => relative, "reason" => reason }
             elsif data
               files[relative] = data
             end

@@ -790,13 +790,14 @@ qualification:
     Teach writes the kit into the workspace at qualify/kit/, refusing any source under a behaviours directory or any
     owned path, so it never carries an answer.
   steps:
+  - readable - before any other step every owned file and every file under qualify/features and qualify/step_definitions is read through Reach::SafeFiles. A file it cannot read safely is QF-UNREADABLE (the path and the SafeFiles reason) with next M-QUALIFY-UNREADABLE; no other step runs, nothing is sent to Teach, and a record whose findings are all QF-UNREADABLE is not counted on the attempt ladder.
   - check - reach check; only findings in the slice's own files count. Since 0.41.0 a CK-README finding is recorded as QF-README with next M-QUALIFY-README, and a record whose only findings are QF-README is not counted on the attempt ladder.
   - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale. Since 0.50.12 this next action explicitly assigns the technical scenarios to the assistant, keeps student explanations and contributions student-authored, and requires repair and requalification within the current attempt ladder rather than stopping at a readiness summary. A coverage refusal supplies no behavior result.
   - >-
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
     QF-VACUOUS). A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
-    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README or QF-NOBROWSER is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
+    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,

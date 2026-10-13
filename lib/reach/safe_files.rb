@@ -56,7 +56,7 @@ module Reach
       Array(relatives).each do |relative|
         data, reason = read_or_skip(root, relative, max_bytes: max_bytes)
         files[relative] = data
-        skipped << { "path" => relative.to_s, "reason" => "unsafe path" } if reason
+        skipped << { "path" => relative.to_s, "reason" => reason } if reason
       end
       [files, skipped]
     end
@@ -111,9 +111,20 @@ module Reach
     end
 
     def same_file?(first, second)
+      return same_windows_file?(first, second) if windows?
       return first.dev == second.dev && first.ino == second.ino if first.ino.to_i != 0 || second.ino.to_i != 0
 
       first.size == second.size && first.mtime == second.mtime
+    end
+
+    def same_windows_file?(first, second)
+      return first.ino == second.ino if first.ino.to_i != 0 && second.ino.to_i != 0
+
+      first.size == second.size && first.mtime == second.mtime
+    end
+
+    def windows?
+      RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
     end
   end
 end
