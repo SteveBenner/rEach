@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.51.8 |
+| **Registry version** | 0.51.9 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -835,7 +835,7 @@ Build ✅ · Deploy 🔵 · Blocker: Human (never run against a harness).
 ### 2.38 · Vault lock and sign-in status
 
 `reach lock` empties the decrypted vault (it is rebuilt from the packages on demand) and `reach login status` says
-whether this session is signed in (2.17). Unverified: neither has a separate run recorded.
+whether the student is signed in on this computer (2.17). Unverified: neither has a separate run recorded.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
