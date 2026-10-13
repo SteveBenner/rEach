@@ -29,9 +29,11 @@ module Reach
     LINUX_TERMINALS = [
       ["x-terminal-emulator", ["-e"]],
       ["gnome-terminal", ["--"]],
+      ["ptyxis", ["--"]],
       ["konsole", ["-e"]],
       ["xterm", ["-e"]]
     ].freeze
+    LINUX_DOUBLE_DASH = %w[gnome-terminal ptyxis].freeze
     LINUX_KEEP_OPEN = 'status=0; "$@" || status=$?; printf "\\nPress Enter to close this window. "; read -r _; exit $status'.freeze
     LAUNCH_WAIT_S = 2
 
@@ -74,6 +76,7 @@ module Reach
       name, flags = LINUX_TERMINALS.find { |candidate, _| on_path?(candidate) }
       return [false, "no terminal program was found (tried #{LINUX_TERMINALS.map(&:first).join(', ')})"] unless name
 
+      flags = ["--"] if LINUX_DOUBLE_DASH.include?(real_program_name(name))
       pid = Process.spawn(name, *flags, "sh", "-c", LINUX_KEEP_OPEN, "sh", *argv, in: File::NULL, out: File::NULL, err: File::NULL, pgroup: true)
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + LAUNCH_WAIT_S
       loop do
@@ -88,10 +91,20 @@ module Reach
     end
 
     def on_path?(executable)
-      ENV["PATH"].to_s.split(File::PATH_SEPARATOR).any? do |dir|
-        path = File.join(dir, executable)
+      !program_path(executable).nil?
+    end
+
+    def program_path(executable)
+      ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |dir| File.join(dir, executable) }.find do |path|
         File.executable?(path) && !File.directory?(path)
       end
+    end
+
+    def real_program_name(executable)
+      path = program_path(executable)
+      path ? File.basename(File.realpath(path)) : executable
+    rescue SystemCallError
+      executable
     end
 
     def macos(text)
