@@ -73,7 +73,8 @@ rstack:
 submit:
   archive_max_mb: 256
 sidecar:
-  allowed_signers: []
+  allowed_signers:
+    - 'teach namespaces="reach-sidecar" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMGWFnjathq0ObDji91UKJ1XVEH1I61cFBf8Cfsvotde'
 live:
   enabled: true
   wake: true
