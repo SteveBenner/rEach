@@ -62,7 +62,7 @@ module Reach
           end
         end
 
-        env_dir = File.join(Reach::Paths.gems_dir, "bundle-envs", Digest::SHA256.hexdigest(gemfile_bytes + lock_bytes))
+        env_dir = bundle_env_dir(gemfile_bytes, lock_bytes)
         marker = File.join(env_dir, ".installed")
         env_gemfile = File.join(env_dir, "Gemfile")
         result = { "gemfile" => env_gemfile, "bundle_path" => Reach::Paths.gems_dir, "ruby_bin" => ruby_bin, "ruby_exe" => ruby_exe, "profile" => false }
@@ -89,6 +89,23 @@ module Reach
 
         File.write(marker, Time.now.utc.iso8601)
         result
+      end
+
+      def bundle_env_dir(gemfile_bytes, lock_bytes)
+        File.join(Reach::Paths.gems_dir, "bundle-envs", Digest::SHA256.hexdigest(gemfile_bytes + lock_bytes))
+      end
+
+      def gems_ready?(kit_dir)
+        gemfile = File.join(kit_dir, "Gemfile")
+        lock = File.join(kit_dir, "Gemfile.lock")
+        return false unless File.file?(gemfile) && File.file?(lock)
+
+        gemfile_bytes = File.binread(gemfile)
+        lock_bytes = File.binread(lock)
+        runtime = Reach::RuntimeKit.active
+        return true if runtime && runtime["ruby_exe"] && Reach::RuntimeKit.gems_for(lock_bytes)
+
+        File.file?(File.join(bundle_env_dir(gemfile_bytes, lock_bytes), ".installed"))
       end
 
       def install_failure_reason(stdout, stderr)

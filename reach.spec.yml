@@ -796,13 +796,14 @@ qualification:
     Teach writes the kit into the workspace at qualify/kit/, refusing any source under a behaviours directory or any
     owned path, so it never carries an answer.
   steps:
+  - readable - before any other step every owned file and every file under qualify/features and qualify/step_definitions is read through Reach::SafeFiles. A file it cannot read safely is QF-UNREADABLE (the path and the SafeFiles reason) with next M-QUALIFY-UNREADABLE; no other step runs, nothing is sent to Teach, and a record whose findings are all QF-UNREADABLE is not counted on the attempt ladder.
   - check - reach check; only findings in the slice's own files count. Since 0.41.0 a CK-README finding is recorded as QF-README with next M-QUALIFY-README, and a record whose only findings are QF-README is not counted on the attempt ladder.
   - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale. Since 0.50.12 this next action explicitly assigns the technical scenarios to the assistant, keeps student explanations and contributions student-authored, and requires repair and requalification within the current attempt ladder rather than stopping at a readiness summary. A coverage refusal supplies no behavior result.
   - >-
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
     QF-VACUOUS). A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
-    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README or QF-NOBROWSER is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
+    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest. When Cucumber cannot start, the finding quotes the first error line after bundler's own "failed to load command" line.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,
@@ -810,7 +811,10 @@ qualification:
     network errors and Teach's unavailable answer leave it pending, which counts for nothing; a later run resumes the
     same qualification when the digests have not changed. Since 0.21.2 the upload and the polls run under their own
     20-second deadline, started after the local steps, so an MCP tool budget spent on the local steps cannot starve
-    the upload; polls that run out leave the qualification pending with its id.
+    the upload; polls that run out leave the qualification pending with its id. When a hidden scenario fails whose
+    agent scenario of the same name passed on Teach, next is M-QUALIFY-HIDDEN: Reach builds it from the names and
+    results alone and tells the agent its fakes likely differ from the real port, that an unchanged rerun still
+    counts, and to tell the student when the course materials do not say what the port returns.
   answers_from_teach: >-
     Per row: name, result, the failing step only when it is verbatim a line of the agent's own feature files, and an
     error class from a fixed whitelist (else other). Never messages or output, because the run directory holds course
@@ -2664,7 +2668,7 @@ doctor_checks:
   checks: A usable Chromium is available
   fix: reach doctor --install-chromium
 - id: R-DOC-GEMS
-  checks: The qualify kit's gems are installed for this Ruby, for slices whose kit runs locally
+  checks: The qualify kit's gems are installed for this Ruby, for slices whose kit runs locally - the active runtime kit carries a gem profile for the kit's Gemfile.lock, or Reach's bundle environment for that Gemfile and lock is marked installed
   fix: reach qualify installs them on first run
 - id: R-DOC-NET
   checks: Teach is reachable (since 0.21.11 also before enrollment, at the default Teach URL, naming the URL and the cause), the clock is within 5 minutes of Teach's

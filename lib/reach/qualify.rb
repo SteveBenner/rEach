@@ -17,7 +17,7 @@ module Reach
     MAX_POLLS = 36
     REMOTE_BUDGET_S = 20
     STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
-    NOT_THE_CODE = %w[QF-README QF-NOBROWSER].freeze
+    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE].freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
     class << self
@@ -60,6 +60,7 @@ module Reach
       end
 
       def run_steps(workspace, meta, qualify, record, local_only)
+        return unless step_readable(workspace, meta, record)
         return unless step_check(workspace, record)
         return unless step_coverage(workspace, meta, qualify, record)
 
@@ -82,6 +83,19 @@ module Reach
         write_record(workspace, record) unless local_only
         Reach::Debug.qualify(record, local_only)
         record
+      end
+
+      def step_readable(workspace, meta, record)
+        rows = Array(meta["owned_files"]).map do |relative|
+          reason = Reach::SafeFiles.read_or_skip(workspace, relative).last
+          reason ? { "path" => relative.to_s, "reason" => reason } : nil
+        end.compact
+        rows.concat(collect_test_files(workspace).last)
+        return true if rows.empty?
+
+        rows.each { |row| record["findings"] << { "code" => "QF-UNREADABLE", "name" => nil, "detail" => "#{row['path']}: #{row['reason']}" } }
+        record["next"] = Reach::Messages.text("M-QUALIFY-UNREADABLE", list: rows.map { |row| "#{row['path']} (#{row['reason']})" }.join(", "))
+        false
       end
 
       def step_check(workspace, record)
@@ -228,7 +242,8 @@ module Reach
       end
 
       def first_error_line(text)
-        line = text.to_s.lines.map(&:strip).reject(&:empty?).find { |candidate| !candidate.start_with?("from ") }
+        lines = text.to_s.lines.map(&:strip).reject { |candidate| candidate.empty? || candidate.start_with?("from ") }
+        line = lines.find { |candidate| !candidate.start_with?("bundler: failed to load command") } || lines.first
         line ? line[0, 300] : "the scenarios could not run"
       end
 
@@ -422,6 +437,9 @@ module Reach
         hidden.reject { |row| row["result"] == "passed" }.each do |row|
           record["findings"] << { "code" => "QF-HIDDEN", "name" => row["name"], "detail" => row["reason"] }
         end
+        passed_here = agent.select { |row| row["result"] == "passed" }.map { |row| row["name"] }
+        own_passed = hidden.reject { |row| row["result"] == "passed" }.map { |row| row["name"] }.select { |name| passed_here.include?(name) }
+        record["next"] ||= Reach::Messages.text("M-QUALIFY-HIDDEN", names: own_passed.map { |name| "\"#{name}\"" }.join(", ")) unless own_passed.empty?
         passed = record["findings"].empty?
         record["steps"]["remote"] = { "ran" => true, "passed" => passed, "rows" => { "agent" => agent, "stub" => stub, "hidden" => hidden } }
         passed
@@ -468,7 +486,7 @@ module Reach
 
             data, reason = Reach::SafeFiles.read_or_skip(workspace, relative)
             if reason
-              skipped << { "path" => relative, "reason" => "unsafe path" }
+              skipped << { "path" => relative, "reason" => reason }
             elsif data
               files[relative] = data
             end
