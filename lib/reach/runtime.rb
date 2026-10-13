@@ -210,15 +210,21 @@ module Reach
       return nil unless api
 
       inherit = windows_handle_attributes
-      nul = api[:create_file].call(wide("NUL"), NUL_ACCESS, SHARE_ALL, inherit, OPEN_EXISTING, 0, 0)
-      return nil if nul <= 0
-
-      sink = log ? api[:create_file].call(wide(log.tr("/", "\\")), LOG_ACCESS, SHARE_ALL, inherit, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0) : nul
+      handles = []
       list = nil
       begin
-        return nil if sink <= 0
+        [nil, log, log].each do |path|
+          handle = if path
+                     api[:create_file].call(wide(path.tr("/", "\\")), LOG_ACCESS, SHARE_ALL, inherit, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0)
+                   else
+                     api[:create_file].call(wide("NUL"), NUL_ACCESS, SHARE_ALL, inherit, OPEN_EXISTING, 0, 0)
+                   end
+          return nil if handle <= 0
 
-        list = windows_handle_list(api, [nul, sink].uniq)
+          handles << handle
+        end
+
+        list = windows_handle_list(api, handles)
         return nil unless list
 
         program = argv.first.tr("/", "\\")
@@ -226,7 +232,7 @@ module Reach
         flags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | EXTENDED_STARTUPINFO_PRESENT | (env ? CREATE_UNICODE_ENVIRONMENT : 0)
         block = env ? windows_environment(env) : nil
         ok = api[:create_process].call(File.file?(program) ? wide(program) : nil, wide(windows_command_line(argv)), nil, nil, 1, flags, block, nil,
-                                       windows_startup_info(nul, sink, list.first), info)
+                                       windows_startup_info(*handles, list.first), info)
         return nil if ok.zero?
 
         process, thread, pid = info.unpack("JJL")
@@ -235,8 +241,7 @@ module Reach
         pid
       ensure
         api[:attribute_delete].call(list.first) if list
-        api[:close].call(sink) if log && sink > 0
-        api[:close].call(nul)
+        handles.each { |handle| api[:close].call(handle) }
       end
     rescue StandardError, LoadError, ScriptError
       nil
@@ -287,11 +292,11 @@ module Reach
       nil
     end
 
-    def windows_startup_info(input, output, attributes)
+    def windows_startup_info(input, output, error, attributes)
       pointer = Fiddle::SIZEOF_VOIDP
       template = pointer == 8 ? "Lx4JJJL8SSx4JJJJJ" : "LJJJL8SSJJJJJ"
       size = pointer == 8 ? 112 : 72
-      [size, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, STARTF_USESTDHANDLES, 0, 0, 0, input, output, output, attributes.to_i].pack(template)
+      [size, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, STARTF_USESTDHANDLES, 0, 0, 0, input, output, error, attributes.to_i].pack(template)
     end
 
     def windows_handle_attributes
