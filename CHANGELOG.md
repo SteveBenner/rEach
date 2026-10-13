@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The privacy notice says that one sign-in covers every new chat on the computer for 12 hours, that anyone using the same computer account in that time is treated as the student, and that `reach login out` ends it (`PRIVACY.md`).
 - A failed graded case says whether, on the course's data, the call raised an error or a value differed (M-QUALIFY-KIND-RAISED, M-QUALIFY-KIND-DIFFERED, instructor decision 2026-10-13). No step text or values are shown.
-
 - One sign-in now covers every new chat on the computer, in any AI app, for 12 hours (`policy login.max_hours`), instead of one sign-in per chat (instructor decision 2026-10-13). The sign-in is stored in `state/login/signin.json`, tied to the enrolled student and install; a test student keeps its own. Switching student, re-enrolling, "no, not me", a wrong-password lockout (also a rate-limited password check) and `reach login out` end it (`lib/reach/login.rb`, STD-SIGNIN-ONCE).
 - rEach's MCP tools now carry MCP annotations (`MCPBridge::LISTED_TOOLS`). In Codex only the four tools that can delete the student's data (reach_profile_forget, reach_memory_forget, reach_transcripts, reach_storage) and the three that send work or a request to the course server (reach_submit, reach_qualify, reach_raise_hand) still go to Codex's approval review; read-only tools such as reach_directive and reach_status no longer do.
 - Every generated rules file (slice, course root, extracurricular) carries a paragraph saying rEach's own tools are how the course's work is done and that reading a directive with reach_directive is never inspecting protected materials; only rEach's own folder, vault and package files are protected (`Reach::Guardrails::TOOLS_RULE`).
@@ -29,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On Windows, Codex course hooks ran as a PowerShell parse error, so Windows Codex students had no gates: every course hook now runs as `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE` in PowerShell (`Harness.hook_line`, STD-CODEX-WINDOWS-HOOKS), and a platform smoke step proves it through powershell.exe and pwsh.exe.
 - On Windows, the rEach commands we ask you to run in a terminal (to sign in, to choose or reset your password, or to open a course folder in Hermes) now work when pasted into PowerShell (`Runtime.terminal_command`). Lines the assistant runs itself keep the plain form in Claude Code, whose shell on Windows is Git Bash (`Runtime.agent_command`).
 - A failed live qualification on files identical to the last counted failed attempt no longer uses a try or raises a ladder hand when the course server marks it not counted (M-QUALIFY-IDENTICAL, instructor decision 2026-10-13).
-
 - In a slice chat where `reach` is not on the PATH (Codex on a Mac, for example), rEach no longer refuses its own commands as "would change files outside your slice": checking work, `reach qualify --list`, opening work, saving own-part answers and reading directives through rEach's runtime Ruby now run (`Gate.check_vault_or_keys_reads!`, `ruby.exe` recognised). Desk iss_3c176307, iss_8bfc0e0c, iss_9bd140bb, hand_11dd6ea8.
 - When rEach can't check a shell command, such as a loop, it says nothing is broken and how to keep going in the same chat (M-SHELL-UNMODELED). iss_f4c2d035.
 - rEach's installed workflow skills can be read from the managed copy and through `sed`/`nl`/`cat` inside a slice (iss_b60398d3, iss_7b90ff43).
