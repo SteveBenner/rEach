@@ -63,6 +63,8 @@ Grokit or Dovetail, it is listed here only for its effect on rEach. The system t
   match Teach's.
 - **Sign-in each session** (09-30): the student ID, then "Am I speaking with <name>?", then the student's password,
   enforced by hooks.
+- **One sign-in per computer** (10-13): by the instructor's decision one sign-in covers every new chat on the
+  computer, in any harness, for 12 hours, replacing the sign-in in each session.
 
 ## Data capture and privacy
 
