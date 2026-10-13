@@ -333,7 +333,7 @@ module Reach
         written = 0
         owned.each do |relative|
           source = File.join(entry["files_dir"], relative)
-          next unless safe_source?(source)
+          next unless safe_source?(source, entry["files_dir"])
 
           write_owned(workspace, relative, File.binread(source))
           written += 1
@@ -351,7 +351,7 @@ module Reach
       count = 0
       rec["owned_files"].each do |relative|
         source = File.join(rec["path"], relative)
-        next unless safe_source?(source)
+        next unless safe_source?(source, rec["path"])
 
         unless owned.include?(relative)
           row["skipped"] << relative
@@ -367,22 +367,26 @@ module Reach
 
         Dir.glob(File.join(base, "**", "*")).select { |path| File.file?(path) }.sort.each do |path|
           relative = File.join(dir, path[(base.length + 1)..-1])
-          next if File.basename(path) == ".keep" || !safe_source?(path)
+          next if File.basename(path) == ".keep" || !safe_source?(path, base)
 
           write_owned(workspace, relative, File.binread(path))
           count += 1
         end
       end
       plan = File.join(rec["path"], "plan.md")
-      if safe_source?(plan)
+      if safe_source?(plan, rec["path"])
         write_owned(workspace, "plan.md", File.binread(plan))
         count += 1
       end
       count
     end
 
-    def safe_source?(path)
-      File.file?(path) && !File.symlink?(path)
+    def safe_source?(path, base)
+      return false unless File.file?(path) && !File.symlink?(path)
+
+      File.realpath(path).start_with?(File.realpath(base) + File::SEPARATOR)
+    rescue SystemCallError
+      false
     end
 
     def write_owned(workspace, relative, data)
@@ -412,7 +416,7 @@ module Reach
           skipped << Reach::Messages.text("M-PACKET-ANSWER-SHORT", id: id, words: words, min: minimum)
           next
         end
-        outcome = Reach::Part.import!(id, text: text, recorded_at: answer["recorded_at"].to_s, digest: answer["digest"].to_s, workspace: workspace)
+        outcome = Reach::Part.import!(id, text: text, recorded_at: answer["recorded_at"].to_s, workspace: workspace)
         recorded << id if outcome
       end
       skipped.each { |line| result["warnings"] << line }

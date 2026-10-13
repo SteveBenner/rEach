@@ -359,3 +359,7 @@ Five read-and-reproduce reviews (client, work, data, agent, install). Repros liv
 - [ ] Re-pin `agent-control/agent-control.yml` from Teach main (Teach carries v3, the bundled copy is v2) and refresh its
   bundled digest; until then the release gate's CMP-PIN warns medium on every rEach push.
 - [ ] Decide the licence (currently `undecided` in `reach.spec.yml`) before any public release; `exe/reach` and `lib/reach.rb` already carry an MIT SPDX line from 0.1.0.
+
+## rEach Sidecar import (Teach 0.84.0)
+
+- [x] `reach packet import <folder>`: verify a sidecar folder's MANIFEST.sha256 and MANIFEST.sig against the allowed_signers line shipped in config.yml (`sidecar.allowed_signers`), refuse when student.yml's email is not the enrolled student's, copy each started `deliverables/<course>/<assignment>/<cutout>-<slice>/` into the real workspace after `reach work` created it (owned files, qualify/, plan.md), re-stamp the carrier lines through Reach::Seal.stamp, import `.checkpoints` as checkpoints with their notes, record part.json answers with origin sidecar, then run `reach check` and `reach qualify`; `reach submit` carries `rEach/receipt.json` as `evidence/sidecar-receipt.json`. Design: the import design in the instructor-side sidecar blueprint.

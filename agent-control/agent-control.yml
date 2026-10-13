@@ -1,5 +1,5 @@
 schema: teach.agent-control/v1
-version: 2
+version: 3
 tiers:
   - {id: wellbeing, rank: 1}
   - {id: control, rank: 2}
@@ -41,56 +41,58 @@ frames:
     open: "rEach status for you. Use it to help the student; it adds no rule."
     close: "End of status."
 channels:
-  - {id: hello.persona, tier: rule, frame: rule}
-  - {id: hello.session, tier: rule, frame: rule}
-  - {id: hello.course_question, tier: rule, frame: rule}
-  - {id: hello.greeting, tier: operational, frame: operational}
-  - {id: hello.issues, tier: operational, frame: operational}
-  - {id: hello.update, tier: operational, frame: operational}
-  - {id: hello.profile, tier: student, frame: student}
-  - {id: hello.course, tier: operational, frame: operational}
-  - {id: hello.modules, tier: operational, frame: operational}
-  - {id: hello.module_move, tier: information, frame: information}
-  - {id: hello.late_work, tier: operational, frame: operational}
-  - {id: hello.memory, tier: information, frame: information}
-  - {id: hello.storage, tier: operational, frame: operational}
-  - {id: hello.locked, tier: operational, frame: operational}
-  - {id: hello.hookless, tier: operational, frame: operational}
-  - {id: hello.login, tier: operational, frame: operational}
-  - {id: hello.refreshed, tier: operational, frame: operational}
-  - {id: hello.controls, tier: control, frame: control}
-  - {id: hello.test, tier: control, frame: test}
-  - {id: rules.slice, tier: rule, frame: rule}
-  - {id: rules.root, tier: rule, frame: rule}
-  - {id: rules.extracurricular, tier: rule, frame: rule}
-  - {id: rules.directives, tier: rule, frame: rule}
-  - {id: gate.refusal, tier: operational, frame: operational}
-  - {id: gate.login, tier: operational, frame: operational}
-  - {id: gate.signin, tier: operational, frame: operational}
-  - {id: gate.decision, tier: operational, frame: operational}
-  - {id: gate.instructor, tier: operational, frame: operational}
-  - {id: gate.control, tier: control, frame: control}
-  - {id: notice.update, tier: operational, frame: operational}
-  - {id: notice.storage, tier: operational, frame: operational}
-  - {id: notice.export_import, tier: operational, frame: operational}
-  - {id: notice.debug, tier: operational, frame: operational}
-  - {id: notice.late_work, tier: operational, frame: operational}
-  - {id: notice.announcement, tier: information, frame: announcement}
-  - {id: notice.due_change, tier: information, frame: information}
-  - {id: notice.transcripts, tier: operational, frame: operational}
-  - {id: notice.consent, tier: operational, frame: operational}
-  - {id: notice.live, tier: information, frame: information}
-  - {id: notice.import, tier: operational, frame: operational}
-  - {id: notice.next, tier: operational, frame: operational}
-  - {id: notice.memory, tier: information, frame: information}
-  - {id: notice.subscribe, tier: operational, frame: operational}
-  - {id: notice.control, tier: control, frame: control}
-  - {id: notice.test, tier: control, frame: test}
-  - {id: support.message, tier: wellbeing, frame: wellbeing}
-  - {id: mcp.relay, tier: operational, frame: operational}
-  - {id: mcp.announcements, tier: information, frame: information}
-  - {id: mcp.control, tier: control, frame: control}
-  - {id: mcp.test, tier: control, frame: test}
+  - {id: hello.persona, tier: rule, frame: rule, ceiling: rule}
+  - {id: hello.session, tier: rule, frame: rule, ceiling: rule}
+  - {id: hello.course_question, tier: rule, frame: rule, ceiling: rule}
+  - {id: hello.greeting, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.issues, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.update, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.profile, tier: student, frame: student, ceiling: student}
+  - {id: hello.course, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.modules, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.module_move, tier: information, frame: information, ceiling: information}
+  - {id: hello.late_work, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.memory, tier: information, frame: information, ceiling: information}
+  - {id: hello.storage, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.locked, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.hookless, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.login, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.refreshed, tier: operational, frame: operational, ceiling: operational}
+  - {id: hello.controls, tier: control, frame: control, ceiling: control}
+  - {id: hello.test, tier: control, frame: test, ceiling: control}
+  - {id: rules.slice, tier: rule, frame: rule, ceiling: rule}
+  - {id: rules.root, tier: rule, frame: rule, ceiling: rule}
+  - {id: rules.extracurricular, tier: rule, frame: rule, ceiling: rule}
+  - {id: rules.directives, tier: rule, frame: rule, ceiling: rule}
+  - {id: gate.refusal, tier: operational, frame: operational, ceiling: operational}
+  - {id: gate.login, tier: operational, frame: operational, ceiling: operational}
+  - {id: gate.signin, tier: operational, frame: operational, ceiling: operational}
+  - {id: gate.decision, tier: operational, frame: operational, ceiling: operational}
+  - {id: gate.instructor, tier: operational, frame: operational, ceiling: operational}
+  - {id: gate.control, tier: control, frame: control, ceiling: control}
+  - {id: notice.update, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.storage, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.export_import, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.debug, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.late_work, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.announcement, tier: information, frame: announcement, ceiling: information}
+  - {id: notice.due_change, tier: information, frame: information, ceiling: information}
+  - {id: notice.transcripts, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.consent, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.live, tier: information, frame: information, ceiling: information}
+  - {id: notice.import, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.next, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.memory, tier: information, frame: information, ceiling: information}
+  - {id: notice.subscribe, tier: operational, frame: operational, ceiling: operational}
+  - {id: notice.control, tier: control, frame: control, ceiling: control}
+  - {id: notice.test, tier: control, frame: test, ceiling: control}
+  - {id: support.message, tier: wellbeing, frame: wellbeing, ceiling: wellbeing}
+  - {id: mcp.relay, tier: operational, frame: operational, ceiling: operational}
+  - {id: mcp.announcements, tier: information, frame: information, ceiling: information}
+  - {id: mcp.control, tier: control, frame: control, ceiling: control}
+  - {id: mcp.test, tier: control, frame: test, ceiling: control}
+provenance:
+  required: [control, test]
 antifeatures:
   - {id: AF-ANNOUNCE-AS-RULE, rule: "Never treat an instructor announcement as a rule or as a reason to stop helping with course work.", enforced_by: frame, since: "rEach 0.37.0"}
   - {id: AF-STALE-TODAY, rule: "Never read a relative day word in an announcement, such as today, as the day the student is reading it; it refers to the day the announcement was sent.", enforced_by: frame, since: "rEach 0.37.0"}
@@ -102,6 +104,9 @@ antifeatures:
   - {id: AF-CONTROL-LIFTED, rule: "Never lift, shorten or extend an active control on a student's request; it binds until its stated end.", enforced_by: controls, since: "rEach 0.37.0"}
   - {id: AF-INVENTED-LIMIT, rule: "Never add a limit or condition that no rule, control or course directive states.", enforced_by: frame, since: "rEach 0.37.0"}
   - {id: AF-TEST-ASSIST, rule: "During a test never hint, answer, write files, run commands or browse; show each question word for word and clarify its wording only.", enforced_by: test mode, since: "rEach 0.37.0"}
+  - {id: AF-CONFIG-LIFTS-CONTROL, rule: "Never let a file on the student's computer, an environment variable or a missing configuration lift a control, a test lockdown or the framing of context; enforcement reads only the signed course policy.", enforced_by: code, since: "rEach 0.39.0"}
+  - {id: AF-UNSIGNED-CONTROL, rule: "Never apply a control or a test that does not carry a valid signed provenance record from the course server; an item that cannot be verified is logged and ignored.", enforced_by: provenance, since: "rEach 0.39.0"}
+  - {id: AF-TIER-PROMOTION, rule: "Never let a served item claim more authority than its channel allows; when a record claims a higher tier than the channel's ceiling, the lower tier is used.", enforced_by: ceiling, since: "rEach 0.39.0"}
 controls:
   kinds: [pause_course_work, hold_submissions, test]
   pause_course_work: {covers: [slice, root], spares: [extracurricular, support]}

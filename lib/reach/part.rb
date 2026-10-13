@@ -91,7 +91,7 @@ module Reach
         answer
       end
 
-      def import!(question_id, text:, recorded_at:, digest:, workspace:)
+      def import!(question_id, text:, recorded_at:, workspace:)
         meta = Reach::Workspace.metadata(workspace)
         assignment = meta["assignment"].to_s
         question = questions(assignment).find { |item| item["id"] == question_id.to_s }
@@ -115,7 +115,7 @@ module Reach
           "words" => words,
           "session_id" => nil,
           "seq" => nil,
-          "digest" => digest.to_s.empty? ? Reach::Crypto.digest_hex(text) : digest.to_s,
+          "digest" => Reach::Crypto.digest_hex(text),
           "recorded_at" => stamp,
           "student_id" => student_id
         }
