@@ -1366,8 +1366,8 @@ cli:
     synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show
     purpose: The slice plan at <workspace>/.reach/plan.yml, read back at every session start
   - name: directive
-    synopsis: reach directive <OPCODE> | --list
-    purpose: The full text of one directive, public from directives/ or course-private from the vault
+    synopsis: reach directive <OPCODE>... | --list
+    purpose: The full text of each named directive in turn, public from directives/ or course-private from the vault
   - name: doctor
     synopsis: reach doctor [--install-chromium] | reach doctor --report [--offline] [--format json]
     purpose: >-
@@ -2472,7 +2472,7 @@ shell_rules:
   - diff
   - ruby -c
   - reach
-  - ruby (or rubyX.Y) followed by Reach's own shim, ~/.reach/bin/reach, the form rEach's session context prints (since 0.11.3)
+  - ruby (or rubyX.Y, or ruby.exe) followed by Reach's own shim, <reach home>/bin/reach, the form rEach's session context prints (since 0.11.3); the runtime Ruby rEach installs under <reach home>/runtime runs it in every space, and its path is not judged as a reach-home read
   write_commands:
   - cp
   - mv
@@ -2706,7 +2706,7 @@ directives:
     A body says what the agent does, never why or how it is enforced; grading, weights, rubrics, thresholds, keys
     and the seal live in Teach and never enter a body, so any body could be disclosed without harm
     (STD-DIRECTIVES-CARRY-NO-SECRETS). OPAQUE asks the agent to keep them private; Reach claims no boundary.
-  reading: reach directive <OPCODE> (or the reach_directive tool) prints the body; every read is a ledger event on the install and a directive_reads row on Teach.
+  reading: reach directive <OPCODE>... (or the reach_directive tool) prints the body of each named directive; every read is a ledger event on the install and a directive_reads row on Teach.
   tools_rule: >-
     Every generated rules file (a slice, the course root and the extracurricular folder) carries
     Reach::Guardrails::TOOLS_RULE right after its numbered rules: rEach's own tools and the reach command are how the

@@ -459,7 +459,7 @@ module Reach
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
             support                              help if you are having a hard time
-            directive <OPCODE> | --list          a directive's full text
+            directive <OPCODE>... | --list       the full text of one or more directives
             reference list|show <path>|search <words>|links|ingest [--force]   the course reference material
             hook stop [--final] --harness H
             transcript code --harness H | flush | stream [--force] | status [--format text|json]
@@ -3323,16 +3323,16 @@ module Reach
           Reach::Directives.rows.each { |row| puts Reach::Directives.render_row(row) }
           return 0
         end
-        opcode = remaining.first
-        unless opcode
-          warn "usage: reach directive <OPCODE> [--format text|json] | --list"
+        if remaining.empty?
+          warn "usage: reach directive <OPCODE> [<OPCODE> ...] [--format text|json] | --list"
           return 1
         end
-        result = Reach::Directives.show(opcode, workspace: Reach::Gate.focus_workspace)
+        workspace = Reach::Gate.focus_workspace
+        results = remaining.map { |opcode| Reach::Directives.show(opcode, workspace: workspace) }
         if (options[:format] || "text") == "json"
-          puts JSON.generate(result)
+          puts JSON.generate(results.length == 1 ? results.first : results)
         else
-          puts result["body"]
+          puts results.map { |result| result["body"] }.join("\n\n")
         end
         0
       end
