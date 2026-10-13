@@ -202,6 +202,18 @@ module Reach
       end
     end
 
+    def named_slices(name)
+      text = name.to_s.strip
+      return [] if text.empty?
+
+      wanted = [text, text.tr(" /", "--")].uniq
+      slices = current_slices
+      exact = slices.select { |path| wanted.include?(File.basename(path)) }
+      return exact unless exact.empty?
+
+      slices.select { |path| wanted.any? { |word| File.basename(path).end_with?("-#{word}") } }
+    end
+
     CURRENT_SLICES_SKIP_DIRS = %w[.git node_modules vendor .bundle tmp .claude .codex].freeze
     CURRENT_SLICES_MAX_DEPTH = 4
 

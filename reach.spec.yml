@@ -710,7 +710,10 @@ gate:
   - >-
     The guardrails package is present and its signature verifies against a current instructor key (M-GATE-NOGUARD),
     and its version is not lower than the one the cached status advertises (M-GATE-OLDGUARD).
-  - The workspace belongs to one of the student's current slices.
+  - >-
+    The workspace belongs to one of the student's current slices. Since 0.51.5 a course with no slice workspace on this
+    computer yet (and no module choice pending) is refused with M-GATE-NOSLICE, not M-GATE-NOGUARD, which is kept for a
+    guardrails package that is missing; the CLI's slice lookups and the MCP slice tools give the same message.
   - >-
     For write and shell, the target is inside the owned files (or, since 0.11.0, qualify/features and
     qualify/step_definitions) and outside the vault and keys. Git is refused in slice and root spaces (M-GATE-NOGIT).
@@ -984,7 +987,7 @@ course_alignment:
     - Each assignment's questions only the student can answer come from the course policy (W-PART-1). reach part lists them; reach part record <id> takes the student's latest typed prompt (at most 30 minutes old, at least min_words words, never a bare yes or no; M-PART-NO-ANSWER when there is none, M-PART-NO-HOOK since 0.28.1 when the prompt hook has not run for 30 minutes) verbatim, and stores it with its digest and no session or sequence number. The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the root that has at least the smallest min_words of any question and is not a consent yes or no, in ~/.reach/state/part/pending.json (0600); reach part record takes it, then deletes the file.
     - reach submit refuses with M-SUBMIT-NO-PART until every question is answered, and sends part.json. Teach stores the answers as sent and runs no check against any conversation.
   sandbox:
-    - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), since 0.47.3 a read of the extracurricular folder from a slice or the course root (M-GATE-EXTRACURRICULAR-READ), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access. A shell tool call that names a workdir (Codex exec_command) is judged in the space of that workdir, not of the chat's folder, and a shell-routed patch has its relative paths resolved against it; a workdir outside every course space is refused (M-GATE-OUTSIDE). reach work, run where no terminal is attached, does not start the harness: it prints the folder to open as a new chat (M-WORK-NO-TERMINAL) and exits 0.
+    - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), since 0.47.3 a read of the extracurricular folder from a slice or the course root (M-GATE-EXTRACURRICULAR-READ), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access. A shell tool call that names a workdir (Codex exec_command) is judged in the space of that workdir, not of the chat's folder, and a shell-routed patch has its relative paths resolved against it; a workdir outside every course space is refused (M-GATE-OUTSIDE). reach work, run where no terminal is attached, does not start the harness and exits 0. Since 0.51.5, when the chat's folder is the course root or the folder asked for, it tells the agent to keep working from that chat by full path and --slice and not to send the student to another folder, project or chat (M-WORK-HERE); otherwise in Codex it tells the student to open the course project, the one with reach-work as its folder (M-WORK-CODEX-PROJECT), because a Codex project is one folder and the app cannot open a slice's folder inside it; elsewhere it prints the folder to open as a new chat (M-WORK-NO-TERMINAL).
     - "Imports: a file the student drags into the chat (its path in the prompt) is copied into <folder>/materials/ within limits: at most 5 per prompt, 20 MB each, 200 MB per folder, common document, data and image types only. reach import <path> does the same from the student's own terminal and is refused to the agent. materials/ is never submitted or scanned into the course record."
   pace: Writes in a slice are refused (M-GATE-NOT-CURRENT) when it is not the current assignment or its due time has passed by Teach's clock (W-PACE-1). extracurricular/ is outside the time gate.
   coaching:
@@ -1058,7 +1061,7 @@ mcp_bridge:
   - name: reach_receipts
     description: Receipts newest first
   - name: reach_shape_check
-    description: Shape findings for the current slice, classified invisible or visible
+    description: Shape findings for the current slice (or the slice its slice argument names), classified invisible or visible
   - name: reach_qualify
     description: Qualify the current slice, list its tag and graded names, or run locally only
   - name: reach_attempts
@@ -1079,7 +1082,7 @@ mcp_bridge:
   - name: reach_profile_show
     description: The student's saved profile
   - name: reach_profile_save
-    description: Save profile fields and the interview status (partial or complete); works where the harness's shell is sandboxed
+    description: Save profile fields and the interview status (partial, complete or skipped); works where the harness's shell is sandboxed
   - name: reach_profile_forget
     description: Delete the student's profile
   - name: reach_enroll
@@ -1099,7 +1102,12 @@ mcp_bridge:
   - name: reach_checkpoint
     description: save, list, show or restore a checkpoint of the current slice
   - name: reach_plan
-    description: save, note or show the slice plan
+    description: >-
+      save, note or show the slice plan. Since 0.51.5 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
+      reach_part take an optional slice argument like reach_qualify's, used when the chat's folder does not settle the
+      slice (a chat at the top of the course folder with two or more slices); a slice argument names a slice by its
+      folder name or, when exactly one matches, by its slice name ("backend"), and one that names no slice is refused
+      with M-GATE-NOSLICE-NAMED, which lists the slices
   - name: reach_directive
     description: >-
       The full text of one directive by opcode; the description says the course rules require the call whenever a
@@ -1109,7 +1117,7 @@ mcp_bridge:
   - name: reach_support
     description: The fixed crisis message (911, 988, the course's support line) to relay word for word; raises the wellbeing hand like reach support
   - name: reach_part
-    description: List the student's own-part questions, or record one from the student's latest typed prompt (never text the agent supplies)
+    description: List the student's own-part questions, or record one from the student's latest typed prompt (never text the agent supplies); slice as for reach_plan
   - name: reach_transfer_request
     description: Ask Reach to request a module move; returns Reach's own question until the student's captured yes, then sends it to Teach
   - name: reach_modules
@@ -1270,7 +1278,7 @@ cli:
       unless that yes has just started it. Refused while Reach is locked.
   - name: profile
     synopsis: reach profile show|save|forget
-    purpose: Show, save (field by field, status partial or complete) or delete the student's interview profile
+    purpose: Show, save (field by field, status partial, complete or skipped) or delete the student's interview profile
   - name: attempts settle
     synopsis: reach attempts settle [--slice <cutout>-<slice>]
     purpose: Called by the Stop hook; records whether the turn resolved its findings, for the attempt gate
@@ -2169,6 +2177,12 @@ student_messages:
     text: >-
       Your course rules haven't arrived yet, so your AI partner can't start. Run reach sync, and if that doesn't
       work, tell your instructor.
+  - id: M-GATE-NOSLICE
+    text: >-
+      Your course rules are here, but this computer doesn't have a work folder for your assignment yet, so rEach can't
+      start on it. Ask rEach what to do next: it tells you whether you need to choose your modules first or whether the
+      assignment isn't open yet, and it can sync your course to fetch the work folder. If no work folder appears after a
+      sync, tell your instructor.
   - id: M-GATE-OLDGUARD
     text: Your course rules have an update. Run reach sync to get it, then try again.
   - id: M-GATE-REVOKED
@@ -2810,7 +2824,14 @@ persona:
     The greetings live in locales/greetings.en-US.yml.
   voice: Warm, curious and brief, in plain words; the course rules come first and the student leads creative choices.
   introduction:
-    when: The first session after installation, and every session while no profile exists.
+    when: >-
+      The first session after enrollment and sign-in while no profile exists. Since 0.51.5 rEach hands out the
+      first-run greeting once per install (state/interview.json; again only in the same session or within two minutes
+      when no session id is known), a resume greeting once for each saved partial profile, and neither once the
+      student skipped (profile status skipped), so a student who answered or skipped the interview never meets it again
+      in any app or folder. After an offer has passed, the session context says the interview was already offered and
+      the agent starts or resumes it only when the student asks. reach profile forget does not bring the first-run
+      greeting back.
     how: >-
       reach hello decides the greeting from the profile and enrollment state (first run, resume, not enrolled,
       returning with the assignment and slice state) and hands it to the agent through the SessionStart context, the
@@ -2863,7 +2884,8 @@ interview:
   - Never blocks course work; the student can start and finish the interview later.
   closing: >-
     rEach reads back what it will remember, asks what to change or leave out, and saves only what the student agreed
-    to, marking the profile complete or partial.
+    to, marking the profile complete or partial. A student who skips the interview, or picks their work when offered
+    to finish it, is saved as skipped (since 0.51.5), with whatever they agreed to or nothing.
   storage: ~/.reach/profile.yml (reach.profile/v1, 0600), through reach profile save or the reach_profile_save tool.
 course_time:
   rule: >-
@@ -3069,7 +3091,9 @@ home_in_workspace:
     Reach::Workspace.space_for_target judges a write or a shell command by its target, so a root-kind session (cwd
     <workspace_base>) may write an owned file of one slice and a command that cds into a slice runs as that slice.
     Reach::Gate.focus_workspace picks the one current slice when the cwd is the root; with two or more it refuses with
-    M-PICK-SLICE ("Which slice? Run this from inside one: {choices}"). The root space carries the check PostToolUse hook
+    M-PICK-SLICE, which since 0.51.5 asks the agent to name the slice with --slice or the tools' slice argument, or to
+    run the command with the slice's folder as its working folder, and lists each slice's name and folder; the student
+    never needs to open another folder or chat. The root space's rules end with the same instruction. The root space carries the check PostToolUse hook
     for Claude and Codex. While a relocation runs, Reach::Relocation.hold! makes writes, shell calls and submit refuse
     with M-RELOCATING.
   doctor: >-

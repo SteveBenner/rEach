@@ -7,6 +7,7 @@ module Reach
       preferred_name studies year coding_experience ai_experience course_question
       course_answer goal explanation_style creative_lead work_times deadline_reminders notes
     ].freeze
+    STATUSES = %w[partial complete skipped].freeze
 
     module_function
 
@@ -24,7 +25,7 @@ module Reach
     end
 
     def save(fields:, status:)
-      raise Reach::Error, "reach: status must be partial or complete" unless %w[partial complete].include?(status.to_s)
+      raise Reach::Error, "reach: status must be partial, complete or skipped" unless STATUSES.include?(status.to_s)
 
       unknown = fields.keys.map(&:to_s) - FIELDS
       unless unknown.empty?

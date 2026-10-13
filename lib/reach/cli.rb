@@ -2829,8 +2829,15 @@ module Reach
         workspace_path = resolve_workspace(slice_hint)
         workspace_path ||= Reach::Gate.focus_workspace(target: target)
         pick_slice_if_ambiguous(workspace_path)
-        warn Reach::Messages.text("M-GATE-NOGUARD") unless workspace_path
+        warn no_slice_text(slice_hint) unless workspace_path
         workspace_path
+      end
+
+      def no_slice_text(slice_hint)
+        names = Reach::Workspace.current_slices.map { |path| File.basename(path) }
+        return Reach::Messages.text("M-GATE-NOSLICE") if names.empty? || slice_hint.to_s.strip.empty?
+
+        Reach::Messages.text("M-GATE-NOSLICE-NAMED", slice: slice_hint.to_s.strip, choices: names.join(", "))
       end
 
       def cmd_check(args)

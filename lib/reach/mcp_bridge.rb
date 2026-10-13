@@ -19,7 +19,7 @@ module Reach
         "description" => "Shape findings for the current slice, classified invisible or visible",
         "inputSchema" => {
           "type" => "object",
-          "properties" => { "changed" => { "type" => "string" } }
+          "properties" => { "changed" => { "type" => "string" }, "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" } }
         }
       },
       {
@@ -104,7 +104,7 @@ module Reach
           "type" => "object",
           "properties" => {
             "fields" => { "type" => "object" },
-            "status" => { "type" => "string" }
+            "status" => { "type" => "string", "enum" => Reach::Profile::STATUSES }
           },
           "required" => ["fields", "status"]
         }
@@ -132,7 +132,7 @@ module Reach
         "description" => "Check the slice's code against the course and engineering rules; returns findings with ids, files, lines and fixes",
         "inputSchema" => {
           "type" => "object",
-          "properties" => { "changed" => { "type" => "string" } }
+          "properties" => { "changed" => { "type" => "string" }, "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" } }
         }
       },
       {
@@ -143,7 +143,8 @@ module Reach
           "properties" => {
             "action" => { "type" => "string", "enum" => %w[save list show restore] },
             "note" => { "type" => "string" },
-            "n" => { "type" => "integer" }
+            "n" => { "type" => "integer" },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
           },
           "required" => ["action"]
         }
@@ -155,7 +156,8 @@ module Reach
           "type" => "object",
           "properties" => {
             "action" => { "type" => "string", "enum" => %w[save note show] },
-            "fields" => { "type" => "object" }
+            "fields" => { "type" => "object" },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
           },
           "required" => ["action"]
         }
@@ -192,7 +194,10 @@ module Reach
         "description" => "List the student's own-part questions with answered flags, or record one from the student's latest typed prompt (never from text you supply)",
         "inputSchema" => {
           "type" => "object",
-          "properties" => { "record" => { "type" => "string", "description" => "A question id to record from the student's latest captured prompt" } }
+          "properties" => {
+            "record" => { "type" => "string", "description" => "A question id to record from the student's latest captured prompt" },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
+          }
         }
       },
       {
@@ -621,7 +626,7 @@ module Reach
         when "reach_receipts"
           Reach::Receipts.list
         when "reach_shape_check"
-          Reach::Shape.check(workspace_path: shape_workspace, changed: arguments["changed"], format: :agent)
+          Reach::Shape.check(workspace_path: shape_workspace(arguments["slice"]), changed: arguments["changed"], format: :agent)
         when "reach_qualify"
           workspace = workspace_for(slice_argument(arguments))
           Reach::Qualify.run(workspace, local_only: arguments["local_only"] == true, task: arguments["task"], agent_summary: arguments["summary"])
@@ -670,11 +675,11 @@ module Reach
         when "reach_sync"
           Reach::Sync.run
         when "reach_check"
-          Reach::Check.run(current_workspace!, changed: arguments["changed"], format: :agent)
+          Reach::Check.run(current_workspace!(arguments["slice"]), changed: arguments["changed"], format: :agent)
         when "reach_checkpoint"
-          checkpoint_tool(current_workspace!, arguments)
+          checkpoint_tool(current_workspace!(arguments["slice"]), arguments)
         when "reach_plan"
-          plan_tool(current_workspace!, arguments)
+          plan_tool(current_workspace!(arguments["slice"]), arguments)
         when "reach_directive"
           Reach::Directives.show(arguments.fetch("opcode"), workspace: Reach::Gate.focus_workspace)
         when "reach_reference"
@@ -944,7 +949,7 @@ module Reach
       def part_tool(arguments)
         question_id = arguments["record"].to_s
         unless question_id.empty?
-          workspace = current_workspace!
+          workspace = current_workspace!(arguments["slice"])
           answer = Reach::Part.record!(question_id, workspace: workspace)
           question = Reach::Part.questions(Reach::Workspace.metadata(workspace)["assignment"]).find { |item| item["id"] == answer["question_id"] }
           return { "text" => Reach::Messages.text("M-PART-RECORDED", question: question ? question["question"] : answer["question_id"]), "relay_verbatim" => true }
@@ -966,21 +971,30 @@ module Reach
       end
 
       def workspace_for(slice)
-        workspace = Reach::Workspace.current_slices.find { |path| File.basename(path) == slice.to_s }
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") unless workspace
+        found = Reach::Workspace.named_slices(slice)
+        return found.first if found.length == 1
+        raise Reach::Refused, Reach::Gate.pick_slice_text if found.length > 1
 
-        workspace
+        raise Reach::Refused, no_slice_text(slice)
       end
 
-      def current_workspace!
+      def no_slice_text(slice = nil)
+        names = Reach::Workspace.current_slices.map { |path| File.basename(path) }
+        return Reach::Messages.text("M-GATE-NOSLICE") if names.empty? || slice.to_s.strip.empty?
+
+        Reach::Messages.text("M-GATE-NOSLICE-NAMED", slice: slice.to_s.strip, choices: names.join(", "))
+      end
+
+      def current_workspace!(slice = nil)
         workspace = Reach::Gate.focus_workspace
         return workspace if workspace
+        return workspace_for(slice) unless slice.to_s.strip.empty?
 
         slices = Reach::Workspace.current_slices
         return slices.first if slices.length == 1
         raise Reach::Refused, Reach::Gate.pick_slice_text if slices.length > 1
 
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD")
+        raise Reach::Refused, no_slice_text
       end
 
       def ensure_slice_choice!(workspace)
@@ -990,10 +1004,11 @@ module Reach
         raise Reach::Refused, Reach::Gate.pick_slice_text
       end
 
-      def shape_workspace
+      def shape_workspace(slice = nil)
         return Reach::Paths.cwd unless Reach::Gate.root_kind?
 
         workspace = Reach::Gate.focus_workspace
+        workspace ||= workspace_for(slice) unless slice.to_s.strip.empty?
         ensure_slice_choice!(workspace)
         workspace || Reach::Paths.cwd
       end
@@ -1042,7 +1057,7 @@ module Reach
         here ||= slices.first if slices.size == 1
         ensure_slice_choice!(here)
         raise Reach::Refused, "reach: more than one slice is open; pass slice (for example #{File.basename(slices.first)})" if here.nil? && slices.size > 1
-        raise Reach::Refused, Reach::Messages.text("M-GATE-NOGUARD") if here.nil?
+        raise Reach::Refused, no_slice_text if here.nil?
 
         File.basename(here)
       end

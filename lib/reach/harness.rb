@@ -386,9 +386,20 @@ module Reach
         $stdin.tty? && $stdout.tty?
       end
 
+      def no_terminal_text(harness_id, workspace_path)
+        app = Reach::HarnessMove.display(harness_id)
+        here = Reach::Workspace.space_for(Reach::Paths.cwd)
+        if here && (here["kind"] == "root" || Reach::Paths.realish(here["path"]) == Reach::Paths.realish(workspace_path))
+          return Reach::Messages.text("M-WORK-HERE", app: app, folder: workspace_path, name: File.basename(workspace_path))
+        end
+        return Reach::Messages.text("M-WORK-CODEX-PROJECT", folder: Reach::Paths.workspace_root) if harness_id.to_s == "codex"
+
+        Reach::Messages.text("M-WORK-NO-TERMINAL", app: app, folder: workspace_path)
+      end
+
       def exec_harness(harness_id, workspace_path, initial_prompt)
         if %w[claude-code codex hermes].include?(harness_id.to_s) && !terminal?
-          puts Reach::Messages.text("M-WORK-NO-TERMINAL", app: Reach::HarnessMove.display(harness_id), folder: workspace_path)
+          puts no_terminal_text(harness_id, workspace_path)
           return 0
         end
 
