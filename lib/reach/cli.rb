@@ -2096,11 +2096,10 @@ module Reach
       end
 
       def check_gems
-        slices = Reach::Workspace.current_slices
-        return [] if slices.none? { |path| Reach::Workspace.metadata(path).dig("qualify", "local") }
+        slices = Reach::Workspace.current_slices.select { |path| Reach::Workspace.metadata(path).dig("qualify", "local") }
+        return [] if slices.empty?
 
-        dir = Reach::Paths.gems_dir
-        installed = File.directory?(dir) && !Dir.children(dir).empty?
+        installed = slices.all? { |path| Reach::Suite.gems_ready?(File.join(path, Reach::Qualify::KIT_DIR)) }
         installed ? [] : ["R-DOC-GEMS: the checking tools are not installed yet - reach qualify installs them on first run"]
       rescue StandardError
         ["R-DOC-GEMS: the checking tools could not be checked - reach qualify installs them on first run"]

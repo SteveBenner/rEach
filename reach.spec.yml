@@ -2639,7 +2639,7 @@ doctor_checks:
   checks: A usable Chromium is available
   fix: reach doctor --install-chromium
 - id: R-DOC-GEMS
-  checks: The qualify kit's gems are installed for this Ruby, for slices whose kit runs locally
+  checks: The qualify kit's gems are installed for this Ruby, for slices whose kit runs locally - the active runtime kit carries a gem profile for the kit's Gemfile.lock, or Reach's bundle environment for that Gemfile and lock is marked installed
   fix: reach qualify installs them on first run
 - id: R-DOC-NET
   checks: Teach is reachable (since 0.21.11 also before enrollment, at the default Teach URL, naming the URL and the cause), the clock is within 5 minutes of Teach's
