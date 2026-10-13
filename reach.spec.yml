@@ -2463,6 +2463,10 @@ hook_io_contract:
       Since 0.35.17 the tool gates (gate write, gate shell, gate read) block with exit 0 and
       {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":...}}.
     trust: Codex runs plugin and project hooks only after the student trusts them; setup tells the student to.
+    windows_commands: >-
+      Codex on Windows runs each hook command through powershell -NoProfile -Command, so every course-folder hook is
+      & "<ruby>" "<reach>" <args>; exit $LASTEXITCODE there (STD-CODEX-WINDOWS-HOOKS); the plugin's hooks/codex.json keeps
+      ruby "${PLUGIN_ROOT}/exe/reach", which Codex expands before the shell sees it.
     launcher: >-
       reach work checks the gate, writes the workspace configuration and execs codex with it, so the gate holds even
       before the hooks are trusted.

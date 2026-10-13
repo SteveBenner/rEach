@@ -185,14 +185,14 @@ module PlatformSmoke
       installed = @steps.last.result == :pass
       step("package_known_answer") { package_known_answer_step } if installed
       unless installed
-        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open status doctor].each do |name|
+        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "install failed", 0.0))
         end
         return
       end
       step("fake_teach") { fake_teach_step }
       if @steps.last.result != :pass
-        %w[hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open status doctor].each do |name|
+        %w[hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "fake_teach failed", 0.0))
         end
         return
@@ -212,6 +212,7 @@ module PlatformSmoke
       step("codex_sandbox_decrypt") { codex_sandbox_decrypt_step }
       step("machine_id") { machine_id_step }
       step("hook_prompt_open") { hook_prompt_open_step }
+      step("codex_course_hook") { codex_course_hook_step }
       step("status") { status_step }
       step("doctor") { doctor_step }
     end
@@ -654,6 +655,58 @@ RUBY
       return [:fail, "still blocked: #{tail(out, err)}"] if blocked?(code, out, err)
 
       [:pass, "signed in through the plugin hook (ask, confirm, yes, wrong password, password once per turn, signed-in context), gate open"]
+    end
+
+    def codex_course_hook_step
+      work = File.join(@scratch, "work")
+      path = File.join(work, ".codex", "hooks.json")
+      return [:fail, "#{path} was not written"] unless File.file?(path)
+
+      group = JSON.parse(File.read(path)).fetch("hooks").fetch("PreToolUse").find { |entry| entry["matcher"].to_s.split("|").include?("exec_command") }
+      return [:fail, "#{path} has no PreToolUse hook for exec_command"] unless group
+
+      command = group.fetch("hooks").first.fetch("command")
+      shells = course_hook_shells
+      return [:fail, "no powershell.exe on PATH"] if shells.empty?
+
+      shells.each do |shell|
+        name = File.basename(shell.first)
+        code, out, err = spawn_capture([*shell, command], stdin: course_shell_payload("cat $HOME/notes.txt", work), chdir: work)
+        return [:fail, "#{name}: expected exit 0 and a PreToolUse deny on stdout for cat $HOME/notes.txt, got exit #{code.inspect}: #{tail(out, err)}\ncommand: #{command}"] unless codex_deny_reason(code, out)
+
+        code, out, err = spawn_capture([*shell, command], stdin: course_shell_payload("ls", work), chdir: work)
+        return [:fail, "#{name}: expected exit 0 and no output for ls, got exit #{code.inspect}: #{tail(out, err)}\ncommand: #{command}"] unless code == 0 && out.strip.empty?
+      end
+      [:pass, "the course folder's gate shell ran through #{shells.map { |shell| shell.take(3).map { |part| File.basename(part) }.join(' ') }.join(' and ')}, denied cat $HOME/notes.txt with JSON on stdout and let ls through"]
+    end
+
+    def course_hook_shells
+      return [["sh", "-c"]] unless windows?
+
+      %w[powershell.exe pwsh.exe].map { |name| find_on_path(name) }.compact.map { |exe| [exe, "-NoProfile", "-Command"] }
+    end
+
+    def find_on_path(name)
+      (ENV["PATH"] || "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, name) }.find { |candidate| File.file?(candidate) }
+    end
+
+    def course_shell_payload(tool_command, work)
+      JSON.generate(
+        "session_id" => "platform-smoke-codex", "turn_id" => "t7", "hook_event_name" => "PreToolUse",
+        "tool_name" => "exec_command", "tool_input" => { "command" => tool_command }, "cwd" => work
+      )
+    end
+
+    def codex_deny_reason(code, out)
+      return nil unless code == 0
+
+      output = JSON.parse(out)
+      denial = output.is_a?(Hash) ? output["hookSpecificOutput"] : nil
+      return nil unless denial.is_a?(Hash) && denial["hookEventName"] == "PreToolUse" && denial["permissionDecision"] == "deny"
+
+      denial["permissionDecisionReason"].to_s.strip.empty? ? nil : denial["permissionDecisionReason"]
+    rescue StandardError
+      nil
     end
 
     def status_step

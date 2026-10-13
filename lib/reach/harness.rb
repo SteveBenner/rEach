@@ -156,25 +156,25 @@ module Reach
 
       def claude_settings_content(space_kind = "slice")
         post_tool_use = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit", claude_command("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
+        post_tool_use << hook_entry("Write|Edit|MultiEdit", hook_line("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
 
         stop_hooks = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", claude_command("transcript", "code", "--harness", "claude-code"), 15)
-        stop_hooks << hook_entry(nil, claude_command("hook", "stop", "--harness", "claude-code"), 30)
-        stop_hooks << wake_entry(claude_command("live", "watch", "--harness", "claude-code")) if claude_wake?
+        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("transcript", "code", "--harness", "claude-code"), 15)
+        stop_hooks << hook_entry(nil, hook_line("hook", "stop", "--harness", "claude-code"), 30)
+        stop_hooks << wake_entry(hook_line("live", "watch", "--harness", "claude-code")) if claude_wake?
 
         {
           "hooks" => {
-            "SessionStart" => [hook_entry(nil, claude_command("gate", "session", "--harness", "claude-code"), 10)],
-            "UserPromptSubmit" => [hook_entry(nil, claude_command("gate", "prompt", "--harness", "claude-code"), 10)],
+            "SessionStart" => [hook_entry(nil, hook_line("gate", "session", "--harness", "claude-code"), 10)],
+            "UserPromptSubmit" => [hook_entry(nil, hook_line("gate", "prompt", "--harness", "claude-code"), 10)],
             "PreToolUse" => [
-              hook_entry("Write|Edit|MultiEdit|NotebookEdit", claude_command("gate", "write", "--harness", "claude-code"), 10),
-              hook_entry("Bash|PowerShell", claude_command("gate", "shell", "--harness", "claude-code"), 10),
-              hook_entry(CLAUDE_READ_MATCHER, claude_command("gate", "read", "--harness", "claude-code"), 10)
+              hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("gate", "write", "--harness", "claude-code"), 10),
+              hook_entry("Bash|PowerShell", hook_line("gate", "shell", "--harness", "claude-code"), 10),
+              hook_entry(CLAUDE_READ_MATCHER, hook_line("gate", "read", "--harness", "claude-code"), 10)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks,
-            "SessionEnd" => [hook_entry(nil, claude_command("hook", "stop", "--final", "--harness", "claude-code"), 30)]
+            "SessionEnd" => [hook_entry(nil, hook_line("hook", "stop", "--final", "--harness", "claude-code"), 30)]
           },
           "permissions" => {
             "deny" => [
@@ -186,7 +186,7 @@ module Reach
         }
       end
 
-      def claude_command(*args)
+      def hook_line(*args)
         command = h(*args)
         Reach::Runtime.windows? ? "& #{command}; exit $LASTEXITCODE" : command
       end
@@ -262,18 +262,18 @@ module Reach
 
       def codex_hooks_content(space_kind = "slice")
         post_tool_use = []
-        post_tool_use << hook_entry("apply_patch|Write|Edit", h("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
+        post_tool_use << hook_entry("apply_patch|Write|Edit", hook_line("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
 
         stop_hooks = []
-        post_tool_use << hook_entry("apply_patch|Write|Edit", h("transcript", "code", "--harness", "codex"), 15)
-        stop_hooks << hook_entry(nil, h("hook", "stop", "--harness", "codex"), 30)
+        post_tool_use << hook_entry("apply_patch|Write|Edit", hook_line("transcript", "code", "--harness", "codex"), 15)
+        stop_hooks << hook_entry(nil, hook_line("hook", "stop", "--harness", "codex"), 30)
 
         {
           "hooks" => {
             "PreToolUse" => [
-              hook_entry("apply_patch|Write|Edit", h("gate", "write", "--harness", "codex"), 10),
-              hook_entry("Bash|shell|exec_command", h("gate", "shell", "--harness", "codex"), 10),
-              hook_entry(CODEX_READ_MATCHER, h("gate", "read", "--harness", "codex"), 10)
+              hook_entry("apply_patch|Write|Edit", hook_line("gate", "write", "--harness", "codex"), 10),
+              hook_entry("Bash|shell|exec_command", hook_line("gate", "shell", "--harness", "codex"), 10),
+              hook_entry(CODEX_READ_MATCHER, hook_line("gate", "read", "--harness", "codex"), 10)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks
