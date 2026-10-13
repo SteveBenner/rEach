@@ -422,6 +422,7 @@ module Reach
       PROTOCOL_VERSIONS = %w[2025-06-18 2025-03-26 2024-11-05].freeze
 
       def serve(input: STDIN, output: STDOUT)
+        @serving = true
         input.binmode if input.respond_to?(:binmode)
         output.binmode if output.respond_to?(:binmode)
         Reach::Messages.preload
@@ -468,6 +469,10 @@ module Reach
             break
           end
         end
+      end
+
+      def serving?
+        @serving == true
       end
 
       private

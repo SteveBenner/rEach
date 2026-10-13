@@ -1257,7 +1257,7 @@ module Reach
         kinds = []
         kinds << Reach::CodexSetup::KIND unless event["turn_id"].to_s.empty?
         kinds << Reach::HarnessMove::KIND
-        kinds << "module_lock" unless Reach::Workspace.space_for(cwd)
+        kinds.concat(%w[module_lock submission]) unless Reach::Workspace.space_for(cwd)
         return nil if kinds.empty?
 
         entry = Reach::Gate.live_prompt(event)
