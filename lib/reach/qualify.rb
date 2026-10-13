@@ -242,7 +242,8 @@ module Reach
       end
 
       def first_error_line(text)
-        line = text.to_s.lines.map(&:strip).reject(&:empty?).find { |candidate| !candidate.start_with?("from ") }
+        lines = text.to_s.lines.map(&:strip).reject { |candidate| candidate.empty? || candidate.start_with?("from ") }
+        line = lines.find { |candidate| !candidate.start_with?("bundler: failed to load command") } || lines.first
         line ? line[0, 300] : "the scenarios could not run"
       end
 
@@ -436,6 +437,9 @@ module Reach
         hidden.reject { |row| row["result"] == "passed" }.each do |row|
           record["findings"] << { "code" => "QF-HIDDEN", "name" => row["name"], "detail" => row["reason"] }
         end
+        passed_here = agent.select { |row| row["result"] == "passed" }.map { |row| row["name"] }
+        own_passed = hidden.reject { |row| row["result"] == "passed" }.map { |row| row["name"] }.select { |name| passed_here.include?(name) }
+        record["next"] ||= Reach::Messages.text("M-QUALIFY-HIDDEN", names: own_passed.map { |name| "\"#{name}\"" }.join(", ")) unless own_passed.empty?
         passed = record["findings"].empty?
         record["steps"]["remote"] = { "ran" => true, "passed" => passed, "rows" => { "agent" => agent, "stub" => stub, "hidden" => hidden } }
         passed

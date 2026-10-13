@@ -797,7 +797,7 @@ qualification:
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
     QF-VACUOUS). A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
-    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest.
+    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest. When Cucumber cannot start, the finding quotes the first error line after bundler's own "failed to load command" line.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,
@@ -805,7 +805,10 @@ qualification:
     network errors and Teach's unavailable answer leave it pending, which counts for nothing; a later run resumes the
     same qualification when the digests have not changed. Since 0.21.2 the upload and the polls run under their own
     20-second deadline, started after the local steps, so an MCP tool budget spent on the local steps cannot starve
-    the upload; polls that run out leave the qualification pending with its id.
+    the upload; polls that run out leave the qualification pending with its id. When a hidden scenario fails whose
+    agent scenario of the same name passed on Teach, next is M-QUALIFY-HIDDEN: Reach builds it from the names and
+    results alone and tells the agent its fakes likely differ from the real port, that an unchanged rerun still
+    counts, and to tell the student when the course materials do not say what the port returns.
   answers_from_teach: >-
     Per row: name, result, the failing step only when it is verbatim a line of the agent's own feature files, and an
     error class from a fixed whitelist (else other). Never messages or output, because the run directory holds course
