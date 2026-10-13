@@ -307,8 +307,8 @@ module Reach
       unless Reach::Workspace.changed_owned_files(workspace).empty?
         Reach::Checkpoint.save(workspace, note: "before sidecar import", automatic: true)
       end
-      row["checkpoints"] = replay_checkpoints(rec, workspace, owned)
-      row["files"] = copy_current(rec, workspace, owned, row, result)
+      row["checkpoints"] = replay_checkpoints(root, rec, workspace, owned)
+      row["files"] = copy_current(root, rec, workspace, owned, row, result)
       unless row["kept"].empty?
         result["warnings"] << Reach::Messages.text("M-PACKET-KEPT-COPY", slice: rec["name"], count: row["kept"].length, folder: File.join(Reach::Workspace::MARKER_DIR, KEPT_DIR))
       end
@@ -330,13 +330,13 @@ module Reach
       end.compact
     end
 
-    def replay_checkpoints(rec, workspace, owned)
+    def replay_checkpoints(root, rec, workspace, owned)
       count = 0
       checkpoint_entries(rec["checkpoints"]).each do |entry|
         written = 0
         owned.each do |relative|
           source = File.join(entry["files_dir"], relative)
-          next unless safe_source?(source, entry["files_dir"])
+          next unless safe_source?(source, root)
 
           write_owned(workspace, relative, File.binread(source))
           written += 1
@@ -350,11 +350,11 @@ module Reach
       count
     end
 
-    def copy_current(rec, workspace, owned, row, result)
+    def copy_current(root, rec, workspace, owned, row, result)
       count = 0
       rec["owned_files"].each do |relative|
         source = File.join(rec["path"], relative)
-        next unless safe_source?(source, rec["path"])
+        next unless safe_source?(source, root)
 
         unless owned.include?(relative)
           row["skipped"] << relative
@@ -370,14 +370,14 @@ module Reach
 
         Dir.glob(File.join(base, "**", "*")).select { |path| File.file?(path) }.sort.each do |path|
           relative = File.join(dir, path[(base.length + 1)..-1])
-          next if File.basename(path) == ".keep" || !safe_source?(path, base)
+          next if File.basename(path) == ".keep" || !safe_source?(path, root)
 
           write_extra(workspace, relative, File.binread(path), row)
           count += 1
         end
       end
       plan = File.join(rec["path"], "plan.md")
-      if safe_source?(plan, rec["path"])
+      if safe_source?(plan, root)
         write_extra(workspace, "plan.md", File.binread(plan), row)
         count += 1
       end
