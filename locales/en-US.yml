@@ -358,6 +358,7 @@ messages:
   M-BRAIN-EMPTY: "Nothing remembered yet."
   M-BRAIN-NO-MATCH: "Nothing remembered matches that."
   M-BRAIN-FORGET-WHAT: "Say which items to forget (ids), or confirm forgetting everything."
+  M-BRAIN-SANDBOX: "Nothing changed: Codex ran this command inside its sandbox, which can't write to rEach's memory folder on this computer. Use the {tool} tool instead; Codex runs rEach's tools outside its sandbox. Nothing is wrong with the student's work."
   M-TEACH-LINK-LOST: "rEach lost its connection to your course server (Teach). Your work is saved on this computer and will be sent when the connection is back. You can keep working."
   M-TEACH-CERTIFICATE: "rEach could not verify the security certificate of your course server (Teach), so it did not connect. Your work is saved on this computer. Check that your computer's date and time are right and that you are not on a network that intercepts secure connections, then try again. If it keeps happening, tell your instructor."
   M-TEACH-CLOCK: "Your course server (Teach) refused rEach's request because this computer's clock is more than a few minutes off. Set your computer's date and time to update automatically, then try again. Your work is saved on this computer."
