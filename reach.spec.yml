@@ -1727,7 +1727,9 @@ auto_update:
     Since 0.13.0 Reach keeps the install at ~/.reach/plugin current by itself. It looks for newer releases when a
     session starts and once an hour while the student works, downloads a newer one in the background, and installs
     it at the next session start through scripts the release itself carries. The student is told calmly and is never
-    interrupted mid-work; course work waits only while an install is actually running.
+    interrupted mid-work; course work waits only while an install is actually running. The session-start check
+    also runs while Reach is locked, before the student has enrolled, so an install that cannot finish enrolling
+    still receives the release that fixes it.
   managed_install: >-
     Only ~/.reach/plugin (Reach::Paths.home + /plugin) is managed, and only when it holds a VERSION file and no .git
     entry. A git checkout, a missing install (Cowork, a harness that installed straight from the repository link) or

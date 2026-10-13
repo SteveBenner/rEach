@@ -272,6 +272,7 @@ module Reach
       return wrong_folder_parts(wrong_folder, lock, format, mcp) if wrong_folder
 
       if lock["locked"]
+        safe_update_start(event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil, source)
         if hookless && lock["reason"] != "course_ended"
           message = Reach::Messages.text("M-ENR-NOHOOK-STUDENT")
           return [nil, message, message, framed("hello.hookless", hookless_context(mcp: mcp))]
