@@ -1066,7 +1066,7 @@ module Reach
       rescue StandardError
         []
       end
-      raise_blocked!("M-GATE-NOGUARD") if slices.empty? && !module_choice_pending? && !free_space?
+      raise_blocked!("M-GATE-NOSLICE") if slices.empty? && !module_choice_pending? && !free_space?
     end
 
     def free_space?
@@ -1147,7 +1147,7 @@ module Reach
 
     def pick_slice_choices
       root = File.expand_path(Reach::Paths.workspace_root)
-      Reach::Workspace.current_slices.map { |path| "cd #{path.sub("#{root}#{File::SEPARATOR}", "")}" }.join(", or ")
+      Reach::Workspace.current_slices.map { |path| "#{File.basename(path)} (#{path.sub("#{root}#{File::SEPARATOR}", "")})" }.join(", ")
     end
 
     def owned_absolute_paths(workspace)

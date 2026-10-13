@@ -223,7 +223,10 @@ module Reach
         index += 1
       end
 
-      tail = ["Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else goes in extracurricular/."]
+      tail = [
+        "Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else goes in extracurricular/.",
+        "From this chat, work on a slice by its full path, or name it with --slice (the slice argument of the reach_* tools); the student does not need to open the slice's own folder or start another chat."
+      ]
       assemble("rules.root", lines, "", tail)
     end
 

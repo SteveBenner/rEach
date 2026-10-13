@@ -6,6 +6,9 @@ module Reach
   module Hello
     CONTEXT_KEEP = 20
     BACKGROUND_LIMIT_S = 300
+    INTERVIEW_GREETINGS = %w[G-FIRST-RUN G-RESUME G-RESUME-NONAME].freeze
+    INTERVIEW_FILE = "interview.json".freeze
+    OFFER_WINDOW_S = 120
     MINIMAL_CONTEXT = "rEach session context (from reach hello)\n" \
                        "- You are rEach, the student's academic assistant. Load the reach-assistant skill.".freeze
 
@@ -297,7 +300,9 @@ module Reach
         return [greeting_text && "G-LOGIN", greeting_text, nil, framed("hello.login", login_context(updating, mcp: mcp))]
       end
 
-      greeting_id, greeting_text, banner = choose_greeting(source)
+      offer_session = session || session_id
+      greeting_id, greeting_text, banner = choose_greeting(source, session: offer_session)
+      note_interview_offer(greeting_id, offer_session)
       updating = safe_update_start(session_id, source)
       if updating && greeting_text
         greeting_text = "#{Reach::Greetings.text("G-UPDATING", version: updating)}\n\n#{greeting_text}"
@@ -307,7 +312,7 @@ module Reach
         Reach::Brain.memory_notice_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session)
       [greeting_id, greeting_text, banner, context]
     end
 
@@ -505,19 +510,19 @@ module Reach
       nil
     end
 
-    def choose_greeting(source)
+    def choose_greeting(source, session: nil)
       return [nil, nil, nil] unless [nil, "startup", "clear"].include?(source)
 
       profile = Reach::Profile.load
       status = profile["status"]
 
-      if status == "not_started" && safe_enrol_current
+      if status == "not_started" && safe_enrol_current && interview_offer_open?(profile, session)
         [
           "G-FIRST-RUN",
           Reach::Greetings.text("G-FIRST-RUN"),
           Reach::Greetings.text("G-BANNER-FIRST")
         ]
-      elsif status == "partial"
+      elsif status == "partial" && interview_offer_open?(profile, session)
         name = Reach::Profile.preferred_name
         if name
           ["G-RESUME", Reach::Greetings.text("G-RESUME", name: name), nil]
@@ -529,6 +534,55 @@ module Reach
       end
     rescue StandardError
       [nil, nil, nil]
+    end
+
+    def interview_offers
+      Reach::StateFile.read(INTERVIEW_FILE)
+    end
+
+    def interview_offer_open?(profile, session = nil)
+      offers = interview_offers
+      key = case profile["status"]
+            when "not_started" then "first_run"
+            when "partial" then offers["resume_for"] == profile["updated_at"] ? "resume" : nil
+            else return false
+            end
+      return true if key.nil? || offers["#{key}_at"].nil?
+
+      recorded = offers["#{key}_session"].to_s
+      return recorded == session.to_s unless recorded.empty? || session.to_s.empty?
+
+      Time.now.utc - Time.iso8601(offers["#{key}_at"].to_s) < OFFER_WINDOW_S
+    rescue StandardError
+      true
+    end
+
+    def note_interview_offer(greeting_id, session = nil)
+      return nil unless INTERVIEW_GREETINGS.include?(greeting_id)
+
+      updated_at = Reach::Profile.load["updated_at"]
+      Reach::StateFile.update(INTERVIEW_FILE) do |offers|
+        key = greeting_id == "G-FIRST-RUN" ? "first_run" : "resume"
+        fresh = key == "resume" && offers["resume_for"] != updated_at
+        if offers["#{key}_at"].nil? || fresh
+          offers["#{key}_at"] = Reach::StateFile.now_s
+          offers["#{key}_session"] = session.to_s.empty? ? nil : session.to_s
+          offers["resume_for"] = updated_at if key == "resume"
+        end
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def interview_line(session = nil)
+      profile = Reach::Profile.load
+      return nil unless %w[not_started partial skipped].include?(profile["status"])
+      return nil if profile["status"] != "skipped" && interview_offer_open?(profile, session)
+
+      "- The interview was already offered to this student or they skipped it: do not start or resume it unless the student asks."
+    rescue StandardError
+      nil
     end
 
     def complete_greeting(profile)
@@ -549,7 +603,7 @@ module Reach
       current_assignment = status && status["current_assignment"]
       slices = current_assignment_slices(current_assignment)
 
-      if slices.empty?
+      if slices.empty? || current_assignment.nil?
         Reach::Greetings.text("G-RETURNING-PLAIN", name: name)
       elsif slices.length == 1
         workspace = slices.first
@@ -625,7 +679,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false, session: nil)
       entries = []
       entries << ["hello.session", "rEach session context (from reach hello)"]
       entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
@@ -642,6 +696,8 @@ module Reach
       entries << ["hello.session", "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.hook_command} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."]
       entries << ["hello.update", update_line(updating)] if updating
       entries << ["hello.profile", profile_line]
+      interview = interview_line(session)
+      entries << ["hello.profile", interview] if interview
       entries << ["hello.course", course_line]
       entries.concat(alignment_lines)
       late = safe_late_line(workspace)
