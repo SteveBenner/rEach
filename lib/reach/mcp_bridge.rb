@@ -407,12 +407,13 @@ module Reach
       reach_known_issues
     ].freeze
     DESTRUCTIVE_TOOLS = %w[reach_profile_forget reach_memory_forget reach_transcripts reach_storage].freeze
+    REVIEWED_TOOLS = %w[reach_submit reach_qualify reach_raise_hand].freeze
     LISTED_TOOLS = TOOLS.map do |tool|
       name = tool["name"]
       hints = if READ_ONLY_TOOLS.include?(name)
                 { "readOnlyHint" => true, "openWorldHint" => false }
               else
-                { "readOnlyHint" => false, "destructiveHint" => DESTRUCTIVE_TOOLS.include?(name), "openWorldHint" => false }
+                { "readOnlyHint" => false, "destructiveHint" => DESTRUCTIVE_TOOLS.include?(name), "openWorldHint" => REVIEWED_TOOLS.include?(name) }
               end
       tool.merge("annotations" => hints)
     end.freeze

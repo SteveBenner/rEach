@@ -1049,8 +1049,9 @@ mcp_bridge:
     naming the tool and the argument, and records no fault. Before it the agent got M-REACH-HICCUP-TOOL and Teach
     received a KeyError fault.
   annotations: >-
-    tools/list serves every tool with MCP annotations (MCPBridge::LISTED_TOOLS): openWorldHint false on all of them,
-    because each acts only on this computer, the student's course folder and the enrolled course server;
+    tools/list serves every tool with MCP annotations (MCPBridge::LISTED_TOOLS): openWorldHint true only for the
+    tools that send the student's work or a request to the course server (REVIEWED_TOOLS: reach_submit, reach_qualify,
+    reach_raise_hand), so Codex still reviews those (instructor decision 2026-10-13), false for the rest;
     readOnlyHint true for the tools that only read (READ_ONLY_TOOLS: reach_status, reach_receipts, reach_shape_check,
     reach_check, reach_hand_status, reach_profile_show, reach_enroll, reach_directive, reach_reference, reach_recall,
     reach_next, reach_grade, reach_extra_credit_list, reach_announcements, reach_known_issues); destructiveHint true only
@@ -1060,7 +1061,8 @@ mcp_bridge:
     requires_mcp_tool_approval) asks for approval of a custom MCP tool in its default auto mode unless the tool is
     read-only or neither destructive nor open-world, and with approvals_reviewer auto_review that approval is a model
     review that reads AGENTS.md. Before these hints every rEach tool went to that review, which refused reach_directive
-    as protected-material access; now only the four destructive tools do. rEach writes no approval_mode into any Codex
+    as protected-material access; now only the four destructive tools and the three reviewed tools do, and the rules
+    files' TOOLS_RULE tells the review that rEach's tools are the sanctioned path. rEach writes no approval_mode into any Codex
     config: the hints reach Codex whether the server comes from the plugin or from a course folder's .codex/config.toml.
   tools:
   - name: reach_status
