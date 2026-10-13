@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.51.10
+version: 0.51.11
 rplugin: ">= 1.6.5"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
@@ -59,6 +59,7 @@ compatibility:
 repository:
   remote: "git@github.com:SteveBenner/rEach.git"
   store_path: reach
+license: MIT
 
 serves: real_users
 polispec:

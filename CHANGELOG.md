@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.11] - 2026-10-13
+
+### Fixed
+
+- `reach.rplugin.yml` declares `license: MIT`, so `rplugin package` (rplugin 1.13.0 or newer) writes the license into `.claude-plugin/plugin.json`, `plugin.json` and `.codex-plugin/plugin.json`, and `rplugin check` no longer reports them stale. Since 0.51.7 the license had been added to those files by hand, and polispec's G-RCHECK refused to promote rEach.
+
 ## [0.51.10] - 2026-10-13
 
 ### Added
