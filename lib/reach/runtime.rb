@@ -160,6 +160,15 @@ module Reach
       end
     end
 
+    def terminal_command(*args)
+      command = hook_command(*args)
+      windows? ? "& #{command}" : command
+    end
+
+    def agent_command(*args, harness: nil)
+      (harness || Reach::Session.detect_harness).to_s == "claude-code" ? hook_command(*args) : terminal_command(*args)
+    end
+
     def windows?
       RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
     end

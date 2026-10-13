@@ -293,9 +293,9 @@ module Reach
     end
 
     def terminal_text(state)
-      return Reach::Messages.text("M-LOGIN-RESET-TERMINAL", command: Reach::Runtime.hook_command("login", "reset")) if RESET_STATES.include?(state["state"])
+      return Reach::Messages.text("M-LOGIN-RESET-TERMINAL", command: Reach::Runtime.terminal_command("login", "reset")) if RESET_STATES.include?(state["state"])
 
-      Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
+      Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.terminal_command("login", "password"))
     end
 
     def reset_waiting?

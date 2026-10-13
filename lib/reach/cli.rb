@@ -1217,7 +1217,7 @@ module Reach
         end
         message = gate_setup_outcome(message, flow_state)
         if hermes
-          guide = Reach::Messages.text("M-ENR-HERMES-GUIDE", command: Reach::Runtime.hook_command("guide"))
+          guide = Reach::Messages.text("M-ENR-HERMES-GUIDE", command: Reach::Runtime.terminal_command("guide"))
           puts JSON.generate("context" => "#{Reach::Messages.text("M-ENR-HERMES", message: message)}\n\n#{guide}")
           return 0
         end

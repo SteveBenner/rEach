@@ -253,7 +253,7 @@ module Reach
       return { id: "hermes", ok: false, message: "Hermes: rEach could not be copied to #{failed}" } if failed
 
       Reach::Harness.configure("hermes", nil)
-      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with: #{Reach::Runtime.hook_command("work", "--harness", "hermes")}\n#{Reach::Messages.text("M-HERMES-APPROVE-ONCE")}" }
+      { id: "hermes", ok: true, message: "Hermes: rEach installed in its own Hermes profile, reach. Open a course folder with: #{Reach::Runtime.terminal_command("work", "--harness", "hermes")}\n#{Reach::Messages.text("M-HERMES-APPROVE-ONCE")}" }
     end
 
     def ensure_hermes_profile
@@ -365,9 +365,9 @@ module Reach
     end
 
     def instructions_line
-      return "Then connect rEach to the student's course. If the reach-assistant skill is not loaded in this session yet, run `#{Reach::Runtime.hook_command("hello", "--format", "text")}` and follow what it prints. Do not start the first-run interview until the student is enrolled and signed in." unless enrolled?
+      return "Then connect rEach to the student's course. If the reach-assistant skill is not loaded in this session yet, run `#{Reach::Runtime.agent_command("hello", "--format", "text")}` and follow what it prints. Do not start the first-run interview until the student is enrolled and signed in." unless enrolled?
 
-      "Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `#{Reach::Runtime.hook_command("hello", "--format", "text")}` and follow what it prints."
+      "Then run the interview from the reach-assistant skill. If that skill is not loaded in this session yet, run `#{Reach::Runtime.agent_command("hello", "--format", "text")}` and follow what it prints."
     end
 
     def relocate_after_install
