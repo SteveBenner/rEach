@@ -75,6 +75,7 @@ module Reach
 
       def finish(workspace, record, local_only)
         not_the_code = !record["findings"].empty? && record["findings"].all? { |finding| NOT_THE_CODE.include?(finding["code"]) }
+        judge_local_repeat(workspace, record) unless record["pending"] || local_only || not_the_code || record["passed"]
         record["ladder"] = if record["pending"] || local_only || not_the_code || record["counted"] == false
                              nil
                            else
@@ -457,6 +458,19 @@ module Reach
         record["counted"] = false
         record["identical_to"] = result["identical_to"].is_a?(Hash) ? result["identical_to"] : {}
         same = Reach::Messages.text("M-QUALIFY-IDENTICAL", earlier: earlier_attempt(record))
+        record["next"] = [same, record["next"]].compact.join(" ")
+      end
+
+      def judge_local_repeat(workspace, record)
+        return if record["steps"].key?("remote")
+
+        last = Reach::Ladder.last_failure(workspace)
+        return unless last && last["files_digest"] && last["tests_digest"]
+        return unless last["files_digest"] == record["files_digest"] && last["tests_digest"] == record["tests_digest"]
+
+        record["counted"] = false
+        record["identical_to"] = { "attempt" => last["n"] }
+        same = Reach::Messages.text("M-QUALIFY-IDENTICAL-LOCAL", earlier: earlier_attempt(record))
         record["next"] = [same, record["next"]].compact.join(" ")
       end
 

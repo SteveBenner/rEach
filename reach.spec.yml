@@ -837,6 +837,16 @@ qualification:
   limits: Teach allows 12 qualifications per slice per hour and 2 in flight per student, and 60 scenarios per package.
 attempt_ladder:
   unit: Failed qualifications per slice (a pending one, and one Teach answers counted false, do not count), in ~/.reach/state/ladder/<slice>.json.
+  identical_local_fails: >-
+    Since 0.51.9 (instructor decision 2026-10-13, "Also skip identical local fails"). Each counted failure saves
+    last_failure {n, files_digest, tests_digest} in the ladder state; files_digest and tests_digest hash the same
+    per-file digests of the owned files (README.md included) and the scenario files that the qualification manifest
+    carries. A run that fails before it reaches Teach (check, coverage, local_pass, or local_stub) with both digests
+    equal to last_failure's, whether that attempt failed locally or on Teach, is not counted: no ladder step and no
+    ladder hand. The record keeps counted false and identical_to {attempt}, next starts with M-QUALIFY-IDENTICAL-LOCAL,
+    and the text output names the earlier attempt as for a live run. A ladder state without last_failure or without
+    either digest (an older one) leaves the run counted, a passing run always counts, a run that reached Teach follows
+    Teach's counted answer, and a reset clears last_failure.
   rungs:
     '1': Silent; the agent tries again.
     '2': M-LADDER-NOTICE for the student.

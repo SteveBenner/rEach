@@ -71,7 +71,8 @@ module Reach
         "n" => record["attempt"], "at" => record["at"], "passed" => false,
         "steps" => failed_steps(record), "files_digest" => record["files_digest"]
       }]
-      current = current.merge("failed" => failed, "history" => history.last(HISTORY_LIMIT))
+      last_failure = { "n" => record["attempt"], "files_digest" => record["files_digest"], "tests_digest" => record["tests_digest"] }
+      current = current.merge("failed" => failed, "history" => history.last(HISTORY_LIMIT), "last_failure" => last_failure)
       save(workspace, current)
 
       if failed >= HARD_STOP
@@ -95,6 +96,11 @@ module Reach
       end
 
       rung(failed, "silent", nil)
+    end
+
+    def last_failure(workspace)
+      last = state(workspace)["last_failure"]
+      last.is_a?(Hash) ? last : nil
     end
 
     def rung(failed, name, message_id)

@@ -340,6 +340,10 @@ after a student prompt typed since the hand; only the time of the last slice pro
 resets it. Verified end to end on 2026-09-29.
 Since 0.51.9 a failed live qualification on files identical to the last counted failed attempt uses no try and raises
 no ladder hand when the course server marks it not counted (`M-QUALIFY-IDENTICAL`, instructor decision 2026-10-13).
+Since 0.51.9 a run that fails in the local checks, before it reaches the course server, on owned files and scenarios
+identical to the last counted failed attempt of the slice, local or live, uses no try and raises no ladder hand either
+(`M-QUALIFY-IDENTICAL-LOCAL`, instructor decision 2026-10-13); a ladder state without stored digests, or a passing run,
+counts as before.
 
 Build ✅ · Deploy 🔵 · Blocker: -.
 
