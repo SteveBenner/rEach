@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-13'
-revision: 2026-10-13b
+revision: 2026-10-13c
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -1467,6 +1467,12 @@ routes:
       issues: "[known issue (W-KI-1)], every entry not retired, ordered by id"
     response_304: when If-None-Match equals the current revision; no body
     reach_use: W-KI-3. Carries no student, install or course data, so it is served before enrollment.
+    out_of_date: >-
+      Since revision 2026-10-13c. When the entry reach-out-of-date is not retired, Teach serves it with
+      applies.reach_max set to the reference release of W-COMPAT-6 with ".a" appended (for 0.51.0, "0.51.0.a"), so it
+      matches every Reach older than the reference release and none at or above it; when there is no reference release
+      Teach leaves the entry out. The served value changes the revision, so an outdated Reach refreshes it. Its remedy is
+      update, so the student's agent can run Reach's own update, which on a plugin-cache install refreshes the app's copy.
   - id: W-API-INSTRUCTOR-KEYRING
     since: 2026-10-06a
     method: GET
@@ -2135,6 +2141,8 @@ compatibility:
       installs the newest commit of the branch it tracks. A plugin-cache install of a Reach that cannot update itself
       moves only when its harness refreshes the plugin. Teach keeps answering W-API-STATUS with minimum_reach_version
       and refusing a Reach below that minimum with 400 reach_outdated (W-COMPAT-1), so the student is told to update.
+      Since 2026-10-13c the update path also includes W-API-KNOWN-ISSUES and the known_issues revision of
+      W-API-REVISION, through which Teach tells an outdated Reach's agent that it is out of date (reach-out-of-date).
       Every other section may change without keeping an outdated Reach working. Teach does not compare an outdated
       install's wire digest against its own and raises no alarm for it; the drift that matters is that of installs on
       the reference release or newer.
@@ -2891,7 +2899,8 @@ known_issues:
       Reach when an older Teach sends an entry without it, and ignored by Reach when it does not know the name; a
       remedy is advice to the student's agent, which runs it only through Reach's own tool for that action and never
       without the student's yes where that action asks for one; applies is {os: [macos | windows | linux], harness: [harness label or family], reach_min:
-      version or null, reach_max: version or null}, where an empty list means any; steps is a list of at most 12
+      version or null, reach_max: version or null}, where an empty list means any and a version is compared as
+      RubyGems orders it, so a prerelease such as 0.51.0.a lies above every 0.50.x and below 0.51.0; steps is a list of at most 12
       {os: [...], harness: [...], text} with text (plain words for the student, at most 1500 characters) and the same
       empty-means-any lists. A harness label is one Reach's fingerprint reports (claude-code-tui, claude-cowork,
       claude-desktop, claude-code-vscode, claude-code-headless, claude-agent-sdk, codex-tui, codex-app, codex-vscode,
