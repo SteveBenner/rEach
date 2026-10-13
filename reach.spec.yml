@@ -748,7 +748,10 @@ shape_loop:
     <vault>/suite/reference_build/<module>/modules/<module>/panel with the slice's owned panel files laid over it, the
     tree Teach's grading sandbox checks, so the instructors' views count; without the suite it is
     <workspace>/modules/<module>/panel, and the workspace itself when that does not exist. A slice that owns no panel
-    files has no shape findings. DOVETAIL_PUBLIC_KEYS names Teach's signing
+    files has no shape findings. RUBYOPT is -EUTF-8 (the student's own RUBYOPT is not passed on), so the checker reads
+    the panel files as UTF-8 even when the student's app starts commands with no locale; with the US-ASCII default
+    that gives, the checker crashed on the first non-ASCII character and Reach reported that it returned no report.
+    DOVETAIL_PUBLIC_KEYS names Teach's signing
     public keys, which Reach writes from install.yml to ~/.reach/keys/teach/<key_id>.pem; Dovetail reads the signature
     from shape.sig beside shape.json, so the shape package carries both. Finding paths come back relative to the panel
     directory and Reach reports them relative to the workspace. A --changed path outside the panel directory has no
