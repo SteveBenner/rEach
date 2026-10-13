@@ -49,4 +49,4 @@ Some jurisdictions do not allow the exclusion of certain warranties or the limit
 
 ## Changes
 
-This disclaimer may change as rEach changes. Each change updates the "Last updated" date at the top of this page and is listed in [CHANGELOG.md](../CHANGELOG.md) under the release that made it, so a change is never silent. The version that applies to a release is the one published with it.
+This disclaimer may change as rEach changes. Each change updates the "Last updated" date at the top of this page and is listed in [CHANGELOG.md](../CHANGELOG.md) under the release that made it, so a change is never silent. The current version is always at https://github.com/SteveBenner/rEach/blob/main/docs/DISCLAIMER.md.

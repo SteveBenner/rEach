@@ -34,7 +34,7 @@ interview, saved on the student's computer only. It enrolls with Teach, receives
 the student's protected course materials, refuses to let the agent work until
 the instructors' guardrails are installed, keeps the agent inside the student's
 slice, checks every change against the
-[Dovetail](https://bitbucket.org/paterasai/dovetail) shape, has the agent prove
+[Dovetail](https://github.com/SteveBenner/dovetail) shape, has the agent prove
 the slice with scenarios of its own before anything is submitted (`reach qualify`:
 those scenarios here where they can run, then an ungraded run on Teach that also
 runs the instructors' hidden checks), submits work and waits for Teach's receipt,

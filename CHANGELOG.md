@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.4] - 2026-10-13
+
+### Fixed
+
+- `docs/DISCLAIMER.md` no longer says the version that applies to a release is the one published with it. Like `TERMS.md`, it now says the current version is always the copy on `main`, so the Terms and the disclaimer they incorporate name the same version.
+- The README's Dovetail link points to https://github.com/SteveBenner/dovetail, where the `dovetail` submodule is fetched from, instead of a Bitbucket address.
+
 ## [0.51.3] - 2026-10-13
 
 ### Changed
