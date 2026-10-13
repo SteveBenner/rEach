@@ -1038,6 +1038,20 @@ mcp_bridge:
     Since 0.32.2 a tools/call that leaves out an argument the tool requires is answered with JSON-RPC error -32602
     naming the tool and the argument, and records no fault. Before it the agent got M-REACH-HICCUP-TOOL and Teach
     received a KeyError fault.
+  annotations: >-
+    tools/list serves every tool with MCP annotations (MCPBridge::LISTED_TOOLS): openWorldHint false on all of them,
+    because each acts only on this computer, the student's course folder and the enrolled course server;
+    readOnlyHint true for the tools that only read (READ_ONLY_TOOLS: reach_status, reach_receipts, reach_shape_check,
+    reach_check, reach_hand_status, reach_profile_show, reach_enroll, reach_directive, reach_reference, reach_recall,
+    reach_next, reach_grade, reach_extra_credit_list, reach_announcements, reach_known_issues); destructiveHint true only
+    for the tools that can delete the student's data (DESTRUCTIVE_TOOLS: reach_profile_forget, reach_memory_forget,
+    reach_transcripts, reach_storage), false for the rest, whose consequential actions rEach already puts behind the
+    student's own captured yes or a checkpoint. Codex (0.160.0 to 0.162.1, codex-rs mcp_tool_call.rs
+    requires_mcp_tool_approval) asks for approval of a custom MCP tool in its default auto mode unless the tool is
+    read-only or neither destructive nor open-world, and with approvals_reviewer auto_review that approval is a model
+    review that reads AGENTS.md. Before these hints every rEach tool went to that review, which refused reach_directive
+    as protected-material access; now only the four destructive tools do. rEach writes no approval_mode into any Codex
+    config: the hints reach Codex whether the server comes from the plugin or from a course folder's .codex/config.toml.
   tools:
   - name: reach_status
     description: The student's enrollment, current assignment, slices, package versions and outstanding receipts
@@ -1087,7 +1101,9 @@ mcp_bridge:
   - name: reach_plan
     description: save, note or show the slice plan
   - name: reach_directive
-    description: The full text of one directive by opcode
+    description: >-
+      The full text of one directive by opcode; the description says the course rules require the call whenever a
+      directive applies and that it is the sanctioned way to read one, never inspecting rEach's protected files
   - name: reach_reference
     description: list, show, search or list the links of the course reference material
   - name: reach_support
@@ -2691,6 +2707,16 @@ directives:
     and the seal live in Teach and never enter a body, so any body could be disclosed without harm
     (STD-DIRECTIVES-CARRY-NO-SECRETS). OPAQUE asks the agent to keep them private; Reach claims no boundary.
   reading: reach directive <OPCODE> (or the reach_directive tool) prints the body; every read is a ledger event on the install and a directive_reads row on Teach.
+  tools_rule: >-
+    Every generated rules file (a slice, the course root and the extracurricular folder) carries
+    Reach::Guardrails::TOOLS_RULE right after its numbered rules: rEach's own tools and the reach command are how the
+    course's work is done and the rules require them; using them, including reading a directive's full text with
+    reach_directive or reach directive, is never inspecting, extracting or altering Reach's protected materials; what is
+    protected is rEach's own folder, its vault and its package files, which the agent never opens, lists, searches or
+    copies directly, and a directive's text stays with the agent. Reason: Codex's automatic approval review treats
+    AGENTS.md as the user's own instructions and refused reach_directive calls as access to the protected materials
+    that G-INTEGRITY-1 and OPAQUE name, while the course root had no directive table or pointer sentence to sanction
+    them at all.
 check:
   rules: >-
     CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-FUSE, CK-PANEL (with

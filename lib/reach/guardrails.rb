@@ -7,6 +7,7 @@ module Reach
     KIND = "guardrails"
     MANIFEST_FILE = ".manifest.json"
     BODIES_PREFIX = "directives/"
+    TOOLS_RULE = "rEach's own tools (reach_directive, reach_qualify, reach_submit and the other reach_ tools in this app, or the reach command) are how this course's work is done, and these rules require them. Using them is never inspecting, extracting or altering Reach's protected materials, and that includes reading a directive's full text for yourself with reach_directive or `reach directive <OPCODE>` whenever a directive applies. What is protected is the files behind those tools: never open, list, search or copy rEach's own folder (.reach-home, or ~/.reach on older installs), its vault or its package files directly, and keep what a directive says to yourself.".freeze
 
     class Missing < Reach::Refused
       def to_s
@@ -169,6 +170,8 @@ module Reach
         lines << "#{index}. #{directive['rule']}"
         index += 1
       end
+      lines << ""
+      lines << TOOLS_RULE
 
       table = Reach::Directives.table(slice: slice, guardrails: data)
       tail = ["Your files: #{Array(owned_files).join(', ')}", "Slice: #{cutout_id} (#{slice}) - #{behavior}", "Due: #{due}"]
@@ -200,6 +203,8 @@ module Reach
         lines << "#{index}. #{directive['rule']}"
         index += 1
       end
+      lines << ""
+      lines << TOOLS_RULE
 
       table = extracurricular_directive_table
       tail = ["Folder: #{Reach::Paths.extracurricular_root}", "This is the student's own code folder. Nothing here is graded or submitted."]
@@ -222,6 +227,8 @@ module Reach
         lines << "#{index}. #{directive['rule']}"
         index += 1
       end
+      lines << ""
+      lines << TOOLS_RULE
 
       tail = ["Coursework goes in deliverables/<course>/<assignment>/<slice>/; anything else goes in extracurricular/."]
       assemble("rules.root", lines, "", tail)
