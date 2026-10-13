@@ -186,8 +186,7 @@ module Reach
     end
 
     def choose!(modules, quick: false, session_id: nil)
-      session_id = Reach::Login.current_session_id if session_id.to_s.empty?
-      Reach::Login.require_active!(session_id: session_id)
+      Reach::Login.require_active!(session_id: session_id.to_s.empty? ? Reach::Login.current_session_id : session_id)
       data = nil
       begin
         refresh!(quick: quick)

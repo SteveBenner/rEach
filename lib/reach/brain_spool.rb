@@ -94,6 +94,16 @@ module Reach
       line
     end
 
+    def ensure_writable!(tool)
+      return nil unless Reach::Sandbox.active?
+
+      FileUtils.mkdir_p(dir)
+      File.open(File.join(dir, "#{Time.now.utc.strftime('%Y-%m-%d')}.jsonl"), File::WRONLY | File::APPEND | File::CREAT, 0o600) { nil }
+      nil
+    rescue *Reach::Sandbox::WRITE_ERRORS
+      raise Reach::Refused, Reach::Messages.text("M-BRAIN-SANDBOX", tool: tool)
+    end
+
     def write_line(line)
       FileUtils.mkdir_p(dir)
       path = File.join(dir, "#{Time.now.utc.strftime('%Y-%m-%d')}.jsonl")

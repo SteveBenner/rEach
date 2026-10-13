@@ -379,6 +379,7 @@ module Reach
       origin = origin.to_s.strip
       raise Reach::Refused, Reach::Messages.text("M-BRAIN-BAD-ORIGIN") unless origin.empty? || origin.match?(ORIGIN_PATTERN)
 
+      Reach::BrainSpool.ensure_writable!("reach_remember")
       claim = claim[0, CLAIM_MAX]
       evidence = evidence[0, EVIDENCE_MAX]
       raise Reach::Refused, Reach::Messages.text("M-BRAIN-REFUSED-SECRET") if secret?(claim, evidence)
@@ -474,6 +475,7 @@ module Reach
     end
 
     def forget(ids: nil, all: false)
+      Reach::BrainSpool.ensure_writable!("reach_memory_forget")
       index = load_index
       targets = if all
                   index.findings

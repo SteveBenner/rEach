@@ -1240,7 +1240,10 @@ cli:
       project, fact or thought). A near-duplicate (cosine at least brain.duplicate within the category) only
       reinforces the existing finding; a spent per-hour or per-day budget holds it; a claim or evidence that looks
       like a password, key, token or a student ID is refused. A held or reinforced remember exits 0 so the agent's
-      loop is not broken. Refused while Reach is locked.
+      loop is not broken. Refused while Reach is locked. Since 0.51.5, inside Codex's sandbox (CODEX_SANDBOX), where
+      the brain spool under the rplugin state folder is not writable, reach remember and reach memory forget change
+      nothing, exit 1 and name the reach_remember or reach_memory_forget tool (M-BRAIN-SANDBOX) instead of reporting
+      a fault; Codex runs the MCP tools outside its sandbox.
   - name: memory
     synopsis: >-
       reach memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export]

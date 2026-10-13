@@ -42,10 +42,16 @@ module Reach
         pending_path,
         "schema" => SCHEMA, "kind" => kind.to_s, "subject" => subject, "subject_digest" => digest(subject),
         "message_id" => message_id.to_s, "question" => question, "asked_at" => iso(Time.now.utc),
-        "student_id" => Reach::Login.enrolled_id, "replay" => replay,
-        "session_id" => (session_id.to_s.empty? ? Reach::Login.current_session_id : session_id.to_s)
+        "student_id" => Reach::Login.enrolled_id, "replay" => replay, "session_id" => asking_session_id(session_id)
       )
       question
+    end
+
+    def asking_session_id(session_id)
+      return session_id.to_s unless session_id.to_s.empty?
+      return nil if Reach::MCPBridge.serving?
+
+      Reach::Login.current_session_id
     end
 
     def open_question(kinds: nil)
@@ -111,6 +117,14 @@ module Reach
       asked == Reach::Session.resolve_session_id("session_id" => raw)
     end
 
+    def answering_session(pending, entry)
+      return pending["session_id"].to_s if asked_by?(pending, entry)
+      return nil unless pending["session_id"].to_s.empty? && entry["gate"] == "allowed"
+
+      raw = entry["session_id"].to_s
+      raw.empty? ? nil : Reach::Session.resolve_session_id("session_id" => raw)
+    end
+
     def observe(entry, kinds: nil)
       return nil unless entry.is_a?(Hash) && entry["gate"] == "allowed"
       return nil unless Reach::Login.session_confirmed?(entry["session_id"])
@@ -132,11 +146,12 @@ module Reach
       pending = Reach::Login.read_json(pending_path)
       return nil unless pending.is_a?(Hash) && pending["student_id"] == Reach::Login.enrolled_id
       return nil if kinds && !kinds.include?(pending["kind"])
-      return nil unless asked_by?(pending, entry)
+      answering = answering_session(pending, entry)
+      return nil unless answering
 
       now = Time.now.utc
       return nil if now - Time.iso8601(pending["asked_at"]) > WINDOW_S
-      return nil unless question_shown?(entry["transcript_path"], pending["question"], session_id: pending["session_id"], asked_at: pending["asked_at"])
+      return nil unless question_shown?(entry["transcript_path"], pending["question"], session_id: answering, asked_at: pending["asked_at"])
 
       text = entry["text"]
       answer = if yes?(text)
