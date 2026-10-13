@@ -475,6 +475,7 @@ module Reach
             relocate [--format text|json]        move rEach's own files into your reach-work folder, or show where that stands
             login password                       type your password here, hidden, to finish signing in
             login reset                          choose a new password, after your instructor pressed Reset password in Teach
+            login out                            sign out on this computer; every chat asks you to sign in again
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
@@ -3232,9 +3233,10 @@ module Reach
         return login_signin if sub.nil? && STDIN.tty?
         return login_password if sub == "password"
         return login_reset if sub == "reset"
+        return login_out if sub == "out"
 
         unless sub == "status"
-          warn "usage: reach login | login --window | login status | password | reset"
+          warn "usage: reach login | login --window | login status | password | reset | out"
           return 1
         end
         latest = Reach::Login.last_session_state
@@ -3285,6 +3287,12 @@ module Reach
 
         ok ? puts(text) : warn(text)
         ok ? 0 : 1
+      end
+
+      def login_out
+        ended = Reach::Login.enrolled_id ? Reach::Login.sign_out!("signed_out") : false
+        puts Reach::Messages.text(ended ? "M-LOGIN-OUT-DONE" : "M-LOGIN-OUT-ALREADY")
+        0
       end
 
       def login_reset

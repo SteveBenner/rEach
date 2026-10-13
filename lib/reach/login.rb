@@ -231,10 +231,28 @@ module Reach
     end
 
     def sign_out!(reason, now = Time.now.utc)
+      ended = signed_in?(now)
       data = signin_record
-      return nil unless data && data["state"] == "signed_in"
+      if data && data["state"] == "signed_in"
+        write_json(signin_path, data.merge("state" => "signed_out", "signed_out_at" => precise(now), "reason" => reason.to_s))
+      end
+      sessions.each do |held|
+        next if held["session_id"].to_s.empty? || !confirmed_state?(held, now)
 
-      write_json(signin_path, data.merge("state" => "signed_out", "signed_out_at" => precise(now), "reason" => reason.to_s))
+        write_session(held["session_id"], held.merge("expires_at" => iso(now), "signed_out_at" => precise(now), "updated_at" => iso(now)))
+        ended = true
+      end
+      ended
+    end
+
+    def live_signin?(now = Time.now.utc)
+      signed_in?(now) || sessions.any? { |held| confirmed_state?(held, now) }
+    rescue StandardError
+      false
+    end
+
+    def locked_text(minutes, now)
+      Reach::Messages.text(live_signin?(now) ? "M-LOGIN-LOCKED-SIGNED-OUT" : "M-LOGIN-LOCKED", minutes: minutes)
     end
 
     def signin_path
@@ -297,7 +315,7 @@ module Reach
       when :ok then confirm(state, now, "M-LOGIN-OK")
       when :unset then reset_required_decision(state, now, harness)
       when :wrong then failed(state, failures, window, now, harness, "M-LOGIN-PASSWORD-WRONG")
-      when :limited then decision("block", Reach::Messages.text("M-LOGIN-LOCKED", minutes: lockout_minutes), "login", nil, state, persist: false)
+      when :limited then decision("block", locked_text(lockout_minutes, now), "login", nil, state, persist: false).merge("signed_out" => "lockout")
       else decision("block", Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE"), "login", nil, state, persist: false)
       end
     end
@@ -361,7 +379,10 @@ module Reach
         out = failed(waiting.first, failures, window_failures(failures, now), now, "cli", "M-LOGIN-PASSWORD-WRONG-TERMINAL")
         commit!(out, event: { "session_id" => waiting.first["session_id"] }, harness: waiting.first["harness"])
         [false, out["message"]]
-      when :limited then [false, Reach::Messages.text("M-LOGIN-LOCKED", minutes: lockout_minutes)]
+      when :limited
+        text = locked_text(lockout_minutes, now)
+        sign_out!("lockout", now)
+        [false, text]
       else [false, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
       end
     end
@@ -393,7 +414,10 @@ module Reach
         out = failed(fresh_state(sid, "cli"), failures, window_failures(failures, now), now, "cli", "M-LOGIN-PASSWORD-WRONG-TERMINAL")
         commit!(out, event: { "session_id" => sid }, harness: "cli")
         [false, out["message"]]
-      when :limited then [false, Reach::Messages.text("M-LOGIN-LOCKED", minutes: lockout_minutes)]
+      when :limited
+        text = locked_text(lockout_minutes, now)
+        sign_out!("lockout", now)
+        [false, text]
       else [false, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
       end
     end
@@ -443,8 +467,9 @@ module Reach
       if recent.length >= lockout_failures
         minutes = lockout_minutes
         data = failures.merge("failures" => recent, "locked_until" => iso(now + (minutes * 60)))
-        out = decision("block", Reach::Messages.text("M-LOGIN-LOCKED", minutes: minutes), "login", nil, state, persist: false)
+        out = decision("block", locked_text(minutes, now), "login", nil, state, persist: false)
         out["failures_data"] = data
+        out["signed_out"] = "lockout"
         out["events"] = [["login_failed", { "session_id" => state["session_id"], "failures" => recent.length, "harness" => harness.to_s }]]
         return out
       end
@@ -535,7 +560,7 @@ module Reach
       sessions.each do |state|
         if state["state"] == "confirmed" && state["confirmed_at"]
           at = Time.iso8601(state["confirmed_at"])
-          next if now - at > hours * 3600
+          next if now - at > hours * 3600 || !confirmed_state?(state, now)
 
           latest_confirmed = at if latest_confirmed.nil? || at > latest_confirmed
         elsif state["state"] == "denied" && state["denied_at"]
