@@ -585,7 +585,9 @@ harness_integration:
       --harness codex); AGENTS.md carries the
       guardrails. Reach rewrites these files, and so picks up a changed timeout, whenever it configures a workspace
       (sync, update, the session start).
-      Written in every space (slice, extracurricular, root) as for Claude Code.
+      Written in every space (slice, extracurricular, root) as for Claude Code. Since 0.51.5, when the folder refuses
+      the rewrite (Codex's sandbox keeps a writable root's own .codex read-only), reach work skips it with a debug note,
+      leaves the files read-only as they were and goes on.
     launcher_gate: >-
       reach work runs the gate before starting Codex and refuses to start it when the gate fails; Codex is always
       started through reach work for course workspaces.
