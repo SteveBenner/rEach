@@ -29,7 +29,7 @@ module Reach
 
   class RemoteRefused < Error
     attr_reader :code, :status
-    attr_accessor :details
+    attr_accessor :details, :signature_age_s
 
     def initialize(code, status, message)
       @code = code

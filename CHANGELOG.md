@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.2] - 2026-10-13
+
+### Fixed
+
+- A Mac that sleeps in the middle of a background subscribe check no longer files a `Reach::RemoteRefused in subscribe:check` fault. The request reached Teach after waking with its signed timestamp past the 300 second window, and Teach answered 401 `unauthenticated` (STD-SUBSCRIBE-STALE-SIGNATURE). `Reach::Client` now records how old the signature was on `RemoteRefused#signature_age_s` (`lib/reach/client.rb`, `lib/reach/errors.rb`). `Reach::Subscribe` treats a 401 `unauthenticated` older than 240 seconds as an ordinary failure: it backs off without a fault and does not retry the request (`lib/reach/subscribe.rb`). A 401 that arrives sooner is still a fault.
+- Dovetail ships the GNU AGPL-3.0 text that `dovetail.gemspec` declares. The `dovetail` submodule and `dovetail-revision.txt` move from 0.2.0 to Dovetail 0.2.1 (`b43c151`, branch `release-0.2`), which differs from 0.2.0 only by `LICENSE`, its place in `spec.files`, and the version.
+
+### Changed
+
+- `docs/DISCLAIMER.md` names one controlling document: where it conflicts with the Terms of Service, the Terms of Service control. This replaces the "whichever limits liability more" tie-break. The page carries a "Last updated" date, and every change to it is listed in this changelog.
+
 ## [0.51.1] - 2026-10-13
 
 ### Added

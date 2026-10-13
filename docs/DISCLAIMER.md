@@ -1,6 +1,8 @@
 # rEach Disclaimer and Limitation of Liability
 
-This is the full disclaimer that the short section in the [README](../README.md#disclaimer) points to. It applies to rEach, its plugins, its installers, its documentation and every release published from this repository. Using rEach is also governed by the [Terms of Service](../TERMS.md) and the [Privacy Policy](../PRIVACY.md). Where this page and those documents overlap, the reading that limits liability more applies, to the extent the law allows.
+Last updated: 2026-10-13.
+
+This is the full disclaimer that the short section in the [README](../README.md#disclaimer) points to. It applies to rEach, its plugins, its installers, its documentation and every release published from this repository. Using rEach is also governed by the [Terms of Service](../TERMS.md) and the [Privacy Policy](../PRIVACY.md). This page explains the Terms of Service in more detail. If the two conflict, the Terms of Service control.
 
 ## No warranty
 
@@ -47,4 +49,4 @@ Some jurisdictions do not allow the exclusion of certain warranties or the limit
 
 ## Changes
 
-This disclaimer may change as rEach changes. The current version is always this file on the `main` branch of the repository.
+This disclaimer may change as rEach changes. Each change updates the "Last updated" date at the top of this page and is listed in [CHANGELOG.md](../CHANGELOG.md) under the release that made it, so a change is never silent. The version that applies to a release is the one published with it.

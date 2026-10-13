@@ -12,6 +12,7 @@ module Reach
     UNSUPPORTED_WAIT_S = 21_600
     BACKOFF_BASE_S = 60
     BACKOFF_CAP_S = 3600
+    STALE_SIGNATURE_S = 240
     NOTICE_TTL_S = 604_800
     NOTICE_KEEP = 20
     OS_TIMEOUT_S = 10
@@ -296,8 +297,21 @@ module Reach
     def handle_refusal(error, state)
       result = refusal_result(error)
       return result if result
+      return record_stale_signature(state) if stale_signature?(error)
 
       record_failure(state, error)
+    end
+
+    def stale_signature?(error)
+      error.status.to_i == 401 && error.code == "unauthenticated" && error.signature_age_s.to_f > STALE_SIGNATURE_S
+    end
+
+    def record_stale_signature(state)
+      update_state do |disk|
+        disk["checked_at"] = state["checked_at"] || now
+        register_failure(disk)
+      end
+      { "result" => "failed" }
     end
 
     def refusal_result(error)

@@ -371,6 +371,7 @@ module Reach
           message = Reach::Messages.text("M-TEACH-CLOCK") if clock_skewed?(response)
           refusal = Reach::RemoteRefused.new(code, response.status, message)
           refusal.details = error["details"] || (parsed || {})["details"]
+          refusal.signature_age_s = (Time.now - @signed_at).round(1) if @signed_at
           raise refusal
         rescue Reach::Error
           raise
@@ -485,7 +486,8 @@ module Reach
     def sign!(req, method:, target:, body:)
       return unless @install_private_key
 
-      timestamp = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+      @signed_at = Time.now
+      timestamp = @signed_at.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
       nonce = SecureRandom.hex(16)
       signature = Reach::Crypto.sign_request(
         @install_private_key, method: method, target: target, timestamp: timestamp, nonce: nonce, body: body.to_s

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.51.1
+version: 0.51.2
 status: draft
 recorded: '2026-09-29'
 licence: undecided
@@ -1442,8 +1442,11 @@ subscription:
     attempt, If-None-Match with the stored quoted revision). 304 or an unchanged revision: record checked_at. A new
     revision: Reach::Sync.run in this process (non-blocking sync lock), then store revision and parts, append one
     notice per changed part and reset failures; a held sync lock or a raising sync keeps the old revision and parts.
-    404: unsupported_until = now + 21600. 403 revoked or not_enrolled: mark revoked and uninstall the job. Any other
-    failure: failures += 1 and next_due_at = now + min(60 * 2^(failures-1), 3600).
+    404: unsupported_until = now + 21600. 403 revoked or not_enrolled: mark revoked and uninstall the job. Since
+    0.51.2 a 401 unauthenticated whose signature was made more than 240 s before the answer (a computer that slept
+    mid-request, so Teach saw a timestamp past its 300 s window) takes the same backoff without a fault. The request is
+    not retried, and the next tick signs afresh. Any other failure: failures += 1 and next_due_at = now + min(60 *
+    2^(failures-1), 3600), and a refusal records a subscribe:check fault.
   sync_lock: >-
     Reach::Sync.run holds state/sync.lock for its whole run, waiting up to 120 seconds for interactive callers (reach
     sync, reach_sync, persona) and not at all for a tick. Hooks never call Reach::Sync.run, so STD-HOOK-RESPONSIVE is
