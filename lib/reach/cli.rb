@@ -468,7 +468,7 @@ module Reach
             login                                sign in here: asks for your student ID, then your password, hidden
             login --window                       open a terminal window that runs login for you
             enroll --window                      open a terminal window that runs enroll for you
-            login status                         whether this session is signed in
+            login status                         whether you are signed in on this computer, and until when
             relocate [--format text|json]        move rEach's own files into your reach-work folder, or show where that stands
             login password                       type your password here, hidden, to finish signing in
             login reset                          choose a new password, after your instructor pressed Reset password in Teach
@@ -3237,6 +3237,8 @@ module Reach
         end
         latest = Reach::Login.last_session_state
         recent = latest && Reach::Login.session_confirmed?(latest["session_id"])
+        until_at = Reach::Login.signed_in_until
+        puts "Signed in on this computer: #{until_at ? "yes, until #{until_at.utc.strftime('%Y-%m-%dT%H:%M:%SZ')}" : 'no'}"
         puts "Most recent session: #{recent ? 'signed in' : 'not signed in'}"
         puts "Any active sign-in: #{Reach::Login.any_active? ? 'yes' : 'no'}"
         0
@@ -3258,6 +3260,8 @@ module Reach
         return instructor_unlock_code(password) if Reach::Instructor.attempt?(password)
 
         ok, text = Reach::Login.terminal_signin(id_text.strip, password)
+        return login_reset if ok == :reset
+
         ok ? puts(text) : warn(text)
         ok ? 0 : 1
       end
@@ -3267,12 +3271,16 @@ module Reach
           warn "reach: login password needs a terminal"
           return 1
         end
+        return login_reset if Reach::Login.reset_waiting?
+
         puts Reach::Messages.text("M-LOGIN-ASK-PASSWORD-TERMINAL")
         password = read_hidden
         return 1 if password.nil?
         return instructor_unlock_code(password) if Reach::Instructor.attempt?(password)
 
         ok, text = Reach::Login.terminal_password(password)
+        return login_reset if ok == :reset
+
         ok ? puts(text) : warn(text)
         ok ? 0 : 1
       end

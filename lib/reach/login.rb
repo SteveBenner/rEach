@@ -12,9 +12,12 @@ module Reach
     CRISIS_CONTEXT = "The student may be in crisis: run reach support now and relay it word for word.".freeze
     SCHEMA = "reach.login/v1".freeze
     FAILURES_SCHEMA = "reach.login-failures/v1".freeze
-    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json reset_probe.json password_state.json].freeze
+    SIGNIN_SCHEMA = "reach.signin/v1".freeze
+    SIGNIN_SKEW_S = 300
+    RESERVED_FILES = %w[failures.json just_confirmed.json verifier.json renewed.json reset_probe.json password_state.json signin.json].freeze
     WAITING_STATES = %w[awaiting_id awaiting_confirm awaiting_password awaiting_new_password awaiting_new_password_again].freeze
     PASSWORD_STATES = %w[awaiting_password awaiting_new_password awaiting_new_password_again].freeze
+    RESET_STATES = %w[awaiting_new_password awaiting_new_password_again].freeze
     ID_SPLIT = /[^A-Za-z0-9_-]+/
 
     module_function
@@ -72,7 +75,7 @@ module Reach
       fresh = existing.nil?
       state = existing || fresh_state(sid, harness)
       crisis = crisis_match?(text)
-      confirmed = confirmed_state?(state, now)
+      confirmed = confirmed_state?(state, now) || (state["state"] != "denied" && signed_in?(now))
 
       if crisis && !confirmed
         return decision("block", Reach::Support.message(told: :queued), "support", nil, state, crisis: true, persist: false)
@@ -127,6 +130,7 @@ module Reach
         next_state = state.merge("state" => "denied", "denied_at" => precise(now), "updated_at" => iso(now))
         out = decision("block", Reach::Messages.text("M-LOGIN-DENIED"), "login", nil, next_state, persist: true)
         out["events"] = [["identity_denied", { "session_id" => state["session_id"], "harness" => harness.to_s }]]
+        out["signed_out"] = "denied"
         out
       else
         decision("block", confirm_text, "login", nil, state, persist: false)
@@ -142,11 +146,7 @@ module Reach
       if PASSWORD_STATES.include?(state["state"])
         Reach::Password.drop! if Reach::Password.reset_required?
         next_state = without_reset(state).merge("state" => "awaiting_new_password", "reset_required" => Reach::Password.reset_required?, "updated_at" => iso(now))
-        prompt = if harness.to_s == "hermes"
-          Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
-        else
-          Reach::Messages.text("M-LOGIN-RESET-NEW")
-        end
+        prompt = harness.to_s == "hermes" ? terminal_text(next_state) : Reach::Messages.text("M-LOGIN-RESET-NEW")
         out = decision("block", "#{lifted}\n\n#{prompt}", "login", nil, next_state, persist: true)
       elsif state["state"] == "awaiting_confirm"
         out = decision("block", "#{lifted}\n\n#{confirm_text}", "login", nil, state, persist: false)
@@ -172,7 +172,7 @@ module Reach
     def reset_required_decision(state, now, harness)
       Reach::Password.drop!
       next_state = without_reset(state).merge("state" => "awaiting_new_password", "reset_required" => true, "updated_at" => iso(now))
-      text = harness.to_s == "hermes" ? Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password")) : Reach::Messages.text("M-LOGIN-RESET-REQUIRED")
+      text = harness.to_s == "hermes" ? terminal_text(next_state) : Reach::Messages.text("M-LOGIN-RESET-REQUIRED")
       decision("block", text, "login", nil, next_state, persist: true)
     end
 
@@ -210,9 +210,60 @@ module Reach
 
     def confirm(state, now, message_id)
       next_state = confirmed_session_state(state, now)
-      out = decision("block", Reach::Messages.text(message_id, first_name: student["first_name"] || "there"), "login", nil, next_state, persist: true)
+      out = decision("block", Reach::Messages.text(message_id, first_name: student["first_name"] || "there", hours: max_hours), "login", nil, next_state, persist: true)
       out["confirmed_now"] = true
       out
+    end
+
+    def sign_in!(now, sid, harness)
+      write_json(signin_path, {
+        "schema" => SIGNIN_SCHEMA, "state" => "signed_in", "student_id" => enrolled_id, "install_id" => enrolled_install_id,
+        "session_id" => sid.to_s, "harness" => harness.to_s, "signed_in_at" => precise(now), "expires_at" => iso(now + (max_hours * 3600))
+      })
+      sessions.each do |held|
+        waiting = held["session_id"].to_s
+        next if waiting.empty? || waiting == sid.to_s || !WAITING_STATES.include?(held["state"])
+
+        write_session(waiting, confirmed_session_state(held, now))
+        add_just_confirmed(waiting)
+      end
+      nil
+    end
+
+    def sign_out!(reason, now = Time.now.utc)
+      data = signin_record
+      return nil unless data && data["state"] == "signed_in"
+
+      write_json(signin_path, data.merge("state" => "signed_out", "signed_out_at" => precise(now), "reason" => reason.to_s))
+    end
+
+    def signin_path
+      File.join(state_dir, "signin.json")
+    end
+
+    def signin_record
+      data = read_json(signin_path)
+      return nil unless data.is_a?(Hash) && data["schema"] == SIGNIN_SCHEMA
+      return nil if enrolled_id.nil? || data["student_id"] != enrolled_id || data["install_id"] != enrolled_install_id
+
+      data
+    end
+
+    def signed_in_until(now = Time.now.utc)
+      data = signin_record
+      return nil unless data && data["state"] == "signed_in"
+
+      at = Time.iso8601(data["signed_in_at"].to_s)
+      return nil if at > now + SIGNIN_SKEW_S
+
+      until_at = [at + (max_hours * 3600), Time.iso8601(data["expires_at"].to_s)].min
+      until_at > now ? until_at : nil
+    rescue StandardError
+      nil
+    end
+
+    def signed_in?(now = Time.now.utc)
+      !signed_in_until(now).nil?
     end
 
     def without_reset(state)
@@ -220,8 +271,20 @@ module Reach
     end
 
     def password_terminal(state, persist: false)
-      text = Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
-      decision("block", text, "login", nil, state, persist: persist)
+      decision("block", terminal_text(state), "login", nil, state, persist: persist)
+    end
+
+    def terminal_text(state)
+      return Reach::Messages.text("M-LOGIN-RESET-TERMINAL", command: Reach::Runtime.hook_command("login", "reset")) if RESET_STATES.include?(state["state"])
+
+      Reach::Messages.text("M-LOGIN-PASSWORD-TERMINAL", command: Reach::Runtime.hook_command("login", "password"))
+    end
+
+    def reset_waiting?
+      states = sessions.map { |held| held["state"] }
+      !states.include?("awaiting_password") && !(states & RESET_STATES).empty?
+    rescue StandardError
+      false
     end
 
     def evaluate_password(text, state, failures, window, now, harness)
@@ -288,16 +351,12 @@ module Reach
       case Reach::Password.check(Reach::Password.trimmed(password))
       when :unset
         require_reset_sessions(waiting, now)
-        [false, Reach::Messages.text("M-LOGIN-RESET-REQUIRED")]
+        [:reset, nil]
       when :ok
-        waiting.each do |state|
-          out = confirm(state, now, "M-LOGIN-OK")
-          write_session(state["session_id"], out["state"])
-          add_just_confirmed(state["session_id"])
-        end
+        sign_in!(now, nil, "cli")
         clear_failures
         Reach::Progress.mark("setup.signin")
-        [true, Reach::Messages.text("M-LOGIN-TERMINAL-OK")]
+        [true, Reach::Messages.text("M-LOGIN-TERMINAL-OK", hours: max_hours)]
       when :wrong
         out = failed(waiting.first, failures, window_failures(failures, now), now, "cli", "M-LOGIN-PASSWORD-WRONG-TERMINAL")
         commit!(out, event: { "session_id" => waiting.first["session_id"] }, harness: waiting.first["harness"])
@@ -324,12 +383,12 @@ module Reach
       when :unset
         held = fresh_state(sid, "cli").merge("session_id" => sid)
         require_reset_sessions([held], now)
-        [false, Reach::Messages.text("M-LOGIN-RESET-REQUIRED")]
+        [:reset, nil]
       when :ok
-        sign_in_session(sid, "cli")
+        sign_in!(now, sid, "cli")
         clear_failures
         Reach::Progress.mark("setup.signin")
-        [true, Reach::Messages.text("M-LOGIN-OK", first_name: student["first_name"] || "there")]
+        [true, Reach::Messages.text("M-LOGIN-TERMINAL-OK", hours: max_hours)]
       when :wrong
         out = failed(fresh_state(sid, "cli"), failures, window_failures(failures, now), now, "cli", "M-LOGIN-PASSWORD-WRONG-TERMINAL")
         commit!(out, event: { "session_id" => sid }, harness: "cli")
@@ -356,14 +415,10 @@ module Reach
       now = Time.now.utc
       case Reach::Password.reset!(password)
       when :ok
-        sessions.select { |state| PASSWORD_STATES.include?(state["state"]) }.each do |state|
-          out = confirm(state, now, "M-LOGIN-OK")
-          write_session(state["session_id"], out["state"])
-          add_just_confirmed(state["session_id"])
-        end
+        sign_in!(now, nil, "cli")
         clear_failures
         Reach::Progress.mark("setup.signin")
-        [true, Reach::Messages.text("M-LOGIN-TERMINAL-RESET-OK")]
+        [true, Reach::Messages.text("M-LOGIN-TERMINAL-RESET-OK", hours: max_hours)]
       when :not_allowed then [false, Reach::Messages.text("M-LOGIN-RESET-BY-INSTRUCTOR")]
       else [false, Reach::Messages.text("M-LOGIN-PASSWORD-OFFLINE-TERMINAL")]
       end
@@ -441,12 +496,14 @@ module Reach
         write_json(File.join(state_dir, "failures.json"), decision["failures_data"])
       end
       if decision["confirmed_now"]
+        sign_in!(Time.now.utc, sid, harness)
         clear_failures
         add_just_confirmed(sid)
         Reach::Progress.mark("setup.signin")
       end
+      sign_out!(decision["signed_out"]) if decision["signed_out"]
       Array(decision["events"]).each { |kind, detail| queue_event(sid, kind, detail) }
-      if decision["crisis"] && !confirmed_state?(state.is_a?(Hash) ? state : {}, Time.now.utc)
+      if decision["crisis"] && decision["action"] == "block"
         begin
           Reach::Support.queue_from_hook!(harness: harness, space: Reach::Gate.current_space)
         rescue StandardError
@@ -459,14 +516,19 @@ module Reach
     end
 
     def session_confirmed?(session_id)
+      now = Time.now.utc
       state = read_session(session_id)
-      !state.nil? && confirmed_state?(state, Time.now.utc)
+      return signed_in?(now) if state.nil?
+
+      confirmed_state?(state, now) || (state["state"] != "denied" && signed_in?(now))
     rescue StandardError
       false
     end
 
     def any_active?
       now = Time.now.utc
+      return true if signed_in?(now)
+
       hours = max_hours
       latest_confirmed = nil
       latest_denied = nil
@@ -537,6 +599,13 @@ module Reach
     def enrolled_id
       install = Reach::Enroll.current
       install && install["student_id"]
+    rescue StandardError
+      nil
+    end
+
+    def enrolled_install_id
+      install = Reach::Enroll.current
+      install && install["install_id"]
     rescue StandardError
       nil
     end
