@@ -275,6 +275,7 @@ messages:
   M-PACKET-NO-STUDENT: "The sidecar has no student recorded (student.yml is missing or incomplete), so there is nothing to match. Record the student in the sidecar first, then import."
   M-PACKET-NO-EMAIL: "This rEach install does not record the student's email, so the sidecar cannot be matched to it. Enroll again, then import."
   M-PACKET-OTHER-STUDENT: "The sidecar was set up for {email}, which is not the student enrolled here. Only the student who did the work can import it, from their own rEach."
+  M-PACKET-KEPT-COPY: "Your own copies of {count} file(s) the sidecar replaced in {slice} are kept under {folder} in the workspace, next to the checkpoint taken before the import."
   M-PACKET-OTHER-COURSE: "The sidecar's work is for the course {course}, and this rEach is enrolled in {enrolled}, so it cannot be imported here."
   M-PACKET-STALE: "The sidecar was built on {date}, more than {days} days ago, so its course material may be behind; the work imports all the same."
   M-PACKET-NOTHING: "No slice has been started in this sidecar, so there is nothing to import."

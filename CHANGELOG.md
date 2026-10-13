@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The bundled agent-control.yml fallback is re-pinned to the course server's current version 3; imported sidecar answers always carry a digest computed from their text, and sidecar files are copied only from inside the folder they are listed under.
+- The bundled agent-control.yml fallback is re-pinned to the course server's current version 3; imported sidecar answers always carry a digest computed from their text, sidecar files are copied only from inside the folder they are listed under, a plan or scenario file the import replaces is kept under `.reach/before-sidecar-import`, the bundle receipt is read only from a ZIP inside the sidecar folder or the Downloads folder, and a refusal for another student's sidecar masks that student's email.
 
 ## [0.50.12] - 2026-10-11
 

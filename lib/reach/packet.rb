@@ -14,6 +14,7 @@ module Reach
     SKIP_EXACT = [MANIFEST, SIGNATURE, "student.yml"].freeze
     SKIP_PREFIX = ["deliverables/", ".checkpoints/", ".runs/", ".gems/"].freeze
     RECEIPT_FILE = "sidecar-receipt.json".freeze
+    KEPT_DIR = "before-sidecar-import".freeze
     IMPORT_FILE = "sidecar-import.json".freeze
     IMPORT_SCHEMA = "reach.sidecar-import/v1".freeze
     RECEIPT_SCHEMA = "teach.sidecar-receipt/v1".freeze
@@ -238,7 +239,7 @@ module Reach
       email = student["email"].to_s.strip.downcase
       return if email == enrolled || email.split("@").first == enrolled
 
-      raise Reach::Refused, Reach::Messages.text("M-PACKET-OTHER-STUDENT", email: student["email"].to_s.strip)
+      raise Reach::Refused, Reach::Messages.text("M-PACKET-OTHER-STUDENT", email: mask_email(student["email"].to_s.strip))
     end
 
     def load_course(root, slug)
@@ -295,7 +296,7 @@ module Reach
     end
 
     def import_slice(root, rec, result)
-      row = { "slice" => rec["name"], "assignment" => rec["assignment"], "imported" => false, "files" => 0, "checkpoints" => 0, "skipped" => [] }
+      row = { "slice" => rec["name"], "assignment" => rec["assignment"], "imported" => false, "files" => 0, "checkpoints" => 0, "skipped" => [], "kept" => [] }
       workspace = Reach::Workspace.find(cutout_id: rec["cutout_id"], slice: rec["slice"])
       meta = workspace ? Reach::Workspace.metadata(workspace) : {}
       if workspace.nil? || meta["assignment"].to_s != rec["assignment"] || !same_course?(meta["course"], result["course"])
@@ -309,6 +310,9 @@ module Reach
       end
       row["checkpoints"] = replay_checkpoints(rec, workspace, owned)
       row["files"] = copy_current(rec, workspace, owned, row, result)
+      unless row["kept"].empty?
+        result["warnings"] << Reach::Messages.text("M-PACKET-KEPT-COPY", slice: rec["name"], count: row["kept"].length, folder: File.join(Reach::Workspace::MARKER_DIR, KEPT_DIR))
+      end
       Reach::Seal.stamp(workspace)
       Reach::Checkpoint.save(workspace, note: "sidecar import", automatic: true)
       Reach::Ledger.append(workspace, "sidecar_import", "files" => row["files"], "checkpoints" => row["checkpoints"],
@@ -369,13 +373,13 @@ module Reach
           relative = File.join(dir, path[(base.length + 1)..-1])
           next if File.basename(path) == ".keep" || !safe_source?(path, base)
 
-          write_owned(workspace, relative, File.binread(path))
+          write_extra(workspace, relative, File.binread(path), row)
           count += 1
         end
       end
       plan = File.join(rec["path"], "plan.md")
       if safe_source?(plan, rec["path"])
-        write_owned(workspace, "plan.md", File.binread(plan))
+        write_extra(workspace, "plan.md", File.binread(plan), row)
         count += 1
       end
       count
@@ -395,6 +399,17 @@ module Reach
       FileUtils.mkdir_p(File.dirname(full))
       Reach::Workspace.safe_chmod(0o644, full) if File.file?(full)
       File.open(full, "wb") { |file| file.write(data) }
+    end
+
+    def write_extra(workspace, relative, data, row)
+      full = File.join(workspace, relative)
+      if File.file?(full) && File.binread(full) != data
+        kept = File.join(workspace, Reach::Workspace::MARKER_DIR, KEPT_DIR, relative)
+        FileUtils.mkdir_p(File.dirname(kept))
+        FileUtils.cp(full, kept)
+        row["kept"] << relative
+      end
+      write_owned(workspace, relative, data)
     end
 
     def import_answers(root, slug, assignment, course, result)
@@ -471,9 +486,32 @@ module Reach
       history = JSON.parse(File.read(file))
       return nil unless history.is_a?(Array)
 
-      history.select { |entry| entry.is_a?(Hash) && File.file?(entry["path"].to_s) }.map { |entry| entry["path"].to_s }.last
+      allowed = [root, Reach::Archive.downloads_dir].map { |dir| real_dir(dir) }.compact
+      history.select { |entry| entry.is_a?(Hash) && bundle_path?(entry["path"].to_s, allowed) }.map { |entry| entry["path"].to_s }.last
     rescue JSON::ParserError
       nil
+    end
+
+    def real_dir(dir)
+      File.realpath(dir)
+    rescue SystemCallError
+      nil
+    end
+
+    def bundle_path?(path, allowed)
+      return false unless path.end_with?(".zip") && File.file?(path) && !File.symlink?(path)
+
+      real = File.realpath(path)
+      allowed.any? { |dir| real.start_with?(dir + File::SEPARATOR) }
+    rescue SystemCallError
+      false
+    end
+
+    def mask_email(email)
+      local, domain = email.split("@", 2)
+      return "***" if local.to_s.empty?
+
+      "#{local[0, 2]}#{'*' * [local.length - 2, 3].max}#{domain ? "@#{domain}" : ''}"
     end
 
     def read_receipt(zip_path)
