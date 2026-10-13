@@ -26,11 +26,12 @@ The scratch workspace root is `<scratch>/work` (`REACH_WORKSPACE_ROOT`), so prov
 | machine_id | `Reach::Fingerprint.machine_id` is not `unknown` and has the platform's form |
 | sync_packages | `reach sync` exits 0 with no package fetch, course rules or workspace warning; `packages/guardrails/1.pkg` and `packages/workspace/1.pkg` are stored under the scratch `REACH_HOME`; a second `reach sync` makes the fixture answer 304 to both kinds, counted from its `requests.jsonl`; it then waits for Reach's local request budget to refill so doctor's health check is not rate limited |
 | hook_prompt_open | the same gate command exits 0 and does not block once enrolled |
+| codex_course_hook | the PreToolUse exec_command hook rEach wrote to the course folder's `.codex/hooks.json` runs the way Codex runs it, through `powershell.exe -NoProfile -Command` and, when present, `pwsh.exe -NoProfile -Command` on Windows and `sh -c` elsewhere: for `cat $HOME/notes.txt` it exits 0 with a PreToolUse deny as JSON on stdout, and for `ls` it exits 0 with no output (STD-CODEX-WINDOWS-HOOKS) |
 | status | `reach status` names the enrolled student and does not report `fingerprint_mismatch` |
 | runtime | `reach runtime install` and `status` show the pinned runtime and its Ruby 4.0.7; on a platform with no kit the unsupported message is the pass |
 | doctor | runs after runtime so it sees the runtime Chrome; every finding code `reach doctor` prints is in `EXPECTED_DOCTOR_FINDINGS`; with the packages stored, `R-DOC-GUARD` is no longer expected |
 
-Hook commands run through `sh -c` on Linux and macOS and through Git for Windows' `bash.exe` (found next to `git.exe`, never WSL's) on Windows.
+Plugin hook commands run through `sh -c` on Linux and macOS and through Git for Windows' `bash.exe` (found next to `git.exe`, never WSL's) on Windows; codex_course_hook runs the course folder's command through the shells Codex uses.
 
 ## Expected doctor findings
 
@@ -62,7 +63,7 @@ Any other finding fails the step and is printed in full.
 
 ## Groups and the tested matrix
 
-`matrix.rb` groups the steps. `claude-code` is hook_session_start, hook_prompt_locked and hook_prompt_open; `codex` is hook_codex and codex_sandbox_decrypt; every other step belongs to `core`. A group passes when none of its steps failed and at least one passed. `claude-code` and `codex` also need `core` to pass.
+`matrix.rb` groups the steps. `claude-code` is hook_session_start, hook_prompt_locked and hook_prompt_open; `codex` is hook_codex, codex_course_hook and codex_sandbox_decrypt; every other step belongs to `core`. A group passes when none of its steps failed and at least one passed. `claude-code` and `codex` also need `core` to pass.
 
     ruby tools/platform_smoke/matrix.rb --out DIR REPORT.json...
 

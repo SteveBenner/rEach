@@ -11,7 +11,7 @@ module PlatformMatrix
   HARNESSES = %w[core claude-code codex].freeze
   GROUPS = {
     "claude-code" => %w[hook_session_start hook_prompt_locked hook_prompt_open],
-    "codex" => %w[hook_codex codex_sandbox_decrypt]
+    "codex" => %w[hook_codex codex_course_hook codex_sandbox_decrypt]
   }.freeze
 
   class InputError < StandardError; end
