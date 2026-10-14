@@ -538,11 +538,17 @@ module Reach
 
       def call_tool(id, params)
         params = {} unless params.is_a?(Hash)
+        return Reach::Debug.silently { call_tool(id, params) } if !Reach::Debug.silent? && anonymous_feedback?(params)
+
         Reach::SetupLog.unit!
         started = Reach::Debug.clock
         response = run_tool(id, params)
         note_tool(params, response, started)
         with_setup_offer(response)
+      end
+
+      def anonymous_feedback?(params)
+        params["name"] == "reach_feedback" && params["arguments"].is_a?(Hash) && params["arguments"]["anonymous"] == true
       end
 
       def note_tool(params, response, started)

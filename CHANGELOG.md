@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.10] - 2026-10-13
+
+### Fixed
+
+- The `reach_feedback` MCP tool asking for an anonymous note now runs inside `Reach::Debug.silently` like the `reach feedback` command, so a failure while asking records no fault (W-SAFE-7, W-FB-3).
+
 ## [0.52.9] - 2026-10-13
 
 ### Changed
@@ -40,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - An anonymous note could be matched to the install by time: the prompt hook that took the student's yes still wrote its hook, gate and command debug events, and the note carried its written time to the second. While an anonymous feedback question waits (at most an hour), every `reach gate` run is silent in debug mode, and an anonymous note goes to the course server with only its day as `written_at`.
-- A sent note no longer keeps its send key, and an anonymous one no longer keeps its feedback id, once the course server accepts or refuses it, so the key cannot later be matched against the server's retry digest. Notes sent by earlier versions lose them at the next change to `feedback.json`.
+- A sent note no longer keeps its send key, and an anonymous one no longer keeps its feedback id, once the course server accepts or refuses it, so the key cannot later be matched against the server's retry records. Notes sent by earlier versions lose them at the next change to `feedback.json`.
 - The wire contract (revision 2026-10-13d, W-SAFE-7, W-FB-3, W-API-FEEDBACK), `reach.spec.yml` and `STD-REQUEST-LOG` and `STD-FEEDBACK` say that feedback requests are never logged and what rEach forgets about an anonymous note.
 
 ## [0.52.3] - 2026-10-13
