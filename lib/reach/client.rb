@@ -529,6 +529,8 @@ module Reach
     end
 
     def log_request(method, route, status, duration_ms, retry_count)
+      return nil if Reach::Debug.silent? || Reach::Debug::SILENT_ROUTES.any? { |prefix| route.to_s.start_with?(prefix) }
+
       FileUtils.mkdir_p(Reach::Paths.logs_dir)
       self.class.scrub_requests_log_once!
       record = {

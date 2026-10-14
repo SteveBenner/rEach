@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.3] - 2026-10-13
+
+### Fixed
+
+- A feedback note's delivery is no longer written to the local request log (`logs/requests.jsonl`), and `reach feedback` writes no setup-log command record, so nothing on the student's computer ties an anonymous note's send time to the install either.
+- `PRIVACY.md` says what the course server actually promises for an anonymous note: it is stored without the student's name, student ID or computer, and the server's own request records do not link it to the computer, while the network in front of the server may keep ordinary connection records.
+- The registry version in `FEATURES.md` matches the release.
+
 ## [0.52.2] - 2026-10-13
 
 ### Fixed

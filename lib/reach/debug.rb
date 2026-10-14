@@ -522,11 +522,13 @@ module Reach
 
     def command(argv, exit_value, started, raised = nil)
       raised ||= @noted
+      return nil if silent? || argv.first.to_s == "feedback"
+
       Reach::SetupLog.command(argv, exit_value, elapsed_ms(started), raised)
       return nil unless on?
 
       name = argv.first.to_s
-      return nil if name == "debug" || name == "feedback"
+      return nil if name == "debug"
 
       rest = argv.drop(1)
       flags = rest.select { |token| token.start_with?("--") }.map { |token| token.split("=", 2).first }.select { |token| token.match?(/\A--[a-z][a-z-]{0,30}\z/) }
