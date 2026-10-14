@@ -547,6 +547,7 @@ module Reach
     end
 
     def hook(event, decision, rule, started)
+      return nil if silent?
       return nil unless on? || Reach::SetupLog.active?
 
       space = begin

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.5] - 2026-10-13
+
+### Fixed
+
+- `Reach::Debug.hook` checks the silent scope itself, so a hook turn while an anonymous feedback question waits writes no hook record to the setup log either, without relying on the setup log being off for an enrolled install.
+
 ## [0.52.4] - 2026-10-13
 
 ### Fixed
