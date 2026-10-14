@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.8] - 2026-10-13
+
+### Changed
+
+- W-SAFE-7 (wire revision 2026-10-13d) promises silence only for an anonymous note: a named note's debug events follow W-FB-2, as the code and `STD-FEEDBACK` already say.
+
 ## [0.52.7] - 2026-10-13
 
 ### Changed
