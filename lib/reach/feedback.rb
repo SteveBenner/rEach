@@ -22,7 +22,7 @@ module Reach
     end
 
     def label(category)
-      Reach::Messages.text("M-FEEDBACK-CATEGORY-#{category.to_s.upcase}")
+      Reach::Messages.text(["M-FEEDBACK-CATEGORY", category.to_s.upcase].join("-"))
     rescue StandardError
       category.to_s
     end
@@ -275,7 +275,7 @@ module Reach
     def row_text(entry)
       words = entry["message"].to_s.gsub(/\s+/, " ").strip
       preview = words.length > ROW_PREVIEW ? "#{words[0, ROW_PREVIEW]}..." : words
-      status = Reach::Messages.text("M-FEEDBACK-STATE-#{entry["state"].to_s.upcase}")
+      status = Reach::Messages.text(["M-FEEDBACK-STATE", entry["state"].to_s.upcase].join("-"))
       "#{label(entry["category"])}: \"#{preview}\" (#{status})"
     end
   end
