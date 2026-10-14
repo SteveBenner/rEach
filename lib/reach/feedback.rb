@@ -147,7 +147,7 @@ module Reach
 
       sent = 0
       entries.select { |item| item["state"] == "pending" }.each do |entry|
-        break unless entry["idempotency_key"].to_s != "" && entry["message"].to_s != ""
+        next unless entry["idempotency_key"].to_s != "" && entry["message"].to_s != ""
 
         result = post(install, entry)
         break if result["state"] == "pending"
@@ -255,6 +255,8 @@ module Reach
     end
 
     def event(entry, state, outcome, extra = {})
+      return nil if entry && entry["anonymous"] == true
+
       fields = { "what" => "feedback", "state" => state, "outcome" => outcome }
       fields["category"] = entry["category"] if entry
       fields["feedback_id"] = entry["feedback_id"] if entry && entry["feedback_id"]

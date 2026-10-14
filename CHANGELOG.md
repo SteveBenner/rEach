@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.1] - 2026-10-13
+
+### Fixed
+
+- An anonymous feedback note could be tied to the student through rEach's debug reports, which the course server receives under the install's key: `Reach::Feedback.event` writes nothing for an anonymous note, and `reach feedback` writes no command event at all, so neither the note's id nor its category and time sit next to the install (W-FB-3).
+- `PRIVACY.md` says plainly that the course server knows which computer sends an anonymous note while it receives it, and keeps no record of who sent it.
+- A saved note missing its key or text no longer stops the newer notes behind it from being sent (`Reach::Feedback.retry_pending!` skips it).
+
 ## [0.52.0] - 2026-10-13
 
 ### Added

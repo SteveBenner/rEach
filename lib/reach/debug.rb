@@ -511,12 +511,11 @@ module Reach
       return nil unless on?
 
       name = argv.first.to_s
-      return nil if name == "debug"
+      return nil if name == "debug" || name == "feedback"
 
       rest = argv.drop(1)
       flags = rest.select { |token| token.start_with?("--") }.map { |token| token.split("=", 2).first }.select { |token| token.match?(/\A--[a-z][a-z-]{0,30}\z/) }
       flags &= %w[--answer --format] if name == "extra-credit"
-      flags &= %w[--category --anonymous --format] if name == "feedback"
       sub = rest.first.to_s
       sub = nil unless SUBCOMMAND_COMMANDS.include?(name) && sub.match?(/\A[a-z][a-z-]{0,23}\z/)
       emit(
