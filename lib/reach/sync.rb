@@ -133,6 +133,14 @@ module Reach
           end
 
           begin
+            Reach::Feedback.retry_pending!
+            pulled = Reach::Feedback.pull!
+            summary["feedback"] = pulled["items"] if pulled
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not sync your feedback (#{Reach::Link.reason(e, "sync")})"
+          end
+
+          begin
             summary["hand_replies"] = Reach::Hands.poll_replies
           rescue StandardError => e
             summary["warnings"] << "reach: could not check for hand replies (#{Reach::Link.reason(e, "sync")})"

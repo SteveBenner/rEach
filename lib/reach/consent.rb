@@ -6,7 +6,7 @@ require "rbconfig"
 module Reach
   module Consent
     SCHEMA = "reach.consent/v1".freeze
-    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup harness_move profile_share transcripts_forget].freeze
+    KINDS = %w[module_lock transfer_request submission compaction export_import live_session live_action live_send codex_setup harness_move profile_share transcripts_forget feedback_send].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
 
@@ -314,6 +314,12 @@ module Reach
         return observed["answer"] == "yes" ? Reach::Messages.text("M-TRANSCRIPTS-FORGET-YES-AGENT") : Reach::Messages.text("M-TRANSCRIPTS-FORGET-DECLINED")
       end
 
+      if observed["kind"] == "feedback_send"
+        return Reach::Messages.text("M-FEEDBACK-DECLINED") unless observed["answer"] == "yes"
+
+        return Reach::Feedback.send!(subject, quick: true)["text"]
+      end
+
       if observed["kind"] == "compaction"
         return observed["answer"] == "yes" ? Reach::Messages.text("M-STORAGE-COMPACT-YES-AGENT") : Reach::Messages.text("M-STORAGE-COMPACT-DECLINED")
       end
@@ -368,7 +374,11 @@ module Reach
     end
 
     def spawn_flush(kind)
-      command = kind == "module_lock" ? %w[modules --flush] : %w[transfer --flush]
+      command = case kind
+                when "module_lock" then %w[modules --flush]
+                when "feedback_send" then %w[feedback --flush]
+                else %w[transfer --flush]
+                end
       exe = File.expand_path("../../exe/reach", __dir__)
       Reach::Runtime.spawn_background(RbConfig.ruby, exe, *command)
     rescue StandardError

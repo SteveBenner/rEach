@@ -20,7 +20,7 @@ module Reach
     LATE_SUBMISSION = "late_submission".freeze
     AGENT_TYPES = %w[
       student_request concept_question assignment_question deadline_question grade_question submission_question
-      technical_issue setup_issue access_issue extension_request feedback integrity_question other
+      technical_issue setup_issue access_issue extension_request integrity_question other
     ].freeze
     NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
     TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES).freeze
@@ -80,6 +80,8 @@ module Reach
 
       def validate_type!(type)
         return type.to_s if TYPES.include?(type.to_s)
+
+        raise Reach::Refused, Reach::Messages.text("M-HAND-TYPE-FEEDBACK") if type.to_s == "feedback"
 
         raise Reach::Refused, Reach::Messages.text("M-HAND-TYPE-UNKNOWN", type: type.to_s, types: AGENT_TYPES.join(", "))
       end

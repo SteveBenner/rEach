@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.0] - 2026-10-13
+
+### Added
+
+- Feedback to instructors (`STD-FEEDBACK`, wire revision 2026-10-13d, W-API-FEEDBACK, W-API-FEEDBACK-LIST, W-FB-1..5): a student tells the agent something that can wait, and rEach sends it as a note in one of eight kinds (general, praise, idea, request, question, complaint, problem, pace), named by default or anonymous. `lib/reach/feedback.rb`, `reach feedback send|list`, the `reach_feedback` and `reach_feedback_list` MCP tools and the `reach-feedback` skill. rEach shows the exact note, its kind and whether it carries the student's name, and sends it only after the student's own typed yes (consent kind `feedback_send`, used once). An anonymous note's question says the instructors cannot write back, that a small class may still tell who wrote it, and that a course chat it was typed in is recorded as usual.
+- An unsent note is kept in `feedback.json` (0600) and sent again on every `reach sync` with the same key; the prompt hook makes one quick attempt and leaves the rest to a detached `reach feedback --flush`. `reach sync` and the background session refresh read the instructors' state and replies, and the agent is told once of each reply and each note they act on.
+- `G-REACH-OUT`: once an enrolled student is past the interview, the session greeting explains once, in the plainest words, raising a hand ("just like raising your hand in class") and sending feedback ("like dropping a note in a suggestion box") with the eight kinds.
+
+### Changed
+
+- `feedback` is no longer a hand type the agent can pick: `reach hand raise --type feedback` is refused with M-HAND-TYPE-FEEDBACK, which points to the feedback note instead (STD-HAND-TYPES). The persona (`skills/reach-assistant`, `agents/reach.md`) and `skills/reach-help` say a note that can wait is feedback, not a hand.
+- Debug command events for `reach feedback` keep only `--category`, `--anonymous` and `--format`, and the setup log redacts a `reach feedback` command's arguments, so the note's words are never recorded.
+
 ## [0.51.12] - 2026-10-13
 
 ### Added

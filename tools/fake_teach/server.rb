@@ -116,6 +116,8 @@ module FakeTeach
       @replays = {}
       @hands = []
       @hand_replays = {}
+      @feedback = []
+      @feedback_replays = {}
       @packages = {}
     end
 
@@ -225,6 +227,57 @@ module FakeTeach
       end
     rescue JSON::ParserError
       raise Failure.new(400, "invalid_request", "body is not valid JSON")
+    end
+
+    FEEDBACK_CATEGORIES = %w[general praise suggestion request question complaint problem pace].freeze
+
+    def create_feedback(req, body)
+      install = authenticate!(req, body)
+      key = req["Idempotency-Key"].to_s
+      raise Failure.new(400, "invalid_request", "Idempotency-Key is required") if key.empty?
+      raise Failure.new(503, "unavailable", "feedback is switched off", headers: { "Retry-After" => "300" }) if ENV["FAKE_TEACH_FEEDBACK_DISABLE"].to_s == "1"
+
+      request = parse_body(body)
+      unless (request.keys - %w[category message anonymous written_at]).empty? && FEEDBACK_CATEGORIES.include?(request["category"]) &&
+             request["message"].is_a?(String) && !request["message"].strip.empty? && request["message"].bytesize <= 4000 &&
+             [true, false].include?(request["anonymous"])
+        raise Failure.new(400, "invalid_request", "feedback is not valid")
+      end
+
+      @mutex.synchronize do
+        replay_key = [install["student_id"], key]
+        replay = @feedback_replays[replay_key]
+        next replay if replay
+
+        id = "fb_#{SecureRandom.hex(10)}"
+        received = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        @feedback << {
+          "feedback_id" => id, "student_id" => request["anonymous"] ? nil : install["student_id"], "category" => request["category"],
+          "anonymous" => request["anonymous"], "received_at" => received
+        }
+        answer = { "feedback_id" => id, "state" => "new", "received_at" => received }
+        @feedback_replays[replay_key] = answer
+        answer
+      end
+    end
+
+    def list_feedback(req, body)
+      install = authenticate!(req, body)
+      raise Failure.new(503, "unavailable", "feedback is switched off", headers: { "Retry-After" => "300" }) if ENV["FAKE_TEACH_FEEDBACK_DISABLE"].to_s == "1"
+
+      path = File.join(@home, "feedback.json")
+      config = File.file?(path) ? JSON.parse(File.read(path)) : {}
+      raise Failure.new(404, "not_found", "no such route") if config["mode"] == "404"
+
+      overrides = config["items"].is_a?(Hash) ? config["items"] : {}
+      rows = @feedback.select { |row| row["student_id"] == install["student_id"] }.reverse.first(100).map do |row|
+        over = overrides[row["feedback_id"]].is_a?(Hash) ? overrides[row["feedback_id"]] : {}
+        {
+          "feedback_id" => row["feedback_id"], "category" => row["category"], "state" => over["state"] || "new",
+          "reply" => over["reply"], "updated_at" => over["updated_at"] || row["received_at"]
+        }
+      end
+      { "entries" => rows, "as_of" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") }
     end
 
     def open_hand_bundle(install, envelope)
@@ -814,6 +867,10 @@ module FakeTeach
         @store.raise_hand(req, body)
       elsif method == "GET" && path =~ %r{\A/api/v1/hands/([A-Za-z0-9_]+)\z}
         @store.hand_state(req, body, Regexp.last_match(1))
+      elsif method == "POST" && path == "/api/v1/feedback"
+        @store.create_feedback(req, body)
+      elsif method == "GET" && path == "/api/v1/feedback"
+        @store.list_feedback(req, body)
       elsif method == "GET" && path == "/api/v1/known-issues"
         @store.rate_limit!(req.peeraddr[3])
         @store.known_issues(req)

@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.51.12 |
+| **Registry version** | 0.52.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 103 catalogued |
+| **Feature count** | 104 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 95 | 92% |
+| ✅ Shipped | 96 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 80 | 78% |
+| 🔵 Built, not enabled | 81 | 78% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -1115,6 +1115,27 @@ request that followed was answered with exit 0; an announcement whose `show_unti
 the expired listing in `reach announcements` output, macOS, Windows and a real harness session.
 
 Build ✅ · Deploy 🟢 Live (0.37.0 Latest and stable, 2026-10-06; Teach 0.64.0 live). · Blocker: -.
+
+### 2.54 · Feedback to instructors
+
+Since 0.52.0 (wire 2026-10-13d, `STD-FEEDBACK`) a student tells the agent something that can wait and rEach sends it to
+the instructors as a feedback note in one of eight kinds (general, praise, idea, request, question, complaint, problem,
+pace), named by default or anonymous: `reach feedback send|list` and the `reach_feedback` and `reach_feedback_list`
+tools. rEach shows the exact note, its kind and named or anonymous, and sends only after the student's own typed yes
+(consent kind `feedback_send`, consumed once). An unsent note stays in `feedback.json` and is retried on every sync;
+instructor replies and notes marked acted reach the agent once. A hand of type `feedback` is refused and pointed here.
+`G-REACH-OUT` explains, once after onboarding and in the plainest words, raising a hand and the eight kinds of feedback.
+Exercised against `tools/fake_teach` and scratch homes on Linux (ask, captured yes, offline pending, retry, pull, reply
+and acted news once, greeting once, MCP tools); not yet run against a real Teach.
+
+STUDENT1ST audit: learning yes (a side channel; the agent never writes or improves the student's words) · agency yes
+(exact note shown, the student's typed yes sends) · wellbeing yes (distress still goes to support and hands; a complaint
+opens a desk ticket so it is seen) · privacy yes (anonymous notes carry no identity, and the student is told what
+anonymity does not hide) · fairness yes (same command, tool and chat flow on every app and OS) · friction yes (one
+sentence and one yes; the notice shows once) · failure yes (an unsent note stays saved and is retried) · recovery yes
+(change or drop it before the yes; `reach feedback list` shows each note's state).
+
+Build ✅ · Deploy 🔵 · Blocker: -.
 
 ## 3 · Course reference
 

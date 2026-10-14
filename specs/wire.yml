@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-13'
-revision: 2026-10-13c
+revision: 2026-10-13d
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -994,7 +994,7 @@ routes:
     request:
       cutout_id: string
       slice: {enum: [backend, panel, verification]}
-      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1)"}
+      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1); feedback is not sent by Reach of 2026-10-13d and later, which uses W-API-FEEDBACK (W-FB-1), and Teach keeps accepting it from older Reach"}
       originator: {enum: [agent, student, reach], required: false, note: "since 2026-09-29d; absent means student; reach since 2026-10-03c, on an issue hand only (W-ISSUE-1)"}
       summary: {type: string, maxBytes: 2000}
       bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2; reach.issue/v1 on an issue hand, W-ISSUE-4)
@@ -1109,6 +1109,39 @@ routes:
       as_of: W-CONV-3 timestamp of the answer
     errors: {503: unavailable when Teach's extra-credit kill switch is on}
     notes: Teach that predates the revision answers 404, which Reach treats as no extra credit recorded on Teach yet.
+  - id: W-API-FEEDBACK
+    method: POST
+    path: /api/v1/feedback
+    auth: install
+    since: 2026-10-13d
+    request_headers:
+      Idempotency-Key: Required, as for submissions; a retry of one feedback item reuses its key.
+    request:
+      category: {enum: [general, praise, suggestion, request, question, complaint, problem, pace], note: W-FB-1}
+      message: {type: string, minLength: 1, maxBytes: 4000, note: "the student's own words, trimmed, as the student approved them (W-FB-2)"}
+      anonymous: {type: boolean, note: W-FB-3}
+      written_at: W-CONV-3 timestamp of when the student approved sending it
+    response_200: {feedback_id: "string, fb_ + 20 lowercase hex", state: "new", received_at: W-CONV-3 timestamp}
+    errors:
+      400 invalid_request: a field outside the request, an unknown category, an empty or oversized message, or anonymous not a boolean
+      429 rate_limited: over 10 feedback items per hour per install
+      503 unavailable: Teach's feedback kill switch is on
+    notes: >-
+      A repeat with the same Idempotency-Key answers 200 with the stored feedback_id, state and received_at. Teach that
+      predates the revision answers 404, which Reach treats like 503 and 429: the item stays pending and a later
+      reach sync sends it again with the same key.
+  - id: W-API-FEEDBACK-LIST
+    method: GET
+    path: /api/v1/feedback
+    auth: install
+    since: 2026-10-13d
+    response_200:
+      entries: "[{feedback_id, category, state, reply, updated_at}] for the install's own student's named items in this course, newest first, at most 100; reply is null or {message, answered_at}"
+      as_of: W-CONV-3 timestamp of the answer
+    errors: {503: unavailable when Teach's feedback kill switch is on}
+    notes: >-
+      Anonymous items are never listed: Teach does not know whose they are (W-FB-3). Teach that predates the revision
+      answers 404, which Reach treats as nothing to update.
   - id: W-API-INTEGRITY
     method: POST
     path: /api/v1/integrity
@@ -2941,3 +2974,50 @@ known_issues:
       Codex harness, outside a pending sign-in, when a handler of the current course folder's hooks.json is untrusted
       or modified in the student's Codex settings, so Codex skips it); its remedy is codex_configure. A detector name
       Reach does not implement is never detected; its entry is still listed.
+feedback:
+  since: 2026-10-13d
+  W-FB-1:
+    name: categories
+    rule: >-
+      A feedback item is a note from a student to the course's instructors that needs no answer to keep working. Its
+      category is one of general (how the course is going), praise (something that worked well), suggestion (an idea
+      to make the course better), request (asking for something), question (a question that can wait), complaint
+      (something frustrating or unfair), problem (something broken or wrong, such as a typo or a dead link) and pace
+      (too fast, too slow or too much work). Something that blocks the student, or that needs a person now, is a hand
+      (W-API-HAND), never feedback. Since this revision Reach no longer sends the hand trigger feedback.
+  W-FB-2:
+    name: sending
+    rule: >-
+      Reach sends an item only after the student's own yes. Reach asks the question itself, showing the category,
+      whether the item is named or anonymous, and the message exactly as it will be sent; only a yes the student
+      types in the session that asked counts (the consent rule of STD-CONSENT-FROM-REACH), and an agent-supplied
+      answer sends nothing. Reach saves the item as pending in the feedback list under its state directory (0600)
+      before it posts W-API-FEEDBACK, keeps it pending through a transport failure, 404, 429 or 5xx, and retries it on
+      every reach sync with the same Idempotency-Key; an error code ends it as refused. A debug event about feedback
+      carries feedback_id, category, state and outcome, never the message (W-DBG-SCRUB).
+  W-FB-3:
+    name: anonymity
+    rule: >-
+      The student chooses named or anonymous for each item; named is the default. For an anonymous item Teach stores
+      the course, the category, the message and its own times, and no student, install, name or address: not in the
+      item, not in an audit record and not in a log line. To answer a retry it keeps only the W-CONV-4 digest of the
+      install id, a colon and the Idempotency-Key. An anonymous item cannot be answered and is never listed by
+      W-API-FEEDBACK-LIST. Reach tells the student before they say yes that anonymous means no name on the note, that
+      in a small class the words may still show who wrote them, and that a course chat they typed it in is still
+      recorded like every course chat (STD-TRANSCRIPT).
+  W-FB-4:
+    name: status and reply
+    rule: >-
+      An item's state is new, seen (an instructor opened it), acted (the instructors did something about it) or
+      closed. An instructor may write one reply, at most 4000 characters, to a named item; a later reply replaces it.
+      reach sync and reach hello read W-API-FEEDBACK-LIST and make the local named items' state and reply equal
+      Teach's; the agent is told once, in plain words, of each new reply and of each item that became acted.
+  W-FB-5:
+    name: what Teach does with it
+    rule: >-
+      Teach shows every item on the console's Feedback page, named items with the student and anonymous items as
+      Anonymous student, counts the new items beside the page in the console's navigation, and marks an item seen when
+      an instructor opens it. A complaint also opens a service-desk ticket clock that an instructor meets by marking it
+      seen, acted or closed. Teach adds each item to its chat event feed as a card with the scopes course:<course id>,
+      type:feedback and feedback:<category>; a linked chat shows it at its own detail level, never shows a name for an
+      anonymous item, and an instructor with a linked identity can mark it seen or reply to a named item from the card.

@@ -18,7 +18,7 @@ module Reach
     ENV_DROP = /token|key|secret|password|passphrase|signature|pem|credential|passkey|course_code|enroll_code|enrollment_code/i.freeze
     HEADER_DROP = /\A(?:authorization|proxy-authorization|cookie|set-cookie)\z/i.freeze
     URL_USERINFO = %r{(?<=://)[^/@\s]+@}.freeze
-    TYPED_COMMANDS = %w[enroll enrol login remember hand instructor memory profile support live].freeze
+    TYPED_COMMANDS = %w[enroll enrol login remember hand instructor memory profile support live feedback].freeze
     BARE_TYPED_COMMANDS = %w[enroll enrol login remember hand].freeze
     SUCCESS_COMMANDS = %w[setup runtime update enroll enrol].freeze
     FAILURE_IDS = %w[

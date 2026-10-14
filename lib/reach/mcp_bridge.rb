@@ -308,6 +308,24 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_feedback",
+        "description" => "Ask to send the student's instructors a feedback note: a category (general, praise, suggestion, request, question, complaint, problem or pace), the student's own words exactly as they said them, and whether it goes anonymously. This only shows the student the note and asks; nothing is sent until the student types yes themselves. Relay Reach's question word for word and stop",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "category" => { "type" => "string", "enum" => Reach::Feedback::CATEGORIES },
+            "message" => { "type" => "string" },
+            "anonymous" => { "type" => "boolean", "default" => false }
+          },
+          "required" => %w[category message]
+        }
+      },
+      {
+        "name" => "reach_feedback_list",
+        "description" => "List the feedback notes the student has sent and whether each is waiting to be sent, received, seen, acted on or closed",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_debug",
         "description" => "Turn rEach's debug mode on (action on, optional minutes), off (action off) or show whether it is on (action status, the default); export saves a setup report to Downloads for the student to send to their instructor; works where the harness's shell is sandboxed. Tell the student the text in plain words",
         "inputSchema" => {
@@ -403,7 +421,7 @@ module Reach
     UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update reach_setup reach_transcripts].freeze
     READ_ONLY_TOOLS = %w[
       reach_status reach_receipts reach_shape_check reach_check reach_hand_status reach_profile_show reach_enroll
-      reach_directive reach_reference reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements
+      reach_directive reach_reference reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements reach_feedback_list
       reach_known_issues
     ].freeze
     DESTRUCTIVE_TOOLS = %w[reach_profile_forget reach_memory_forget reach_transcripts reach_storage].freeze
@@ -742,6 +760,12 @@ module Reach
           result.merge("message" => result["text"])
         when "reach_extra_credit_list"
           result = Reach::ExtraCredit.list
+          result.merge("message" => result["text"])
+        when "reach_feedback"
+          result = Reach::Feedback.ask(category: arguments["category"], message: arguments["message"], anonymous: arguments["anonymous"] == true)
+          result.merge("message" => result["text"])
+        when "reach_feedback_list"
+          result = Reach::Feedback.list
           result.merge("message" => result["text"])
         when "reach_import"
           import_tool(arguments)

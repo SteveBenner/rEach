@@ -392,6 +392,8 @@ module Reach
           cmd_grade(args)
         when "extra-credit"
           cmd_extra_credit(args)
+        when "feedback"
+          cmd_feedback(args)
         else
           warn "reach: unknown command #{command.inspect}"
           print_usage
@@ -432,9 +434,10 @@ module Reach
             submit [--slice ...]                 ask the student, then submit and wait for the receipt
             submit archive [--assignment A]      save the ZIP of a submitted assignment to Downloads again (the student must also upload it to the course's learning system)
             receipts [wait|show|acks]            receipts
-            hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other)
+            hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, integrity_question, other)
             grade [--format text|json]           the points recorded for the student in Teach
             extra-credit CODE ANSWER... | extra-credit CODE --answer TEXT | extra-credit list [--format text|json]   turn in an extra-credit answer, or list what was turned in
+            feedback send --category C --message TEXT [--anonymous] [--format text|json] | feedback list [--format text|json]   show the note to send to your instructors and ask the student; send nothing until they say yes, or list what was sent (C is one of general, praise, suggestion, request, question, complaint, problem, pace)
             transcripts export [--format text|json]   save a ZIP of the student's recorded assignment conversations to Downloads (works after the course has ended)
             transcripts forget                       delete every local conversation copy after a yes, and save a receipt
             watch [--slice ...]                  polling shape-check backstop for Codex
@@ -1583,6 +1586,31 @@ module Reach
         result = Reach::ExtraCredit.redeem(code: code, answer: answer)
         puts((options[:format] || "text") == "json" ? JSON.generate(result) : result["text"])
         result["state"] == "refused" ? 1 : 0
+      end
+
+      def cmd_feedback(args)
+        verb = args.first
+        if verb == "--flush"
+          Reach::Feedback.retry_pending!
+          return 0
+        end
+
+        if verb == "list"
+          options, _remaining = parse_flags(args.drop(1), [:format])
+          result = Reach::Feedback.list
+          puts((options[:format] || "text") == "json" ? JSON.generate(result) : result["text"])
+          return 0
+        end
+
+        unless verb == "send"
+          warn "usage: reach feedback send --category C --message TEXT [--anonymous] [--format text|json] | reach feedback list [--format text|json]"
+          return 1
+        end
+        anonymous, rest = parse_bare_flag(args.drop(1), "anonymous")
+        options, _remaining = parse_flags(rest, [:category, :message, :format])
+        result = Reach::Feedback.ask(category: options[:category], message: options[:message], anonymous: anonymous)
+        puts((options[:format] || "text") == "json" ? JSON.generate(result) : result["text"])
+        0
       end
 
       def cmd_submit(args)

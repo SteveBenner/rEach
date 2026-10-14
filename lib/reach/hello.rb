@@ -153,6 +153,8 @@ module Reach
       Reach::Locks.refill!
       safe_late_retry
       Reach::Locks.refill!
+      Reach::Feedback.pull_if_due!
+      Reach::Locks.refill!
       Reach::CourseCorpus.ingest_if_changed(admit: false)
       Reach::Locks.refill!
       storage = Reach::Locks.free?(Reach::Paths.storage_lock_file("state")) ? safe_storage_context : nil
@@ -311,6 +313,9 @@ module Reach
       if greeting_text && safe_memory_notice_due?
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-MEMORY-NOTICE")}"
         Reach::Brain.memory_notice_shown!
+      elsif greeting_text && safe_reach_out_due?(greeting_id)
+        greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-REACH-OUT")}"
+        Reach::Feedback.reach_out_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
       context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session)
@@ -349,6 +354,24 @@ module Reach
       Reach::Brain.memory_notice_due?
     rescue StandardError
       false
+    end
+
+    def safe_reach_out_due?(greeting_id)
+      return false if greeting_id.nil? || INTERVIEW_GREETINGS.include?(greeting_id) || greeting_id == "G-LOGIN"
+      return false unless safe_enrol_current
+      return false unless %w[complete skipped partial].include?(Reach::Profile.load["status"])
+
+      Reach::Feedback.reach_out_due?
+    rescue StandardError
+      false
+    end
+
+    def safe_feedback_lines
+      return [] unless safe_enrol_current
+
+      Reach::Feedback.news_lines
+    rescue StandardError
+      []
     end
 
     def safe_storage_context
@@ -700,6 +723,7 @@ module Reach
       entries << ["hello.profile", interview] if interview
       entries << ["hello.course", course_line]
       entries.concat(alignment_lines)
+      safe_feedback_lines.each { |line| entries << ["hello.session", line] }
       late = safe_late_line(workspace)
       entries << ["hello.late_work", late] if late
       memory = safe_session_context

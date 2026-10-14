@@ -85,6 +85,7 @@ rEach runs inside an AI app the student chooses, and that app's terms and its pr
   - [Announcements and course updates](#announcements-and-course-updates)
   - [Course controls and tests](#course-controls-and-tests)
   - [Extra credit](#extra-credit)
+  - [Feedback](#feedback)
   - [When Teach can't be reached](#when-teach-cant-be-reached)
 - [Course reference](#course-reference)
 - [Doctor](#doctor)
@@ -411,10 +412,22 @@ When the instructor texts a student an extra-credit code, the student gives it t
 it to Teach, or keeps it until the next sync when Teach cannot be reached. `reach extra-credit list` shows what is
 recorded. Only this part of the profile goes to Teach; the getting-to-know-you answers never leave the computer.
 
+### Feedback
+
+A student can send the instructors a note about anything that can wait, by just telling the agent: general thoughts,
+praise, an idea, a request, a question, a complaint, a problem such as a typo or a dead link, or how the pace feels.
+rEach shows the student the exact note, its kind and whether it goes with their name or anonymously, and sends it only
+after the student says yes. Instructors read it in Teach and can mark it seen or acted on, and reply to a named note;
+rEach passes a reply on in the next session. Something that blocks the student, or needs a person now, is a raised hand
+instead. Once a student has finished getting set up, rEach explains both ways of reaching the instructors, once, in
+plain words.
+
 ```
 reach grade [--format json]                     the points recorded in Teach
 reach submit archive [--assignment A]           make the assignment's ZIP again
 reach hand raise --type T ...                   raise a hand of a given type
+reach feedback send --category C --message M    ask to send a feedback note (add --anonymous)
+reach feedback list                             the notes sent and their state
 ```
 
 ### When Teach can't be reached

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.51.12
+version: 0.52.0
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1029,9 +1029,11 @@ hand_raising:
   command: reach hand raise [--type student_request] [--summary ...] [--slice ...] [--include-profile]
   types: >-
     Since 0.19.0 (STD-HAND-TYPES, W-HAND-TYPES) Reach::Hands::TYPES lists attempt_gate, attempt_ladder, check_gate,
-    wellbeing, late_work, late_submission and the thirteen agent-chosen types (Reach::Hands::AGENT_TYPES:
+    wellbeing, late_work, late_submission and the agent-chosen types (Reach::Hands::AGENT_TYPES:
     student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question,
-    technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other). --type (the
+    technical_issue, setup_issue, access_issue, extension_request, integrity_question, other; feedback until 0.52.0,
+    since when a raised type of feedback is refused with M-HAND-TYPE-FEEDBACK and the note goes through
+    reach feedback, W-FB-1). --type (the
     reach_raise_hand tool's type; trigger remains an alias) names one; an unknown type is refused with
     M-HAND-TYPE-UNKNOWN before any network call. The fourteen types newer than the previous wire revision go out as
     themselves only when the cached status's wire_contract_sha256 equals the digest of this Reach's own specs/wire.yml
@@ -1057,6 +1059,29 @@ hand_raising:
     Polled every 60 seconds while a hand is open, and on every reach status; delivered to the agent through the
     MCP bridge and shown to the student; a suggested patch is applied only with the student's agreement and only
     to owned files.
+feedback:
+  since: 0.52.0 (wire 2026-10-13d, W-API-FEEDBACK, W-API-FEEDBACK-LIST, W-FB-1..5, STD-FEEDBACK)
+  command: >-
+    reach feedback send --category C --message TEXT [--anonymous] asks and sends nothing; reach feedback list shows the
+    items. The MCP tools reach_feedback (category, message, anonymous) and reach_feedback_list do the same; the list is
+    read-only.
+  categories: general, praise, suggestion, request, question, complaint, problem and pace (W-FB-1), shown to the student as General, Praise, Idea, Request, Question, Complaint, Problem and Pace.
+  consent: >-
+    Reach::Feedback.ask validates the item (enrolled, a known category, a message of 1 to 4000 bytes) and asks with
+    M-FEEDBACK-ASK or M-FEEDBACK-ASK-ANON through Reach::Consent (kind feedback_send), showing the category, named or
+    anonymous and the exact message. Only the student's own yes typed in the asking session sends it: the prompt hook
+    captures it and Reach::Consent.follow_up! calls Reach::Feedback.send!, whose outcome the agent relays.
+  delivery: >-
+    The item is saved as pending in feedback.json (0600) under the Reach state directory before it is posted with its
+    own Idempotency-Key; a transport failure, 404, 429 or 5xx keeps it pending (M-FEEDBACK-PENDING) and reach sync
+    retries it oldest first with the same key; any other refusal marks it refused. reach sync and the background
+    session refresh pull W-API-FEEDBACK-LIST and make named items' state and reply equal Teach's; each new reply and
+    each item that became acted is told to the agent once in the session context. Debug events carry feedback_id,
+    category, state and outcome, never the message.
+  anonymity: >-
+    The student picks named (default) or anonymous for each item. The anonymous question says plainly that the
+    instructors cannot write back, that in a small class the words may still show who wrote them, and that a course
+    chat it was typed in is recorded like every course chat (W-FB-3).
 mcp_bridge:
   command: reach mcp (stdio)
   subscription: >-
@@ -1072,7 +1097,7 @@ mcp_bridge:
     reach_raise_hand), so Codex still reviews those (instructor decision 2026-10-13), false for the rest;
     readOnlyHint true for the tools that only read (READ_ONLY_TOOLS: reach_status, reach_receipts, reach_shape_check,
     reach_check, reach_hand_status, reach_profile_show, reach_enroll, reach_directive, reach_reference, reach_recall,
-    reach_next, reach_grade, reach_extra_credit_list, reach_announcements, reach_known_issues); destructiveHint true only
+    reach_next, reach_grade, reach_extra_credit_list, reach_feedback_list, reach_announcements, reach_known_issues); destructiveHint true only
     for the tools that can delete the student's data (DESTRUCTIVE_TOOLS: reach_profile_forget, reach_memory_forget,
     reach_transcripts, reach_storage), false for the rest, whose consequential actions rEach already puts behind the
     student's own captured yes or a checkpoint. Codex (0.160.0 to 0.162.1, codex-rs mcp_tool_call.rs
@@ -2890,6 +2915,13 @@ persona:
       instructors. When a student asks what rEach shares, the persona answers that signed-in assignment work is recorded
       and sent to the instructors and nothing else said is; submitted work, own-part answers, help requests the student
       agrees to and usage information also reach the instructors; the profile file and the memory stay on this computer.
+    reach_out_notice: >-
+      Since 0.52.0 G-REACH-OUT is added once to the session greeting of an enrolled student whose interview is
+      complete, skipped, or partial with the offer closed, never to the first-run, resume or sign-in greetings, and
+      waits a session when G-MEMORY-NOTICE is shown. In the plainest words it explains raising a hand (like raising a
+      hand in class: when stuck or wanting a person, the answer shows up in the chat) and sending feedback (like a
+      suggestion box, for things that can wait) with the eight kinds, and that a note can go named or anonymous and is
+      shown before it is sent.
     code_in_files: >-
       The persona puts code in files, never in chat: coursework in the slice's owned files, anything else in the
       student's extracurricular folder, and offers reach work --extracurricular when the student wants to build
