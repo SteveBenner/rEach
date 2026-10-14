@@ -495,7 +495,7 @@ messages:
   M-TEACH-LINK-RELAY: "Tell the student this rEach notice, then carry on: {text}"
   M-REACH-REASON-OFFLINE: "no connection to your course server right now"
   M-REACH-REASON-SNAG: "rEach hit a snag and let your instructor know"
-  M-SUBMIT-ASK: "Ready to submit your {slice} work for {cutout}? rEach will send it to your instructors and save a ZIP of all your work for {assignment} in your Downloads folder. Sending takes up to half a minute. Your work counts as received when it reaches the course server, so please keep the app open until the receipt shows. If the app closes first, your work stays saved on this computer and rEach sends it at the next sync; it is received then, even if that is after the due time.{credit} {again}"
+  M-SUBMIT-ASK: "Ready to submit your {slice} work for {cutout}? rEach will send it to your instructors and save a ZIP of all your work for {assignment} in your Downloads folder. Sending takes up to half a minute. Nothing is saved for sending until you say yes, so closing the app while this question is open sends nothing. After your yes, your work counts as received when it reaches the course server, even if that is after the due time, so please keep the app open until the receipt shows. If the app closes first, your work stays saved on this computer and rEach sends it at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received.{credit} {again}"
   M-SUBMIT-ASK-OPEN: "You can submit again until {due}; the last one you send counts."
   M-SUBMIT-ASK-LATE: "The due time ({due}) has passed, so this will be marked late and can't be submitted again."
   M-SUBMIT-TERMINAL-PROMPT: "Type yes to submit, or no to keep working: "
