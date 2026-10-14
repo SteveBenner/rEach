@@ -1638,8 +1638,7 @@ module Reach
           puts result["text"]
           0
         when "rejected"
-          rejection = result["rejection"] || {}
-          warn Reach::Messages.text("M-SUBMIT-REJECTED", reason: rejection["reason"], fix: Reach::Messages.rejection_fix(rejection["code"]))
+          warn result["text"]
           1
         else
           puts Reach::Messages.text("M-SUBMIT-PENDING")

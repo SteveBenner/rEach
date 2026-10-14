@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.52.12
+version: 0.52.13
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -930,6 +930,21 @@ submission:
     submission counts (W-SUB-1); after the due time a slice already on record is refused by Reach before it asks
     (M-SUBMIT-CLOSED) and by Teach (403 deadline_passed), while a slice with nothing on record may still be submitted
     once, marked late.
+  refusals: >-
+    Since 0.52.13 (STD-SUBMIT-REFUSALS) an outbox retry settles a queued submission by the state Teach answers with,
+    not by the absence of an error. ingested, and a repeat of an ingested submission that Teach has since moved on
+    (grading, graded, grade_failed, validated, orphaned), count as delivered: the receipt in the answer is stored and
+    announced, and the entry leaves the outbox. received (a repeat that meets the ingest still in flight) keeps the entry
+    queued for the next retry. rejected, and any state or answer Reach does not know (M-SUBMIT-ODD-ANSWER), shelves the
+    entry in outbox/rejected exactly as a 4xx refusal does, and the next reach sync, reach status, reach_sync or
+    reach_status tool call reports it once (M-SUBMIT-REJECTED-LATER; the MCP tools return the notice in text with
+    relay_verbatim true). When the refusal has code not_qualified and Reach's own record of the slice is Qualified for
+    exactly the current files, the fix is never to qualify again: M-SUBMIT-DISAGREE says Reach and the course server
+    disagree about that check, that nothing is wrong with what the student did, names the qualification id for a
+    technical_issue hand the student's AI partner offers to raise, and says neither qualifying again nor changing
+    files will settle it. M-SUBMIT-DISAGREE-SCENARIOS lists the scenarios Reach's record shows passed on the starting
+    copy as a detail for the instructors, never as a rule the student broke. Any other case keeps M-SUBMIT-REJECTED
+    with the rejection_fixes text.
   grade_receipt: >-
     reach sync asks Teach for the grade receipt of each submission that has an ingest receipt and no grade receipt,
     at most once per submission every 30 seconds (W-API-SUBMISSION); a verified one is stored, announced (M-GRADED)
@@ -1109,7 +1124,10 @@ mcp_bridge:
     config: the hints reach Codex whether the server comes from the plugin or from a course folder's .codex/config.toml.
   tools:
   - name: reach_status
-    description: The student's enrollment, current assignment, slices, package versions and outstanding receipts
+    description: >-
+      The student's enrollment, current assignment, slices, package versions and outstanding receipts; since 0.52.13
+      (STD-SUBMIT-REFUSALS) it also returns, once, the notice for a queued submission the course server refused, in text
+      with relay_verbatim true
   - name: reach_receipts
     description: Receipts newest first
   - name: reach_shape_check
@@ -1148,7 +1166,9 @@ mcp_bridge:
       or M-ENROLL-NO-HOOK when Codex is not running a sign-in prompt hook, and on an enrolled install M-ENROLL-ALREADY
       with the reach_next step.
   - name: reach_sync
-    description: Fetch new packages, verify them and refresh workspaces
+    description: >-
+      Fetch new packages, verify them and refresh workspaces; since 0.52.13 (STD-SUBMIT-REFUSALS) it also returns, once,
+      the notice for a queued submission the course server refused, in text with relay_verbatim true
   - name: reach_check
     description: Run reach check on the current slice (optionally one changed path) and return the findings
   - name: reach_checkpoint

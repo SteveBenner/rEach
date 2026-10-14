@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.13] - 2026-10-13
+
+### Fixed
+
+- A queued submission is no longer deleted from the outbox on any answer that does not raise (desk issue iss_82eaf112435366c0be60). Teach answers a refused submission with 200 and state `rejected`, so `Submit.retry_outbox` removed the entry, shelved nothing and told the student nothing. It now settles the entry by the state: `ingested`, or a repeat of an ingested submission that Teach has since moved to `grading`, `graded`, `grade_failed`, `validated` or `orphaned`, is delivered (its receipt is stored; an answer with no receipt leaves the receipt to the backfill); `received` keeps the entry queued; `rejected` and any state rEach does not know (M-SUBMIT-ODD-ANSWER) shelve it in `outbox/rejected`, like a 4xx refusal, and the next notice reports it (`Submit.settle_submission`, `handle_response`, `refusal_of`).
+- The refusal notice of a queued submission (M-SUBMIT-REJECTED-LATER) now reaches a student who works only through the assistant (desk issue iss_a6f2164045d4bf11ba36). The `reach_sync` and `reach_status` MCP tools return it once in `notices` and `text` with `relay_verbatim` true, as `reach sync` and `reach status` already printed it (`MCPBridge.with_submit_notices`); each notice is still reported once. The two tool descriptions say so.
+- M-SUBMIT-REJECTED no longer sends the student round a loop when rEach records the slice as Qualified for exactly the current files and the course server still refuses it as `not_qualified` (desk issue iss_510d3c5dbccd057b13c0). It says rEach and the course server disagree about that check, that nothing is wrong with what the student did, that neither running `reach qualify` again nor changing files will settle it, names the qualification id for a `technical_issue` hand the student's AI partner offers to raise, and lists the scenarios rEach's record shows passed on the starting copy as a detail for the instructors (M-SUBMIT-DISAGREE, M-SUBMIT-DISAGREE-SCENARIOS; the later notice is M-SUBMIT-REJECTED-LATER-DISAGREE). With no Qualified record the existing `not_qualified` fix is unchanged. `reach submit` and the `reach_submit` tool carry the same text, in `text` (`Submit.rejection_text`).
+
 ## [0.52.12] - 2026-10-13
 
 ### Fixed

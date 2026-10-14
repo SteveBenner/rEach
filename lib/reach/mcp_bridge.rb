@@ -6,7 +6,7 @@ module Reach
     TOOLS = [
       {
         "name" => "reach_status",
-        "description" => "The student's enrollment, current assignment, slices, package versions and outstanding receipts",
+        "description" => "The student's enrollment, current assignment, slices, package versions and outstanding receipts. When a submission that was waiting to be sent was refused, it also returns the notice once, in text with relay_verbatim true: tell the student at once",
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
@@ -124,7 +124,7 @@ module Reach
       },
       {
         "name" => "reach_sync",
-        "description" => "Fetch new packages and refresh workspaces. It usually takes under a minute, longer the first time: before calling it, tell the student that wait and that closing the app stops it, with nothing lost, and the next sync carries on",
+        "description" => "Fetch new packages and refresh workspaces. When a submission that was waiting to be sent was refused, it also returns the notice once, in text with relay_verbatim true: tell the student at once. It usually takes under a minute, longer the first time: before calling it, tell the student that wait and that closing the app stops it, with nothing lost, and the next sync carries on",
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
@@ -616,6 +616,13 @@ module Reach
         payload
       end
 
+      def with_submit_notices(result)
+        notices = Reach::Submit.rejected_notices
+        return result if notices.empty?
+
+        result.merge("notices" => notices, "text" => notices.join("\n"), "relay_verbatim" => true)
+      end
+
       def hiccup_text
         Reach::Messages.text("M-REACH-HICCUP-TOOL")
       rescue StandardError
@@ -652,7 +659,7 @@ module Reach
 
         case name
         when "reach_status"
-          { "summary" => Reach::Status.summary }
+          with_submit_notices("summary" => Reach::Status.summary)
         when "reach_receipts"
           Reach::Receipts.list
         when "reach_shape_check"
@@ -672,6 +679,8 @@ module Reach
             result = result.merge("announcement" => result["text"])
           elsif %w[asked declined].include?(result["state"])
             result = result.merge("message" => result["text"])
+          elsif result["state"] == "rejected"
+            result = result.merge("relay_verbatim" => true)
           end
           result
         when "reach_raise_hand"
@@ -703,7 +712,7 @@ module Reach
         when "reach_enroll", "reach_enrol"
           { "text" => Reach::Messages.text("M-ENROLL-ALREADY", next: Reach::Next.compute(mcp: true)["text"]), "relay_verbatim" => true }
         when "reach_sync"
-          Reach::Sync.run
+          with_submit_notices(Reach::Sync.run)
         when "reach_check"
           Reach::Check.run(current_workspace!(arguments["slice"]), changed: arguments["changed"], format: :agent)
         when "reach_checkpoint"

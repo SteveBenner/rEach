@@ -6,6 +6,7 @@ require "securerandom"
 module Reach
   module Submit
     ROUTE = "/api/v1/submissions"
+    DELIVERED_STATES = %w[grading graded grade_failed validated orphaned].freeze
 
     class << self
       def submit(slice:)
@@ -52,13 +53,15 @@ module Reach
           result = handle_response(response.json || {})
           result = result.merge("archive" => Reach::Archive.write!(workspace, meta)) if result["state"] == "ingested"
           result = result.merge("text" => student_text(result)) if result["state"] == "ingested"
-          FileUtils.rm_f(outbox_path)
+          result = result.merge("text" => rejection_text(result["rejection"], workspace)) if result["state"] == "rejected"
+          FileUtils.rm_f(outbox_path) unless result["state"] == "queued"
           Reach::Debug.submit(result)
           result
         rescue Reach::RemoteRefused => e
           FileUtils.rm_f(outbox_path)
           Reach::Debug.submit("state" => "rejected", "rejection" => { "code" => e.code })
-          { "submission_id" => nil, "state" => "rejected", "receipt" => nil, "rejection" => { "code" => e.code, "reason" => e.message } }
+          rejection = { "code" => e.code, "reason" => e.message }
+          { "submission_id" => nil, "state" => "rejected", "receipt" => nil, "rejection" => rejection, "text" => rejection_text(rejection, workspace) }
         rescue Reach::Offline, Reach::NetworkError
           Reach::Debug.submit("state" => "queued")
           { "submission_id" => nil, "state" => "queued", "receipt" => nil, "rejection" => nil }
@@ -103,10 +106,8 @@ module Reach
             response = client(install).post_json(entry.fetch("route"), entry.fetch("body"), idempotency_key: entry.fetch("idempotency_key"))
             body = response.json || {}
             if entry["kind"] == "submission"
-              handled = handle_response(body)
-              handled = handled.merge("archive" => archive_for_outbox(entry["workspace"])) if handled["state"] == "ingested" && entry["workspace"]
-              handled = handled.merge("text" => student_text(handled)) if handled["state"] == "ingested"
-              results << handled
+              results << settle_submission(path, entry, body)
+              next
             elsif entry["kind"] == "integrity"
               results << { "state" => "sent", "event_id" => body["event_id"] }
             else
@@ -116,7 +117,7 @@ module Reach
             FileUtils.rm_f(path)
           rescue Reach::RemoteRefused => e
             if entry["kind"] == "submission"
-              shelve_rejected(path, entry, e)
+              shelve_rejected(path, entry, "code" => e.code, "reason" => e.message, "status" => e.status)
             else
               FileUtils.rm_f(path)
             end
@@ -140,12 +141,27 @@ module Reach
 
           body = entry["body"].is_a?(Hash) ? entry["body"] : {}
           rejection = entry["rejection"].is_a?(Hash) ? entry["rejection"] : {}
-          notices << Reach::Messages.text("M-SUBMIT-REJECTED-LATER", slice: body["slice"], cutout: body["cutout_id"], reason: rejection["reason"].to_s.strip.empty? ? rejection["code"] : rejection["reason"])
+          reason = rejection["reason"].to_s.strip.empty? ? rejection["code"] : rejection["reason"]
+          notices << if entry["disagreement"].is_a?(Hash)
+                       Reach::Messages.text(
+                         "M-SUBMIT-REJECTED-LATER-DISAGREE",
+                         slice: body["slice"], cutout: body["cutout_id"], reason: reason, disagree: disagreement_text(entry["disagreement"])
+                       )
+                     else
+                       Reach::Messages.text("M-SUBMIT-REJECTED-LATER", slice: body["slice"], cutout: body["cutout_id"], reason: reason)
+                     end
           write_json_atomic(path, entry.merge("reported" => true))
         end
         notices
       rescue StandardError
         []
+      end
+
+      def rejection_text(rejection, workspace)
+        rejection = rejection.is_a?(Hash) ? rejection : {}
+        disagreement = qualification_disagreement(rejection["code"], workspace)
+        fix = disagreement ? disagreement_text(disagreement) : Reach::Messages.rejection_fix(rejection["code"])
+        Reach::Messages.text("M-SUBMIT-REJECTED", reason: rejection["reason"], fix: fix)
       end
 
       def student_text(result)
@@ -227,15 +243,53 @@ module Reach
         end
       end
 
-      def shelve_rejected(path, entry, error)
+      def settle_submission(path, entry, body)
+        handled = handle_response(body)
+        case handled["state"]
+        when "queued"
+          handled
+        when "rejected"
+          shelve_rejected(path, entry, handled["rejection"])
+          handled
+        else
+          handled = handled.merge("archive" => archive_for_outbox(entry["workspace"])) if handled["state"] == "ingested" && entry["workspace"]
+          handled = handled.merge("text" => student_text(handled)) if handled["state"] == "ingested"
+          FileUtils.rm_f(path)
+          handled
+        end
+      end
+
+      def shelve_rejected(path, entry, rejection)
         FileUtils.mkdir_p(rejected_dir)
         record = entry.merge(
-          "rejection" => { "code" => error.code, "reason" => error.message, "status" => error.status },
+          "rejection" => rejection,
           "rejected_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
           "reported" => false
         )
+        disagreement = qualification_disagreement(rejection["code"], entry["workspace"])
+        record["disagreement"] = disagreement if disagreement
         write_json_atomic(File.join(rejected_dir, File.basename(path)), record)
         FileUtils.rm_f(path)
+      end
+
+      def qualification_disagreement(code, workspace)
+        return nil unless code.to_s == "not_qualified" && workspace.is_a?(String) && File.directory?(workspace)
+
+        record = Reach::Qualify.current?(workspace)
+        return nil unless record && !record["qualification_id"].to_s.empty?
+
+        rows = record.dig("steps", "remote", "rows")
+        stub = rows.is_a?(Hash) ? Array(rows["stub"]) : []
+        names = stub.select { |row| row.is_a?(Hash) && row["result"] == "passed" }.map { |row| row["name"] }.compact.uniq
+        { "qualification_id" => record["qualification_id"], "scenarios" => names }
+      rescue StandardError
+        nil
+      end
+
+      def disagreement_text(disagreement)
+        names = Array(disagreement["scenarios"]).map { |name| "\"#{name}\"" }
+        scenarios = names.empty? ? "" : " #{Reach::Messages.text('M-SUBMIT-DISAGREE-SCENARIOS', names: names.join(', '))}"
+        Reach::Messages.text("M-SUBMIT-DISAGREE", qualification: disagreement["qualification_id"], scenarios: scenarios)
       end
 
       def write_json_atomic(path, data)
@@ -273,19 +327,28 @@ module Reach
 
       def handle_response(body)
         state = body["state"]
-        if state == "ingested"
+        if state == "ingested" || DELIVERED_STATES.include?(state)
           receipt = body["receipt"]
           Reach::Receipts.verify!(receipt) if receipt
           Reach::Receipts.store(receipt) if receipt
           record_in_corpus(receipt) if receipt
           Reach::Receipts.acknowledge(receipt) if receipt
           {
-            "submission_id" => body["submission_id"], "state" => "ingested", "receipt" => receipt, "rejection" => nil,
+            "submission_id" => body["submission_id"], "state" => receipt ? "ingested" : "delivered", "receipt" => receipt, "rejection" => nil,
             "attempt" => body["attempt"], "due" => body["due"], "resubmit" => body["resubmit"]
           }
+        elsif state == "received"
+          { "submission_id" => body["submission_id"], "state" => "queued", "receipt" => nil, "rejection" => nil }
         else
-          { "submission_id" => body["submission_id"], "state" => "rejected", "receipt" => nil, "rejection" => body["rejection"] }
+          { "submission_id" => body["submission_id"], "state" => "rejected", "receipt" => nil, "rejection" => refusal_of(body) }
         end
+      end
+
+      def refusal_of(body)
+        rejection = body["rejection"]
+        return rejection if rejection.is_a?(Hash) && !rejection["code"].to_s.empty?
+
+        { "code" => "unexpected_state", "reason" => Reach::Messages.text("M-SUBMIT-ODD-ANSWER", state: body["state"].to_s.empty? ? "none" : body["state"]) }
       end
 
       def record_in_corpus(receipt)
