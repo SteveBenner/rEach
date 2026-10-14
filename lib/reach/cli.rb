@@ -25,6 +25,8 @@ module Reach
 
     class << self
       def run(argv)
+        return Reach::Debug.silently { run(argv) } if argv.first == "feedback" && !Reach::Debug.silent?
+
         relaunched = Reach::Subscribe.relaunch_windowless(argv)
         return relaunched if relaunched
 

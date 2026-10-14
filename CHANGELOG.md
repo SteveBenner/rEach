@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.2] - 2026-10-13
+
+### Fixed
+
+- An anonymous feedback note could still be tied to the install through debug mode's request, response and fault events, which named the feedback route next to the install's key. `Reach::Debug.silently` now wraps every `reach feedback` command, the captured yes that sends an anonymous note and every delivery of one, and while it holds, debug mode and the setup log record no event, request, response or fault. Requests to `/api/v1/feedback` are never recorded, named or anonymous.
+- A saved note missing its key or text is now marked not accepted ("damaged") instead of being skipped on every sync forever.
+
 ## [0.52.1] - 2026-10-13
 
 ### Fixed

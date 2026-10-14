@@ -7,6 +7,7 @@ module Reach
   module Debug
     KINDS = %w[session hook gate command request lock sync check qualify submit brain update error fault link storage import control].freeze
     ROUTE = "/api/v1/debug".freeze
+    SILENT_ROUTES = %w[/api/v1/feedback].freeze
     STALE_FAULTS = %w[crypto_self_test].freeze
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     DROP_KEY = /code|password|secret|token|key|signature|pem|passphrase/i.freeze
@@ -38,6 +39,18 @@ module Reach
     SUBCOMMAND_COMMANDS = %w[gate hook instructor shape modules transfer login memory directive reference part update runtime setup debug brain storage import].freeze
 
     module_function
+
+    def silently
+      previous = Thread.current[:reach_debug_silent]
+      Thread.current[:reach_debug_silent] = true
+      yield
+    ensure
+      Thread.current[:reach_debug_silent] = previous
+    end
+
+    def silent?
+      Thread.current[:reach_debug_silent] == true
+    end
 
     def config
       section = Reach::Runtime.load_config["debug"]
@@ -234,7 +247,7 @@ module Reach
     end
 
     def emit(kind, fields = {})
-      return nil if Thread.current[:reach_debug_busy]
+      return nil if Thread.current[:reach_debug_busy] || silent?
 
       Reach::SetupLog.record("debug", "kind" => kind.to_s, "fields" => fields)
       return nil unless on?
@@ -464,7 +477,7 @@ module Reach
     end
 
     def emit_always(kind, fields)
-      return nil if Thread.current[:reach_debug_busy]
+      return nil if Thread.current[:reach_debug_busy] || silent?
 
       Reach::SetupLog.record("debug", "kind" => kind.to_s, "fields" => fields)
       Thread.current[:reach_debug_busy] = true
@@ -479,6 +492,8 @@ module Reach
     end
 
     def fault(error, where, shown_id = nil)
+      return nil if silent?
+
       fields = {
         "where" => where, "exception" => error.class.name, "errno" => errno_name(error),
         "message_id" => error.respond_to?(:message_id) ? error.message_id : nil,
@@ -548,7 +563,7 @@ module Reach
 
     def request(method, path, status, error_name, request_id, attempt, latency_ms, bytes_out, bytes_in, extra = nil)
       route = path.to_s.split("?").first.to_s
-      return nil if route == ROUTE
+      return nil if route == ROUTE || silent? || SILENT_ROUTES.any? { |prefix| route.start_with?(prefix) }
 
       Reach::SetupLog.http(method, path, status, error_name.to_s.empty? ? nil : error_name, request_id, attempt, latency_ms, bytes_out, bytes_in, extra)
       return nil unless on?
@@ -565,6 +580,7 @@ module Reach
 
     def response(method, path, answer, attempt, latency_ms, body)
       return nil unless on? || Reach::SetupLog.active?
+      return nil if silent? || SILENT_ROUTES.any? { |prefix| path.to_s.start_with?(prefix) }
 
       parsed = begin
         answer.json

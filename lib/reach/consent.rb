@@ -317,6 +317,8 @@ module Reach
       if observed["kind"] == "feedback_send"
         return Reach::Messages.text("M-FEEDBACK-DECLINED") unless observed["answer"] == "yes"
 
+        return Reach::Debug.silently { Reach::Feedback.send!(subject, quick: true)["text"] } if subject["anonymous"] == true
+
         return Reach::Feedback.send!(subject, quick: true)["text"]
       end
 

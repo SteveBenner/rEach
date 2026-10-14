@@ -108,6 +108,12 @@ module Reach
     end
 
     def post(install, entry, quick: false)
+      return Reach::Debug.silently { deliver(install, entry, quick: quick) } if entry["anonymous"] == true && !Reach::Debug.silent?
+
+      deliver(install, entry, quick: quick)
+    end
+
+    def deliver(install, entry, quick: false)
       body = {
         "category" => entry["category"], "message" => entry["message"], "anonymous" => entry["anonymous"] == true,
         "written_at" => entry["written_at"]
@@ -147,7 +153,10 @@ module Reach
 
       sent = 0
       entries.select { |item| item["state"] == "pending" }.each do |entry|
-        next unless entry["idempotency_key"].to_s != "" && entry["message"].to_s != ""
+        unless entry["idempotency_key"].to_s != "" && entry["message"].to_s != ""
+          update(entry["local_id"]) { |item| item.merge("state" => "refused", "reason" => "damaged") }
+          next
+        end
 
         result = post(install, entry)
         break if result["state"] == "pending"
