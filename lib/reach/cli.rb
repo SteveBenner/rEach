@@ -2224,7 +2224,8 @@ module Reach
           "plugin.json" => File.join(root, "plugin.json"),
           ".claude-plugin/plugin.json" => File.join(root, ".claude-plugin", "plugin.json"),
           ".codex-plugin/plugin.json" => File.join(root, ".codex-plugin", "plugin.json"),
-          "reach.rplugin.yml" => File.join(root, "reach.rplugin.yml")
+          "reach.rplugin.yml" => File.join(root, "reach.rplugin.yml"),
+          "reach.rstack_component.yml" => File.join(root, "reach.rstack_component.yml")
         }
         candidates.each do |label, path|
           next unless File.file?(path)

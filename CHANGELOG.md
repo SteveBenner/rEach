@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.12] - 2026-10-13
+
+### Fixed
+
+- `reach.rstack_component.yml` had stayed at 0.50.4 since 0.50.5 while every other version file moved on, because `R-DOC-VERSION` (`check_version` in `lib/reach/cli.rb`) never read it. It now carries the release version, and `R-DOC-VERSION` reads it alongside `plugin.json`, `.claude-plugin`, `.codex-plugin` and `reach.rplugin.yml` when the file is present, so `reach doctor` names the next missed bump. The `R-DOC-VERSION` entry in `reach.spec.yml` lists it.
+
 ## [0.52.11] - 2026-10-13
 
 ### Changed

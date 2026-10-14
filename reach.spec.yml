@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.52.11
+version: 0.52.12
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2734,7 +2734,7 @@ doctor_checks:
   checks: Teach's advertised wire_contract_sha256 equals the digest of this Reach's specs/wire.yml
   fix: Update rEach; if it is current, tell the instructors their server and rEach disagree
 - id: R-DOC-VERSION
-  checks: VERSION matches every plugin manifest (plugin.json, .claude-plugin, .codex-plugin, reach.rplugin.yml)
+  checks: VERSION matches every plugin manifest (plugin.json, .claude-plugin, .codex-plugin, reach.rplugin.yml, reach.rstack_component.yml)
   fix: A packaging fault; reinstall rEach
 - id: R-DOC-PERSONA
   checks: The reach-assistant skill and the rEach agent carry the same persona, quoting the first-run greeting
