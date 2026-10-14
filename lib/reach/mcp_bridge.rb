@@ -49,7 +49,7 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves the ZIP of an already submitted assignment to Downloads again (assignment names it; the student must still upload the ZIP to the course's learning system). Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server (even after the due time) so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves the ZIP of an already submitted assignment to Downloads again (assignment names it; the student must still upload the ZIP to the course's learning system). Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
@@ -395,7 +395,7 @@ module Reach
       },
       {
         "name" => "reach_storage",
-        "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted. Compacting runs in the background and can take a while, which rEach cannot predict: tell the student that and that closing the app stops it, with nothing lost",
+        "description" => "How much space rEach's memory uses on this computer (action status, the default), or compact the saved course memory (action compact): it asks the student through Reach first and compacts only on their yes; relay Reach's question word for word. What rEach has learned is never compacted. Compacting runs in the background and can take a while, which rEach cannot predict: tell the student that and that it normally carries on if the app closes, and that if it is stopped before it finishes rEach says so next time and they can compact again",
         "inputSchema" => {
           "type" => "object",
           "properties" => { "action" => { "type" => "string", "enum" => %w[status compact] } }

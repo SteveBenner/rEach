@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.11] - 2026-10-13
+
+### Changed
+
+- The submit note no longer reads as "still on time": work that reaches the course server after the due time is marked late, because the course server sets the receipt time and the late flag when the work arrives. M-SUBMIT-ASK, the `reach_submit` description, the QUALIFY directive body (`directives/qualify.md`, `policy/behavior.json` regenerated) and STD-WAIT-NOTICE say so, and keep the rest: keep the app open until the receipt shows, and only the receipt means received.
+- The compaction note matches what the code does. Compaction runs in a detached background process, so it normally carries on if the app closes; if it is stopped before it finishes, the next session marks it failed and tells the student, who can compact again (M-STORAGE-COMPACT-STARTED, the `reach_storage` description, STD-WAIT-NOTICE).
+
 ## [0.52.10] - 2026-10-13
 
 ### Fixed

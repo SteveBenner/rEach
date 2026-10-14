@@ -69,8 +69,8 @@ computer. The course server may still finish its run, but the result will
 not show here. Say the same before `reach submit`, which takes up to half a
 minute. Nothing is saved for sending until the student says yes, so closing
 the app while the question is open sends nothing. After the yes, the work
-counts as received when it reaches the course server, even if that is after
-the due time, so keep the app open until the receipt shows. If the app
-closes first, the work stays saved on this computer and rEach sends it at
-the next sync, but the course server can still refuse or hold it, so only
-the receipt means it was received.
+counts as received when it reaches the course server, and work that arrives
+after the due time is marked late, so keep the app open until the receipt
+shows. If the app closes first, the work stays saved on this computer and
+rEach sends it at the next sync, but the course server can still refuse or
+hold it, so only the receipt means it was received.
