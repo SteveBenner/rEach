@@ -10,6 +10,7 @@ module Reach
     CONSENT_KIND = "feedback_send".freeze
     LIST_LIMIT = 100
     STORE = "feedback.json".freeze
+    ANONYMOUS_QUIET_S = 3600
     PULL_INTERVAL_S = 3600
     ROW_PREVIEW = 60
     STATES = %w[pending refused new seen acted closed].freeze
@@ -41,7 +42,31 @@ module Reach
       Reach::StateFile.update(STORE) do |state|
         state["items"] = state["items"].is_a?(Array) ? state["items"].select { |item| item.is_a?(Hash) } : []
         yield(state)
+        state["items"] = state["items"].map { |item| settled(item) }
       end
+    end
+
+    def settled(item)
+      return item if item["state"] == "pending"
+
+      drop = item["anonymous"] == true ? %w[idempotency_key feedback_id] : %w[idempotency_key]
+      item.reject { |key, _| drop.include?(key) }
+    end
+
+    def anonymous_ask_waiting?
+      pending = Reach::Login.read_json(Reach::Consent.pending_path)
+      return false unless pending.is_a?(Hash) && pending["kind"] == CONSENT_KIND
+      return false unless pending["subject"].is_a?(Hash) && pending["subject"]["anonymous"] == true
+
+      Time.now.utc - Time.iso8601(pending["asked_at"].to_s) < ANONYMOUS_QUIET_S
+    rescue StandardError
+      false
+    end
+
+    def sent_stamp(entry)
+      return entry["written_at"] unless entry["anonymous"] == true
+
+      "#{entry['written_at'].to_s[0, 10]}T00:00:00Z"
     end
 
     def find(local_id)
@@ -116,7 +141,7 @@ module Reach
     def deliver(install, entry, quick: false)
       body = {
         "category" => entry["category"], "message" => entry["message"], "anonymous" => entry["anonymous"] == true,
-        "written_at" => entry["written_at"]
+        "written_at" => sent_stamp(entry)
       }
       begin
         response = Reach::Client.for_install(install, quick: quick).post_json(ROUTE, body, idempotency_key: entry["idempotency_key"])

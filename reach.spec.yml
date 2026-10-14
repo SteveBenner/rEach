@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.52.3
+version: 0.52.4
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -261,7 +261,7 @@ layout:
   - path: "~/.reach/receipts/"
     content: Receipts as received, verified
   - path: "~/.reach/logs/"
-    content: Reach's own logs, rotated at 5 MB x 5 (requests.jsonl holds method, route, status, latency, retries; never bodies)
+    content: Reach's own logs, rotated at 5 MB x 5 (requests.jsonl holds method, route, status, latency, retries; never bodies; never a feedback request, W-SAFE-7)
   - path: "~/.reach/profile.yml"
     content: The student's interview profile (reach.profile/v1), mode 0600, on this computer only
   - path: "~/.reach/state/status.json"
