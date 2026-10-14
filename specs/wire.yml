@@ -2993,8 +2993,9 @@ feedback:
       types in the session that asked counts (the consent rule of STD-CONSENT-FROM-REACH), and an agent-supplied
       answer sends nothing. Reach saves the item as pending in the feedback list under its state directory (0600)
       before it posts W-API-FEEDBACK, keeps it pending through a transport failure, 404, 429 or 5xx, and retries it on
-      every reach sync with the same Idempotency-Key; an error code ends it as refused. A debug event about feedback
-      carries feedback_id, category, state and outcome, never the message (W-DBG-SCRUB).
+      every reach sync with the same Idempotency-Key; an error code ends it as refused. A debug event about a named
+      item carries feedback_id, category, state and outcome, never the message (W-DBG-SCRUB); an anonymous item has
+      none (W-FB-3).
   W-FB-3:
     name: anonymity
     rule: >-
