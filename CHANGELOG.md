@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.6] - 2026-10-13
+
+### Changed
+
+- `PRIVACY.md` and `STD-FEEDBACK` say plainly that the course server knows when the student's computer last talked to it, so comparing that time with an anonymous note's arrival might point to its writer, most easily in a small class.
+
 ## [0.52.5] - 2026-10-13
 
 ### Fixed
