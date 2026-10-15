@@ -43,7 +43,6 @@ promotion:
     gates:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
       - { id: G-WIRE-PROD, run: "ruby tools/release_gate/gate.rb wire-live --ref {sha}", pass: exit_zero }
-      - { id: G-SOAK, builtin: soaked, hours: 24 }
       - { id: G-RCHECK, run: "$HOME/.rplugin/bin/rplugin check reach", pass: exit_zero, hermetic: false }
       - { id: G-RDOCTOR, run: "$HOME/.rplugin/bin/rplugin doctor reach", pass: exit_zero, hermetic: false }
       - { id: G-POLICY, run: "ruby tools/policy.rb check", pass: exit_zero }
@@ -58,7 +57,6 @@ promotion:
     gates:
       - { id: G-GATE, run: "ruby tools/release_gate/gate.rb check --ref {sha} --tag v{VERSION} --as-push", pass: exit_zero }
       - { id: G-TESTED, builtin: sha_ran_on, env: test }
-      - { id: G-SOAK, builtin: soaked, env: test, hours: 24 }
       - { id: G-RCHECK, run: "$HOME/.rplugin/bin/rplugin check reach", pass: exit_zero, hermetic: false }
       - { id: G-RDOCTOR, run: "$HOME/.rplugin/bin/rplugin doctor reach", pass: exit_zero, hermetic: false }
     after: ["polispec deploy {project} canary --tag v{VERSION}"]

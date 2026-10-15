@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.14] - 2026-10-14
+
+### Removed
+
+- The G-SOAK gates, by the instructor's decision, until further notice: `polispec promote reach --to stable` and `polispec promote reach --to canary` no longer wait 24 hours for the sha to have run healthy on test. Both are gone from `promotion` in `specs/polispec/policy.yml`, and `.agents/directives/envs.md` is re-rendered without them; every other gate and the F-CLASS, F-DUE and F-LIVE freezes remain. polispec reads the policy from stable, so the gates stay in force until the first stable promotion that carries 0.52.14; that one promotion needs `--waive-soak` (operator, typed phrase) or the 24 hours. `LATEST_SOAK_HOURS` in `tools/stable_promote.rb`, the 24 hours before a published stable tag is eligible for GitHub Latest, is a separate clock and is unchanged. To restore the soak, add `- { id: G-SOAK, builtin: soaked, hours: 24 }` after G-WIRE-PROD in `to_stable` and `- { id: G-SOAK, builtin: soaked, env: test, hours: 24 }` after G-TESTED in `to_canary`, and ship it.
+
 ## [0.52.13] - 2026-10-13
 
 ### Fixed

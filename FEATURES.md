@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.52.13 |
+| **Registry version** | 0.52.14 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2022,3 +2022,9 @@ A submission waiting in the outbox is now settled by what Teach answers, not by 
 Build ✅ (branch submit-refusals, 0.52.13, not pushed) · Deploy 🔵 (not released; reaches an install with the next update) · Blocker: Human (the instructor approves the ship). Verified against a scratch install and a stub course server: each state above, the shelved entry and the notice through `reach sync`, `reach status` and both MCP tools. Not verified: a live Teach, a live student session, and whether the session-start context should also carry the notice (it needs a new agent-control channel).
 
 Student-first audit: learning is untouched; agency tells the student at once that a submission was not accepted and why, instead of leaving it silent; wellbeing says nothing is wrong with what they did when the fault is the two systems disagreeing; privacy adds only a qualification id to a hand the student agrees to; fairness gives the same text in every harness; friction removes a loop between Qualified and refused; failure no longer drops a queued submission quietly; recovery names the next step, a hand to the instructors, or submitting again.
+
+## No soak before promotion — 0.52.14
+
+The G-SOAK gates are gone from rEach's polispec policy, by the instructor's decision of 2026-10-14 and until further notice: a sha no longer has to have run healthy on test for 24 hours before `polispec promote reach --to stable` or `--to canary`. Every other gate (G-GATE, G-WIRE-PROD, G-RCHECK, G-RDOCTOR, G-POLICY and G-TESTED) and the freezes still hold both hops. polispec reads the policy from stable, so it takes effect at the first stable promotion that carries 0.52.14; that promotion still needs the soak or `--waive-soak`. `LATEST_SOAK_HOURS` in `tools/stable_promote.rb`, the 24 hours before a published stable tag is eligible for GitHub Latest, is a separate clock and is unchanged. Restoring the soak is two lines in `specs/polispec/policy.yml`.
+
+Build ✅ Built on main (0.52.14) · Deploy 🔵 Pending · Blocker: Human (stable promotion). Verified with `polispec validate policy`, `tools/policy.rb check`, and `polispec agents render`, which re-rendered `.agents/directives/envs.md` without G-SOAK.
