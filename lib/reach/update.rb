@@ -278,11 +278,24 @@ module Reach
     end
 
     def agent_updatable?
-      !managed? && !cache_harness.nil?
+      return false if managed?
+
+      harness = cache_harness
+      !harness.nil? && Reach::HarnessSource.cli_present?(harness)
     end
 
     def app_only?
-      !managed? && cache_harness.nil?
+      !managed? && !agent_updatable?
+    end
+
+    def uncovered?
+      app_only? && !git_checkout?
+    end
+
+    def git_checkout?
+      File.exist?(File.join(Reach::Runtime.root, ".git"))
+    rescue StandardError
+      false
     end
 
     def local_version
@@ -958,7 +971,7 @@ module Reach
       return [] if disabled?
 
       manifest = load_manifest
-      updatable = managed? || agent_updatable?
+      updatable = managed? || agent_updatable? || uncovered?
       spawn_background(apply: false) if check_due?(manifest) && !lock_live? && updatable
       pending = pending_version(manifest)
       applying = manifest["applying"] == true
@@ -979,6 +992,9 @@ module Reach
       end
       if pending && agent_updatable? && %w[detected downloaded].include?(manifest["phase"]) && !applying
         candidates << ["run:#{pending}", "M-UPDATE-RUN", pending]
+      end
+      if pending && uncovered? && %w[detected downloaded].include?(manifest["phase"]) && !applying
+        candidates << ["app:#{pending}", "M-UPDATE-APP-NOTICE", pending]
       end
       notice = manifest["hook_notice"]
       if notice.is_a?(Hash) && notice["version"].to_s != "" && codex_harness? &&
@@ -1065,6 +1081,9 @@ module Reach
       harness = cache_harness
       return nil unless harness
 
+      unless Reach::HarnessSource.cli_present?(harness)
+        log("cache_skipped", "harness" => harness, "reason" => "no_cli", "tried" => Reach::HarnessSource.cli_tried(harness))
+      end
       steps = {}
       ok = harness == "codex" ? refresh_codex_cache(steps) : refresh_claude_cache(steps)
       version = cached_version(harness)
@@ -1112,18 +1131,18 @@ module Reach
     def refresh_claude_cache(steps)
       return false unless Reach::HarnessSource.claude_bin
 
-      _out, err, ok = Reach::HarnessSource.capture(%w[claude plugin marketplace update reach])
+      _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.claude_command("plugin", "marketplace", "update", Reach::HarnessSource::MARKETPLACE))
       steps["marketplace update"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
       unless ok
         result = Reach::HarnessSource.claude_add(Reach::HarnessSource.pin(Reach::HarnessSource.slug.to_s, "claude-code"))
         steps["marketplace add"] = result
         return false unless result == "ok"
       end
-      _out, err, ok = Reach::HarnessSource.capture(%w[claude plugin install reach@reach --scope user])
+      _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.claude_command("plugin", "install", Reach::HarnessSource::PLUGIN, "--scope", "user"))
       steps["plugin install"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
       return false unless ok
 
-      _out, err, ok = Reach::HarnessSource.capture(%w[claude plugin update reach@reach --scope user])
+      _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.claude_command("plugin", "update", Reach::HarnessSource::PLUGIN, "--scope", "user"))
       steps["plugin update"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
       ok
     end

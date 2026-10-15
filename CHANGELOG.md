@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.15] - 2026-10-15
+
+### Fixed
+
+- Copies of rEach that live in the Codex app or Claude desktop app plugin cache can now update themselves on macOS. The apps start rEach with a minimal PATH, so `codex` and `claude` were never found and the cache refresh never ran. `Reach::HarnessSource.codex_bin` and `claude_bin` now look on PATH, then (codex) `CODEX_CLI_PATH`, then `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, `~/.npm-global/bin`, the npm global prefix bin (`NPM_CONFIG_PREFIX`, `npm_config_prefix` or `prefix=` in `~/.npmrc`) and `%APPDATA%\npm`. A CLI found off PATH is run with its folder first on PATH so its interpreter is found. All `claude` calls in `HarnessSource` and the cache refresh go through `claude_command`. No path inside an app bundle is searched, because none is documented.
+- A copy that is neither managed nor refreshable through a CLI it can find, and is not a git checkout, used to get no check and no notice. It now checks hourly like the others and, when a newer stable version is pending, tells the assistant once per chat (`M-UPDATE-APP-NOTICE`) to give the student the plain choice of updating from the app's Plugins page or having rEach reinstalled with the installer, which creates the managed copy that updates itself. `Update.app_only?` now also covers a cache copy with no CLI, so `reach update`, the `reach_update` tool and `reach update status` give the app instructions instead of starting an update that cannot run (`Update.uncovered?`).
+
+### Added
+
+- A cache refresh skipped because no CLI was found writes a `cache_skipped` event (harness, reason `no_cli`, the folders tried with the home folder shown as `~`) to `~/.reach/logs/update.log` and the debug stream.
+
 ## [0.52.14] - 2026-10-14
 
 ### Removed

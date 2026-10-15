@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.52.14 |
+| **Registry version** | 0.52.15 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -114,6 +114,10 @@ Since 0.51.10 asking rEach to update when it is already current says that nothin
 working in the same chat (`M-UPDATE-NOTHING`).
 
 Build ✅ · Deploy 🟣 (native fixture smoke; stable artifact published) · Blocker: Human (student refresh, Codex refresh, and Windows remain unverified). Native test deployment of v0.50.10 at 0f363bc8867e2dea2b76b6b8be7dac516ac6c7f5 has health ok and verified receipt dpl_5620455813cd40d27a13. The operator also deployed that release to stable with health ok and verified receipt dpl_6c27331c726476c79381; no student refresh outcome is claimed.
+
+Since 0.52.15 (`STD-APP-COPY-UPDATE`) a copy in the Codex app or Claude desktop app plugin cache finds the harness CLI in the standard install folders when PATH lacks it (the apps start with a minimal PATH on macOS, which is why no macOS install had refreshed), and a copy that neither the managed updater nor a found CLI can update tells the assistant once per chat how the student updates (`M-UPDATE-APP-NOTICE`: the app's Plugins page, or a reinstall with the installer, which makes the self-updating managed copy). A refresh skipped for want of a CLI is logged as `cache_skipped` with the folders tried.
+
+Build ✅ (branch update-app-copies, 0.52.15, not pushed) · Deploy 🔵 (not released; takes effect on a copy only once it reaches 0.52.15, so the installs stuck on 0.51.0 need the announcement or a reinstall) · Blocker: Human (the instructor approves the ship; stable promotion). Verified on Linux in scratch homes with PATH=/usr/bin:/bin: a fake codex in `~/.local/bin` was found and refreshed a codex cache copy; with no CLI the notice came once per chat and `cache_skipped` was logged; an uncached copy got the notice. Not verified: the app-bundle CLI paths of the Codex app and Claude desktop (none searched, none documented), and any real macOS app.
 
 ### 1.4.1 · The agent updates only through Reach
 

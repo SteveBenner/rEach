@@ -14,6 +14,8 @@ module Reach
     UNPINNED_REFS = [nil, "", "main"].freeze
     HARNESSES = %w[claude-code codex].freeze
     CODEX_NAMES = %w[codex codex.exe].freeze
+    CLAUDE_NAMES = %w[claude claude.exe].freeze
+    UNIX_CLI_DIRS = %w[/opt/homebrew/bin /usr/local/bin].freeze
 
     module_function
 
@@ -53,6 +55,10 @@ module Reach
     def codex_bin
       return "codex" if on_path?("codex")
 
+      codex_override || cli_in_dirs(CODEX_NAMES)
+    end
+
+    def codex_override
       path = ENV["CODEX_CLI_PATH"].to_s
       return nil if path.empty? || !File.file?(path)
 
@@ -60,11 +66,80 @@ module Reach
     end
 
     def claude_bin
-      on_path?("claude") ? "claude" : nil
+      return "claude" if on_path?("claude")
+
+      cli_in_dirs(CLAUDE_NAMES)
     end
 
     def codex_command(*arguments)
       [codex_bin || "codex", *arguments]
+    end
+
+    def claude_command(*arguments)
+      [claude_bin || "claude", *arguments]
+    end
+
+    def cli_dirs
+      home = Reach::Paths.user_home.to_s
+      dirs = UNIX_CLI_DIRS.dup
+      unless home.empty?
+        dirs << File.join(home, ".local", "bin")
+        dirs << File.join(home, ".npm-global", "bin")
+      end
+      npm = npm_prefix(home)
+      if npm
+        dirs << File.join(npm, "bin")
+        dirs << npm
+      end
+      appdata = ENV["APPDATA"].to_s
+      dirs << File.join(appdata, "npm") unless appdata.empty?
+      dirs.uniq
+    end
+
+    def npm_prefix(home)
+      from_env = ENV["NPM_CONFIG_PREFIX"].to_s
+      from_env = ENV["npm_config_prefix"].to_s if from_env.empty?
+      return from_env unless from_env.empty?
+
+      rc = File.join(home, ".npmrc")
+      return nil if home.empty? || !File.file?(rc)
+
+      File.foreach(rc) do |line|
+        match = line.strip.match(/\Aprefix\s*=\s*(.+)\z/)
+        next unless match
+
+        value = match[1].strip.delete_prefix('"').delete_suffix('"')
+        value = File.join(home, value[2..-1].to_s) if value.start_with?("~/")
+        return value unless value.empty?
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def cli_in_dirs(names)
+      cli_dirs.each do |dir|
+        names.each do |name|
+          candidate = File.join(dir, name)
+          return candidate if File.file?(candidate) && File.executable?(candidate)
+        end
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    def cli_tried(harness)
+      home = Reach::Paths.user_home.to_s
+      tried = ["PATH"]
+      tried << "CODEX_CLI_PATH" if harness == "codex" && !ENV["CODEX_CLI_PATH"].to_s.empty?
+      tried + cli_dirs.map { |dir| home.empty? ? dir : dir.sub(/\A#{Regexp.escape(home)}(?=[\/\\]|\z)/, "~") }
+    end
+
+    def cli_env(command)
+      return {} if File.basename(command.to_s) == command.to_s
+
+      { "PATH" => [File.dirname(command.to_s), ENV["PATH"]].reject { |part| part.to_s.empty? }.join(File::PATH_SEPARATOR) }
     end
 
     def claude(source)
@@ -74,7 +149,7 @@ module Reach
     end
 
     def claude_add(source)
-      _out, err, ok = capture(["claude", "plugin", "marketplace", "add", source])
+      _out, err, ok = capture(claude_command("plugin", "marketplace", "add", source))
       return "ok" if ok
       return "failed: #{first_line(err)}" unless err.to_s.include?(CLAUDE_CONFLICT)
 
@@ -83,21 +158,21 @@ module Reach
 
     def replace_claude_source(source)
       old_source = claude_old_source
-      _out, err, ok = capture(%w[claude plugin marketplace remove reach])
+      _out, err, ok = capture(claude_command("plugin", "marketplace", "remove", MARKETPLACE))
       return "failed: #{first_line(err)}" unless ok
 
-      _out, err, ok = capture(["claude", "plugin", "marketplace", "add", source])
+      _out, err, ok = capture(claude_command("plugin", "marketplace", "add", source))
       unless ok
         reason = first_line(err)
         if old_source
-          _out, _err, restored = capture(["claude", "plugin", "marketplace", "add", old_source])
-          capture(["claude", "plugin", "install", PLUGIN, "--scope", "user"]) if restored
+          _out, _err, restored = capture(claude_command("plugin", "marketplace", "add", old_source))
+          capture(claude_command("plugin", "install", PLUGIN, "--scope", "user")) if restored
           return "failed: #{reason} (previous source #{restored ? 'restored' : 'could not be restored'})"
         end
         return "failed: #{reason}"
       end
 
-      _out, err, ok = capture(["claude", "plugin", "install", PLUGIN, "--scope", "user"])
+      _out, err, ok = capture(claude_command("plugin", "install", PLUGIN, "--scope", "user"))
       ok ? "ok" : "failed: #{first_line(err)}"
     end
 
@@ -322,7 +397,7 @@ module Reach
       result = claude_add(spec)
       return result unless result == "ok"
 
-      _out, err, ok = capture(%w[claude plugin update reach@reach --scope user])
+      _out, err, ok = capture(claude_command("plugin", "update", PLUGIN, "--scope", "user"))
       ok ? "ok" : "failed: #{first_line(err)}"
     end
 
@@ -351,7 +426,8 @@ module Reach
     end
 
     def capture(args)
-      out, err, status = Timeout.timeout(120) { Open3.capture3(*args) }
+      env = cli_env(args.first)
+      out, err, status = Timeout.timeout(120) { Open3.capture3(env, *args) }
       [out, err, status.success?]
     rescue StandardError => e
       ["", e.message, false]

@@ -36,6 +36,7 @@ messages:
   M-UPDATE-HOOKS-NOTICE: "rEach's next update (version {version}) changes the hooks Codex runs, so after it installs Codex will ask you to approve rEach's hooks again. That is expected: approve them, then start a new chat."
   M-UPDATE-RETRY: "rEach couldn't finish installing an update (version {version}) just now. You can keep working; it will try again on its own."
   M-UPDATE-APP-ONLY: "rEach can't update itself from here. Tell the student, in plain words, to open the Plugins page in their app, find rEach there and update it, then start a new chat. Don't try anything else to update it."
+  M-UPDATE-APP-NOTICE: "rEach has an update (version {version}) that this copy can't install by itself. To get it, open the Plugins page in your app, find rEach there and update it, then start a new chat. If that doesn't work, ask your AI partner to reinstall rEach with its installer, which sets up a copy that updates itself from then on."
   M-REACH-OUTDATED: "This version of rEach ({version}) is too old for your course, which needs {minimum} or newer. Update rEach, then try again."
   M-AUTH-FAILED: "Your course server didn't accept rEach's signature. Check that your computer's clock is right, then run reach sync. If it keeps happening, tell your instructor."
   M-ENROLL-DONE: "You're connected to {course}. rEach is fetching your course materials now."

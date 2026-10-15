@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.52.14
+version: 0.52.15
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1886,6 +1886,15 @@ auto_update:
       A copy that lives only in a harness plugin cache (no managed ~/.reach/plugin) checks hourly from the prompt hook
       like a managed install but stages nothing; when a newer version is pending the prompt hook tells the agent once
       per chat (M-UPDATE-RUN) to start the refresh with the reach_update tool or reach update run --apply.
+      Since 0.52.15 the refresh finds the harness CLI beyond PATH (codex: PATH, then CODEX_CLI_PATH, then
+      /opt/homebrew/bin, /usr/local/bin, ~/.local/bin, ~/.npm-global/bin, the npm global prefix bin and %APPDATA%\npm;
+      claude: the same folders), because the desktop apps start with a minimal PATH. A copy neither managed nor
+      refreshable through a CLI it can find (a cache copy with no CLI, or a copy outside every recognised cache
+      other than a git checkout) checks hourly too, and when a newer version is pending the prompt hook tells the
+      agent once per chat (M-UPDATE-APP-NOTICE) to give the student the plain-words choice of updating from the app's
+      Plugins page or having the assistant reinstall rEach with the installer, which makes the self-updating managed
+      copy. A cache refresh skipped for want of a CLI writes a cache_skipped event to the update log and the debug
+      stream with the reason and the folders tried.
     hold: >-
       While an install is actually running (a live update lock in phase staged or swapped), the prompt gate and the
       write and shell gates refuse with M-UPDATE-INSTALLING, and reach qualify, submit and sync refuse the same way.
@@ -2247,6 +2256,8 @@ student_messages:
     text: A rEach update (version {version}) is ready. It installs the next time you start a session, so nothing changes in the middle of your work.
   - id: M-UPDATE-RUN
     text: version {version} is available and this copy of rEach does not update itself. When you finish your current answer, start the update with the reach_update tool (action run) or with reach update run --apply, then give the student the reply it returns, word for word.
+  - id: M-UPDATE-APP-NOTICE
+    text: rEach has an update (version {version}) that this copy can't install by itself. To get it, open the Plugins page in your app, find rEach there and update it, then start a new chat. If that doesn't work, ask your AI partner to reinstall rEach with its installer, which sets up a copy that updates itself from then on.
   - id: M-UPDATE-DONE
     text: rEach is up to date (version {version}). Start a new session when it suits you to load everything.
   - id: M-UPDATE-RETRY
