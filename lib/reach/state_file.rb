@@ -3,8 +3,10 @@ require "fileutils"
 
 module Reach
   module StateFile
-    RENAME_RETRIES = 5
-    RENAME_RETRY_S = 0.05
+    RENAME_RETRIES = 7
+    RENAME_RETRY_S = 0.04
+    RENAME_BUDGET_S = 1.0
+    RENAME_BUSY = [Errno::EACCES, Errno::EPERM, Errno::EBUSY].freeze
 
     module_function
 
@@ -43,13 +45,17 @@ module Reach
 
     def rename_into_place(tmp, file)
       attempts = 0
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       begin
         File.rename(tmp, file)
-      rescue Errno::EACCES, Errno::EBUSY
+      rescue *RENAME_BUSY
         attempts += 1
-        raise if attempts >= RENAME_RETRIES
+        raise unless Reach::Paths.windows_host? && attempts < RENAME_RETRIES
 
-        sleep(RENAME_RETRY_S * attempts)
+        pause = RENAME_RETRY_S * attempts * (0.5 + rand)
+        raise if Process.clock_gettime(Process::CLOCK_MONOTONIC) - started + pause > RENAME_BUDGET_S
+
+        sleep(pause)
         retry
       end
     end
