@@ -284,12 +284,17 @@ module Reach
 
       def starting_copies(workspace, meta)
         packages = Reach::Packages.new
-        version = packages.latest_version(Reach::Workspace::KIND)
+        version = marker_package_version(packages, meta) || packages.latest_version(Reach::Workspace::KIND)
         raise Reach::Refused, Reach::Messages.text("M-QUALIFY-NOKIT") unless version
 
         _header, entries = packages.open(Reach::Workspace::KIND, version)
         root = "#{meta['cutout_id']}-#{meta['slice']}"
         Array(meta["owned_files"]).map { |relative| [relative, entries["#{root}/#{relative}"]] }.to_h
+      end
+
+      def marker_package_version(packages, meta)
+        version = meta["package_version"].to_i
+        version.positive? && packages.stored_envelope(Reach::Workspace::KIND, version) ? version : nil
       end
 
       def read_or_nil(path)

@@ -804,7 +804,9 @@ qualification:
   - >-
     local_pass and local_stub, when qualify.local is true - the agent's scenarios run in vault/runs/<slice>-pass on
     the kit with the owned files, and in <slice>-stub on the starting copy, where each must fail (QF-LOCAL-FAIL,
-    QF-VACUOUS). A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
+    QF-VACUOUS). Since 0.52.15 the starting copy comes from the stored workspace package whose version the slice's
+    marker records (package_version), so a past-due slice of an earlier assignment keeps its own starting copy after a
+    newer assignment's package arrives; only a marker with no stored package falls back to the newest one. A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
     agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest. When Cucumber cannot start, the finding quotes the first error line after bundler's own "failed to load command" line.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at

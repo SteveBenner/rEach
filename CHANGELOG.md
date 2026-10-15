@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On Windows a state file write no longer fails with `Errno::EACCES` when another process (antivirus, an indexer, a second rEach copy) briefly holds the target (seen five times since 2026-10-14 on 0.52.12, x64-mingw-ucrt, at `StateFile.rename_into_place` under `Enroll.write_data` and `Sync.refresh_status`). The rename now retries `EACCES`, `EPERM` and `EBUSY` up to seven attempts with jittered, growing pauses inside a one second budget, on Windows only, then re-raises; `write_atomic` removes the temp file on the final failure. Before, only `EACCES` and `EBUSY` were retried, five attempts over about half a second, on every platform.
 
+- Qualifying a past-due slice of an earlier assignment after a newer assignment has arrived no longer builds the local stub run from the newer package. `Qualify.starting_copies` took the starting copies from the newest stored workspace package, which holds only the newest assignment's slice roots, so for an earlier slice every owned file was dropped from the stub run and the local_stub step could stop on QF-VACUOUS before anything reached Teach. It now opens the stored package whose version the slice's marker records (`package_version`) and falls back to the newest only when the marker has none or that package is no longer stored (`Qualify.marker_package_version`).
+
 ### Added
 
 - A cache refresh skipped because no CLI was found writes a `cache_skipped` event (harness, reason `no_cli`, the folders tried with the home folder shown as `~`) to `~/.reach/logs/update.log` and the debug stream.
