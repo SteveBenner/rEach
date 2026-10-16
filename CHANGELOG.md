@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.16] - 2026-10-16
+
+### Fixed
+
+- A Codex student with two or more slices no longer sees "Which slice?" (`M-PICK-SLICE`) after each patch. The PostToolUse check hook, registered since 0.51.11 for `apply_patch|Write|Edit`, took its target only from `tool_input.file_path`, `path` or `notebook_path`; an `apply_patch` payload carries the patch in `tool_input.command`, so there was no target and a session in `reach-work` ended the hook with exit 2. `reach check --format agent` now reads the targets from the patch (`Reach::Gate.patch_targets`, rebased on `tool_input.workdir` or the event's cwd as the write gate does), keeps those inside a slice, and runs `Reach::Check.run` once per distinct slice with that slice's targets as `changed` (it now accepts a list). A patch that touches no slice exits 0 with no output. The hook never emits `M-PICK-SLICE`: when it cannot resolve a slice it exits 0 quietly. Claude `Write` and `Edit` behave as before.
+- On Windows a state file another program holds for more than the one second of retries (antivirus, an indexer, an older rEach copy in the Codex plugin cache started from the same `REACH_HOME`) no longer raises a blocking fault in `reach_sync` or a repeated `subscribe:sync` report. `Reach::StateFile.rename_into_place` raises `Reach::StateFile::Held` (a `StandardError` carrying the path) once the retries are spent; other hosts still raise their own error at once. `Reach::Enroll.update!` skips the write when the only change is `last_checked_at` and the stored time is under an hour old, so a sync no longer rewrites `install.yml` each time, and on Windows a timed-out `install.yml.lock` wait raises `Held` instead of writing without the lock. `Reach::Debug.fault` never reports a `Held` to Teach and `Reach::SetupLog.held` records it locally with a count; `Reach::Subscribe` treats it as busy and registers no failure, so the backoff does not grow; every `reach_*` tool answers it with `{state: busy, text: M-STATE-HELD}`, a hook ends quietly, and a terminal command prints `M-STATE-HELD`.
+
+### Added
+
+- `Reach::OldCopy` compares `Reach::VERSION` with the `VERSION` of the managed plugin copy and of the Codex and Claude plugin cache copies where they exist (it reads small files only and lists no process). When any differs, the prompt hook and the held-file answer of a `reach_*` tool tell the assistant once per chat (`M-OLD-COPY-NOTICE`) that an older rEach is still running: quit the app completely, then update rEach from its Plugins page, or remove it and add it again following the setup handout. A 0.51.0 copy cannot be changed, so this comes from the 0.52 side.
+- Messages `M-STATE-HELD` and `M-OLD-COPY-NOTICE` in `locales/en-US.yml` and the student message catalogue of `reach.spec.yml`; standards `STD-CODEX-PATCH-CHECK` and `STD-STATE-FILE-HELD` in `specs/app.yml`.
+
 ## [0.52.15] - 2026-10-15
 
 ### Fixed

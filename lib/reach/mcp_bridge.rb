@@ -586,6 +586,9 @@ module Reach
         arguments = params["arguments"] || {}
         payload = relay_channel(name, Reach::Client.with_deadline(TOOL_BUDGET_S) { dispatch(name, arguments) })
         result(id, { "content" => [{ "type" => "text", "text" => JSON.generate(payload) }] })
+      rescue Reach::StateFile::Held => e
+        Reach::Debug.fault(e, "mcp:#{tool_label(name)}")
+        result(id, { "content" => [{ "type" => "text", "text" => JSON.generate(held_payload) }] })
       rescue Reach::NetworkError => e
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-TEACH-LINK-LOST")
         error(id, -32000, e.cause_name ? e.message : Reach::Messages.text("M-TEACH-LINK-LOST"))
@@ -603,6 +606,13 @@ module Reach
 
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}", "M-REACH-HICCUP-TOOL")
         error(id, -32000, hiccup_text)
+      end
+
+      def held_payload
+        payload = { "state" => "busy", "text" => Reach::Messages.text("M-STATE-HELD") }
+        notices = Reach::OldCopy.prompt_notices(Reach::Session.fallback_session_id)
+        payload["notices"] = notices unless notices.empty?
+        payload
       end
 
       RELAY_CHANNELS = { "reach_support" => "support.message", "reach_test" => "mcp.test", "reach_announcements" => "mcp.announcements" }.freeze

@@ -69,6 +69,11 @@ module Reach
           warn Reach::Sandbox.agent_text
           return 1
         end
+        if e.is_a?(Reach::StateFile::Held)
+          Reach::Debug.fault(e, "command:#{command_label(argv)}")
+          warn Reach::Messages.text("M-STATE-HELD")
+          return 1
+        end
         Reach::Debug.fault(e, "command:#{command_label(argv)}", "M-REACH-HICCUP-CLI")
         warn Reach::Messages.text("M-REACH-HICCUP-CLI")
         1
@@ -183,6 +188,11 @@ module Reach
         label = hook_label(argv)
         hermes = hook_hermes?(argv)
         closed = hermes && argv.first == "gate" && HERMES_FAIL_CLOSED_SUBS.include?(argv[1])
+        if error.is_a?(Reach::StateFile::Held) && !closed
+          Reach::Debug.fault(error, "hook:#{label}")
+          puts "{}" if hermes
+          return 0
+        end
         network = error.is_a?(Reach::NetworkError)
         text = closed ? nil : (network ? Reach::Link.notice! : Reach::Link.hiccup!)
         shown = if closed
@@ -2883,16 +2893,21 @@ module Reach
           return check_hermes(event)
         end
         tool_input = event["tool_input"] || {}
+        format = (options[:format] || "text").to_sym
+        hook_call = format == :agent && event.key?("tool_name")
+        if hook_call && options[:slice].nil? && options[:changed].nil?
+          patch_runs = patch_check_runs(event, tool_input)
+          return check_patch_runs(patch_runs) if patch_runs
+        end
         hook_target = tool_input["file_path"] || tool_input["path"] || tool_input["notebook_path"]
         changed = options[:changed] || hook_target
         if hook_target && options[:slice].nil? && Reach::Gate.root_kind?
           found = Reach::Workspace.space_for_target(File.expand_path(hook_target.to_s))
           return 0 unless found && found["kind"] == "slice"
         end
-        workspace_path = workspace_or_fail(options[:slice], target: hook_target)
-        return 1 unless workspace_path
+        workspace_path = hook_call ? hook_workspace(options[:slice], hook_target) : workspace_or_fail(options[:slice], target: hook_target)
+        return(hook_call ? 0 : 1) unless workspace_path
 
-        format = (options[:format] || "text").to_sym
         findings = Reach::Check.run(workspace_path, changed: changed, format: format)
         if format == :text
           puts findings
@@ -2901,6 +2916,38 @@ module Reach
           puts JSON.generate(findings)
           findings.empty? ? 0 : 1
         end
+      end
+
+      def hook_workspace(slice_hint, target)
+        resolve_workspace(slice_hint) || Reach::Gate.focus_workspace(target: target)
+      rescue Reach::GateBlocked
+        nil
+      end
+
+      def patch_check_runs(event, tool_input)
+        command = tool_input["command"]
+        command = command.join(" ") if command.is_a?(Array)
+        text = command.to_s
+        return nil unless event["tool_name"].to_s == "apply_patch" || text.lstrip.start_with?("*** Begin Patch")
+
+        base = Reach::Gate.command_cwd(event)
+        runs = {}
+        Reach::Gate.patch_targets(text).each do |relative|
+          target = File.expand_path(relative, base)
+          space = Reach::Workspace.space_for_target(target)
+          next unless space && space["kind"] == "slice"
+
+          (runs[space["path"]] ||= []) << target
+        end
+        runs.transform_values(&:uniq)
+      end
+
+      def check_patch_runs(runs)
+        findings = runs.flat_map { |workspace_path, targets| Reach::Check.run(workspace_path, changed: targets, format: :agent) }
+        return 0 if findings.empty?
+
+        puts JSON.generate(findings)
+        1
       end
 
       def cmd_checkpoint(args)

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.52.15
+version: 0.52.16
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1170,7 +1170,10 @@ mcp_bridge:
   - name: reach_sync
     description: >-
       Fetch new packages, verify them and refresh workspaces; since 0.52.13 (STD-SUBMIT-REFUSALS) it also returns, once,
-      the notice for a queued submission the course server refused, in text with relay_verbatim true
+      the notice for a queued submission the course server refused, in text with relay_verbatim true. Since 0.52.16
+      (STD-STATE-FILE-HELD) a state file another program holds (Reach::StateFile::Held) makes every reach_* tool answer
+      a calm result {state busy, text M-STATE-HELD} instead of a fault, with the old-copy notice (M-OLD-COPY-NOTICE)
+      once per server process when an older copy of rEach is found
   - name: reach_check
     description: Run reach check on the current slice (optionally one changed path) and return the findings
   - name: reach_checkpoint
@@ -1543,6 +1546,8 @@ subscription:
     attempt, If-None-Match with the stored quoted revision). 304 or an unchanged revision: record checked_at. A new
     revision: Reach::Sync.run in this process (non-blocking sync lock), then store revision and parts, append one
     notice per changed part and reset failures; a held sync lock or a raising sync keeps the old revision and parts.
+    Since 0.52.16 a state file another program holds (Reach::StateFile::Held) ends the tick as result busy: no fault
+    hand, no failure registered, and the backoff does not grow.
     404: unsupported_until = now + 21600. 403 revoked or not_enrolled: mark revoked and uninstall the job. Since
     0.51.2 a 401 unauthenticated whose signature was made more than 240 s before the answer (a computer that slept
     mid-request, so Teach saw a timestamp past its 300 s window) takes the same backoff without a fault. The request is
@@ -1897,6 +1902,13 @@ auto_update:
       Plugins page or having the assistant reinstall rEach with the installer, which makes the self-updating managed
       copy. A cache refresh skipped for want of a CLI writes a cache_skipped event to the update log and the debug
       stream with the reason and the folders tried.
+    old_copy: >-
+      Since 0.52.16 (STD-STATE-FILE-HELD) Reach::OldCopy compares Reach::VERSION with the VERSION files of the managed
+      plugin copy and of the Codex and Claude plugin cache copies where they exist (it reads small files only, lists no
+      process and never blocks or fails). When any of them differs from the running version, the prompt hook, and the
+      held-file answer of a reach_* tool, tell the agent once per chat (M-OLD-COPY-NOTICE) that an older rEach is still
+      running: quit the app completely, then update rEach from its Plugins page, or remove and add it again following
+      the setup handout.
     hold: >-
       While an install is actually running (a live update lock in phase staged or swapped), the prompt gate and the
       write and shell gates refuse with M-UPDATE-INSTALLING, and reach qualify, submit and sync refuse the same way.
@@ -2090,9 +2102,13 @@ setup_log:
   since: 0.35.0
   standard: STD-SETUP-LOG (specs/app.yml)
   library: lib/reach/setup_log.rb (Reach::SetupLog); fed by Reach::Debug, Reach::Messages.text, Reach::CLI and the MCP bridge
+  held: >-
+    Since 0.52.16 (STD-STATE-FILE-HELD) Reach::Debug.fault never reports a Reach::StateFile::Held to Teach. Reach::SetupLog.held
+    appends a held record (where, the file's name, the running count) to the log and keeps state.json held {count,
+    last_at, where, file}, enrolled or not, and counts nothing toward the streak or the report.
   files: >-
     <home>/setup-log/ (0700): log-<date>.jsonl, install-<stamp>.jsonl (written by scripts/reach-install and
-    reach-install.ps1), state.json {streak, failures, last_success_at, env_at, offer} and lock, all 0600. Separate from
+    reach-install.ps1), state.json {streak, failures, last_success_at, env_at, offer, held} and lock, all 0600. Separate from
     <home>/debug/, where nothing is created while debug mode is off.
   config: >-
     config.yml setup_log (optional): enabled true, threshold 3, max_bytes 20971520, report_max_bytes 8388608,
@@ -2260,6 +2276,10 @@ student_messages:
     text: version {version} is available and this copy of rEach does not update itself. When you finish your current answer, start the update with the reach_update tool (action run) or with reach update run --apply, then give the student the reply it returns, word for word.
   - id: M-UPDATE-APP-NOTICE
     text: rEach has an update (version {version}) that this copy can't install by itself. To get it, open the Plugins page in your app, find rEach there and update it, then start a new chat. If that doesn't work, ask your AI partner to reinstall rEach with its installer, which sets up a copy that updates itself from then on.
+  - id: M-OLD-COPY-NOTICE
+    text: An older copy of rEach is still running on your computer, and it can keep the newer copy from saving its files. Quit your app completely, then update rEach from its Plugins page. If that doesn't work, remove rEach and add it again, following the setup handout.
+  - id: M-STATE-HELD
+    text: rEach couldn't save a file just now because another program on your computer is using it. Nothing is lost. Wait a few seconds, then try again.
   - id: M-UPDATE-DONE
     text: rEach is up to date (version {version}). Start a new session when it suits you to load everything.
   - id: M-UPDATE-RETRY
@@ -3201,7 +3221,12 @@ home_in_workspace:
     M-PICK-SLICE, which since 0.51.10 asks the agent to name the slice with --slice or the tools' slice argument, or to
     run the command with the slice's folder as its working folder, and lists each slice's name and folder; the student
     never needs to open another folder or chat. The root space's rules end with the same instruction. The root space carries the check PostToolUse hook
-    for Claude and Codex. While a relocation runs, Reach::Relocation.hold! makes writes, shell calls and submit refuse
+    for Claude and Codex. Since 0.52.16 (STD-CODEX-PATCH-CHECK) that hook never refuses with M-PICK-SLICE: a Codex
+    apply_patch carries its patch in tool_input.command, so reach check --format agent takes the targets from
+    Reach::Gate.patch_targets (rebased on tool_input.workdir or the event cwd, as the write gate does), keeps the ones
+    whose Reach::Workspace.space_for_target is a slice, runs Reach::Check.run once per distinct slice with that slice's
+    targets as changed, and exits 0 quietly when none is a slice. A hook call that cannot resolve a slice also exits 0
+    quietly. Claude Write and Edit behave as before. While a relocation runs, Reach::Relocation.hold! makes writes, shell calls and submit refuse
     with M-RELOCATING.
   doctor: >-
     R-DOC-RELOCATION reports a failed relocation (with its reason) as a finding only for an enrolled install; a legacy

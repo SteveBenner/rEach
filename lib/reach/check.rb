@@ -55,7 +55,8 @@ module Reach
       Reach::Seal.stamp(workspace) if stamp
       findings = []
       owned = Array(meta["owned_files"])
-      owned = owned.select { |relative| changed.nil? || same_file?(File.join(workspace, relative), changed) } if changed
+      targets = changed.nil? ? [nil] : Array(changed)
+      owned = owned.select { |relative| targets.any? { |target| same_file?(File.join(workspace, relative), target) } } if changed
       owned.each do |relative|
         full = File.join(workspace, relative)
         unless File.file?(full)
@@ -73,8 +74,14 @@ module Reach
           findings.concat(readme_findings(relative, content)) if relative == Reach::ReadmeCheck::FILE
         end
       end
-      findings.concat(shape_findings(workspace, changed))
-      findings = drop_deferred_panel_findings(findings) if Reach::Shape.ran?
+      shape_ran = false
+      shape_found = targets.flat_map do |target|
+        found = shape_findings(workspace, target)
+        shape_ran ||= Reach::Shape.ran?
+        found
+      end
+      findings.concat(shape_found.uniq { |entry| entry[:finding_id] })
+      findings = drop_deferred_panel_findings(findings) if shape_ran
       record(workspace, changed, findings)
       Reach::Debug.check(findings, owned.length)
       format == :text ? render_text(findings) : findings
@@ -355,8 +362,11 @@ module Reach
     end
 
     def record(workspace, changed, findings)
-      Reach::Ledger.append(workspace, "write", "path" => relative_of(workspace, changed), "before" => previous_digest(workspace, changed), "after" => digest_of(workspace, changed)) if changed
-      Reach::Ledger.append(workspace, "check", "changed" => changed && relative_of(workspace, changed), "findings" => findings.length)
+      paths = changed.nil? ? [] : Array(changed)
+      paths.each do |path|
+        Reach::Ledger.append(workspace, "write", "path" => relative_of(workspace, path), "before" => previous_digest(workspace, path), "after" => digest_of(workspace, path))
+      end
+      Reach::Ledger.append(workspace, "check", "changed" => paths.empty? ? nil : relative_of(workspace, paths.first), "findings" => findings.length)
     rescue StandardError
       nil
     end

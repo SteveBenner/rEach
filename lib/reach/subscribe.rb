@@ -207,6 +207,9 @@ module Reach
 
       write_state_locked(state)
       sync_and_store(revision, parts, source)
+    rescue Reach::StateFile::Held => e
+      Reach::Debug.fault(e, "subscribe:check")
+      { "result" => "busy", "source" => source }
     rescue Reach::RemoteRefused => e
       handle_refusal(e, state)
     rescue StandardError => e
@@ -255,6 +258,9 @@ module Reach
       end
       { "result" => "synced", "source" => source }
     rescue Reach::Sync::Busy
+      { "result" => "busy", "source" => source }
+    rescue Reach::StateFile::Held => e
+      Reach::Debug.fault(e, "subscribe:sync")
       { "result" => "busy", "source" => source }
     rescue Reach::RemoteRefused => e
       refusal_result(e)

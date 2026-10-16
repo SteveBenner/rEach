@@ -287,6 +287,7 @@ module Reach
         after_answer { Reach::Hello.clear_stored_context(session) }
       end
       context.concat(Array(framed("notice.update", safely { Reach::Update.prompt_notices(session) })))
+      context.concat(Array(framed("notice.old_copy", safely { Reach::OldCopy.prompt_notices(session) })))
       context.concat(Array(framed("notice.storage", safely { storage_notices(session, greeted) })))
       context.concat(Array(framed("notice.export_import", safely { Reach::ExportImport.prompt_notices(session) })))
       context << framed("notice.debug", safely { Reach::Debug.remote_notice(session) })

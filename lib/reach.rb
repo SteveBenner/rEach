@@ -136,6 +136,7 @@ require_relative "reach/qualify"
 require_relative "reach/packet"
 
 require_relative "reach/update"
+require_relative "reach/old_copy"
 require_relative "reach/harness_source"
 require_relative "reach/relocation"
 require_relative "reach/subscribe"

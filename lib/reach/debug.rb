@@ -493,6 +493,7 @@ module Reach
 
     def fault(error, where, shown_id = nil)
       return nil if silent?
+      return Reach::SetupLog.held(error, where) if error.is_a?(Reach::StateFile::Held)
 
       fields = {
         "where" => where, "exception" => error.class.name, "errno" => errno_name(error),

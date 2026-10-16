@@ -452,6 +452,26 @@ module Reach
       nil
     end
 
+    def held(error, where)
+      return nil if env_off? || config["enabled"] == false
+
+      guard do
+        file = File.basename(error.path.to_s)
+        count = 0
+        with_state do |state|
+          held = state["held"].is_a?(Hash) ? state["held"] : {}
+          held["count"] = held["count"].to_i + 1
+          held["last_at"] = now_iso
+          held["where"] = where.to_s
+          held["file"] = file
+          state["held"] = held
+          count = held["count"]
+        end
+        append_record("held", "where" => where.to_s, "file" => file, "count" => count)
+      end
+      nil
+    end
+
     def mcp(tool, action, ok, duration_ms, error, failure)
       guard do
         next nil unless active?

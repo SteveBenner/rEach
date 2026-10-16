@@ -8,6 +8,15 @@ module Reach
     RENAME_BUDGET_S = 1.0
     RENAME_BUSY = [Errno::EACCES, Errno::EPERM, Errno::EBUSY].freeze
 
+    class Held < StandardError
+      attr_reader :path
+
+      def initialize(path)
+        @path = path.to_s
+        super("reach: #{File.basename(@path)} is held by another program")
+      end
+    end
+
     module_function
 
     def path(name)
@@ -50,10 +59,11 @@ module Reach
         File.rename(tmp, file)
       rescue *RENAME_BUSY
         attempts += 1
-        raise unless Reach::Paths.windows_host? && attempts < RENAME_RETRIES
+        raise unless Reach::Paths.windows_host?
+        raise Held, file if attempts >= RENAME_RETRIES
 
         pause = RENAME_RETRY_S * attempts * (0.5 + rand)
-        raise if Process.clock_gettime(Process::CLOCK_MONOTONIC) - started + pause > RENAME_BUDGET_S
+        raise Held, file if Process.clock_gettime(Process::CLOCK_MONOTONIC) - started + pause > RENAME_BUDGET_S
 
         sleep(pause)
         retry

@@ -12,6 +12,7 @@ module Reach
     CONNECT_TIMEOUT_S = 5
     READ_TIMEOUT_S = 10
     LOCK_WAIT_S = 10.0
+    CHECKED_FRESH_S = 3600
 
     module_function
 
@@ -209,7 +210,10 @@ module Reach
       path = Reach::Paths.install_file
       FileUtils.mkdir_p(File.dirname(path))
       outcome = Reach::Locks.exclusive("#{path}.lock", wait_s: LOCK_WAIT_S, &block)
-      outcome == :busy ? block.call : outcome
+      return outcome unless outcome == :busy
+      raise Reach::StateFile::Held, path if Reach::Paths.windows_host?
+
+      block.call
     end
 
     def revoked?
@@ -223,9 +227,22 @@ module Reach
       with_install_lock do
         data = current || {}
         merged = data.merge(stringify_keys(fields))
+        next data if only_fresh_check?(data, merged)
+
         write_data(merged)
         merged
       end
+    end
+
+    def only_fresh_check?(stored, merged)
+      changed = (stored.keys | merged.keys).reject { |key| stored[key] == merged[key] }
+      return false unless changed == ["last_checked_at"]
+
+      checked = Time.parse(stored["last_checked_at"].to_s)
+      age = Time.now - checked
+      age >= 0 && age < CHECKED_FRESH_S
+    rescue ArgumentError, TypeError
+      false
     end
 
     def mark_revoked!
