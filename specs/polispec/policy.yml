@@ -13,6 +13,12 @@ rules:
   - { id: R-TEST-PROMOTE, match: { env: test, class: [promote] }, verdict: allow, requires: gates.to_test }
   - { id: R-TEST-OPS, match: { env: test, class: [deploy, service.control, data.write, fs.write] }, verdict: allow }
   - { id: R-POLICY, match: { class: [policy.edit] }, verdict: warn, reason: "policy files take effect only after promotion to stable" }
+  - { id: R-DESK-ISSUE-GET, match: { env: dev, server: teach-desk, operation: issue_get }, verdict: allow, reason: "a desk worker reads its own issue" }
+  - { id: R-DESK-ISSUE-NOTE, match: { env: dev, server: teach-desk, operation: issue_note }, verdict: allow, reason: "a desk worker posts a finding for the instructor" }
+  - { id: R-DESK-ISSUE-READY, match: { env: dev, server: teach-desk, operation: issue_ready }, verdict: allow, reason: "a desk worker reports a verified local fix; the instructor decides shipping" }
+  - { id: R-DESK-ISSUE-SHIPPED, match: { env: dev, server: teach-desk, operation: issue_shipped }, verdict: allow, reason: "Teach refuses it unless the instructor approved" }
+  - { id: R-DESK-ISSUE-RELEASE, match: { env: dev, server: teach-desk, operation: issue_release }, verdict: allow, reason: "a desk worker gives back an issue it cannot fix" }
+  - { id: R-DESK-APPROVAL, match: { env: dev, server: teach-desk, operation: approval_status }, verdict: allow, reason: "a desk worker asks whether shipping was approved" }
   - { id: R-DEV-REWRITE, match: { env: dev, class: [git.rewrite], ref: main }, verdict: warn, reason: "main is shared history" }
   - { id: R-DEV, match: { env: dev }, verdict: allow }
 promotion:
