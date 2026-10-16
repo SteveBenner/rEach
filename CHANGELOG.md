@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.1] - 2026-10-16
+
+### Fixed
+
+- The 0.53.0 build blueprint (`specs/implementation/v0.53.0.impl.yml`) is removed from the public tree; build blueprints stay in the private superproject (`STD-TEACH-OPAQUE`). `.gitattributes` exports `specs/implementation` as ignored again, so the directory can never ship in a student's archive.
+- The 0.53.0 FEATURES entry no longer calls its own release unreleased.
+
 ## [0.53.0] - 2026-10-16
 
 ### Added
