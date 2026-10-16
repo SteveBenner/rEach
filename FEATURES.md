@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.52.16 |
+| **Registry version** | 0.53.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1344,6 +1344,23 @@ folded this host's report and two hand-made ones into the expected cells. Not ve
 (the matrix job has never run), and the tested scope is commands and hook command lines, not a live agent session.
 
 Build ✅ · Deploy 🔵 (released with 0.42.0, no student has it yet) · Blocker: Human (release)
+
+### 4.6.1 · Verified harness labels
+
+Since 0.53.0 (`STD-HARNESS-VERIFIED`, wire 2026-10-16a, W-AUTH-8) one detector, `Reach::HarnessIdentity`, names the
+harness and how sure rEach is of it. Every hook records its session's label in `state/harness_sessions.json` (newest 64
+sessions of 14 days); a hook's own requests and any process whose `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID` names a
+recorded session report it as verified, environment markers as inferred, and the parent process, the last hook label or
+the terminal or unknown fallback as weak. Every signed request carries `X-Reach-Harness-Confidence` beside
+`X-Reach-Env`, and the harness is worked out per request, so the MCP server follows its session instead of freezing its
+first answer. Verified on Linux with a scratch REACH_HOME: a real gate hook command line recorded its session and a
+second process with that session id reported it verified; an unrecorded session with a VS Code entrypoint was inferred;
+no markers was weak; one long-lived process changed from weak to verified once a hook recorded its session; signed
+headers carried both values and neither under REACH_ENV_REPORT_DISABLE=1; pruning kept 64 and dropped a 15-day entry.
+Not verified: that Codex's `CODEX_THREAD_ID` equals its hook `session_id` (if not, non-hook Codex processes report
+inferred), and a live Claude or Codex session.
+
+Build ✅ (branch harness-verified, 0.53.0) · Deploy 🔵 (not released) · Blocker: Human (release; Teach 0.96.0 reads the confidence)
 
 ### 4.7 · Stable cadence
 

@@ -13,26 +13,47 @@ module Reach
     HEADER_LIMIT = 320
     UNKNOWN = "unknown".freeze
 
+    def static_report
+      @static_report ||= build
+    end
+
+    def static_fields
+      @static_fields ||= static_report.each_with_object({}) { |(key, value), acc| acc[key] = clean(value) }
+    end
+
     def report
-      @report ||= build
+      { "harness" => harness }.merge(static_report)
     end
 
     def fields
-      @fields ||= report.each_with_object({}) { |(key, value), acc| acc[key] = clean(value) }
+      { "harness" => clean(harness) }.merge(static_fields)
     end
 
     def header
-      return nil if ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
+      headers.first
+    end
 
-      value = %w[harness os os_release arch ruby].map { |key| "#{key}=#{fields[key]}" }.join(";")
-      value.bytesize > HEADER_LIMIT ? nil : value
+    def confidence_header
+      headers.last
+    end
+
+    def headers
+      return [nil, nil] if ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
+
+      found = Reach::HarnessIdentity.detect
+      label = found["label"].to_s
+      current = { "harness" => clean(label.empty? ? UNKNOWN : label) }.merge(static_fields)
+      value = %w[harness os os_release arch ruby].map { |key| "#{key}=#{current[key]}" }.join(";")
+      return [nil, nil] if value.bytesize > HEADER_LIMIT
+
+      confidence = found["confidence"].to_s
+      [value, Reach::HarnessIdentity::CONFIDENCES.include?(confidence) ? confidence : "weak"]
     rescue StandardError
-      nil
+      [nil, nil]
     end
 
     def build
       {
-        "harness" => harness,
         "os" => Reach::KnownIssues.os_name,
         "os_release" => os_release,
         "arch" => arch,
@@ -41,10 +62,8 @@ module Reach
     end
 
     def harness
-      found = Reach::KnownIssues.harness.to_s
-      return found unless found.empty?
-
-      $stdin.tty? ? "terminal" : UNKNOWN
+      found = Reach::HarnessIdentity.detect["label"].to_s
+      found.empty? ? UNKNOWN : found
     rescue StandardError
       UNKNOWN
     end

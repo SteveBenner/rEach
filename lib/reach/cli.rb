@@ -839,6 +839,7 @@ module Reach
         else
           Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
         end
+        Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
         Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
         Reach::EnrollmentLock.pass_session = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil
         Reach::Debug.begin_hook(event, options[:harness])
@@ -3167,6 +3168,7 @@ module Reach
         final, _remaining = parse_bare_flag(remaining, "final")
         Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
         event = read_stdin_json
+        Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
         if hermes_hook?(options[:harness], event)
           event = normalize_hermes_event(event)
           return 0 unless event
@@ -3198,6 +3200,7 @@ module Reach
           options, _remaining = parse_flags(args, [:harness])
           Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), "work")
           event = read_stdin_json
+          Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
           if hermes_hook?(options[:harness], event)
             event = normalize_hermes_event(event)
             return 0 unless event

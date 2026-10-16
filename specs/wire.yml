@@ -1,8 +1,8 @@
 schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
-recorded: '2026-10-13'
-revision: 2026-10-13d
+recorded: '2026-10-16'
+revision: 2026-10-16a
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -156,7 +156,16 @@ request_authentication:
       Reach omits it when REACH_ENV_REPORT_DISABLE=1 or when computing it fails. Since revision 2026-10-07b Teach also
       keeps the install's harness at the harness value of the last valid header, unless that value is terminal or
       unknown, so an install whose student moved rEach to another app shows the app in use rather than the one it
-      enrolled from; this too is descriptive only.
+      enrolled from; this too is descriptive only. Since revision 2026-10-16a Reach also sends
+      X-Reach-Harness-Confidence beside X-Reach-Env and only with it: verified when a hook of the harness fired in the
+      session the request comes from (the request is made by that hook, or its process carries the session id that hook
+      recorded, CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID), inferred when only environment markers name the harness,
+      weak when the label came from the parent process, the last label any hook recorded, or the terminal or unknown
+      fallback. It is a separate header so that a Teach of an earlier revision, which drops an X-Reach-Env with any
+      unexpected key, still reads the environment. Teach reads it only with a valid X-Reach-Env, treats an absent or
+      malformed value as absent, keeps it with the environment row, and changes the install's harness only to a label
+      of equal or stronger confidence (verified over inferred over weak, an absent value ranking as inferred); this
+      too is descriptive only and never used for authorization.
   W-AUTH-9:
     name: attempt requests
     since: 2026-10-09a

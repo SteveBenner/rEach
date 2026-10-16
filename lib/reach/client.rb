@@ -501,14 +501,17 @@ module Reach
       req["X-Teach-Nonce"] = nonce
       req["X-Teach-Signature"] = signature
       req["X-Reach-Version"] = Reach::VERSION
-      env_header = environment_header
-      req["X-Reach-Env"] = env_header if env_header
+      env_header, confidence = environment_headers
+      return unless env_header
+
+      req["X-Reach-Env"] = env_header
+      req["X-Reach-Harness-Confidence"] = confidence if confidence
     end
 
-    def environment_header
-      Reach::Environment.header
+    def environment_headers
+      Reach::Environment.headers
     rescue StandardError
-      nil
+      [nil, nil]
     end
 
     def retry_after_seconds(response)

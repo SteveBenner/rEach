@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.0] - 2026-10-16
+
+### Added
+
+- `Reach::HarnessIdentity` (`lib/reach/harness_identity.rb`, `STD-HARNESS-VERIFIED`, wire revision 2026-10-16a W-AUTH-8): one detector for the harness label and its confidence. Every hook (`gate`, `hook stop`, `transcript code`, `Hello.run`) records its session's label in `state/harness_sessions.json` (newest 64 sessions within 14 days, tmp + rename at 0600, never fatal). A hook's own requests and any process whose `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID` names a recorded session are verified; environment markers are inferred; the parent process, the last hook label and the terminal or unknown fallback are weak. `KnownIssues.harness` and `Reach::Environment` both use it.
+- Every signed request that carries `X-Reach-Env` also carries `X-Reach-Harness-Confidence` (verified, inferred or weak). It is a separate header so a Teach of an earlier revision, which drops an `X-Reach-Env` with any unexpected key, still reads the environment.
+
+### Changed
+
+- `Reach::Environment` works out the harness on every request (one detection per request, `Environment.headers`) and memoizes only os, os_release, arch and ruby, so the long-lived MCP server reports the label its session's hooks recorded instead of the first answer it computed. The parent-process lookup is memoized per process.
+
 ## [0.52.16] - 2026-10-16
 
 ### Fixed

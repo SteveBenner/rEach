@@ -132,6 +132,12 @@ module Reach
     end
 
     def parent_harness
+      return @parent_harness if defined?(@parent_harness)
+
+      @parent_harness = lookup_parent_harness
+    end
+
+    def lookup_parent_harness
       return nil if Reach::Runtime.windows?
 
       pid = Process.ppid
@@ -154,9 +160,8 @@ module Reach
     end
 
     def harness
-      label = marker_harness
-      label = nil if label.to_s.empty? || label == Reach::Fingerprint::UNKNOWN
-      label || parent_harness || recorded_harness
+      found = Reach::HarnessIdentity.detect["label"].to_s
+      found.empty? || %w[terminal unknown].include?(found) ? nil : found
     end
 
     def environment
