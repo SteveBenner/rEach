@@ -1173,7 +1173,7 @@ mcp_bridge:
       the notice for a queued submission the course server refused, in text with relay_verbatim true. Since 0.52.16
       (STD-STATE-FILE-HELD) a state file another program holds (Reach::StateFile::Held) makes every reach_* tool answer
       a calm result {state busy, text M-STATE-HELD} instead of a fault, with the old-copy notice (M-OLD-COPY-NOTICE)
-      once per server process when an older copy of rEach is found
+      once per server process when a copy of rEach with a different version is found
   - name: reach_check
     description: Run reach check on the current slice (optionally one changed path) and return the findings
   - name: reach_checkpoint
@@ -1905,10 +1905,13 @@ auto_update:
     old_copy: >-
       Since 0.52.16 (STD-STATE-FILE-HELD) Reach::OldCopy compares Reach::VERSION with the VERSION files of the managed
       plugin copy and of the Codex and Claude plugin cache copies where they exist (it reads small files only, lists no
-      process and never blocks or fails). When any of them differs from the running version, the prompt hook, and the
-      held-file answer of a reach_* tool, tell the agent once per chat (M-OLD-COPY-NOTICE) that an older rEach is still
-      running: quit the app completely, then update rEach from its Plugins page, or remove and add it again following
-      the setup handout.
+      process and never blocks or fails). The prompt hook, and any other path that is not a held file, tells the agent once
+      per chat (M-OLD-COPY-NOTICE) only when the running copy is older than a copy found (a Gem::Version compare);
+      equal versions, or only older copies on an ordinary prompt, give no notice. A held file (the reach_* tool answer
+      and a hook that ends on Held) gives the notice once per chat when any other copy found has a different version
+      from the running one, because an older copy may be the program holding the file. The notice says an older rEach
+      is still running: quit the app completely, then update rEach from its Plugins page, or remove and add it again
+      following the setup handout. A hook that ends on Held shows it to the student as a systemMessage.
     hold: >-
       While an install is actually running (a live update lock in phase staged or swapped), the prompt gate and the
       write and shell gates refuse with M-UPDATE-INSTALLING, and reach qualify, submit and sync refuse the same way.

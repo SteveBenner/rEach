@@ -190,7 +190,12 @@ module Reach
         closed = hermes && argv.first == "gate" && HERMES_FAIL_CLOSED_SUBS.include?(argv[1])
         if error.is_a?(Reach::StateFile::Held) && !closed
           Reach::Debug.fault(error, "hook:#{label}")
-          puts "{}" if hermes
+          notice = Reach::OldCopy.held_text(Reach::Session.resolve_session_id(@gate_event || @hook_event))
+          if hermes
+            puts "{}"
+          elsif notice
+            puts JSON.generate("systemMessage" => notice)
+          end
           return 0
         end
         network = error.is_a?(Reach::NetworkError)
@@ -563,7 +568,7 @@ module Reach
         data = STDIN.read
         return {} if data.nil? || data.strip.empty?
 
-        JSON.parse(data)
+        @hook_event = JSON.parse(data)
       rescue StandardError
         {}
       end

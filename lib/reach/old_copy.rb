@@ -22,22 +22,32 @@ module Reach
       nil
     end
 
-    def mismatch
+    def mismatch(held)
       running = Gem::Version.new(Reach::VERSION)
       others = other_versions
-      return nil if others.all? { |version| version == running }
+      differing = held ? others.any? { |version| version != running } : others.any? { |version| version > running }
+      return nil unless differing
 
       (others + [running]).max
     end
 
-    def prompt_notices(session_id)
-      newest = mismatch
+    def prompt_notices(session_id, held: false)
+      newest = mismatch(held)
       return [] unless newest
       return [] unless Reach::Update.announce!(KEY, session_id)
 
       [Reach::Update.notice_sentence("M-OLD-COPY-NOTICE", newest.to_s)]
     rescue StandardError
       []
+    end
+
+    def held_text(session_id)
+      return nil unless mismatch(true)
+      return nil unless Reach::Update.announce!(KEY, session_id)
+
+      Reach::Messages.text("M-OLD-COPY-NOTICE")
+    rescue StandardError
+      nil
     end
   end
 end

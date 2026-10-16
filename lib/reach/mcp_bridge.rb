@@ -610,7 +610,7 @@ module Reach
 
       def held_payload
         payload = { "state" => "busy", "text" => Reach::Messages.text("M-STATE-HELD") }
-        notices = Reach::OldCopy.prompt_notices(Reach::Session.fallback_session_id)
+        notices = Reach::OldCopy.prompt_notices(Reach::Session.fallback_session_id, held: true)
         payload["notices"] = notices unless notices.empty?
         payload
       end
