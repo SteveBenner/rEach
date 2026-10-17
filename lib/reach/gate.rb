@@ -1136,20 +1136,42 @@ module Reach
     SHELL_KEYWORD_START = %w[do then elif else while until if ! time].freeze
     MASK_COMMON_COMMANDS = %w[echo printf cd pwd export set unset source . test \[ true false read sleep date env which type command xargs sort uniq cut tr git reach rake make pip pip3 cargo go java javac open code].freeze
     MASK_COMMANDS = (READONLY_SINGLE + STRICT_WRITE + PACKAGE_WRITE + RUN_STRING_COMMANDS + SHELL_COMMANDS + STDIN_INTERPRETERS + WRITE_INPLACE_COMMANDS + NETWORK_COMMANDS + SKILL_READERS + MASK_COMMON_COMMANDS).uniq.freeze
-    
+
     def debug_subject(subject)
       return {} unless subject.is_a?(Hash)
-    
-      subject.key?("command") ? subject.merge("command" => mask_command(subject["command"])) : subject
+
+      masked = subject.dup
+      masked["command"] = mask_command(subject["command"]) if subject.key?("command")
+      masked["target"] = mask_target(subject["target"]) if subject.key?("target")
+      masked
     end
-    
+
+    def mask_target(path)
+      text = path.to_s
+      ext = File.extname(text)
+      ext = "" unless ext.match?(/\A\.[A-Za-z0-9]{1,8}\z/)
+      absolute = text.match?(%r{\A(?:[/~\\]|[A-Za-z]:[\\/])})
+      unless absolute
+        return text unless text.split(%r{[\\/]}).include?("..")
+
+        return "../" + COMMAND_MASK + ext
+      end
+      root = File.expand_path(Reach::Paths.workspace_root)
+      full = File.expand_path(text.sub(/\A~(?=[\\\/]|\z)/) { Dir.home })
+      return full.delete_prefix(root + "/") if full.start_with?(root + "/")
+
+      (text.start_with?("~") ? "~/" : "/") + COMMAND_MASK + ext
+    rescue StandardError
+      COMMAND_MASK
+    end
+
     def mask_command(line)
       out = []
       head = true
       line.to_s.scan(SHELL_TOKEN) do
         token = Regexp.last_match(0)
         next if token.strip.empty?
-    
+
         if token.start_with?("<<") && token != "<<<"
           out << token[/\A<<-?/] + COMMAND_MASK
           head = false
@@ -1178,21 +1200,21 @@ module Reach
     rescue StandardError
       COMMAND_MASK
     end
-    
+
     def mask_argument(token)
       return "\"$" + COMMAND_MASK + "\"" if token.match?(/\A"\$\{?\w+\}?"\z/)
       return "$" + COMMAND_MASK if token.match?(/\A\$\{?\w+\}?\z/)
       return "-" + COMMAND_MASK if token.match?(/\A-[^\s]/)
       return token if token.match?(/\A[*?]+\z/)
-    
+
       COMMAND_MASK
     end
-    
+
     def mask_command_word(token)
       name = File.basename(token.to_s).downcase
       MASK_COMMANDS.include?(name) ? name : COMMAND_MASK
     end
-    
+
     def refusal_subject
       subject = Thread.current[:reach_gate_subject]
       return {} unless subject.is_a?(Hash)

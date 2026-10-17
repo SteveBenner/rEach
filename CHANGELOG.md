@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.13] - 2026-10-17
+
+### Changed
+
+- Wire revision 2026-10-17a: the W-DBG-KINDS gate line says the `command` holds only fixed words and placeholders and states the rule for `target`.
+
+### Fixed
+
+- A refused read or write no longer sends a personal file name to Teach. `Reach::Gate.mask_target` sends the path relative to the course folder when it lies inside it, and otherwise only `~/…`, `/…` or `../…` followed by the file extension. The local `gate-refusals.jsonl` keeps the scrubbed path.
+
 ## [0.53.12] - 2026-10-17
 
 ### Fixed
