@@ -494,7 +494,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.21 · Time gate
 
-Since 0.12.0 writes are refused in a slice that is not the current assignment or whose due time has passed, by Teach's clock. Re-verified 2026-10-01: an unreleased A2 was not delivered, and a past-due or non-current slice gave M-GATE-NOT-CURRENT.
+Since 0.12.0 writes are refused in a slice that is not the current assignment, by Teach's clock; until 0.19.0 a slice whose due time had passed was refused too, and since then it stays writable as late work (3.7, W-PACE-2). Since 0.53.5 the prompt anchor (M-ANCHOR) also names an overdue earlier assignment the student is finishing, and the instructor's request, as on the step, so the agent no longer steers late work back to the current assignment. Re-verified 2026-10-01: an unreleased A2 was not delivered, and a past-due or non-current slice gave M-GATE-NOT-CURRENT.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

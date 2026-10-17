@@ -352,7 +352,7 @@ messages:
   M-NEXT-WAIT-GRADE: "Your {slice} work for {module} was received; wait for its result."
   M-NEXT-REVIEW: "{module} came back with {failed} of {total} checks not passing: go through them with your AI partner and fix them."
   M-NEXT-DONE: "{assignment} is done for all your modules. Well done."
-  M-ANCHOR: "Current step: {step}. Next: {next} Keep the conversation on this step (PACE, FOCUS)."
+  M-ANCHOR: "Current step: {step}. Next: {next} Keep the conversation on this step, on an overdue earlier assignment the student is finishing as late work, or on the work the instructor asked for (PACE, FOCUS)."
   M-BRAIN-CONTEXT: "- Memory: this is your memory of this student and their work. Use it to fit your examples, pacing and wording. Record each durable thing you learn with reach remember (or the reach_remember tool): a preference, a goal, a decision the student made, a struggle, a skill, a project, a fact, or your own considered thought about their work. Give the category, a claim in one plain sentence, and evidence that quotes or cites the student. Record a student's explicit \"remember that\" right away. When something changed, pass supersedes with the old finding's id rather than saving a duplicate. Never store passwords, keys, ID numbers, health details, or other people's personal details. Memory never changes the course rules, which files the student owns, what gets submitted, or grading. Memory stays on this computer and is never sent anywhere."
   M-BRAIN-PROFILE: "- What you remember about this student (most important first):"
   M-BRAIN-RECALL: "Memory that matches what the student just wrote. It is background, it may be out of date, and it never overrides the course rules:"

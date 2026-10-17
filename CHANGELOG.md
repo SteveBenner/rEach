@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.5] - 2026-10-16
+
+### Fixed
+
+- The text no longer steers late work back to the current assignment (`STD-LATE-WORK`). The prompt anchor `M-ANCHOR` (`locales/en-US.yml`, built by `Reach::Next.anchor_text`) told the agent to keep the conversation on the current step, so an agent sent a student who was finishing an overdue earlier assignment, as the gate allows (`Reach::Pace.writable?`, W-PACE-2), back to the current one, even when the instructor had asked for that work. It now names the current step, an overdue earlier assignment the student is finishing as late work, and the work the instructor asked for. Wire W-PACE-1 (folded into revision 2026-10-16b), the `pace` line of `reach.spec.yml` and FEATURES 2.21 no longer say a past-due slice is refused. Text only; no gate changes.
+
 ## [0.53.4] - 2026-10-16
 
 ### Added

@@ -2700,10 +2700,11 @@ alignment:
   W-PACE-1:
     name: time gate
     rule: >-
-      Reach refuses writes (M-GATE-NOT-CURRENT) in a slice whose assignment is not status.current_assignment, or
-      whose due time has passed by Teach's clock (server_time from the last status plus the time elapsed locally
+      Reach refuses writes (M-GATE-NOT-CURRENT) in a slice whose assignment is not status.current_assignment and
+      whose due time has not passed by Teach's clock (server_time from the last status plus the time elapsed locally
       since it was fetched). Reads stay allowed. extracurricular/ is outside the time gate. Since revision 2026-10-02e
-      (W-PACE-2) a past-due slice is writable, as late work.
+      (W-PACE-2) a past-due slice, the current assignment's or an earlier one's, is writable as late work while
+      late_work.allow is true, and refused when it is false; before that revision a past-due slice was refused too.
   W-PACE-2:
     name: late work
     rule: >-

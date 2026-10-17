@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.4
+version: 0.53.5
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1034,10 +1034,10 @@ course_alignment:
   sandbox:
     - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), since 0.47.3 a read of the extracurricular folder from a slice or the course root (M-GATE-EXTRACURRICULAR-READ), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access. A shell tool call that names a workdir (Codex exec_command) is judged in the space of that workdir, not of the chat's folder, and a shell-routed patch has its relative paths resolved against it; a workdir outside every course space is refused (M-GATE-OUTSIDE). reach work, run where no terminal is attached, does not start the harness and exits 0. Since 0.51.10, when the chat's folder is the course root or the folder asked for, it tells the agent to keep working from that chat by full path and --slice and not to send the student to another folder, project or chat (M-WORK-HERE); otherwise in Codex it tells the student to open the course project, the one with reach-work as its folder (M-WORK-CODEX-PROJECT), because a Codex project is one folder and the app cannot open a slice's folder inside it; elsewhere it prints the folder to open as a new chat (M-WORK-NO-TERMINAL).
     - "Imports: a file the student drags into the chat (its path in the prompt) is copied into <folder>/materials/ within limits: at most 5 per prompt, 20 MB each, 200 MB per folder, common document, data and image types only. reach import <path> does the same from the student's own terminal and is refused to the agent. materials/ is never submitted or scanned into the course record."
-  pace: Writes in a slice are refused (M-GATE-NOT-CURRENT) when it is not the current assignment or its due time has passed by Teach's clock (W-PACE-1). extracurricular/ is outside the time gate.
+  pace: Writes in a slice are refused (M-GATE-NOT-CURRENT) when it is not the current assignment and its due time has not passed by Teach's clock (W-PACE-1). A past-due slice, the current assignment's or an earlier one's, stays writable as late work while late_work.allow is true (W-PACE-2). extracurricular/ is outside the time gate.
   coaching:
     - reach next gives the student's next step from local state (sign in, choose modules, plan, answer your part, build, submit, wait for the result, review, done).
-    - Every prompt in a slice or the root gets a short anchor in the agent's context naming the current step and the next one.
+    - Every prompt in a slice or the root gets a short anchor in the agent's context naming the current step and the next one. Since 0.53.5 it keeps the conversation on that step, on an overdue earlier assignment the student is finishing as late work, or on the work the instructor asked for (M-ANCHOR).
   support:
     - reach support prints a fixed message beginning "If this is an emergency, call 911 now.", then 988 and the course's support line, and raises a wellbeing hand to the instructors (no code, no conversation text), at most once an hour; it works signed out and offline (queued).
     - Since 0.19.2 the wellbeing bundle's space is outside when reach support runs outside every rEach folder (never null), and a hand Teach refuses is dropped from the outbox, sent to Teach as a fault event, and never reported to the student as told or queued (STD-WELLBEING-DELIVERED).
