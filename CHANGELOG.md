@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.11] - 2026-10-17
+
+### Fixed
+
+- `Reach::Gate.mask_command` keeps only names from fixed lists, so no word the student typed reaches Teach in the debug `gate` event unless it is a known command name, a shell keyword, a variable name or a flag name. A command word is kept only when its basename is on `Gate::MASK_COMMANDS` (the gate's own command lists plus common commands such as `echo`, `cd`, `git` and `reach`); globs are masked unless they are a bare `*` or `?`; only the variable after `for` or `select` is kept, not the word after `case` or `function`. Before, a glob-shaped password (`-pHunter2?`) or a word after a keyword in argument position (`echo do hunter2`) reached Teach as typed.
+
 ## [0.53.10] - 2026-10-17
 
 ### Fixed

@@ -1134,7 +1134,9 @@ module Reach
     SHELL_CLOSERS = %w[) }].freeze
     SHELL_KEYWORDS = %w[for in do done while until if then elif else fi case esac select function time !].freeze
     SHELL_KEYWORD_START = %w[do then elif else while until if ! time {].freeze
-    SHELL_NAMES_NEXT = %w[for select case function].freeze
+    SHELL_NAMES_NEXT = %w[for select].freeze
+    MASK_COMMON_COMMANDS = %w[echo printf cd pwd export set unset source . test \[ true false read sleep date env which type command xargs sort uniq cut tr git reach rake make pip pip3 cargo go java javac open code].freeze
+    MASK_COMMANDS = (READONLY_SINGLE + STRICT_WRITE + PACKAGE_WRITE + RUN_STRING_COMMANDS + SHELL_COMMANDS + STDIN_INTERPRETERS + WRITE_INPLACE_COMMANDS + NETWORK_COMMANDS + SKILL_READERS + MASK_COMMON_COMMANDS).uniq.freeze
 
     def debug_subject(subject)
       return {} unless subject.is_a?(Hash)
@@ -1164,7 +1166,7 @@ module Reach
         elsif token.start_with?("'", "\"")
           out << (token.match?(/\A"\$\{?\w+\}?"\z/) ? token : COMMAND_MASK)
           head = false
-        elsif names_next && token.match?(/\A\w+\z/)
+        elsif names_next && token.match?(/\A[A-Za-z_]\w{0,15}\z/)
           out << token
           names_next = false
         elsif SHELL_KEYWORDS.include?(token)
@@ -1173,9 +1175,9 @@ module Reach
           head = SHELL_KEYWORD_START.include?(token)
         elsif head && token.include?("=")
           name = token.split("=", 2).first
-          out << (name.match?(/\A\$?[\w:]+\z/) ? name + "=" + COMMAND_MASK : COMMAND_MASK)
+          out << (name.match?(/\A(?:\$env:)?[A-Za-z_]\w*\z/) ? name + "=" + COMMAND_MASK : COMMAND_MASK)
         elsif head
-          out << (token.match?(/\A[\w.\/~+\-]+\z/) ? token : COMMAND_MASK)
+          out << mask_command_word(token)
           head = false
         else
           out << mask_argument(token)
@@ -1190,9 +1192,14 @@ module Reach
       return token if token.match?(/\A\$\{?\w+\}?\z/)
       return token if token.match?(/\A--[A-Za-z][\w-]*\z/) || token.match?(/\A-[A-Za-z]\z/)
       return token.sub(/=.*\z/m, "=" + COMMAND_MASK) if token.match?(/\A--[A-Za-z][\w-]*=/)
-      return token if token.length <= 24 && token.match?(/\A[\w.\-]*[*?][\w.*?\-]*\z/)
+      return token if token.match?(/\A[*?]+\z/)
 
       COMMAND_MASK
+    end
+
+    def mask_command_word(token)
+      name = File.basename(token.to_s).downcase
+      MASK_COMMANDS.include?(name) ? name : COMMAND_MASK
     end
 
     def refusal_subject
