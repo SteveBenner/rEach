@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.2
+version: 0.53.3
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -873,9 +873,12 @@ submission:
   - Every question of the student's own part is answered (M-SUBMIT-NO-PART).
   - Since 0.41.0 README.md has every W-SUB-3 section at 25 words or more (M-SUBMIT-README, refused before the check gate and without a hand); Teach rejects the same package with readme_incomplete, and one whose evidence does not match a passed qualification with not_qualified (W-SUB-4).
   - >-
-    The slice is not closed: when the due time has passed and an ingest receipt for the slice is already stored,
-    reach submit refuses with M-SUBMIT-CLOSED before asking; with no cached due time or no local receipt it goes on and
-    Teach stays the authority (STD-SUBMIT-APPROVAL, W-SUB-2).
+    The slice is not closed: when the due time has passed and a receipt putting the slice on record is already stored
+    (Reach::Receipts.on_record?: an ingest, grade or validation receipt for the slice and assignment, since 0.53.3;
+    before, only an ingest receipt counted, so a submission an instructor accepted by hand, which carries only a grade
+    receipt, was offered again and Teach refused it with deadline_passed), reach submit refuses with M-SUBMIT-CLOSED
+    before asking; with no cached due time or no local receipt it goes on and Teach stays the authority
+    (STD-SUBMIT-APPROVAL, W-SUB-2).
   approval: >-
     After the preconditions Reach asks the student (M-SUBMIT-ASK) and submits only on their yes (STD-SUBMIT-APPROVAL,
     STD-CONSENT-FROM-REACH). With the prompt hook, reach submit records the question and answers asked; the hook captures
@@ -3142,8 +3145,9 @@ late_work:
     (M-GATE-NOT-CURRENT).
   info: >-
     Reach::LateWork.late?(workspace) and .info(workspace) give the due, how late (M-LATE-HOW-*), submitted_before_due (an
-    ingest receipt with late false exists for the slice), on_record and can_submit (no ingest receipt for the slice, or
-    the due has not passed).
+    ingest receipt with late false exists for the slice), on_record (since 0.53.3 Reach::Receipts.on_record?, any
+    ingest, grade or validation receipt for the slice and assignment; before, ingest receipts only) and can_submit (not
+    on record, or the due has not passed).
   notices: >-
     M-LATE-NOTICE in reach hello's context when the cwd workspace is late; on the first prompt of each session in a late
     workspace and every notice_every prompts after (a per-session counter in state late-prompts.json, no network);

@@ -8,6 +8,7 @@ require "base64"
 module Reach
   module Receipts
     POLL_INTERVAL_S = 30
+    ON_RECORD_KINDS = %w[ingest grade validation].freeze
 
     class << self
       def wait(submission_id:, kind: "ingest", timeout_s: 300)
@@ -94,6 +95,12 @@ module Reach
 
       def latest_for(cutout_id:, slice:)
         list.find { |receipt| receipt["cutout_id"] == cutout_id && receipt["slice"] == slice }
+      end
+
+      def on_record?(cutout_id:, slice:, assignment:)
+        list.any? do |receipt|
+          ON_RECORD_KINDS.include?(receipt["kind"]) && receipt["cutout_id"] == cutout_id && receipt["slice"] == slice && receipt["assignment"] == assignment
+        end
       end
 
       def announce(receipt)

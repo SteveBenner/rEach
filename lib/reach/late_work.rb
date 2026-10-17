@@ -94,12 +94,18 @@ module Reach
       []
     end
 
+    def on_record?(meta)
+      Reach::Receipts.on_record?(cutout_id: meta["cutout_id"], slice: meta["slice"], assignment: meta["assignment"])
+    rescue StandardError
+      false
+    end
+
     def info(workspace)
       meta = Reach::Workspace.metadata(workspace)
       due = due_for_meta(meta)
       late = !due.nil? && Reach::Pace.server_now >= due
       receipts = ingest_receipts(meta)
-      on_record = !receipts.empty?
+      on_record = on_record?(meta)
       {
         "late" => late,
         "assignment" => meta["assignment"],

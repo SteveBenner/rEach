@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.3] - 2026-10-16
+
+### Fixed
+
+- A past-due slice that an instructor accepted by hand is no longer offered for a late submission (`STD-LATE-WORK`, `STD-SUBMIT-APPROVAL`). `Reach::LateWork.info` and `Reach::Submit.check_closed!` decided "on record" from ingest receipts only, but a hand-accepted submission reaches the student's computer with only a grade receipt, so rEach said "It can still be submitted once, and it will be marked late" and Teach refused the submission with deadline_passed ("resubmission window closed"). Both now use `Reach::Receipts.on_record?`, which counts any ingest, grade or validation receipt for the slice and assignment.
+
 ## [0.53.2] - 2026-10-16
 
 ### Fixed

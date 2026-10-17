@@ -1237,6 +1237,13 @@ one late_work hand per assignment and one late_submission hand per late submissi
 tools/fake_teach: past-due writes allowed, a future assignment still refused, notices on prompts 1 and 11 only, exactly
 one hand of each kind, no network call from any hook (strace), and `late_work.allow: false` restoring the old refusal.
 
+Since 0.53.3 a slice counts as on record when any ingest, grade or validation receipt for it is stored
+(`Reach::Receipts.on_record?`), not only an ingest receipt. Until then a submission an instructor accepted by hand,
+which reaches the student's computer with only a grade receipt, was offered once more as late, and Teach refused it with
+deadline_passed. Verified 2026-10-16 against a scratch rEach home: a grade receipt alone closes the slice (the late
+notice and `reach submit` both say it is already submitted), a grade receipt for another slice does not, and with no
+receipt the one late submission is still offered. Not verified on a student's computer.
+
 Build ✅ · Deploy 🔵 · Blocker: Temporal (needs Teach 0.19.0 live for the new hand types; older Teach gets student_request).
 
 ### 3.8 · Grade view

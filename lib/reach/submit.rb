@@ -570,10 +570,7 @@ module Reach
         due = due_for(meta)
         return unless due && Reach::Pace.server_now >= due
 
-        on_record = Reach::Receipts.list.any? do |receipt|
-          receipt["kind"] == "ingest" && receipt["cutout_id"] == meta["cutout_id"] && receipt["slice"] == meta["slice"] && receipt["assignment"] == meta["assignment"]
-        end
-        return unless on_record
+        return unless Reach::LateWork.on_record?(meta)
 
         raise Reach::Refused, Reach::Messages.text("M-SUBMIT-CLOSED", assignment: meta["assignment"], due: Reach::Messages.course_time(due), slice: meta["slice"])
       end
