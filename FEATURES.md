@@ -53,6 +53,14 @@ missing user folder, and an install that landed under a stray home moves to the 
 on Linux and in a simulated Windows run; the known-folder, registry and PowerShell lookups have not run on a student's
 Windows computer.
 
+Since 0.53.19 the README's Install section leads with the agent-run installer, the only install that creates the
+managed copy that updates itself, and shows a harness's own marketplace commands only as a manual fallback and as the
+Claude app's Cowork route, where the installer cannot run; `reach.spec.yml` `installer.from_a_link` says the same, where
+it had still said INSTALL.md offered the harness's plugin install and sent the Claude app and Codex app to a
+marketplace. Documentation only: no code path changed, and the text reaches a student's archive only with the next
+tagged release. The deployment figure (`docs/architecture.md`, figure 08) still lists a plugin marketplace as the way in
+for Claude Code and Codex and was not regenerated.
+
 Build ✅ · Deploy 🟢 · Blocker: Engineering (the Windows path is unverified).
 
 ### 1.2 · Dovetail submodule

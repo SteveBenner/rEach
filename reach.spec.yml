@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.18
+version: 0.53.19
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1785,12 +1785,16 @@ installer:
     size and count limits and bounded retries, and REACH_INSTALL_KILL_SWITCH stops it. Verified only against a local
     GitHub-shaped ZIP; the real public download and the Windows path are unverified.
   from_a_link: >-
-    The student pastes the repository link into their agent (Claude Code, Cowork, Codex or Antigravity) and asks it
-    to install rEach. The agent reads INSTALL.md, which tells it to run the harness's own plugin install, or (since
-    0.16.5) one command that downloads scripts/reach-install, installs ~/.reach/plugin and runs exe/reach setup, asked to
+    The student pastes the repository link into their agent (Claude Code, the Claude app's Code tab, Codex, Antigravity
+    or Hermes) and asks it to install rEach. The agent reads INSTALL.md, which tells it to run one command (since
+    0.16.5) that downloads scripts/reach-install, installs ~/.reach/plugin and runs exe/reach setup, asked to
     run outside the sandbox from the start so a sandboxing app asks the student once; setup ends with the NEXT block, which the agent reads
-    to the student word for word ("rEach is installed and ready." and the greeting). In the Claude app and Codex app
-    the student adds the link as a plugin marketplace in the app's plugin settings instead.
+    to the student word for word ("rEach is installed and ready." and the greeting). That install is the managed
+    copy that updates itself (auto_update.managed_install), so INSTALL.md never sends an agent that can run shell
+    commands to a harness marketplace. Claude Cowork, whose sandbox cannot run the command, is the one app where the
+    student adds the link as a plugin marketplace in the app's plugin settings instead; that copy is not managed and
+    follows auto_update.student_experience.cache_only. Since 0.53.19 the README leads with the same install and shows
+    a harness's own marketplace commands only as a manual fallback that does not update itself.
   public_repository: >-
     Installing from a link needs the repository to be public (GitHub or public Bitbucket); a private repository
     needs the student's own git credentials.

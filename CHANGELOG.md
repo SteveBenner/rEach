@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.19] - 2026-10-17
+
+### Fixed
+
+- `README.md` Install now leads with the agent-run installer from `INSTALL.md`, the install that creates the managed copy at `~/reach-work/.reach-home/plugin` and updates itself, and lists the Claude app's Code tab with Claude Code, Codex, Antigravity, and Hermes. The harness marketplace commands for Claude Code and Codex are a manual fallback that does not update itself, and the Claude app's Cowork keeps the marketplace as its only route. Updates says why a marketplace copy is not managed and what rEach tells the student when a newer version is waiting.
+- `reach.spec.yml` `installer.from_a_link` no longer says `INSTALL.md` offers the harness's own plugin install or sends the Claude app and Codex app to a marketplace; it names Cowork as the one marketplace route and points to the cache-only update behavior.
+
 ## [0.53.18] - 2026-10-17
 
 ### Changed

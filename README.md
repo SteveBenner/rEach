@@ -139,19 +139,24 @@ optional: Reach uses its ports when it is installed and runs standalone otherwis
 ## Install
 
 Paste this repository's link into your AI agent and ask it to install rEach; it
-follows [`INSTALL.md`](INSTALL.md). Or install it yourself:
+follows [`INSTALL.md`](INSTALL.md). That runs one command which installs the public GitHub archive to
+`~/reach-work/.reach-home/plugin` and sets rEach up for your app. This is the way in whenever the agent can run shell
+commands, and it is the only install that updates itself (see Updates). Or install it yourself:
 
 | Harness | Command |
 | --- | --- |
-| Claude Code | `claude plugin marketplace add SteveBenner/rEach#stable` then `claude plugin install reach@reach --scope user` |
-| Claude app (Cowork, Code tab) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach |
-| Codex | `codex plugin marketplace add SteveBenner/rEach@stable` then `codex plugin add reach@reach`, and trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
-| Antigravity | run the one install command in `INSTALL.md` with `--harness antigravity` |
-| Hermes | run the one install command in `INSTALL.md` with `--harness hermes`; open course folders with `~/reach-work/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
-| Any of the above | install the public GitHub archive to `~/reach-work/.reach-home/plugin`, then run `exe/reach setup` from the path the installer prints |
+| Claude Code, the Claude app's Code tab, Codex, Antigravity, Hermes | run the one install command in `INSTALL.md` with `--harness <claude-code or codex or antigravity or hermes>`, or install the public GitHub archive to `~/reach-work/.reach-home/plugin` and run `exe/reach setup` from the path the installer prints |
+| Codex | after the install command, trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
+| Hermes | open course folders with `~/reach-work/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
+| Claude app (Cowork) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach; Cowork's sandbox cannot run the install command, so this is its only route |
 | rplugin | `rplugin install ~/.rplugins/reach` |
 
 Installing from a link needs the repository and its pinned Dovetail archive to be public.
+
+A harness's own marketplace is a manual fallback for a computer where the install command cannot run, and the copy it
+makes does not update itself the way the installed one does (see Updates). For Claude Code it is
+`claude plugin marketplace add SteveBenner/rEach#stable` then `claude plugin install reach@reach --scope user`. For Codex it is
+`codex plugin marketplace add SteveBenner/rEach@stable` then `codex plugin add reach@reach`, followed by trusting the hooks.
 
 Antigravity runs no hooks, so rEach cannot ask for enrollment details in its chat: a locked Antigravity session has the
 agent walk the student through `reach enroll` in a terminal window instead (`STD-NOHOOK-ENROLL`).
@@ -166,7 +171,10 @@ when a session starts and once an hour while you work, downloads it in the backg
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
 `~/reach-work/.reach-home/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
 things stand and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
-is never updated. Marketplace installs follow the `stable` branch too. `stable` moves only to the Latest release, at most
+is never updated. A copy added through a marketplace (the Claude app's Cowork, or by hand) is not managed: it follows
+the `stable` branch too, but rEach can refresh it only through the app or the harness's own command, so when a newer
+version is waiting rEach tells the student to update from the app's Plugins page or to ask the assistant to reinstall rEach
+with the installer, which makes the copy that updates itself. `stable` moves only to the Latest release, at most
 once a day: the `stable` workflow (`.github/workflows/stable.yml`, 15:00 UTC) runs the platform smoke on the Latest tag
 and moves `stable` with `tools/stable_promote.rb` only when every leg passes; a failed smoke holds `stable` and opens a
 `stable-hold` issue. A release that changes `hooks/` first gets a notice ref, which rEach shows to Codex students
