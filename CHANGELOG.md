@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.10] - 2026-10-17
+
+### Fixed
+
+- `Reach::Gate.mask_command` masks the value of any assignment in command position, including a PowerShell `$env:NAME=value`, and keeps a command word only when it is a plain name or path; anything else there becomes `…`. Before, a token such as `$env:API_KEY=value` reached Teach as typed.
+- `STD-LATE-WORK` describes Teach's late-submission rule without naming a Teach standard (`STD-TEACH-OPAQUE`), and `STD-DEBUG-MODE` and FEATURES say the mask keeps inline secrets out of the debug event, not out of everything Reach sends.
+
 ## [0.53.9] - 2026-10-17
 
 ### Fixed

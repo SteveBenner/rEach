@@ -1171,10 +1171,11 @@ module Reach
           out << token
           names_next = SHELL_NAMES_NEXT.include?(token)
           head = SHELL_KEYWORD_START.include?(token)
-        elsif head && token.match?(/\A\w+=/)
-          out << "#{token[/\A\w+=/]}#{COMMAND_MASK}"
+        elsif head && token.include?("=")
+          name = token.split("=", 2).first
+          out << (name.match?(/\A\$?[\w:]+\z/) ? name + "=" + COMMAND_MASK : COMMAND_MASK)
         elsif head
-          out << token
+          out << (token.match?(/\A[\w.\/~+\-]+\z/) ? token : COMMAND_MASK)
           head = false
         else
           out << mask_argument(token)
