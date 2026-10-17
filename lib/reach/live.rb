@@ -522,11 +522,13 @@ module Reach
       update { |state| state["read"] = [state["read"].to_i, rows.last["seq"].to_i].max } unless rows.empty?
       current = session
       question = action_question
+      said = rows.empty? ? nil : (diagnosis?(current) ? "M-LIVE-DIAG-READ" : "M-LIVE-READ")
+      said = live?(current) ? (said || "M-LIVE-QUIET") : "M-LIVE-WAIT-OVER"
       view = {
         "state" => current ? current["state"] : "none", "connected" => current ? current["connected"] == true : false,
         "messages" => rows.map { |row| shown(row, diagnosis?(current)) },
         "rules" => Reach::Messages.text(diagnosis?(current) ? "M-LIVE-DIAG-RULES" : "M-LIVE-RULES"),
-        "message" => Reach::Messages.text(rows.empty? ? "M-LIVE-QUIET" : (diagnosis?(current) ? "M-LIVE-DIAG-READ" : "M-LIVE-READ"))
+        "message" => Reach::Messages.text(said)
       }
       return view if question.nil?
 

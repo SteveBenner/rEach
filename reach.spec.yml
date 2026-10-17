@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.1
+version: 0.53.2
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2223,6 +2223,12 @@ live_sessions:
     M-LIVE-OPEN-STUDENT, M-LIVE-NOTE-STUDENT for each note, which marks the inbox read).
   commands: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | watch | run [--background]].
   tool: reach_live with action status, request, wait (up to 45 s, local inbox only), note, say or end.
+  listen: >-
+    Since 0.53.2 the open notices (M-LIVE-OPEN-AGENT, M-LIVE-OPEN-AGENT-CODEBUG, M-LIVE-DIAG-OPEN-AGENT) tell the
+    agent to call wait for as long as the session is open, with no silence cutoff; a wait answer says M-LIVE-QUIET
+    or M-LIVE-READ (call wait again) while the session is requested, offered or open and M-LIVE-WAIT-OVER once it
+    is not. The loop pauses for a question for the student (M-LIVE-ASK-AGENT ends the turn) and when the student
+    asks for something else. The Stop-hook wake stays as the backstop on Claude Code.
   switches: REACH_LIVE_DISABLE=1, config.yml live.enabled false; live.wake, live.notify and live.blocked false turn off the watcher, the desktop notification and the blocked-prompt path.
 announcements:
   standard: STD-ANNOUNCEMENTS, STD-DUE-CHANGE, STD-HOLDINGS (specs/app.yml)

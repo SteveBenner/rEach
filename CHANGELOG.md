@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.2] - 2026-10-16
+
+### Fixed
+
+- A live session keeps the student's assistant listening for as long as it is open (`STD-LIVE`). The open notices (`M-LIVE-OPEN-AGENT`, `M-LIVE-OPEN-CODEBUG`, `M-LIVE-DIAG-OPEN-AGENT`) no longer tell it to stop waiting after five minutes; they tell it to call `wait` again after each relay, and to stop only when the session is over, when it relays a question, or when the student asks for something else. On Codex, which has no wake between turns, an instructor's note sent after the first five minutes reached the student only at their next prompt.
+- Every `reach_live` `wait` result now says whether to call it again: a quiet or delivered result while the session is open says it is still open, and a result after the end says to stop (`M-LIVE-WAIT-OVER`).
+
 ## [0.53.1] - 2026-10-16
 
 ### Fixed

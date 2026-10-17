@@ -936,6 +936,14 @@ by the student and the end by the instructor; a locked-out sign-in got the quest
 did not; nothing was written to the microbrain. Not verified there: a real harness showing the block text, and a
 student who becomes blocked while a watcher is still running.
 
+Since 0.53.2 the assistant is told on every harness to keep calling `wait` for as long as the session is open, also
+when nothing arrives for a long time, and to stop only when `wait` says the session is over, when it relays a
+question, or when the student asks for something else. Before, the open notice told it to stop after five minutes, so
+on Codex, which has no wake, an instructor's later notes reached the student only at their next prompt. Every `wait`
+result says whether to call it again. Verified 2026-10-16 against a scratch rEach home: an open quiet session, a note
+while open and a closed session each gave the right instruction, and neither open notice still names a cutoff. Not
+verified: a real Codex session from a session's start.
+
 Since 0.27.0 (`STD-LIVE-DIAGNOSIS`, wire `W-LIVE-10`) a computer that holds the instructor unlock can start a
 diagnosis session, for working out a rEach problem on that computer directly between the two assistants:
 `reach instructor diagnose [--course ID]`, or the `reach_live` tool with action `diagnose`. rEach asks the person at
