@@ -461,7 +461,7 @@ module Reach
         owned_files: owned_files_display(workspace)
       )
     rescue Reach::GateBlocked => e
-      e.subject ||= refusal_subject
+      e.subject ||= debug_subject(refusal_subject)
       raise
     ensure
       Thread.current[:reach_gate_subject] = nil
@@ -629,7 +629,7 @@ module Reach
       witness_in(workspace, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
     rescue Reach::GateBlocked => e
-      e.subject ||= refusal_subject
+      e.subject ||= debug_subject(refusal_subject)
       raise
     ensure
       @powershell = false
@@ -725,7 +725,7 @@ module Reach
       check_recursive_read!(tool, input, base) if RECURSIVE_READ_TOOLS.include?(tool)
       nil
     rescue Reach::GateBlocked => e
-      e.subject ||= refusal_subject
+      e.subject ||= debug_subject(refusal_subject)
       raise
     ensure
       Thread.current[:reach_gate_subject] = nil
@@ -1122,11 +1122,77 @@ module Reach
       text = Reach::Messages.text(message_id, **fields)
       subject = refusal_subject
       log_refusal(message_id, text, subject)
-      Reach::Debug.emit("gate", { "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s }.merge(subject))
+      Reach::Debug.emit("gate", { "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s }.merge(debug_subject(subject)))
       raise Reach::GateBlocked.new(message_id, framed(channel, text, **frame))
     end
 
     REFUSAL_SUBJECT_CHARS = 200
+    COMMAND_MASK = "…".freeze
+    SHELL_TOKEN = /\s+|\$\{\w+\}|&&|\|\||;;|<<<|<<-?\s*(['"]?)\w+\1|>>|\$\(|[|;&<>(){}`]|'[^']*'?|"(?:\\.|[^"\\])*"?|[^\s|;&<>(){}`'"]+/.freeze
+    SHELL_COMMAND_START = %w[&& || ;; | ; & ( { $( `].freeze
+    SHELL_REDIRECTS = %w[> >> <].freeze
+    SHELL_CLOSERS = %w[) }].freeze
+    SHELL_KEYWORDS = %w[for in do done while until if then elif else fi case esac select function time !].freeze
+    SHELL_KEYWORD_START = %w[do then elif else while until if ! time {].freeze
+    SHELL_NAMES_NEXT = %w[for select case function].freeze
+
+    def debug_subject(subject)
+      return {} unless subject.is_a?(Hash)
+
+      subject.key?("command") ? subject.merge("command" => mask_command(subject["command"])) : subject
+    end
+
+    def mask_command(line)
+      out = []
+      head = true
+      names_next = false
+      line.to_s.scan(SHELL_TOKEN) do
+        token = Regexp.last_match(0)
+        next if token.strip.empty?
+
+        if token.start_with?("<<") && token != "<<<"
+          out << token.gsub(/\s+/, "")
+          head = false
+        elsif SHELL_COMMAND_START.include?(token)
+          out << token
+          head = true
+        elsif SHELL_REDIRECTS.include?(token) || token == "<<<"
+          out << token
+          head = false
+        elsif SHELL_CLOSERS.include?(token)
+          out << token
+        elsif token.start_with?("'", "\"")
+          out << (token.match?(/\A"\$\{?\w+\}?"\z/) ? token : COMMAND_MASK)
+          head = false
+        elsif names_next && token.match?(/\A\w+\z/)
+          out << token
+          names_next = false
+        elsif SHELL_KEYWORDS.include?(token)
+          out << token
+          names_next = SHELL_NAMES_NEXT.include?(token)
+          head = SHELL_KEYWORD_START.include?(token)
+        elsif head && token.match?(/\A\w+=/)
+          out << "#{token[/\A\w+=/]}#{COMMAND_MASK}"
+        elsif head
+          out << token
+          head = false
+        else
+          out << mask_argument(token)
+        end
+      end
+      out.join(" ")[0, REFUSAL_SUBJECT_CHARS]
+    rescue StandardError
+      COMMAND_MASK
+    end
+
+    def mask_argument(token)
+      return token if token.match?(/\A\$\{?\w+\}?\z/)
+      return token if token.match?(/\A--[A-Za-z][\w-]*\z/) || token.match?(/\A-[A-Za-z]{1,3}\z/)
+      return "#{token[/\A--[A-Za-z][\w-]*=/]}#{COMMAND_MASK}" if token.match?(/\A--[A-Za-z][\w-]*=/)
+      return token if token.length <= 24 && token.match?(/\A[\w.\-]*[*?][\w.*?\-]*\z/)
+
+      COMMAND_MASK
+    end
 
     def refusal_subject
       subject = Thread.current[:reach_gate_subject]

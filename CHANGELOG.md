@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.6] - 2026-10-17
+
+### Fixed
+
+- A refused shell command no longer reaches Teach as typed (`STD-DEBUG-MODE`, W-DBG-SCRUB). Since 0.53.4 the debug `gate` event carried the command's scrubbed first line, and the scrubber does not catch an inline secret such as `API_KEY=value`, an `Authorization` header, a password flag or credentials in a URL. `Reach::Gate.debug_subject` now passes the command through `Gate.mask_command`, which keeps the command words and shell syntax (keywords, the `for` variable, operators, redirections, here-document markers, `$VAR`, long flag names, short flags of up to three letters, short globs) and replaces every other argument, quoted string and assignment value with `…`. The local `gate-refusals.jsonl` keeps the scrubbed first line; it never leaves the computer. Found by the release gate's security audit of 0.53.5, before either version was tagged.
+
 ## [0.53.5] - 2026-10-16
 
 ### Fixed
