@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.9] - 2026-10-17
+
+### Fixed
+
+- `Reach::Gate.mask_argument` keeps only single-letter short flags in the debug `gate` event; a flag of two or three letters is masked, so a short password glued to a flag (`-pab`) cannot reach Teach.
+- `STD-LATE-WORK` in `specs/app.yml` no longer names a Teach directive or Teach version (`STD-TEACH-OPAQUE`).
+
 ## [0.53.8] - 2026-10-17
 
 ### Fixed

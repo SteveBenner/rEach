@@ -1187,7 +1187,7 @@ module Reach
 
     def mask_argument(token)
       return token if token.match?(/\A\$\{?\w+\}?\z/)
-      return token if token.match?(/\A--[A-Za-z][\w-]*\z/) || token.match?(/\A-[A-Za-z]{1,3}\z/)
+      return token if token.match?(/\A--[A-Za-z][\w-]*\z/) || token.match?(/\A-[A-Za-z]\z/)
       return token.sub(/=.*\z/m, "=" + COMMAND_MASK) if token.match?(/\A--[A-Za-z][\w-]*=/)
       return token if token.length <= 24 && token.match?(/\A[\w.\-]*[*?][\w.*?\-]*\z/)
 
