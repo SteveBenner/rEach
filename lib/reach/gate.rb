@@ -1209,10 +1209,9 @@ module Reach
     end
 
     def log_refusal(message_id, text, subject = {})
-      FileUtils.mkdir_p(Reach::Paths.logs_dir)
       path = File.join(Reach::Paths.logs_dir, "gate-refusals.jsonl")
       record = { "at" => Time.now.utc.iso8601, "message_id" => message_id.to_s, "text" => text }.merge(subject)
-      File.open(path, "a") { |f| f.puts(JSON.generate(record)) }
+      Reach::Debug.append_log(path, record)
     rescue StandardError
       nil
     end

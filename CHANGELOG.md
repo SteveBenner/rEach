@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.8] - 2026-10-17
+
+### Fixed
+
+- `<logs>/gate-refusals.jsonl` is written through `Reach::Debug.append_log`: mode 0600 and rotated like the other debug logs. It was created with the default mode and grew without limit, and since 0.53.4 it holds the scrubbed first line of each refused command, which may carry an inline secret.
+
 ## [0.53.7] - 2026-10-17
 
 ### Fixed
