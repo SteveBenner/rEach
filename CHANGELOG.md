@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.18] - 2026-10-17
+
+### Changed
+
+- Wire revision 2026-10-17a states the tool rule in the W-DBG-KINDS gate line: the tool is a name Reach knows, `mcp__…` for an MCP tool, or `…` (`Gate.mask_tool`, since 0.53.15). Text only.
+
 ## [0.53.17] - 2026-10-17
 
 ### Fixed
