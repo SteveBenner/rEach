@@ -1154,6 +1154,7 @@ module Reach
       ext = "" unless ext.match?(/\A\.[A-Za-z0-9]{1,8}\z/)
       absolute = text.match?(%r{\A(?:[/~\\]|[A-Za-z]:[\\/])})
       return COMMAND_MASK + ext unless absolute
+      return "/" + COMMAND_MASK + ext if foreign_path?(text)
 
       root = File.expand_path(Reach::Paths.workspace_root)
       roots = [root, (File.exist?(root) ? File.realpath(root) : root)].uniq
@@ -1218,8 +1219,13 @@ module Reach
       name.start_with?("mcp__") ? "mcp__" + COMMAND_MASK : COMMAND_MASK
     end
 
+    def foreign_path?(text)
+      !Gem.win_platform? && text.to_s.match?(%r{\A(?:[A-Za-z]:[\\/]|\\\\)})
+    end
+
     def subject_path(path, base)
       return path if path.nil?
+      return path.to_s if foreign_path?(path)
 
       full = File.expand_path(path.to_s, base || Reach::Paths.cwd)
       File.exist?(full) ? File.realpath(full) : full

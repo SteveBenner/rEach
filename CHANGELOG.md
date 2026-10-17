@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.17] - 2026-10-17
+
+### Fixed
+
+- On macOS and Linux a Windows-style path (`C:\…` or `\\server\…`) named in a refused read or write is treated as outside the course (`Gate.foreign_path?`), instead of being joined to the working folder and sent with its folder and file names.
+- `PRIVACY.md` says what debug mode sends when rEach stops an action (the rule, a known tool name, the masked command, the course-relative or masked path) and what a submission's signed record holds for commands, including that records from before 0.53.14 keep the command as typed.
+
 ## [0.53.16] - 2026-10-17
 
 ### Fixed
