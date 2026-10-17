@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-17'
-revision: 2026-10-17a
+revision: 2026-10-17b
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -2012,7 +2012,9 @@ live:
       subject_digest is not the W-CONV-4 digest of canonical_json of that subject. The question names what the
       session does: for its length the instructors see what rEach records on this computer in debug mode, and never a
       prompt, a reply, code or a file; Reach asks the student before it runs any action (W-LIVE-5) and before the
-      agent sends anything (W-LIVE-7). An offer is never accepted by the agent or by Reach on the student's behalf.
+      agent sends anything (W-LIVE-7). Since revision 2026-10-17b the question also says that the student's assistant
+      and the instructor's assistant may write to each other (co-debug, W-LIVE-7). An offer is never accepted by the
+      agent or by Reach on the student's behalf.
   W-LIVE-3:
     name: time
     rule: >-
@@ -2056,9 +2058,11 @@ live:
     rule: >-
       A note is short text one side writes for the other: the instructor's is shown to the student by the agent, the
       student's is shown to the instructor. Co-debug lets the two assistants exchange agent messages directly. Teach
-      sets co_debug only for a session of a test student (W-API-ENROLL-INSTRUCTOR) and refuses an agent message in
-      any other session with 409 co_debug_off. Each side sends at most 200 messages in a session and 30 in a minute,
-      each at most 4000 bytes. Nothing the student's agent writes leaves the student's computer by itself: for every
+      sets co_debug for a session of a test student (W-API-ENROLL-INSTRUCTOR) and, since revision 2026-10-17b, for a
+      session of a regular student whose install reports Reach 0.53.20 or newer, the first version whose question to
+      the student (W-LIVE-2) says that the two assistants may write to each other; it refuses an agent message in any
+      other session with 409 co_debug_off. Each side sends at most 200 messages in a session and 30 in a minute, each
+      at most 4000 bytes. Nothing the student's agent writes leaves the student's computer by itself: for every
       note and every agent message Reach shows the student the exact text, at most 2000 bytes, and sends it only
       after the student's captured yes (a W-CONSENT-1 record of kind live_send, subject {"live": the session id,
       "send": the W-CONV-4 digest of the text}, which stays on the student's computer); a no sends nothing. Text from

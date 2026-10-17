@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.20] - 2026-10-17
+
+### Changed
+
+- The question a student is asked before a live session (`M-LIVE-ASK` for a request, `M-LIVE-OFFER-ASK` for an offer, `locales/en-US.yml`) now says that the student's assistant and the instructor's assistant may write to each other. rEach still asks the student before it runs a check and before its assistant sends anything, and still treats the other side's text as information. The diagnosis question (`M-LIVE-DIAG-ASK`) already said it.
+- Wire revision 2026-10-17b (`specs/wire.yml`, `specs/app.yml`): `W-LIVE-2` says the question names the line, and `W-LIVE-7` says Teach sets `co_debug` for a test student and, new, for a regular student whose install reports 0.53.20 or newer, so the line is never on under a question that does not name it. No rEach code path changed: it already followed the session's `co_debug`.
+
 ## [0.53.19] - 2026-10-17
 
 ### Fixed

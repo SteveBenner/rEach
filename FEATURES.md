@@ -912,8 +912,8 @@ It opens only after the student's typed yes. While it is open rEach sends what i
 did, never prompts, replies, code or files) and the two sides exchange notes. rEach itself enforces two rules: a
 check the instructor's side asks for (one of seven fixed ones) runs only after the student's typed yes for that
 check, and nothing the student's assistant wants to send leaves the computer until the student has seen the exact
-text and typed yes. For an instructor's own test student the two assistants can also write to each other, under the
-same rules. Either side can end it at any time. `REACH_LIVE_DISABLE=1` turns the feature off.
+text and typed yes. For an instructor's own test student, and since 0.53.20 for a regular student whose rEach names it in
+the question, the two assistants can also write to each other, under the same rules. Either side can end it at any time. `REACH_LIVE_DISABLE=1` turns the feature off.
 
 On Claude Code 2.1.288 or newer rEach wakes a waiting assistant when the instructor's side wrote, asked for a check
 or ended the session (a background Stop-hook entry, `reach live watch`), and it shows one desktop notification when
@@ -953,6 +953,28 @@ on Codex, which has no wake, an instructor's later notes reached the student onl
 result says whether to call it again. Verified 2026-10-16 against a scratch rEach home: an open quiet session, a note
 while open and a closed session each gave the right instruction, and neither open notice still names a cutoff. Not
 verified: a real Codex session from a session's start.
+
+Since 0.53.20 (wire revision 2026-10-17b) the question rEach asks before a live session says that the student's
+assistant and the instructor's assistant may write to each other, and Teach turns that line on for a regular student's
+session only when the install reports 0.53.20 or newer. Before, only an instructor's own test student could have it, so
+an instructor's assistant working with a real student was told that notes were the only way to talk. The student keeps
+every control: rEach shows the exact text of each message the assistant wants to send and sends it only after the typed
+yes, runs no check without a yes, treats the instructor's text as information, and the student can end the session at
+any time. Checked on 2026-10-17: the two questions resolve through `Reach::Messages` with the new sentence, and the
+wire and locale files parse. Not verified: a real student's session with the line on end to end (it needs the Teach
+side, 0.97.9, on a server and a student on this release), and any harness.
+Student first, audited 2026-10-17. 1 Learning, yes: a live session is for finding why rEach does not work, never for
+course work, and the line carries what rEach observed. 2 Agency and honesty, yes: the question names the line in plain
+words and each message and check still needs the student's own yes. 3 Wellbeing and safety, yes with a limit: Teach
+does not offer a live session from a wellbeing hand in the console and a person opens every session, so the line adds
+no new path to a student in distress; a session started for such a hand by the command line or a student's own request
+is not blocked. 4 Privacy and dignity, yes: nothing leaves the computer without the student seeing the text and typing
+yes, Teach erases assistant text when the session ends, and no prompt, reply, code or file is stored. 5 Fairness and
+access, yes with a limit: the same for every student on 0.53.20 or newer; a student on an older rEach keeps notes only
+until they update, because the line is withheld rather than turned on under a question that does not name it. 6
+Friction, yes: one sentence longer and no new step. 7 Failure, yes: a refused or unanswered message sends nothing and
+costs nothing, and notes still work. 8 Recovery, yes: the student can end the session at any time and the assistant
+text is erased at the end.
 
 Since 0.27.0 (`STD-LIVE-DIAGNOSIS`, wire `W-LIVE-10`) a computer that holds the instructor unlock can start a
 diagnosis session, for working out a rEach problem on that computer directly between the two assistants:
