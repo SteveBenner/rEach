@@ -405,6 +405,8 @@ module Reach
     def write(path: nil, patch: nil, event: nil, harness: nil)
       return nil if path.nil? && patch.nil?
 
+      tool = event.is_a?(Hash) && !event["tool_name"].to_s.empty? ? event["tool_name"].to_s : (patch ? "apply_patch" : "write")
+      Thread.current[:reach_gate_subject] = { "tool" => tool, "target" => path || patch_targets(patch).first }
       check_enrolled!
       require_login!(event)
       Reach::Update.hold!
@@ -458,6 +460,11 @@ module Reach
         "M-WRITE-OUTSIDE",
         owned_files: owned_files_display(workspace)
       )
+    rescue Reach::GateBlocked => e
+      e.subject ||= refusal_subject
+      raise
+    ensure
+      Thread.current[:reach_gate_subject] = nil
     end
 
     def write_from_root(path:, patch:)
@@ -592,6 +599,7 @@ module Reach
       text = text.tr("\\", "/") if @powershell
       return nil if support_command?(text)
 
+      Thread.current[:reach_gate_subject] = { "command" => command.to_s }
       check_enrolled!
       require_login!(event)
       Reach::Update.hold!
@@ -620,8 +628,12 @@ module Reach
 
       witness_in(workspace, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
       nil
+    rescue Reach::GateBlocked => e
+      e.subject ||= refusal_subject
+      raise
     ensure
       @powershell = false
+      Thread.current[:reach_gate_subject] = nil
     end
 
     def shell_space(event)
@@ -686,10 +698,11 @@ module Reach
 
     def read(event: {}, harness: nil)
       event = {} unless event.is_a?(Hash)
+      tool = event["tool_name"].to_s
+      Thread.current[:reach_gate_subject] = { "tool" => tool }
       check_enrolled!
       require_login!(event)
 
-      tool = event["tool_name"].to_s
       input = event["tool_input"].is_a?(Hash) ? event["tool_input"] : {}
       space = current_space
       Reach::Controls.check_tool!(WEB_TOOLS.include?(tool) || tool.start_with?("browser_") ? "web" : "read", space)
@@ -704,11 +717,18 @@ module Reach
 
       base = hook_cwd(event)
       read_paths(tool, input, base).each do |candidate|
+        Thread.current[:reach_gate_subject] = { "tool" => tool, "target" => candidate }
         raise_outside!(event, tool) if outside_path?(candidate, base)
         raise_blocked!("M-GATE-EXTRACURRICULAR-READ") if (kind == "slice" || kind == "root") && extracurricular_path?(candidate, base)
       end
+      Thread.current[:reach_gate_subject] = { "tool" => tool }
       check_recursive_read!(tool, input, base) if RECURSIVE_READ_TOOLS.include?(tool)
       nil
+    rescue Reach::GateBlocked => e
+      e.subject ||= refusal_subject
+      raise
+    ensure
+      Thread.current[:reach_gate_subject] = nil
     end
 
     def check_recursive_read!(tool, input, base)
@@ -1068,7 +1088,7 @@ module Reach
       Reach::BehaviorPolicy.ensure!
       Reach::EnrollmentLock.check!
     rescue Reach::GateBlocked => e
-      log_refusal(e.message_id, e.message)
+      log_refusal(e.message_id, e.message, refusal_subject)
       raise
     end
 
@@ -1100,15 +1120,32 @@ module Reach
 
     def raise_blocked!(message_id, channel: "gate.refusal", frame: {}, **fields)
       text = Reach::Messages.text(message_id, **fields)
-      log_refusal(message_id, text)
-      Reach::Debug.emit("gate", "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s)
+      subject = refusal_subject
+      log_refusal(message_id, text, subject)
+      Reach::Debug.emit("gate", { "check" => caller_locations(1, 1).first.label.to_s, "outcome" => "block", "message_id" => message_id.to_s }.merge(subject))
       raise Reach::GateBlocked.new(message_id, framed(channel, text, **frame))
     end
 
-    def log_refusal(message_id, text)
+    REFUSAL_SUBJECT_CHARS = 200
+
+    def refusal_subject
+      subject = Thread.current[:reach_gate_subject]
+      return {} unless subject.is_a?(Hash)
+
+      subject.each_with_object({}) do |(name, value), found|
+        line = value.to_s.lines.first.to_s.chomp
+        next if line.strip.empty?
+
+        found[name] = Reach::Debug.scrub_string(line)[0, REFUSAL_SUBJECT_CHARS]
+      end
+    rescue StandardError
+      {}
+    end
+
+    def log_refusal(message_id, text, subject = {})
       FileUtils.mkdir_p(Reach::Paths.logs_dir)
       path = File.join(Reach::Paths.logs_dir, "gate-refusals.jsonl")
-      record = { "at" => Time.now.utc.iso8601, "message_id" => message_id.to_s, "text" => text }
+      record = { "at" => Time.now.utc.iso8601, "message_id" => message_id.to_s, "text" => text }.merge(subject)
       File.open(path, "a") { |f| f.puts(JSON.generate(record)) }
     rescue StandardError
       nil

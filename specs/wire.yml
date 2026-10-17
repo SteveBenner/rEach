@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-16'
-revision: 2026-10-16a
+revision: 2026-10-16b
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -1824,7 +1824,7 @@ debug:
   W-DBG-KINDS:
     - session (reach and ruby version, platform, harness and its version, surface, runtime kit, install id, course id, persona id and kind, wire digest match)
     - hook (event, decision allow|block|context, message or rule id, space slice|root|extracurricular|outside, latency_ms)
-    - gate (check name, outcome, message id)
+    - gate (check name, outcome, message id; since 2026-10-16b an outcome block also carries what was refused, each the first line only, scrubbed under W-DBG-SCRUB and cut to 200 characters: command, the shell command, or tool and target, the write or read tool and the path it named)
     - command (reach command and flag names, exit, duration_ms, error class)
     - request (route id, method, status, error, request_id, attempt, latency_ms, bytes_out, bytes_in)
     - lock (enrollment lock state, reason, stamp verify result, fingerprint match)

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.4] - 2026-10-16
+
+### Added
+
+- Every gate refusal says what was refused (`STD-DEBUG-MODE`, wire revision 2026-10-16b W-DBG-KINDS). `Reach::Gate.raise_blocked!` and `check_enrolled!` add `command` (shell) or `tool` and `target` (write or read) to the `<logs>/gate-refusals.jsonl` line, and `Reach::CLI` adds them to the debug `gate` event with outcome block, carried on `Reach::GateBlocked#subject`. Each value is the first line only, scrubbed by `Reach::Debug.scrub_string` and cut to 200 characters (`Gate::REFUSAL_SUBJECT_CHARS`); file contents and here-document bodies are never recorded. `Gate.write`, `Gate.shell` and `Gate.read` hold the subject for the call and clear it when the call ends.
+
 ## [0.53.3] - 2026-10-16
 
 ### Fixed

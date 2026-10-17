@@ -846,6 +846,7 @@ module Reach
         started = Reach::Debug.clock
         @gate_decision = "allow"
         rule = nil
+        subject = {}
         begin
           if code_tab_hold?(sub, options, event)
             rule = "M-COWORK-CODE-TAB"
@@ -857,11 +858,12 @@ module Reach
         rescue Reach::GateBlocked => e
           @gate_decision = "block"
           rule = e.message_id
+          subject = e.subject || {}
           raise
         ensure
           name = event.is_a?(Hash) && event["hook_event_name"] ? event["hook_event_name"].to_s : "gate-#{sub}"
           Reach::Debug.hook(name, @gate_decision, rule, started)
-          Reach::Debug.emit("gate", "check" => sub.to_s, "outcome" => @gate_decision, "message_id" => rule)
+          Reach::Debug.emit("gate", { "check" => sub.to_s, "outcome" => @gate_decision, "message_id" => rule }.merge(subject))
         end
       end
 

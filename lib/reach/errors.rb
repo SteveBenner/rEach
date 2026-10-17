@@ -7,6 +7,7 @@ module Reach
 
   class GateBlocked < Error
     attr_reader :message_id
+    attr_accessor :subject
 
     def initialize(message_id, text)
       super(text)
