@@ -2415,7 +2415,7 @@ seal:
       ledger_key signed the record (null with a local key). prev is the previous record's tag ("" for n = 1). tag is
       HMAC-SHA256(ledger_key, canonical_json(record without tag)) as 64 hex characters. Kinds: session {harness},
       prompt {session, seq, digest} (the transcript entry it witnesses, W-TRN-1; since 2026-09-29, and fieldless
-      before and again since 2026-10-03b), write {path, before, after}, shell {command_digest, head}, check {changed, findings}, shape {findings},
+      before and again since 2026-10-03b), write {path, before, after}, shell {command_digest, head} (since 2026-10-17a head is the command reduced to fixed words and placeholders, as in the gate debug event; command_digest still binds the command as run), check {changed, findings}, shape {findings},
       tips {passed, total, timed_out} (before 2026-09-29d), directive {opcode, tier}, plan {action}, checkpoint {n,
       note_digest, automatic}, restore {n}, mark_restored {path}, integrity {kind, path}, submit {manifest_digest},
       and since 2026-09-29d qualify {attempt, passed, pending, files_digest, tests_digest, qualification_id} and

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.14] - 2026-10-17
+
+### Fixed
+
+- The slice ledger no longer stores an allowed shell command as typed. Each `shell` record (`Gate.shell` and the course-root dispatch) wrote the command's first 200 characters as `head`, unscrubbed, and every submission carries the ledger to Teach, so an inline secret in an allowed command reached Teach. `head` now goes through `Gate.mask_command`; `command_digest` still binds the command as run, and older records and the HMAC chain are unchanged. Wire revision 2026-10-17a notes it in the witness ledger clause.
+
 ## [0.53.13] - 2026-10-17
 
 ### Changed

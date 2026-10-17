@@ -626,7 +626,7 @@ module Reach
         check_segment!(segment, workspace, owned_test, kind, cwd)
       end
 
-      witness_in(workspace, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => text[0, 200]) if kind == "slice"
+      witness_in(workspace, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => mask_command(text)) if kind == "slice"
       nil
     rescue Reach::GateBlocked => e
       e.subject ||= debug_subject(refusal_subject)
@@ -664,7 +664,7 @@ module Reach
         when "slice"
           workspace = here["path"]
           check_segment!(segment, workspace, shell_owned_test("slice", workspace), "slice", cwd)
-          witness_in(workspace, "shell", { "command_digest" => Reach::Crypto.digest_hex(segment), "head" => segment[0, 200] })
+          witness_in(workspace, "shell", { "command_digest" => Reach::Crypto.digest_hex(segment), "head" => mask_command(segment) })
         when "extracurricular"
           workspace = here["path"]
           check_segment!(segment, workspace, shell_owned_test("extracurricular", workspace), "extracurricular", cwd)
