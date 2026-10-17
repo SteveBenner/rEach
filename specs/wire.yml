@@ -1824,7 +1824,7 @@ debug:
   W-DBG-KINDS:
     - session (reach and ruby version, platform, harness and its version, surface, runtime kit, install id, course id, persona id and kind, wire digest match)
     - hook (event, decision allow|block|context, message or rule id, space slice|root|extracurricular|outside, latency_ms)
-    - gate (check name, outcome, message id; since 2026-10-16b an outcome block also carries what was refused, cut to 200 characters: command, the shell command's first line, or tool and target, the write or read tool and the path it named; since 2026-10-17a the command holds only fixed words, namely operators, redirections, shell keywords, known command names and a bare * or ?, with $…, -…, <<…, …=… or … in place of every other token, and the target is the path relative to the course folder, or ~/…, /… or ../… followed only by the file extension when it lies outside it)
+    - gate (check name, outcome, message id; since 2026-10-16b an outcome block also carries what was refused, cut to 200 characters: command, the shell command's first line, or tool and target, the write or read tool and the path it named; since 2026-10-17a the command holds only fixed words, namely operators, redirections, shell keywords, known command names and a bare * or ?, with $…, -…, <<…, …=… or … in place of every other token, and the target is the path relative to the course folder, or ~/… or /… followed only by the file extension when it lies outside it)
     - command (reach command and flag names, exit, duration_ms, error class)
     - request (route id, method, status, error, request_id, attempt, latency_ms, bytes_out, bytes_in)
     - lock (enrollment lock state, reason, stamp verify result, fingerprint match)

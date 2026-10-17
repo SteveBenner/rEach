@@ -1156,8 +1156,10 @@ module Reach
       return COMMAND_MASK + ext unless absolute
 
       root = File.expand_path(Reach::Paths.workspace_root)
+      roots = [root, (File.exist?(root) ? File.realpath(root) : root)].uniq
       full = File.expand_path(text.sub(/\A~(?=[\\\/]|\z)/) { Dir.home })
-      return full.delete_prefix(root + "/") if full.start_with?(root + "/")
+      inside = roots.find { |candidate| full.start_with?(candidate + "/") }
+      return full.delete_prefix(inside + "/") if inside
 
       (text.start_with?("~") ? "~/" : "/") + COMMAND_MASK + ext
     rescue StandardError
