@@ -406,7 +406,7 @@ module Reach
       return nil if path.nil? && patch.nil?
 
       tool = event.is_a?(Hash) && !event["tool_name"].to_s.empty? ? event["tool_name"].to_s : (patch ? "apply_patch" : "write")
-      Thread.current[:reach_gate_subject] = { "tool" => tool, "target" => path || patch_targets(patch).first }
+      Thread.current[:reach_gate_subject] = { "tool" => tool, "target" => subject_path(path || patch_targets(patch).first, hook_cwd(event)) }
       check_enrolled!
       require_login!(event)
       Reach::Update.hold!
@@ -717,7 +717,7 @@ module Reach
 
       base = hook_cwd(event)
       read_paths(tool, input, base).each do |candidate|
-        Thread.current[:reach_gate_subject] = { "tool" => tool, "target" => candidate }
+        Thread.current[:reach_gate_subject] = { "tool" => tool, "target" => subject_path(candidate, base) }
         raise_outside!(event, tool) if outside_path?(candidate, base)
         raise_blocked!("M-GATE-EXTRACURRICULAR-READ") if (kind == "slice" || kind == "root") && extracurricular_path?(candidate, base)
       end
@@ -1135,6 +1135,7 @@ module Reach
     SHELL_KEYWORDS = %w[for in do done while until if then elif else fi case esac select function time !].freeze
     SHELL_KEYWORD_START = %w[do then elif else while until if ! time].freeze
     MASK_COMMON_COMMANDS = %w[echo printf cd pwd export set unset source . test \[ true false read sleep date env which type command xargs sort uniq cut tr git reach rake make pip pip3 cargo go java javac open code].freeze
+    MASK_TOOLS = (READ_TOOLS + WEB_TOOLS + APPLY_PATCH_NAMES + %w[Write Edit MultiEdit NotebookEdit write_file patch write Bash shell exec_command]).uniq.freeze
     MASK_COMMANDS = (READONLY_SINGLE + STRICT_WRITE + PACKAGE_WRITE + RUN_STRING_COMMANDS + SHELL_COMMANDS + STDIN_INTERPRETERS + WRITE_INPLACE_COMMANDS + NETWORK_COMMANDS + SKILL_READERS + MASK_COMMON_COMMANDS).uniq.freeze
 
     def debug_subject(subject)
@@ -1143,6 +1144,7 @@ module Reach
       masked = subject.dup
       masked["command"] = mask_command(subject["command"]) if subject.key?("command")
       masked["target"] = mask_target(subject["target"]) if subject.key?("target")
+      masked["tool"] = mask_tool(subject["tool"]) if subject.key?("tool")
       masked
     end
 
@@ -1151,11 +1153,8 @@ module Reach
       ext = File.extname(text)
       ext = "" unless ext.match?(/\A\.[A-Za-z0-9]{1,8}\z/)
       absolute = text.match?(%r{\A(?:[/~\\]|[A-Za-z]:[\\/])})
-      unless absolute
-        return text unless text.split(%r{[\\/]}).include?("..")
+      return COMMAND_MASK + ext unless absolute
 
-        return "../" + COMMAND_MASK + ext
-      end
       root = File.expand_path(Reach::Paths.workspace_root)
       full = File.expand_path(text.sub(/\A~(?=[\\\/]|\z)/) { Dir.home })
       return full.delete_prefix(root + "/") if full.start_with?(root + "/")
@@ -1208,6 +1207,22 @@ module Reach
       return token if token.match?(/\A[*?]+\z/)
 
       COMMAND_MASK
+    end
+
+    def mask_tool(tool)
+      name = tool.to_s
+      return name if MASK_TOOLS.include?(name)
+
+      name.start_with?("mcp__") ? "mcp__" + COMMAND_MASK : COMMAND_MASK
+    end
+
+    def subject_path(path, base)
+      return path if path.nil?
+
+      full = File.expand_path(path.to_s, base || Reach::Paths.cwd)
+      File.exist?(full) ? File.realpath(full) : full
+    rescue StandardError
+      path.to_s
     end
 
     def mask_command_word(token)

@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.15] - 2026-10-17
+
+### Fixed
+
+- A refused path is resolved to its real absolute location when it is captured (`Gate.subject_path`, from the hook's working folder), so a relative path or a symlink inside the course that points to a personal file is masked as outside the course in the debug `gate` event.
+- The debug `gate` event sends the tool name only when it is a known tool (`Gate::MASK_TOOLS`); an MCP tool shows as `mcp__…` and any other as `…`.
+- `STD-DEBUG-MODE` records the acknowledged gap: shell records written before 0.53.14 keep the raw command, because rewriting them would break the HMAC chain Teach verifies.
+
 ## [0.53.14] - 2026-10-17
 
 ### Fixed
