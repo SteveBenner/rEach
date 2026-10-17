@@ -1130,78 +1130,69 @@ module Reach
     COMMAND_MASK = "…".freeze
     SHELL_TOKEN = /\s+|\$\{\w+\}|&&|\|\||;;|<<<|<<-?\s*(['"]?)\w+\1|>>|\$\(|[|;&<>(){}`]|'[^']*'?|"(?:\\.|[^"\\])*"?|[^\s|;&<>(){}`'"]+/.freeze
     SHELL_COMMAND_START = %w[&& || ;; | ; & ( { $( `].freeze
-    SHELL_REDIRECTS = %w[> >> <].freeze
+    SHELL_REDIRECTS = %w[> >> < <<<].freeze
     SHELL_CLOSERS = %w[) }].freeze
     SHELL_KEYWORDS = %w[for in do done while until if then elif else fi case esac select function time !].freeze
-    SHELL_KEYWORD_START = %w[do then elif else while until if ! time {].freeze
-    SHELL_NAMES_NEXT = %w[for select].freeze
+    SHELL_KEYWORD_START = %w[do then elif else while until if ! time].freeze
     MASK_COMMON_COMMANDS = %w[echo printf cd pwd export set unset source . test \[ true false read sleep date env which type command xargs sort uniq cut tr git reach rake make pip pip3 cargo go java javac open code].freeze
     MASK_COMMANDS = (READONLY_SINGLE + STRICT_WRITE + PACKAGE_WRITE + RUN_STRING_COMMANDS + SHELL_COMMANDS + STDIN_INTERPRETERS + WRITE_INPLACE_COMMANDS + NETWORK_COMMANDS + SKILL_READERS + MASK_COMMON_COMMANDS).uniq.freeze
-
+    
     def debug_subject(subject)
       return {} unless subject.is_a?(Hash)
-
+    
       subject.key?("command") ? subject.merge("command" => mask_command(subject["command"])) : subject
     end
-
+    
     def mask_command(line)
       out = []
       head = true
-      names_next = false
       line.to_s.scan(SHELL_TOKEN) do
         token = Regexp.last_match(0)
         next if token.strip.empty?
-
+    
         if token.start_with?("<<") && token != "<<<"
-          out << token.gsub(/\s+/, "")
+          out << token[/\A<<-?/] + COMMAND_MASK
           head = false
         elsif SHELL_COMMAND_START.include?(token)
           out << token
           head = true
-        elsif SHELL_REDIRECTS.include?(token) || token == "<<<"
+        elsif SHELL_REDIRECTS.include?(token)
           out << token
           head = false
         elsif SHELL_CLOSERS.include?(token)
           out << token
-        elsif token.start_with?("'", "\"")
-          out << (token.match?(/\A"\$\{?\w+\}?"\z/) ? token : COMMAND_MASK)
-          head = false
-        elsif names_next && token.match?(/\A[A-Za-z_]\w{0,15}\z/)
-          out << token
-          names_next = false
         elsif SHELL_KEYWORDS.include?(token)
           out << token
-          names_next = SHELL_NAMES_NEXT.include?(token)
-          head = SHELL_KEYWORD_START.include?(token)
-        elsif head && token.include?("=")
-          name = token.split("=", 2).first
-          out << (name.match?(/\A(?:\$env:)?[A-Za-z_]\w*\z/) ? name + "=" + COMMAND_MASK : COMMAND_MASK)
-        elsif head
+          head &&= SHELL_KEYWORD_START.include?(token)
+        elsif head && !token.start_with?("'", "\"", "$") && token.include?("=")
+          out << COMMAND_MASK + "=" + COMMAND_MASK
+        elsif head && !token.start_with?("'", "\"", "$")
           out << mask_command_word(token)
           head = false
         else
           out << mask_argument(token)
+          head = false
         end
       end
       out.join(" ")[0, REFUSAL_SUBJECT_CHARS]
     rescue StandardError
       COMMAND_MASK
     end
-
+    
     def mask_argument(token)
-      return token if token.match?(/\A\$\{?\w+\}?\z/)
-      return token if token.match?(/\A--[A-Za-z][\w-]*\z/) || token.match?(/\A-[A-Za-z]\z/)
-      return token.sub(/=.*\z/m, "=" + COMMAND_MASK) if token.match?(/\A--[A-Za-z][\w-]*=/)
+      return "\"$" + COMMAND_MASK + "\"" if token.match?(/\A"\$\{?\w+\}?"\z/)
+      return "$" + COMMAND_MASK if token.match?(/\A\$\{?\w+\}?\z/)
+      return "-" + COMMAND_MASK if token.match?(/\A-[^\s]/)
       return token if token.match?(/\A[*?]+\z/)
-
+    
       COMMAND_MASK
     end
-
+    
     def mask_command_word(token)
       name = File.basename(token.to_s).downcase
       MASK_COMMANDS.include?(name) ? name : COMMAND_MASK
     end
-
+    
     def refusal_subject
       subject = Thread.current[:reach_gate_subject]
       return {} unless subject.is_a?(Hash)

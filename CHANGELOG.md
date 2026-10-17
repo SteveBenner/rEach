@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.12] - 2026-10-17
+
+### Fixed
+
+- `Reach::Gate.mask_command` emits only fixed vocabulary in the debug `gate` event: operators, redirections, shell keywords, a command name on `Gate::MASK_COMMANDS`, a bare `*` or `?`, and the shape of everything else (`$…`, `"$…"`, `-…`, `<<…`, `…=…`, `…`). Loop variable names, here-document markers, assignment names, flag names and words after a keyword are no longer kept, and a keyword in argument position no longer restarts command position. No word the student typed reaches Teach unless it is a known command name.
+
 ## [0.53.11] - 2026-10-17
 
 ### Fixed
