@@ -280,7 +280,7 @@ module Reach
           return 0
         end
 
-        unless UNLOCKED_COMMANDS.include?(command)
+        unless UNLOCKED_COMMANDS.include?(command) || (command == "submit" && args.first == "archive")
           lock = Reach::EnrollmentLock.state
           if lock["locked"]
             warn Reach::Messages.text(lock["message_id"])

@@ -662,7 +662,8 @@ module Reach
           raise Reach::Refused, Reach::Controls.refusal_text("mcp.control")
         end
 
-        lock = UNLOCKED_TOOLS.include?(name) ? nil : Reach::EnrollmentLock.state
+        unlocked = UNLOCKED_TOOLS.include?(name) || (name == "reach_submit" && arguments["archive"] == true)
+        lock = unlocked ? nil : Reach::EnrollmentLock.state
         if lock && lock["locked"]
           raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? enroll_refusal_id : lock["message_id"])
         end
