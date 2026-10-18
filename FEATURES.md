@@ -322,9 +322,8 @@ instructor, never grades it on its own, and a partial never stops a later submis
 missing course and two selectors were refused, the size cap skipped, and an unenrolled install still saved; in-process,
 a partial reached the course server with partial true in body and manifest, a plain submit stayed refused, an older
 course server's answer refused the partial, and the closed rule ignored partial receipts. End to end on 2026-10-18 against
-a scratch Teach 0.97.11 (assignment-one harness copy, context.a1): Teach's status named partial, the student was asked
-and said yes, the partial was ingested (row state partial, receipt partial true), the running grader left it alone for
-60 s, a plain submit stayed refused, an instructor regrade graded it and rEach stored the grade receipt, and the later
+a scratch Teach 0.97.11: the course server accepted partial work, the student was asked and said yes, the partial was
+received with a receipt marked partial, it was not graded automatically, a plain submit stayed refused, an instructor regrade graded it and rEach stored the grade receipt, and the later
 qualified full submission superseded it; `reach submit archive --all` held only the student's files.
 
 Build ✅ · Deploy 🔵 · Blocker: Teach 0.97.11 on the course server

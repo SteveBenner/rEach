@@ -95,7 +95,7 @@ module Reach
     end
 
     def on_record?(meta)
-      Reach::Receipts.on_record?(cutout_id: meta["cutout_id"], slice: meta["slice"], assignment: meta["assignment"])
+      Reach::Receipts.on_record?(cutout_id: meta["cutout_id"], slice: meta["slice"], assignment: meta["assignment"], ignore_partial: true)
     rescue StandardError
       false
     end

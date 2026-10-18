@@ -2,11 +2,11 @@
 
 ## Assignment-one smoke is stale (found 2026-10-18 running it for 0.53.22)
 
-The same four failures and skips occur on 0.53.21, so they predate partial work.
+The same failures and skips occur on 0.53.21, so they predate partial work.
 
-- [ ] `tools/smoke/assignment_one.rb` expects a nonzero exit from the Claude Code login hook; the hook now answers `{"decision":"block"}` with exit 0, so login-gate-and-sign-in, guarded-write-owned, submit-refused-unqualified and qualify-scenarios-written fail.
-- [ ] It looks for grader images `teach-grader:ruby-4.0`; the host and Teach use `teach-grader:ruby-4.0.7`, so the grader never starts and every grading step skips.
-- [ ] `hook_prompt("Yes")` sends no `transcript_path`, and rEach accepts a hook yes only when the asked question is in the transcript's assistant text, so the full-submit yes can never be taken. The scratch fix wrote a Claude Code style JSONL holding the pending question (`/tmp/claude-1000/partial-work-scratch/e2e/partial_one.rb` `hook_yes`).
+- [ ] `tools/smoke/assignment_one.rb` expects a nonzero exit from the Claude Code login hook; the hook now blocks with exit 0, so the login, guarded-write, unqualified-submit and qualify-scenario steps fail.
+- [ ] Its grader image names no longer match the images the grader uses, so the grader never starts and every grading step skips.
+- [ ] `hook_prompt("Yes")` sends no `transcript_path`, and rEach accepts a hook yes only when the asked question is in the transcript's assistant text, so the full-submit yes can never be taken; the harness should write a transcript holding the pending question.
 - [ ] Qualification needs `bundle` on the PATH of the rEach commands it runs.
 - [ ] `ingest-receipt-ids` assumes one ingest receipt; a partial submission before the full one adds a second.
 
