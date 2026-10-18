@@ -302,6 +302,12 @@ Antigravity). After the ingest receipt it saves a ZIP of the whole assignment in
 course, assignment and course-time stamp, and says until when the student may submit again; after the due time a
 submitted slice is refused before asking. The assignment-one smoke asked, captured the yes, submitted and checked the
 ZIP against a scratch Teach 0.18.0; resubmission and the past-due refusal were exercised against the fake Teach.
+Since 0.53.21 `reach submit archive` also saves the ZIP of an assignment that was not submitted, saying it is not a
+submission and must be uploaded to the learning system or sent to the instructor, and `reach qualify` recommends it when
+the qualification could not be done (browser missing, scenarios could not start, the local panel preview could not open,
+or the course server could not run them). Checked on
+2026-10-17 in scratch state with real slice workspaces: an unsubmitted A2 saved its ZIP with the export text, an unknown
+assignment and an unnamed one were refused, and the recommendation fired on a reported preview failure (Ferrum::StatusError).
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

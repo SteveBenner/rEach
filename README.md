@@ -379,7 +379,9 @@ files, plus the receipts and the student's own part) in the Downloads folder as
 may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
 by rEach before it asks and by Teach. rEach says plainly, before and after every submission, that the ZIP in
 Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (the
-course names that system); `reach submit archive` makes the ZIP again. Work brought in from the rEach Sidecar carries
+course names that system); `reach submit archive` makes the ZIP again. Since 0.53.21 it also saves the ZIP of
+an assignment not yet submitted, saying it is not a submission, and `reach qualify` recommends that when the course's
+checks could not run at all, so the student can still hand the work to their instructor. Work brought in from the rEach Sidecar carries
 its offline receipt as `evidence/sidecar-receipt.json` in the submission.
 
 ### Late work and grades
@@ -432,7 +434,7 @@ plain words.
 
 ```
 reach grade [--format json]                     the points recorded in Teach
-reach submit archive [--assignment A]           make the assignment's ZIP again
+reach submit archive [--assignment A]           save the assignment's ZIP, submitted or not
 reach hand raise --type T ...                   raise a hand of a given type
 reach feedback send --category C --message M    ask to send a feedback note (add --anonymous)
 reach feedback list                             the notes sent and their state

@@ -449,7 +449,7 @@ module Reach
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             submit [--slice ...]                 ask the student, then submit and wait for the receipt
-            submit archive [--assignment A]      save the ZIP of a submitted assignment to Downloads again (the student must also upload it to the course's learning system)
+            submit archive [--assignment A]      save a ZIP of all your work for an assignment to Downloads, submitted or not (a submitted one must also be uploaded to the course's learning system)
             receipts [wait|show|acks]            receipts
             hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, integrity_question, other)
             grade [--format text|json]           the points recorded for the student in Teach

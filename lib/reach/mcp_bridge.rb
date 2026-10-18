@@ -49,12 +49,12 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves the ZIP of an already submitted assignment to Downloads again (assignment names it; the student must still upload the ZIP to the course's learning system). Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" },
-            "archive" => { "type" => "boolean", "description" => "Write the ZIP of a submitted assignment again instead of submitting" },
+            "archive" => { "type" => "boolean", "description" => "Save the ZIP of the student's work for an assignment (submitted or not) instead of submitting" },
             "assignment" => { "type" => "string", "description" => "With archive true, the assignment to save; defaults to the current one" }
           }
         }

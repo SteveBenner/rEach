@@ -70,19 +70,21 @@ module Reach
 
       def archive_again(assignment: nil)
         submitted = submitted_assignments
+        available = (submitted + workspace_assignments).uniq.sort
         name = assignment.to_s.strip
-        name = default_archive_assignment(submitted) if name.empty?
+        name = default_archive_assignment(available) if name.empty?
         if name.empty?
-          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NONE", assignment: "this course") if submitted.empty?
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NONE", assignment: "this course") if available.empty?
 
-          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-WHICH", assignments: submitted.join(", "))
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-WHICH", assignments: available.join(", "))
         end
-        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NONE", assignment: name) unless submitted.include?(name)
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NONE", assignment: name) unless available.include?(name)
 
         workspace = archive_workspace(name)
         archive = workspace ? Reach::Archive.write!(workspace, Reach::Workspace.metadata(workspace)) : { "state" => "failed" }
-        result = { "state" => "archive", "assignment" => name, "archive" => archive, "receipt" => { "assignment" => name } }
-        result["text"] = followup_text(result)
+        result = { "state" => "archive", "assignment" => name, "archive" => archive, "receipt" => { "assignment" => name },
+                   "submitted" => submitted.include?(name) }
+        result["text"] = submitted.include?(name) ? followup_text(result) : export_text(result)
         result
       end
 
@@ -306,12 +308,33 @@ module Reach
         Reach::Receipts.list.select { |receipt| receipt["kind"] == "ingest" }.map { |receipt| receipt["assignment"].to_s }.reject(&:empty?).uniq.sort
       end
 
-      def default_archive_assignment(submitted)
+      def workspace_assignments
+        Reach::Workspace.current_slices.map { |path| Reach::Workspace.metadata(path)["assignment"].to_s }.reject(&:empty?).uniq.sort
+      end
+
+      def default_archive_assignment(candidates)
         workspace = Reach::Gate.focus_workspace
         here = workspace ? Reach::Workspace.metadata(workspace)["assignment"].to_s : ""
-        return here if submitted.include?(here)
+        return here if candidates.include?(here)
 
-        submitted.length == 1 ? submitted.first : ""
+        candidates.length == 1 ? candidates.first : ""
+      end
+
+      def export_text(result)
+        archive = result["archive"].is_a?(Hash) ? result["archive"] : {}
+        case archive["state"]
+        when "saved"
+          Reach::Messages.text("M-SUBMIT-EXPORTED", assignment: result["assignment"], name: archive["name"], send: export_send)
+        when "skipped"
+          Reach::Messages.text("M-SUBMIT-EXPORT-SKIPPED", send: export_send)
+        else
+          Reach::Messages.text("M-SUBMIT-EXPORT-FAILED", send: export_send)
+        end
+      end
+
+      def export_send
+        lms = Reach::Archive.lms_name
+        lms ? Reach::Messages.text("M-SUBMIT-EXPORT-SEND-LMS", lms: lms) : Reach::Messages.text("M-SUBMIT-EXPORT-SEND")
       end
 
       def archive_workspace(assignment)

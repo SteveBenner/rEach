@@ -18,6 +18,7 @@ module Reach
     REMOTE_BUDGET_S = 20
     STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
     NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE].freeze
+    PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
     class << self
@@ -56,6 +57,7 @@ module Reach
 
         run_steps(workspace, meta, qualify, record, local_only)
         record["passed"] = !record["pending"] && record["findings"].empty? && !local_only
+        offer_export(record, meta)
         finish(workspace, record, local_only)
       end
 
@@ -71,6 +73,32 @@ module Reach
         return if local_only
 
         step_remote(workspace, meta, qualify, record)
+      end
+
+      def unable?(record)
+        return false unless record["passed"] == false && record["pending"] == false
+
+        findings = record["findings"]
+        return false unless findings.is_a?(Array) && !findings.empty?
+
+        remote = record["steps"].is_a?(Hash) ? record["steps"]["remote"] : nil
+        findings.all? do |finding|
+          code = finding["code"]
+          empty_name = finding["name"].to_s.empty?
+          code == "QF-NOBROWSER" ||
+            (%w[QF-LOCAL-FAIL QF-VACUOUS].include?(code) && empty_name) ||
+            (code == "QF-LOCAL-FAIL" && finding["detail"].to_s.match?(PREVIEW_FAILURE)) ||
+            (code == "QF-REMOTE-FAIL" && remote.is_a?(Hash) && remote["failed_to_run"] == true)
+        end
+      end
+
+      def offer_export(record, meta)
+        assignment = meta["assignment"].to_s
+        return if assignment.empty? || !unable?(record)
+
+        record["export"] = { "recommended" => true, "assignment" => assignment, "command" => "reach submit archive --assignment #{assignment}" }
+        text = Reach::Messages.text("M-QUALIFY-EXPORT", assignment: assignment)
+        record["next"] = [record["next"], text].compact.join(" ")
       end
 
       def finish(workspace, record, local_only)
@@ -423,7 +451,7 @@ module Reach
 
       def judge_remote(record, result)
         if result["status"] == "failed_to_run"
-          record["steps"]["remote"] = { "ran" => true, "passed" => false, "rows" => [], "error" => result["reason"] }
+          record["steps"]["remote"] = { "ran" => true, "passed" => false, "rows" => [], "error" => result["reason"], "failed_to_run" => true }
           record["findings"] << { "code" => "QF-REMOTE-FAIL", "name" => nil, "detail" => result["reason"] }
           return false
         end
