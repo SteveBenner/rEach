@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.23] - 2026-10-18
+
+### Fixed
+
+- A student who still owed an assignment whose due time had passed never got its work areas, because rEach fetched and provisioned one workspace package at a time, the newest by version, under one assignment. Sync now reads `late_assignments` from the status, fetches each late assignment's workspace and shape packages with a signed `assignment` query parameter (`Reach::Packages#fetch`), refuses an envelope whose header names another assignment, provisions each assignment's work areas under its own folder (`Reach::Workspace.provision_from_package(assignment:)`), and merges the shape files of the current and late assignments into one vault. The current assignment's packages are chosen by the assignment each stored package names, not by the highest version. `reach status` and the greeting's course line name each late assignment. A course server that sends no list changes nothing.
+
+### Changed
+
+- Wire revision 2026-10-18c (`specs/wire.yml`): `late_assignments` in W-API-STATUS, the `assignment` query parameter of W-API-PACKAGE, and rule W-PACE-3. `specs/app.yml` gains `STD-LATE-ASSIGNMENTS` and `reach.spec.yml` the `late_assignments` section.
+- `tools/fake_teach` can serve a late assignment (`FAKE_TEACH_LATE_ASSIGNMENT`, `FAKE_TEACH_LATE_VERSION_FIRST`).
+
 ## [0.53.22] - 2026-10-18
 
 ### Fixed

@@ -36,11 +36,17 @@ module Reach
 
     module_function
 
-    def provision_from_package
+    def provision_from_package(assignment: nil)
       migrate_layout!
 
       packages = Reach::Packages.new
-      version = packages.latest_version(KIND)
+      if assignment
+        version = packages.latest_version(KIND, assignment: assignment)
+      else
+        current = Reach::Pace.current_assignment
+        version = current && packages.latest_version(KIND, assignment: current["id"])
+        version ||= packages.latest_version(KIND)
+      end
       return [] unless version
 
       _header, entries = packages.open(KIND, version)

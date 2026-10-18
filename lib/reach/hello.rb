@@ -783,9 +783,16 @@ module Reach
       assignment_text = current_assignment ? "#{current_assignment["id"]} due #{Reach::Messages.course_time(current_assignment["due"])}" : "no current assignment"
       slices_text = slices.map { |workspace| "#{safe_metadata(workspace) && safe_metadata(workspace)["slice"]} #{safe_state_word(workspace)}" }.join(", ")
       slices_text = "none" if slices_text.empty?
-      "- Course: #{course["title"]} · #{assignment_text} · #{slices_text}"
+      late_text = late_assignment_text(status)
+      "- Course: #{course["title"]} · #{assignment_text} · #{slices_text}#{late_text}"
     rescue StandardError
       "- Course: not connected yet"
+    end
+
+    def late_assignment_text(status)
+      Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] }.map do |entry|
+        " · late work open: #{entry["id"]} (was due #{Reach::Messages.course_time(entry["due"])})"
+      end.join
     end
 
     def persona_body

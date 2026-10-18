@@ -239,7 +239,29 @@ Build ✅ · Deploy 🔵 · Blocker: -
 `reach sync` fetches new packages, verifies them, refreshes workspaces and fetches grade receipts. A workspace's
 `README.md` is student-owned and preserved.
 
-Build ✅ · Deploy 🔵 · Blocker: -
+Since 0.53.23 (`STD-LATE-ASSIGNMENTS`, wire revision 2026-10-18c, W-PACE-3) sync also gets the work areas of an
+assignment whose due time has passed while the student still owes it: it fetches that assignment's workspace and shape
+packages next to the current assignment's, provisions the work areas under the assignment's own folder, and merges its
+shape files into the one shape vault. The current assignment's packages are chosen by the assignment each stored package
+names, not by the highest version. `reach status` names the assignment on a line of its own (Also open as late work),
+the greeting's course line does the same, and the work is late work as before. A course server that sends no list, an
+offline sync, and a student with nothing past due see no change. Verified against `tools/fake_teach` with a late
+assignment beside the current one: both work areas provisioned with their own package versions, both shape files in
+the vault, a second sync answered 304 for every package, the current assignment still provisioned when the late package
+is the newer one, an envelope naming another assignment refused and not stored, an offline sync keeping every work
+area, and the output without a late assignment identical to 0.53.20's. Not verified: a real course server round trip,
+the greeting hook end to end (only its course line), and `rplugin check`.
+Student-first audit for 0.53.23:
+1. Learning: yes — the student gets the same starting files as classmates for the assignment they still owe, and nothing is done for them.
+2. Agency and honesty: yes — status and the greeting name the assignment as past due and open as late work; doing it stays the student's choice.
+3. Wellbeing and safety: yes — the wording states lateness as a fact with no warning or countdown.
+4. Privacy and dignity: yes — nothing new is sent; the request names an assignment the student already owns.
+5. Fairness and access: yes — the same on every operating system and harness; no branch on either.
+6. Friction: yes — no new step; the next sync provisions the work areas and nothing asks the student to pick.
+7. Failure: yes — a failed fetch or provision adds a warning and leaves the current assignment untouched; an offline sync keeps what is stored.
+8. Recovery: yes — a deleted work area returns on the next sync, and no work area is ever removed.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (needs a course server that sends late assignments)
 
 ### 2.3 · Workspace gate
 

@@ -125,7 +125,46 @@ module FakeTeach
       File.binread(File.join(__dir__, "fixtures", "packages", *parts))
     end
 
-    def package_entries(kind, install_id)
+    def late_assignment
+      value = ENV["FAKE_TEACH_LATE_ASSIGNMENT"].to_s
+      value.empty? ? nil : value
+    end
+
+    def current_assignment_id
+      late_assignment ? late_assignment.succ : PACKAGE_ASSIGNMENT
+    end
+
+    def cutout_for(assignment)
+      "demo.#{assignment.downcase}"
+    end
+
+    def package_kinds
+      late_assignment ? PACKAGE_KINDS + ["shape"] : PACKAGE_KINDS
+    end
+
+    def package_version_for(assignment)
+      return PACKAGE_VERSION unless late_assignment
+
+      return PACKAGE_VERSION + 1 unless assignment == late_assignment
+
+      ENV["FAKE_TEACH_LATE_VERSION_FIRST"] == "1" ? PACKAGE_VERSION + 2 : PACKAGE_VERSION
+    end
+
+    def late_due_text
+      base = due_time || (Time.now.utc + 7 * 86_400)
+      (base - 86_400).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end
+
+    def current_due_text
+      due_text || (Time.now.utc + 7 * 86_400).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end
+
+    def package_entries(kind, install_id, assignment = PACKAGE_ASSIGNMENT)
+      cutout = cutout_for(assignment)
+      if kind == "shape"
+        return { "#{cutout}/shape.json" => JSON.generate("cutout_id" => cutout, "assignment" => assignment) }
+      end
+
       if kind == "guardrails"
         seal = {
           "schema" => "teach.seal/v1",
@@ -138,12 +177,12 @@ module FakeTeach
           "seal.yml" => YAML.dump(seal)
         }
       else
-        root = "#{PACKAGE_COURSE_ID}-#{PACKAGE_SLICE}"
+        root = "#{cutout}-#{PACKAGE_SLICE}"
         manifest = {
           "course" => "DEMO101",
-          "assignment" => PACKAGE_ASSIGNMENT,
+          "assignment" => assignment,
           "slices" => [
-            { "cutout_id" => PACKAGE_COURSE_ID, "slice" => PACKAGE_SLICE, "root" => root, "owned_files" => [PACKAGE_OWNED_FILE] }
+            { "cutout_id" => cutout, "slice" => PACKAGE_SLICE, "root" => root, "owned_files" => [PACKAGE_OWNED_FILE] }
           ]
         }
         {
@@ -153,23 +192,23 @@ module FakeTeach
       end
     end
 
-    def package_envelope(install_id, install, kind)
+    def package_envelope(install_id, install, kind, assignment = current_assignment_id)
       @mutex.synchronize do
-        @packages[[install_id, kind]] ||= begin
+        @packages[[install_id, kind, assignment]] ||= begin
           header = {
             "schema" => "teach.package/v1",
             "kind" => kind,
             "id" => "pkgenv_#{SecureRandom.hex(10)}",
-            "version" => PACKAGE_VERSION,
+            "version" => package_version_for(assignment),
             "course" => install["course_id"],
-            "assignment" => PACKAGE_ASSIGNMENT,
+            "assignment" => assignment,
             "student_id" => install["student_id"],
             "created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "signing_key_id" => SIGN_KEY_ID
           }
           Reach::Crypto.seal(
             header: header,
-            plaintext: Reach::Tarball.write(package_entries(kind, install_id)),
+            plaintext: Reach::Tarball.write(package_entries(kind, install_id, assignment)),
             recipient_public_key: OpenSSL::PKey::RSA.new(install["public_key_pem"]),
             signer_private_key: @signing_key
           )
@@ -179,9 +218,18 @@ module FakeTeach
 
     def package(req, body, kind)
       install = authenticate!(req, body)
-      raise Failure.new(404, "not_found", "no such route") unless PACKAGE_KINDS.include?(kind)
+      raise Failure.new(404, "not_found", "no such route") unless package_kinds.include?(kind)
 
-      envelope = package_envelope(req["X-Teach-Install"], install, kind)
+      assignment = current_assignment_id
+      asked = req.query["assignment"].to_s
+      if late_assignment && !asked.empty? && asked != assignment
+        raise Failure.new(403, "not_released", "assignment is not open for work") unless asked == late_assignment
+        raise Failure.new(404, "not_found", "no such route") if kind == "guardrails"
+
+        assignment = asked
+      end
+
+      envelope = package_envelope(req["X-Teach-Install"], install, kind, assignment)
       etag = "\"#{envelope['header']['content_digest']}\""
       return Reply.new(304, "", etag) if req["If-None-Match"] == etag
 
@@ -768,6 +816,19 @@ module FakeTeach
       install
     end
 
+    def late_assignments_status(install_id, install)
+      return nil unless late_assignment
+
+      [{
+        "id" => late_assignment,
+        "due" => late_due_text,
+        "slices" => [{ "cutout_id" => cutout_for(late_assignment), "slice" => PACKAGE_SLICE, "assignment" => late_assignment }],
+        "packages" => %w[workspace shape].map do |kind|
+          { "kind" => kind, "version" => package_version_for(late_assignment), "content_digest" => package_envelope(install_id, install, kind, late_assignment)["header"]["content_digest"] }
+        end
+      }]
+    end
+
     def status(req, body)
       install = authenticate!(req, body)
       header = req["X-Reach-Fingerprint"]
@@ -775,14 +836,14 @@ module FakeTeach
         raise Failure.new(403, "fingerprint_mismatch", "this computer is not the one the install was enrolled from")
       end
 
-      {
+      document = {
         "install_id" => req["X-Teach-Install"],
         "student" => { "id" => install["student_id"], "display_name" => install["display_name"], "group" => nil },
         "course" => { "id" => install["course_id"] },
-        "current_assignment" => due_text ? { "id" => "A1", "due" => due_text } : nil,
-        "slices" => [{ "cutout_id" => PACKAGE_COURSE_ID, "slice" => PACKAGE_SLICE, "assignment" => PACKAGE_ASSIGNMENT }],
-        "packages" => PACKAGE_KINDS.map do |kind|
-          { "kind" => kind, "version" => PACKAGE_VERSION, "content_digest" => package_envelope(req["X-Teach-Install"], install, kind)["header"]["content_digest"] }
+        "current_assignment" => (late_assignment ? { "id" => current_assignment_id, "due" => current_due_text } : (due_text ? { "id" => "A1", "due" => due_text } : nil)),
+        "slices" => [{ "cutout_id" => cutout_for(current_assignment_id), "slice" => PACKAGE_SLICE, "assignment" => current_assignment_id }],
+        "packages" => package_kinds.map do |kind|
+          { "kind" => kind, "version" => package_version_for(current_assignment_id), "content_digest" => package_envelope(req["X-Teach-Install"], install, kind)["header"]["content_digest"] }
         end,
         "outstanding_receipts" => [],
         "server_time" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -795,6 +856,12 @@ module FakeTeach
         "module_selection" => { "mode" => "instructor", "open" => false, "closes_at" => nil, "chosen" => false },
         "transfer" => nil
       }
+      late = late_assignments_status(req["X-Teach-Install"], install)
+      document = document.each_with_object({}) do |(key, value), merged|
+        merged[key] = value
+        merged["late_assignments"] = late if key == "current_assignment" && late
+      end
+      document
     end
   end
 

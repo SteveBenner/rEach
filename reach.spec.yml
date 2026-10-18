@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.22
+version: 0.53.23
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -3172,6 +3172,33 @@ late_work:
     a detached reach hand late --assignment A (trigger late_work); a verified ingest receipt with late true does the same
     with trigger late_submission (Reach::Receipts.store). Once per assignment and type ever; the next session start retries
     an unsent one; a 403 hands_disabled or a 400 gives it up quietly, as do five failed tries. No hook waits on the network.
+late_assignments:
+  since: 0.53.23
+  standard: STD-LATE-ASSIGNMENTS
+  wire: W-API-STATUS, W-API-PACKAGE, W-PACE-3
+  fetch: >-
+    Reach::Sync reads status late_assignments (entries whose id is A1 to A4) and, for each entry that lists a workspace or
+    a shape package, calls Reach::Packages#fetch(kind, assignment: id). The request carries assignment as a signed query
+    parameter and If-None-Match from the newest stored package of that kind and assignment. The envelope is opened first and
+    stored only when its header assignment equals the id asked for. A failure adds a warning and leaves the rest of the sync
+    untouched. summary late_packages records the version stored per assignment and kind.
+  select: >-
+    Reach::Packages#latest_version(kind, assignment: id) reads the header assignment of each stored package, newest first,
+    and returns the first match; without assignment it is the highest version, as before. The existing fetch loop passes the
+    current assignment id so its If-None-Match never comes from a late assignment's package, and
+    Reach::Workspace.provision_from_package with no argument provisions from the current assignment's newest workspace
+    package, falling back to the highest version when status names no current assignment or none is stored.
+  provision: >-
+    Reach::Workspace.provision_from_package(assignment: id) provisions the newest stored workspace package of that
+    assignment, which names its own assignment in slices.json, so the work areas land under that assignment's folder. Each
+    late assignment is provisioned on its own, and a failure adds the warning could not provision your id workspace.
+  shape_vault: >-
+    Reach::Sync#ensure_shape_unpacked unpacks the shape package of the current assignment and of every late assignment into
+    the one shape vault (the first with the vault cleared, the rest with Reach::Packages#unpack keep true) and writes
+    .version as the sorted versions joined by commas; one version writes the same text as before.
+  display: >-
+    Reach::Status adds a line Also open as late work: id, was due time, per late assignment, after the current assignment
+    line; Reach::Hello course_line appends late work open. The slice listing already shows every provisioned work area.
 home_in_workspace:
   since: 0.31.0
   standard: STD-HOME-IN-WORKSPACE

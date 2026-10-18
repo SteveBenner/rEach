@@ -32,6 +32,7 @@ module Reach
           "student" => nil,
           "guardrails_version" => nil,
           "packages" => {},
+          "late_packages" => {},
           "workspaces" => [],
           "outbox_sent" => 0,
           "hand_replies" => [],
@@ -72,6 +73,10 @@ module Reach
           raise
         end
 
+        current_id = status.dig("current_assignment", "id")
+        current_id = current_id.is_a?(String) ? current_id : nil
+        late_entries = late_assignment_entries(status)
+
         unless offline
           Array(status["packages"]).each do |pkg|
             kind = pkg["kind"]
@@ -79,10 +84,26 @@ module Reach
 
             begin
               packages = Reach::Packages.new
-              packages.fetch(kind)
+              packages.fetch(kind, current: current_id)
               summary["packages"][kind] = packages.latest_version(kind)
             rescue StandardError => e
               summary["warnings"] << "reach: could not fetch #{kind} package (#{Reach::Link.reason(e, "sync")})"
+            end
+          end
+
+          late_entries.each do |entry|
+            id = entry["id"]
+            kinds = Array(entry["packages"]).map { |pkg| pkg["kind"] }
+            %w[workspace shape].each do |kind|
+              next unless kinds.include?(kind)
+
+              begin
+                packages = Reach::Packages.new
+                packages.fetch(kind, assignment: id)
+                (summary["late_packages"][id] ||= {})[kind] = packages.latest_version(kind, assignment: id)
+              rescue StandardError => e
+                summary["warnings"] << "reach: could not fetch #{kind} package for #{id} (#{Reach::Link.reason(e, "sync")})"
+              end
             end
           end
         end
@@ -97,7 +118,7 @@ module Reach
         Reach::CourseCorpus.ingest_if_changed
 
         begin
-          ensure_shape_unpacked
+          ensure_shape_unpacked(current_id, late_entries.map { |entry| entry["id"] })
         rescue StandardError => e
           summary["warnings"] << "reach: could not update shapes (#{Reach::Link.reason(e, "sync")})"
         end
@@ -115,6 +136,17 @@ module Reach
           end
         rescue StandardError => e
           summary["warnings"] << "reach: could not provision your workspace (#{Reach::Link.reason(e, "sync")})"
+        end
+
+        late_entries.each do |entry|
+          id = entry["id"]
+          begin
+            if Reach::Packages.new.latest_version("workspace", assignment: id)
+              summary["workspaces"].concat(Reach::Workspace.provision_from_package(assignment: id))
+            end
+          rescue StandardError => e
+            summary["warnings"] << "reach: could not provision your #{id} workspace (#{Reach::Link.reason(e, "sync")})"
+          end
         end
 
         begin
@@ -292,17 +324,26 @@ module Reach
 
       private
 
-      def ensure_shape_unpacked
+      def late_assignment_entries(status)
+        Array(status["late_assignments"]).select do |entry|
+          entry.is_a?(Hash) && entry["id"].is_a?(String) && entry["id"].match?(/\AA[1-4]\z/)
+        end
+      end
+
+      def ensure_shape_unpacked(current_id = nil, late_ids = [])
         packages = Reach::Packages.new
-        version = packages.latest_version("shape")
-        return unless version
+        current_version = current_id ? packages.latest_version("shape", assignment: current_id) : packages.latest_version("shape")
+        desired = ([current_version] + late_ids.map { |id| packages.latest_version("shape", assignment: id) }).compact.uniq.sort
+        return if desired.empty?
 
         marker = File.join(Reach::Paths.shape_vault_dir, ".version")
-        current = File.file?(marker) ? File.read(marker).strip.to_i : nil
-        return if current == version
+        wanted = desired.join(",")
+        return if File.file?(marker) && File.read(marker).strip == wanted
 
-        packages.unpack("shape", version, into: Reach::Paths.shape_vault_dir)
-        File.write(marker, version.to_s)
+        desired.each_with_index do |version, index|
+          packages.unpack("shape", version, into: Reach::Paths.shape_vault_dir, keep: index.positive?)
+        end
+        File.write(marker, wanted)
       end
 
       def safe_call(summary)

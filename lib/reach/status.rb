@@ -6,6 +6,7 @@ module Reach
         lines << header_line
         lines << Reach::Relocation.folder_line
         lines << assignment_line
+        late_assignment_lines.each { |line| lines << line }
         lines << signed_in_line
         lines << modules_line
         transfer = transfer_line
@@ -75,6 +76,13 @@ module Reach
         return "Current assignment: none" unless assignment
 
         "Current assignment: #{assignment['id']}, due #{Reach::Messages.course_time(assignment['due'])}"
+      end
+
+      def late_assignment_lines
+        status = cached_status
+        Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] }.map do |entry|
+          "Also open as late work: #{entry['id']}, was due #{Reach::Messages.course_time(entry['due'])}"
+        end
       end
 
       def slice_lines

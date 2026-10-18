@@ -7,21 +7,25 @@ module Reach
       @install = Reach::Enroll.current
     end
 
-    def fetch(kind)
+    def fetch(kind, assignment: nil, current: nil)
       raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless @install
 
-      current = latest_stored_envelope(kind)
+      stored = latest_stored_envelope(kind, assignment: assignment || current)
       headers = {}
-      headers["If-None-Match"] = "\"#{current['header']['content_digest']}\"" if current
+      headers["If-None-Match"] = "\"#{stored['header']['content_digest']}\"" if stored
 
-      response = client.get("/api/v1/packages/#{kind}", headers: headers)
+      response = if assignment
+                   client.get("/api/v1/packages/#{kind}", query: { "assignment" => assignment }, headers: headers)
+                 else
+                   client.get("/api/v1/packages/#{kind}", headers: headers)
+                 end
 
       case response.status
       when 304
         :current
       else
         envelope = response.json
-        open_and_store(kind, envelope)
+        open_and_store(kind, envelope, assignment: assignment)
         :updated
       end
     rescue Reach::RemoteRefused => e
@@ -30,12 +34,11 @@ module Reach
       raise
     end
 
-    def latest_version(kind)
-      dir = Reach::Paths.packages_dir(kind)
-      return nil unless File.directory?(dir)
+    def latest_version(kind, assignment: nil)
+      versions = stored_versions(kind)
+      return versions.max unless assignment
 
-      versions = Dir.children(dir).select { |name| name.end_with?(".pkg") }.map { |name| name.sub(/\.pkg\z/, "").to_i }
-      versions.max
+      versions.sort.reverse_each.find { |version| stored_assignment(kind, version) == assignment }
     end
 
     def stored_envelope(kind, version)
@@ -56,9 +59,9 @@ module Reach
       [header, Reach::Tarball.read(plaintext)]
     end
 
-    def unpack(kind, version, into:, skip: [])
+    def unpack(kind, version, into:, skip: [], keep: false)
       _header, entries = open(kind, version)
-      FileUtils.rm_rf(into)
+      FileUtils.rm_rf(into) unless keep
       FileUtils.mkdir_p(into, mode: 0o700)
       entries.each do |relative_path, contents|
         next if skip.any? { |prefix| relative_path.start_with?(prefix) }
@@ -72,15 +75,35 @@ module Reach
 
     private
 
-    def latest_stored_envelope(kind)
-      version = latest_version(kind)
+    def stored_versions(kind)
+      dir = Reach::Paths.packages_dir(kind)
+      return [] unless File.directory?(dir)
+
+      Dir.children(dir).select { |name| name.end_with?(".pkg") }.map { |name| name.sub(/\.pkg\z/, "").to_i }
+    end
+
+    def stored_assignment(kind, version)
+      @stored_assignments ||= {}
+      key = [kind.to_s, version]
+      return @stored_assignments[key] if @stored_assignments.key?(key)
+
+      envelope = stored_envelope(kind, version)
+      @stored_assignments[key] = envelope && envelope["header"].is_a?(Hash) ? envelope["header"]["assignment"] : nil
+    end
+
+    def latest_stored_envelope(kind, assignment: nil)
+      version = latest_version(kind, assignment: assignment)
       return nil unless version
 
       stored_envelope(kind, version)
     end
 
-    def open_and_store(kind, envelope)
+    def open_and_store(kind, envelope, assignment: nil)
       header, _plaintext = open_envelope(kind, envelope)
+      if assignment && header["assignment"] != assignment
+        raise Reach::Error, "reach: the course server sent #{kind} for #{header['assignment'].inspect} where #{assignment} was asked"
+      end
+
       dir = Reach::Paths.packages_dir(kind)
       FileUtils.mkdir_p(dir)
       final = File.join(dir, "#{header['version']}.pkg")
