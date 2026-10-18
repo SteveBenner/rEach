@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.20
+version: 0.53.21
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -922,10 +922,17 @@ submission:
     copy names reach submit archive. Reach::Archive.claim_zip is the shared claim-and-rename step and Reach::Archive.lms_name reads the name and Reach::Archive.credit adds the sentence.
   archive_again: >-
     Since 0.19.0 reach submit archive [--assignment A] (and reach_submit with archive true and optional assignment)
-    runs Reach::Submit.archive_again: it needs a stored ingest receipt for the assignment (default the current
-    workspace's, else the only one with a submission), refuses with M-SUBMIT-ARCHIVE-NONE or M-SUBMIT-ARCHIVE-WHICH
-    otherwise, writes the ZIP with Reach::Archive.write! from a workspace of that assignment, and answers with the
-    same followup text as a submission, upload reminder included when the course requires it.
+    runs Reach::Submit.archive_again. Since 0.53.21 it takes any assignment with a stored ingest receipt or a slice
+    workspace on this computer (default the current workspace's, else the only one), refuses with
+    M-SUBMIT-ARCHIVE-NONE or M-SUBMIT-ARCHIVE-WHICH otherwise, writes the ZIP with Reach::Archive.write! from a
+    workspace of that assignment, and answers with the same followup text as a submission for a submitted assignment
+    (upload reminder included when the course requires it), or for one not submitted with M-SUBMIT-EXPORTED,
+    M-SUBMIT-EXPORT-SKIPPED or M-SUBMIT-EXPORT-FAILED: the work has not been submitted through rEach, and the student
+    uploads it to the learning system or sends it to their instructor. The result carries submitted. Before 0.53.21 it
+    needed an ingest receipt. Reach::Qualify.unable? marks a qualification that could not be done (every finding
+    QF-NOBROWSER, a local step with no result rows, a local scenario whose step opening the panel got a browser
+    status, timeout or connection error, or a remote failed_to_run); the record then carries export {recommended,
+    assignment, command} and its next adds M-QUALIFY-EXPORT, which names reach submit archive --assignment A.
   retries:
     policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
     never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason.

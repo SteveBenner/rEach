@@ -18,6 +18,7 @@ module Reach
     REMOTE_BUDGET_S = 20
     STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
     NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE].freeze
+    PREVIEW_STEP = /\bopen the .+ panel\b/.freeze
     PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
@@ -87,7 +88,7 @@ module Reach
           empty_name = finding["name"].to_s.empty?
           code == "QF-NOBROWSER" ||
             (%w[QF-LOCAL-FAIL QF-VACUOUS].include?(code) && empty_name) ||
-            (code == "QF-LOCAL-FAIL" && finding["detail"].to_s.match?(PREVIEW_FAILURE)) ||
+            (code == "QF-LOCAL-FAIL" && finding["step"].to_s.match?(PREVIEW_STEP) && finding["detail"].to_s.match?(PREVIEW_FAILURE)) ||
             (code == "QF-REMOTE-FAIL" && remote.is_a?(Hash) && remote["failed_to_run"] == true)
         end
       end
