@@ -97,8 +97,12 @@ module Reach
         list.find { |receipt| receipt["cutout_id"] == cutout_id && receipt["slice"] == slice }
       end
 
-      def on_record?(cutout_id:, slice:, assignment:)
-        list.any? do |receipt|
+      def on_record?(cutout_id:, slice:, assignment:, ignore_partial: false)
+        receipts = list
+        partial_ids = ignore_partial ? receipts.select { |receipt| receipt["kind"] == "ingest" && receipt["partial"] == true }.map { |receipt| receipt["submission_id"] } : []
+        receipts.any? do |receipt|
+          next false if ignore_partial && (receipt["partial"] == true || partial_ids.include?(receipt["submission_id"]))
+
           ON_RECORD_KINDS.include?(receipt["kind"]) && receipt["cutout_id"] == cutout_id && receipt["slice"] == slice && receipt["assignment"] == assignment
         end
       end
@@ -223,7 +227,7 @@ module Reach
           )
         else
           Reach::Messages.text(
-            "M-SUBMIT-RECEIVED",
+            receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED",
             slice: receipt["slice"],
             cutout: receipt["cutout_id"],
             time: Reach::Messages.course_time(receipt["received_at"])

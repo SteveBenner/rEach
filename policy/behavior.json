@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v1",
-  "digest": "sha256:57d220349db0f36c480ec7aafe241864941642f98492cb30af96df528f017ecc",
+  "digest": "sha256:a45679a58dbd2301b53ef44abc888d77ac48333a90814228497a5fee1e7797dc",
   "policy": {
     "authority": {
       "authentication": "release",
@@ -207,8 +207,7 @@
         ]
       },
       "course_defaults": {
-        "enrollment": {
-        },
+        "enrollment": {},
         "limits": {
           "corpus_max_bytes": 52428800,
           "import_max_bytes": 20971520,
@@ -229,17 +228,14 @@
           "count": 2,
           "mode": "instructor",
           "opens_at": null,
-          "options": [
-
-          ],
+          "options": [],
           "slices": [
             "backend",
             "panel"
           ]
         },
         "student_part": {
-          "questions": {
-          },
+          "questions": {},
           "required": true
         },
         "support": {
@@ -490,6 +486,14 @@
         "event": "submit.archive_again",
         "failure": "deny",
         "id": "N-SUBMIT-ARCHIVE-AGAIN",
+        "mode": "native"
+      },
+      {
+        "binding": "Reach::Submit.archive_scope",
+        "description": "Native submit guard: archive_scope",
+        "event": "submit.archive_scope",
+        "failure": "deny",
+        "id": "N-SUBMIT-ARCHIVE-SCOPE",
         "mode": "native"
       },
       {

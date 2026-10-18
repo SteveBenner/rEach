@@ -49,13 +49,16 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. With archive true and scope all, course (name the course) or extracurricular it saves a ZIP of all the student's work, one course's work or their own code folder instead; that is never a submission. With partial true it submits unqualified work on the student's yes, held for the instructor and not graded automatically. Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" },
             "archive" => { "type" => "boolean", "description" => "Save the ZIP of the student's work for an assignment (submitted or not) instead of submitting" },
-            "assignment" => { "type" => "string", "description" => "With archive true, the assignment to save; defaults to the current one" }
+            "assignment" => { "type" => "string", "description" => "With archive true, the assignment to save; defaults to the current one" },
+            "scope" => { "type" => "string", "enum" => %w[all course extracurricular], "description" => "With archive true, save all the student's work, one course or their own code folder instead of one assignment" },
+            "course" => { "type" => "string", "description" => "With archive true and scope course, the course to save" },
+            "partial" => { "type" => "boolean", "description" => "Submit the slice as partial work without a passed qualification, on the student's yes; the instructor reviews it and it is not graded automatically" }
           }
         }
       },
@@ -684,7 +687,7 @@ module Reach
         when "reach_submit"
           return archive_tool(arguments) if arguments["archive"] == true
 
-          result = Reach::Submit.submit(slice: slice_argument(arguments))
+          result = Reach::Submit.submit(slice: slice_argument(arguments), partial: arguments["partial"] == true)
           if result["state"] == "ingested"
             Reach::Receipts.announce(result["receipt"])
             result = result.merge("announcement" => result["text"])
@@ -803,7 +806,12 @@ module Reach
       end
 
       def archive_tool(arguments)
-        result = Reach::Submit.archive_again(assignment: arguments["assignment"])
+        scope = arguments["scope"].to_s
+        result = if scope.empty?
+                   Reach::Submit.archive_again(assignment: arguments["assignment"])
+                 else
+                   Reach::Submit.archive_scope(scope, course: arguments["course"])
+                 end
         result.merge("message" => result["text"])
       end
 

@@ -312,6 +312,23 @@ the reach_submit tool saved the ZIP while every other command and tool stayed lo
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
+### 2.7c · Partial submission and whole-folder export
+
+Since 0.53.22 (wire 2026-10-18a, `STD-SUBMIT-PARTIAL`) `reach submit --partial` hands in unfinished work that has not
+passed its checks, on the student's yes, with only the safety checks; Teach (0.97.11 or newer) keeps it for the
+instructor, never grades it on its own, and a partial never stops a later submission. `reach submit archive --all`,
+`--course C` and `--extracurricular` save more of the student's own work as one ZIP, never rEach's home. Checked on
+2026-10-18 in scratch state: the scoped ZIPs held only the student's files across two courses and extracurricular, a
+missing course and two selectors were refused, the size cap skipped, and an unenrolled install still saved; in-process,
+a partial reached the course server with partial true in body and manifest, a plain submit stayed refused, an older
+course server's answer refused the partial, and the closed rule ignored partial receipts. End to end on 2026-10-18 against
+a scratch Teach 0.97.11 (assignment-one harness copy, context.a1): Teach's status named partial, the student was asked
+and said yes, the partial was ingested (row state partial, receipt partial true), the running grader left it alone for
+60 s, a plain submit stayed refused, an instructor regrade graded it and rEach stored the grade receipt, and the later
+qualified full submission superseded it; `reach submit archive --all` held only the student's files.
+
+Build ✅ · Deploy 🔵 · Blocker: Teach 0.97.11 on the course server
+
 ### 2.8 · Qualification
 
 `reach qualify` proves a slice before submission: `reach check` on the owned files, coverage of every graded scenario

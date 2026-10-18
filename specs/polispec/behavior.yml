@@ -792,6 +792,12 @@ rules:
   mode: native
   binding: Reach::Submit.archive_again
   failure: deny
+- id: N-SUBMIT-ARCHIVE-SCOPE
+  description: 'Native submit guard: archive_scope'
+  event: submit.archive_scope
+  mode: native
+  binding: Reach::Submit.archive_scope
+  failure: deny
 - id: N-SUBMIT-RESOLVE-WORKSPACE
   description: 'Native submit guard: resolve_workspace'
   event: submit.resolve_workspace

@@ -448,8 +448,8 @@ module Reach
             gate session|prompt|enroll|write|shell|read  called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
-            submit [--slice ...]                 ask the student, then submit and wait for the receipt
-            submit archive [--assignment A]      save a ZIP of all your work for an assignment to Downloads, submitted or not (a submitted one must also be uploaded to the course's learning system)
+            submit [--partial] [--slice ...]     ask the student, then submit and wait for the receipt (--partial sends unqualified work for the instructor to review)
+            submit archive [--assignment A | --all | --course C | --extracurricular]   save a ZIP of your work to Downloads at any time: one assignment (the default), all your work, one course or your own code folder (a submitted assignment must also be uploaded to the course's learning system)
             receipts [wait|show|acks]            receipts
             hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, integrity_question, other)
             grade [--format text|json]           the points recorded for the student in Teach
@@ -1528,8 +1528,22 @@ module Reach
       end
 
       def cmd_submit_archive(args)
-        options, _remaining = parse_flags(args, [:assignment])
-        result = Reach::Submit.archive_again(assignment: options[:assignment])
+        everything, rest = parse_bare_flag(args, "all")
+        extra, rest = parse_bare_flag(rest, "extracurricular")
+        options, _remaining = parse_flags(rest, %i[assignment course])
+        if [everything, extra, options.key?(:assignment), options.key?(:course)].count(true) > 1
+          puts Reach::Messages.text("M-SUBMIT-ARCHIVE-ONE-SELECTOR")
+          return 2
+        end
+        result = if everything
+                   Reach::Submit.archive_scope("all")
+                 elsif extra
+                   Reach::Submit.archive_scope("extracurricular")
+                 elsif options.key?(:course)
+                   Reach::Submit.archive_scope("course", course: options[:course])
+                 else
+                   Reach::Submit.archive_again(assignment: options[:assignment])
+                 end
         puts result["text"]
         result["archive"]["state"] == "saved" ? 0 : 1
       end
@@ -1637,16 +1651,17 @@ module Reach
         Reach::Update.hold!
         return cmd_submit_archive(args.drop(1)) if args.first == "archive"
 
+        partial, args = parse_bare_flag(args, "partial")
         options, _remaining = parse_flags(args, [:slice])
         Reach::Relocation.hold!
         Reach::Controls.check_submit!
         slice = default_slice_id(options[:slice])
         pick_slice_if_ambiguous(slice)
         unless slice
-          warn "usage: reach submit --slice <id>"
+          warn "usage: reach submit [--partial] --slice <id>"
           return 1
         end
-        result = Reach::Submit.submit(slice: slice)
+        result = Reach::Submit.submit(slice: slice, partial: partial)
         case result["state"]
         when "asked", "declined"
           puts result["text"]

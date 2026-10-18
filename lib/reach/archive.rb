@@ -4,6 +4,8 @@ require "rbconfig"
 module Reach
   module Archive
     DEFAULT_MAX_MB = 256
+    DEFAULT_ALL_MAX_MB = 2048
+    SCOPES = %w[all course extracurricular].freeze
     SKIPPED_TOP_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md].freeze
     MAX_NAME_TRIES = 200
 
@@ -31,6 +33,88 @@ module Reach
         nil
       end
       { "state" => "failed" }
+    end
+
+    def write_scope!(scope, course: nil)
+      files = scope_files(scope, course)
+      return { "state" => "empty" } if files.empty?
+
+      limit = scope == "all" ? all_max_mb : max_mb
+      return { "state" => "skipped", "reason" => "too_large" } if too_large?(files, 0, limit)
+
+      destination = downloads_dir
+      FileUtils.mkdir_p(destination)
+      final = claim(destination, scope_base_name(scope, course), files, [])
+      { "state" => "saved", "path" => final, "name" => File.basename(final), "bytes" => File.size(final), "entries" => files.length }
+    rescue StandardError => e
+      begin
+        Reach::BrainSpool.log("archive_failed", "error" => e.class.name)
+      rescue StandardError
+        nil
+      end
+      { "state" => "failed" }
+    end
+
+    def scope_files(scope, course)
+      case scope
+      when "all"
+        course_names.flat_map { |name| course_files(name, "deliverables/#{name}") } + extracurricular_files("extracurricular")
+      when "course"
+        course_files(course.to_s, nil)
+      else
+        extracurricular_files(nil)
+      end
+    end
+
+    def course_names
+      root = Reach::Paths.deliverables_root
+      return [] unless File.directory?(root)
+
+      Dir.children(root).sort.select do |name|
+        !name.start_with?(".") && !Reach::Paths.home_name?(name) && File.lstat(File.join(root, name)).directory?
+      end
+    end
+
+    def course_files(course, prefix)
+      course_dir = File.join(Reach::Paths.deliverables_root, course)
+      Dir.children(course_dir).sort.flat_map do |assignment|
+        folder = File.join(course_dir, assignment)
+        next [] if assignment.start_with?(".") || !File.lstat(folder).directory?
+
+        current = first_slice_workspace(folder)
+        next [] unless current
+
+        lead = [prefix, assignment].compact.join("/")
+        collect(folder, current).map { |name, path, size, mtime| ["#{lead}/#{name}", path, size, mtime] }
+      end
+    end
+
+    def first_slice_workspace(folder)
+      Dir.children(folder).sort.map { |name| File.join(folder, name) }.find do |path|
+        stat = File.lstat(path)
+        stat.directory? && !File.basename(path).start_with?(".") && File.directory?(File.join(path, ".reach"))
+      end
+    end
+
+    def extracurricular_files(prefix)
+      root = Reach::Paths.extracurricular_root
+      return [] unless File.directory?(root) && !File.symlink?(root)
+
+      walk(root, "", true).map do |name, path, size, mtime|
+        relative = name.sub(%r{\A/}, "")
+        [prefix ? "#{prefix}/#{relative}" : relative, path, size, mtime]
+      end
+    end
+
+    def scope_base_name(scope, course)
+      lead = case scope
+             when "all" then "reach-work"
+             when "course" then clean(course)
+             else "extracurricular"
+             end
+      user = clean(student_local_part)
+      day = Reach::CourseTime.stamp(Time.now)[0, 10].delete("-")
+      "#{lead}-#{user}-#{day}"
     end
 
     def assignment_folder(workspace)
@@ -84,17 +168,25 @@ module Reach
       end
     end
 
-    def too_large?(files, extra_bytes = 0)
-      limit = max_mb * 1024 * 1024
+    def too_large?(files, extra_bytes = 0, limit_mb = nil)
+      limit = (limit_mb || max_mb) * 1024 * 1024
       files.sum { |entry| entry[2] } + extra_bytes > limit
     end
 
     def max_mb
+      configured_mb("archive_max_mb", DEFAULT_MAX_MB)
+    end
+
+    def all_max_mb
+      configured_mb("archive_all_max_mb", DEFAULT_ALL_MAX_MB)
+    end
+
+    def configured_mb(key, default)
       section = Reach::Runtime.load_config["submit"]
-      value = section.is_a?(Hash) ? section["archive_max_mb"] : nil
-      value.is_a?(Numeric) && value.positive? ? value : DEFAULT_MAX_MB
+      value = section.is_a?(Hash) ? section[key] : nil
+      value.is_a?(Numeric) && value.positive? ? value : default
     rescue StandardError
-      DEFAULT_MAX_MB
+      default
     end
 
     def extras_for(meta)

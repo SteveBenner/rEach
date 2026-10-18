@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.22] - 2026-10-18
+
+### Fixed
+
+- A student could not hand in partial work: `reach submit` needs a passed qualification and Teach rejected anything without one. `reach submit --partial` (the `reach_submit` tool with `partial` true) now submits unfinished work at any time on the student's yes, to a question that says plainly it is partial and will not be graded automatically (`M-SUBMIT-PARTIAL-ASK`, consent kind `submission_partial`). Only the safety checks apply (unsafe or missing owned files, a changed read-only course file, the submission hold, the closed rule); qualification, the `reach check` findings gate, the README rule, the shape check and the own-part requirement are skipped. A partial never closes a slice: after the due time rEach refuses only when a submission that is not partial is on record, including grade receipts of a regraded partial. rEach offers it only when the course server's `accepts` names `submission_kinds` partial, and otherwise points to the ZIP (`M-SUBMIT-PARTIAL-UNSUPPORTED`). Wire revision 2026-10-18a (`W-SUB-7`, `STD-SUBMIT-PARTIAL`).
+- A student could export only one assignment at a time. `reach submit archive --all` saves every course's deliverables plus the extracurricular folder as one ZIP, `--course C` one course and `--extracurricular` the student's own code folder (the `reach_submit` tool with `archive` true and `scope`), with the same own-work rule and never rEach's home. `config.yml` `submit.archive_all_max_mb` (default 2048) caps `--all`.
+- `reach qualify`'s recommendation when the checks could not run (`M-QUALIFY-EXPORT`) now offers the partial submission beside the ZIP.
+
 ## [0.53.21] - 2026-10-17
 
 ### Fixed

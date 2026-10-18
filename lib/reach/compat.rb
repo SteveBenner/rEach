@@ -36,6 +36,13 @@ module Reach
       allows?("debug_kinds", kind)
     end
 
+    def accepts_partial?
+      lists = accepts
+      return false unless lists && lists["submission_kinds"].is_a?(Array)
+
+      allows?("submission_kinds", "partial")
+    end
+
     def accepts_harness?(harness)
       allows?("harnesses", harness)
     end

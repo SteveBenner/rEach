@@ -72,6 +72,7 @@ rstack:
     mirrors: []
 submit:
   archive_max_mb: 256
+  archive_all_max_mb: 2048
 sidecar:
   allowed_signers:
     - 'teach namespaces="reach-sidecar" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMGWFnjathq0ObDji91UKJ1XVEH1I61cFBf8Cfsvotde'

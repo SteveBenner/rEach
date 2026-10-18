@@ -9,23 +9,30 @@ module Reach
     DELIVERED_STATES = %w[grading graded grade_failed validated orphaned].freeze
 
     class << self
-      def submit(slice:)
+      def submit(slice:, partial: false)
         Reach::BehaviorPolicy.ensure!
         Reach::Login.require_active!
         Reach::KnownIssues.require_hooks!
         workspace = resolve_workspace(slice)
-        run_preconditions(workspace)
-        qualification = Reach::Qualify.current?(workspace)
-        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNQUALIFIED") unless qualification
+        if partial
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-PARTIAL-UNSUPPORTED") unless Reach::Compat.accepts_partial?
+
+          run_partial_preconditions(workspace)
+          qualification = Reach::Qualify.read_record(workspace)
+        else
+          run_preconditions(workspace)
+          qualification = Reach::Qualify.current?(workspace)
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNQUALIFIED") unless qualification
+        end
 
         meta = Reach::Workspace.metadata(workspace)
-        require_part!(meta["assignment"])
+        require_part!(meta["assignment"]) unless partial
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         Reach::Controls.check_submit!
-        check_closed!(meta)
-        pending = approve!(workspace, meta)
+        check_closed!(meta, partial: partial)
+        pending = approve!(workspace, meta, partial: partial)
         if pending
           Reach::Debug.submit("state" => pending["state"])
           return pending
@@ -33,6 +40,7 @@ module Reach
 
         flush_transcript(meta["assignment"])
         manifest = build_manifest(workspace, meta)
+        manifest = manifest.merge("partial" => true) if partial
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
         tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification, meta["assignment"]))
@@ -45,6 +53,7 @@ module Reach
           "package" => envelope,
           "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
+        body["partial"] = true if partial
         outbox_path = write_outbox(idempotency_key, "submission", ROUTE, body, workspace: workspace)
         supersede_queued(outbox_path, body)
 
@@ -86,6 +95,41 @@ module Reach
                    "submitted" => submitted.include?(name) }
         result["text"] = submitted.include?(name) ? followup_text(result) : export_text(result)
         result
+      end
+
+      def archive_scope(scope, course: nil)
+        scope = scope.to_s
+        raise Reach::Error, "reach: unknown archive scope" unless Reach::Archive::SCOPES.include?(scope)
+
+        if scope == "course"
+          names = Reach::Archive.course_names
+          unless names.include?(course.to_s)
+            raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ARCHIVE-NOCOURSE", course: course.to_s, courses: names.empty? ? "none" : names.join(", "))
+          end
+        end
+
+        archive = Reach::Archive.write_scope!(scope, course: course)
+        result = { "state" => "archive", "scope" => scope, "course" => scope == "course" ? course.to_s : nil, "archive" => archive, "submitted" => false }
+        result["text"] = scope_text(result)
+        result
+      end
+
+      def scope_text(result)
+        archive = result["archive"].is_a?(Hash) ? result["archive"] : {}
+        scope = result["scope"]
+        case archive["state"]
+        when "saved"
+          id = { "all" => "M-SUBMIT-EXPORTED-ALL", "course" => "M-SUBMIT-EXPORTED-COURSE" }.fetch(scope, "M-SUBMIT-EXPORTED-EXTRA")
+          Reach::Messages.text(id, course: result["course"], name: archive["name"])
+        when "skipped"
+          limit = scope == "all" ? Reach::Archive.all_max_mb : Reach::Archive.max_mb
+          max = limit == limit.to_i ? limit.to_i : limit
+          Reach::Messages.text(scope == "all" ? "M-SUBMIT-EXPORT-TOO-LARGE-ALL" : "M-SUBMIT-EXPORT-TOO-LARGE", max: max)
+        when "empty"
+          Reach::Messages.text("M-SUBMIT-EXPORT-EMPTY")
+        else
+          Reach::Messages.text("M-SUBMIT-EXPORT-FAILED", send: export_send)
+        end
       end
 
       def retry_outbox
@@ -169,7 +213,7 @@ module Reach
       def student_text(result)
         receipt = result["receipt"].is_a?(Hash) ? result["receipt"] : {}
         received = Reach::Messages.text(
-          "M-SUBMIT-RECEIVED",
+          receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED",
           slice: receipt["slice"], cutout: receipt["cutout_id"], time: Reach::Messages.course_time(receipt["received_at"])
         )
         rest = followup_text(result).lines.map(&:chomp).reject(&:empty?)
@@ -387,7 +431,11 @@ module Reach
         Reach::Workspace.named_slice!(slice)
       end
 
-      def run_preconditions(workspace)
+      def run_partial_preconditions(workspace)
+        run_preconditions(workspace, safety_only: true)
+      end
+
+      def run_preconditions(workspace, safety_only: false)
         begin
           Reach::Gate.session(harness: "cli")
         rescue Reach::GateBlocked => e
@@ -408,6 +456,8 @@ module Reach
         unless missing.empty?
           raise Reach::Refused, Reach::Messages.text("M-SUBMIT-MISSING", list: missing.map { |relative| "- #{relative}" }.join("\n"))
         end
+        return if safety_only
+
         findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) }
         readme = findings.select { |finding| finding[:id] == "CK-README" }
         unless readme.empty?
@@ -533,7 +583,7 @@ module Reach
         entries = { "manifest.json" => JSON.generate(manifest) }
         entries["part.json"] = JSON.generate(Reach::Part.document(assignment)) unless Reach::Part.questions(assignment).empty?
         Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data }
-        entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" })
+        entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" }) if qualification
         receipt = File.join(workspace, Reach::Workspace::MARKER_DIR, Reach::Packet::RECEIPT_FILE)
         entries["evidence/sidecar-receipt.json"] = File.binread(receipt) if File.file?(receipt)
         Array(manifest["owned_files"]).each do |relative_path|
@@ -589,11 +639,11 @@ module Reach
         nil
       end
 
-      def check_closed!(meta)
+      def check_closed!(meta, partial: false)
         due = due_for(meta)
         return unless due && Reach::Pace.server_now >= due
 
-        return unless Reach::LateWork.on_record?(meta)
+        return unless Reach::Receipts.on_record?(cutout_id: meta["cutout_id"], slice: meta["slice"], assignment: meta["assignment"], ignore_partial: true)
 
         raise Reach::Refused, Reach::Messages.text("M-SUBMIT-CLOSED", assignment: meta["assignment"], due: Reach::Messages.course_time(due), slice: meta["slice"])
       end
@@ -605,37 +655,40 @@ module Reach
         "hook"
       end
 
-      def ask_fields(meta)
+      def ask_fields(meta, partial: false)
         due = due_for(meta)
+        prefix = partial ? "M-SUBMIT-PARTIAL-ASK" : "M-SUBMIT-ASK"
         again = if due.nil?
-                  ""
+                  partial ? Reach::Messages.text("M-SUBMIT-PARTIAL-ASK-ANY") : ""
                 elsif Reach::Pace.server_now < due
-                  Reach::Messages.text("M-SUBMIT-ASK-OPEN", due: Reach::Messages.course_time(due))
+                  Reach::Messages.text("#{prefix}-OPEN", due: Reach::Messages.course_time(due))
                 else
-                  Reach::Messages.text("M-SUBMIT-ASK-LATE", due: Reach::Messages.course_time(due))
+                  Reach::Messages.text("#{prefix}-LATE", due: Reach::Messages.course_time(due))
                 end
         { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again, credit: Reach::Archive.credit("M-LMS-UPLOAD-THAT") }
       end
 
-      def approve!(workspace, meta)
+      def approve!(workspace, meta, partial: false)
+        kind = partial ? "submission_partial" : "submission"
+        message_id = partial ? "M-SUBMIT-PARTIAL-ASK" : "M-SUBMIT-ASK"
         case approval_mode
         when "agent"
           nil
         when "terminal"
-          puts Reach::Messages.text("M-SUBMIT-ASK", **ask_fields(meta)).strip
+          puts Reach::Messages.text(message_id, **ask_fields(meta, partial: partial)).strip
           print Reach::Messages.text("M-SUBMIT-TERMINAL-PROMPT")
           $stdout.flush
           answer = $stdin.gets
           Reach::Consent.yes?(answer.to_s) ? nil : { "state" => "declined", "text" => Reach::Messages.text("M-CONSENT-DECLINED") }
         else
           subject = { "workspace" => File.basename(workspace), "digests" => owned_digests(workspace, meta) }
-          if Reach::Consent.declined?(kind: "submission", subject: subject)
-            Reach::Consent.clear_declined!(kind: "submission", subject: subject)
+          if Reach::Consent.declined?(kind: kind, subject: subject)
+            Reach::Consent.clear_declined!(kind: kind, subject: subject)
             return { "state" => "declined", "text" => Reach::Messages.text("M-CONSENT-DECLINED") }
           end
-          return nil if Reach::Consent.take!(kind: "submission", subject: subject)
+          return nil if Reach::Consent.take!(kind: kind, subject: subject)
 
-          question = Reach::Consent.ask!(kind: "submission", subject: subject, message_id: "M-SUBMIT-ASK", fields: ask_fields(meta), replay: { "slice_id" => File.basename(workspace) })
+          question = Reach::Consent.ask!(kind: kind, subject: subject, message_id: message_id, fields: ask_fields(meta, partial: partial), replay: { "slice_id" => File.basename(workspace) })
           { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
         end
       end
