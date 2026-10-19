@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.37] - 2026-10-19
+
+### Fixed
+
+- `reach checkpoint forget --slice` names each matching store by course, assignment and work folder, and refuses when the same folder name exists in more than one assignment, so one yes never deletes two assignments' copies. A blob digest read from a checkpoint's `meta.json` is used as a file name only when it is a 64-digit hex sha256; anything else makes the entry unreadable rather than a path. Found by the 0.53.36 release audit.
+
 ## [0.53.36] - 2026-10-19
 
 ### Fixed

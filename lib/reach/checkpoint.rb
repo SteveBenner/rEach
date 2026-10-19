@@ -122,6 +122,8 @@ module Reach
         item = File.join(source, name)
         if name == "blobs"
           Dir.children(item).each do |blob|
+            next unless blob_digest?(blob)
+
             target = File.join(keyed, "blobs", blob)
             FileUtils.mv(File.join(item, blob), target) unless File.file?(target)
           end
@@ -276,7 +278,7 @@ module Reach
       private_dir(File.join(mirror, "blobs"))
       private_dir(File.join(mirror, format("%03d", meta["n"].to_i)))
       meta["digests"].each_value do |digest|
-        next if digest.nil?
+        next unless blob_digest?(digest)
 
         source = File.join(primary, "blobs", digest)
         destination = File.join(mirror, "blobs", digest)
@@ -306,9 +308,14 @@ module Reach
       all_entries(workspace).find { |entry| entry["n"].to_i == n.to_i }
     end
 
+    def blob_digest?(digest)
+      digest.is_a?(String) && digest.match?(/\A[0-9a-f]{64}\z/)
+    end
+
     def entry_content(workspace, entry, relative)
       digest = entry["digests"][relative]
       return nil if digest.nil?
+      raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNREADABLE", n: entry["n"]) unless blob_digest?(digest)
 
       name = format("%03d", entry["n"].to_i)
       stores(workspace).each do |base|
@@ -510,10 +517,9 @@ module Reach
         end
         stores.concat(Dir.glob(File.join(base, key, ".adopted", "*")).select { |path| File.directory?(path) }) if wanted.empty?
       end
-      folders = stores.map { |store| File.basename(store) }.reject { |name| name.match?(/\A\d{8}T/) }.uniq.sort
-      exact = folders.select { |folder| folder == wanted }
-      stores = stores.select { |store| exact.include?(File.basename(store)) } unless exact.empty?
-      folders = exact unless exact.empty?
+      exact = stores.select { |store| File.basename(store) == wanted }
+      stores = exact unless exact.empty?
+      folders = stores.reject { |store| File.basename(store).match?(/\A\d{8}T/) }.map { |store| store.split(File::SEPARATOR).last(3).join("/") }.uniq.sort
       clash = ambiguous(folders, wanted)
       return { "stores" => [], "folders" => folders, "entries" => 0, "bytes" => 0, "ambiguous" => clash } if clash
 
