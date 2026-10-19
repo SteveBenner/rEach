@@ -412,10 +412,26 @@ module Reach
       "reach checkpoint dismiss --slice #{folder}"
     end
 
+    def slice_filter(folders, wanted)
+      return folders if wanted.empty?
+
+      exact = folders.select { |folder| folder == wanted }
+      exact.empty? ? folders.select { |folder| folder.end_with?("-#{wanted}") } : exact
+    end
+
+    def ambiguous(folders, wanted)
+      names = folders.uniq.sort
+      return nil if wanted.empty? || names.length <= 1
+
+      Reach::Messages.text("M-CHECKPOINT-SLICE-AMBIGUOUS", slice: wanted, slices: names.join(", "))
+    end
+
     def dismiss!(slice: nil)
       wanted = slice.to_s.strip
       items = orphans
-      items = items.select { |item| item["folder"] == wanted || item["folder"].end_with?("-#{wanted}") } unless wanted.empty?
+      items = items.select { |item| slice_filter([item["folder"]], wanted).any? }
+      clash = ambiguous(items.map { |item| item["folder"] }, wanted)
+      return { "dismissed" => [], "message" => clash } if clash
       return { "dismissed" => [], "message" => Reach::Messages.text("M-CHECKPOINT-DISMISS-NONE") } if items.empty?
 
       paths = (dismissed + items.map { |item| item["path"] }).uniq
@@ -488,16 +504,23 @@ module Reach
           next unless File.directory?(store)
 
           folder = File.basename(store)
-          next unless wanted.empty? || folder == wanted || folder.end_with?("-#{wanted}")
+          next if slice_filter([folder], wanted).empty?
 
           stores << store
         end
         stores.concat(Dir.glob(File.join(base, key, ".adopted", "*")).select { |path| File.directory?(path) }) if wanted.empty?
       end
+      folders = stores.map { |store| File.basename(store) }.reject { |name| name.match?(/\A\d{8}T/) }.uniq.sort
+      exact = folders.select { |folder| folder == wanted }
+      stores = stores.select { |store| exact.include?(File.basename(store)) } unless exact.empty?
+      folders = exact unless exact.empty?
+      clash = ambiguous(folders, wanted)
+      return { "stores" => [], "folders" => folders, "entries" => 0, "bytes" => 0, "ambiguous" => clash } if clash
+
       files = stores.flat_map { |store| Dir.glob(File.join(store, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) } }
       {
         "stores" => stores.sort,
-        "folders" => stores.map { |store| File.basename(store) }.reject { |name| name.include?("T") && name.match?(/\A\d{8}T/) }.uniq.sort,
+        "folders" => folders,
         "entries" => files.count { |path| File.basename(path) == "meta.json" },
         "bytes" => files.sum { |path| File.size(path) }
       }
@@ -515,6 +538,7 @@ module Reach
 
     def forget_via_consent!(slice: nil)
       inventory = forget_inventory(slice: slice)
+      return { "state" => "ambiguous", "relay_verbatim" => true, "message" => inventory["ambiguous"] } if inventory["ambiguous"]
       return { "state" => "none", "message" => Reach::Messages.text("M-CHECKPOINT-FORGET-NONE") } if inventory["stores"].empty?
 
       subject = { "slice" => slice.to_s, "stores" => inventory["stores"] }
@@ -526,6 +550,7 @@ module Reach
 
     def forget!(slice: nil, confirm: false)
       inventory = forget_inventory(slice: slice)
+      return { "state" => "ambiguous", "relay_verbatim" => true, "message" => inventory["ambiguous"] } if inventory["ambiguous"]
       return { "state" => "none", "message" => Reach::Messages.text("M-CHECKPOINT-FORGET-NONE") } if inventory["stores"].empty?
       return { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => forget_ask_text(inventory) } unless confirm
 
@@ -602,11 +627,17 @@ module Reach
     def recover(slice: nil)
       wanted = slice.to_s.strip
       items = conditions
-      items = items.select { |item| item["folder"] == wanted || item["folder"].end_with?("-#{wanted}") } unless wanted.empty?
+      items = items.select { |item| slice_filter([item["folder"]], wanted).any? }
       if items.empty? && !wanted.empty?
-        workspace = Reach::Workspace.current_slices.find { |path| File.basename(path) == wanted || File.basename(path).end_with?("-#{wanted}") }
+        found = Reach::Workspace.current_slices.select { |path| slice_filter([File.basename(path)], wanted).any? }
+        clash = ambiguous(found.map { |path| File.basename(path) }, wanted)
+        return { "recovered" => [], "message" => clash } if clash
+
+        workspace = found.first
         items << { "kind" => "missing", "folder" => File.basename(workspace), "path" => workspace, "files" => [] } if workspace && latest(workspace)
       end
+      clash = ambiguous(items.map { |item| item["folder"] }, wanted)
+      return { "recovered" => [], "message" => clash } if clash
       return { "recovered" => [], "message" => Reach::Messages.text("M-CHECKPOINT-RECOVER-NONE") } if items.empty?
 
       recovered = []

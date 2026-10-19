@@ -1572,6 +1572,10 @@ module Reach
 
       def cmd_checkpoint_forget(slice)
         inventory = Reach::Checkpoint.forget_inventory(slice: slice)
+        if inventory["ambiguous"]
+          warn inventory["ambiguous"]
+          return 1
+        end
         if inventory["stores"].empty?
           puts Reach::Messages.text("M-CHECKPOINT-FORGET-NONE")
           return 0

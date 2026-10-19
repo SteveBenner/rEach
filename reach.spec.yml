@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.35
+version: 0.53.36
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2959,7 +2959,9 @@ checkpoints:
     student's stores in both places (and the student's own .adopted set-asides when no slice is named) file by file after the student's
     yes, in a terminal or through Reach::Consent kind checkpoints_forget (M-CHECKPOINT-FORGET-ASK), write a receipt under
     state/checkpoints-forget/ and never touch the work files (M-CHECKPOINT-FORGOT, -FORGET-NONE, -FORGET-DECLINED,
-    -FORGET-NEEDS-TTY); M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a
+    -FORGET-NEEDS-TTY); forget removes only the stores under the student's own key and says so in its question. recover,
+    dismiss and forget take --slice as an exact work-folder name first, then as the slice name after the last dash, and
+    refuse with the names when more than one folder fits (M-CHECKPOINT-SLICE-AMBIGUOUS); M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a
     cloud-synced path (iCloud, OneDrive, Dropbox, Google Drive, CloudStorage) is told once to keep files on the device
     (M-CLOUD-FOLDER, R-DOC-CLOUD); nothing is moved. <workspace root>/README.md (M-REACH-WORK-README) is written once
     when absent and says what the hidden folder holds.

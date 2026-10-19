@@ -630,7 +630,10 @@ module Reach
       base = user_home.to_s
       return text if base.empty?
 
-      text.start_with?(base) ? "~#{text[base.length..-1]}" : text
+      return "~" if text == base
+      return text unless text.start_with?(base + File::SEPARATOR) || (windows_host? && text.start_with?(base + "\\"))
+
+      "~#{text[base.length..-1]}"
     end
 
     def submit_gate_dir
