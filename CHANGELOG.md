@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.25] - 2026-10-18
+
+### Fixed
+
+- A fresh install in the Codex desktop app on macOS was stuck at sign-in: Codex runs a plugin's hooks only once they are trusted, the app never asked the student to trust rEach's two hooks, and rEach only ever approved its course-folder hooks, so the sign-in step never ran and the agent reported that rEach's checks blocked the sign-in. Codex keys a plugin hook as `reach@reach:hooks/codex.json:<event>:0:0` with `${PLUGIN_ROOT}` left as written (`Reach::CodexHookTrust.plugin_keys`, verified against codex 0.163.0). `reach setup --harness codex` now approves both hooks right after installing the plugin, every Codex-settings yes approves them too, and an already installed student whose sign-in hook is silent while they are untrusted is sent to `reach_setup configure` (M-HOOKS-UNTRUSTED) instead of a restart. STD-CODEX-HOOK-TRUST, STD-CODEX-PLUGIN-HOOKS. No wire change.
+
 ## [0.53.24] - 2026-10-18
 
 ### Fixed

@@ -324,6 +324,7 @@ module Reach
 
     def course_hooks_untrusted?(env = environment)
       return false unless family_of(env["harness"]) == "codex"
+      return true if signin_hook_dead?(env) && Reach::CodexSetup.plugin_hooks_untrusted?
       return false if signin_pending?
 
       course_hook_files.any? do |path, kind|

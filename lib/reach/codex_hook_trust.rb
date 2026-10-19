@@ -26,6 +26,8 @@ module Reach
     SHORT_MAX_TIMEOUT_S = 3
     DEFAULT_CONTEXT_LIMIT = 2500
     PREFIX = "sha256:".freeze
+    PLUGIN_ID = "reach@reach".freeze
+    PLUGIN_HOOKS = "hooks/codex.json".freeze
     BAD = %w[modified untrusted].freeze
 
     module_function
@@ -94,7 +96,12 @@ module Reach
       "#{display_path(hooks_path)}:#{label}:#{group_index}:#{handler_index}"
     end
 
-    def keys(hooks_path, content)
+    def plugin_key(event, group_index, handler_index)
+      label = EVENT_LABELS.fetch(event.to_s) { event.to_s.gsub(/([a-z0-9])([A-Z])/, '\1_\2').downcase }
+      "#{PLUGIN_ID}:#{PLUGIN_HOOKS}:#{label}:#{group_index}:#{handler_index}"
+    end
+
+    def handlers(content)
       events = parsed(content)["hooks"]
       return [] unless events.is_a?(Hash)
 
@@ -108,11 +115,19 @@ module Reach
           group["hooks"].each_with_index do |handler, handler_index|
             next unless handler.is_a?(Hash) && handler["type"] == "command" && !handler["command"].to_s.strip.empty?
 
-            listed << [key(hooks_path, event, group_index, handler_index), hash(event, group, handler)]
+            listed << [event, group_index, handler_index, hash(event, group, handler)]
           end
         end
       end
       listed
+    end
+
+    def keys(hooks_path, content)
+      handlers(content).map { |event, group_index, handler_index, digest| [key(hooks_path, event, group_index, handler_index), digest] }
+    end
+
+    def plugin_keys(content)
+      handlers(content).map { |event, group_index, handler_index, digest| [plugin_key(event, group_index, handler_index), digest] }
     end
 
     def fold_key(value)
@@ -135,6 +150,14 @@ module Reach
       File.dirname(File.dirname(File.expand_path(hooks_path.to_s)))
     end
 
+    def answer_for(state, handler_key, current)
+      held = held_for(state, handler_key)
+      trusted = held.is_a?(Hash) ? held["trusted_hash"] : nil
+      return "untrusted" if trusted.nil?
+
+      trusted == current ? "trusted" : "modified"
+    end
+
     def status(hooks_path, content)
       state = Reach::CodexSetup.trust_state
       folder = state.nil? ? nil : Reach::CodexSetup.project_trusted?(hooks_folder(hooks_path))
@@ -144,14 +167,15 @@ module Reach
         elsif folder == false
           "untrusted"
         else
-          held = held_for(state, handler_key)
-          trusted = held.is_a?(Hash) ? held["trusted_hash"] : nil
-          if trusted.nil?
-            "untrusted"
-          else
-            trusted == current ? "trusted" : "modified"
-          end
+          answer_for(state, handler_key, current)
         end
+      end
+    end
+
+    def plugin_status(content)
+      state = Reach::CodexSetup.trust_state
+      plugin_keys(content).each_with_object({}) do |(handler_key, current), answers|
+        answers[handler_key] = state.nil? ? "unknown" : answer_for(state, handler_key, current)
       end
     end
 

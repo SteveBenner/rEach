@@ -825,8 +825,34 @@ module Reach
       nil
     end
 
+    def plugin_hook_file
+      cached = Dir.glob(File.join(codex_home, "plugins", "cache", "*", "reach", "*", "hooks", "codex.json")).max_by { |path| File.mtime(path) }
+      cached || File.join(Reach::Debug::PLUGIN_ROOT, "hooks", "codex.json")
+    rescue StandardError
+      nil
+    end
+
+    def plugin_hook_content
+      path = plugin_hook_file
+      path && File.file?(path) ? read_hooks(path) : nil
+    end
+
+    def plugin_hook_plan
+      content = plugin_hook_content
+      content ? CodexHookTrust.plugin_keys(content) : []
+    end
+
+    def plugin_hooks_untrusted?
+      content = plugin_hook_content
+      return false unless content
+
+      CodexHookTrust.stale?(CodexHookTrust.plugin_status(content))
+    rescue StandardError
+      false
+    end
+
     def trust_plan(files = managed_hook_files)
-      entries = []
+      entries = plugin_hook_plan
       folders = []
       files.each do |path, kind|
         content = managed_content(path, kind)
@@ -836,6 +862,19 @@ module Reach
         folders << CodexHookTrust.hooks_folder(path)
       end
       [entries, folders]
+    end
+
+    def trust_plugin_hooks!
+      return nil unless enabled? && codex_present?
+
+      wanted = plugin_hook_plan
+      return nil if wanted.empty?
+
+      outcome = locked { write_trust(wanted, []) }
+      outcome == :busy ? nil : outcome
+    rescue StandardError => e
+      Reach::Debug.fault(e, "codex_setup:plugin_trust")
+      nil
     end
 
     def project_trusted?(folder)
@@ -848,6 +887,8 @@ module Reach
     end
 
     def trust_current?(files = managed_hook_files)
+      return false if plugin_hooks_untrusted?
+
       files.all? do |path, kind|
         content = managed_content(path, kind)
         content.nil? || !CodexHookTrust.stale?(CodexHookTrust.status(path, content))
