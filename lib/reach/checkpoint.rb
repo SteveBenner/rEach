@@ -240,17 +240,38 @@ module Reach
       entry["digests"].count { |path, digest| previous["digests"][path] != digest }
     end
 
+    def content?(digest)
+      !digest.nil? && digest != EMPTY_DIGEST
+    end
+
+    def deliberate?(entry)
+      !hidden?(entry) || entry["via"].to_s == "restored"
+    end
+
+    def since_deliberate(workspace)
+      window = []
+      all_entries(workspace).reverse_each do |entry|
+        window << entry
+        break if deliberate?(entry)
+      end
+      window
+    end
+
     def missing(workspace)
-      entry = latest(workspace)
-      return [] unless entry
+      window = since_deliberate(workspace)
+      return [] if window.empty?
 
       Array(Reach::Workspace.owned_files(workspace)).select do |relative|
-        digest = entry["digests"][relative]
         full = File.join(workspace, relative)
-        digest && digest != EMPTY_DIGEST && (!File.file?(full) || File.size(full).zero?)
+        (!File.file?(full) || File.size(full).zero?) && window.any? { |entry| content?(entry["digests"][relative]) }
       end
     rescue StandardError
       []
+    end
+
+    def recover_entry(workspace)
+      lost = missing(workspace)
+      since_deliberate(workspace).find { |entry| lost.all? { |relative| content?(entry["digests"][relative]) } } || latest(workspace)
     end
 
     def orphans
@@ -352,7 +373,7 @@ module Reach
           next
         end
 
-        entry = latest(workspace)
+        entry = recover_entry(workspace)
         next unless entry
 
         restore(workspace, entry["n"])

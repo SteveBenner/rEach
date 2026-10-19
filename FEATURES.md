@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.53.26 |
+| **Registry version** | 0.53.27 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -306,7 +306,8 @@ an unchanged file costs nothing, and the hook command lines in course folders di
 to the computer account's application data folder outside reach-work, and reads fall back to it. At session start, in
 `reach status` and in `reach doctor`, rEach says when an owned file is missing or empty while a save holds it, or when
 a work folder is gone while its saves remain, and `reach checkpoint recover` (the `reach_checkpoint` tool's `recover`
-action) puts the folder back and restores the latest save. `reach checkpoint list` shows named saves and says how many
+action) puts the folder back and restores the newest save that still holds the missing files; since 0.53.27 an
+automatic save that records the loss never silences the notice, only a named save or a restore does. `reach checkpoint list` shows named saves and says how many
 automatic ones `--all` shows; `restore <n>` takes any number and saves the current state first as a visible entry. A
 reach-work folder inside a cloud-synced folder gets one reminder to keep its files on the device, and
 `reach-work/README.md` says what the hidden folder holds. Checked on 2026-10-18 in scratch state, in process: an

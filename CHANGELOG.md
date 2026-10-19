@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.27] - 2026-10-18
+
+### Fixed
+
+- An automatic save that recorded a deleted or emptied file no longer hides the loss. `Reach::Checkpoint.missing` now looks back through every entry since the last deliberate one (a named save, a before-restore save or the entry a restore records), so `M-WORK-MISSING`, `reach status` and `reach doctor` keep reporting the file until the student or the agent saves or restores on purpose, and `reach checkpoint recover` restores the newest entry that still holds every missing file instead of the latest entry. Found by the 0.53.26 release audit.
+
 ## [0.53.26] - 2026-10-18
 
 ### Added

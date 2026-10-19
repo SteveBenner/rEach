@@ -215,7 +215,7 @@ says how many automatic ones `--all` shows, and `restore <n>` takes any of them.
 `reach-work/.reach-home/checkpoints` and in your computer account's application data folder, outside reach-work, so
 deleting the folder does not lose the history. When a file or a whole work folder goes missing, rEach says so at the
 start of the session, in `reach status` and in `reach doctor`, and `reach checkpoint recover` brings it back from the
-latest save. A reach-work folder inside a cloud-synced folder gets one reminder to keep its files on the device.
+newest save that still holds it, even when an automatic save has since recorded the loss. A reach-work folder inside a cloud-synced folder gets one reminder to keep its files on the device.
 
 Every owned file carries an invisible seal and every session leaves a witness
 ledger; Teach reads both when it assesses a submission's provenance. A
