@@ -150,8 +150,8 @@ module Reach
 
     def set_aside(source, base)
       parked = private_dir(File.join(base, ".adopted"))
-      label = source.sub("#{base}/", "").tr("/", "-")
-      FileUtils.mv(source, File.join(parked, "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{label}"))
+      label = source.split(File::SEPARATOR).last(3).join("-")
+      FileUtils.mv(source, File.join(parked, "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(3)}-#{label}"))
       parent = File.dirname(source)
       while parent != base && parent.start_with?(base) && File.directory?(parent) && Dir.empty?(parent)
         Dir.rmdir(parent)
@@ -524,7 +524,7 @@ module Reach
     def doctor_line
       count = 0
       bytes = 0
-      base = Reach::Paths.checkpoints_dir
+      base = File.join(Reach::Paths.checkpoints_dir, student_key)
       if File.directory?(base)
         Dir.glob(File.join(base, "**", "*")).each do |path|
           next unless File.file?(path)
@@ -541,9 +541,23 @@ module Reach
              else
                "second copy at #{Reach::Paths.home_relative(mirror)}"
              end
-      "R-DOC-COPIES: #{count} saves, #{(bytes / 1024.0).ceil} KB, #{copy}"
+      parked = unread_stores
+      tail = parked.zero? ? "" : ", #{parked} folder(s) kept but not read"
+      "R-DOC-COPIES: #{count} saves, #{(bytes / 1024.0).ceil} KB, #{copy}#{tail}"
     rescue StandardError
       "R-DOC-COPIES: saves could not be measured"
+    end
+
+    def unread_stores
+      key = student_key
+      [Reach::Paths.checkpoints_dir, mirror_base].compact.sum do |base|
+        next 0 unless File.directory?(base)
+
+        Dir.glob(File.join(base, ".adopted", "*")).count { |path| File.directory?(path) } +
+          Dir.children(base).count { |name| name != key && name != ".adopted" && File.directory?(File.join(base, name)) }
+      end
+    rescue StandardError
+      0
     end
   end
 end

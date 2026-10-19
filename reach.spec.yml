@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.31
+version: 0.53.32
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2912,7 +2912,8 @@ checkpoints:
     and in the sidecar (either copy restores the other), local when no enrollment is readable. A store an earlier
     release left under the unkeyed path, under local, or under the unsalted 0.53.29 key is adopted (entries and blobs
     merged, an entry whose number is already taken renumbered after the highest, the old folder set aside under
-    <base>/.adopted/<stamp>-<path> and its emptied parents removed) only when it is provably the student's: one of its
+    <base>/.adopted/<stamp>-<random>-<course>-<assignment>-<workspace>, a name that carries no key, and its emptied
+    parents removed; reach doctor counts only the current key's saves and says how many folders are kept but not read) only when it is provably the student's: one of its
     entries matches the student's own store by time and digests, or its recorded ledger head belongs to a ledger record
     of this student, or, for the primary store only (the ledger lives beside it), every record of the workspace ledger
     carries this student's id. Every checkpoint folder is created mode 0700.
