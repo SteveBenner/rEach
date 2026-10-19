@@ -28,13 +28,65 @@ module Reach
       File.join(meta["course"].to_s, meta["assignment"].to_s, File.basename(workspace))
     end
 
+    def student_key
+      install = Reach::Enroll.readable_current
+      student = install.is_a?(Hash) ? install["student_id"].to_s : ""
+      return "local" if student.empty?
+
+      Reach::Crypto.digest_hex(student)[0, 16]
+    end
+
     def dir(workspace)
-      File.join(Reach::Paths.checkpoints_dir, relative_dir(workspace))
+      keyed = File.join(Reach::Paths.checkpoints_dir, student_key, relative_dir(workspace))
+      legacy = File.join(Reach::Paths.checkpoints_dir, relative_dir(workspace))
+      if !File.directory?(keyed) && File.directory?(legacy)
+        FileUtils.mkdir_p(File.dirname(keyed), mode: 0o700)
+        FileUtils.mv(legacy, keyed)
+        File.chmod(0o700, keyed)
+      end
+      keyed
     end
 
     def mirror_dir(workspace)
       base = mirror_base
-      base && File.join(base, relative_dir(workspace))
+      return nil unless base
+
+      keyed = File.join(base, student_key, relative_dir(workspace))
+      legacy = File.join(base, relative_dir(workspace))
+      adopt_legacy(legacy, keyed, dir(workspace)) if File.directory?(legacy)
+      keyed
+    end
+
+    def adopt_legacy(legacy, keyed, primary)
+      mine = {}
+      [primary, keyed].each { |base| entries_in(base).each { |entry| mine[entry["n"].to_i] ||= entry } }
+      shared = entries_in(legacy).any? do |entry|
+        own = mine[entry["n"].to_i]
+        own && own["at"] == entry["at"] && own["digests"] == entry["digests"]
+      end
+      return nil unless shared
+
+      private_dir(File.join(keyed, "blobs"))
+      Dir.children(legacy).each do |name|
+        source = File.join(legacy, name)
+        if name == "blobs"
+          Dir.children(source).each do |blob|
+            target = File.join(keyed, "blobs", blob)
+            FileUtils.mv(File.join(source, blob), target) unless File.file?(target)
+          end
+        elsif !File.exist?(File.join(keyed, name))
+          FileUtils.mv(source, File.join(keyed, name))
+        end
+      end
+      File.chmod(0o700, keyed)
+      FileUtils.mv(legacy, "#{legacy}.adopted-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}")
+    rescue StandardError
+      nil
+    end
+
+    def private_dir(path)
+      FileUtils.mkdir_p(path, mode: 0o700)
+      path
     end
 
     def mirror_base
@@ -116,7 +168,8 @@ module Reach
     end
 
     def write_entry(base, workspace, n, digests, note, automatic, via)
-      blobs = File.join(base, "blobs")
+      blobs = private_dir(File.join(base, "blobs"))
+      private_dir(File.join(base, format("%03d", n)))
       digests.each do |relative, digest|
         next if digest.nil?
 
@@ -145,6 +198,8 @@ module Reach
       mirror = mirror_dir(workspace)
       return nil unless mirror
 
+      private_dir(File.join(mirror, "blobs"))
+      private_dir(File.join(mirror, format("%03d", meta["n"].to_i)))
       meta["digests"].each_value do |digest|
         next if digest.nil?
 
@@ -274,10 +329,11 @@ module Reach
 
     def orphans
       found = {}
+      key = student_key
       [Reach::Paths.checkpoints_dir, mirror_base].compact.each do |base|
-        next unless File.directory?(base)
+        next unless File.directory?(File.join(base, key))
 
-        Dir.glob(File.join(base, "*", "*", "*")).each do |store|
+        Dir.glob(File.join(base, key, "*", "*", "*")).each do |store|
           next unless File.directory?(store)
           next if entries_in(store).empty?
 

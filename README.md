@@ -212,7 +212,7 @@ reach reference list | show <path> | search <words> | links | ingest [--force]  
 rEach also saves the slice's files by itself on every write the agent makes, before every write it allows and after
 every check, so the history is never more than one edit old; `reach checkpoint list` shows the saves you named and
 says how many automatic ones `--all` shows, and `restore <n>` takes any of them. Every save is kept twice: under
-`reach-work/.reach-home/checkpoints` and in your computer account's application data folder, outside reach-work, so
+`reach-work/.reach-home/checkpoints` and in your computer account's application data folder, outside reach-work, each filed under a code made from your student id so another student on the same computer account never sees them, so
 deleting the folder does not lose the history. When a file or a whole work folder goes missing, rEach says so at the
 start of the session, in `reach status` and in `reach doctor`, and `reach checkpoint recover` brings it back from the
 newest save that still holds it, even when an automatic save has since recorded the loss. A reach-work folder inside a cloud-synced folder gets one reminder to keep its files on the device.

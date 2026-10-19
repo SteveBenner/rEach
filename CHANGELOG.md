@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.29] - 2026-10-18
+
+### Fixed
+
+- Checkpoint stores are filed under a key derived from the enrolled student id, in both places, so a later student on the same computer account never sees, counts or recovers an earlier student's saves. A store an earlier release saved under the unkeyed path moves under the current student's key the first time it is used; an unkeyed second copy written by 0.53.26 to 0.53.28 moves too when one of its entries matches the student's own store by time and digests, and is left unread otherwise. Every checkpoint folder is created mode 0700. Found by the 0.53.28 release audit.
+
 ## [0.53.28] - 2026-10-18
 
 ### Fixed
