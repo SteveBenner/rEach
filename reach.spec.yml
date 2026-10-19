@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.23
+version: 0.53.24
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -3173,7 +3173,7 @@ late_work:
     with trigger late_submission (Reach::Receipts.store). Once per assignment and type ever; the next session start retries
     an unsent one; a 403 hands_disabled or a 400 gives it up quietly, as do five failed tries. No hook waits on the network.
 late_assignments:
-  since: 0.53.23
+  since: 0.53.24
   standard: STD-LATE-ASSIGNMENTS
   wire: W-API-STATUS, W-API-PACKAGE, W-PACE-3
   fetch: >-

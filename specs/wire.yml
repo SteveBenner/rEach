@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-18c
+revision: 2026-10-18d
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -651,7 +651,7 @@ routes:
       username: {type: string, required: false, note: "shape v2 only: the student's institutional username, normalized by W-ENR-3"}
       student_id: {type: string, required: false, note: "shape v2 only: the student's institutional id, normalized by W-ENR-3"}
       fingerprint: {type: object, required: false, note: "shape v2 only: the W-ENR-4 fingerprint document"}
-      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it. Since revision 2026-10-04d it is the student's existing password when one is already set (W-ID-5)"}
+      password: {type: string, required: false, note: "shape v2 only, required since revision 2026-10-01e: the password the student chose as the last enrollment step (W-ENR-7), 8 to 256 characters after Reach trims surrounding whitespace; Teach stores only an scrypt hash and never logs, audits or returns it. From revision 2026-10-04d to 2026-10-18c it had to be the student's existing password when one was already set; since revision 2026-10-18d it is the password the student chooses now, and it replaces a stored one that differs (W-ID-5)"}
       public_key_pem: {type: string, maxLength: 4096}
       reach_version: {type: string}
       platform: {type: string, enum: [macos, windows, linux], note: "Reach maps RbConfig host_os darwin -> macos, mswin|mingw|cygwin -> windows, anything else -> linux"}
@@ -678,7 +678,7 @@ routes:
       409 device_move_pending: "shape v2, since 2026-10-01c: the student already holds an active stamped install with another fingerprint and the course policy's enrollment.device_moves is approve (W-ENR-8)"
       403 device_move_denied: "shape v2, since 2026-10-01c: an instructor denied this device move (W-ENR-8)"
       400 password_required: "shape v2, since 2026-10-01e: password is missing, not a string, shorter than 8 or longer than 256 characters; checked before the course code is looked up, and the message tells an older Reach to update and enroll again"
-      403 password_wrong: "shape v2, since 2026-10-04d: the student already has a password, no reset is allowed and password does not match it (W-ID-5); checked after the roster match and before any device move, so nothing is stored; 5 within 15 minutes for one student answer 429 until the window passes"
+      403 password_wrong: "shape v2, revisions 2026-10-04d to 2026-10-18c only: the student already has a password, no reset is allowed and password does not match it (W-ID-5); checked after the roster match and before any device move, so nothing is stored; 5 within 15 minutes for one student answer 429 until the window passes. A Teach at revision 2026-10-18d or later never answers it on this route: the password sent replaces a stored one that differs, so an existing student record never stops a new install from enrolling"
       403 attempt_key_mismatch: "shape v2, since 2026-10-09a: attempt_id names an attempt whose public_key differs from public_key_pem"
       429 rate_limited: "too many attempts"
     notes: >-
@@ -2577,6 +2577,13 @@ alignment:
       M-ENR-RESET-BY-INSTRUCTOR plus the current question and leave the enrollment state unchanged, so the words are
       never read as an email or an id. The reset is the instructor's: Reset password in Teach clears the stored
       password and marks the reset pending (W-API-PASSWORD-RESET-STATE).
+      Re-enrollment (since revision 2026-10-18d). A student who enrolls again from a new install, for example after
+      reinstalling Reach, chooses a password as at a first enrollment, and Teach takes it: when a stored password
+      differs, the new one replaces it in the same transaction that creates the install and revokes the student's
+      earlier installs, and Teach audits student.password_replaced (never the password). A stored password is thus a
+      lock on sign-in to an enrolled install, never on enrollment; the roster match and the enrollment stamp are what
+      bind an enrollment to the student. Reach asks M-ENR-ASK-PASSWORD-REENROLL, which says the password typed now is
+      the one that counts from here on, and keeps M-ENR-PASSWORD-WRONG for a Teach older than this revision.
       Pickup. Reach learns the pending reset from the W-API-STATUS password block (stored in
       ~/.reach/state/login/password_state.json, 0600: {install_id, pending, password_set_at, at}), from
       W-API-PASSWORD-RESET-STATE asked once when the student answers yes in awaiting_confirm, and from the 409 of

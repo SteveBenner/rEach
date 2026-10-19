@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.24] - 2026-10-18
+
+### Fixed
+
+- A student who enrolled again from a new install, for example after reinstalling rEach, was refused when the password they chose differed from the one Teach had stored, and stayed locked out after five tries until an instructor reset it. Wire revision 2026-10-18d (`specs/wire.yml`, W-ID-5, W-API-ENROLL): Teach takes the password sent at enrollment as the student's password and replaces a stored one that differs, so an existing student record never blocks a new enrollment. `M-ENR-ASK-PASSWORD-REENROLL` now says the password typed now is the one that counts; `M-ENR-PASSWORD-WRONG` remains for an older Teach. No code change in rEach.
+
 ## [0.53.23] - 2026-10-18
 
 ### Fixed
