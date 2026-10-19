@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.53.33 |
+| **Registry version** | 0.53.34 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -303,7 +303,7 @@ Since 0.53.26 (`STD-CHECKPOINT-AUTOSAVE`) student work is never more than one ed
 hidden automatic entry after every harness write of an owned file, before every write the slice gate allows, after
 every `reach check`, before a sync touches an existing workspace and after a restore; entries are content-addressed so
 an unchanged file costs nothing, and the hook command lines in course folders did not change. Every entry is mirrored
-to the computer account's application data folder outside reach-work, and reads fall back to it; since 0.53.29 both stores are filed under a key derived from the enrolled student id (a salted hash since 0.53.30), with folders mode 0700, so a later student on the same computer account never sees, counts or recovers an earlier student's saves; a store an earlier release left under another key is adopted only when the student's own store or the workspace ledger proves it is theirs. At session start, in
+to the computer account's application data folder outside reach-work, and reads fall back to it; since 0.53.29 both stores are filed under a key derived from the enrolled student id (a salted hash since 0.53.30), with folders mode 0700, so a later student on the same computer account never sees, counts or recovers an earlier student's saves; a store an earlier release left under the unkeyed path or local is adopted only when the student's own store or the workspace ledger proves it is theirs. Since 0.53.34 `reach checkpoint dismiss --slice S` stops the missing-folder report for a folder the student removed on purpose, and `reach checkpoint forget [--slice S]` deletes the saved copies after the student's yes (terminal or consent) with a receipt; retention is still manual. At session start, in
 `reach status` and in `reach doctor`, rEach says when an owned file is missing or empty while a save holds it, or when
 a work folder is gone while its saves remain, and `reach checkpoint recover` (the `reach_checkpoint` tool's `recover`
 action) puts the folder back and restores the newest save that still holds the missing files; since 0.53.27 an

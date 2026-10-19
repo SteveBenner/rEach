@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.34] - 2026-10-18
+
+### Added
+
+- `reach checkpoint forget [--slice <folder>]` and the `reach_checkpoint` tool's `forget` action delete the saved copies of a student's work files, in both places, only after the student's yes (in a terminal, or through Reach's consent question relayed by the agent), write a receipt under `state/checkpoints-forget/` and never touch the work files themselves (`M-CHECKPOINT-FORGET-ASK`, `M-CHECKPOINT-FORGOT`). `reach checkpoint dismiss --slice <folder>` stops rEach reporting a work folder the student removed on purpose; its saves stay until forgotten. `PRIVACY.md` and the checkpoint skill say so.
+
+### Removed
+
+- The code that adopted checkpoint stores saved under the unsalted 0.53.29 key, which reached no student. Stores under the unkeyed path (entries saved before 0.53.26) and under `local` are still adopted with proof.
+
 ## [0.53.33] - 2026-10-18
 
 ### Fixed

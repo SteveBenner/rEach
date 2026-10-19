@@ -140,11 +140,11 @@ module Reach
       },
       {
         "name" => "reach_checkpoint",
-        "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing",
+        "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing; dismiss stops rEach reporting a work folder the student removed on purpose; forget deletes the saved copies of one slice or of everything and saves a receipt: the first call asks the student through Reach, so relay its question word for word, and after a yes the same call deletes once",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[save list show restore recover] },
+            "action" => { "type" => "string", "enum" => %w[save list show restore recover dismiss forget] },
             "note" => { "type" => "string" },
             "n" => { "type" => "integer" },
             "all" => { "type" => "boolean", "description" => "With list, include the automatic saves" },
@@ -731,8 +731,13 @@ module Reach
         when "reach_check"
           Reach::Check.run(current_workspace!(arguments["slice"]), changed: arguments["changed"], format: :agent)
         when "reach_checkpoint"
-          if arguments["action"] == "recover"
+          case arguments["action"]
+          when "recover"
             Reach::Checkpoint.recover(slice: arguments["slice"]).merge("relay_verbatim" => true)
+          when "dismiss"
+            Reach::Checkpoint.dismiss!(slice: arguments["slice"]).merge("relay_verbatim" => true)
+          when "forget"
+            Reach::Checkpoint.forget_via_consent!(slice: arguments["slice"])
           else
             checkpoint_tool(current_workspace!(arguments["slice"]), arguments)
           end

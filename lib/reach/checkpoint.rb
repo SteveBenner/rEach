@@ -9,6 +9,7 @@ module Reach
     NOTICE_FILE = "checkpoint-notice.json".freeze
     MIRROR_STATE_FILE = "checkpoint-mirror.json".freeze
     SALT_FILE = "checkpoint-salt.json".freeze
+    DISMISSED_FILE = "checkpoint-dismissed.json".freeze
     EMPTY_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".freeze
 
     module_function
@@ -54,8 +55,7 @@ module Reach
     end
 
     def earlier_keys
-      student = student_id
-      student ? ["", "local", Reach::Crypto.digest_hex(student)[0, 16]] : []
+      student_id ? ["", "local"] : []
     end
 
     def dir(workspace)
@@ -402,8 +402,31 @@ module Reach
       since_deliberate(workspace).find { |entry| lost.all? { |relative| content?(entry["digests"][relative]) } } || latest(workspace)
     end
 
+    def dismissed
+      Array(Reach::StateFile.read(DISMISSED_FILE)["paths"]).map(&:to_s)
+    rescue StandardError
+      []
+    end
+
+    def dismiss_command(folder)
+      "reach checkpoint dismiss --slice #{folder}"
+    end
+
+    def dismiss!(slice: nil)
+      wanted = slice.to_s.strip
+      items = orphans
+      items = items.select { |item| item["folder"] == wanted || item["folder"].end_with?("-#{wanted}") } unless wanted.empty?
+      return { "dismissed" => [], "message" => Reach::Messages.text("M-CHECKPOINT-DISMISS-NONE") } if items.empty?
+
+      paths = (dismissed + items.map { |item| item["path"] }).uniq
+      Reach::StateFile.write(DISMISSED_FILE, "paths" => paths)
+      folders = items.map { |item| item["folder"] }
+      { "dismissed" => folders, "message" => Reach::Messages.text("M-CHECKPOINT-DISMISSED", slices: folders.join(", ")) }
+    end
+
     def orphans
       found = {}
+      skip = dismissed
       key = student_key
       [Reach::Paths.checkpoints_dir, mirror_base].compact.each do |base|
         next unless File.directory?(File.join(base, key))
@@ -416,7 +439,7 @@ module Reach
           assignment = File.basename(File.dirname(store))
           course = File.basename(File.dirname(File.dirname(store)))
           path = File.join(Reach::Paths.deliverables_root, course, assignment, folder)
-          next if File.directory?(path)
+          next if File.directory?(path) || skip.include?(path)
 
           found[path] ||= { "course" => course, "assignment" => assignment, "folder" => folder, "path" => path }
         end
@@ -449,9 +472,103 @@ module Reach
         if item["kind"] == "missing"
           Reach::Messages.text("M-WORK-MISSING", slice: item["folder"], files: item["files"].join(", "), command: recover_command(item["folder"]))
         else
-          Reach::Messages.text("M-WORK-FOLDER-MISSING", slice: item["folder"], assignment: item["assignment"], command: recover_command(item["folder"]))
+          Reach::Messages.text("M-WORK-FOLDER-MISSING", slice: item["folder"], assignment: item["assignment"], command: recover_command(item["folder"]), dismiss: dismiss_command(item["folder"]))
         end
       end
+    end
+
+    def forget_inventory(slice: nil)
+      wanted = slice.to_s.strip
+      key = student_key
+      stores = []
+      [Reach::Paths.checkpoints_dir, mirror_base].compact.each do |base|
+        next unless File.directory?(base)
+
+        Dir.glob(File.join(base, key, "*", "*", "*")).each do |store|
+          next unless File.directory?(store)
+
+          folder = File.basename(store)
+          next unless wanted.empty? || folder == wanted || folder.end_with?("-#{wanted}")
+
+          stores << store
+        end
+        stores.concat(Dir.glob(File.join(base, ".adopted", "*")).select { |path| File.directory?(path) }) if wanted.empty?
+      end
+      files = stores.flat_map { |store| Dir.glob(File.join(store, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) } }
+      {
+        "stores" => stores.sort,
+        "folders" => stores.map { |store| File.basename(store) }.reject { |name| name.include?("T") && name.match?(/\A\d{8}T/) }.uniq.sort,
+        "entries" => files.count { |path| File.basename(path) == "meta.json" },
+        "bytes" => files.sum { |path| File.size(path) }
+      }
+    rescue StandardError
+      { "stores" => [], "folders" => [], "entries" => 0, "bytes" => 0 }
+    end
+
+    def forget_fields(inventory)
+      { slices: inventory["folders"].empty? ? "every assignment" : inventory["folders"].join(", "), entries: inventory["entries"], kb: (inventory["bytes"] / 1024.0).ceil }
+    end
+
+    def forget_ask_text(inventory)
+      Reach::Messages.text("M-CHECKPOINT-FORGET-ASK", **forget_fields(inventory))
+    end
+
+    def forget_via_consent!(slice: nil)
+      inventory = forget_inventory(slice: slice)
+      return { "state" => "none", "message" => Reach::Messages.text("M-CHECKPOINT-FORGET-NONE") } if inventory["stores"].empty?
+
+      subject = { "slice" => slice.to_s, "stores" => inventory["stores"] }
+      return forget!(slice: slice, confirm: true) if Reach::Consent.take!(kind: "checkpoints_forget", subject: subject)
+
+      question = Reach::Consent.ask!(kind: "checkpoints_forget", subject: subject, message_id: "M-CHECKPOINT-FORGET-ASK", fields: forget_fields(inventory))
+      { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => question, "text" => question }
+    end
+
+    def forget!(slice: nil, confirm: false)
+      inventory = forget_inventory(slice: slice)
+      return { "state" => "none", "message" => Reach::Messages.text("M-CHECKPOINT-FORGET-NONE") } if inventory["stores"].empty?
+      return { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => forget_ask_text(inventory) } unless confirm
+
+      deleted = []
+      bytes = 0
+      inventory["stores"].each do |store|
+        Dir.glob(File.join(store, "**", "*"), File::FNM_DOTMATCH).sort.reverse_each do |path|
+          next if File.basename(path) == "." || File.basename(path) == ".."
+
+          if File.directory?(path)
+            Dir.rmdir(path)
+          else
+            bytes += File.size(path)
+            File.delete(path)
+            deleted << path
+          end
+        rescue SystemCallError
+          nil
+        end
+        Dir.rmdir(store) if File.directory?(store) && Dir.empty?(store)
+      end
+      Reach::StateFile.write(DISMISSED_FILE, "paths" => []) if slice.to_s.strip.empty?
+      receipt = write_forget_receipt(inventory, deleted, bytes)
+      {
+        "state" => "forgotten", "files" => deleted.length, "bytes" => bytes, "receipt" => receipt,
+        "message" => Reach::Messages.text("M-CHECKPOINT-FORGOT", files: deleted.length, kb: (bytes / 1024.0).ceil, receipt: receipt.to_s)
+      }
+    end
+
+    def write_forget_receipt(inventory, deleted, bytes)
+      dir = File.join(Reach::Paths.state_dir, "checkpoints-forget")
+      FileUtils.mkdir_p(dir)
+      FileUtils.chmod(0o700, dir)
+      at = Time.now.utc
+      path = File.join(dir, "forget-#{at.strftime('%Y%m%dT%H%M%SZ')}-#{Process.pid}.json")
+      record = {
+        "schema" => "reach.checkpoints-forget/v1", "at" => at.strftime("%Y-%m-%dT%H:%M:%SZ"), "bytes" => bytes,
+        "stores" => inventory["stores"], "entries" => inventory["entries"], "files" => deleted.length, "paths" => deleted
+      }
+      File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(JSON.pretty_generate(record)) }
+      path
+    rescue StandardError
+      nil
     end
 
     def status_notices

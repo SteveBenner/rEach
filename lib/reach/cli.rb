@@ -477,7 +477,7 @@ module Reach
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
-            checkpoint save|list [--all]|show|restore|recover    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back
+            checkpoint save|list [--all]|show|restore|recover|dismiss|forget    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back, forget deletes the copies after a yes
             plan save|show|note                  the slice plan
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
@@ -1568,6 +1568,28 @@ module Reach
           puts result["path"] if result["state"] == "saved"
         end
         result["state"] == "failed" ? 1 : 0
+      end
+
+      def cmd_checkpoint_forget(slice)
+        inventory = Reach::Checkpoint.forget_inventory(slice: slice)
+        if inventory["stores"].empty?
+          puts Reach::Messages.text("M-CHECKPOINT-FORGET-NONE")
+          return 0
+        end
+        unless $stdin.tty? && $stdout.tty?
+          warn Reach::Messages.text("M-CHECKPOINT-FORGET-NEEDS-TTY")
+          return 1
+        end
+        puts Reach::Checkpoint.forget_ask_text(inventory)
+        print "yes/no: "
+        answer = $stdin.gets.to_s.strip.downcase
+        unless %w[yes y].include?(answer)
+          puts Reach::Messages.text("M-CHECKPOINT-FORGET-DECLINED")
+          return 1
+        end
+        result = Reach::Checkpoint.forget!(slice: slice, confirm: true)
+        puts result["message"]
+        0
       end
 
       def cmd_transcripts_forget(args)
@@ -3007,6 +3029,12 @@ module Reach
           puts result["message"]
           return 0
         end
+        if sub == "dismiss"
+          result = Reach::Checkpoint.dismiss!(slice: options[:slice] || remaining.first)
+          puts result["message"]
+          return result["dismissed"].empty? ? 1 : 0
+        end
+        return cmd_checkpoint_forget(options[:slice] || remaining.first) if sub == "forget"
 
         workspace_path = workspace_or_fail(options[:slice])
         return 1 unless workspace_path
@@ -3047,7 +3075,7 @@ module Reach
           puts result["message"]
           0
         else
-          warn "usage: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>]"
+          warn "usage: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]"
           1
         end
       end

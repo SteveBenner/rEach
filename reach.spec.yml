@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.33
+version: 0.53.34
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1188,7 +1188,7 @@ mcp_bridge:
   - name: reach_check
     description: Run reach check on the current slice (optionally one changed path) and return the findings
   - name: reach_checkpoint
-    description: save, list (all true includes the automatic saves), show or restore a checkpoint of the current slice, or recover missing work (since 0.53.26)
+    description: save, list (all true includes the automatic saves), show or restore a checkpoint of the current slice, recover missing work (since 0.53.26), dismiss a work folder removed on purpose, or forget the saved copies after the student's yes through Reach::Consent (since 0.53.34)
   - name: reach_plan
     description: >-
       save, note or show the slice plan. Since 0.51.10 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
@@ -1459,7 +1459,7 @@ cli:
       fuse boundaries and Dovetail panel rules; each finding carries a rule id, file, line, message, fix and its
       invisible or visible class. The PostToolUse hooks call it with --changed; submit runs it first.
   - name: checkpoint
-    synopsis: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>]
+    synopsis: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]
     purpose: Snapshots of the slice's owned files, saved by name and on every write (checkpoints); recover brings back missing files or a missing work folder; no git in the workspace
   - name: plan
     synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show
@@ -2910,7 +2910,7 @@ checkpoints:
     the same computer account never sees, counts or recovers an earlier student's saves; since 0.53.30 the key is the
     first 16 hex digits of sha256(<salt>:<student id>) where the salt is a random 32-hex value kept in state/checkpoint-salt.json
     and in the sidecar (either copy restores the other), local when no enrollment is readable. A store an earlier
-    release left under the unkeyed path, under local, or under the unsalted 0.53.29 key is adopted (entries and blobs
+    release left under the unkeyed path (pre-0.53.26 entries) or under local is adopted (entries and blobs
     merged, an entry whose number is already taken renumbered after the highest, the old folder set aside under
     <base>/.adopted/<stamp>-<random>-<course>-<assignment>-<workspace>, a name that carries no key, and its emptied
     parents removed; reach doctor counts only the current key's saves and says how many folders are kept but not read) only when it is provably the student's: one of its
@@ -2923,7 +2923,7 @@ checkpoints:
     is false; else REACH_CHECKPOINT_MIRROR, else <data dir>/reach/checkpoints where the data dir is
     ~/Library/Application Support on macOS, %LOCALAPPDATA% on Windows and $XDG_DATA_HOME or ~/.local/share elsewhere),
     under the same <student key>/<course>/<assignment>/<workspace> layout; a mirror an earlier release wrote under the
-    unkeyed path, local or the unsalted key is adopted under the same ownership proof as the primary store except the
+    unkeyed path or local is adopted under the same ownership proof as the primary store except the
     whole-ledger rule (a fresh Reach home has a fresh ledger while the mirror outlives it), and left unread otherwise,
     so an earlier student's second copy is never adopted. Reads search the primary store, then the mirror; a mirror
     write failure is kept in state/checkpoint-mirror.json and reported by reach doctor (R-DOC-COPIES), never raised.
@@ -2953,7 +2953,13 @@ checkpoints:
     (state/checkpoint-notice.json) at session start (M-WORK-MISSING, M-WORK-FOLDER-MISSING, beside the Link and Issues
     notices), always by reach status and reach doctor, and reach checkpoint recover [--slice S] (reach_checkpoint
     action recover) provisions a missing folder from the stored package and restores the newest entry since the
-    last deliberate one that still holds every missing file, else the latest entry (M-CHECKPOINT-RECOVERED, M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a
+    last deliberate one that still holds every missing file, else the latest entry (M-CHECKPOINT-RECOVERED,
+    M-CHECKPOINT-DISMISSED: reach checkpoint dismiss --slice S records the vanished folder in state/checkpoint-dismissed.json
+    so orphans skips it while its saves stay; reach checkpoint forget [--slice S] and the tool's forget action delete the
+    student's stores in both places (and the .adopted set-asides when no slice is named) file by file after the student's
+    yes, in a terminal or through Reach::Consent kind checkpoints_forget (M-CHECKPOINT-FORGET-ASK), write a receipt under
+    state/checkpoints-forget/ and never touch the work files (M-CHECKPOINT-FORGOT, -FORGET-NONE, -FORGET-DECLINED,
+    -FORGET-NEEDS-TTY); M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a
     cloud-synced path (iCloud, OneDrive, Dropbox, Google Drive, CloudStorage) is told once to keep files on the device
     (M-CLOUD-FOLDER, R-DOC-CLOUD); nothing is moved. <workspace root>/README.md (M-REACH-WORK-README) is written once
     when absent and says what the hidden folder holds.
