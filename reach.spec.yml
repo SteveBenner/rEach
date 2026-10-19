@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.34
+version: 0.53.35
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2912,7 +2912,7 @@ checkpoints:
     and in the sidecar (either copy restores the other), local when no enrollment is readable. A store an earlier
     release left under the unkeyed path (pre-0.53.26 entries) or under local is adopted (entries and blobs
     merged, an entry whose number is already taken renumbered after the highest, the old folder set aside under
-    <base>/.adopted/<stamp>-<random>-<course>-<assignment>-<workspace>, a name that carries no key, and its emptied
+    <base>/<student key>/.adopted/<stamp>-<random>-<course>-<assignment>-<workspace>, a name that carries no key, and its emptied
     parents removed; reach doctor counts only the current key's saves and says how many folders are kept but not read) only when it is provably the student's: one of its
     entries matches the student's own store by time and digests, or its recorded ledger head belongs to a ledger record
     of this student, or, for the primary store only (the ledger lives beside it), every record of the workspace ledger
@@ -2956,7 +2956,7 @@ checkpoints:
     last deliberate one that still holds every missing file, else the latest entry (M-CHECKPOINT-RECOVERED,
     M-CHECKPOINT-DISMISSED: reach checkpoint dismiss --slice S records the vanished folder in state/checkpoint-dismissed.json
     so orphans skips it while its saves stay; reach checkpoint forget [--slice S] and the tool's forget action delete the
-    student's stores in both places (and the .adopted set-asides when no slice is named) file by file after the student's
+    student's stores in both places (and the student's own .adopted set-asides when no slice is named) file by file after the student's
     yes, in a terminal or through Reach::Consent kind checkpoints_forget (M-CHECKPOINT-FORGET-ASK), write a receipt under
     state/checkpoints-forget/ and never touch the work files (M-CHECKPOINT-FORGOT, -FORGET-NONE, -FORGET-DECLINED,
     -FORGET-NEEDS-TTY); M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a

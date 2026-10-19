@@ -149,7 +149,7 @@ module Reach
     end
 
     def set_aside(source, base)
-      parked = private_dir(File.join(base, ".adopted"))
+      parked = private_dir(File.join(base, student_key, ".adopted"))
       label = source.split(File::SEPARATOR).last(3).join("-")
       FileUtils.mv(source, File.join(parked, "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(3)}-#{label}"))
       parent = File.dirname(source)
@@ -492,7 +492,7 @@ module Reach
 
           stores << store
         end
-        stores.concat(Dir.glob(File.join(base, ".adopted", "*")).select { |path| File.directory?(path) }) if wanted.empty?
+        stores.concat(Dir.glob(File.join(base, key, ".adopted", "*")).select { |path| File.directory?(path) }) if wanted.empty?
       end
       files = stores.flat_map { |store| Dir.glob(File.join(store, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) } }
       {
@@ -551,7 +551,7 @@ module Reach
       receipt = write_forget_receipt(inventory, deleted, bytes)
       {
         "state" => "forgotten", "files" => deleted.length, "bytes" => bytes, "receipt" => receipt,
-        "message" => Reach::Messages.text("M-CHECKPOINT-FORGOT", files: deleted.length, kb: (bytes / 1024.0).ceil, receipt: receipt.to_s)
+        "message" => Reach::Messages.text("M-CHECKPOINT-FORGOT", files: deleted.length, kb: (bytes / 1024.0).ceil, receipt: receipt ? Reach::Paths.home_relative(receipt) : "")
       }
     end
 
@@ -670,8 +670,8 @@ module Reach
       [Reach::Paths.checkpoints_dir, mirror_base].compact.sum do |base|
         next 0 unless File.directory?(base)
 
-        Dir.glob(File.join(base, ".adopted", "*")).count { |path| File.directory?(path) } +
-          Dir.children(base).count { |name| name != key && name != ".adopted" && File.directory?(File.join(base, name)) }
+        Dir.glob(File.join(base, key, ".adopted", "*")).count { |path| File.directory?(path) } +
+          Dir.children(base).count { |name| name != key && File.directory?(File.join(base, name)) }
       end
     rescue StandardError
       0

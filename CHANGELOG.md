@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.35] - 2026-10-19
+
+### Fixed
+
+- A checkpoint folder set aside during adoption is parked under the student's own key (`<store>/<key>/.adopted/`), so `reach checkpoint forget` deletes only that student's leftovers and counts only them. The forget message names the receipt by a home-relative path. Found by the 0.53.34 release audit.
+
 ## [0.53.34] - 2026-10-18
 
 ### Added
