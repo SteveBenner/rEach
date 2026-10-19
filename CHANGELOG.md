@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.30] - 2026-10-18
+
+### Fixed
+
+- The checkpoint student key is now a salted hash (a random secret kept in `state/checkpoint-salt.json` and in the sidecar, each restoring the other), so a folder name does not reveal a student id. A store an earlier release left under the unkeyed path, under `local` or under the unsalted 0.53.29 key is adopted only when it is provably the student's: an entry matches their own store, or the workspace ledger (which records the student id) vouches for it; otherwise it is left unread. Saves made while the enrollment file was unreadable are filed under `local` and adopted the same way once it reads again. Found by the 0.53.29 release audit.
+
 ## [0.53.29] - 2026-10-18
 
 ### Fixed

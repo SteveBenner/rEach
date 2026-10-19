@@ -1,12 +1,14 @@
 require "json"
 require "time"
 require "fileutils"
+require "securerandom"
 
 module Reach
   module Checkpoint
     AUTOSAVE_VIAS = %w[write pre_write check provision restored].freeze
     NOTICE_FILE = "checkpoint-notice.json".freeze
     MIRROR_STATE_FILE = "checkpoint-mirror.json".freeze
+    SALT_FILE = "checkpoint-salt.json".freeze
     EMPTY_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".freeze
 
     module_function
@@ -28,21 +30,40 @@ module Reach
       File.join(meta["course"].to_s, meta["assignment"].to_s, File.basename(workspace))
     end
 
-    def student_key
+    def student_id
       install = Reach::Enroll.readable_current
-      student = install.is_a?(Hash) ? install["student_id"].to_s : ""
-      return "local" if student.empty?
+      value = install.is_a?(Hash) ? install["student_id"].to_s : ""
+      value.empty? ? nil : value
+    end
 
-      Reach::Crypto.digest_hex(student)[0, 16]
+    def salt
+      local = Reach::StateFile.read(SALT_FILE)["salt"]
+      kept = Reach::Sidecar.checkpoint_salt
+      value = [local, kept].find { |candidate| candidate.is_a?(String) && candidate.match?(/\A[0-9a-f]{32}\z/) }
+      value ||= SecureRandom.hex(16)
+      Reach::StateFile.write(SALT_FILE, "salt" => value) unless local == value
+      Reach::Sidecar.keep_checkpoint_salt(value) unless kept == value
+      value
+    end
+
+    def student_key
+      student = student_id
+      return "local" unless student
+
+      Reach::Crypto.digest_hex("#{salt}:#{student}")[0, 16]
+    end
+
+    def earlier_keys
+      student = student_id
+      student ? ["", "local", Reach::Crypto.digest_hex(student)[0, 16]] : []
     end
 
     def dir(workspace)
-      keyed = File.join(Reach::Paths.checkpoints_dir, student_key, relative_dir(workspace))
-      legacy = File.join(Reach::Paths.checkpoints_dir, relative_dir(workspace))
-      if !File.directory?(keyed) && File.directory?(legacy)
-        FileUtils.mkdir_p(File.dirname(keyed), mode: 0o700)
-        FileUtils.mv(legacy, keyed)
-        File.chmod(0o700, keyed)
+      key = student_key
+      keyed = File.join(Reach::Paths.checkpoints_dir, key, relative_dir(workspace))
+      earlier_keys.each do |earlier|
+        source = File.join(Reach::Paths.checkpoints_dir, earlier, relative_dir(workspace))
+        adopt(source, keyed, workspace, [keyed]) if File.directory?(source)
       end
       keyed
     end
@@ -52,34 +73,62 @@ module Reach
       return nil unless base
 
       keyed = File.join(base, student_key, relative_dir(workspace))
-      legacy = File.join(base, relative_dir(workspace))
-      adopt_legacy(legacy, keyed, dir(workspace)) if File.directory?(legacy)
+      earlier = earlier_keys
+      primary = dir(workspace) unless earlier.empty?
+      earlier.each do |name|
+        source = File.join(base, name, relative_dir(workspace))
+        adopt(source, keyed, workspace, [primary, keyed]) if File.directory?(source)
+      end
       keyed
     end
 
-    def adopt_legacy(legacy, keyed, primary)
+    def owned_store?(source, workspace, own_bases)
+      entries = entries_in(source)
+      return false if entries.empty?
+
       mine = {}
-      [primary, keyed].each { |base| entries_in(base).each { |entry| mine[entry["n"].to_i] ||= entry } }
-      shared = entries_in(legacy).any? do |entry|
+      own_bases.each { |base| entries_in(base).each { |entry| mine[entry["n"].to_i] ||= entry } }
+      matched = entries.any? do |entry|
         own = mine[entry["n"].to_i]
         own && own["at"] == entry["at"] && own["digests"] == entry["digests"]
       end
-      return nil unless shared
+      return true if matched
+
+      student = student_id
+      records = ledger_records(workspace)
+      return false if student.nil? || records.empty?
+      return true if records.all? { |record| record["student_id"].to_s == student }
+
+      tags = records.each_with_object({}) { |record, map| map[record["tag"].to_s] = record["student_id"].to_s }
+      entries.any? { |entry| tags[entry["ledger_head"].to_s] == student }
+    end
+
+    def ledger_records(workspace)
+      file = Reach::Ledger.path(workspace)
+      Dir.glob(file.sub(/\.jsonl\z/, "*.jsonl")).sort.flat_map do |name|
+        File.readlines(name).map { |line| JSON.parse(line) }.select { |record| record.is_a?(Hash) }
+      end
+    rescue StandardError
+      []
+    end
+
+    def adopt(source, keyed, workspace, own_bases)
+      return nil unless owned_store?(source, workspace, own_bases)
 
       private_dir(File.join(keyed, "blobs"))
-      Dir.children(legacy).each do |name|
-        source = File.join(legacy, name)
+      Dir.children(source).each do |name|
+        item = File.join(source, name)
         if name == "blobs"
-          Dir.children(source).each do |blob|
+          Dir.children(item).each do |blob|
             target = File.join(keyed, "blobs", blob)
-            FileUtils.mv(File.join(source, blob), target) unless File.file?(target)
+            FileUtils.mv(File.join(item, blob), target) unless File.file?(target)
           end
         elsif !File.exist?(File.join(keyed, name))
-          FileUtils.mv(source, File.join(keyed, name))
+          FileUtils.mv(item, File.join(keyed, name))
         end
       end
       File.chmod(0o700, keyed)
-      FileUtils.mv(legacy, "#{legacy}.adopted-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}")
+      FileUtils.mv(source, "#{source}.adopted-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}")
     rescue StandardError
       nil
     end

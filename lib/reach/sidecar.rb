@@ -74,6 +74,21 @@ module Reach
       value.is_a?(String) && value.match?(/\A[0-9a-f]{32}\z/) ? value : nil
     end
 
+    def checkpoint_salt
+      value = read["checkpoint_salt"]
+      value.is_a?(String) && value.match?(/\A[0-9a-f]{32}\z/) ? value : nil
+    end
+
+    def keep_checkpoint_salt(salt)
+      return nil unless salt.is_a?(String) && salt.match?(/\A[0-9a-f]{32}\z/)
+
+      data = read
+      return data if File.file?(path) && data["checkpoint_salt"] == salt
+
+      data["checkpoint_salt"] = salt
+      write(data)
+    end
+
     def keep_fingerprint_salt(salt)
       return nil unless salt.is_a?(String) && salt.match?(/\A[0-9a-f]{32}\z/)
 
