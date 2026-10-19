@@ -140,13 +140,14 @@ module Reach
       },
       {
         "name" => "reach_checkpoint",
-        "description" => "Save, list, show or restore a snapshot of the slice's files",
+        "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[save list show restore] },
+            "action" => { "type" => "string", "enum" => %w[save list show restore recover] },
             "note" => { "type" => "string" },
             "n" => { "type" => "integer" },
+            "all" => { "type" => "boolean", "description" => "With list, include the automatic saves" },
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
           },
           "required" => ["action"]
@@ -730,7 +731,11 @@ module Reach
         when "reach_check"
           Reach::Check.run(current_workspace!(arguments["slice"]), changed: arguments["changed"], format: :agent)
         when "reach_checkpoint"
-          checkpoint_tool(current_workspace!(arguments["slice"]), arguments)
+          if arguments["action"] == "recover"
+            Reach::Checkpoint.recover(slice: arguments["slice"]).merge("relay_verbatim" => true)
+          else
+            checkpoint_tool(current_workspace!(arguments["slice"]), arguments)
+          end
         when "reach_plan"
           plan_tool(current_workspace!(arguments["slice"]), arguments)
         when "reach_directive"
@@ -1093,7 +1098,7 @@ module Reach
       def checkpoint_tool(workspace, arguments)
         case arguments.fetch("action")
         when "save" then Reach::Checkpoint.save(workspace, note: arguments["note"])
-        when "list" then Reach::Checkpoint.list(workspace)
+        when "list" then Reach::Checkpoint.list(workspace, all: arguments["all"] == true)
         when "show" then Reach::Checkpoint.show(workspace, arguments.fetch("n"))
         when "restore" then Reach::Checkpoint.restore(workspace, arguments.fetch("n"))
         else raise Reach::Error, "reach: unknown checkpoint action"

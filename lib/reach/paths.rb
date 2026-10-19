@@ -590,6 +590,48 @@ module Reach
       File.join(home, "checkpoints")
     end
 
+    CLOUD_SEGMENTS = /iCloud|Mobile Documents|OneDrive|Dropbox|Google Drive|CloudStorage/i.freeze
+
+    def data_dir
+      host_os = RbConfig::CONFIG["host_os"].to_s
+      if host_os =~ /darwin/
+        File.join(user_home, "Library", "Application Support")
+      elsif windows_host?
+        ENV["LOCALAPPDATA"].to_s.empty? ? File.join(user_home, "AppData", "Local") : windows_slashes(ENV["LOCALAPPDATA"])
+      else
+        ENV["XDG_DATA_HOME"].to_s.empty? ? File.join(user_home, ".local", "share") : ENV["XDG_DATA_HOME"]
+      end
+    end
+
+    def checkpoint_mirror_dir
+      override = ENV["REACH_CHECKPOINT_MIRROR"].to_s
+      return expand_home(override) unless override.empty?
+      return nil if persona_id
+
+      File.join(data_dir, "reach", "checkpoints")
+    end
+
+    def cloud_folder_name(path = workspace_base)
+      segment = path.to_s.split(%r{[\\/]+}).find { |part| part.match?(CLOUD_SEGMENTS) }
+      segment && segment[CLOUD_SEGMENTS]
+    end
+
+    def cloud_synced_folder?(path = workspace_base)
+      !cloud_folder_name(path).nil?
+    end
+
+    def root_readme_file
+      File.join(workspace_root, "README.md")
+    end
+
+    def home_relative(path)
+      text = path.to_s
+      base = user_home.to_s
+      return text if base.empty?
+
+      text.start_with?(base) ? "~#{text[base.length..-1]}" : text
+    end
+
     def submit_gate_dir
       File.join(state_dir, "submit-gate")
     end

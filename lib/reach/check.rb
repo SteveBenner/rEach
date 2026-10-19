@@ -83,6 +83,7 @@ module Reach
       findings.concat(shape_found.uniq { |entry| entry[:finding_id] })
       findings = drop_deferred_panel_findings(findings) if shape_ran
       record(workspace, changed, findings)
+      Reach::Checkpoint.autosave(workspace, via: "check")
       Reach::Debug.check(findings, owned.length)
       format == :text ? render_text(findings) : findings
     end

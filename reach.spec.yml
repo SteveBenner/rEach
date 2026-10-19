@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.25
+version: 0.53.26
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -439,7 +439,7 @@ library:
   - name: Reach::Check
     role: The one checker the hooks, the attempt gate and the submit gate run; findings with rule ids and a fix
   - name: Reach::Checkpoint
-    role: Snapshots of the slice's owned files under ~/.reach/checkpoints, saved and restored without git
+    role: Content-addressed snapshots of the slice's owned files, named and automatic, mirrored outside reach-work, with detection and recovery of missing work (checkpoints)
   - name: Reach::Plan
     role: The slice plan at <workspace>/.reach/plan.yml
   - name: Reach::Seal
@@ -1188,7 +1188,7 @@ mcp_bridge:
   - name: reach_check
     description: Run reach check on the current slice (optionally one changed path) and return the findings
   - name: reach_checkpoint
-    description: save, list, show or restore a checkpoint of the current slice
+    description: save, list (all true includes the automatic saves), show or restore a checkpoint of the current slice, or recover missing work (since 0.53.26)
   - name: reach_plan
     description: >-
       save, note or show the slice plan. Since 0.51.10 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
@@ -1459,8 +1459,8 @@ cli:
       fuse boundaries and Dovetail panel rules; each finding carries a rule id, file, line, message, fix and its
       invisible or visible class. The PostToolUse hooks call it with --changed; submit runs it first.
   - name: checkpoint
-    synopsis: reach checkpoint save [--note <text>] | list | show <n> | restore <n>
-    purpose: Snapshots of the slice's owned files under ~/.reach/checkpoints; no git in the workspace
+    synopsis: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>]
+    purpose: Snapshots of the slice's owned files, saved by name and on every write (checkpoints); recover brings back missing files or a missing work folder; no git in the workspace
   - name: plan
     synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show
     purpose: The slice plan at <workspace>/.reach/plan.yml, read back at every session start
@@ -2904,11 +2904,40 @@ check:
     constant the slice's api/README.md names.
   ledger: Every run appends a check record; a --changed run appends the write record first (before and after digests).
 checkpoints:
-  store: "~/.reach/checkpoints/<course>/<assignment>/<workspace>/NNN/{files/, meta.json}"
+  store: "<Reach home>/checkpoints/<course>/<assignment>/<workspace>/{NNN/meta.json, blobs/<sha256>}; entries saved before 0.53.26 keep NNN/files/"
+  mirror: >-
+    Since 0.53.26 every entry is copied to a second store outside the reach-work tree (Reach::Paths.checkpoint_mirror_dir:
+    REACH_CHECKPOINT_MIRROR, else <data dir>/reach/checkpoints where the data dir is ~/Library/Application Support on
+    macOS, %LOCALAPPDATA% on Windows and $XDG_DATA_HOME or ~/.local/share elsewhere; none while an instructor persona
+    is active or config.yml checkpoints.mirror is false). Reads search the primary store, then the mirror; a mirror
+    write failure is kept in state/checkpoint-mirror.json and reported by reach doctor (R-DOC-COPIES), never raised.
+  autosave: >-
+    Since 0.53.26 rEach saves a hidden entry (automatic, via write, pre_write, check, provision or restored) after
+    every harness write of an owned file (Reach::Transcript.code, which the PostToolUse hooks of Claude Code, Codex and
+    Hermes already run), before every write the slice gate allows (Reach::Gate.write, so text edited outside the
+    harness is kept), after every reach check (which covers Antigravity), before a sync writes package entries into an
+    existing workspace, and after a restore. Each file's content is stored once by digest, so an unchanged file costs
+    nothing; an autosave appends no ledger event and never raises into a hook. config.yml checkpoints.autosave false
+    or REACH_AUTOSAVE=0 turns it off.
   rules: >-
-    An identical state is refused (M-CHECKPOINT-SAME); restore saves the state it replaces first; every save and
-    restore is a ledger event and a restore witnesses the restored files; no git repository is ever created in a
-    workspace.
+    An identical state is refused (M-CHECKPOINT-SAME) unless the entry that holds it is a hidden autosave and the new
+    save is a named one, so a student's save right after the agent's write still gets its name; restore saves the
+    state it replaces first as a visible entry, even when a hidden autosave already holds it; the autosave on write
+    runs before the recording bounds are judged, so it does not depend on the transcript being recorded; every named
+    save and restore is a ledger event and a restore
+    witnesses the restored files; numbers are one counter, so reach checkpoint list shows the named entries (and says
+    how many automatic ones --all shows, M-CHECKPOINT-LIST-HIDDEN) and restore takes any number; no git repository is
+    ever created in a workspace.
+  recovery: >-
+    Reach::Checkpoint.missing names owned files that are absent or empty while the latest entry holds content;
+    Reach::Checkpoint.orphans names store folders whose workspace folder is gone. Both are told once per condition
+    (state/checkpoint-notice.json) at session start (M-WORK-MISSING, M-WORK-FOLDER-MISSING, beside the Link and Issues
+    notices), always by reach status and reach doctor, and reach checkpoint recover [--slice S] (reach_checkpoint
+    action recover) provisions a missing folder from the stored package and restores the latest entry
+    (M-CHECKPOINT-RECOVERED, M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a
+    cloud-synced path (iCloud, OneDrive, Dropbox, Google Drive, CloudStorage) is told once to keep files on the device
+    (M-CLOUD-FOLDER, R-DOC-CLOUD); nothing is moved. <workspace root>/README.md (M-REACH-WORK-README) is written once
+    when absent and says what the hidden folder holds.
 plan:
   file: "<workspace>/.reach/plan.yml (reach.plan/v1)"
   fields: behaviour, input, output, steps, edge_cases, scenarios, evidence, progress, next; text fields up to 400 characters, lists up to 12 entries of 200

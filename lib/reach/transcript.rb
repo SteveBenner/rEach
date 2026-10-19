@@ -159,7 +159,26 @@ module Reach
       record_batch(session_id, [{ "kind" => kind.to_s, "harness" => harness.to_s, "cutout_id" => cutout_id, "slice" => slice, "space" => space, "at" => at }.merge(fields)]).first
     end
 
+    def autosave_written(event)
+      saved = {}
+      written_paths(event).each do |absolute|
+        space = Reach::Workspace.space_for_target(absolute)
+        next unless space && space["kind"] == "slice"
+
+        workspace = space["path"]
+        next if saved[workspace]
+        next unless Reach::Workspace.owned_files(workspace).any? { |rel| File.expand_path(File.join(workspace, rel)) == File.expand_path(absolute) }
+
+        saved[workspace] = true
+        Reach::Checkpoint.autosave(workspace, via: "write")
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
     def code(event: {}, harness: nil)
+      autosave_written(event)
       session_id = resolve_session_id(event)
       return pass(event) unless capturing?(session_id)
 

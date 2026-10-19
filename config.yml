@@ -100,6 +100,9 @@ import:
 late_work:
   allow: true
   notice_every: 10
+checkpoints:
+  autosave: true
+  mirror: true
 hooks:
   lock_wait_s: 2
   require: true

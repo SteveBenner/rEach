@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.26] - 2026-10-18
+
+### Added
+
+- Student work is never more than one edit from a saved copy. `Reach::Checkpoint` saves a hidden automatic entry after every harness write of an owned file (`reach transcript code`, the post-write hook Claude Code, Codex and Hermes already run), before every write the slice gate allows (`reach gate write`), after every `reach check`, before a sync writes into an existing workspace and after a restore. Entries are content-addressed (`checkpoints/<course>/<assignment>/<workspace>/blobs/<sha256>` plus `NNN/meta.json`), so an unchanged file costs nothing; entries saved by earlier releases still restore. An automatic save appends no ledger event and never raises into a hook; no course-folder hook command line changed. `reach checkpoint list` shows the named saves and says how many automatic ones `--all` shows (`M-CHECKPOINT-LIST-HIDDEN`); `restore <n>` takes any number and saves the current state first as a visible entry; a named save succeeds even when a hidden automatic save holds the same state. `config.yml` `checkpoints.autosave` and `REACH_AUTOSAVE=0` switch it off. STD-CHECKPOINT-AUTOSAVE.
+- A second copy of every checkpoint outside the reach-work tree, in the computer account's application data folder (`~/Library/Application Support/reach/checkpoints`, `%LOCALAPPDATA%\reach\checkpoints`, `$XDG_DATA_HOME` or `~/.local/share/reach/checkpoints`; `REACH_CHECKPOINT_MIRROR` overrides, none for an instructor persona, `checkpoints.mirror` switches it off). Reads fall back to it; a mirror that cannot be written is reported by `reach doctor` (`R-DOC-COPIES`) and never stops a save.
+- Missing work is noticed and brought back. At session start rEach says once per condition when an owned file is missing or empty while a save holds it (`M-WORK-MISSING`) or when a work folder is gone while its saves remain (`M-WORK-FOLDER-MISSING`); `reach status` and `reach doctor` say so every time. `reach checkpoint recover [--slice S]` and the `reach_checkpoint` tool's `recover` action provision a missing folder from the stored package and restore the latest save (`M-CHECKPOINT-RECOVERED`, `M-CHECKPOINT-RECOVER-NONE`, `M-CHECKPOINT-RECOVER-FAILED`). `reach status` shows how many times each slice was saved and when.
+- A reach-work folder inside a cloud-synced folder (iCloud, OneDrive, Dropbox, Google Drive, CloudStorage) is told once to keep its files on the device (`M-CLOUD-FOLDER`, `R-DOC-CLOUD`); nothing is moved. `reach-work/README.md` is written once when absent (`M-REACH-WORK-README`) and says what the hidden `.reach-home` folder holds. PRIVACY.md lists the new copies. No wire change.
+
 ## [0.53.25] - 2026-10-18
 
 ### Fixed

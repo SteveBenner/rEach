@@ -204,10 +204,18 @@ one-line rule when offline.
 ```
 reach check [--changed <path>] [--format text|agent|json]   the one checker the hooks run
 reach plan save|note|show                                    the slice plan, read back each session
-reach checkpoint save|list|show|restore <n>                  snapshots of the slice, no git needed
+reach checkpoint save|list [--all]|show|restore <n>|recover   snapshots of the slice, no git needed
 reach directive <OPCODE> | --list                            the directive bodies
 reach reference list | show <path> | search <words> | links | ingest [--force]  the course reference material
 ```
+
+rEach also saves the slice's files by itself on every write the agent makes, before every write it allows and after
+every check, so the history is never more than one edit old; `reach checkpoint list` shows the saves you named and
+says how many automatic ones `--all` shows, and `restore <n>` takes any of them. Every save is kept twice: under
+`reach-work/.reach-home/checkpoints` and in your computer account's application data folder, outside reach-work, so
+deleting the folder does not lose the history. When a file or a whole work folder goes missing, rEach says so at the
+start of the session, in `reach status` and in `reach doctor`, and `reach checkpoint recover` brings it back from the
+latest save. A reach-work folder inside a cloud-synced folder gets one reminder to keep its files on the device.
 
 Every owned file carries an invisible seal and every session leaves a witness
 ledger; Teach reads both when it assesses a submission's provenance. A

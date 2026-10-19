@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.53.1 |
+| **Registry version** | 0.53.26 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -296,8 +296,37 @@ Build ✅ (branch codex-patch-held, 0.52.16, not pushed) · Deploy 🔵 (not rel
 
 ### 2.5 · Checkpoint
 
-`reach checkpoint save|list|show|restore` snapshots the owned files under `~/.reach/checkpoints`, with no git in the
-workspace.
+`reach checkpoint save|list|show|restore` snapshots the owned files under the Reach home's checkpoints folder, with
+no git in the workspace.
+
+Since 0.53.26 (`STD-CHECKPOINT-AUTOSAVE`) student work is never more than one edit from a saved copy. rEach saves a
+hidden automatic entry after every harness write of an owned file, before every write the slice gate allows, after
+every `reach check`, before a sync touches an existing workspace and after a restore; entries are content-addressed so
+an unchanged file costs nothing, and the hook command lines in course folders did not change. Every entry is mirrored
+to the computer account's application data folder outside reach-work, and reads fall back to it. At session start, in
+`reach status` and in `reach doctor`, rEach says when an owned file is missing or empty while a save holds it, or when
+a work folder is gone while its saves remain, and `reach checkpoint recover` (the `reach_checkpoint` tool's `recover`
+action) puts the folder back and restores the latest save. `reach checkpoint list` shows named saves and says how many
+automatic ones `--all` shows; `restore <n>` takes any number and saves the current state first as a visible entry. A
+reach-work folder inside a cloud-synced folder gets one reminder to keep its files on the device, and
+`reach-work/README.md` says what the hidden folder holds. Checked on 2026-10-18 in scratch state, in process: an
+autosave per write and per allowed write, dedupe by digest, hidden-by-default list, restore from a pre-0.53.26
+`files/` entry, list and recover from the mirror after the primary store was removed, recovery of a removed work
+folder once a package could provision it, the notice shown once and the cloud-folder reminder, `REACH_AUTOSAVE=0`,
+the README written once, and the gate still refusing a write outside the slice.
+
+Student first (the eight questions): learning yes (nothing writes code; history removes the fear of trying); agency
+yes (automatic saves are named as such and hidden unless asked, a restore still asks first, the README explains the
+hidden folder); wellbeing yes (a missing file is one calm sentence with the one command that brings it back); privacy
+yes (every copy stays on the computer and PRIVACY.md lists them); fairness yes (Claude Code, Codex and Hermes save on
+every write, Antigravity on every check; each platform has a data folder rule the fingerprint sidecar already uses);
+friction yes (no new step; one new verb, only for recovery); failure yes (an autosave or mirror failure never blocks a
+write, a hook or a check, and doctor says so); recovery yes (`recover` re-provisions and restores; any entry restores
+and the current state is saved first).
+
+Planned next, not built: a dated archive ZIP per course per day that had changes, written to Downloads and never
+deleted by rEach, with a course-end archive; and de-identified work snapshots on the course server with the
+transcript flush, so a lost laptop loses no unsubmitted work.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 

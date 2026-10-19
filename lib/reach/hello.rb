@@ -77,7 +77,7 @@ module Reach
       end
       return { "context" => framed("hello.session", verified), "notice" => nil } if verified
 
-      notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+      notice = [Reach::Link.notice!, Reach::Issues.notice!, Reach::Checkpoint.notice!].compact.join("\n\n")
       { "context" => nil, "notice" => notice.empty? ? nil : notice }
     rescue StandardError
       nil
@@ -288,6 +288,7 @@ module Reach
       maybe_refresh_status unless local
       workspace = find_workspace(cwd)
       configure_workspace(workspace)
+      Reach::Workspace.ensure_root_readme if defined?(Reach::Workspace)
       safe_late_retry unless local
       safe_transcript_export unless local
       spawn_background(session || Reach::Session.resolve_session_id(event)) if local
@@ -335,6 +336,12 @@ module Reach
     def safe_transcript_export
       Reach::TranscriptExport.spawn_auto_if_due
       nil
+    rescue StandardError
+      nil
+    end
+
+    def safe_copies_notice
+      Reach::Checkpoint.notice!
     rescue StandardError
       nil
     end
@@ -727,6 +734,8 @@ module Reach
       safe_feedback_lines.each { |line| entries << ["hello.session", line] }
       late = safe_late_line(workspace)
       entries << ["hello.late_work", late] if late
+      copies = safe_copies_notice
+      entries << ["hello.session", "- #{copies}"] if copies
       memory = safe_session_context
       entries << ["hello.memory", memory] if memory
       question = safe_course_question

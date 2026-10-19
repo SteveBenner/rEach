@@ -66,6 +66,7 @@ module Reach
       owned = Array(slice["owned_files"])
       target = Reach::Paths.workspace_path(course, assignment, cutout_id, slice_name)
 
+      Reach::Checkpoint.autosave(target, via: "provision") if File.file?(File.join(target, MARKER_DIR, MARKER_FILE))
       prune_stale_kit(target, root, entries)
       kept_files = write_package_entries(target, root, entries, owned)
 
@@ -360,6 +361,7 @@ module Reach
       FileUtils.mkdir_p(root)
       write_space_rules_files(root, "root")
       configure_harness(root)
+      ensure_root_readme
       nil
     end
 
@@ -581,6 +583,16 @@ module Reach
       Reach::Harness.configure_all(target) if defined?(Reach::Harness)
     rescue StandardError
       nil
+    end
+
+    def ensure_root_readme
+      path = Reach::Paths.root_readme_file
+      return false if File.exist?(path) || !Dir.exist?(File.dirname(path))
+
+      File.write(path, Reach::Messages.text("M-REACH-WORK-README"))
+      true
+    rescue StandardError
+      false
     end
 
     def fill_template(template, fields)

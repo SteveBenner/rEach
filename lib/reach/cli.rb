@@ -477,7 +477,7 @@ module Reach
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
-            checkpoint save|list|show|restore    snapshots of the slice's files, kept by rEach
+            checkpoint save|list [--all]|show|restore|recover    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back
             plan save|show|note                  the slice plan
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
@@ -913,9 +913,10 @@ module Reach
         when "session"
           harness_id = options[:harness] || event["harness"] || "claude-code"
           Reach::Gate.session(harness: harness_id)
+          Reach::Workspace.ensure_root_readme
           announced = hermes ? false : announce_guardrails
           unless hermes || announced
-            notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+            notice = [Reach::Link.notice!, Reach::Issues.notice!, Reach::Checkpoint.notice!].compact.join("\n\n")
             puts JSON.generate("systemMessage" => notice) unless notice.empty?
           end
           0
@@ -926,7 +927,7 @@ module Reach
           @gate_decision = "context" if context
           payload = {}
           payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => context } if context
-          message = [Reach::Link.notice!, Reach::Issues.notice!, Reach::Debug.prompt_message(event, options[:harness])].compact.join("\n\n")
+          message = [Reach::Link.notice!, Reach::Issues.notice!, Reach::Checkpoint.notice!, Reach::Debug.prompt_message(event, options[:harness])].compact.join("\n\n")
           payload["systemMessage"] = message unless message.empty?
           puts JSON.generate(payload) unless payload.empty?
           0
@@ -1309,7 +1310,7 @@ module Reach
         else
           Reach::Gate.prompt(event: event, harness: "codex", claimed: true)
         end
-        { "context" => context, "notice" => [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n") }
+        { "context" => context, "notice" => [Reach::Link.notice!, Reach::Issues.notice!, Reach::Checkpoint.notice!].compact.join("\n\n") }
       end
 
       def enroll_login(event, harness_id)
@@ -1389,7 +1390,7 @@ module Reach
         parts = []
         parts << Reach::Hello.context_text(harness: "hermes", cwd: Reach::Paths.cwd, source: "startup", session: Reach::Session.resolve_session_id(event)) if event["is_first_turn"] == true && blocked.nil?
         parts << context if context
-        notice = [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
+        notice = [Reach::Link.notice!, Reach::Issues.notice!, Reach::Checkpoint.notice!].compact.join("\n\n")
         parts << Reach::Messages.text("M-TEACH-LINK-RELAY", text: notice) unless notice.empty?
         parts << blocked.message << HERMES_BLOCK_NOTE if blocked
         puts JSON.generate(parts.empty? ? {} : { "context" => parts.join("\n\n") })
@@ -1872,6 +1873,7 @@ module Reach
         problems.concat(check_keys)
         problems.concat(check_guard)
         problems.concat(check_workspaces)
+        problems.concat(check_copies)
         problems.concat(check_chrome)
         problems.concat(check_gems)
         problems.concat(check_net)
@@ -1902,6 +1904,7 @@ module Reach
         puts Reach::Update.doctor_line
         puts doctor_runtime_line
         puts doctor_planes_line
+        puts Reach::Checkpoint.doctor_line
         puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"
         puts codex_line(codex_status)
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
@@ -2131,6 +2134,28 @@ module Reach
         []
       rescue StandardError
         ["R-DOC-WS: workspaces could not be checked - run reach sync, then reach work"]
+      end
+
+      def check_copies
+        problems = []
+        Reach::Checkpoint.conditions.each do |item|
+          folder = item["folder"]
+          problems << if item["kind"] == "missing"
+                        "R-DOC-COPIES: #{folder} is missing #{item['files'].join(', ')} - run #{Reach::Checkpoint.recover_command(folder)}"
+                      else
+                        "R-DOC-COPIES: the work folder #{folder} of #{item['assignment']} is gone but its saves are kept - run #{Reach::Checkpoint.recover_command(folder)}"
+                      end
+        end
+        state = Reach::Checkpoint.mirror_state
+        if state["failed"] && Reach::Checkpoint.mirror_base
+          problems << "R-DOC-COPIES: the second copy of the saves at #{Reach::Paths.home_relative(Reach::Checkpoint.mirror_base)} could not be written (#{state['failed']}) - check that the folder can be written"
+        end
+        if Reach::Paths.cloud_synced_folder?
+          problems << "R-DOC-CLOUD: the reach-work folder is inside #{Reach::Paths.cloud_folder_name} - set that folder to keep files always on this device"
+        end
+        problems
+      rescue StandardError
+        ["R-DOC-COPIES: the saved copies could not be checked - run reach checkpoint list --all in a slice"]
       end
 
       def check_chrome
@@ -2975,7 +3000,14 @@ module Reach
 
       def cmd_checkpoint(args)
         sub = args.shift
+        all, args = parse_bare_flag(args, "all")
         options, remaining = parse_flags(args, [:note, :slice])
+        if sub == "recover"
+          result = Reach::Checkpoint.recover(slice: options[:slice] || remaining.first)
+          puts result["message"]
+          return 0
+        end
+
         workspace_path = workspace_or_fail(options[:slice])
         return 1 unless workspace_path
 
@@ -2985,7 +3017,7 @@ module Reach
           puts result["message"]
           0
         when "list"
-          entries = Reach::Checkpoint.list(workspace_path)
+          entries = Reach::Checkpoint.list(workspace_path, all: all)
           if entries.empty?
             puts Reach::Messages.text("M-CHECKPOINT-NONE")
           else
@@ -2998,6 +3030,8 @@ module Reach
               previous = entry
             end
           end
+          hidden = all ? 0 : Reach::Checkpoint.hidden_count(workspace_path)
+          puts Reach::Messages.text("M-CHECKPOINT-LIST-HIDDEN", n: hidden) if hidden.positive?
           0
         when "show"
           entry = Reach::Checkpoint.show(workspace_path, remaining.first)
@@ -3013,7 +3047,7 @@ module Reach
           puts result["message"]
           0
         else
-          warn "usage: reach checkpoint save [--note <text>] | list | show <n> | restore <n>"
+          warn "usage: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>]"
           1
         end
       end

@@ -13,6 +13,7 @@ module Reach
         lines << transfer if transfer
         lines << "Your slices:"
         slice_lines.each { |line| lines << "  #{line}" }
+        copies_lines.each { |line| lines << line }
         lines << receipts_line
         lines << hands_line
         lines << rules_line
@@ -91,6 +92,12 @@ module Reach
         []
       end
 
+      def copies_lines
+        Reach::Checkpoint.status_notices
+      rescue StandardError
+        []
+      end
+
       def slice_line(workspace_path)
         meta = Reach::Workspace.metadata(workspace_path)
         cutout_id = meta["cutout_id"]
@@ -99,6 +106,8 @@ module Reach
         shape = shape_summary(workspace_path)
         checks = qualify_summary(workspace_path)
         line = "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   checks: #{checks}"
+        saved = Reach::Checkpoint.status_line(workspace_path)
+        line = "#{line}\n    #{saved}" if saved
         late = Reach::LateWork.status_text(workspace_path)
         late ? "#{line}\n    #{late}" : line
       end
