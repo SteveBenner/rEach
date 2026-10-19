@@ -589,7 +589,7 @@ module Reach
       path = Reach::Paths.root_readme_file
       return false if File.exist?(path) || !Dir.exist?(File.dirname(path))
 
-      File.write(path, Reach::Messages.text("M-REACH-WORK-README"))
+      Reach::StateFile.write_atomic(path, Reach::Messages.text("M-REACH-WORK-README"), mode: 0o644)
       true
     rescue StandardError
       false

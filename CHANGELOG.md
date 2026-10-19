@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.33] - 2026-10-18
+
+### Fixed
+
+- The reach-work README is written through a temporary file renamed into place, like every other file this release writes. `PRIVACY.md` says the checkpoint folder name does not show a student id rather than that it cannot reveal one, since the secret it is made with lives on the same computer. Found by the 0.53.32 release audit.
+
 ## [0.53.32] - 2026-10-18
 
 ### Fixed
