@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.27
+version: 0.53.28
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2907,7 +2907,8 @@ checkpoints:
   store: "<Reach home>/checkpoints/<course>/<assignment>/<workspace>/{NNN/meta.json, blobs/<sha256>}; entries saved before 0.53.26 keep NNN/files/"
   mirror: >-
     Since 0.53.26 every entry is copied to a second store outside the reach-work tree (Reach::Paths.checkpoint_mirror_dir:
-    REACH_CHECKPOINT_MIRROR, else <data dir>/reach/checkpoints where the data dir is ~/Library/Application Support on
+    none while an instructor persona is active, whatever the environment says; else REACH_CHECKPOINT_MIRROR, else
+    <data dir>/reach/checkpoints where the data dir is ~/Library/Application Support on
     macOS, %LOCALAPPDATA% on Windows and $XDG_DATA_HOME or ~/.local/share elsewhere; none while an instructor persona
     is active or config.yml checkpoints.mirror is false). Reads search the primary store, then the mirror; a mirror
     write failure is kept in state/checkpoint-mirror.json and reported by reach doctor (R-DOC-COPIES), never raised.
@@ -2922,7 +2923,8 @@ checkpoints:
   rules: >-
     An identical state is refused (M-CHECKPOINT-SAME) unless the entry that holds it is a hidden autosave and the new
     save is a named one, so a student's save right after the agent's write still gets its name; restore saves the
-    state it replaces first as a visible entry, even when a hidden autosave already holds it; the autosave on write
+    state it replaces first as a visible entry, even when a hidden autosave already holds it, and writes every file
+    through a temporary file renamed into place (STD-STATE-FILE-REPLACE); the autosave on write
     runs before the recording bounds are judged, so it does not depend on the transcript being recorded; every named
     save and restore is a ledger event and a restore
     witnesses the restored files; numbers are one counter, so reach checkpoint list shows the named entries (and says

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.28] - 2026-10-18
+
+### Fixed
+
+- A checkpoint restore writes every file through a temporary file renamed into place, so an interrupted restore never leaves a half-written assignment file. `REACH_CHECKPOINT_MIRROR` no longer creates a mirror while an instructor persona is active. `PRIVACY.md` now says that the copy inside reach-work syncs with a cloud-synced folder, names `$XDG_DATA_HOME` and the override, and says plainly that the copies have no scheduled deletion and no forget command yet. Found by the 0.53.27 release audit.
+
 ## [0.53.27] - 2026-10-18
 
 ### Fixed

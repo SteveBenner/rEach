@@ -604,9 +604,10 @@ module Reach
     end
 
     def checkpoint_mirror_dir
+      return nil if persona_id
+
       override = ENV["REACH_CHECKPOINT_MIRROR"].to_s
       return expand_home(override) unless override.empty?
-      return nil if persona_id
 
       File.join(data_dir, "reach", "checkpoints")
     end

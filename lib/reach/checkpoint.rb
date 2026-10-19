@@ -207,11 +207,9 @@ module Reach
         destination = File.join(workspace, relative)
         content = contents[relative]
         if content
-          FileUtils.mkdir_p(File.dirname(destination))
-          File.chmod(0o644, destination) if File.file?(destination)
-          File.open(destination, "wb") { |f| f.write(content) }
+          Reach::StateFile.write_atomic(destination, content, mode: 0o644)
         elsif File.file?(destination)
-          File.open(destination, "wb") { |f| f.write("") }
+          Reach::StateFile.write_atomic(destination, "", mode: 0o644)
         end
       end
       Reach::Seal.stamp(workspace)
