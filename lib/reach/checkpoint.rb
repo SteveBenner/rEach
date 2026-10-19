@@ -435,6 +435,8 @@ module Reach
 
     def dismiss!(slice: nil)
       wanted = slice.to_s.strip
+      return { "dismissed" => [], "message" => Reach::Messages.text("M-CHECKPOINT-DISMISS-WHICH") } if wanted.empty?
+
       items = orphans
       items = items.select { |item| slice_filter([item["folder"]], wanted).any? }
       clash = ambiguous(items.map { |item| item["folder"] }, wanted)
@@ -558,6 +560,8 @@ module Reach
 
     def dismiss_via_consent!(slice: nil)
       wanted = slice.to_s.strip
+      return dismiss!(slice: slice).merge("relay_verbatim" => true) if wanted.empty?
+
       items = orphans.select { |item| slice_filter([item["folder"]], wanted).any? }
       return dismiss!(slice: slice).merge("relay_verbatim" => true) if items.empty?
 

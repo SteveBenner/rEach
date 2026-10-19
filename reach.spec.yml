@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.38
+version: 0.53.39
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2955,7 +2955,7 @@ checkpoints:
     action recover) provisions a missing folder from the stored package and restores the newest entry since the
     last deliberate one that still holds every missing file, else the latest entry (M-CHECKPOINT-RECOVERED,
     M-CHECKPOINT-DISMISSED: reach checkpoint dismiss --slice S records the vanished folder in state/checkpoint-dismissed.json
-    so orphans skips it while its saves stay; through the reach_checkpoint tool, recover and dismiss first ask the student
+    so orphans skips it while its saves stay, and refuses without a slice name (M-CHECKPOINT-DISMISS-WHICH); through the reach_checkpoint tool, recover and dismiss first ask the student
     through Reach::Consent (kinds checkpoints_recover and checkpoints_dismiss, M-CHECKPOINT-RECOVER-ASK and
     M-CHECKPOINT-DISMISS-ASK) and act once after the yes, while the command line acts at once because the student runs it; reach checkpoint forget [--slice S] and the tool's forget action delete the
     student's stores in both places (and the student's own .adopted set-asides when no slice is named) file by file after the student's

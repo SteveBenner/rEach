@@ -226,6 +226,7 @@ messages:
   M-CHECKPOINT-RECOVER-ASK: "rEach will bring back {slices} from its newest saved copy that still holds the missing files. What is there now is saved first, so nothing is lost. Say yes to go ahead."
   M-CHECKPOINT-DISMISS-ASK: "rEach will stop reporting {slices} as missing. Its saved copies stay until you forget them, and you can still run reach checkpoint recover later. Say yes to go ahead."
   M-CHECKPOINT-DISMISSED: "Noted. rEach will stop reporting {slices} as missing; its saved copies stay until you forget them."
+  M-CHECKPOINT-DISMISS-WHICH: "Say which work folder to stop reporting: reach checkpoint dismiss --slice <folder>. Nothing was changed."
   M-CHECKPOINT-DISMISS-NONE: "No missing work folder matches, so there is nothing to dismiss."
   M-CHECKPOINT-FORGET-ASK: "This deletes the copies rEach keeps of your work files for {slices}: {entries} saves, about {kb} KB, in both places on this computer. Your work files themselves are not touched, and nothing on your course server changes. Folders rEach keeps but does not read (from an older layout or another enrollment) are not removed; reach doctor counts them. After this, rEach cannot bring an earlier version of those files back. Say yes to delete."
   M-CHECKPOINT-SLICE-AMBIGUOUS: "More than one work folder matches {slice}: {slices}. Say which one by its full folder name."
