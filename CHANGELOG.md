@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.38] - 2026-10-19
+
+### Fixed
+
+- The `reach_checkpoint` tool's `recover` and `dismiss` actions now ask the student through Reach's consent question before acting, as the checkpoint skill already required, and act once after the yes (`M-CHECKPOINT-RECOVER-ASK`, `M-CHECKPOINT-DISMISS-ASK`); the command line, which the student runs themselves, is unchanged. The forget receipt records home-relative paths. `FEATURES.md` no longer describes the Codex patch check as unshipped. From the 0.53.37 release audit.
+
 ## [0.53.37] - 2026-10-19
 
 ### Fixed

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.53.37 |
+| **Registry version** | 0.53.38 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -292,7 +292,7 @@ S-* ids) and CK-SHAPE; `--format text|agent|json|hermes` and `--changed <path>` 
 
 Since 0.52.16 (`STD-CODEX-PATCH-CHECK`) the post-write hook understands a Codex `apply_patch`. Its patch is in `tool_input.command`, not in a file path, so `reach check --format agent` had no target and, from a root session with two or more slices, ended with `M-PICK-SLICE` ("Which slice?") after every patch (Teach bug iss_a045, since 0.51.11). It now reads the targets from the patch, rebased on the tool's working folder or the event's folder, and checks each slice the patch touched, once; a patch that touches only root files exits quietly, and the hook never asks which slice. Verified in a scratch home on Linux with synthetic Codex and Claude payloads and two slices: a patch inside one slice checked that slice only, a patch spanning two checked both, a root-only patch exited 0 with no output, a Claude Write checked its slice as before, and the unchanged 0.52.15 code printed "Which slice?" and exited 2 for the first payload. Not seen in a real Codex session.
 
-Build ✅ (branch codex-patch-held, 0.52.16, not pushed) · Deploy 🔵 (not released; takes effect on a copy once it reaches 0.52.16) · Blocker: Human (the instructor approves the ship; stable promotion).
+Build ✅ · Deploy ✅ (on main and stable since 0.52.16) · Blocker: none.
 
 ### 2.5 · Checkpoint
 

@@ -542,6 +542,33 @@ module Reach
       Reach::Messages.text("M-CHECKPOINT-FORGET-ASK", **forget_fields(inventory))
     end
 
+    def recover_via_consent!(slice: nil)
+      items = conditions
+      wanted = slice.to_s.strip
+      items = items.select { |item| slice_filter([item["folder"]], wanted).any? }
+      return recover(slice: slice).merge("relay_verbatim" => true) if items.empty?
+
+      folders = items.map { |item| item["folder"] }.uniq.sort
+      subject = { "slice" => wanted, "folders" => folders }
+      return recover(slice: slice).merge("relay_verbatim" => true) if Reach::Consent.take!(kind: "checkpoints_recover", subject: subject)
+
+      question = Reach::Consent.ask!(kind: "checkpoints_recover", subject: subject, message_id: "M-CHECKPOINT-RECOVER-ASK", fields: { slices: folders.join(", ") })
+      { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => question, "text" => question }
+    end
+
+    def dismiss_via_consent!(slice: nil)
+      wanted = slice.to_s.strip
+      items = orphans.select { |item| slice_filter([item["folder"]], wanted).any? }
+      return dismiss!(slice: slice).merge("relay_verbatim" => true) if items.empty?
+
+      folders = items.map { |item| item["folder"] }.uniq.sort
+      subject = { "slice" => wanted, "folders" => folders }
+      return dismiss!(slice: slice).merge("relay_verbatim" => true) if Reach::Consent.take!(kind: "checkpoints_dismiss", subject: subject)
+
+      question = Reach::Consent.ask!(kind: "checkpoints_dismiss", subject: subject, message_id: "M-CHECKPOINT-DISMISS-ASK", fields: { slices: folders.join(", ") })
+      { "state" => "needs_confirmation", "relay_verbatim" => true, "message" => question, "text" => question }
+    end
+
     def forget_via_consent!(slice: nil)
       inventory = forget_inventory(slice: slice)
       return { "state" => "ambiguous", "relay_verbatim" => true, "message" => inventory["ambiguous"] } if inventory["ambiguous"]
@@ -594,7 +621,8 @@ module Reach
       path = File.join(dir, "forget-#{at.strftime('%Y%m%dT%H%M%SZ')}-#{Process.pid}.json")
       record = {
         "schema" => "reach.checkpoints-forget/v1", "at" => at.strftime("%Y-%m-%dT%H:%M:%SZ"), "bytes" => bytes,
-        "stores" => inventory["stores"], "entries" => inventory["entries"], "files" => deleted.length, "paths" => deleted
+        "stores" => inventory["stores"].map { |store| Reach::Paths.home_relative(store) }, "entries" => inventory["entries"],
+        "files" => deleted.length, "paths" => deleted.map { |path| Reach::Paths.home_relative(path) }
       }
       File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(JSON.pretty_generate(record)) }
       path

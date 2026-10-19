@@ -223,6 +223,8 @@ messages:
   M-CHECKPOINT-NONE-LINE: "saved: not yet"
   M-WORK-MISSING: "Some of your work files in {slice} are missing or empty: {files}. rEach kept copies of them. Run {command} to bring them back; what is there now is saved first, so nothing is lost."
   M-WORK-FOLDER-MISSING: "Your work folder {slice} for {assignment} is gone, but rEach kept copies of its files. Run {command} to bring it back, or {dismiss} if you removed it on purpose."
+  M-CHECKPOINT-RECOVER-ASK: "rEach will bring back {slices} from its newest saved copy that still holds the missing files. What is there now is saved first, so nothing is lost. Say yes to go ahead."
+  M-CHECKPOINT-DISMISS-ASK: "rEach will stop reporting {slices} as missing. Its saved copies stay until you forget them, and you can still run reach checkpoint recover later. Say yes to go ahead."
   M-CHECKPOINT-DISMISSED: "Noted. rEach will stop reporting {slices} as missing; its saved copies stay until you forget them."
   M-CHECKPOINT-DISMISS-NONE: "No missing work folder matches, so there is nothing to dismiss."
   M-CHECKPOINT-FORGET-ASK: "This deletes the copies rEach keeps of your work files for {slices}: {entries} saves, about {kb} KB, in both places on this computer. Your work files themselves are not touched, and nothing on your course server changes. Folders rEach keeps but does not read (from an older layout or another enrollment) are not removed; reach doctor counts them. After this, rEach cannot bring an earlier version of those files back. Say yes to delete."

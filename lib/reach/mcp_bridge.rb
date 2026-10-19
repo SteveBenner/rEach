@@ -140,7 +140,7 @@ module Reach
       },
       {
         "name" => "reach_checkpoint",
-        "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing; dismiss stops rEach reporting a work folder the student removed on purpose; forget deletes the saved copies of one slice or of everything and saves a receipt: the first call asks the student through Reach, so relay its question word for word, and after a yes the same call deletes once",
+        "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing; dismiss stops rEach reporting a work folder the student removed on purpose; forget deletes the saved copies of one slice or of everything and saves a receipt. recover, dismiss and forget each ask the student through Reach on the first call, so relay the question word for word; after the student's yes the same call acts once",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
@@ -733,9 +733,9 @@ module Reach
         when "reach_checkpoint"
           case arguments["action"]
           when "recover"
-            Reach::Checkpoint.recover(slice: arguments["slice"]).merge("relay_verbatim" => true)
+            Reach::Checkpoint.recover_via_consent!(slice: arguments["slice"])
           when "dismiss"
-            Reach::Checkpoint.dismiss!(slice: arguments["slice"]).merge("relay_verbatim" => true)
+            Reach::Checkpoint.dismiss_via_consent!(slice: arguments["slice"])
           when "forget"
             Reach::Checkpoint.forget_via_consent!(slice: arguments["slice"])
           else
