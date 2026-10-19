@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.30
+version: 0.53.31
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2911,18 +2911,20 @@ checkpoints:
     first 16 hex digits of sha256(<salt>:<student id>) where the salt is a random 32-hex value kept in state/checkpoint-salt.json
     and in the sidecar (either copy restores the other), local when no enrollment is readable. A store an earlier
     release left under the unkeyed path, under local, or under the unsalted 0.53.29 key is adopted (entries and blobs
-    merged, the old folder set aside as <folder>.adopted-<stamp>) only when it is provably the student's: one of its
+    merged, an entry whose number is already taken renumbered after the highest, the old folder set aside under
+    <base>/.adopted/<stamp>-<path> and its emptied parents removed) only when it is provably the student's: one of its
     entries matches the student's own store by time and digests, or its recorded ledger head belongs to a ledger record
-    of this student, or every record of the workspace ledger carries this student's id. Every checkpoint folder is
-    created mode 0700.
+    of this student, or, for the primary store only (the ledger lives beside it), every record of the workspace ledger
+    carries this student's id. Every checkpoint folder is created mode 0700.
   mirror: >-
     Since 0.53.26 every entry is copied to a second store outside the reach-work tree (Reach::Paths.checkpoint_mirror_dir:
     none while an instructor persona is active, whatever the environment says, or while config.yml checkpoints.mirror
     is false; else REACH_CHECKPOINT_MIRROR, else <data dir>/reach/checkpoints where the data dir is
     ~/Library/Application Support on macOS, %LOCALAPPDATA% on Windows and $XDG_DATA_HOME or ~/.local/share elsewhere),
     under the same <student key>/<course>/<assignment>/<workspace> layout; a mirror an earlier release wrote under the
-    unkeyed path, local or the unsalted key is adopted under the same ownership proof as the primary store, and left
-    unread otherwise, so an earlier student's second copy is never adopted. Reads search the primary store, then the mirror; a mirror
+    unkeyed path, local or the unsalted key is adopted under the same ownership proof as the primary store except the
+    whole-ledger rule (a fresh Reach home has a fresh ledger while the mirror outlives it), and left unread otherwise,
+    so an earlier student's second copy is never adopted. Reads search the primary store, then the mirror; a mirror
     write failure is kept in state/checkpoint-mirror.json and reported by reach doctor (R-DOC-COPIES), never raised.
   autosave: >-
     Since 0.53.26 rEach saves a hidden entry (automatic, via write, pre_write, check, provision or restored) after

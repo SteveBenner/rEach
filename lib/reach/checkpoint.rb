@@ -63,7 +63,7 @@ module Reach
       keyed = File.join(Reach::Paths.checkpoints_dir, key, relative_dir(workspace))
       earlier_keys.each do |earlier|
         source = File.join(Reach::Paths.checkpoints_dir, earlier, relative_dir(workspace))
-        adopt(source, keyed, workspace, [keyed]) if File.directory?(source)
+        adopt(source, keyed, workspace, [keyed], Reach::Paths.checkpoints_dir, ledger_vouches: true) if File.directory?(source)
       end
       keyed
     end
@@ -77,12 +77,12 @@ module Reach
       primary = dir(workspace) unless earlier.empty?
       earlier.each do |name|
         source = File.join(base, name, relative_dir(workspace))
-        adopt(source, keyed, workspace, [primary, keyed]) if File.directory?(source)
+        adopt(source, keyed, workspace, [primary, keyed], base, ledger_vouches: false) if File.directory?(source)
       end
       keyed
     end
 
-    def owned_store?(source, workspace, own_bases)
+    def owned_store?(source, workspace, own_bases, ledger_vouches:)
       entries = entries_in(source)
       return false if entries.empty?
 
@@ -97,7 +97,7 @@ module Reach
       student = student_id
       records = ledger_records(workspace)
       return false if student.nil? || records.empty?
-      return true if records.all? { |record| record["student_id"].to_s == student }
+      return true if ledger_vouches && records.all? { |record| record["student_id"].to_s == student }
 
       tags = records.each_with_object({}) { |record, map| map[record["tag"].to_s] = record["student_id"].to_s }
       entries.any? { |entry| tags[entry["ledger_head"].to_s] == student }
@@ -112,25 +112,51 @@ module Reach
       []
     end
 
-    def adopt(source, keyed, workspace, own_bases)
-      return nil unless owned_store?(source, workspace, own_bases)
+    def adopt(source, keyed, workspace, own_bases, base, ledger_vouches:)
+      return nil unless owned_store?(source, workspace, own_bases, ledger_vouches: ledger_vouches)
 
       private_dir(File.join(keyed, "blobs"))
-      Dir.children(source).each do |name|
+      taken = entries_in(keyed).map { |entry| entry["n"].to_i }
+      next_n = (taken.max || 0) + 1
+      Dir.children(source).sort.each do |name|
         item = File.join(source, name)
         if name == "blobs"
           Dir.children(item).each do |blob|
             target = File.join(keyed, "blobs", blob)
             FileUtils.mv(File.join(item, blob), target) unless File.file?(target)
           end
+        elsif name.match?(/\A\d{3,}\z/) && File.exist?(File.join(keyed, name))
+          next unless File.file?(File.join(item, "meta.json"))
+
+          meta = JSON.parse(File.read(File.join(item, "meta.json")))
+          next unless meta.is_a?(Hash)
+
+          while taken.include?(next_n)
+            next_n += 1
+          end
+          meta["n"] = next_n
+          Reach::StateFile.write_atomic(File.join(item, "meta.json"), JSON.generate(meta), mode: 0o600)
+          FileUtils.mv(item, File.join(keyed, format("%03d", next_n)))
+          taken << next_n
         elsif !File.exist?(File.join(keyed, name))
           FileUtils.mv(item, File.join(keyed, name))
         end
       end
       File.chmod(0o700, keyed)
-      FileUtils.mv(source, "#{source}.adopted-#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}")
+      set_aside(source, base)
     rescue StandardError
       nil
+    end
+
+    def set_aside(source, base)
+      parked = private_dir(File.join(base, ".adopted"))
+      label = source.sub("#{base}/", "").tr("/", "-")
+      FileUtils.mv(source, File.join(parked, "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{label}"))
+      parent = File.dirname(source)
+      while parent != base && parent.start_with?(base) && File.directory?(parent) && Dir.empty?(parent)
+        Dir.rmdir(parent)
+        parent = File.dirname(parent)
+      end
     end
 
     def private_dir(path)

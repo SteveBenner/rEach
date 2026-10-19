@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.31] - 2026-10-18
+
+### Fixed
+
+- Adopting an earlier release's checkpoint store: the second copy outside reach-work is adopted only on an entry match or a ledger record of this student, never because a fresh ledger happens to carry only their records; an adopted entry whose number is already taken is renumbered after the highest instead of being left unreachable; the old folder is set aside under `.adopted/` at the store root and its emptied parent folders, including an unsalted 0.53.29 key folder, are removed. `PRIVACY.md` and `README.md` now say that rEach never shows or restores another student's saves, and that anyone using the same computer account can still open the folders. Found by the 0.53.30 release audit.
+
 ## [0.53.30] - 2026-10-18
 
 ### Fixed
