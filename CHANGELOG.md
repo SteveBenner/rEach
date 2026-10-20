@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.3] - 2026-10-20
+
+### Fixed
+
+- The path scrub in qualify fault records no longer depends on the characters in folder names: from `~/`, a drive letter, a network prefix or an absolute `/`, everything up to the final segment is dropped (accented letters, apostrophes and any number of words included), and a home path keeps only `~/…` and the file extension.
+
+### Changed
+
+- Wire revision 2026-10-21c lists the `faked_port_echo` pattern kind in W-PKG-PATTERNS-1 and the standard.
+- The `PRIVACY.md` fault-record bullet lists the remaining non-personal fields: match locations inside the assignment folder, check values of the plan, constraints, files, tests and kit, the picked pass's scores and the qualification id.
+
 ## [0.56.2] - 2026-10-20
 
 ### Fixed

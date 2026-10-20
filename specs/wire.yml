@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-21b
+revision: 2026-10-21c
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -380,7 +380,7 @@ packages:
       patterns.yml: >-
         YAML map {schema: reach.patterns/v1, patterns: [...]}. Each entry is {id, severity: block | warn | info, points:
         [plan | scenarios | code], kind: regex_owned | regex_feature | regex_steps | i18n_keys | last_run |
-        literal_echo | port_args, parameters: a map the kind reads, message, remedy, cutout and slice (both optional: an
+        literal_echo | port_args | faked_port_echo (since 2026-10-21c), parameters: a map the kind reads, message, remedy, cutout and slice (both optional: an
         entry that names them applies only to that cutout and slice)}. message and remedy are plain words for the
         student's agent and never name a hidden scenario or an expected value. An entry whose id equals one of the
         patterns shipped in Reach's repository (patterns/generic.yml) replaces it. Entries of a kind or with
@@ -2531,7 +2531,7 @@ qualification:
       README text and no student identity: a path under the home directory is cut to ~/… and its file extension, and any
       other path outside the workspace, including Windows drive-letter and backslash paths, is dropped. Reach keeps the newest 200 in .reach/qualify-faults.jsonl, sends them as POST /api/v1/qualify-faults right
       after the attempt and again from that file, at most 60 an hour per install (the rest are counted and sent later),
-      and never lets a failed send block or fail a qualification. REACH_QUALIFY_FAULTS_DISABLE=1 stops the record and the send. Since revision 2026-10-21b the scrub cuts a path under the home directory to ~/… and its extension and drops Windows paths, and the switch exists; revision 2026-10-21a dropped only forward-slash paths outside the workspace. A hand bundle lists the fault_id of each of its attempts
+      and never lets a failed send block or fail a qualification. REACH_QUALIFY_FAULTS_DISABLE=1 stops the record and the send. Since revision 2026-10-21b the scrub (made independent of the characters in folder names in 2026-10-21c) cuts a path under the home directory to ~/… and its extension and drops Windows paths, and the switch exists; revision 2026-10-21a dropped only forward-slash paths outside the workspace. A hand bundle lists the fault_id of each of its attempts
       (W-PKG-6-v2). Teach stores the records beside the qualification, may add a record of its own for a failed remote
       qualification, and returns no hidden result to Reach (STD-TEACH-OPAQUE).
   W-QUAL-PLAN-1:
