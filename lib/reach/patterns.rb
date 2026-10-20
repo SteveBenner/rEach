@@ -1,5 +1,6 @@
 require "json"
 require "yaml"
+require "timeout"
 
 module Reach
   module Patterns
@@ -208,6 +209,19 @@ module Reach
     end
 
     def run_entry(entry, scope)
+      Thread.current[:reach_pattern_deadline] = Process.clock_gettime(Process::CLOCK_MONOTONIC) + BUDGET_S
+      if Regexp.respond_to?(:timeout)
+        run_entry_bounded(entry, scope)
+      else
+        Timeout.timeout(BUDGET_S, PatternTimeout) { run_entry_bounded(entry, scope) }
+      end
+    rescue *timeout_errors
+      [timeout_row(entry)]
+    ensure
+      Thread.current[:reach_pattern_deadline] = nil
+    end
+
+    def run_entry_bounded(entry, scope)
       params = entry["parameters"].is_a?(Hash) ? entry["parameters"] : {}
       return [] unless constraints_apply?(params, scope)
 
@@ -225,6 +239,8 @@ module Reach
       hits.map do |file, line|
         { "id" => entry["id"], "severity" => entry["severity"], "file" => file, "line" => line, "message" => entry["message"].to_s, "remedy" => entry["remedy"].to_s }
       end
+    rescue *timeout_errors
+      raise
     rescue StandardError
       []
     end
@@ -234,10 +250,31 @@ module Reach
       list.empty? ? %w[rb] : list
     end
 
+    class PatternTimeout < StandardError; end
+
+    BUDGET_S = 2
+    TIMEOUT_ID = "pattern_timeout".freeze
+
     def compile(source)
-      source.to_s.empty? ? nil : Regexp.new(source.to_s)
+      return nil if source.to_s.empty?
+
+      Regexp.respond_to?(:timeout) ? Regexp.new(source.to_s, timeout: BUDGET_S) : Regexp.new(source.to_s)
     rescue RegexpError
       nil
+    end
+
+    def check_deadline!
+      deadline = Thread.current[:reach_pattern_deadline]
+      raise PatternTimeout if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+    end
+
+    def timeout_row(entry)
+      message = "The pattern #{entry['id']} took too long on this computer and was skipped."
+      { "id" => TIMEOUT_ID, "severity" => "warn", "file" => nil, "line" => nil, "message" => message, "remedy" => "Tell your instructors; nothing is wrong with your work." }
+    end
+
+    def timeout_errors
+      defined?(Regexp::TimeoutError) ? [PatternTimeout, Regexp::TimeoutError] : [PatternTimeout]
     end
 
     def constraints_apply?(params, scope)
@@ -245,7 +282,7 @@ module Reach
       return true unless gate
 
       text = scope.constraints_text
-      text.empty? || text.match?(Regexp.new(gate.source, Regexp::IGNORECASE))
+      text.empty? || text.match?(Regexp.respond_to?(:timeout) ? Regexp.new(gate.source, Regexp::IGNORECASE, timeout: BUDGET_S) : Regexp.new(gate.source, Regexp::IGNORECASE))
     end
 
     def comment_line?(relative, line)
@@ -267,6 +304,7 @@ module Reach
         next if excludes && text.match?(excludes)
 
         text.each_line.with_index(1) do |line, number|
+          check_deadline!
           next if comment_line?(relative, line)
           next unless line.match?(pattern)
           next if exclude && line.match?(exclude)
@@ -454,6 +492,7 @@ module Reach
         next unless text
 
         text.each_line.with_index(1) do |line, number|
+          check_deadline!
           next if comment_line?(relative, line)
 
           hits << [relative, number] if line.match?(call)
