@@ -146,7 +146,7 @@ module Reach
         entries << ["hello.course", "- #{Reach::Messages.text('M-CTX-FIRST')}"]
       end
       unless need.empty?
-        files = need.map { |entry| "`#{entry['path']}` (#{entry['title']})" }.join("; ")
+        files = need.map { |entry| entry["title"].empty? ? "`#{entry['path']}`" : "`#{entry['path']}` (#{entry['title']})" }.join("; ")
         entries << ["hello.session", "- #{Reach::Messages.text('M-CTX-READ', assignment: spot['assignment'], files: files)}"]
       end
       entries << ["hello.session", "- #{Reach::Messages.text('M-CTX-READ-NONE', assignment: spot['assignment'])}"] if spot && need.empty?

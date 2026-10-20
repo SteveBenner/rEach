@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.5] - 2026-10-20
+
+### Fixed
+
+- `Reach::Threads.write` also sets 0600 on its temporary file after opening it, so a stale temporary file left by a crash cannot carry looser permissions onto `state/threads.json` (release gate SEC-AUDIT, low, on 0.54.4).
+- A course file with no usable title is named by its path alone in the reading list, instead of followed by empty parentheses (release gate SEC-AUDIT, info, on 0.54.4).
+
 ## [0.54.4] - 2026-10-20
 
 ### Fixed
