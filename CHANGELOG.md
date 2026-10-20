@@ -5,9 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.3] - 2026-10-19
+
+### Added
+
+- Every new chat starts from the student's assignment, not from the chat (STD-ASSIGNMENT-CONTEXT). `Reach::Threads` (`lib/reach/threads.rb`, `state/threads.json`) records each chat across harnesses by session id: harness, first and last seen, assignment, phase, course-material digest, required reads and reads (paths only, never text). `Reach::AssignmentContext` (`lib/reach/assignment_context.rb`) takes the assignment from the slice workspace or the cached status and the phase from `reach next` (start, plan, part, build, submit, wait, review, done).
+- `reach hello` states the assignment and phase (`M-CTX-WHERE`), compares them with the last chat in any harness (`M-CTX-LAST`: assignment or phase moved, new course-server results, course material changed), names the phase's directives (`M-CTX-DIRECTIVES`, from `parameters.assignment_context.phases` in `specs/polispec/behavior.yml`) and tells the agent which course files to read into the chat for that assignment (`M-CTX-READ`). The files are the reference files tagged for the assignment (and phase) by AIvoryTower 0.26.0 and Teach 0.98.2; without tags, a file whose title or path names the assignment.
+- `reach reference show` and the `reach_reference` tool record each read against the chat (`CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`, else the harness's active chat). The prompt gate reminds the agent (`M-CTX-REMIND`, `notice.next`) until every required file is read; a compacted chat reads them again. `REACH_ASSIGNMENT_CONTEXT=0` turns all of it off.
+
+### Changed
+
+- The compiled policy requires `parameters.assignment_context` (`max_threads`, `max_reads`, `phases`). No wire change.
+
 ## [0.54.2] - 2026-10-19
 
 ### Fixed
+
 - The platform smoke's doctor step tolerates the informational `R-DOC-COPIES: <n> saves, <k> KB, second copy at <path>`
   line that 0.53.26 added, which failed the test health check of every promotion since (first seen on 0.54.1).
 

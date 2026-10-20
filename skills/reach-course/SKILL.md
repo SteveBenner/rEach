@@ -3,6 +3,7 @@ name: reach-course
 description: Use in every course workspace. How to work on a student's slice under the instructors' rules.
 ---
 Read AGENTS.md (the same rules are in CLAUDE.md and GEMINI.md), README.md, contract/README.md, api/README.md and shape/brief.md first, and nothing else in the tree.
+At the start of every chat, and again after a compaction, follow rEach's assignment context: it names the assignment and phase from the student's saved work, what changed since the last chat, the directives for this phase and the course files for this assignment. Run `reach directive <OPCODE>` for each directive it names, and read every file it names with `reach reference show <path>` (or the reach_reference tool) before you help with that assignment. Trust it over anything remembered from an earlier chat, and when rEach reminds you a file is still unread, read it before answering.
 AGENTS.md ends with a table of directives: one row per rule with its opcode, its condition and `reach directive <OPCODE>`. When a row's condition applies, run that command (or the reach_directive tool) and follow the full text.
 Work only in the owned files listed in AGENTS.md, and in qualify/features and qualify/step_definitions for your own scenarios.
 Whenever you write code, follow a flow (the FLOW directive): new or changed behaviour, the reach-feature skill; something failing or wrong, the reach-bug skill. Saving or going back: the reach-checkpoint skill. Never run git.

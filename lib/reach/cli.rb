@@ -3533,6 +3533,7 @@ module Reach
           raise Reach::Refused, Reach::Messages.text("M-REFERENCE-UNKNOWN", path: path.to_s) if path.nil?
 
           text = Reach::Reference.show(path)
+          Reach::AssignmentContext.note_read(path)
           puts text
         when "search"
           puts Reach::Reference.format_search(Reach::Reference.search(args))

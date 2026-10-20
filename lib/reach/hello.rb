@@ -320,7 +320,7 @@ module Reach
         Reach::Feedback.reach_out_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session, source: source)
       [greeting_id, greeting_text, banner, context]
     end
 
@@ -397,6 +397,12 @@ module Reach
 
     def safe_exam_entries
       Array(Reach::ExamMode.context_entries)
+    rescue StandardError
+      []
+    end
+
+    def safe_assignment_entries(session, harness_id, source, workspace)
+      Reach::AssignmentContext.hello_entries(session: session, harness: harness_id, source: source, workspace: workspace)
     rescue StandardError
       []
     end
@@ -710,7 +716,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false, session: nil)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false, session: nil, source: nil)
       entries = []
       entries << ["hello.session", "rEach session context (from reach hello)"]
       entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
@@ -730,6 +736,7 @@ module Reach
       interview = interview_line(session)
       entries << ["hello.profile", interview] if interview
       entries << ["hello.course", course_line]
+      safe_assignment_entries(session, harness_id, source, workspace).each { |entry| entries << entry }
       entries.concat(alignment_lines)
       safe_feedback_lines.each { |line| entries << ["hello.session", line] }
       late = safe_late_line(workspace)

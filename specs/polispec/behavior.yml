@@ -605,6 +605,18 @@ parameters:
   directive_table:
     rule_width: 88
     table_limit: 6000
+  assignment_context:
+    max_threads: 64
+    max_reads: 12
+    phases:
+      start: [RESUME, LEAN]
+      plan: [RESUME, PLAN1ST]
+      part: [RESUME]
+      build: [RESUME, PLAN1ST, FLOW, CODEFILE, QUALIFY, CHECKPOINT]
+      submit: [QUALIFY, VERIFY]
+      wait: [RESUME]
+      review: [FLOW, TOZERO, CHECKPOINT]
+      done: []
   agent_control_contract:
     authority: teach
     schema: teach.agent-control/v1

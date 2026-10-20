@@ -1097,7 +1097,10 @@ module Reach
       def reference_tool(arguments)
         case arguments.fetch("action")
         when "list" then { "files" => Reach::Reference.list }
-        when "show" then { "text" => Reach::Reference.show(arguments.fetch("path")) }
+        when "show"
+          shown = Reach::Reference.show(arguments.fetch("path"))
+          Reach::AssignmentContext.note_read(arguments.fetch("path"))
+          { "text" => shown }
         when "search" then { "results" => Reach::Reference.search(arguments.fetch("terms").to_s.split) }
         when "links" then { "links" => Reach::Reference.links }
         else raise Reach::Error, "reach: unknown reference action"

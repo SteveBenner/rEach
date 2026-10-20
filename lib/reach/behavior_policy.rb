@@ -15,6 +15,7 @@ module Reach
       "control.submit" => ["C-HOLD", %w[active]],
       "control.mcp" => ["C-TEST-TOOL", %w[locked allowed]]
     }.freeze
+    ASSIGNMENT_PHASES = %w[start plan part build submit wait review done].freeze
 
     module_function
 
@@ -107,6 +108,13 @@ module Reach
       unless %w[instructor student_choice].include?(selection["mode"]) && selection["count"].is_a?(Integer) && selection["count"] > 0 && selection["options"].is_a?(Array) && selection["slices"].is_a?(Array)
         raise Invalid, "invalid module-selection defaults"
       end
+      context = params["assignment_context"]
+      phases = context.is_a?(Hash) ? context["phases"] : nil
+      valid_context = context.is_a?(Hash) &&
+                      [context["max_threads"], context["max_reads"]].all? { |value| value.is_a?(Integer) && value > 0 } &&
+                      phases.is_a?(Hash) && phases.keys.sort == ASSIGNMENT_PHASES.sort &&
+                      phases.values.all? { |list| list.is_a?(Array) && list.all? { |opcode| opcode.is_a?(String) && opcode.match?(/\A[A-Z][A-Z0-9]{2,9}\z/) } }
+      raise Invalid, "invalid assignment context" unless valid_context
       rules = doc["rules"]
       raise Invalid, "policy rules are missing" unless rules.is_a?(Array) && rules.all? { |rule| rule.is_a?(Hash) }
       raise Invalid, "duplicate policy rules" unless rules.map { |rule| rule["id"] }.uniq.size == rules.size

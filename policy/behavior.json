@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v1",
-  "digest": "sha256:a45679a58dbd2301b53ef44abc888d77ac48333a90814228497a5fee1e7797dc",
+  "digest": "sha256:566c45e4299c7a1b376c8f5f6df9d7426add0f8be2893d652a39cb657e08acfe",
   "policy": {
     "authority": {
       "authentication": "release",
@@ -198,6 +198,44 @@
         "schema": "teach.agent-control/v1",
         "sha256": "84f0fff52c9a8a79a551d24ec9bc2730e2f3ab4b94864b026555c91821bab7d0",
         "source": "agent-control/agent-control.yml"
+      },
+      "assignment_context": {
+        "max_reads": 12,
+        "max_threads": 64,
+        "phases": {
+          "build": [
+            "RESUME",
+            "PLAN1ST",
+            "FLOW",
+            "CODEFILE",
+            "QUALIFY",
+            "CHECKPOINT"
+          ],
+          "done": [],
+          "part": [
+            "RESUME"
+          ],
+          "plan": [
+            "RESUME",
+            "PLAN1ST"
+          ],
+          "review": [
+            "FLOW",
+            "TOZERO",
+            "CHECKPOINT"
+          ],
+          "start": [
+            "RESUME",
+            "LEAN"
+          ],
+          "submit": [
+            "QUALIFY",
+            "VERIFY"
+          ],
+          "wait": [
+            "RESUME"
+          ]
+        }
       },
       "control": {
         "test_tools": [
