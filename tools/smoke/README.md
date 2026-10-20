@@ -1,5 +1,258 @@
 # Reach smoke test
 
+## Full course pipeline smoke
+
+`course_matrix.rb` inventories every module and assignment slot from Grokit
+`v0.10.1`, both backend and panel slices, and every required answer shape from
+Teach's developer specification. It reads pinned source with `git show`, keeps
+implementations out of the inventory and agent prompts, and fails if a module, slot,
+owned slice, or tagged scenario is absent. Course mapping confirmed by Sven:
+SMOKECHOICEFA26 uses student choice; smoke-assign-fa26 uses instructor assignment.
+These are synthetic test profiles, not snapshots of live course settings.
+
+The inventory is 280 cases: two courses × ten modules × seven cutouts × two
+slice kinds. A1 has one cutout per module; A2, A3, and A4 each have two. Every
+case also includes all four of that assignment's student questions. The older
+`slice_build.rb` and `assignment_one.rb` remain narrow runners; neither proves
+coverage of this matrix.
+
+`scenarios` lists the protected graded cases. `local_scenarios` lists the
+delivered practice cases for panel replay kits, and the graded cases for backend
+slices. Local practice inputs differ from graded inputs. Local coverage and the
+starting-stub check require the shipped practice names; Teach independently runs
+every protected graded name. An absent or empty practice contract fails closed.
+
+```
+ruby tools/smoke/course_matrix.rb --plan
+ruby tools/smoke/course_matrix.rb --run
+ruby tools/smoke/course_matrix.rb --plan --select smoke-assign-fa26 --select context.a1
+ruby tools/smoke/course_matrix.rb --run --select .a2
+ruby tools/smoke/course_matrix.rb --verify-case /absolute/run/0001
+```
+
+`--plan` materializes `case.json` and `prompt.md` in each case directory and
+whole-run `report.json` and `report.md` under `.scratch/course-smoke-<timestamp>-<random>/`.
+Every case is explicitly `planned`; no pipeline or model is invoked. It accepts
+`--grokit DIR`, `--teach DIR`, and a new `--output DIR`. Repeated `--select TEXT`
+filters intersect, match case IDs, and reject an empty selection. Repeated
+`--case ID` selects a union of exact IDs and rejects unknown IDs.
+
+`--run` defaults to the bundled `course_native.rb` driver. It copies Teach's
+public source to scratch, shifts dates there so the case's assignment is current,
+creates a fresh PostgreSQL database and synthetic course/student, and runs the
+native security validation, enrollment, sign-in, module selection/assignment,
+package delivery, answer capture, planning, checks, checkpoint, local real/stub
+qualification, Teach qualification, encrypted submission, ingest receipt,
+student-facing confirmation, grading, and grade receipt retrieval. Teach's
+actual Docker grading sandboxes run the scenarios; no grade or qualification
+result is fabricated. Each failed case retains its failed stage and reason,
+and the suite continues through the other cases.
+
+Native mode installs the pinned Grokit developer reference slice and tagged
+scenarios as **test fixtures**. It does not prove an agent can build that slice.
+When a reference behaviour calls an ungranted `Grokit::Decimal`, the fixture
+copies that pinned pure helper into a nested module inside its owned behaviour
+class and calls the owned helper instead. `build.json` lists each adaptation.
+This adds no instructor API grant and does not relax the boundary checker.
+The pinned Finance A3s2 backend fixture sums existing typed input amounts rather
+than constructing an ungranted Money zero. Its aggregation path requires at
+least three people. This exact pinned-source adaptation is also recorded in
+`build.json`; runtime checks and instructor source remain unchanged.
+`execution_kind: native_fixture` identifies this explicitly. It invokes no model
+and accounts for $0 in model spending. It replaces only Reach's HTTP transport
+with in-process Rack calls into the actual scratch Teach app and omits network
+token-bucket waits in that process. Signatures, authentication, ownership,
+consent, qualification, ingestion, and receipt verification remain native.
+It does not verify deployed networking, TLS, pacing, or agent conversation quality.
+
+Prerequisites: PostgreSQL (`createdb` and access to a scratch database), Docker,
+the `teach-grader:ruby-4.0.7` and `teach-grader:ruby-2.6.10` images, Ruby 4.0.6 at
+`~/.rubies/ruby-4.0.6/bin` (or `SMOKE_RUBY4_BIN`), Teach's installed bundle,
+Dovetail, and the Grokit v0.10.1 source. Teach must implement the security
+validation contract. In this development checkout the default is the isolated
+`.scratch/teach-security-validation` candidate when present, otherwise the usual
+Teach source checkout. `--teach`, `--bundle`, `--dovetail`, and `--grokit` override
+these developer source locations; none selects a live service or database.
+
+`--runtime-kit DIR` uses a cached Reach runtime kit containing its manifest and
+assets. Reach checks its existing manifest and asset pins. Without it, Reach's
+normal runtime installer downloads its pinned kit. The runtime and build caches
+are shared only inside the scratch run; each case keeps its own Teach and Reach
+homes, keys, database, workspace, and evidence.
+Use disk-backed storage for a full sweep. The runner checks estimated free bytes
+and inodes before provisioning; a tmpfs can exhaust its file count while still
+showing many free gigabytes. Every selected case appears in the report before
+execution, including cases not yet run.
+Browser and grader temporary directories use short sibling names (`.rs-<nonce>`)
+on that same disk, avoiding Chromium's Unix-socket path-length limit. An overly
+long output parent is refused before provisioning. A passing case's directory is
+removed with its homes; a failing case's stays until `--prune`; container cleanup is restricted to mounts belonging to
+that case or its exact temporary directory. A pending qualification is resumed
+at most twice through Reach's own pending-record path; no result is synthesized.
+
+### Resource guards (the SMOKE directive)
+
+Every output, including `--plan`, `--merge-run`, and the default, must sit
+under this checkout's ignored `.scratch/` or the main clone's `.scratch/` (a
+worktree's own path is usually too long for Chromium sockets). Any other root,
+such as `~/Downloads` or `/tmp`, is refused; there is no override.
+
+Before a `--run` provisions anything, the runner requires free bytes and inodes
+of three times the estimate (`limits.disk_headroom`) and inspects every image
+in `grader_images`; a missing image stops the run before the first case. The
+image IDs are recorded in the report under `environment`.
+
+The first case is the canary (`canary: true`). A case is materialized only when
+it is about to run, so a stopped run leaves no directories for unrun cases. A
+failure whose reason matches `environment_failures` (or starts with
+`environment:`) is classed `environment`: it writes `STOP` with the reason and
+every later case stays `not_run`. Other failures are classed `product`; when
+`limits.repeat_failure_halt` (3) cases fail with the same stage and reason,
+numbers and hashes aside, the run writes `STOP` the same way.
+
+A passing case keeps only `case.json` and `evidence.json`; its homes, logs, and
+`reach_smoke_<random>` database are removed once the verifier accepts it, so
+`--verify-case` applies to failures and to runs made with `--keep-passing`.
+A failing case keeps everything. The Grokit export tarball is deleted once
+extracted.
+
+When a run is finished, archive it and then remove the tree:
+
+```
+ruby tools/smoke/course_matrix.rb --archive .scratch/course-smoke-<id>
+ruby tools/smoke/course_matrix.rb --prune .scratch/course-smoke-<id>
+```
+
+`--archive` writes `<run>.tar.gz` and `<run>.manifest.json` (archive SHA-256,
+entry count, tree and archive bytes, sources, and statuses) beside the run and
+refuses to overwrite either. `--prune` deletes the tree only when the archive
+still matches its manifest's hash and entry count, and also removes each case's
+`.rs-<nonce>` sibling, which the archive does not hold.
+
+An explicit `--harness-argv JSON` selects an external, budget-enforcing agent
+adapter with no shell interpolation. It receives the absolute `case.json` and
+case directory as two additional arguments, must perform native provisioning
+and evidence collection, and is reported as `agent_adapter`. It is separate
+from the bundled fixture runner; a fixture pass is not agent-build coverage.
+
+Examples:
+
+```
+ruby tools/smoke/course_matrix.rb --run --runtime-kit /absolute/cached/runtime-kit
+ruby tools/smoke/course_matrix.rb --run --select context.a1 \
+  --harness-argv '["/absolute/path/to/agent-adapter"]' --budget-usd 25
+```
+
+Native runs reserve $0. External agent adapters reserve at most $4.50 per case
+($1,260 for all 280); that is a configured ceiling, not an observed cost. The
+agent adapter must enforce each reservation for all nested model calls.
+The controller runs one case at a time, with no retries, a
+2,700-second case timeout, a 2 MiB log limit, process-group cleanup, and a clean
+environment containing only PATH, scratch HOME/TEACH_HOME/REACH_HOME, a unique
+`reach_smoke_<random>` database URL, and the reservation. It does not pass host
+Teach credentials or configuration. An agent adapter needs dedicated harness credentials;
+it must not extract host service secrets. `REACH_SMOKE_DISABLE=1` refuses startup;
+Ctrl-C, SIGTERM, or a run/case `STOP` file stops further execution. Failed cases
+charge the full reservation because actual usage is unknown.
+Unused cases are `not_run`; subsets never set `coverage_complete` true.
+`execution_complete` means every selected case was attempted; `coverage_complete`
+requires all 280 cases to pass. `reach_source_sha256` binds plans to the tested
+Reach source and runner; native execution refuses a changed source snapshot.
+
+For a bounded parallel sweep, run four independent `--select .a1`, `.a2`, `.a3`,
+and `.a4` commands with different output directories under `.scratch/`. They select 40, 80, 80, and
+80 cases. Merge their finished reports:
+
+```
+ruby tools/smoke/course_matrix.rb \
+  --merge-run /absolute/run-a1 --merge-run /absolute/run-a2 \
+  --merge-run /absolute/run-a3 --merge-run /absolute/run-a4 \
+  --output /absolute/merged-report
+```
+
+Merging rejects duplicate/unknown cases and mismatched source snapshots or engines.
+The merged command fails unless every case in the full inventory passed.
+
+### Verified execution, 2026-10-18
+
+The r8 full sweep attempted all 280 unique cases: 278 passed, two failed, and
+none were skipped or left unrun. Each course had 139 passes and one failure.
+A1 passed 40/40; A2 passed 80/80; A3 passed 78/80; A4 passed 80/80.
+Both failures were `finance.a3s2/backend` at CK-PORTS because the pinned
+reference fixture constructed an ungranted Money zero. The r9 fixture correction
+then passed both affected course profiles through all fifteen stages, including
+Teach qualification, submission, and matching signed ingest and grade receipts.
+The other 278 fixtures and the runtime code were unchanged.
+
+Baseline reports: `.scratch/course-full-merged-r8/report.{json,md}`.
+Corrective reports: `.scratch/course-finance-correction-r9/report.{json,md}`.
+The source fingerprints differ, so these are separate cohorts, not one green
+280-case snapshot. Both reports retain `coverage_complete: false`: the baseline
+has failures, and the correction is a subset. Native model cost was $0.
+This is fixture pipeline evidence, not agent-built or deployed-network coverage.
+
+### Native evidence contract
+
+The adapter writes `evidence.json` in its case directory. All referenced paths
+are relative, nonempty files inside that directory; symlink escapes are refused.
+It contains the exact `id`, `nonce`, and `database` from `case.json`,
+`synthetic: true`, and `cost_usd` as a nonnegative number within the reservation.
+`stages` is an ordered array of `{name, status: "passed", evidence: "path"}`:
+security_validation, enroll, module_selection, sync, answer_handoff, plan, build,
+check, checkpoint, local_qualify, teach_qualify, submit, teach_receipt,
+student_receipt, and grade. Logs must be actual native outputs. A passed label
+with an empty file is insufficient. Any missing, duplicated, reordered, or
+skipped stage fails.
+
+Additional fields name these files:
+
+| Field | Required evidence |
+|---|---|
+| `answers` | JSON mapping every required question ID to its fabricated text; minimum word counts apply. |
+| `shape` | Normalized native shape output with numeric `errors: 0`. |
+| `local_qualify` | Array `{feature, name, result}` covering exactly the pinned `local_scenarios`, all `passed`. Keep raw local/stub output. |
+| `teach_qualify`, `grade` | Arrays `{feature, name, result}` covering exactly the pinned protected `scenarios`, all `passed`. Keep raw outputs as stage evidence. |
+| `submission_manifest` | Actual native manifest, bound to course, assignment, cutout, slice, and owned files; never partial. |
+| `teach_public_key` | Fresh scratch Teach RSA public key; never a private key. |
+| `submission_id` | Nonempty native submission ID. |
+| `receipts` | `{ingest: {teach: "path", student: "path"}, grade: {teach: "path", student: "path"}}`. |
+
+The security_validation stage's JSON must contain native `phase: "passed"` and
+the signed `receipt` bound to this course. The module_selection stage's JSON
+normalizes the native result as `{course, mode, modules}`. The student_receipt
+stage is the agent's actual student-facing message containing the ingest receipt
+number. Both Teach/Reach receipt copies must match, carry valid RSA-PSS signatures,
+match student/assignment/cutout/slice/submission, and be issued during this run.
+The signed grade must contain all expected scenario names with `passed` and
+score 1. A self-signed fixture can test this verifier; it does not prove that
+Teach ran. Native stage evidence and trusted adapter execution remain necessary.
+
+`course_matrix_check.rb` is the verifier's offline Minitest regression suite,
+written at Sven's request:
+
+```sh
+ruby tools/smoke/course_matrix_check.rb
+```
+
+It needs no PostgreSQL, Docker, model, Teach, corpus, or harness. Each case
+builds a fresh synthetic proof in a temporary directory with a scratch RSA key
+and fixed timestamps, then changes one condition: stages, paths and symlinks,
+size limits, answers, shape, the three scenario lanes, module selection,
+manifest, signatures, receipt binding and copies, security-receipt time bounds,
+signed grade, receipt message, and cost. It also runs `--verify-case` as a
+subprocess and merges tiny synthetic shards, refusing mixed source fingerprints
+and keeping failed and not_run rows. It found that the verifier accepted a
+private key as `teach_public_key`; the verifier now refuses one. On 2026-10-18
+it ran 52 tests and 685 assertions with no failure, error, or skip, and the
+fixed verifier still verified all 280 preserved passing r8/r9 case directories
+and refused the two failed ones. Fifteen deliberate verifier defects in scratch
+copies were run against it; fourteen failed the suite, and the survivor
+(dropping `finite?` from the cost check) is equivalent because the bounds
+already refuse NaN and infinities. The suite proves the verifier's
+contract, not that Teach or an agent ran a pipeline. Executable pipeline
+verification uses the actual native driver and its captured artifacts; planning
+is never reported as a pipeline pass.
+
 `tools/smoke` drives real Claude sessions with rEach loaded, the way a student would,
 and checks what rEach says and does. Run it before tagging any release that changes
 the persona, greetings, hooks, install path or anything else a student sees

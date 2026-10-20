@@ -1,5 +1,51 @@
 # FEATURES — rEach
 
+## Full course smoke suite (0.61.0)
+
+Build: runnable native fixture suite, planner, external agent-adapter interface, and evidence verifier implemented. Deploy: developer tooling only, not published. Complete r8 sweep: 278 passed and two failed out of 280 attempted; subsequent r9 fixture correction: both affected cases passed. These are separate source cohorts, not a single green 280-case snapshot. Commands and evidence protocol: `tools/smoke/README.md`.
+
+The pinned Grokit v0.10.1 inventory has ten modules and seventy cutouts across A1–A4. Both backend and panel slices under both course profiles yield 280 cases. One synthetic profile uses student choice, the other instructor assignment. Every case includes all assignment question shapes and its slice's tagged native acceptance scenarios. Passing requires all fifteen pipeline stages, local and Teach qualification, matching signed ingest and grade receipts, and the student-facing receipt number. A plan, missing evidence, skip, partial submission, budget stop, or empty successful adapter never proves a pass. `coverage_complete` requires the whole inventory to execute successfully.
+
+Native execution creates fresh scratch databases and course profiles, copies public Teach source, shifts dates only in that copy, and runs real Reach/Teach code and Docker graders. Only Reach HTTP transport and network pacing are replaced in process; deployed networking, TLS, and model conversation quality are not claimed. Pinned developer reference code and scenarios are explicit fixtures, not student work or proof of an agent build. No model calls occur in native mode. Each case has independent state and bounded logs/time, and only its own temporary grading containers are cleaned up.
+
+Evidence: `.scratch/course-full-merged-r8/report.json` and `report.md` account for all 280 unique cases. Both courses had 139 passes and one failure. A1 passed 40/40; A2 passed 80/80; A3 passed 78/80; A4 passed 80/80. The two failures were Finance A3s2 backend fixtures constructing an ungranted Money zero. The generator now reduces existing typed amounts on the nonempty aggregation path, with a pinned-source shape check and build evidence. Both course profiles then passed every stage in `.scratch/course-finance-correction-r9`. The baseline remains failed, the correction remains a subset, and their source fingerprints are retained separately.
+
+The sweep also verified the prior runtime corrections: exact declared instructor API/exception grants, distinct local practice versus protected grading scenario coverage, and visible signed receipt references. Ungranted constants remain refused. Decimal helpers are owned inside adapted fixtures, with stale private imports removed. Teach still independently runs every protected graded case and enforces submission gates. Reports include per-assignment/slice counts, failed stages, and native failure reasons. Earlier r3 raw directories and archives were removed outside this session; no deletion was performed here, and their former paths are not current evidence.
+
+Resource guards (0.61.0): output only under an ignored `.scratch/`, disk preflight at three times the estimate, grader image preflight, a canary first case, lazy case materialization, STOP on an environment failure or three identical failures, passing cases pruned to case.json and evidence.json, and `--archive`/`--prune`. Build: ✅ implemented on branch security-validation-land (0.61.0), not merged. Deploy: developer tooling only, not published.
+
+Checks: policy validation, rplugin check, package freshness, and doctor reported zero findings. The installer and one retry reported their Codex step timed out after 120 seconds; doctor still passed. The verifier's offline regression suite, `tools/smoke/course_matrix_check.rb` (written at Sven's request), ran 52 tests and 685 assertions with no failure, error, or skip on 2026-10-18; fourteen of fifteen deliberate verifier defects failed it, and the survivor is an equivalent change. It proves the verifier contract, not a pipeline run. It exposed that the verifier accepted a private key as the Teach public key; the verifier now refuses one, and still verifies all 280 preserved passing r8/r9 cases and refuses the two failed ones. The verifier change gives future runs a new source fingerprint; the r8 and r9 reports keep theirs. Publication remains held with the existing unpushed-main work; no production service, student data, or stable ref changed. The final report bundle is `.scratch/reach-course-smoke-20261018-r8-r9.zip`.
+
+Student-first audit:
+
+- Learning: yes — fabricated developer smoke answers never become student answers.
+- Agency and honesty: yes — planned and executed verdicts remain distinct; enrollment still requires its native security validation pass.
+- Wellbeing and safety: yes — this tooling adds no student message or pressure.
+- Privacy and dignity: yes — synthetic identities and scratch homes; no live course-setting or student-data reads.
+- Fairness and access: yes — both course selection paths and both slice kinds have explicit coverage.
+- Friction: n/a — developer tooling adds no student steps.
+- Failure: yes — failures block developer verification without touching student work or grades.
+- Recovery: yes — per-case artifacts persist and cases can be selected individually.
+
+## Security validation pass (0.61.0)
+
+Build: ✅ implemented on branch security-validation-land (0.61.0, not merged); the in-process scratch walkthrough ran against rEach 0.54.0 and was not repeated on 0.61.0. Deploy: 🔵 pending, not released or enabled for students. Blocker: Human — Teach must deploy its side first and pin wire revision 2026-10-22b byte for byte, requiring the receipt from reach_version 0.61.0 (SecurityValidation::REQUIRED_FROM); then the operator promotes rEach 0.61.0 to test and stable. Contract: `specs/security-validation.yml`.
+
+The provided harness agent fills the practice answer shapes with fabricated data, plans and builds the practice artifacts, runs native local checks and checkpoint, asks Teach to qualify and receive the sealed package, fetches its signed receipt, and relays the verified result. Both enrollment boundaries require the fresh course, key, harness, version, challenge, and receipt binding. Failures tell the student to wait and contact the instructor through independently known details; a connection problem or impersonation is possible. This smoke uses a practice data assignment; it does not run a student's application, browser scenarios, protected scenarios, or grading.
+
+Student-first audit:
+
+- Learning: yes; fabrication is confined to practice work and supplies no real assignment answers.
+- Agency and honesty: yes; the student hears the purpose and receives a verified result before identity or password collection.
+- Wellbeing and safety: yes; the failure message is calm and directs the student to their instructor.
+- Privacy and dignity: yes; validation collects no student identity or password and writes no normal student submission.
+- Fairness and access: yes; the current supported harness drives the same protocol; an unavailable capability has a human recovery path.
+- Friction: yes; the agent fills the practice data, and interrupted runs resume or restart.
+- Failure: yes; real work and grades are untouched; the student is instructed to contact the instructor if the pass cannot complete.
+- Recovery: yes; a new isolated run preserves prior practice files without reinstalling or altering real work.
+
+Verification: the scratch walkthrough verified a signed Teach receipt, then completed a fabricated enrollment. Forged signatures, wrong course and challenge bindings, expired runs, missing passes, changed artifacts, different harnesses, wrong request keys, and proof reuse were refused. This was an in-process transport exercise, not a deployed HTTPS or platform-matrix run. Existing release blockers remain; rhomeostasis is disabled.
+
 **The registry of the software features rEach carries, with build and deployment status.**
 
 rEach is the student's course partner: it enrolls a student with Teach, syncs signed course packages, guards the
@@ -8,7 +54,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.60.2 |
+| **Registry version** | 0.61.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |

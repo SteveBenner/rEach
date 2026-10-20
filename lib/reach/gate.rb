@@ -197,6 +197,12 @@ module Reach
       end
 
       blocked = nil
+      flow = Reach::EnrollFlow.read_flow
+      if flow && flow["state"] == "awaiting_validation"
+        return Reach::Support.message(told: nil) if Reach::Login.crisis_match?(event["prompt"])
+
+        return Reach::EnrollFlow.validation_context["message"]
+      end
       begin
         check_enrolled!
         check_guardrails!
@@ -615,6 +621,7 @@ module Reach
       text = command.to_s
       text = text.tr("\\", "/") if @powershell
       return nil if support_command?(text)
+      return nil if Reach::Validation.shell_command?(text)
 
       Thread.current[:reach_gate_subject] = { "command" => command.to_s }
       check_enrolled!

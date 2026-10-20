@@ -105,6 +105,33 @@ module Reach
         return block("#{Reach::Messages.text("M-ENR-RESET-BY-INSTRUCTOR")} #{ask(flow)}")
       end
 
+      unless %w[awaiting_code awaiting_validation].include?(flow["state"]) || flow["code"].to_s.empty?
+        validation = Reach::Validation.read
+        unless Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness) && validation["phase"] == "passed"
+          flow = without_digest(flow).merge("state" => "awaiting_validation", "username" => nil, "student_id" => nil)
+          write_flow(flow)
+        end
+      end
+
+      if flow["state"] == "awaiting_validation"
+        validation = Reach::Validation.read
+        unless Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness)
+          begin
+            Reach::Validation.locked { Reach::Validation.start(course_code: flow["code"], harness: harness) }
+          rescue StandardError
+            return block(Reach::Validation::BLOCKED)
+          end
+        end
+        if Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness) && validation["phase"] == "passed"
+          Reach::Validation.enrollment_key!(course_code: flow["code"], teach_url: teach_url, harness: harness)
+          next_flow = flow.merge("state" => "awaiting_username", "updated_at" => iso(now))
+          write_flow(next_flow)
+          Reach::EnrollOutbox.begin!(course_code: flow["code"], teach_url: teach_url, harness: harness)
+          return block("#{Reach::Validation::PASSED} #{ask_username(next_flow)}")
+        end
+        return validation_context
+      end
+
       message = case flow["state"]
                 when "awaiting_username" then step_username(flow, text)
                 when "awaiting_student_id" then step_student_id(flow, text)
@@ -114,6 +141,8 @@ module Reach
                 when "awaiting_password_again" then step_password_again(flow, text, now, harness)
                 else step_code(flow, text, harness)
                 end
+      return validation_context if read_flow && read_flow["state"] == "awaiting_validation" && message != Reach::Validation::BLOCKED
+
       block(message)
     end
 
@@ -138,14 +167,14 @@ module Reach
         return refusal_text(e)
       rescue Reach::NetworkError
         write_flow(flow.merge("pending_code" => parsed["code"], "updated_at" => iso(Time.now.utc)))
-        return Reach::Messages.text("M-ENR-OFFLINE")
+        return Reach::Validation::BLOCKED
       rescue Reach::Error => e
         return Reach::Messages.text("M-ENR-FAILED", reason: reason_text(e))
       end
 
       course = body["course"]
       next_flow = flow.merge(
-        "state" => "awaiting_username",
+        "state" => "awaiting_validation",
         "code" => parsed["code"],
         "pending_code" => nil,
         "course" => { "id" => course["id"].to_s, "title" => course["title"].to_s, "term" => course["term"].to_s },
@@ -155,8 +184,30 @@ module Reach
         "student_id" => nil,
         "updated_at" => iso(Time.now.utc)
       )
-      write_flow(next_flow.merge("attempt_pending" => !Reach::EnrollOutbox.begin!(course_code: parsed["code"], teach_url: url, harness: harness.to_s.empty? ? "unknown" : harness.to_s).nil?))
+      write_flow(next_flow)
+      begin
+        Reach::Validation.locked { Reach::Validation.start(course_code: parsed["code"], harness: harness) }
+      rescue StandardError => e
+        Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
+        return Reach::Validation::BLOCKED
+      end
       Reach::Progress.mark("enroll.code")
+      Reach::Validation::ANNOUNCE
+    end
+
+    def validation_context
+      { "action" => "context", "message" => "#{Reach::Validation::ANNOUNCE}\nRun the security validation pass now using the student's current harness. Call reach validate status (or reach_validate), follow every returned next step with fabricated data only, and relay the final text verbatim. Do not ask for identity or a password until phase passed. If any step cannot complete, relay this message and stop enrollment: #{Reach::Validation::BLOCKED}" }
+    end
+
+    def validation_completed!
+      flow = read_flow
+      return nil unless flow && flow["state"] == "awaiting_validation"
+
+      validation = Reach::Validation.read
+      Reach::Validation.enrollment_key!(course_code: flow["code"], teach_url: teach_url, harness: validation["harness"])
+      next_flow = flow.merge("state" => "awaiting_username", "updated_at" => iso(Time.now.utc))
+      write_flow(next_flow)
+      Reach::EnrollOutbox.begin!(course_code: flow["code"], teach_url: teach_url, harness: validation["harness"])
       ask_username(next_flow)
     end
 
@@ -450,6 +501,7 @@ module Reach
 
     def ask(flow)
       case flow["state"]
+      when "awaiting_validation" then Reach::Validation::ANNOUNCE
       when "awaiting_username" then ask_username(flow)
       when "awaiting_student_id" then Reach::Messages.text("M-ENR-ASK-ID", institution: Reach::Identity.institution(flow["identity"]), hint: Reach::Identity.id_hint(flow["identity"]))
       when "awaiting_confirm" then confirm_text(flow)

@@ -1,0 +1,97 @@
+schema: reach.security-validation-contract/v1
+revision: 2026-10-18a
+summary: >-
+  A pre-enrollment smoke assignment driven by the agent already running in the
+  student's harness, announced as security validation pass. It uses fictional
+  answers shaped like the course's answer fields, exercises handoff, planning,
+  artifact creation, local checks, checkpoint, independent Teach qualification,
+  encrypted submission, receipt retrieval, and signature verification. Enrollment
+  is permitted only after that final result has been printed for the student.
+scope: >-
+  This is a practice data assignment, not a graded student application. It tests
+  the shared answer builder, plan, check, checkpoint, submission envelope,
+  authenticated HTTP, archive verification, answer shape checking, and signing
+  primitives. It does not execute a student's application, browser scenarios,
+  grading, or an instructor's protected scenario suite.
+driver:
+  cli: reach validate
+  mcp: reach_validate
+  harnesses: [claude-code, codex, antigravity, hermes]
+  student_action: None beyond the host's normal tool approvals; never ask the student for practice answers.
+  phases: [handoff, plan, build, checked, qualified, received, passed, consumed]
+  restart: Creates a fresh session; retains old practice files for diagnostics.
+transport:
+  origin: Only the configured HTTPS Teach origin, with normal certificate verification.
+  authentication: >-
+    Creation uses the course code and an ephemeral RSA public key. Later calls
+    use the existing request-signature protocol with X-Reach-Attempt naming the
+    validation session. A validation key has no install identity and cannot
+    authenticate to ordinary student or instructor endpoints.
+  limits: Existing client token bucket, circuit breaker, kill switch, five-second connection timeout, fifteen-second read timeout, and one jittered retry.
+  expiry_seconds: 3600
+routes:
+  create:
+    method: POST
+    path: /api/v1/validation
+    fields: [course_code, public_key, nonce, harness, reach_version]
+    response: [schema, session_id, course_id, expires_at, nonce, harness, reach_version, questions, signing_public_keys, encryption_key]
+  qualify:
+    method: POST
+    path: /api/v1/validation/:id/qualify
+    fields: [package]
+    response: [passed, qualification_id]
+  submit:
+    method: POST
+    path: /api/v1/validation/:id/submit
+    fields: [package, qualification_id]
+    response: [receipt]
+  receipt:
+    method: GET
+    path: /api/v1/validation/:id/receipt
+    response: [receipt]
+fixture:
+  assignment: security-validation
+  slice: validation
+  student_id: synthetic:<session_id>
+  owned_files: [answers.json, README.md]
+  handoff: >-
+    Each supplied text shape gets a wholly fabricated answer. The same Part
+    answer builder enforces its minimum word count and computes its digest.
+    answers.json must map every question id to that exact text. README.md uses
+    the normal required sections and word floors. Native Check and Checkpoint
+    run in a child process with an isolated home and workspace.
+  qualification: >-
+    Teach decrypts and authenticates the package, runs normal SubmissionCheck
+    and PartCheck shape validation, validates every question and digest, compares
+    the built artifact against the handoff, and checks the README. Qualification
+    binds the exact file digest; a changed artifact requires a new qualification.
+  storage: >-
+    Reach keeps practice files under its private validation state. Teach keeps
+    only synthetic session state and a signed receipt in security_validations.
+    There is no student, normal submission, grade, late-work, or course-record
+    write until actual enrollment is explicitly continued after the pass.
+receipt:
+  schema: teach.security-validation/v1
+  kind: security-validation
+  fields: [schema, kind, session_id, course_id, public_key_digest, nonce, harness, reach_version, receipt_id, files_digest, content_digest, issued_at, expires_at, signing_key_id, signature]
+  verification: >-
+    Verify RSA-PSS against the signing keys received from the configured HTTPS
+    Teach origin at session creation. Check every run binding and the exact
+    submitted content digest. Fetch the receipt again before passing. A local
+    phase flag or an agent assertion alone never permits enrollment.
+enrollment:
+  fields: [validation_session, validation_receipt]
+  key: The real enrollment reuses the validated ephemeral public key.
+  server: Verify the fresh receipt and course, key, harness family, and version; consume it atomically with install creation.
+  retry: A lost enrollment response can replay the matching install after the normal password and roster checks.
+  legacy: From rEach 0.61.0 no enrollment shape bypasses the pass. During the transition Teach still enrolls an older rEach without a receipt, until its minimum accepted rEach version reaches 0.61.0.
+failure:
+  text: >-
+    The security validation pass could not verify the connection to Teach.
+    This may be a connection problem, or this software might be someone
+    impersonating rEach or Teach. Please wait and contact your instructor
+    through the contact details you already have before continuing to enroll.
+  unavailable_support: Blocks enrollment; never fall back to an unverified pass.
+  kill_switches: [REACH_VALIDATION_DISABLE=1, TEACH_VALIDATION_DISABLE=1]
+  safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.
+trust_limit: A successful practice receipt does not prove that a local executable or computer is uncompromised.

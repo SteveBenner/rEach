@@ -2,8 +2,16 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-22a
+revision: 2026-10-22b
 status: normative
+security_validation:
+  id: W-VAL-1
+  since: 2026-10-22b
+  contract: specs/security-validation.yml
+  precedence: This normative extension governs the pre-enrollment validation routes and overrides older enrollment exemptions below.
+  routes: ["POST /api/v1/validation", "POST /api/v1/validation/:id/qualify", "POST /api/v1/validation/:id/submit", "GET /api/v1/validation/:id/receipt"]
+  authentication: Creation is anonymous and course-code limited; subsequent calls use the existing signed request protocol with X-Reach-Attempt naming the validation session, never an install identity.
+  requirement: A fresh signed security-validation receipt must be fetched and verified before student credentials are collected or enrollment continues. From reach_version 0.61.0 Teach requires, verifies and atomically consumes the matching receipt with install creation on every enrollment shape, and refuses shape v1. During the transition Teach still enrolls a reach_version below 0.61.0 without a receipt through the existing paths, so a client that claims an older version is not validated; the transition ends when Teach's minimum_reach_version reaches 0.61.0.
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
   - teach/specs/wire.yml
@@ -675,6 +683,8 @@ routes:
       code: {type: string, minLength: 12, maxLength: 32, note: "shape v1 only: a per-student single-use code"}
       shape: {type: string, enum: [v1, v2], required: false, note: "since revision 2026-10-01b; absent means v1"}
       course_code: {type: string, required: false, note: "shape v2 only: the class-wide course code, normalized by W-ENR-1 before sending"}
+      validation_session: {type: string, required: false, note: "W-VAL-1, since 2026-10-22b, required from reach_version 0.61.0: the fresh validation session bound to this enrollment public key, course, harness, and Reach version"}
+      validation_receipt: {type: string, required: false, note: "W-VAL-1, since 2026-10-22b, required from reach_version 0.61.0: the receipt id fetched and verified by Reach before enrollment continues"}
       username: {type: string, required: false, note: "shape v2 only: the student's institutional username, normalized by W-ENR-3"}
       student_id: {type: string, required: false, note: "shape v2 only: the student's institutional id, normalized by W-ENR-3"}
       fingerprint: {type: object, required: false, note: "shape v2 only: the W-ENR-4 fingerprint document"}

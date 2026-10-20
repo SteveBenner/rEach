@@ -265,7 +265,13 @@ module Reach
 
     def granted_constants(workspace)
       names = slice_api_port_names(workspace)
-      return names.map { |name| camel(name) } if names
+      if names
+        data = slice_api_data(workspace)
+        constants = Array(data["instructor_apis"]).select { |name| name.is_a?(String) }.flat_map do |name|
+          name.scan(/\bGrokit::([A-Z]\w*(?:::[A-Z]\w*)*)/).flatten
+        end
+        return (names.map { |name| camel(name) } + constants).uniq
+      end
 
       file = File.join(workspace, "api", "README.md")
       return [] unless File.file?(file)
@@ -276,14 +282,21 @@ module Reach
     end
 
     def slice_api_port_names(workspace)
+      data = slice_api_data(workspace)
+      return nil unless data
+
+      names = Array(data["ports"]).map { |port| port.is_a?(Hash) ? port["name"] : nil }.compact
+      (names + %w[clock logger]).uniq
+    end
+
+    def slice_api_data(workspace)
       file = File.join(workspace, "api", "slice-api.json")
       return nil unless File.file?(file)
 
       data = JSON.parse(File.read(file))
       return nil unless data.is_a?(Hash) && data["schema"] == "grokit.slice-api/v1"
 
-      names = Array(data["ports"]).map { |port| port.is_a?(Hash) ? port["name"] : nil }.compact
-      (names + %w[clock logger]).uniq
+      data
     rescue StandardError
       nil
     end

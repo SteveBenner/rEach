@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.61.0] - 2026-10-22
+
+Lands the security validation pass and the full course smoke suite (built as 0.55.0 and 0.55.1 on 0.54.x) on 0.60.2.
+
+### Added
+
+- `tools/smoke/course_matrix.rb --archive RUN` writes `<run>.tar.gz` and `<run>.manifest.json`; `--prune RUN` removes the run tree and its cases' `.rs-<nonce>` temporaries only while the archive still matches the manifest.
+- `--keep-passing` keeps a passing case's full evidence for later `--verify-case`.
+- A run preflights the `grader_images` listed in `tools/smoke/course_matrix.yml` and records their image IDs under `environment` in the report.
+- A runnable developer smoke suite covers all 70 Grokit cutouts, backend and panel slices, and both course profiles (280 cases). The bundled native fixture driver exercises scratch security validation, enrollment, selection, package delivery, answer capture, checks, local and Teach qualification, encrypted submission, and signed ingest/grade receipts. It records per-stage evidence, continues after failed cases, checks source snapshots and storage capacity, and merges assignment shards. Fixture execution is distinct from agent-built coverage; plans never claim pipeline success.
+- `reach validate` and `reach_validate` drive an isolated practice assignment with the student's current harness, from fabricated answers through checks, checkpoint, Teach qualification, encrypted submission, and a verified receipt.
+- Enrollment waits for a fresh security validation pass. Failures instruct the student to wait and contact the instructor, including the possibility of software impersonating rEach or Teach.
+
+### Changed
+
+- Every output root, including the default, `--plan`, and `--merge-run`, must sit in the checkout's or main clone's ignored `.scratch/`; `~/Downloads`, `/tmp`, and every other root are refused.
+- The storage preflight applies to agent-adapter runs too and requires three times the estimate (`limits.disk_headroom`).
+- The first case runs as the canary, and a case is materialized only when it is about to run, so a stopped run leaves no directories for unrun cases.
+- An environment-class failure (`environment_failures`, such as QF-REMOTE-FAIL, a missing image, or a full disk) writes `STOP` with its reason and leaves every later case `not_run`; three product failures with one stage and reason do the same (`limits.repeat_failure_halt`).
+- A passing case keeps only `case.json` and `evidence.json`; its homes, logs, temporaries, and scratch database are removed. Each case's `prompt.md` asks the adapter to keep failure evidence only, and the Grokit export tarball is deleted once extracted.
+- The smoke course profiles are synthetic, `SMOKECHOICEFA26` (student choice) and `smoke-assign-fa26` (instructor assignment), and the course-smoke and security-validation build blueprints live outside the public tree.
+- Pruning restores write permission only on real directories, so read-only delivered folders and Chromium's dangling `SingletonCookie` link no longer stop it, and every removal step, including the scratch database drop, runs even when another fails.
+- Wire revision 2026-10-22b (`specs/wire.yml`) carries the security validation extension W-VAL-1 on top of 2026-10-22a. Teach requires the receipt from reach_version 0.61.0 and its pinned copy must take this file byte for byte.
+
+### Fixed
+
+- The pinned Finance A3s2 smoke fixture sums existing typed amounts instead of constructing an ungranted Money zero. Both course profiles passed the corrective native pipeline; the original 278-pass/two-failure sweep remains separate evidence.
+- The course smoke verifier has an offline regression suite, `tools/smoke/course_matrix_check.rb`, and refuses evidence whose Teach public key file holds a private key.
+- Native smoke fixtures own their pure decimal helper when the delivered slice does not grant Grokit::Decimal; adaptations are recorded without adding API grants or weakening checks.
+- Local qualification for replay panels requires the shipped practice scenario names and verifies those scenarios fail against the starting stub. Teach still independently runs every protected graded case. The smoke suite inventories and verifies local practice coverage separately from protected grading coverage.
+- The Ruby boundary checker honors qualified instructor API and exception names declared in slice-api.json, alongside granted ports; undeclared constants remain refused.
+- Submission confirmations and receipt notifications now show the signed receipt reference, as required by W-RCPT-3; the new native smoke exposed that the reference was stored but omitted from the student's message.
+
 ## [0.60.2] - 2026-10-22
 
 ### Fixed

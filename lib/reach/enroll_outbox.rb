@@ -76,7 +76,8 @@ module Reach
     end
 
     def begin!(course_code:, teach_url:, harness:)
-      provisional = Reach::Crypto.generate_install_key
+      validation = Reach::Validation.read
+      provisional = Reach::Validation.fresh?(validation, course_code: course_code, harness: harness) && validation["phase"] == "passed" ? Reach::Validation.key(validation) : Reach::Crypto.generate_install_key
       Reach::StateFile.write_atomic(key_file, provisional.to_pem)
       editing do
         write(

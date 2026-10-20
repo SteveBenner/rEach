@@ -1,0 +1,47 @@
+schema: reach.course-smoke/v1
+grokit_ref: v0.10.1
+courses:
+  - id: SMOKECHOICEFA26
+    selection_modes: [student_choice]
+  - id: smoke-assign-fa26
+    selection_modes: [instructor]
+slices: [backend, panel]
+grader_images: [teach-grader:ruby-4.0.7, teach-grader:ruby-2.6.10]
+environment_failures:
+  - QF-REMOTE-FAIL
+  - could not run these checks
+  - no such image
+  - pull access denied
+  - cannot connect to the docker daemon
+  - no space left on device
+  - enospc
+  - disk quota exceeded
+  - could not connect to server
+  - "createdb: error"
+limits:
+  disk_headroom: 3
+  repeat_failure_halt: 3
+  run_budget_usd: 25
+  case_budget_usd: 4.5
+  case_timeout_s: 2700
+  log_max_bytes: 2097152
+  native_case_estimated_bytes: 201326592
+  native_case_estimated_inodes: 2000
+  native_fixed_estimated_bytes: 629145600
+  native_fixed_estimated_inodes: 50000
+stages:
+  - security_validation
+  - enroll
+  - module_selection
+  - sync
+  - answer_handoff
+  - plan
+  - build
+  - check
+  - checkpoint
+  - local_qualify
+  - teach_qualify
+  - submit
+  - teach_receipt
+  - student_receipt
+  - grade

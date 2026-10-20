@@ -29,13 +29,15 @@ module Reach
     end
 
     def register_v2(course_code:, username:, student_id:, teach_url:, harness:, enrolled_via:, password:, key: nil, fingerprint: nil, attempt_id: nil)
-      identity = { "course_code" => course_code, "username" => username, "student_id" => student_id }
-      pending = key ? nil : load_pending(identity)
-      key, fingerprint = pending[:key], pending[:fingerprint] if pending
-      key ||= Reach::Crypto.generate_install_key
+      validated_key, validation_receipt, validation_session = Reach::Validation.enrollment_key!(course_code: course_code, teach_url: teach_url, harness: harness)
+      harness = Reach::Validation.read.fetch("harness")
+      key = validated_key
+      validation_state = Reach::Validation.read
+      fingerprint = validation_state["fingerprint"]
       fingerprint ||= Reach::Fingerprint.build(
         install_public_key: key.public_key, harness: harness, enrolled_via: enrolled_via, salt: (Reach::Fingerprint.stored || {})["salt"]
       )
+      Reach::Validation.write(validation_state.merge("fingerprint" => fingerprint))
       body_fields = {
         "shape" => "v2",
         "course_code" => course_code,
@@ -48,6 +50,8 @@ module Reach
         "platform" => platform,
         "ruby_version" => RUBY_VERSION
       }
+      body_fields["validation_session"] = validation_session
+      body_fields["validation_receipt"] = validation_receipt
       body_fields["attempt_id"] = attempt_id unless attempt_id.to_s.empty?
 
       begin
@@ -94,6 +98,7 @@ module Reach
       write_notice(body)
       announce_sidecar(current)
       Reach::Subscribe.spawn_ensure
+      Reach::Validation.consumed!
 
       current
     end

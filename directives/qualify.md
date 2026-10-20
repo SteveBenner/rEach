@@ -3,7 +3,8 @@ alias: D
 enforce: check:CK-TEST
 id: R-QUALIFY
 opcode: QUALIFY
-rule: write your own scenarios in qualify/, cover every graded name, pass reach qualify
+rule: write your own scenarios in qualify/, cover every required name, pass reach
+  qualify
 slice: all
 tier: public
 when:
@@ -31,11 +32,13 @@ Where things go:
 What a qualifying set of scenarios looks like:
 
 1. `reach qualify --list` prints the tag your scenarios carry (`@backend`
-   or `@panel`) and every graded scenario name. Write one scenario for
-   each graded name, with exactly that name and that tag, plus a business
+   or `@panel`), the required qualification names, and the graded names.
+   Replay panels require the supplied practice names; other slices require
+   every graded name. Write one scenario for each required name, with
+   exactly that name and that tag, plus a business
    tag such as `@cafe`.
 2. Add the edge cases the plan names, with names of your own.
-3. Fake ports with `grokit_fake(:port, method: value_or_lambda)` and fix
+3. For backend slices, fake ports with `grokit_fake(:port, method: value_or_lambda)` and fix
    the day with `grokit_today`, so a scenario states its own data. Away
    from the course server a port you did not fake answers
    `port_not_faked`. A required instructor port may be faked with a fixed
@@ -54,7 +57,7 @@ show the entries that apply, and a finding names its remedy.
 
 `reach qualify` runs, in order: the plan audit, the candidate passes
 (QF-PASSES-NONE), the pattern ledger (QF-PATTERN), `reach check` on the owned
-files, coverage of every graded name (QF-UNCOVERED), your scenarios here when
+files, coverage of every required name (QF-UNCOVERED), your scenarios here when
 they can run here (QF-LOCAL-FAIL, QF-VACUOUS), the port probe (QF-INSENSITIVE),
 then the course server, which runs your
 scenarios on the real build, again on the starting copy, and the
@@ -66,8 +69,9 @@ scenarios' steps. Do not try to learn them.
 For a panel slice whose local check is on, the local run answers the panel's
 calls from a recording of the course's reference on a practice business. Read
 `qualify/kit/practice/README.md` first and write the local scenarios with its
-example labels and values; the course server runs the graded scenarios on the
-real data.
+example labels, values, and scenario names. A missing or empty practice
+contract refuses qualification; run `reach sync`. The course server still
+independently runs every protected graded scenario on the real data.
 
 A qualification that failed counts on the attempt ladder (TOZERO), except one
 refused for the plan audit, the candidate passes or the pattern ledger, which

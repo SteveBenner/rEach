@@ -1,7 +1,13 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.60.2
+version: 0.61.0
+security_validation:
+  contract: specs/security-validation.yml
+  required_before: student enrollment and credential collection
+  driver: The student's current harness agent uses reach validate or reach_validate with fabricated practice answers.
+  receipt: Teach-signed and bound to the run, course, harness, version, public key, challenge, exact content, and expiry.
+  failure: Wait and contact the instructor; this may be a connection problem or software impersonating rEach or Teach.
 status: draft
 recorded: '2026-09-29'
 licence: MIT
