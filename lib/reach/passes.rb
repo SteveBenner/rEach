@@ -449,6 +449,7 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-PASSES-NOT-VIABLE", point: point) unless winner
 
       meta = Reach::Workspace.metadata(workspace)
+      guard_links!(workspace, point)
       Reach::Checkpoint.save(workspace, note: "before passes pick #{point}", extras: true, force: true)
       dir = candidate_dir(workspace, point, winner["n"])
       installed = install(workspace, meta, point, dir)
@@ -471,7 +472,14 @@ module Reach
       pick_record
     end
 
+    def guard_links!(workspace, point)
+      watched = point == "plan" ? [".reach"] : [".reach", "qualify", *QUALIFY_DIRS]
+      linked = watched.find { |relative| !Reach::Checkpoint.link_free?(workspace, relative) }
+      raise Reach::Refused, Reach::Messages.text("M-PASSES-LINK", path: linked) if linked
+    end
+
     def install(workspace, meta, point, dir)
+      guard_links!(workspace, point)
       files = candidate_files(dir).reject { |relative| File.symlink?(File.join(dir, relative)) }
       if point == "plan"
         raise Reach::Refused, Reach::Messages.text("M-PASSES-NOT-VIABLE", point: point) unless files.include?(PLAN_FILE)

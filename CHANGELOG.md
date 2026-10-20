@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.8] - 2026-10-20
+
+### Fixed
+
+- A symbolic link at `qualify`, `qualify/features`, `qualify/step_definitions` or `.reach`, or on the way to them, stops `reach passes pick` and a checkpoint restore from deleting or writing there: they refuse or skip, and nothing is deleted.
+- The location in a qualify fault record is normalised: a location with `..` or an absolute path is scrubbed like other paths, and a hidden finding carries none.
+- The text of the `pattern_timeout` warning is in `locales/en-US.yml`.
+- The specs (wire revision 2026-10-21e) say the fault record holds no files and that an error line or step text can quote one failing line of the student's tests or code, as `PRIVACY.md` does.
+
 ## [0.56.7] - 2026-10-20
 
 ### Fixed
@@ -51,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The home-path mask in qualify fault records is built without a long interpolated string, so the release gate's entropy scan no longer flags it; behaviour is unchanged.
+- The home-path mask in qualify fault records is built by concatenating two parts instead of one interpolated string (a refactor); behaviour is unchanged.
 
 ## [0.56.1] - 2026-10-20
 

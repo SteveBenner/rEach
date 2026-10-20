@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.56.7 |
+| **Registry version** | 0.56.8 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2230,3 +2230,4 @@ Patch lines (all on main, not promoted; each verified in a scratch home and work
 - 0.56.5: a pick saves the existing scenarios, step files and plan in its checkpoint, and a restore brings them back byte-identical; fault records are written and sent only with an identity scrubber and are scrubbed again before every send.
 - 0.56.6: the scrub also drops `../` escapes and `file://` addresses; pattern-match file names are de-identified; checkpoint extras are restored only for the plan and the qualify folders.
 - 0.56.7: PRIVACY.md names the cutout, slice and assignment; course-supplied patterns run under a 2-second budget each, and a pattern that stalls is skipped with a `pattern_timeout` warning while the run continues.
+- 0.56.8: a pick and a checkpoint restore refuse to touch `qualify` or `.reach` folders that are links and delete nothing; fault-record locations are normalised and dropped for hidden findings; the specs (wire revision 2026-10-21e) say an error line or step text can quote one failing line.

@@ -139,8 +139,17 @@ module Reach
         "step_text" => step.to_s.empty? ? nil : step[0, LINE_LIMIT],
         "error_class" => detail[ERROR_CLASS, 1],
         "first_error_line" => first_line(detail),
-        "location" => location_of(meta, finding, detail)
+        "location" => hidden ? nil : safe_location(location_of(meta, finding, detail))
       }
+    end
+
+    def safe_location(value)
+      text = value.to_s
+      return nil if text.empty?
+      return nil if text.start_with?("/", "\\", "~") || text.match?(/\A[A-Za-z]:/) || text.include?("\0")
+      return nil if text.sub(/:\d+\z/, "").split(%r{[/\\]}).any? { |part| part.empty? || part == ".." || part == "." }
+
+      text
     end
 
     def first_line(text)

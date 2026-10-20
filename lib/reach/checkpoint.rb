@@ -218,9 +218,20 @@ module Reach
     EXTRA_DIRS = %w[qualify/features qualify/step_definitions].freeze
     EXTRA_FILES = %w[.reach/plan.yml].freeze
 
+    def link_free?(workspace, relative)
+      walk = workspace
+      relative.to_s.split("/").each do |part|
+        walk = File.join(walk, part)
+        return false if File.symlink?(walk)
+      end
+      true
+    end
+
     def extra_files(workspace)
-      listed = EXTRA_FILES.select { |relative| File.file?(File.join(workspace, relative)) && !File.symlink?(File.join(workspace, relative)) }
+      listed = EXTRA_FILES.select { |relative| link_free?(workspace, relative) && File.file?(File.join(workspace, relative)) }
       EXTRA_DIRS.each do |directory|
+        next unless link_free?(workspace, directory)
+
         Dir.glob(File.join(workspace, directory, "**", "*")).sort.each do |path|
           listed << path.sub("#{workspace}/", "") if File.file?(path) && !File.symlink?(path)
         end

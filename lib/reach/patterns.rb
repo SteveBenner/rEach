@@ -269,8 +269,8 @@ module Reach
     end
 
     def timeout_row(entry)
-      message = "The pattern #{entry['id']} took too long on this computer and was skipped."
-      { "id" => TIMEOUT_ID, "severity" => "warn", "file" => nil, "line" => nil, "message" => message, "remedy" => "Tell your instructors; nothing is wrong with your work." }
+      message = Reach::Messages.text("M-PATTERNS-TIMEOUT", id: entry["id"])
+      { "id" => TIMEOUT_ID, "severity" => "warn", "file" => nil, "line" => nil, "message" => message, "remedy" => Reach::Messages.text("M-PATTERNS-TIMEOUT-FIX") }
     end
 
     def timeout_errors
