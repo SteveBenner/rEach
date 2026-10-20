@@ -15,6 +15,8 @@ module Reach
     MAX_REASONS = 8
     MAX_PART = 300
     UNUSED_PORTS = %w[ports.clock. ports.logger.].freeze
+    REFUSALS_FILE = "plan-audit-refusals.json".freeze
+    HAND_AT = 3
 
     module_function
 
@@ -152,6 +154,51 @@ module Reach
         lines << "Finding: #{[finding['constraint'], finding['plan_item'], finding['problem']].join(' - ')}"
       end
       lines.join("\n")
+    end
+
+    def refusals_path(workspace)
+      File.join(workspace, Reach::Workspace::MARKER_DIR, REFUSALS_FILE)
+    end
+
+    def refusals(workspace)
+      read_json(refusals_path(workspace)) || { "count" => 0, "hand_id" => nil }
+    end
+
+    def clear_refusals!(workspace)
+      File.delete(refusals_path(workspace)) if File.file?(refusals_path(workspace))
+    rescue StandardError
+      nil
+    end
+
+    def note_refusal!(workspace, record)
+      state = refusals(workspace)
+      state["count"] = state["count"].to_i + 1
+      hand = nil
+      if state["count"] >= HAND_AT && state["hand_id"].nil?
+        hand = raise_refusal_hand(workspace, record, state["count"])
+        state["hand_id"] = hand ? hand["hand_id"] : "unsent"
+        state["hand_ref"] = hand && hand["hand_ref"]
+        state["raised_at"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+      end
+      Reach::StateFile.write_atomic(refusals_path(workspace), JSON.generate(state))
+      hand
+    rescue StandardError
+      nil
+    end
+
+    def raise_refusal_hand(workspace, record, count)
+      meta = Reach::Workspace.metadata(workspace)
+      plan = Reach::Plan.load(workspace)
+      summary = Reach::Messages.text("M-PLAN-AUDIT-HAND-SUMMARY", cutout: meta["cutout_id"].to_s, slice: meta["slice"].to_s, count: count)
+      Reach::Hands.raise_record(
+        trigger: Reach::Hands::PLAN_AUDIT, originator: "agent", summary: summary, slice: workspace,
+        details: {
+          "plan" => plan ? normalized(plan) : nil, "plan_audit" => load(workspace),
+          "refusals" => count, "qualification" => record.reject { |key, _| key == "ladder" }
+        }
+      )
+    rescue StandardError
+      nil
     end
   end
 end

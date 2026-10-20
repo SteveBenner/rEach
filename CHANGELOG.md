@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.1] - 2026-10-19
+
+A student whose agent cannot get a plan through the audit was refused at qualify with nobody told. Now the instructor
+is.
+
+### Added
+- The third consecutive qualification refused by an enforced plan audit raises one agent hand with trigger
+  `plan_audit` whose details carry the plan, the audit record and the refusal count, and answers M-QUALIFY-PLAN-HAND
+  (wire 2026-10-19b, W-QUAL-PLAN-1). The count lives in `.reach/plan-audit-refusals.json`; a passing audit at qualify
+  clears it. A Teach that does not advertise `plan_audit` receives `student_request`.
+
 ## [0.54.0] - 2026-10-19
 
 A student's agent planned its own scoring coefficients for advisor.a1 where the slice said to use the supplied formula

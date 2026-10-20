@@ -18,12 +18,13 @@ module Reach
     STUDENT_REQUEST = "student_request".freeze
     LATE_WORK = "late_work".freeze
     LATE_SUBMISSION = "late_submission".freeze
+    PLAN_AUDIT = "plan_audit".freeze
     AGENT_TYPES = %w[
       student_request concept_question assignment_question deadline_question grade_question submission_question
       technical_issue setup_issue access_issue extension_request integrity_question other
     ].freeze
-    NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
-    TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION] + AGENT_TYPES).freeze
+    NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION, PLAN_AUDIT] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
+    TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION, PLAN_AUDIT] + AGENT_TYPES).freeze
     SUMMARY_LIMIT = 2000
     TECHNICAL_TYPES = %w[technical_issue setup_issue access_issue].freeze
     FIELD_LIMIT = 1000

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.54.0
+version: 0.54.1
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -821,6 +821,10 @@ qualification:
     (each finding of the record as detail); no other step runs, nothing is sent to Teach, next is M-QUALIFY-PLAN-AUDIT,
     and a record whose findings are all of these codes is not counted on the attempt ladder. Under advise the same
     conditions are recorded on the step with passed false and the notice M-QUALIFY-PLAN-ADVISE, with no finding.
+    Since 0.54.1 (wire 2026-10-19b) each enforced refusal adds one to .reach/plan-audit-refusals.json and a passing
+    step deletes it; the third consecutive refusal raises one agent hand with trigger plan_audit (details: the plan,
+    the local audit record, the refusal count and the qualification record), one per streak, and next becomes
+    M-QUALIFY-PLAN-HAND. A Teach that does not advertise plan_audit gets student_request (Reach::Compat).
   - readable - before any other step every owned file and every file under qualify/features and qualify/step_definitions is read through Reach::SafeFiles. A file it cannot read safely is QF-UNREADABLE (the path and the SafeFiles reason) with next M-QUALIFY-UNREADABLE; no other step runs, nothing is sent to Teach, and a record whose findings are all QF-UNREADABLE is not counted on the attempt ladder.
   - check - reach check; only findings in the slice's own files count. Since 0.41.0 a CK-README finding is recorded as QF-README with next M-QUALIFY-README, and a record whose only findings are QF-README is not counted on the attempt ladder.
   - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale. Since 0.50.12 this next action explicitly assigns the technical scenarios to the assistant, keeps student explanations and contributions student-authored, and requires repair and requalification within the current attempt ladder rather than stopping at a readiness summary. A coverage refusal supplies no behavior result.

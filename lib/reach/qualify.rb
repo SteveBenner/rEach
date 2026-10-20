@@ -129,7 +129,10 @@ module Reach
         record["plan_audit"] = { "mode" => mode, "plan_digest" => Reach::PlanAudit.plan_digest(plan), "verdict" => current ? current["verdict"] : nil }
         rows = current ? Array(current["findings"]) : []
         record["steps"]["plan_audit"] = { "ran" => true, "passed" => ok, "mode" => mode, "rows" => rows }
-        return true if ok
+        if ok
+          Reach::PlanAudit.clear_refusals!(workspace)
+          return true
+        end
 
         if mode == "enforce"
           if plan.nil?
@@ -141,6 +144,11 @@ module Reach
             record["findings"] << { "code" => "QF-PLAN-UNAUDITED", "name" => nil, "detail" => Reach::Messages.text("M-PLAN-AUDIT-NONE") }
           end
           record["next"] = Reach::Messages.text("M-QUALIFY-PLAN-AUDIT")
+          hand = Reach::PlanAudit.note_refusal!(workspace, record)
+          if hand && hand["hand_id"]
+            record["hand"] = { "hand_id" => hand["hand_id"], "hand_ref" => hand["hand_ref"], "trigger" => Reach::Hands::PLAN_AUDIT }
+            record["next"] = Reach::Messages.text("M-QUALIFY-PLAN-HAND")
+          end
           return false
         end
 

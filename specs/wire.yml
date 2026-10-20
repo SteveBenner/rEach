@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-19a
+revision: 2026-10-19b
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -1020,7 +1020,7 @@ routes:
     request:
       cutout_id: string
       slice: {enum: [backend, panel, verification]}
-      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1); feedback is not sent by Reach of 2026-10-13d and later, which uses W-API-FEEDBACK (W-FB-1), and Teach keeps accepting it from older Reach"}
+      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, plan_audit, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1); plan_audit since 2026-10-19b (W-QUAL-PLAN-1), sent only to a Teach that advertises it; feedback is not sent by Reach of 2026-10-13d and later, which uses W-API-FEEDBACK (W-FB-1), and Teach keeps accepting it from older Reach"}
       originator: {enum: [agent, student, reach], required: false, note: "since 2026-09-29d; absent means student; reach since 2026-10-03c, on an issue hand only (W-ISSUE-1)"}
       summary: {type: string, maxBytes: 2000}
       bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2; reach.issue/v1 on an issue hand, W-ISSUE-4)
@@ -2439,7 +2439,8 @@ qualification:
       hand was raised (since 2026-10-03b Reach keeps only the time of the student's latest prompt per slice, never
       its text). 4 to 9: M-LADDER-CONTINUE before each try. 10: M-LADDER-STOPPED;
       reach qualify and those writes are refused until an instructor replies to the hand. A pass or an instructor's
-      reply seen by reach sync or the hand poll resets the count to zero.
+      reply seen by reach sync or the hand poll resets the count to zero. A qualification refused by the plan audit
+      (W-QUAL-PLAN-1) is not a failed qualification here.
   W-QUAL-PLAN-1:
     name: plan and plan audit with every qualification
     since: 2026-10-19a
@@ -2453,7 +2454,11 @@ qualification:
       specification; that server audit is shown to instructors only and changes no qualification result. When a
       hidden scenario fails and the sandbox's port-call record shows a required instructor API of the cutout was never
       called during it, the hidden row's reason is the unused_api reason text, which names the API and never the
-      expected value.
+      expected value. Since 2026-10-19b, when the course profile enforces the audit, Reach counts consecutive
+      qualifications it refused for the plan audit per slice; the third raises one W-PKG-6-v2 hand with originator
+      agent and trigger plan_audit whose details carry the plan, the local audit record and the refusal count, and
+      shows M-QUALIFY-PLAN-HAND. A passing audit at qualify resets the count. These refusals never count on the
+      attempt ladder (W-QUAL-6).
 seal:
   W-SEAL-1:
     name: marks in files
@@ -2794,7 +2799,7 @@ alignment:
     name: hand types
     rule: >-
       Since revision 2026-10-02e. trigger classifies a hand: attempt_gate, attempt_ladder, check_gate and wellbeing are
-      raised by Reach itself; late_work and late_submission by the late-work rule (W-PACE-2); student_request,
+      raised by Reach itself, and plan_audit too since 2026-10-19b (W-QUAL-PLAN-1); late_work and late_submission by the late-work rule (W-PACE-2); student_request,
       concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue,
       setup_issue, access_issue (accounts, Blackboard and other course systems), extension_request, feedback,
       integrity_question and other are chosen by the agent for a hand the student asks for, student_request when none
