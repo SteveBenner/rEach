@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Wire revision 2026-10-21b: the W-QUAL-FAULT-1 scrub wording and `REACH_QUALIFY_FAULTS_DISABLE`.
 - `PRIVACY.md` lists the qualify fault record (fields, scrubbing, cap) and the statement about environment details now reads as the claim it is. `REACH_QUALIFY_FAULTS_DISABLE=1` stops recording and sending; the FEATURES privacy claim is corrected.
 - The `STD-WEIGHTED-PASSES` and `STD-PATTERN-LEDGER` reasons describe the failure mode, not an incident.
 
