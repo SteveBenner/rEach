@@ -23,6 +23,7 @@ module Reach
     PATH_TOKEN = %r{(?<![\w./~-])/(?:#{NAME}/)*[\w.\-@+]+}.freeze
     DRIVE_PATH = %r{(?<![A-Za-z0-9])[A-Za-z]:[/\\](?:#{NAME}[/\\])*[\w.\-@+]*|\\\\[\w.\-@+]+(?:\\#{NAME})+}.freeze
     DROPPED = "[path left out]".freeze
+    HOME_MASK = "~/\u2026".freeze
 
     module_function
 
@@ -171,7 +172,7 @@ module Reach
         ""
       end
       value = value.gsub(home, "~") unless home.length < 3
-      value = value.gsub(HOME_PATH) { "~/…#{File.extname(Regexp.last_match(1).to_s)}" }
+      value = value.gsub(HOME_PATH) { "#{HOME_MASK}#{File.extname(Regexp.last_match(1).to_s)}" }
       value = value.gsub(DRIVE_PATH, DROPPED)
       value = value.gsub(PATH_TOKEN, DROPPED)
       value = Reach::Hands.scrub(value)
