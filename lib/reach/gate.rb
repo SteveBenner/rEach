@@ -530,7 +530,8 @@ module Reach
       root = File.join(workspace, Reach::Workspace::MARKER_DIR, Reach::Passes::DIR)
       return false unless within?(target, root)
 
-      target.to_s.sub("#{resolve_target(root)}/", "").match?(%r{\A(?:#{Reach::Passes::POINTS.join('|')})/[1-8]/.+})
+      parts = target.to_s.sub("#{resolve_target(root)}/", "").split("/", 3)
+      Reach::Passes::POINTS.include?(parts[0]) && parts[1].to_s.match?(/\A[1-8]\z/) && !parts[2].to_s.empty?
     end
 
     def check_ladder!(workspace)
