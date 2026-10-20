@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.53.39 |
+| **Registry version** | 0.54.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 104 catalogued |
+| **Feature count** | 105 catalogued |
 
 ## How to read this registry
 
@@ -336,6 +336,12 @@ Build ✅ · Deploy 🔵 · Blocker: -
 `reach plan save|note|show` keeps the slice plan at `<workspace>/.reach/plan.yml`, read back at every session start.
 
 Build ✅ · Deploy 🔵 · Blocker: -
+
+### 2.6b · Plan audit
+
+Since 0.54.0 (STD-PLAN-AUDIT) every qualification follows a plan that passed a second-pass audit. After each `reach plan save` the agent runs the `reach-plan-audit` skill in a fresh subagent or a separate pass, which reads only `reach plan audit packet` (the plan and the released constraints: behaviour, operation, contract, required instructor APIs, the slice's constraints, graded names, owned files) and records pass or fail with `reach plan audit record`, bound to the plan and constraints digests in `.reach/plan-audit.json`. `reach qualify`'s first step, `plan_audit`, follows the course profile's `qualify.plan_audit`: enforce refuses without a current passing record (QF-PLAN-NONE, QF-PLAN-UNAUDITED, QF-PLAN-AUDIT-FAIL), uncounted on the attempt ladder; advise records a notice; off skips it; no key means advise. `reach check` adds CK-INSTRUCTOR-API (owned Ruby never calls a required instructor API), and each qualification sends the plan, its digest and the audit to Teach (wire 2026-10-19a, W-QUAL-PLAN-1). The reach-feature skill forbids faking a required API with a fixed answer (the QUALIFY directive is generated from specs/polispec/behavior.yml and is unchanged). Verified in a scratch home on a copy of a real advisor.a1 workspace, with the enrollment lock, sign-in and the other qualify steps stubbed: CK-INSTRUCTOR-API flags the copied file and passes a version calling `ports.formula.score`; enforce stops with each finding and leaves the ladder at 0; a pass record proceeds; a behaviour edit makes it stale and a progress note does not; advise, off and no key behave as specified. Not verified: a real qualification POST to Teach with the new manifest keys, Ruby 2.6.10 (none on this host), and a real student harness running the skill as a subagent.
+
+Build ✅ · Deploy 🔵 · Blocker: needs Teach 0.98.0 live (wire 2026-10-19a) and a course profile carrying qualify.plan_audit; without it rEach runs in advise mode
 
 ### 2.7 · Submit and receipts
 

@@ -85,6 +85,7 @@ require_relative "reach/readme_check"
 require_relative "reach/check"
 require_relative "reach/checkpoint"
 require_relative "reach/plan"
+require_relative "reach/plan_audit"
 
 require_relative "reach/download"
 require_relative "reach/untar"

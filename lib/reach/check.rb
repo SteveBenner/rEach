@@ -137,7 +137,30 @@ module Reach
         findings.concat(ports_findings(workspace, meta, relative, number, bare))
       end
       findings.concat(shape_findings_ruby(meta, relative, lines))
+      findings.concat(instructor_api_findings(workspace, meta, relative, lines))
       findings
+    end
+
+    def instructor_api_findings(workspace, meta, relative, lines)
+      return [] if meta["slice"].to_s == "panel"
+
+      required = Array(Reach::PlanAudit.constraints(workspace)["required_apis"])
+      return [] if required.empty?
+      return [] unless relative == Array(meta["owned_files"]).find { |owned| File.extname(owned) == ".rb" }
+
+      sources = Array(meta["owned_files"]).select { |owned| File.extname(owned) == ".rb" }.map do |owned|
+        full = File.join(workspace, owned)
+        File.file?(full) ? File.binread(full).force_encoding(Encoding::UTF_8).scrub.lines.map { |line| line.chomp.gsub(STRING_LITERAL, "\"\"") }.reject { |line| line.strip.start_with?("#") } : []
+      end.flatten.join("\n")
+
+      required.each_with_object([]) do |line, found|
+        chain = line.split("(").first.to_s.sub(/\Aports\./, "")
+        port, method = chain.split(".", 2)
+        next if port.to_s.empty? || method.to_s.empty?
+        next if sources.match?(/\b(?:ports\.)?#{Regexp.escape(port)}\s*\.\s*#{Regexp.escape(method)}\b/)
+
+        found << finding("CK-INSTRUCTOR-API", relative, 1, "never calls #{line}, which this behaviour must use", "Call #{line} with the inputs api/README.md describes, and return what it gives")
+      end
     end
 
     def syntax_findings(relative, full)

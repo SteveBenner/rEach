@@ -16,8 +16,8 @@ module Reach
     POLL_INTERVAL_S = 10
     MAX_POLLS = 36
     REMOTE_BUDGET_S = 20
-    STEP_IDS = %w[check coverage local_pass local_stub remote].freeze
-    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE].freeze
+    STEP_IDS = %w[plan_audit check coverage local_pass local_stub remote].freeze
+    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE QF-PLAN-NONE QF-PLAN-UNAUDITED QF-PLAN-AUDIT-FAIL].freeze
     PREVIEW_STEP = /\bopen the .+ panel\b/.freeze
     PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
@@ -63,6 +63,7 @@ module Reach
       end
 
       def run_steps(workspace, meta, qualify, record, local_only)
+        return unless step_plan_audit(workspace, record)
         return unless step_readable(workspace, meta, record)
         return unless step_check(workspace, record)
         return unless step_coverage(workspace, meta, qualify, record)
@@ -113,6 +114,38 @@ module Reach
         write_record(workspace, record) unless local_only
         Reach::Debug.qualify(record, local_only)
         record
+      end
+
+      def step_plan_audit(workspace, record)
+        mode = Reach::PlanAudit.mode
+        if mode == "off"
+          record["steps"]["plan_audit"] = { "ran" => false, "passed" => true, "mode" => "off" }
+          return true
+        end
+
+        plan = Reach::Plan.load(workspace)
+        current = Reach::PlanAudit.current(workspace)
+        ok = !plan.nil? && !current.nil? && current["verdict"] == "pass"
+        record["plan_audit"] = { "mode" => mode, "plan_digest" => Reach::PlanAudit.plan_digest(plan), "verdict" => current ? current["verdict"] : nil }
+        rows = current ? Array(current["findings"]) : []
+        record["steps"]["plan_audit"] = { "ran" => true, "passed" => ok, "mode" => mode, "rows" => rows }
+        return true if ok
+
+        if mode == "enforce"
+          if plan.nil?
+            record["findings"] << { "code" => "QF-PLAN-NONE", "name" => nil, "detail" => Reach::Messages.text("M-PLAN-NONE") }
+          elsif current
+            detail = rows.map { |row| "#{row['constraint']} - #{row['problem']}" }.join("; ")
+            record["findings"] << { "code" => "QF-PLAN-AUDIT-FAIL", "name" => nil, "detail" => detail }
+          else
+            record["findings"] << { "code" => "QF-PLAN-UNAUDITED", "name" => nil, "detail" => Reach::Messages.text("M-PLAN-AUDIT-NONE") }
+          end
+          record["next"] = Reach::Messages.text("M-QUALIFY-PLAN-AUDIT")
+          return false
+        end
+
+        record["notice"] = [record["notice"], Reach::Messages.text("M-QUALIFY-PLAN-ADVISE")].compact.join(" ")
+        true
       end
 
       def step_readable(workspace, meta, record)
@@ -419,12 +452,16 @@ module Reach
           tests[relative] = Reach::Crypto.digest_hex(data)
           entries[relative] = data
         end
+        plan = Reach::Plan.load(workspace)
         manifest = {
           "schema" => "reach.qualification/v1",
           "course" => meta["course"], "assignment" => meta["assignment"],
           "cutout_id" => meta["cutout_id"], "slice" => meta["slice"],
           "owned_files" => owned, "digests" => digests, "tests" => tests,
-          "attempt" => record["attempt"], "reach_version" => Reach::VERSION, "client_created_at" => now
+          "attempt" => record["attempt"], "reach_version" => Reach::VERSION, "client_created_at" => now,
+          "plan" => plan ? Reach::PlanAudit.normalized(plan) : nil,
+          "plan_digest" => Reach::PlanAudit.plan_digest(plan),
+          "plan_audit" => Reach::PlanAudit.current(workspace)
         }
         tar = Reach::Tarball.write({ "manifest.json" => JSON.generate(manifest) }.merge(entries))
         envelope = seal(install, meta, tar)
@@ -654,7 +691,9 @@ module Reach
           step = record["steps"][id]
           next unless step
 
-          word = if !step["ran"]
+          word = if step["mode"] == "off"
+                   "off"
+                 elsif !step["ran"]
                    "pending"
                  else
                    step["passed"] ? "passed" : "failed"
@@ -675,6 +714,7 @@ module Reach
         verdict = record["passed"] ? "Qualified." : (record["pending"] ? "Waiting for the course server." : "Not qualified.")
         [
           "reach qualify",
+          "plan audit #{steps["plan_audit"].is_a?(Hash) && steps["plan_audit"]["mode"] == "off" ? "off" : step_word(steps["plan_audit"])}",
           "check #{step_word(steps["check"])}",
           "coverage #{step_word(steps["coverage"])}",
           "local #{local_word(steps)}",

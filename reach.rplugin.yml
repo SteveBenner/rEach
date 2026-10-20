@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.53.39
+version: 0.54.0
 rplugin: ">= 1.6.5"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
@@ -21,6 +21,7 @@ contents:
     - { id: reach-build, path: skills/reach-build/SKILL.md }
     - { id: reach-fix, path: skills/reach-fix/SKILL.md }
     - { id: reach-feature, path: skills/reach-feature/SKILL.md }
+    - { id: reach-plan-audit, path: skills/reach-plan-audit/SKILL.md }
     - { id: reach-bug, path: skills/reach-bug/SKILL.md }
     - { id: reach-checkpoint, path: skills/reach-checkpoint/SKILL.md }
     - { id: reach-storage, path: skills/reach-storage/SKILL.md }

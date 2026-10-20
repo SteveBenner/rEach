@@ -155,12 +155,16 @@ module Reach
       },
       {
         "name" => "reach_plan",
-        "description" => "Save, update or show the slice plan",
+        "description" => "Save, update or show the slice plan, and run its second-pass audit: audit_packet returns what the audit reads, audit_record records pass or fail with findings, audit_show reads the current record",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[save note show] },
+            "action" => { "type" => "string", "enum" => %w[save note show audit_packet audit_record audit_show] },
             "fields" => { "type" => "object" },
+            "verdict" => { "type" => "string", "enum" => %w[pass fail] },
+            "reasons" => { "type" => "array", "items" => { "type" => "string" } },
+            "findings" => { "type" => "array", "items" => { "type" => "string", "description" => "constraint | plan item | problem" } },
+            "auditor" => { "type" => "string", "enum" => %w[subagent separate_pass] },
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
           },
           "required" => ["action"]
@@ -1113,9 +1117,17 @@ module Reach
       def plan_tool(workspace, arguments)
         case arguments.fetch("action")
         when "save", "note"
-          Reach::Plan.save(workspace, arguments["fields"] || {})
+          saved = Reach::Plan.save(workspace, arguments["fields"] || {})
+          arguments["action"] == "save" ? saved.merge("next" => Reach::Messages.text("M-PLAN-AUDIT-NEXT")) : saved
         when "show"
           Reach::Plan.load(workspace) || {}
+        when "audit_packet"
+          Reach::PlanAudit.packet(workspace)
+        when "audit_record"
+          record = Reach::PlanAudit.record!(workspace, verdict: arguments["verdict"], reasons: Array(arguments["reasons"]), findings: Array(arguments["findings"]), auditor: arguments["auditor"], harness: Reach::Session.detect_harness)
+          record.merge("text" => Reach::PlanAudit.render(record))
+        when "audit_show"
+          Reach::PlanAudit.current(workspace) || Reach::PlanAudit.load(workspace) || {}
         else
           raise Reach::Error, "reach: unknown plan action"
         end

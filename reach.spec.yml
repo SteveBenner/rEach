@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.53.39
+version: 0.54.0
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -179,6 +179,8 @@ plugin_manifest:
         path: skills/reach-fix/SKILL.md
       - id: reach-feature
         path: skills/reach-feature/SKILL.md
+      - id: reach-plan-audit
+        path: skills/reach-plan-audit/SKILL.md
       - id: reach-bug
         path: skills/reach-bug/SKILL.md
       - id: reach-checkpoint
@@ -442,6 +444,10 @@ library:
     role: Content-addressed snapshots of the slice's owned files, named and automatic, mirrored outside reach-work, with detection and recovery of missing work (checkpoints)
   - name: Reach::Plan
     role: The slice plan at <workspace>/.reach/plan.yml
+  - name: Reach::PlanAudit
+    role: >-
+      The plan audit record at <workspace>/.reach/plan-audit.json (reach.plan-audit/v1): the audit packet, the plan and
+      constraints digests, the recorded verdict, whether it is current, and the course's plan_audit mode (STD-PLAN-AUDIT)
   - name: Reach::Seal
     role: Stamps, verifies and classifies the invisible per-install mark on every owned file
   - name: Reach::Ledger
@@ -688,7 +694,17 @@ harness_integration:
       - If no receipt within five minutes
       - say it is not yet received and retry once
     reach-feature:
-      purpose: The feature flow for one slice without git - read, settle the behaviour, audit, approach, scenarios first, implement, check, qualify, checkpoint, report, offer to submit.
+      purpose: The feature flow for one slice without git - read, settle the behaviour, audit the plan in a second pass with the reach-plan-audit skill, approach, scenarios first, implement, check, qualify, checkpoint, report, offer to submit.
+    reach-plan-audit:
+      purpose: >-
+        Since 0.54.0 (STD-PLAN-AUDIT). The second pass over a saved plan, run after every reach plan save
+        and before any code: in a fresh subagent when the harness has one, otherwise as a separate pass that sets aside
+        the reasoning that wrote the plan. It reads only reach plan audit packet (the plan and the released constraints:
+        behaviour, contract, operation, required instructor APIs, the slice's constraints, graded scenario names, owned
+        files) and judges whether the plan can satisfy every constraint. It records the verdict with reach plan audit
+        record. A failing verdict names each constraint the plan breaks and the plan item that breaks it, in plain words
+        the agent explains to the student; the student's business reasoning stays in their words in README.md, and the
+        plan is corrected to the constraint before qualify. It never sees or asks for reference answers.
     reach-bug:
       purpose: The bug flow for one slice without git - reproduce with a scenario that fails, fix the cause, check, qualify, checkpoint, report.
     reach-help:
@@ -798,6 +814,13 @@ qualification:
     Teach writes the kit into the workspace at qualify/kit/, refusing any source under a behaviours directory or any
     owned path, so it never carries an answer.
   steps:
+  - >-
+    plan_audit - since 0.54.0 , before readable (STD-PLAN-AUDIT). Mode off: the step is recorded as not
+    run. Otherwise the plan must exist and its current audit record must have verdict pass. Under enforce a missing
+    plan is QF-PLAN-NONE, a missing or stale record QF-PLAN-UNAUDITED, a current failing record QF-PLAN-AUDIT-FAIL
+    (each finding of the record as detail); no other step runs, nothing is sent to Teach, next is M-QUALIFY-PLAN-AUDIT,
+    and a record whose findings are all of these codes is not counted on the attempt ladder. Under advise the same
+    conditions are recorded on the step with passed false and the notice M-QUALIFY-PLAN-ADVISE, with no finding.
   - readable - before any other step every owned file and every file under qualify/features and qualify/step_definitions is read through Reach::SafeFiles. A file it cannot read safely is QF-UNREADABLE (the path and the SafeFiles reason) with next M-QUALIFY-UNREADABLE; no other step runs, nothing is sent to Teach, and a record whose findings are all QF-UNREADABLE is not counted on the attempt ladder.
   - check - reach check; only findings in the slice's own files count. Since 0.41.0 a CK-README finding is recorded as QF-README with next M-QUALIFY-README, and a record whose only findings are QF-README is not counted on the attempt ladder.
   - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale. Since 0.50.12 this next action explicitly assigns the technical scenarios to the assistant, keeps student explanations and contributions student-authored, and requires repair and requalification within the current attempt ladder rather than stopping at a readiness summary. A coverage refusal supplies no behavior result.
@@ -1191,7 +1214,7 @@ mcp_bridge:
     description: save, list (all true includes the automatic saves), show or restore a checkpoint of the current slice, recover missing work (since 0.53.26), dismiss a work folder removed on purpose, or forget the saved copies; recover, dismiss and forget act after the student's yes through Reach::Consent (since 0.53.34, recover and dismiss since 0.53.38)
   - name: reach_plan
     description: >-
-      save, note or show the slice plan. Since 0.51.10 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
+      save, note or show the slice plan; since 0.54.0 also audit_packet, audit_record (verdict, reasons, findings, auditor) and audit_show (STD-PLAN-AUDIT). Since 0.51.10 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
       reach_part take an optional slice argument like reach_qualify's, used when the chat's folder does not settle the
       slice (a chat at the top of the course folder with two or more slices); a slice argument names a slice by its
       folder name or, when exactly one matches, by its slice name ("backend"), and one that names no slice is refused
@@ -1462,7 +1485,7 @@ cli:
     synopsis: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]
     purpose: Snapshots of the slice's owned files, saved by name and on every write (checkpoints); recover brings back missing files or a missing work folder; no git in the workspace
   - name: plan
-    synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show
+    synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show | audit packet|record --verdict pass|fail [--reason ...] [--finding ...] [--auditor subagent|separate_pass]|show
     purpose: The slice plan at <workspace>/.reach/plan.yml, read back at every session start
   - name: directive
     synopsis: reach directive <OPCODE>... | --list
@@ -2878,7 +2901,9 @@ directives:
     them at all.
 check:
   rules: >-
-    CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-FUSE, CK-PANEL (with
+    CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-INSTRUCTOR-API (since
+    0.54.0, a backend slice's owned Ruby never calls a required instructor API: slice-api.json
+    required_apis, else its instructor_apis entries that start with ports.), CK-FUSE, CK-PANEL (with
     Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed), CK-README (since 0.41.0, an owned
     README.md section that is missing or under 25 words, by Reach::ReadmeCheck and wire W-SUB-3)
   panel_deferral: >-
@@ -2973,6 +2998,16 @@ plan:
   file: "<workspace>/.reach/plan.yml (reach.plan/v1)"
   fields: behaviour, input, output, steps, edge_cases, scenarios, evidence, progress, next; text fields up to 400 characters, lists up to 12 entries of 200
   use: Saved before the first edit (PLAN1ST), read back at session start (RESUME), included in a hand bundle.
+  audit: >-
+    STD-PLAN-AUDIT (since 0.54.0). plan_digest is the SHA-256 of the canonical JSON of the plan's
+    behaviour, input, output, steps, edge_cases and scenarios (progress, next, evidence and timestamps leave it
+    unchanged). constraints_digest is the SHA-256 of the canonical JSON of the audit packet's constraints object. reach
+    plan save answers with next M-PLAN-AUDIT-NEXT. reach plan audit record --verdict pass|fail [--reason <text>]...
+    [--finding "<constraint> | <plan item> | <problem>"]... [--auditor subagent|separate_pass] writes
+    .reach/plan-audit.json with both digests, the verdict, reasons, findings, auditor, harness and time, and appends a
+    plan_audit ledger entry; a fail needs at least one finding. A record is current when both digests match the
+    workspace now. The course profile's qualify.plan_audit (enforce, advise or off; default enforce) sets the mode.
+    Every qualification carries the plan, its digest and the current audit record to Teach (W-QUAL-PLAN-1).
 seal:
   mark: >-
     A 16-hex per-install, per-cutout, per-file mark Teach derives from its seal secret and ships in the guardrails

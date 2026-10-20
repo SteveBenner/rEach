@@ -478,7 +478,7 @@ module Reach
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
             checkpoint save|list [--all]|show|restore|recover|dismiss|forget    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back, forget deletes the copies after a yes
-            plan save|show|note                  the slice plan
+            plan save|show|note|audit            the slice plan and its second-pass audit
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
             support                              help if you are having a hard time
@@ -3105,7 +3105,10 @@ module Reach
           end
           Reach::Plan.save(workspace_path, fields)
           puts Reach::Messages.text("M-PLAN-SAVED")
+          puts Reach::Messages.text("M-PLAN-AUDIT-NEXT") if sub == "save"
           0
+        when "audit"
+          cmd_plan_audit(workspace_path, remaining, options)
         when "show"
           if (options[:format] || "text") == "json"
             puts JSON.generate(Reach::Plan.load(workspace_path) || {})
@@ -3114,8 +3117,46 @@ module Reach
           end
           0
         else
-          warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | show [--format json]"
+          warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | show [--format json] | audit packet|record|show"
           1
+        end
+      end
+
+      def cmd_plan_audit(workspace_path, remaining, options)
+        action = remaining.shift
+        case action
+        when "packet"
+          puts JSON.generate(Reach::PlanAudit.packet(workspace_path))
+          0
+        when "record"
+          verdict = nil
+          auditor = nil
+          reasons = []
+          findings = []
+          index = 0
+          while index < remaining.length
+            case remaining[index]
+            when "--verdict" then verdict = remaining[index + 1]
+            when "--auditor" then auditor = remaining[index + 1]
+            when "--reason" then reasons << remaining[index + 1]
+            when "--finding" then findings << remaining[index + 1]
+            end
+            index += 1
+          end
+          record = Reach::PlanAudit.record!(workspace_path, verdict: verdict, reasons: reasons.compact, findings: findings.compact, auditor: auditor, harness: Reach::Session.detect_harness)
+          puts Reach::PlanAudit.render(record)
+          0
+        when "show"
+          shown = Reach::PlanAudit.current(workspace_path) || Reach::PlanAudit.load(workspace_path)
+          if (options[:format] || "text") == "json"
+            puts JSON.generate(shown || {})
+          else
+            puts Reach::PlanAudit.render(shown)
+          end
+          0
+        else
+          warn "usage: reach plan audit packet | record --verdict pass|fail [--reason <text>]... [--finding \"<constraint> | <plan item> | <problem>\"]... [--auditor subagent|separate_pass] | show [--format json]"
+          2
         end
       end
 

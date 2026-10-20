@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-18d
+revision: 2026-10-19a
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -594,8 +594,10 @@ packages:
     entries:
       manifest.json: >-
         {"schema": "reach.qualification/v1", course, assignment, cutout_id, slice, owned_files, digests, tests,
-        attempt, reach_version, client_created_at}. digests maps each owned file to its W-CONV-4 digest or null, as in
+        attempt, reach_version, client_created_at, plan, plan_digest, plan_audit}. digests maps each owned file to its W-CONV-4 digest or null, as in
         W-PKG-5; tests maps each qualify/ path sent to its digest. attempt is the slice's attempt number (W-QUAL-6).
+        Since 2026-10-19a (W-QUAL-PLAN-1) plan is the slice plan object (reach.plan/v1) or null, plan_digest its
+        STD-PLAN-AUDIT digest or null, and plan_audit the current reach.plan-audit/v1 record or null.
       "files/<owned file>": One entry per owned file, its bytes unchanged; since 0.46.1 Reach refuses a submission locally (M-SUBMIT-MISSING) when an owned file is missing.
       "qualify/features/<path>": Every file under the workspace's qualify/features (.keep excluded).
       "qualify/step_definitions/<path>": Every file under the workspace's qualify/step_definitions (.keep excluded).
@@ -2438,6 +2440,20 @@ qualification:
       its text). 4 to 9: M-LADDER-CONTINUE before each try. 10: M-LADDER-STOPPED;
       reach qualify and those writes are refused until an instructor replies to the hand. A pass or an instructor's
       reply seen by reach sync or the hand poll resets the count to zero.
+  W-QUAL-PLAN-1:
+    name: plan and plan audit with every qualification
+    since: 2026-10-19a
+    rule: >-
+      Reach sends the slice plan, its digest and the current local audit record in the qualification manifest
+      (W-PKG-7). Teach recomputes plan_digest from plan (SHA-256 of the canonical JSON of behaviour, input, output,
+      steps, edge_cases and scenarios, each absent key as an empty string or list) and answers invalid_request when it
+      differs; a plan_audit whose plan_digest differs from the manifest's is invalid_request too. A manifest from a
+      Reach older than this revision, with no plan keys, is accepted unchanged. Teach stores the plan, its digest and
+      the local audit with the qualification, and may audit the plan itself against the course's full cutout
+      specification; that server audit is shown to instructors only and changes no qualification result. When a
+      hidden scenario fails and the sandbox's port-call record shows a required instructor API of the cutout was never
+      called during it, the hidden row's reason is the unused_api reason text, which names the API and never the
+      expected value.
 seal:
   W-SEAL-1:
     name: marks in files
@@ -2516,6 +2532,7 @@ alignment:
       hints: "{email, student_id}, as W-API-ENROLL-PREVIEW answers them, at most 240 characters each. Without a hint Reach asks for the school email and the student ID in plain words"
       wellbeing: "{phrases: [text a student might type that means they may be in crisis, at most 64], support_text: the course's own support message, at most 2000 characters}. Without phrases Reach uses its built-in list; without support_text it shows its built-in message (W-SUP-1). Crisis detection is never switched off by a missing or empty section"
       support: "{contact_text: one line, at most 240 characters, how a student reaches a person now, for example \"text Sven at 707-968-7082\"}. Without it Reach names no way to reach a person beyond the hand it raises"
+      qualify: "{plan_audit: enforce | advise | off}, since 2026-10-19a: how reach qualify treats the slice plan audit (STD-PLAN-AUDIT, W-QUAL-PLAN-1). Teach always writes it, enforce unless the instructor chose otherwise. Without it (an older Teach) Reach uses advise, so a missing section never refuses a qualification"
   W-CONSENT-1:
     name: consent record
     rule: >-

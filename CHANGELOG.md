@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.0] - 2026-10-19
+
+A student's agent planned its own scoring coefficients for advisor.a1 where the slice said to use the supplied formula
+port, its scenario faked that port with a fixed answer so it passed, and the hidden scenario failed with only "wrong
+result". Every qualification now follows a plan that passed a second-pass audit against the released constraints.
+
+### Added
+- Skill `reach-plan-audit` (skills/reach-plan-audit/SKILL.md, registered in reach.rplugin.yml and
+  .claude-plugin/plugin.json): run after every `reach plan save` in a fresh subagent or a separate pass, it judges the
+  plan only against `reach plan audit packet` and records the verdict; a fail names each broken constraint, the agent
+  explains it to the student, keeps their reasoning in README.md and corrects the plan.
+- `Reach::PlanAudit` (lib/reach/plan_audit.rb): the audit packet, plan and constraints digests, `.reach/plan-audit.json`
+  (reach.plan-audit/v1), current-record check and the course mode.
+- `reach plan audit packet|record|show` and the `reach_plan` tool actions `audit_packet`, `audit_record`, `audit_show`;
+  `reach plan save` now answers with M-PLAN-AUDIT-NEXT.
+- `reach qualify` step `plan_audit`, first: the course profile's `qualify.plan_audit` enforce refuses without a current
+  passing audit (QF-PLAN-NONE, QF-PLAN-UNAUDITED, QF-PLAN-AUDIT-FAIL, M-QUALIFY-PLAN-AUDIT), not counted on the attempt
+  ladder; advise continues with M-QUALIFY-PLAN-ADVISE; off skips it; no key means advise.
+- `reach check` rule CK-INSTRUCTOR-API: a backend slice's owned Ruby never calls a required instructor API.
+- The qualification manifest carries `plan`, `plan_digest` and `plan_audit` (wire 2026-10-19a, W-QUAL-PLAN-1); the
+  course profile gains `qualify` (W-POL-2).
+
+### Changed
+- skills/reach-feature step 3 runs the reach-plan-audit skill; step 5 forbids faking a
+  required API with a fixed answer.
+- tools/smoke/slice_build.rb defaults to Grokit v0.11.0.
+
 ## [0.53.39] - 2026-10-19
 
 ### Fixed
