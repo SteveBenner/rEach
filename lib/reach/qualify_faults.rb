@@ -23,6 +23,8 @@ module Reach
     HOME_PATH = %r{(?<!\w)~(?=[/\\])#{BODY}#{FINAL}}.freeze
     DRIVE_PATH = %r{(?<![A-Za-z0-9])[A-Za-z]:#{BODY}#{FINAL}|(?<!\\)\\\\(?=[^\\\s])#{BODY}#{FINAL}}.freeze
     PATH_TOKEN = %r{(?<![\w./~\\-])(?=/[^\s/])#{BODY}#{FINAL}}.freeze
+    UP_PATH = %r{(?<![\w.])\.\.(?=[/\\])#{BODY}#{FINAL}}.freeze
+    FILE_URI = %r{\bfile://#{BODY}#{FINAL}}.freeze
     DROPPED = "[path left out]".freeze
     HOME_MASK = "~/\u2026".freeze
 
@@ -100,7 +102,7 @@ module Reach
         "refused_by" => failed_pre,
         "steps" => steps.map { |id, step| [id, { "ran" => step["ran"] == true, "passed" => step["passed"] == true, "ms" => step["ms"] }] }.to_h,
         "findings" => Array(record["findings"]).first(FINDINGS_LIMIT).map { |finding| finding_row(workspace, meta, finding, scrubber) },
-        "pattern_matches" => Array(record["pattern_matches"]).map { |row| row.slice("id", "severity", "file", "line") },
+        "pattern_matches" => Array(record["pattern_matches"]).map { |row| row.slice("id", "severity", "file", "line").merge("file" => clean(workspace, row["file"].to_s, scrubber)) },
         "probe" => Array(record["probe"]).map { |row| row.slice("scenario", "port", "sensitive").merge("scenario" => clean(workspace, row["scenario"].to_s, scrubber)) },
         "passes" => passes_summary(workspace, record),
         "plan_digest" => plan_digest(workspace, record),
@@ -175,6 +177,8 @@ module Reach
         ""
       end
       value = value.gsub(home, "~") unless home.length < 3
+      value = value.gsub(FILE_URI, DROPPED)
+      value = value.gsub(UP_PATH, DROPPED)
       value = value.gsub(HOME_PATH) { HOME_MASK + File.extname(Regexp.last_match(1).to_s) }
       value = value.gsub(DRIVE_PATH, DROPPED)
       value = value.gsub(PATH_TOKEN, DROPPED)
@@ -261,7 +265,7 @@ module Reach
         return nil
       end
 
-      result =Reach::Client.with_deadline(SEND_BUDGET_S) do
+      result = Reach::Client.with_deadline(SEND_BUDGET_S) do
         Reach::Client.for_install(install).post_json(ROUTE, { "faults" => batch }, idempotency_key: batch.first["fault_id"])
       end
       body = result.json || {}
@@ -284,6 +288,9 @@ module Reach
         %w[scenario step_text first_error_line location].each do |key|
           row[key] = Reach::Deidentify.scrub(row[key].to_s, scrubber, RECORD_LIMIT).fetch("text") unless row[key].nil?
         end
+      end
+      Array(copy["pattern_matches"]).each do |row|
+        row["file"] = Reach::Deidentify.scrub(row["file"].to_s, scrubber, RECORD_LIMIT).fetch("text") unless row["file"].nil?
       end
       Array(copy["probe"]).each do |row|
         row["scenario"] = Reach::Deidentify.scrub(row["scenario"].to_s, scrubber, RECORD_LIMIT).fetch("text") unless row["scenario"].nil?

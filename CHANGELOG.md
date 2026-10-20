@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.6] - 2026-10-20
+
+### Fixed
+
+- The qualify fault record's path scrub also drops relative paths that leave the workspace (`../` runs) and `file://` addresses, and the file names of pattern matches go through the same scrub and de-identifier as other text.
+- `reach checkpoint restore` accepts extra checkpoint entries only for `.reach/plan.yml` and files under `qualify/features` and `qualify/step_definitions`, with no `..`, no absolute path and no symbolic link on the way; anything else is skipped with a warning.
+- `PRIVACY.md` says an error line or step text can quote a failing line from the student's own tests or code, and that the record holds no files.
+
 ## [0.56.5] - 2026-10-20
 
 ### Fixed

@@ -392,11 +392,32 @@ module Reach
       raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNREADABLE", n: entry["n"])
     end
 
+    def extra_path_ok?(workspace, relative)
+      return false unless relative.is_a?(String) && !relative.empty? && !relative.include?("\0")
+      return false if relative.start_with?("/", "\\") || relative.match?(/\A[A-Za-z]:/)
+
+      parts = relative.split(/[\/\\]/)
+      return false if parts.any? { |part| part.empty? || part == "." || part == ".." }
+      return false unless EXTRA_FILES.include?(relative) || EXTRA_DIRS.any? { |directory| relative.start_with?("#{directory}/") }
+
+      walk = workspace
+      parts.each do |part|
+        walk = File.join(walk, part)
+        return false if File.symlink?(walk)
+      end
+      true
+    end
+
     def restore_extras(workspace, kept, contents)
       extra_files(workspace).each do |relative|
         FileUtils.rm_f(File.join(workspace, relative)) unless kept.key?(relative)
       end
       contents.each do |relative, content|
+        unless extra_path_ok?(workspace, relative)
+          warn "reach: skipped a checkpoint entry outside the plan and qualify folders"
+          next
+        end
+
         destination = File.join(workspace, relative)
         FileUtils.mkdir_p(File.dirname(destination))
         Reach::StateFile.write_atomic(destination, content, mode: 0o644)
