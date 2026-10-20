@@ -177,6 +177,11 @@ module Reach
       binding = case row["enforce"]
                 when "gate:write" then "Reach::Gate.write"
                 when "gate:shell" then "Reach::Gate.shell"
+                when "gate:read" then "Reach::Gate.read"
+                when /\Acheck:/, "hook:shape" then "Reach::Check.run"
+                when "ledger" then "Reach::Ledger.append"
+                when "hook:login" then "Reach::Gate.require_login!"
+                when "hook:part" then "Reach::Submit.require_part!"
                 end
       {
         "id" => row["id"], "description" => row["rule"], "event" => "course.directive",

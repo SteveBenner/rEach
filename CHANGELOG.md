@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.7] - 2026-10-20
+
+### Fixed
+
+- `reach policy` now reports a course directive as native whenever code enforces it. `Reach::BehaviorPolicy.course_rule` mapped only `gate:write` and `gate:shell`, so SANDBOX (`gate:read`), FUSE and PORTS (`check:*`), CRAFT (`hook:shape`), SEAL and OPAQUE (`ledger`), WHOAMI (`hook:login`) and OWNPART (`hook:part`) were listed as advisory although the read gate, `reach check`, the ledger, the login gate and the submit guard enforce them. They now bind to the same guards the public tier names; any other label stays advisory. With Teach 0.101.5 the course policy reports 11 native and 25 advisory rules.
+- The persona (`agents/reach.md`, `skills/reach-assistant/SKILL.md`) states that the privacy answer, what rEach records and shares, is always allowed and that no course rule about keeping rEach's workings private overrides it, matching Teach 0.101.5's OPAQUE and G-INTEGRITY-1.
+
 ## [0.54.6] - 2026-10-20
 
 ### Fixed
