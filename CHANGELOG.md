@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.1] - 2026-10-20
+
+### Fixed
+
+- `P-PORT-FAKED` no longer blocks the `grokit_fake` usage the QUALIFY directive asks for. It now matches only a scenario that fakes a required instructor port with a fixed answer and asserts that same answer back (new pattern kind `faked_port_echo`); a lambda fake, a fake of an optional port, and a fake whose answer the module transforms are not matches. The older stand-in check (`define_singleton_method`, `OpenStruct`, `Struct.new`) is kept as `P-PORT-STANDIN`. The directive and the `reach-feature` skill now say a required port may be faked with a fixed answer only when the scenario asserts what the module does with it.
+- `reach passes pick` no longer follows symbolic links added to a candidate after it was scored: install skips them, and the candidate digest includes link entries so a new link makes the pick stale.
+- Qualify fault records drop `~/...` paths outside the assignment folder (cut to `~/…` and the file extension) and Windows drive-letter and backslash paths, including folder names with spaces.
+
+### Changed
+
+- `PRIVACY.md` lists the qualify fault record (fields, scrubbing, cap) and the statement about environment details now reads as the claim it is. `REACH_QUALIFY_FAULTS_DISABLE=1` stops recording and sending; the FEATURES privacy claim is corrected.
+- The `STD-WEIGHTED-PASSES` and `STD-PATTERN-LEDGER` reasons describe the failure mode, not an incident.
+
 ## [0.56.0] - 2026-10-20
 
 ### Added

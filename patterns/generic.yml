@@ -3,11 +3,18 @@ patterns:
   - id: P-PORT-FAKED
     severity: block
     points: [scenarios]
+    kind: faked_port_echo
+    parameters: {}
+    message: "A scenario fakes a required instructor port with a fixed answer and then asserts that same answer back, so a module that ignores the port still passes."
+    remedy: "Fake the port with a lambda that checks its arguments and answers from them, and assert what your module does with the answer."
+  - id: P-PORT-STANDIN
+    severity: block
+    points: [scenarios]
     kind: regex_steps
     parameters:
-      pattern: "grokit_fake|define_singleton_method|\\bOpenStruct\\b|\\bStruct\\.new\\b"
+      pattern: "define_singleton_method|\\bOpenStruct\\b|\\bStruct\\.new\\b"
     message: "A step definition builds its own stand-in for a port the kit already supplies, so the scenario never reaches the real answer."
-    remedy: "Let the scenario run through the real port the kit supplies; assert on what your module does with its answer."
+    remedy: "Let the scenario run through the real port the kit supplies, or fake it with grokit_fake, and assert on what your module does with its answer."
   - id: P-SCENARIO-TAUTOLOGY
     severity: block
     points: [scenarios]

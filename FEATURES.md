@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.56.0 |
+| **Registry version** | 0.56.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2213,4 +2213,12 @@ Before a plan, the scenarios or the code are qualified, the agent writes several
 
 Build ✅ (branch weighted-passes, 0.56.0, pushed, not merged) · Deploy 🔵 (not released; the patterns package and the fault route need the Teach side, and each mode defaults to advise so nothing refuses until the course enforces) · Blocker: Human (Teach slices, wire re-pin, promotions). Verified in a scratch home with a scratch workspace, invented graded names and a fake client: reference builds match no ledger entry, a faulty workspace reports its patterns, candidates are scored, hard-zeroed and picked, qualify refuses uncounted under enforce, and fault records are written, chained and batched. Not verified: Ruby 2.6, a live Teach, a live student session, platform smoke.
 
-Student-first audit: (1) learning yes, the passes make the agent weigh alternatives and each remedy says what to change; (2) agency yes, the pick and the reasons are shown and modes are advise by default; (3) wellbeing n/a; (4) privacy yes, fault records are scrubbed of paths, secrets and identity, hidden checks are left out, and a kill switch is the mode setting; (5) fairness yes, the same ledger and scoring for every student; (6) friction yes, refusals are uncounted so a student does not lose a try for a process gap; (7) failure yes, every hook is wrapped and an offline send keeps the file; (8) recovery yes, the remedies name the next step and the records can be rebuilt by running qualify again.
+Student-first audit: (1) learning yes, the passes make the agent weigh alternatives and each remedy says what to change; (2) agency yes, the pick and the reasons are shown and modes are advise by default; (3) wellbeing n/a; (4) privacy yes, fault records are scrubbed of paths, secrets and identity, hidden checks are left out, they are disclosed in PRIVACY.md, and `REACH_QUALIFY_FAULTS_DISABLE=1` stops the record and the send (the mode settings do not); (5) fairness yes, the same ledger and scoring for every student; (6) friction yes, refusals are uncounted so a student does not lose a try for a process gap; (7) failure yes, every hook is wrapped and an offline send keeps the file; (8) recovery yes, the remedies name the next step and the records can be rebuilt by running qualify again.
+
+## Weighted passes follow-ups — 0.56.1
+
+The port-faking pattern now matches only a fixed fake of a required port that is asserted back; a symbolic link added after scoring can no longer be installed by a pick; fault records drop home-relative and Windows paths; PRIVACY.md discloses the fault record and `REACH_QUALIFY_FAULTS_DISABLE=1` turns it off.
+
+Build ✅ Built on main (0.56.1) · Deploy 🔵 Pending · Blocker: Human (Teach re-pin of the wire, promotions). Verified in a scratch home and workspace: a fixed fake asserted back is matched, a lambda fake, an optional-port fake and a transformed fake are not; a link added after scoring makes the pick stale and is not copied; error lines with `/home/x/Desktop/Jane Doe/a.rb`, `~/Desktop/Jane Doe/a.rb` and `C:\Users\Jane\a.rb` keep no path while a workspace-relative path survives; the switch writes and sends nothing. Not verified: Ruby 2.6, a live Teach.
+
+Student-first audit: privacy improves, the record is disclosed and can be turned off; friction improves, a compliant scenario is no longer ruled out; the other six answers are unchanged from 0.56.0.

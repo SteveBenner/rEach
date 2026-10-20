@@ -365,7 +365,10 @@ directives:
     3. Fake ports with `grokit_fake(:port, method: value_or_lambda)` and fix
        the day with `grokit_today`, so a scenario states its own data. Away
        from the course server a port you did not fake answers
-       `port_not_faked`.
+       `port_not_faked`. A required instructor port may be faked with a fixed
+       answer only when the scenario then asserts what your module does with
+       that answer, never the answer itself; otherwise fake it with a lambda
+       that checks its arguments (P-PORT-FAKED).
     4. Every scenario must fail on the starting copy. A scenario that passes
        on the starting copy proves nothing and is reported as QF-VACUOUS.
 

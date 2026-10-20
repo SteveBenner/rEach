@@ -18,7 +18,10 @@ module Reach
     SEND_BUDGET_S = 5
     PRE_RUN_STEPS = %w[plan_audit passes patterns check coverage].freeze
     ERROR_CLASS = /\b((?:[A-Z][A-Za-z0-9]*::)+[A-Z][A-Za-z0-9]*|[A-Z][A-Za-z0-9]*(?:Error|Exception|Failure))\b/.freeze
-    PATH_TOKEN = %r{(?<![\w./~-])/(?:[\w.\-@+]+/)*[\w.\-@+]+}.freeze
+    NAME = "[\\w.\\-@+]+(?: [\\w.\\-@+]+){0,2}".freeze
+    HOME_PATH = %r{(?<![\w])~[/\\](?:#{NAME}[/\\])*([\w.\-@+]*)}.freeze
+    PATH_TOKEN = %r{(?<![\w./~-])/(?:#{NAME}/)*[\w.\-@+]+}.freeze
+    DRIVE_PATH = %r{(?<![A-Za-z0-9])[A-Za-z]:[/\\](?:#{NAME}[/\\])*[\w.\-@+]*|\\\\[\w.\-@+]+(?:\\#{NAME})+}.freeze
     DROPPED = "[path left out]".freeze
 
     module_function
@@ -31,7 +34,13 @@ module Reach
       File.join(workspace, Reach::Workspace::MARKER_DIR, STATE_FILE)
     end
 
+    def disabled?
+      ENV["REACH_QUALIFY_FAULTS_DISABLE"].to_s == "1"
+    end
+
     def capture(workspace, record, local_only:, counted:)
+      return nil if disabled?
+
       fault = nil
       if record["passed"] == false && record["pending"] == false
         fault = build(workspace, record, local_only, counted)
@@ -155,14 +164,16 @@ module Reach
     def clean(workspace, text, scrubber)
       value = text.to_s.dup.force_encoding(Encoding::UTF_8).scrub
       root = File.expand_path(workspace)
-      value = value.gsub("#{root}/", "")
+      value = value.gsub("#{root}/", "").gsub("#{root.tr('/', '\\')}\\", "")
       home = begin
         Reach::Paths.user_home.to_s
       rescue StandardError
         ""
       end
       value = value.gsub(home, "~") unless home.length < 3
-      value = value.gsub(PATH_TOKEN) { |match| match.start_with?("~") ? match : DROPPED }
+      value = value.gsub(HOME_PATH) { "~/…#{File.extname(Regexp.last_match(1).to_s)}" }
+      value = value.gsub(DRIVE_PATH, DROPPED)
+      value = value.gsub(PATH_TOKEN, DROPPED)
       value = Reach::Hands.scrub(value)
       value = Reach::Deidentify.scrub(value, scrubber, RECORD_LIMIT)["text"] if scrubber
       value
@@ -210,6 +221,8 @@ module Reach
     end
 
     def flush(workspace)
+      return nil if disabled?
+
       install = Reach::Enroll.current
       return nil unless install
 

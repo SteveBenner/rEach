@@ -121,13 +121,16 @@ module Reach
     end
 
     def files_digest(dir, files)
-      map = files.map { |relative| [relative, Reach::Crypto.digest_hex(File.binread(File.join(dir, relative)))] }.to_h
+      map = files.map do |relative|
+        full = File.join(dir, relative)
+        [relative, File.symlink?(full) ? "link:#{File.readlink(full)}" : Reach::Crypto.digest_hex(File.binread(full))]
+      end.to_h
       Reach::Crypto.digest_hex(Reach::Crypto.canonical_json(map))
     end
 
     def candidate_digest(workspace, point, number)
       dir = candidate_dir(workspace, point, number)
-      files_digest(dir, candidate_files(dir).reject { |relative| File.symlink?(File.join(dir, relative)) })
+      files_digest(dir, candidate_files(dir))
     end
 
     def allowed_path?(meta, point, relative)
@@ -469,8 +472,10 @@ module Reach
     end
 
     def install(workspace, meta, point, dir)
-      files = candidate_files(dir)
+      files = candidate_files(dir).reject { |relative| File.symlink?(File.join(dir, relative)) }
       if point == "plan"
+        raise Reach::Refused, Reach::Messages.text("M-PASSES-NOT-VIABLE", point: point) unless files.include?(PLAN_FILE)
+
         plan = YAML.safe_load(File.read(File.join(dir, PLAN_FILE))) || {}
         fields = plan.select { |key, _| (Reach::Plan::TEXT_FIELDS + Reach::Plan::LIST_FIELDS).include?(key.to_s) }
         Reach::Plan.save(workspace, fields)

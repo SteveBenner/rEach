@@ -2528,10 +2528,10 @@ qualification:
       so a run of faults is a chain), qualification_id (when the remote step ran)}. scenario is a scenario name from the
       agent's own features and never a hidden one; first_error_line is scrubbed and at most 500 characters; location is a
       path relative to the workspace inside qualify/ or the owned files. The record holds no owned code, no prompt or
-      README text and no student identity: the home directory is written as ~ and any path outside the workspace is
-      dropped. Reach keeps the newest 200 in .reach/qualify-faults.jsonl, sends them as POST /api/v1/qualify-faults right
+      README text and no student identity: a path under the home directory is cut to ~/… and its file extension, and any
+      other path outside the workspace, including Windows drive-letter and backslash paths, is dropped. Reach keeps the newest 200 in .reach/qualify-faults.jsonl, sends them as POST /api/v1/qualify-faults right
       after the attempt and again from that file, at most 60 an hour per install (the rest are counted and sent later),
-      and never lets a failed send block or fail a qualification. A hand bundle lists the fault_id of each of its attempts
+      and never lets a failed send block or fail a qualification. REACH_QUALIFY_FAULTS_DISABLE=1 stops the record and the send. A hand bundle lists the fault_id of each of its attempts
       (W-PKG-6-v2). Teach stores the records beside the qualification, may add a record of its own for a failed remote
       qualification, and returns no hidden result to Reach (STD-TEACH-OPAQUE).
   W-QUAL-PLAN-1:

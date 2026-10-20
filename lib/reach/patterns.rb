@@ -9,7 +9,7 @@ module Reach
     GENERIC_FILE = File.expand_path("../../patterns/generic.yml", __dir__)
     SEVERITIES = %w[block warn info].freeze
     POINTS = %w[plan scenarios code].freeze
-    KINDS = %w[regex_owned regex_feature regex_steps i18n_keys last_run literal_echo port_args].freeze
+    KINDS = %w[regex_owned regex_feature regex_steps i18n_keys last_run literal_echo port_args faked_port_echo].freeze
     MODES = %w[enforce advise off].freeze
     FEATURES_DIR = "qualify/features".freeze
     STEPS_DIR = "qualify/step_definitions".freeze
@@ -219,6 +219,7 @@ module Reach
              when "last_run" then last_run_hits(scope, params)
              when "literal_echo" then params["mode"].to_s == "owned_then" ? owned_then_hits(scope) : given_then_hits(scope, params)
              when "port_args" then port_hits(scope, params)
+             when "faked_port_echo" then faked_port_echo_hits(scope)
              else []
              end
       hits.map do |file, line|
@@ -379,6 +380,65 @@ module Reach
 
           found = literals(line).find { |value| asserted.key?(value) && !constraints.include?(value) }
           hits << [relative, number] if found
+        end
+      end
+      hits
+    end
+
+    FAKE_CALL = /grokit_fake\(\s*:(\w+)\s*,\s*(?:\w+:\s*|:\w+\s*=>\s*)(.+?)\s*\)\s*(?:\z|\bdo\b|\{|$)/.freeze
+    FIXED_VALUE = /\A(?:-?\d+(?:\.\d+)?|"[^"]*"|'[^']*'|[a-z_]\w*)\z/.freeze
+    VALUE_TOKEN = /-?\d+(?:\.\d+)?|"[^"\n]+"/.freeze
+
+    def required_port_names(scope)
+      Array(Reach::PlanAudit.constraints(scope.workspace)["required_apis"]).map { |line| line.to_s[/\Aports\.(\w+)\./, 1] }.compact.uniq
+    rescue StandardError
+      []
+    end
+
+    def fixed_fake_values(scope)
+      required = required_port_names(scope)
+      values = []
+      fixed = false
+      scope.step_files.each do |relative|
+        text = scope.read(relative)
+        next unless text
+
+        text.each_line do |line|
+          next if comment_line?(relative, line)
+
+          match = line.match(FAKE_CALL)
+          next unless match
+          next unless required.empty? || required.include?(match[1])
+
+          expression = match[2].strip
+          next unless expression.match?(FIXED_VALUE)
+
+          fixed = true
+          values.concat(expression.scan(VALUE_TOKEN))
+        end
+      end
+      [fixed, values]
+    end
+
+    def faked_port_echo_hits(scope)
+      fixed, step_values = fixed_fake_values(scope)
+      return [] unless fixed
+
+      hits = []
+      scope.feature_files.each do |relative|
+        text = scope.read(relative)
+        next unless text
+
+        scenario_blocks(text).each do |block|
+          set = block.select { |line, _| line.strip.start_with?("Given") }.flat_map { |line, _| line.scan(VALUE_TOKEN) } + step_values
+          next if set.empty?
+
+          block.each do |line, number|
+            next unless line.strip.start_with?("Then", "And")
+
+            echoed = line.scan(VALUE_TOKEN) & set
+            hits << [relative, number] unless echoed.empty?
+          end
         end
       end
       hits
