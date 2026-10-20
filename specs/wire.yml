@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-21c
+revision: 2026-10-21d
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -2531,7 +2531,7 @@ qualification:
       README text and no student identity: a path under the home directory is cut to ~/… and its file extension, and any
       other path outside the workspace, including Windows drive-letter and backslash paths, is dropped. Reach keeps the newest 200 in .reach/qualify-faults.jsonl, sends them as POST /api/v1/qualify-faults right
       after the attempt and again from that file, at most 60 an hour per install (the rest are counted and sent later),
-      and never lets a failed send block or fail a qualification. REACH_QUALIFY_FAULTS_DISABLE=1 stops the record and the send. Since revision 2026-10-21b the scrub (made independent of the characters in folder names in 2026-10-21c) cuts a path under the home directory to ~/… and its extension and drops Windows paths, and the switch exists; revision 2026-10-21a dropped only forward-slash paths outside the workspace. A hand bundle lists the fault_id of each of its attempts
+      and never lets a failed send block or fail a qualification. REACH_QUALIFY_FAULTS_DISABLE=1 stops the record and the send. Since revision 2026-10-21d environment.ruby, platform, harness and harness_confidence are null when REACH_ENV_REPORT_DISABLE=1 (reach_version is always present), and scenario names in findings and probe rows pass through the same scrub as the other text. Since revision 2026-10-21b the scrub (made independent of the characters in folder names in 2026-10-21c) cuts a path under the home directory to ~/… and its extension and drops Windows paths, and the switch exists; revision 2026-10-21a dropped only forward-slash paths outside the workspace. A hand bundle lists the fault_id of each of its attempts
       (W-PKG-6-v2). Teach stores the records beside the qualification, may add a record of its own for a failed remote
       qualification, and returns no hidden result to Reach (STD-TEACH-OPAQUE).
   W-QUAL-PLAN-1:

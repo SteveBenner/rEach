@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.4] - 2026-10-20
+
+### Fixed
+
+- `REACH_ENV_REPORT_DISABLE=1` now also blanks the operating system, processor, Ruby version and AI app in qualify fault records (wire revision 2026-10-21d: those fields are null, `reach_version` stays).
+- Scenario names in qualify fault records pass through the same scrub and de-identifier as the other text.
+- `PRIVACY.md` says the fault record is sent right after the failed check (at most 5 seconds), not in the background.
+
 ## [0.56.3] - 2026-10-20
 
 ### Fixed

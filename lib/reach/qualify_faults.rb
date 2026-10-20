@@ -99,7 +99,7 @@ module Reach
         "steps" => steps.map { |id, step| [id, { "ran" => step["ran"] == true, "passed" => step["passed"] == true, "ms" => step["ms"] }] }.to_h,
         "findings" => Array(record["findings"]).first(FINDINGS_LIMIT).map { |finding| finding_row(workspace, meta, finding, scrubber) },
         "pattern_matches" => Array(record["pattern_matches"]).map { |row| row.slice("id", "severity", "file", "line") },
-        "probe" => Array(record["probe"]).map { |row| row.slice("scenario", "port", "sensitive") },
+        "probe" => Array(record["probe"]).map { |row| row.slice("scenario", "port", "sensitive").merge("scenario" => clean(workspace, row["scenario"].to_s, scrubber)) },
         "passes" => passes_summary(workspace, record),
         "plan_digest" => plan_digest(workspace, record),
         "constraints_digest" => Reach::PlanAudit.constraints_digest(workspace),
@@ -131,7 +131,7 @@ module Reach
       step = hidden ? nil : clean(workspace, finding["step"].to_s, scrubber)
       {
         "code" => code,
-        "scenario" => hidden ? nil : finding["name"],
+        "scenario" => hidden || finding["name"].nil? ? nil : clean(workspace, finding["name"].to_s, scrubber),
         "step_text" => step.to_s.empty? ? nil : step[0, LINE_LIMIT],
         "error_class" => detail[ERROR_CLASS, 1],
         "first_error_line" => first_line(detail),
@@ -209,6 +209,10 @@ module Reach
     end
 
     def environment
+      if ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
+        return { "reach_version" => Reach::VERSION, "ruby" => nil, "platform" => nil, "harness" => nil, "harness_confidence" => nil }
+      end
+
       fields = Reach::Environment.fields
       identity = Reach::HarnessIdentity.detect
       {
