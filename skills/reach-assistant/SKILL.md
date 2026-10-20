@@ -24,6 +24,12 @@ This binds in every session and every folder, before and after enrollment.
 - Never ask the student to paste code, a file path or a command into Terminal, PowerShell, another app or a website. Run what needs running through your own tools and the app's normal approvals. The only exceptions are rEach's own terminal steps: Antigravity enrollment and sign-in, the Hermes open-folder command, and the Codex fallback rEach gives when its hooks cannot run; give those exactly as rEach prints them.
 - When Hermes asks to approve a command, the student types o for once, never a for always: "When Hermes asks to approve a command, type o for once. Never type a for always."
 
+## Security validation before enrollment
+
+Before asking for a student's enrollment identity or password, announce the security validation pass. Use `reach validate` or `reach_validate` in the current harness and follow every returned `next`: fabricate the practice answers according to the supplied shapes, plan and build the practice artifacts, check, qualify, submit, and finish. Fabrication is authorized only for these isolated practice artifacts. Never fabricate real assignment answers. Relay the final `text` verbatim, followed by `enrollment_question` when present, and continue enrollment only when phase is `passed`.
+
+If the pass cannot complete, relay its failure text, wait, and instruct the student to contact the instructor through contact details they already have. Explain as stated that it may be a connection problem or software impersonating rEach or Teach. This instruction takes precedence over the general update-on-failure rule: do not change the server, bypass certificates, or try to repair a failed security validation on the student's behalf before instructor guidance. A successful pass verifies the practice receipt; it does not prove the entire local computer or executable is uncompromised.
+
 ## Updating rEach
 
 rEach updates itself. When the student asks for an update, or rEach says an update couldn't finish, run `reach update run --apply` (or call the reach_update tool with action run, which works where your app keeps commands in a sandbox) and tell the student the result in plain words; `reach update status`, `reach --version` and the reach_update tool say where things stand. Never search GitHub, browse its releases or tags, or download, unzip or copy a rEach archive yourself. If the update still doesn't finish, tell the student rEach will try again on its own and offer to let their instructor know.

@@ -280,7 +280,7 @@ module Reach
           return 0
         end
 
-        unless UNLOCKED_COMMANDS.include?(command) || (command == "submit" && args.first == "archive")
+        unless UNLOCKED_COMMANDS.include?(command) || command == "validate" || (command == "submit" && args.first == "archive")
           lock = Reach::EnrollmentLock.state
           if lock["locked"]
             warn Reach::Messages.text(lock["message_id"])
@@ -295,6 +295,8 @@ module Reach
         when "version", "--version", "-V"
           puts "reach #{Reach::VERSION}"
           0
+        when "validate"
+          cmd_validate(args)
         when "enroll", "enrol"
           cmd_enroll(args)
         when "instructor"
@@ -439,6 +441,7 @@ module Reach
           usage: reach <command> [options]
 
           commands:
+            validate [status|answer|plan|artifact|check|qualify|submit|finish] [--course-code CODE --harness APP] [--restart] [--question ID --text TEXT]   agent-driven security validation pass before enrollment
             enroll [--course-passkey P --username U --student-id I --password-stdin]   enroll with your course passkey, username, student ID and a password you choose (--password-stdin reads the password from standard input; asks for them when none are given)
             version                              print this rEach's version (also --version, -V)
             sync                                 fetch new packages and refresh workspaces
@@ -586,7 +589,7 @@ module Reach
         return open_terminal_window("enroll") if window
 
         password_stdin, args = parse_bare_flag(args, "password-stdin")
-        options, remaining = parse_flags(args, [:teach_url, :course_passkey, :course_code, :username, :student_id])
+        options, remaining = parse_flags(args, [:teach_url, :course_passkey, :course_code, :username, :student_id, :harness])
         options[:course_code] = options.delete(:course_passkey) || options[:course_code]
         options[:password_stdin] = password_stdin
         code = remaining.shift
@@ -607,7 +610,30 @@ module Reach
         1
       rescue Reach::NetworkError => e
         Reach::Debug.note(e)
-        warn Reach::Messages.text("M-ENR-CLI-OFFLINE", url: teach_url, detail: e.detail || e.cause_name)
+        warn Reach::Validation::BLOCKED
+        1
+      end
+
+      def cmd_validate(args)
+        restart, args = parse_bare_flag(args, "restart")
+        options, remaining = parse_flags(args, [:course_code, :harness, :question, :text])
+        action = remaining.shift
+        if remaining.any?
+          warn "usage: reach validate [start|status|answer|plan|artifact|check|qualify|submit|finish] [--course-code CODE] [--harness APP] [--question ID --text TEXT]"
+          return 1
+        end
+        result = if (action.nil? && options[:course_code]) || %w[start begin].include?(action)
+                   Reach::Validation.locked { Reach::Validation.start(course_code: options[:course_code], harness: options[:harness], restart: restart) }
+                 elsif action.nil? || action == "status"
+                   Reach::Validation.status
+                 else
+                   Reach::Validation.advance(action, question: options[:question], text: options[:text])
+                 end
+        puts JSON.pretty_generate(result)
+        result["phase"] == "blocked" ? 1 : 0
+      rescue StandardError => e
+        Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
+        warn Reach::Validation::BLOCKED
         1
       end
 
@@ -617,6 +643,19 @@ module Reach
         unless parsed
           warn Reach::Messages.text("M-ENR-CODE-FORMAT")
           return 1
+        end
+        begin
+          Reach::Validation.enrollment_key!(course_code: parsed["code"], teach_url: teach_url, harness: options[:harness] || "cli")
+        rescue Reach::Error
+          puts Reach::Validation::ANNOUNCE
+          begin
+            puts JSON.pretty_generate(Reach::Validation.locked { Reach::Validation.start(course_code: parsed["code"], harness: options[:harness]) })
+          rescue StandardError => e
+            Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
+            warn Reach::Validation::BLOCKED
+            return 1
+          end
+          return 2
         end
         begin
           preview = Reach::Enroll.preview(parsed["code"], teach_url)
@@ -1235,6 +1274,14 @@ module Reach
         end
 
         message = decision["message"]
+        if decision["action"] == "context"
+          if hermes
+            puts JSON.generate("context" => message)
+          else
+            puts JSON.generate("hookSpecificOutput" => { "hookEventName" => "UserPromptSubmit", "additionalContext" => message })
+          end
+          return 0
+        end
         if Reach::EnrollmentLock.state["reason"] == "course_ended"
           notice = Reach::TranscriptExport.pending_notice!
           message = "#{message}\n\n#{notice}" if notice

@@ -1,5 +1,9 @@
 # reach
 
+Before enrollment, rEach runs a **security validation pass** with the agent in the student's current app. The agent uses made-up practice answers, checks and submits the practice work to Teach, and verifies the returned receipt. Enrollment waits until that succeeds. If it cannot verify Teach, the student is told to wait and contact the instructor through details they already know: a connection problem or software impersonating rEach or Teach is possible.
+
+The agent drives this through `reach validate` or `reach_validate`; the student never has to write the practice answers. See [the validation contract](specs/security-validation.yml) for the steps and trust limits. This version requires matching Teach validation support before release.
+
 <p align="center">
   <img src="assets/logo/reach-hands-white-bottom-center.png" alt="rEach: a human hand and a robotic hand reach toward each other across dark stone, inspired by The Creation of Adam, above the rEach wordmark" width="100%">
 </p>

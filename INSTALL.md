@@ -14,6 +14,8 @@ These steps are for the AI agent a student asked to install rEach from this repo
 
 ## Which section is yours
 
+Before collecting the student's enrollment identity or password, complete the **security validation pass** using the provided harness agent. Announce the text returned by `reach validate` or `reach_validate`, follow each `next` with fabricated practice data only, and relay its final text verbatim. Continue enrollment only when phase is `passed`. If Teach cannot be reached, its receipt cannot be verified, or the pass otherwise cannot finish, relay the failure text, tell the student to wait and contact the instructor through contact details they already have, and stop enrollment. The failure text explains that a connection problem or software impersonating rEach or Teach is possible. Never change the server, bypass certificates, or ask the student for practice answers.
+
 Use "Claude Code, Codex, Antigravity and Hermes" below whenever you can run shell commands for the student: Claude Code in a terminal, the Claude desktop app's Code tab, VS Code, Codex, Antigravity or Hermes Agent. If the student says they are using Claude Code, that section is yours, even when your shell is a container or sandbox. Use "Claude Cowork" only when you are the Claude desktop app's Cowork mode.
 
 ## Claude Code, Codex, Antigravity and Hermes

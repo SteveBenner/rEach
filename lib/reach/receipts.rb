@@ -113,6 +113,11 @@ module Reach
         text
       end
 
+      def reference_text(receipt)
+        id = receipt["receipt_id"].to_s
+        id.empty? ? "" : Reach::Messages.text("M-RECEIPT-REFERENCE", id: id)
+      end
+
       def refresh_grades(now: Time.now)
         outstanding = list.select { |receipt| receipt["kind"] == "ingest" && !stored_for_submission(receipt["submission_id"], "grade") }
         outstanding.each_with_object([]) do |ingest, announced|
@@ -216,7 +221,7 @@ module Reach
 
       def message_for(receipt)
         kind = receipt["kind"].to_s
-        if kind == "grade"
+        text = if kind == "grade"
           scenarios = Array(receipt["scenarios"])
           Reach::Messages.text(
             "M-GRADED",
@@ -233,6 +238,7 @@ module Reach
             time: Reach::Messages.course_time(receipt["received_at"])
           )
         end
+        [text, reference_text(receipt)].reject { |part| part.to_s.empty? }.join(" ")
       end
 
       def notify_desktop(text)

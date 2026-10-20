@@ -5,6 +5,21 @@ module Reach
   module MCPBridge
     TOOLS = [
       {
+        "name" => "reach_validate",
+        "description" => "Run the required pre-enrollment security validation pass with fabricated practice data. Follow next with the current harness agent, relay text verbatim, and never ask for a password or continue enrollment until phase passed. A failure means wait and contact the instructor.",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[start status answer plan artifact check qualify submit finish] },
+            "course_code" => { "type" => "string" },
+            "harness" => { "type" => "string", "enum" => Reach::Validation::HARNESSES },
+            "question" => { "type" => "string", "description" => "Question id for answer; answers.json or README.md for artifact" },
+            "text" => { "type" => "string", "description" => "Fabricated answer, plan, or practice file content only" },
+            "restart" => { "type" => "boolean" }
+          }
+        }
+      },
+      {
         "name" => "reach_status",
         "description" => "The student's enrollment, current assignment, slices, package versions and outstanding receipts. When a submission that was waiting to be sent was refused, it also returns the notice once, in text with relay_verbatim true: tell the student at once",
         "inputSchema" => { "type" => "object", "properties" => {} }
@@ -670,13 +685,27 @@ module Reach
           raise Reach::Refused, Reach::Controls.refusal_text("mcp.control")
         end
 
-        unlocked = UNLOCKED_TOOLS.include?(name) || (name == "reach_submit" && arguments["archive"] == true)
+        unlocked = UNLOCKED_TOOLS.include?(name) || name == "reach_validate" || (name == "reach_submit" && arguments["archive"] == true)
         lock = unlocked ? nil : Reach::EnrollmentLock.state
         if lock && lock["locked"]
           raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? enroll_refusal_id : lock["message_id"])
         end
 
         case name
+        when "reach_validate"
+          action = arguments["action"] || "status"
+          begin
+            if action == "start"
+              Reach::Validation.locked { Reach::Validation.start(course_code: arguments["course_code"], harness: arguments["harness"], restart: arguments["restart"] == true) }
+            elsif action == "status"
+              Reach::Validation.status
+            else
+              Reach::Validation.advance(action, question: arguments["question"], text: arguments["text"])
+            end
+          rescue StandardError => e
+            Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
+            { "phase" => "blocked", "text" => Reach::Validation::BLOCKED }
+          end
         when "reach_status"
           with_submit_notices("summary" => Reach::Status.summary)
         when "reach_receipts"

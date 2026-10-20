@@ -186,13 +186,17 @@ module Reach
 
       def step_coverage(workspace, meta, qualify, record)
         graded = Array(meta["scenarios"]).map { |item| item.is_a?(Hash) ? item["name"] : item }.compact.map(&:to_s).uniq
+        required = required_scenarios(workspace, meta, qualify)
         covered = agent_scenarios(workspace, qualify["tag"])
-        missing = graded.reject { |name| covered.include?(name) }
+        missing = required.reject { |name| covered.include?(name) }
         record["graded"] = graded
+        record["local_graded"] = required
+        record["coverage_source"] = practice_qualification?(qualify) ? "practice" : "graded"
         record["steps"]["coverage"] = { "ran" => true, "passed" => missing.empty?, "rows" => missing.map { |name| { "name" => name } } }
         missing.each { |name| record["findings"] << { "code" => "QF-UNCOVERED", "name" => name } }
-        if covered.empty? && graded.empty?
-          record["findings"] << { "code" => "QF-UNCOVERED", "name" => nil, "detail" => "no scenario under #{FEATURES_DIR} carries #{qualify['tag']}" }
+        if required.empty? && (practice_qualification?(qualify) || covered.empty?)
+          detail = practice_qualification?(qualify) ? "the supplied practice scenario contract is missing or empty; run reach sync" : "no scenario under #{FEATURES_DIR} carries #{qualify['tag']}"
+          record["findings"] << { "code" => "QF-UNCOVERED", "name" => nil, "detail" => detail }
           record["steps"]["coverage"]["passed"] = false
         end
         unless record["steps"]["coverage"]["passed"]
@@ -201,9 +205,19 @@ module Reach
         record["steps"]["coverage"]["passed"]
       end
 
-      def agent_scenarios(workspace, tag)
+      def practice_qualification?(qualify)
+        qualify["local"] && qualify["env"].is_a?(Hash) && !qualify["env"]["GROKIT_REPLAY"].to_s.empty?
+      end
+
+      def required_scenarios(workspace, meta, qualify)
+        return agent_scenarios(workspace, qualify["tag"], directory: File.join(KIT_DIR, "practice")) if practice_qualification?(qualify)
+
+        Array(meta["scenarios"]).map { |item| item.is_a?(Hash) ? item["name"] : item }.compact.map(&:to_s).uniq
+      end
+
+      def agent_scenarios(workspace, tag, directory: FEATURES_DIR)
         names = []
-        Dir.glob(File.join(workspace, FEATURES_DIR, "**", "*.feature")).sort.each do |path|
+        Dir.glob(File.join(workspace, directory, "**", "*.feature")).sort.each do |path|
           feature_tags = []
           pending = []
           File.foreach(path, encoding: Encoding::UTF_8) do |raw|
@@ -280,7 +294,7 @@ module Reach
         end
 
         if stub
-          graded = Array(record["graded"])
+          graded = Array(record["local_graded"] || record["graded"])
           vacuous = rows.select { |row| graded.include?(row["name"]) && row["result"] == "passed" }
           record["steps"][id] = { "ran" => true, "passed" => vacuous.empty?, "rows" => rows.map { |row| row.slice("name", "result") } }
           vacuous.each { |row| record["findings"] << { "code" => "QF-VACUOUS", "name" => row["name"] } }
@@ -674,6 +688,11 @@ module Reach
                  "Runs here too: #{qualify['local'] ? 'yes' : 'no, only on the course server'}",
                  "Graded scenario names:"]
         lines.concat(names.map { |name| "  #{name}" })
+        if practice_qualification?(qualify)
+          lines << "Required assistant-authored practice scenarios (Teach independently runs the graded scenarios above):"
+          lines.concat(required_scenarios(workspace, meta, qualify).map { |name| "  #{name}" })
+          lines << "Use the practice data in #{PRACTICE_README}."
+        end
         lines.join("\n")
       end
 

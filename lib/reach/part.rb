@@ -65,21 +65,7 @@ module Reach
           raise Reach::Refused, Reach::Messages.text(quiet ? "M-PART-NO-HOOK" : "M-PART-NO-ANSWER")
         end
 
-        text = entry["text"]
-        words = word_count(text)
-        minimum = question["min_words"].to_i
-        raise Reach::Refused, Reach::Messages.text("M-PART-TOO-SHORT", words: words, min: minimum) if words < minimum
-
-        answer = {
-          "question_id" => question["id"],
-          "text" => text,
-          "words" => words,
-          "session_id" => entry["session_id"],
-          "seq" => entry["seq"],
-          "digest" => entry["digest"] || Reach::Crypto.digest_hex(text),
-          "recorded_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
-          "student_id" => student_id
-        }
+        answer = build_answer(question, entry, student_id)
         state = load_state(assignment, meta["course"])
         state["answers"][question["id"]] = answer
         write_state(assignment, meta["course"], state)
@@ -89,6 +75,24 @@ module Reach
           "question_id" => question["id"], "digest" => answer["digest"], "seq" => answer["seq"], "session_id" => answer["session_id"]
         )
         answer
+      end
+
+      def build_answer(question, entry, identity)
+        text = entry.fetch("text")
+        words = word_count(text)
+        minimum = question["min_words"].to_i
+        raise Reach::Refused, Reach::Messages.text("M-PART-TOO-SHORT", words: words, min: minimum) if words < minimum
+
+        {
+          "question_id" => question["id"],
+          "text" => text,
+          "words" => words,
+          "session_id" => entry["session_id"],
+          "seq" => entry["seq"],
+          "digest" => entry["digest"] || Reach::Crypto.digest_hex(text),
+          "recorded_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+          "student_id" => identity
+        }
       end
 
       def import!(question_id, text:, recorded_at:, workspace:)

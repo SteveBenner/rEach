@@ -216,6 +216,7 @@ module Reach
           receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED",
           slice: receipt["slice"], cutout: receipt["cutout_id"], time: Reach::Messages.course_time(receipt["received_at"])
         )
+        received = [received, Reach::Receipts.reference_text(receipt)].reject { |text| text.empty? }.join(" ")
         rest = followup_text(result).lines.map(&:chomp).reject(&:empty?)
         ["#{received} #{rest.shift}".strip, *rest].join("\n")
       end
@@ -597,6 +598,10 @@ module Reach
       end
 
       def seal_submission(install, meta, tar_bytes)
+        seal_package(install, meta, tar_bytes, Reach::Crypto.load_private_key(File.read(Reach::Paths.install_key_file)))
+      end
+
+      def seal_package(install, meta, tar_bytes, private_key)
         encryption_key = install.fetch("encryption_key")
         header = {
           "schema" => "teach.package/v1",
@@ -614,9 +619,11 @@ module Reach
           header: header,
           plaintext: tar_bytes,
           recipient_public_key: Reach::Crypto.load_public_key(encryption_key["pem"]),
-          signer_private_key: Reach::Crypto.load_private_key(File.read(Reach::Paths.install_key_file))
+          signer_private_key: private_key
         )
       end
+
+      public :seal_package
 
       def write_outbox(idempotency_key, kind, route, body, workspace: nil)
         FileUtils.mkdir_p(Reach::Paths.outbox_dir)
