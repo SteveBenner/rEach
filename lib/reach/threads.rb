@@ -45,7 +45,7 @@ module Reach
     def write(data)
       FileUtils.mkdir_p(File.dirname(file))
       temp = "#{file}.#{Process.pid}.tmp"
-      File.write(temp, JSON.generate(data))
+      File.open(temp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |handle| handle.write(JSON.generate(data)) }
       File.rename(temp, file)
     end
 

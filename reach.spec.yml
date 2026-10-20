@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.54.3
+version: 0.54.4
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1698,6 +1698,10 @@ assignment_context:
   policy: specs/polispec/behavior.yml parameters.assignment_context (max_threads, max_reads, phases => opcodes)
   channels: hello.course (where, last chat), hello.session (reads, directives), notice.next (reminder)
   off_switch: REACH_ASSIGNMENT_CONTEXT=0
+  hardening: >-
+    Since 0.54.4 state/threads.json is created 0600, and course file paths and titles are checked before they reach agent
+    context: a path with a backtick, a control character or more than 200 characters is not named, and a title is one line
+    of at most 120 characters without backticks.
 remote_acceptance: >-
   Every slice is graded at Teach. Since 0.11.0 no graded suite reaches the student and reach tips is gone; the
   qualification's remote step is the only place the hidden scenarios run before grading, and reach doctor checks gems

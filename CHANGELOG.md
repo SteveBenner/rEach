@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.4] - 2026-10-20
+
+### Fixed
+
+- `state/threads.json` is created owner-only (0600) like the other state files, where `Reach::Threads.write` left it at the default permissions (release gate SEC-AUDIT, low, on 0.54.3). An existing file is replaced with a 0600 one on its next write.
+- Course file paths and titles are checked before `reach hello` and the prompt gate name them to the agent (`Reach::AssignmentContext.safe_path?`, `clean_title`): a path with a backtick or control character, or longer than 200 characters, is not named; a title is cut to one line of at most 120 characters without backticks (release gate SEC-AUDIT, info, on 0.54.3).
+
 ## [0.54.3] - 2026-10-19
 
 ### Added

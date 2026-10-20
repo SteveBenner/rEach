@@ -6,6 +6,9 @@ module Reach
       "M-NEXT-START" => "start", "M-NEXT-PLAN" => "plan", "M-NEXT-PART" => "part", "M-NEXT-BUILD" => "build",
       "M-NEXT-SUBMIT" => "submit", "M-NEXT-WAIT-GRADE" => "wait", "M-NEXT-REVIEW" => "review", "M-NEXT-DONE" => "done"
     }.freeze
+    MAX_PATH = 200
+    MAX_TITLE = 120
+    UNSAFE_CHARS = /[`\x00-\x1f\x7f]/.freeze
     STATE_PHASE = { "graded" => "review", "submitted" => "wait", "in progress" => "build", "not started yet" => "start" }.freeze
     DEFAULTS = {
       "max_threads" => 64,
@@ -74,12 +77,23 @@ module Reach
                else
                  tagged.select { |file| Array(file["phases"]).empty? || Array(file["phases"]).include?(phase) }
                end
-      chosen.map { |file| { "path" => file["path"], "title" => file["title"] } }
+      chosen.select { |file| safe_path?(file["path"]) }
+            .map { |file| { "path" => file["path"], "title" => clean_title(file["title"]) } }
             .uniq { |entry| entry["path"] }
             .sort_by { |entry| entry["path"] }
             .first(settings["max_reads"].to_i)
     rescue StandardError
       []
+    end
+
+    def safe_path?(path)
+      text = path.to_s
+      !text.empty? && text.length <= MAX_PATH && text.valid_encoding? && !text.match?(UNSAFE_CHARS)
+    end
+
+    def clean_title(title)
+      text = title.to_s.scrub("").gsub(UNSAFE_CHARS, " ").gsub(/\s+/, " ").strip
+      text[0, MAX_TITLE]
     end
 
     def material_digest
