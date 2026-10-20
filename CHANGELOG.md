@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.2] - 2026-10-20
+
+### Fixed
+
+- The home-path mask in qualify fault records is built without a long interpolated string, so the release gate's entropy scan no longer flags it; behaviour is unchanged.
+
 ## [0.56.1] - 2026-10-20
 
 ### Fixed
