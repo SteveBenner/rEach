@@ -81,11 +81,28 @@ module Reach
         found
       end
       findings.concat(shape_found.uniq { |entry| entry[:finding_id] })
+      findings.concat(pattern_findings(workspace, changed))
       findings = drop_deferred_panel_findings(findings) if shape_ran
       record(workspace, changed, findings)
       Reach::Checkpoint.autosave(workspace, via: "check")
       Reach::Debug.check(findings, owned.length)
       format == :text ? render_text(findings) : findings
+    end
+
+    PATTERN_SEVERITY = { "block" => "error", "warn" => "warning", "info" => "notice" }.freeze
+
+    def pattern_findings(workspace, changed)
+      return [] if Reach::Patterns.mode == "off"
+
+      rows = %i[code scenarios].flat_map { |point| Reach::Patterns.match(workspace, point: point) }
+      rows = rows.select { |row| Array(changed).any? { |target| same_file?(File.join(workspace, row["file"].to_s), target) } } if changed
+      rows.map do |row|
+        entry = finding("CK-PATTERN", row["file"], row["line"], row["message"].to_s.chomp("."), row["remedy"].to_s.chomp("."), rule: row["id"])
+        entry[:severity] = PATTERN_SEVERITY.fetch(row["severity"], "notice")
+        entry
+      end
+    rescue StandardError
+      []
     end
 
     def missing_finding(relative)

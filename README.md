@@ -205,6 +205,7 @@ one-line rule when offline.
 reach check [--changed <path>] [--format text|agent|json]   the one checker the hooks run
 reach plan save|note|show                                    the slice plan, read back each session
 reach plan audit packet|record|show                          the second-pass plan audit qualify needs
+reach passes packet|score|pick|status <plan|scenarios|code>   the candidate passes: packet, scored candidates, the pick
 reach checkpoint save|list [--all]|show|restore <n>|recover|dismiss|forget   snapshots of the slice, no git needed
 reach directive <OPCODE> | --list                            the directive bodies
 reach reference list | show <path> | search <words> | links | ingest [--force]  the course reference material

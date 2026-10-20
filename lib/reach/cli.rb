@@ -353,6 +353,8 @@ module Reach
           cmd_checkpoint(args)
         when "plan"
           cmd_plan(args)
+        when "passes"
+          cmd_passes(args)
         when "policy"
           cmd_policy(args)
         when "directive"
@@ -3119,6 +3121,35 @@ module Reach
         else
           warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | show [--format json] | audit packet|record|show"
           1
+        end
+      end
+
+      def cmd_passes(args)
+        sub = args.shift
+        options, remaining = parse_flags(args, [:slice, :format])
+        workspace_path = workspace_or_fail(options[:slice])
+        return 1 unless workspace_path
+
+        json = (options[:format] || "text") == "json"
+        case sub
+        when "packet"
+          puts JSON.generate(Reach::Passes.packet(workspace_path, remaining.shift))
+          0
+        when "score"
+          record = Reach::Passes.score(workspace_path, remaining.shift)
+          puts json ? JSON.generate(record) : Reach::Passes.render_score(record)
+          0
+        when "pick"
+          record = Reach::Passes.pick(workspace_path, remaining.shift)
+          puts json ? JSON.generate(record) : Reach::Passes.render_pick(record)
+          0
+        when "status"
+          rows = Reach::Passes.status(workspace_path)
+          puts json ? JSON.generate(rows) : Reach::Passes.render_status(rows)
+          0
+        else
+          warn "usage: reach passes packet <plan|scenarios|code> | score <point> [--format json] | pick <point> [--format json] | status [--format json]"
+          2
         end
       end
 

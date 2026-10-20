@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.0] - 2026-10-20
+
+### Added
+
+- Weighted candidate passes (`STD-WEIGHTED-PASSES`, wire W-QUAL-PASSES-1): at the plan, scenarios and code points the agent writes several candidates, each from a different lens, and `reach passes packet|score|pick|status` (and the `reach_passes_*` tools) scores them from evidence only, applies hard zeros, installs the highest-confidence one and records the pick under `.reach/passes/<point>/`. The new `reach-passes` skill and the `reach-feature` order describe it. Qualify gains a `passes` step; a missing pick is `QF-PASSES-NONE` under enforce and a notice under advise.
+- Pattern ledger (`STD-PATTERN-LEDGER`, wire W-PKG-PATTERNS-1, W-QUAL-PATTERN-1): `patterns/generic.yml` holds generic faulty-work patterns; a course `patterns` package overrides or extends them by id. Matches appear as `CK-PATTERN` rows in `reach check` and as a `patterns` qualify step (`QF-PATTERN` under enforce), with a remedy for each.
+- Port probe: the local scenarios are rerun with one required port's answers perturbed, and a scenario that does not notice is reported as `QF-INSENSITIVE`.
+- Qualify fault records (`STD-QUALIFY-FAULTS`, wire W-QUAL-FAULT-1, route `POST /api/v1/qualify-faults`): every failed qualification writes a scrubbed record to `.reach/qualify-faults.jsonl` and sends it to Teach in rate-limited batches; a Teach without the route is backed off for a day. The attempt history carries `fault_id`.
+- Three consecutive passes or pattern refusals raise one agent hand with trigger `passes_or_pattern`. Refusals by passes or patterns do not count as attempts on the ladder.
+- Wire revision 2026-10-21a.
+
 ## [0.54.7] - 2026-10-20
 
 ### Fixed

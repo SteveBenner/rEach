@@ -80,7 +80,7 @@ module Reach
         unless offline
           Array(status["packages"]).each do |pkg|
             kind = pkg["kind"]
-            next unless %w[guardrails shape workspace].include?(kind)
+            next unless %w[guardrails shape workspace patterns].include?(kind)
 
             begin
               packages = Reach::Packages.new

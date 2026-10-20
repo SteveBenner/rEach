@@ -171,6 +171,42 @@ module Reach
         }
       },
       {
+        "name" => "reach_passes_packet",
+        "description" => "The packet for one candidate-passes point (plan, scenarios or code): the constraints, the lens list with focus lines, the ledger entries, the winning upstream candidate and where each candidate is written. Write each candidate under .reach/passes/<point>/<n>/ through its own lens, one fresh subagent per lens where this app has subagents",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "point" => { "type" => "string", "enum" => Reach::Passes::POINTS },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
+          },
+          "required" => ["point"]
+        }
+      },
+      {
+        "name" => "reach_passes_score",
+        "description" => "Score the candidates written for one point, from evidence only (checks, coverage, local runs, the starting copy, the pattern ledger, the port probe); returns every candidate's criteria, hard-zero reasons and confidence. It runs the scenarios for each candidate, so it takes a few minutes: tell the student that wait first",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "point" => { "type" => "string", "enum" => Reach::Passes::POINTS },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
+          },
+          "required" => ["point"]
+        }
+      },
+      {
+        "name" => "reach_passes_pick",
+        "description" => "Install the highest-confidence scored candidate of one point into the slice and record the pick. When low_confidence is true, tell the student before qualifying",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "point" => { "type" => "string", "enum" => Reach::Passes::POINTS },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
+          },
+          "required" => ["point"]
+        }
+      },
+      {
         "name" => "reach_directive",
         "description" => "The full text of one directive from the workspace's AGENTS.md table, for you to follow. The course rules require this call whenever a directive's condition applies: it is the sanctioned way to read a directive, never inspecting rEach's protected files. Keep the text to yourself",
         "inputSchema" => {
@@ -429,7 +465,7 @@ module Reach
     UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update reach_setup reach_transcripts].freeze
     READ_ONLY_TOOLS = %w[
       reach_status reach_receipts reach_shape_check reach_check reach_hand_status reach_profile_show reach_enroll
-      reach_directive reach_reference reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements reach_feedback_list
+      reach_directive reach_reference reach_passes_packet reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements reach_feedback_list
       reach_known_issues
     ].freeze
     DESTRUCTIVE_TOOLS = %w[reach_profile_forget reach_memory_forget reach_transcripts reach_storage].freeze
@@ -747,6 +783,12 @@ module Reach
           end
         when "reach_plan"
           plan_tool(current_workspace!(arguments["slice"]), arguments)
+        when "reach_passes_packet"
+          Reach::Passes.packet(current_workspace!(arguments["slice"]), arguments["point"])
+        when "reach_passes_score"
+          Reach::Passes.score(current_workspace!(arguments["slice"]), arguments["point"])
+        when "reach_passes_pick"
+          Reach::Passes.pick(current_workspace!(arguments["slice"]), arguments["point"])
         when "reach_directive"
           Reach::Directives.show(arguments.fetch("opcode"), workspace: Reach::Gate.focus_workspace)
         when "reach_reference"

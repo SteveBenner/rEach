@@ -17,6 +17,7 @@ module Reach
     UNUSED_PORTS = %w[ports.clock. ports.logger.].freeze
     REFUSALS_FILE = "plan-audit-refusals.json".freeze
     HAND_AT = 3
+    PASSES_REFUSALS_FILE = "passes-refusals.json".freeze
 
     module_function
 
@@ -88,6 +89,7 @@ module Reach
         "plan_digest" => plan_digest(plan),
         "constraints" => constraints(workspace),
         "constraints_digest" => constraints_digest(workspace),
+        "ledger" => Reach::Patterns.describe(:plan, workspace),
         "instructions" => Reach::Messages.text("M-PLAN-AUDIT-PACKET")
       }
     end
@@ -156,42 +158,43 @@ module Reach
       lines.join("\n")
     end
 
-    def refusals_path(workspace)
-      File.join(workspace, Reach::Workspace::MARKER_DIR, REFUSALS_FILE)
+    def refusals_path(workspace, file = REFUSALS_FILE)
+      File.join(workspace, Reach::Workspace::MARKER_DIR, file)
     end
 
-    def refusals(workspace)
-      read_json(refusals_path(workspace)) || { "count" => 0, "hand_id" => nil }
+    def refusals(workspace, file = REFUSALS_FILE)
+      read_json(refusals_path(workspace, file)) || { "count" => 0, "hand_id" => nil }
     end
 
-    def clear_refusals!(workspace)
-      File.delete(refusals_path(workspace)) if File.file?(refusals_path(workspace))
+    def clear_refusals!(workspace, file = REFUSALS_FILE)
+      path = refusals_path(workspace, file)
+      File.delete(path) if File.file?(path)
     rescue StandardError
       nil
     end
 
-    def note_refusal!(workspace, record)
-      state = refusals(workspace)
+    def note_refusal!(workspace, record, file: REFUSALS_FILE, trigger: Reach::Hands::PLAN_AUDIT, summary_id: "M-PLAN-AUDIT-HAND-SUMMARY")
+      state = refusals(workspace, file)
       state["count"] = state["count"].to_i + 1
       hand = nil
       if state["count"] >= HAND_AT && state["hand_id"].nil?
-        hand = raise_refusal_hand(workspace, record, state["count"])
+        hand = raise_refusal_hand(workspace, record, state["count"], trigger, summary_id)
         state["hand_id"] = hand ? hand["hand_id"] : "unsent"
         state["hand_ref"] = hand && hand["hand_ref"]
         state["raised_at"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
       end
-      Reach::StateFile.write_atomic(refusals_path(workspace), JSON.generate(state))
+      Reach::StateFile.write_atomic(refusals_path(workspace, file), JSON.generate(state))
       hand
     rescue StandardError
       nil
     end
 
-    def raise_refusal_hand(workspace, record, count)
+    def raise_refusal_hand(workspace, record, count, trigger = Reach::Hands::PLAN_AUDIT, summary_id = "M-PLAN-AUDIT-HAND-SUMMARY")
       meta = Reach::Workspace.metadata(workspace)
       plan = Reach::Plan.load(workspace)
-      summary = Reach::Messages.text("M-PLAN-AUDIT-HAND-SUMMARY", cutout: meta["cutout_id"].to_s, slice: meta["slice"].to_s, count: count)
+      summary = Reach::Messages.text(summary_id, cutout: meta["cutout_id"].to_s, slice: meta["slice"].to_s, count: count)
       Reach::Hands.raise_record(
-        trigger: Reach::Hands::PLAN_AUDIT, originator: "agent", summary: summary, slice: workspace,
+        trigger: trigger, originator: "agent", summary: summary, slice: workspace,
         details: {
           "plan" => plan ? normalized(plan) : nil, "plan_audit" => load(workspace),
           "refusals" => count, "qualification" => record.reject { |key, _| key == "ladder" }

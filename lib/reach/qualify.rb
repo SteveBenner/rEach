@@ -16,8 +16,8 @@ module Reach
     POLL_INTERVAL_S = 10
     MAX_POLLS = 36
     REMOTE_BUDGET_S = 20
-    STEP_IDS = %w[plan_audit check coverage local_pass local_stub remote].freeze
-    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE QF-PLAN-NONE QF-PLAN-UNAUDITED QF-PLAN-AUDIT-FAIL].freeze
+    STEP_IDS = %w[plan_audit passes patterns check coverage local_pass local_stub probe remote].freeze
+    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE QF-PLAN-NONE QF-PLAN-UNAUDITED QF-PLAN-AUDIT-FAIL QF-PASSES-NONE QF-PATTERN].freeze
     PREVIEW_STEP = /\bopen the .+ panel\b/.freeze
     PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
@@ -63,18 +63,29 @@ module Reach
       end
 
       def run_steps(workspace, meta, qualify, record, local_only)
-        return unless step_plan_audit(workspace, record)
+        return unless timed(record, "plan_audit") { step_plan_audit(workspace, record) }
+        return unless timed(record, "passes") { step_passes(workspace, record) }
+        return unless timed(record, "patterns") { step_patterns(workspace, record) }
         return unless step_readable(workspace, meta, record)
-        return unless step_check(workspace, record)
-        return unless step_coverage(workspace, meta, qualify, record)
+        return unless timed(record, "check") { step_check(workspace, record) }
+        return unless timed(record, "coverage") { step_coverage(workspace, meta, qualify, record) }
 
         if qualify["local"]
-          return unless step_local(workspace, meta, qualify, record, stub: false)
-          return unless step_local(workspace, meta, qualify, record, stub: true)
+          return unless timed(record, "local_pass") { step_local(workspace, meta, qualify, record, stub: false) }
+          return unless timed(record, "local_stub") { step_local(workspace, meta, qualify, record, stub: true) }
+          return unless timed(record, "probe") { step_probe(workspace, record) }
         end
         return if local_only
 
-        step_remote(workspace, meta, qualify, record)
+        timed(record, "remote") { step_remote(workspace, meta, qualify, record) }
+      end
+
+      def timed(record, id)
+        began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        result = yield
+        step = record["steps"][id]
+        step["ms"] = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - began) * 1000).round if step.is_a?(Hash)
+        result
       end
 
       def unable?(record)
@@ -106,6 +117,8 @@ module Reach
       def finish(workspace, record, local_only)
         not_the_code = !record["findings"].empty? && record["findings"].all? { |finding| NOT_THE_CODE.include?(finding["code"]) }
         judge_local_repeat(workspace, record) unless record["pending"] || local_only || not_the_code || record["passed"]
+        counted = !(record["pending"] || local_only || not_the_code || record["counted"] == false || record["passed"])
+        Reach::QualifyFaults.capture(workspace, record, local_only: local_only, counted: counted)
         record["ladder"] = if record["pending"] || local_only || not_the_code || record["counted"] == false
                              nil
                            else
@@ -156,6 +169,97 @@ module Reach
         true
       end
 
+      def refusal_hand(workspace, record)
+        hand = Reach::PlanAudit.note_refusal!(
+          workspace, record, file: Reach::PlanAudit::PASSES_REFUSALS_FILE, trigger: Reach::Hands::PASSES_OR_PATTERN, summary_id: "M-PASSES-HAND-SUMMARY"
+        )
+        return unless hand && hand["hand_id"]
+
+        record["hand"] = { "hand_id" => hand["hand_id"], "hand_ref" => hand["hand_ref"], "trigger" => Reach::Hands::PASSES_OR_PATTERN }
+        record["next"] = [record["next"], Reach::Messages.text("M-QUALIFY-PASSES-HAND")].compact.join(" ")
+      end
+
+      def step_passes(workspace, record)
+        mode = Reach::Passes.mode
+        if mode == "off"
+          record["steps"]["passes"] = { "ran" => false, "passed" => true, "mode" => "off" }
+          return true
+        end
+
+        picks = Reach::Passes::POINTS.map { |point| [point, Reach::Passes.current_pick(workspace, point)] }.select { |_, pick| pick }.to_h
+        record["passes"] = picks.map do |point, pick|
+          [point, { "lens" => pick["lens"], "confidence" => pick["confidence"], "low_confidence" => pick["low_confidence"], "candidate_digest" => pick["candidate_digest"] }]
+        end.to_h
+        missing = Reach::Passes::POINTS - picks.keys
+        record["steps"]["passes"] = { "ran" => true, "passed" => mode == "enforce" ? missing.empty? : true, "mode" => mode, "rows" => missing.map { |point| { "point" => point } } }
+        return true if missing.empty?
+
+        unless mode == "enforce"
+          record["notice"] = [record["notice"], Reach::Messages.text("M-QUALIFY-PASSES-ADVISE", points: missing.join(", "))].compact.join(" ")
+          return true
+        end
+
+        record["findings"] << { "code" => "QF-PASSES-NONE", "name" => nil, "detail" => Reach::Messages.text("M-QUALIFY-PASSES", points: missing.join(", ")) }
+        record["next"] = Reach::Messages.text("M-QUALIFY-PASSES", points: missing.join(", "))
+        refusal_hand(workspace, record)
+        false
+      end
+
+      def step_patterns(workspace, record)
+        mode = Reach::Patterns.mode
+        if mode == "off"
+          record["steps"]["patterns"] = { "ran" => false, "passed" => true, "mode" => "off" }
+          return true
+        end
+
+        rows = %i[scenarios code].flat_map { |point| Reach::Patterns.match(workspace, point: point) }.uniq { |row| [row["id"], row["file"], row["line"]] }
+        record["pattern_matches"] = rows.map { |row| row.slice("id", "severity", "file", "line") }
+        blocking = Reach::Patterns.blocking(rows)
+        refuse = mode == "enforce" && !blocking.empty?
+        record["steps"]["patterns"] = { "ran" => true, "passed" => !refuse, "mode" => mode, "rows" => record["pattern_matches"] }
+        unless refuse
+          Reach::PlanAudit.clear_refusals!(workspace, Reach::PlanAudit::PASSES_REFUSALS_FILE)
+          advisable = rows.reject { |row| row["severity"] == "info" }
+          record["notice"] = [record["notice"], Reach::Messages.text("M-QUALIFY-PATTERN-ADVISE")].compact.join(" ") unless advisable.empty?
+          return true
+        end
+
+        blocking.each do |row|
+          where = [row["file"], row["line"]].compact.join(":")
+          record["findings"] << { "code" => "QF-PATTERN", "name" => nil, "pattern" => row["id"], "location" => row["file"], "detail" => "#{row['id']} #{where} #{row['message']} #{row['remedy']}".strip }
+        end
+        record["next"] = Reach::Messages.text("M-QUALIFY-PATTERN")
+        refusal_hand(workspace, record)
+        false
+      end
+
+      def step_probe(workspace, record)
+        if Reach::Probe.mode == "off"
+          record["steps"]["probe"] = { "ran" => false, "passed" => true, "mode" => "off" }
+          return true
+        end
+
+        rows = begin
+          Reach::Probe.run(workspace)
+        rescue StandardError
+          nil
+        end
+        if rows.nil?
+          record["steps"]["probe"] = { "ran" => false, "passed" => true, "rows" => [] }
+          return true
+        end
+
+        record["probe"] = rows
+        insensitive = Reach::Probe.insensitive(rows)
+        enforce = Reach::Patterns.mode == "enforce"
+        record["steps"]["probe"] = { "ran" => true, "passed" => insensitive.empty? || !enforce, "rows" => rows }
+        insensitive.each do |row|
+          entry = { "code" => "QF-INSENSITIVE", "name" => row["scenario"], "port" => row["port"], "detail" => "#{Reach::Messages.text('M-QUALIFY-INSENSITIVE')} (#{row['port']})" }
+          (enforce ? record["findings"] : (record["warnings"] ||= [])) << entry
+        end
+        insensitive.empty? || !enforce
+      end
+
       def step_readable(workspace, meta, record)
         rows = Array(meta["owned_files"]).map do |relative|
           reason = Reach::SafeFiles.read_or_skip(workspace, relative).last
@@ -171,7 +275,7 @@ module Reach
 
       def step_check(workspace, record)
         owned = Array(Reach::Workspace.metadata(workspace)["owned_files"])
-        findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) }
+        findings = Array(Reach::Check.run(workspace, format: :agent)).select { |finding| owned.include?(finding[:file].to_s) && finding[:id] != "CK-PATTERN" }
         rows = findings.map { |finding| { "id" => finding[:id], "file" => finding[:file], "line" => finding[:line], "message" => finding[:message] } }
         record["steps"]["check"] = { "ran" => true, "passed" => rows.empty?, "rows" => rows }
         rows.each do |row|
@@ -318,14 +422,14 @@ module Reach
         line ? line[0, 300] : "the scenarios could not run"
       end
 
-      def assemble_local(workspace, meta, stub:)
-        run_dir = File.join(Reach::Paths.vault_dir, "runs", "#{File.basename(workspace)}-#{stub ? 'stub' : 'pass'}")
+      def assemble_local(workspace, meta, stub:, root: nil, name: nil)
+        run_dir = File.join(Reach::Paths.vault_dir, "runs", "#{File.basename(workspace)}-#{name || (stub ? 'stub' : 'pass')}")
         make_writable(run_dir)
         FileUtils.rm_rf(run_dir)
         FileUtils.mkdir_p(run_dir)
         kit = File.join(workspace, KIT_DIR)
         copy_tree(kit, run_dir)
-        owned_contents(workspace, meta, stub: stub).each do |relative, data|
+        owned_contents(workspace, meta, stub: stub, root: root).each do |relative, data|
           target = File.join(run_dir, relative)
           if data.nil?
             FileUtils.rm_f(target)
@@ -335,8 +439,8 @@ module Reach
             File.binwrite(target, data)
           end
         end
-        copy_tree(File.join(workspace, FEATURES_DIR), File.join(run_dir, "features", "agent"))
-        copy_tree(File.join(workspace, STEPS_DIR), File.join(run_dir, "features", "step_definitions"))
+        copy_tree(tests_source(workspace, root, FEATURES_DIR), File.join(run_dir, "features", "agent"))
+        copy_tree(tests_source(workspace, root, STEPS_DIR), File.join(run_dir, "features", "step_definitions"))
         Dir.glob(File.join(run_dir, "**", ".keep"), File::FNM_DOTMATCH).each { |path| FileUtils.rm_f(path) }
         Dir.glob(File.join(run_dir, "**", "*")).each do |path|
           File.chmod(File.directory?(path) ? 0o755 : 0o644, path)
@@ -344,9 +448,19 @@ module Reach
         run_dir
       end
 
-      def owned_contents(workspace, meta, stub:)
+      def tests_source(workspace, root, dir)
+        candidate = root && File.join(root, dir)
+        candidate && File.directory?(candidate) ? candidate : File.join(workspace, dir)
+      end
+
+      def owned_contents(workspace, meta, stub:, root: nil)
         owned = Array(meta["owned_files"])
-        return owned.map { |relative| [relative, Reach::SafeFiles.read_or_skip(workspace, relative).first] }.to_h unless stub
+        unless stub
+          return owned.map do |relative|
+            from_root = root && File.file?(File.join(root, relative)) && !File.symlink?(File.join(root, relative))
+            [relative, from_root ? File.binread(File.join(root, relative)) : Reach::SafeFiles.read_or_skip(workspace, relative).first]
+          end.to_h
+        end
 
         starting = starting_copies(workspace, meta)
         owned.map { |relative| [relative, starting[relative]] }.to_h
@@ -460,17 +574,7 @@ module Reach
           tests[relative] = Reach::Crypto.digest_hex(data)
           entries[relative] = data
         end
-        plan = Reach::Plan.load(workspace)
-        manifest = {
-          "schema" => "reach.qualification/v1",
-          "course" => meta["course"], "assignment" => meta["assignment"],
-          "cutout_id" => meta["cutout_id"], "slice" => meta["slice"],
-          "owned_files" => owned, "digests" => digests, "tests" => tests,
-          "attempt" => record["attempt"], "reach_version" => Reach::VERSION, "client_created_at" => now,
-          "plan" => plan ? Reach::PlanAudit.normalized(plan) : nil,
-          "plan_digest" => Reach::PlanAudit.plan_digest(plan),
-          "plan_audit" => Reach::PlanAudit.current(workspace)
-        }
+        manifest = manifest_for(workspace, meta, record, owned, digests, tests)
         tar = Reach::Tarball.write({ "manifest.json" => JSON.generate(manifest) }.merge(entries))
         envelope = seal(install, meta, tar)
         body = {
@@ -482,6 +586,23 @@ module Reach
         raise Reach::NetworkError, "reach: the course server gave no qualification id" if id.to_s.empty?
 
         id
+      end
+
+      def manifest_for(workspace, meta, record, owned, digests, tests)
+        plan = Reach::Plan.load(workspace)
+        {
+          "schema" => "reach.qualification/v1",
+          "course" => meta["course"], "assignment" => meta["assignment"],
+          "cutout_id" => meta["cutout_id"], "slice" => meta["slice"],
+          "owned_files" => owned, "digests" => digests, "tests" => tests,
+          "attempt" => record["attempt"], "reach_version" => Reach::VERSION, "client_created_at" => now,
+          "plan" => plan ? Reach::PlanAudit.normalized(plan) : nil,
+          "plan_digest" => Reach::PlanAudit.plan_digest(plan),
+          "plan_audit" => Reach::PlanAudit.current(workspace),
+          "passes" => record["passes"] || {},
+          "pattern_matches" => record["pattern_matches"] || [],
+          "probe" => record["probe"] || []
+        }
       end
 
       def poll(client, qualification_id)

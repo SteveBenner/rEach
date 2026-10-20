@@ -1,0 +1,98 @@
+schema: reach.patterns/v1
+patterns:
+  - id: P-PORT-FAKED
+    severity: block
+    points: [scenarios]
+    kind: regex_steps
+    parameters:
+      pattern: "grokit_fake|define_singleton_method|\\bOpenStruct\\b|\\bStruct\\.new\\b"
+    message: "A step definition builds its own stand-in for a port the kit already supplies, so the scenario never reaches the real answer."
+    remedy: "Let the scenario run through the real port the kit supplies; assert on what your module does with its answer."
+  - id: P-SCENARIO-TAUTOLOGY
+    severity: block
+    points: [scenarios]
+    kind: literal_echo
+    parameters:
+      mode: given_then
+      given: "^\\s*Given\\b.*\\d"
+      then: "^\\s*Then\\b.*\\bis\\s+\"?(\\d+(?:\\.\\d+)?)\"?\\s*$"
+    message: "A scenario hands a value to the module in its Given step and then asserts the same value back, so a wrong module would still pass it."
+    remedy: "Give the scenario inputs and assert the output your module computes, so a wrong module fails it."
+  - id: P-PRESS-AMBIGUOUS
+    severity: block
+    points: [scenarios]
+    kind: regex_feature
+    parameters:
+      pattern: "\\bI press \"[\\w.\\-]+\\.example\""
+    message: "A scenario presses an example button by the generic press step, which cannot tell the examples of a panel apart."
+    remedy: "Use When I run the \"<cutout>\" example \"<label>\" so one example is chosen by its label."
+  - id: P-I18N-INVENTED
+    severity: block
+    points: [code]
+    kind: i18n_keys
+    parameters:
+      ext: [svelte]
+    message: "A panel asks for a message key that the module's messages file does not have, so the panel shows a raw key."
+    remedy: "Use only the message keys the module already has for this cutout; the messages file is not yours to change."
+  - id: P-DRYRUN-PASS
+    severity: block
+    points: [scenarios, code]
+    kind: last_run
+    parameters:
+      file: qualify/last-run.json
+    message: "The last local run is recorded as passed although it was a dry run or no scenario actually ran."
+    remedy: "A dry run proves nothing; run the scenarios for real before qualifying."
+  - id: P-NORMALIZE-PARTIAL
+    severity: warn
+    points: [code]
+    kind: regex_owned
+    parameters:
+      pattern: "(?:\\[|\\.fetch\\(|\\.dig\\()[^\\])]*\\.strip\\.downcase\\s*[\\])]"
+      exclude: "squeeze|gsub|\\.tr\\(|\\.delete\\("
+      constraints: "normali[sz]|collaps|key format|lowercase|underscore"
+    message: "A lookup is keyed by the lowercased input name, but the constraints describe a fuller key format."
+    remedy: "Normalize the key exactly as the constraints describe before the lookup."
+  - id: P-PORT-RAW-INPUT
+    severity: warn
+    points: [code]
+    kind: port_args
+    parameters:
+      call: "\\bports\\.\\w+\\.\\w+\\(\\s*(?:input|candidate)\\s*[,)]"
+      constraints: "expects|transform|divid|invert|scale|normali[sz]|percent|convert"
+    message: "A required port is called with the raw input where the constraints say it expects transformed values."
+    remedy: "Transform the input into what the port's constraint describes before calling it."
+  - id: P-HARDCODED-EXPECTED
+    severity: warn
+    points: [code]
+    kind: literal_echo
+    parameters:
+      mode: owned_then
+    message: "A number or text in the module equals a value that a scenario of yours asserts, and the constraints do not state it."
+    remedy: "Compute the value; do not write the scenario's answer into the module."
+  - id: P-PANEL-NO-CLIENT
+    severity: warn
+    points: [code]
+    kind: regex_owned
+    parameters:
+      ext: [svelte]
+      pattern: "data-cutout"
+      file_excludes: "\\$generated/client|\\bclient\\.\\w+\\("
+      once: true
+    message: "An owned panel renders the cutout but never calls the generated client, so it cannot show real results."
+    remedy: "Load and send through the generated client so the panel shows real results."
+  - id: P-DUAL-KEY
+    severity: info
+    points: [code]
+    kind: regex_owned
+    parameters:
+      pattern: "input\\[[\"'][a-z_]+[\"']\\]\\s*\\|\\|\\s*input\\[:"
+    message: "An input value is read under two key forms."
+    remedy: "Read the input shape from the contract and use one key form."
+  - id: P-RESCUE-ALL
+    severity: info
+    points: [code]
+    kind: regex_owned
+    parameters:
+      pattern: "^\\s*rescue\\s*(?:=>\\s*\\w+)?\\s*$|\\brescue\\s+(?:StandardError|Exception)\\b"
+    message: "A behaviour rescues every error, which hides the ones the caller should see."
+    remedy: "Let InvalidInput and Unavailable reach the caller; rescue only what you handle."

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.54.7
+version: 0.56.0
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -181,6 +181,8 @@ plugin_manifest:
         path: skills/reach-feature/SKILL.md
       - id: reach-plan-audit
         path: skills/reach-plan-audit/SKILL.md
+      - id: reach-passes
+        path: skills/reach-passes/SKILL.md
       - id: reach-bug
         path: skills/reach-bug/SKILL.md
       - id: reach-checkpoint
@@ -448,6 +450,19 @@ library:
     role: >-
       The plan audit record at <workspace>/.reach/plan-audit.json (reach.plan-audit/v1): the audit packet, the plan and
       constraints digests, the recorded verdict, whether it is current, and the course's plan_audit mode (STD-PLAN-AUDIT)
+  - name: Reach::Passes
+    role: >-
+      The candidate passes (STD-WEIGHTED-PASSES): the packet, the scoring of each candidate from evidence only and its
+      confidence, the pick and its installation, and the records under <workspace>/.reach/passes/<point>/
+  - name: Reach::Patterns
+    role: >-
+      The pattern ledger (STD-PATTERN-LEDGER): patterns/generic.yml merged with the course patterns package, and the matching of a point's files
+  - name: Reach::Probe
+    role: >-
+      The port probe: reruns the local scenarios with one required port's answers perturbed and reports which scenarios are insensitive
+  - name: Reach::QualifyFaults
+    role: >-
+      The qualify fault records (STD-QUALIFY-FAULTS) in <workspace>/.reach/qualify-faults.jsonl and their batched, rate-limited send to Teach
   - name: Reach::Seal
     role: Stamps, verifies and classifies the invisible per-install mark on every owned file
   - name: Reach::Ledger
@@ -815,7 +830,7 @@ qualification:
     owned path, so it never carries an answer.
   steps:
   - >-
-    plan_audit - since 0.54.0 , before readable (STD-PLAN-AUDIT). Mode off: the step is recorded as not
+    plan_audit - since 0.54.0 , before passes (STD-PLAN-AUDIT). Mode off: the step is recorded as not
     run. Otherwise the plan must exist and its current audit record must have verdict pass. Under enforce a missing
     plan is QF-PLAN-NONE, a missing or stale record QF-PLAN-UNAUDITED, a current failing record QF-PLAN-AUDIT-FAIL
     (each finding of the record as detail); no other step runs, nothing is sent to Teach, next is M-QUALIFY-PLAN-AUDIT,
@@ -825,6 +840,19 @@ qualification:
     step deletes it; the third consecutive refusal raises one agent hand with trigger plan_audit (details: the plan,
     the local audit record, the refusal count and the qualification record), one per streak, and next becomes
     M-QUALIFY-PLAN-HAND. A Teach that does not advertise plan_audit gets student_request (Reach::Compat).
+  - >-
+    passes - since 0.56.0, after plan_audit (STD-WEIGHTED-PASSES). Mode off: recorded as not run. Otherwise each of the
+    plan, scenarios and code points needs a current pick (constraints digest and upstream pick unchanged). Under enforce
+    a point without one is QF-PASSES-NONE (next M-QUALIFY-PASSES), uncounted on the attempt ladder; under advise the
+    gap is a notice (M-QUALIFY-PASSES-ADVISE). The record carries passes {point: {lens, confidence, low_confidence,
+    candidate_digest}}. Each enforced refusal adds one to .reach/passes-refusals.json, shared with patterns, and the
+    third consecutive refusal raises one agent hand with trigger passes_or_pattern (M-QUALIFY-PASSES-HAND).
+  - >-
+    patterns - since 0.56.0, after passes (STD-PATTERN-LEDGER). Matches the ledger at the scenarios and code points
+    against the workspace. Mode off: not run. Under enforce every block-severity match is QF-PATTERN (file, line, the
+    message and the remedy as detail), uncounted on the attempt ladder; under advise the matches are a notice
+    (M-QUALIFY-PATTERN-ADVISE). The record carries pattern_matches [{id, severity, file, line}]. A passing step deletes
+    the refusal count.
   - readable - before any other step every owned file and every file under qualify/features and qualify/step_definitions is read through Reach::SafeFiles. A file it cannot read safely is QF-UNREADABLE (the path and the SafeFiles reason) with next M-QUALIFY-UNREADABLE; no other step runs, nothing is sent to Teach, and a record whose findings are all QF-UNREADABLE is not counted on the attempt ladder.
   - check - reach check; only findings in the slice's own files count. Since 0.41.0 a CK-README finding is recorded as QF-README with next M-QUALIFY-README, and a record whose only findings are QF-README is not counted on the attempt ladder.
   - coverage - every graded scenario name has a scenario of the agent's with that exact name and the slice tag (QF-UNCOVERED). Since 0.20.3 a record that stops here carries next (M-QUALIFY-UNCOVERED), telling the agent to write those scenarios itself and not to raise a hand. Since 0.21.6 the feature files are read as UTF-8 whatever the locale. Since 0.50.12 this next action explicitly assigns the technical scenarios to the assistant, keeps student explanations and contributions student-authored, and requires repair and requalification within the current attempt ladder rather than stopping at a readiness summary. A coverage refusal supplies no behavior result.
@@ -835,6 +863,12 @@ qualification:
     marker records (package_version), so a past-due slice of an earlier assignment keeps its own starting copy after a
     newer assignment's package arrives; only a marker with no stored package falls back to the newest one. A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
     agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest. When Cucumber cannot start, the finding quotes the first error line after bundler's own "failed to load command" line.
+  - >-
+    probe - since 0.56.0, after local_stub (STD-PATTERN-LEDGER). Mode off (qualify.probe): not run. Reruns the local
+    scenarios in vault/runs/<slice>-probe with each required port's answers perturbed, one port at a time (numbers
+    scaled by 1.37 and shifted, strings suffixed, collections reversed, booleans negated), and records probe
+    [{scenario, port, sensitive}] for each scenario that touched the port. An insensitive scenario is QF-INSENSITIVE, a
+    warning in the record unless qualify.ledger.mode is enforce, when it is a finding.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,
@@ -1223,6 +1257,12 @@ mcp_bridge:
       slice (a chat at the top of the course folder with two or more slices); a slice argument names a slice by its
       folder name or, when exactly one matches, by its slice name ("backend"), and one that names no slice is refused
       with M-GATE-NOSLICE-NAMED, which lists the slices
+  - name: reach_passes_packet
+    description: Since 0.56.0 (STD-WEIGHTED-PASSES). The packet for one point (plan, scenarios or code) - constraints, lenses, ledger entries, the winning upstream candidate and where to write the candidates; read only; slice as for reach_plan
+  - name: reach_passes_score
+    description: Since 0.56.0. Scores the candidates written for one point from evidence only and returns each candidate's criteria, hard-zero reasons and confidence; runs the scenarios, so it takes minutes
+  - name: reach_passes_pick
+    description: Since 0.56.0. Installs the highest-confidence scored candidate of one point and records the pick, with low_confidence true below one half
   - name: reach_directive
     description: >-
       The full text of one directive by opcode; the description says the course rules require the call whenever a

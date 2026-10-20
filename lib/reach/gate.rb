@@ -523,7 +523,14 @@ module Reach
     def qualify_target?(workspace, target)
       return false unless workspace
 
-      Reach::Workspace::WRITABLE_DIRS.any? { |dir| within?(target, File.join(workspace, dir)) && !same_path?(target, resolve_target(File.join(workspace, dir))) }
+      Reach::Workspace::WRITABLE_DIRS.any? { |dir| within?(target, File.join(workspace, dir)) && !same_path?(target, resolve_target(File.join(workspace, dir))) } || passes_target?(workspace, target)
+    end
+
+    def passes_target?(workspace, target)
+      root = File.join(workspace, Reach::Workspace::MARKER_DIR, Reach::Passes::DIR)
+      return false unless within?(target, root)
+
+      target.to_s.sub("#{resolve_target(root)}/", "").match?(%r{\A(?:#{Reach::Passes::POINTS.join('|')})/[1-8]/.+})
     end
 
     def check_ladder!(workspace)

@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-20b
+revision: 2026-10-21a
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -371,6 +371,25 @@ packages:
       The guardrails version is header.version (an integer). Reach renders AGENTS.md, CLAUDE.md and GEMINI.md for a slice
       as W-RENDER-1, writes a digest manifest of the unpacked entries and re-checks it on every load (W-SEAL-3), and
       stamps every owned file with its mark (W-SEAL-1).
+  W-PKG-PATTERNS-1:
+    name: patterns
+    since: 2026-10-21a
+    kind: patterns
+    built_by: teach
+    entries:
+      patterns.yml: >-
+        YAML map {schema: reach.patterns/v1, patterns: [...]}. Each entry is {id, severity: block | warn | info, points:
+        [plan | scenarios | code], kind: regex_owned | regex_feature | regex_steps | i18n_keys | last_run |
+        literal_echo | port_args, parameters: a map the kind reads, message, remedy, cutout and slice (both optional: an
+        entry that names them applies only to that cutout and slice)}. message and remedy are plain words for the
+        student's agent and never name a hidden scenario or an expected value. An entry whose id equals one of the
+        patterns shipped in Reach's repository (patterns/generic.yml) replaces it. Entries of a kind or with
+        parameters Reach does not know are ignored.
+    signed_and_encrypted: Sealed for the install and signed by Teach exactly as the guardrails package (W-ENV-1).
+    reach_use: >-
+      Reach fetches it with the other packages on every sync (W-API-PACKAGE), stores it like any package, merges it
+      over its shipped patterns and matches the result at reach check, at the candidate passes and at reach qualify
+      (W-QUAL-PATTERN-1). A Teach that builds none answers 404 and Reach uses the shipped patterns alone.
   W-PKG-2:
     name: workspace
     kind: workspace
@@ -573,7 +592,7 @@ packages:
         attempt_ladder, student_request or check_gate. task is {behaviour, plan_step, description}: the slice's
         behaviour, the plan step being worked, and the agent's one-line description of what it was attempting.
         attempts is {count, notice_from: 2, hand_at: 3, hard_stop: 10, history: [{n, at, passed, steps,
-        files_digest}]}, the slice's qualifications since the last pass or instructor reply. code maps every owned file
+        files_digest, fault_id}]}, the slice's qualifications since the last pass or instructor reply. code maps every owned file
         to its full text or null. tests maps every file under the workspace's qualify/features and
         qualify/step_definitions (.keep excluded) to its full text. Since Reach 0.47.3 (security audit F02) code and
         tests are read through Reach::SafeFiles: a symlinked leaf or ancestor, traversal, an absolute path, a
@@ -585,6 +604,10 @@ packages:
         (at most 4000 bytes); student_last_request the student's last prompt in the slice (at most 4000 bytes) or
         null, and always null since 2026-10-03b (W-TRN-0). environment is {reach_version, ruby_version, platform, harness, model or null}. contract_version and
         suite_version come from the slice API and the last qualification, or null. plan and profile as in W-PKG-6.
+    fault_id: >-
+      Since 2026-10-21a. Each attempts.history entry carries fault_id, the id of the qualify fault (W-QUAL-FAULT-1) written for that
+      attempt, or null when none was written (the attempt passed, or the fault was not kept). Teach shows the full fault for a hand
+      even when the bundle cut last_output.
     size: The whole bundle.json is at most 196608 bytes; Reach drops last_output first, then cuts code and tests to their first 32768 bytes each, marking every cut with "[cut]".
   W-PKG-7:
     name: qualification
@@ -594,7 +617,9 @@ packages:
     entries:
       manifest.json: >-
         {"schema": "reach.qualification/v1", course, assignment, cutout_id, slice, owned_files, digests, tests,
-        attempt, reach_version, client_created_at, plan, plan_digest, plan_audit}. digests maps each owned file to its W-CONV-4 digest or null, as in
+        attempt, reach_version, client_created_at, plan, plan_digest, plan_audit, passes, pattern_matches, probe}.
+        Since 2026-10-21a (W-QUAL-PASSES-1, W-QUAL-PATTERN-1) passes, pattern_matches and probe are present, as {}, [] and
+        [] when Reach has nothing to report; a Teach of an older revision ignores them. digests maps each owned file to its W-CONV-4 digest or null, as in
         W-PKG-5; tests maps each qualify/ path sent to its digest. attempt is the slice's attempt number (W-QUAL-6).
         Since 2026-10-19a (W-QUAL-PLAN-1) plan is the slice plan object (reach.plan/v1) or null, plan_digest its
         STD-PLAN-AUDIT digest or null, and plan_audit the current reach.plan-audit/v1 record or null.
@@ -890,7 +915,7 @@ routes:
       Since protocol 1 revision 2026-09-30b Teach builds and serves the guardrails package for the current assignment
       even when it is not released or the student has no slices yet (a student_choice course before the student
       chooses), so Reach can load the course policy, sign the student in and ask the lock-in question. Every other
-      kind still needs a released assignment and the student's slices (403 not_released otherwise).
+      kind still needs a released assignment and the student's slices (403 not_released otherwise). Since 2026-10-21a kind may also be patterns (W-PKG-PATTERNS-1).
     reach_use: >-
       Reach stores the verified envelope at ~/.reach/packages/<kind>/<header.version>.pkg. A 404 is not an error; the
       kind has not been built yet.
@@ -955,6 +980,20 @@ routes:
       runs it in the grading sandbox (W-QUAL-3). A repeat with the same Idempotency-Key returns the original
       qualification_id and its current status.
     errors: {400 invalid_request: "a body, package or manifest outside W-PKG-7", 422 readme_incomplete: "since revision 2026-10-06e, the package's README.md breaks W-SUB-3", 403 forbidden: "not the student's slice", 403 not_released: "", 413 too_large: "body over 2 MB", 429 rate_limited: "over TEACH_QUALIFY_LIMIT_PER_HOUR (default 12) per slice per hour, or 2 already pending or running for the student", 503 unavailable: "qualifications are switched off (TEACH_QUALIFY_DISABLE=1); Retry-After says when to try"}
+  - id: W-API-QUALIFY-FAULTS
+    method: POST
+    path: /api/v1/qualify-faults
+    auth: install
+    since: 2026-10-21a
+    request_headers:
+      Idempotency-Key: Required. The fault_id of the first record in the body.
+    request:
+      faults: {type: array, items: "reach.qualify-fault/v1 (W-QUAL-FAULT-1)", max: 20}
+    response_202: {accepted: "[fault_id]", duplicate: "[fault_id]", rejected: "[{fault_id, reason}]"}
+    notes: >-
+      Teach stores each record once by fault_id, whatever the batch it arrived in. A record over 65536 bytes is rejected
+      alone. Reach sends nothing to a Teach that answers 404 not_found for a day and keeps the records locally.
+    errors: {400 invalid_request: "a body or record outside W-QUAL-FAULT-1", 403 forbidden: "a record of another student's slice", 404 not_found: "an older Teach", 413 too_large: "body over 1 MB", 429 rate_limited: "over 60 records an hour per install; Retry-After says when to try", 503 unavailable: "qualify faults are switched off"}
   - id: W-API-QUALIFICATION
     method: GET
     path: /api/v1/qualifications/:id
@@ -1020,7 +1059,7 @@ routes:
     request:
       cutout_id: string
       slice: {enum: [backend, panel, verification]}
-      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, plan_audit, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1); plan_audit since 2026-10-19b (W-QUAL-PLAN-1), sent only to a Teach that advertises it; feedback is not sent by Reach of 2026-10-13d and later, which uses W-API-FEEDBACK (W-FB-1), and Teach keeps accepting it from older Reach"}
+      trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, plan_audit, passes_or_pattern, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1); plan_audit since 2026-10-19b (W-QUAL-PLAN-1), passes_or_pattern since 2026-10-21a (W-QUAL-PASSES-1), each sent only to a Teach that advertises it; feedback is not sent by Reach of 2026-10-13d and later, which uses W-API-FEEDBACK (W-FB-1), and Teach keeps accepting it from older Reach"}
       originator: {enum: [agent, student, reach], required: false, note: "since 2026-09-29d; absent means student; reach since 2026-10-03c, on an issue hand only (W-ISSUE-1)"}
       summary: {type: string, maxBytes: 2000}
       bundle: W-ENV-1 envelope, header.kind hand_bundle (W-PKG-6 or W-PKG-6-v2; reach.issue/v1 on an issue hand, W-ISSUE-4)
@@ -2440,7 +2479,61 @@ qualification:
       its text). 4 to 9: M-LADDER-CONTINUE before each try. 10: M-LADDER-STOPPED;
       reach qualify and those writes are refused until an instructor replies to the hand. A pass or an instructor's
       reply seen by reach sync or the hand poll resets the count to zero. A qualification refused by the plan audit
-      (W-QUAL-PLAN-1) is not a failed qualification here.
+      (W-QUAL-PLAN-1), by the candidate passes (W-QUAL-PASSES-1) or by the pattern ledger (W-QUAL-PATTERN-1) is not a
+      failed qualification here.
+  W-QUAL-PASSES-1:
+    name: candidate passes
+    since: 2026-10-21a
+    rule: >-
+      At the plan, the scenarios and the code of a slice the agent writes up to eight candidate passes, each through its
+      own lens, and Reach scores every candidate from evidence alone (checks, coverage of the graded names, local runs,
+      the starting copy, the pattern ledger, the port probe, the contract and the ports) and installs the one with the
+      highest confidence; the agent's own rating carries no weight. The manifest of a qualification carries passes:
+      {<point>: {lens, confidence, low_confidence, candidate_digest}} for every point with a current pick, point one of
+      plan, scenarios and code, confidence a number from 0 to 1 with three decimals, low_confidence true below 0.5, and
+      candidate_digest the W-CONV-4 digest of the picked candidate's files. The course profile (W-POL-2) sets
+      qualify.passes.mode and qualify.passes.count. Under enforce Reach refuses a qualification that lacks a current pick at
+      a point (QF-PASSES-NONE); the third consecutive refusal for it or for the pattern ledger raises one W-PKG-6-v2 hand
+      with originator agent and trigger passes_or_pattern, sent only to a Teach whose accepts.hand_triggers names it. These
+      refusals never count on the attempt ladder (W-QUAL-6). Teach stores passes with the qualification and shows it to
+      instructors; it changes no qualification result.
+  W-QUAL-PATTERN-1:
+    name: pattern ledger and port probe
+    since: 2026-10-21a
+    rule: >-
+      The pattern ledger lists code patterns that are common in AI output and do not work: Reach ships generic entries
+      (patterns/generic.yml) and Teach serves course entries in the patterns package (W-PKG-PATTERNS-1). Reach matches the
+      merged ledger at reach check (CK-PATTERN), at the candidate passes and at reach qualify, whose manifest carries
+      pattern_matches: [{id, severity, file, line}], with file a path inside the workspace and never code or text.
+      qualify.ledger.mode (W-POL-2) decides what a block-severity match does: enforce refuses the qualification
+      (QF-PATTERN, uncounted on the attempt ladder, and a hand after three as in W-QUAL-PASSES-1), advise reports it and
+      continues, off skips the local match. Teach matches every qualification package itself whatever the mode.
+      The port probe reruns the local scenarios with one required port at a time wrapped so its answers are perturbed;
+      the manifest carries probe: [{scenario, port, sensitive}] for each scenario that touched the port, sensitive false
+      when the scenario still passed. An insensitive scenario is QF-INSENSITIVE, a warning unless
+      qualify.ledger.mode is enforce. qualify.probe turns the probe on or off. A local run that was a dry run or ran no
+      scenario is never recorded as passed.
+  W-QUAL-FAULT-1:
+    name: qualify faults
+    since: 2026-10-21a
+    rule: >-
+      Reach writes one reach.qualify-fault/v1 record for every qualification attempt that does not pass (local, remote,
+      refused, unable, or pending and then failed) and for every refusal by the candidate passes or the pattern ledger. A
+      record is {schema, fault_id (qf_ and 20 lowercase hex characters), at, cutout_id, slice, assignment, attempt (the
+      client attempt number), counted, local_only, refused_by (a step id or null), steps: {<step id>: {ran, passed, ms}},
+      findings: [{code, scenario, step_text, error_class, first_error_line, location}], pattern_matches: [{id, severity,
+      file, line}], probe: [{scenario, port, sensitive}], passes: {<point>: {lens, confidence, criteria: {<name>:
+      score}}}, plan_digest, constraints_digest, files_digest, tests_digest, package_version, kit_digest, suite_version,
+      environment: {reach_version, ruby, platform, harness, harness_confidence}, previous_fault_id (the slice's last fault,
+      so a run of faults is a chain), qualification_id (when the remote step ran)}. scenario is a scenario name from the
+      agent's own features and never a hidden one; first_error_line is scrubbed and at most 500 characters; location is a
+      path relative to the workspace inside qualify/ or the owned files. The record holds no owned code, no prompt or
+      README text and no student identity: the home directory is written as ~ and any path outside the workspace is
+      dropped. Reach keeps the newest 200 in .reach/qualify-faults.jsonl, sends them as POST /api/v1/qualify-faults right
+      after the attempt and again from that file, at most 60 an hour per install (the rest are counted and sent later),
+      and never lets a failed send block or fail a qualification. A hand bundle lists the fault_id of each of its attempts
+      (W-PKG-6-v2). Teach stores the records beside the qualification, may add a record of its own for a failed remote
+      qualification, and returns no hidden result to Reach (STD-TEACH-OPAQUE).
   W-QUAL-PLAN-1:
     name: plan and plan audit with every qualification
     since: 2026-10-19a
@@ -2537,7 +2630,7 @@ alignment:
       hints: "{email, student_id}, as W-API-ENROLL-PREVIEW answers them, at most 240 characters each. Without a hint Reach asks for the school email and the student ID in plain words"
       wellbeing: "{phrases: [text a student might type that means they may be in crisis, at most 64], support_text: the course's own support message, at most 2000 characters}. Without phrases Reach uses its built-in list; without support_text it shows its built-in message (W-SUP-1). Crisis detection is never switched off by a missing or empty section"
       support: "{contact_text: one line, at most 240 characters, how a student reaches a person now, for example \"text Sven at 707-968-7082\"}. Without it Reach names no way to reach a person beyond the hand it raises"
-      qualify: "{plan_audit: enforce | advise | off}, since 2026-10-19a: how reach qualify treats the slice plan audit (STD-PLAN-AUDIT, W-QUAL-PLAN-1). Teach always writes it, enforce unless the instructor chose otherwise. Without it (an older Teach) Reach uses advise, so a missing section never refuses a qualification"
+      qualify: "{plan_audit: enforce | advise | off, passes: {mode: enforce | advise | off, count: 1 to 8}, ledger: {mode: enforce | advise | off}, probe: on | off}. plan_audit since 2026-10-19a: how reach qualify treats the slice plan audit (STD-PLAN-AUDIT, W-QUAL-PLAN-1). Teach always writes it, enforce unless the instructor chose otherwise. Without it (an older Teach) Reach uses advise, so a missing section never refuses a qualification. Since 2026-10-21a: passes.mode (default advise) and passes.count (default and maximum 8) govern the candidate passes (W-QUAL-PASSES-1); ledger.mode (default advise) governs the pattern ledger (W-QUAL-PATTERN-1); probe (default on) turns the port probe on or off. A missing key means its default"
   W-CONSENT-1:
     name: consent record
     rule: >-
@@ -2799,7 +2892,7 @@ alignment:
     name: hand types
     rule: >-
       Since revision 2026-10-02e. trigger classifies a hand: attempt_gate, attempt_ladder, check_gate and wellbeing are
-      raised by Reach itself, and plan_audit too since 2026-10-19b (W-QUAL-PLAN-1); late_work and late_submission by the late-work rule (W-PACE-2); student_request,
+      raised by Reach itself, plan_audit too since 2026-10-19b (W-QUAL-PLAN-1), and passes_or_pattern since 2026-10-21a (W-QUAL-PASSES-1); late_work and late_submission by the late-work rule (W-PACE-2); student_request,
       concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue,
       setup_issue, access_issue (accounts, Blackboard and other course systems), extension_request, feedback,
       integrity_question and other are chosen by the agent for a hand the student asks for, student_request when none

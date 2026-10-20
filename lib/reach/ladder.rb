@@ -69,7 +69,7 @@ module Reach
       failed = current["failed"].to_i + 1
       history = Array(current["history"]) + [{
         "n" => record["attempt"], "at" => record["at"], "passed" => false,
-        "steps" => failed_steps(record), "files_digest" => record["files_digest"]
+        "steps" => failed_steps(record), "files_digest" => record["files_digest"], "fault_id" => record["fault_id"]
       }]
       last_failure = { "n" => record["attempt"], "files_digest" => record["files_digest"], "tests_digest" => record["tests_digest"] }
       current = current.merge("failed" => failed, "history" => history.last(HISTORY_LIMIT), "last_failure" => last_failure)

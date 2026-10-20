@@ -19,12 +19,13 @@ module Reach
     LATE_WORK = "late_work".freeze
     LATE_SUBMISSION = "late_submission".freeze
     PLAN_AUDIT = "plan_audit".freeze
+    PASSES_OR_PATTERN = "passes_or_pattern".freeze
     AGENT_TYPES = %w[
       student_request concept_question assignment_question deadline_question grade_question submission_question
       technical_issue setup_issue access_issue extension_request integrity_question other
     ].freeze
-    NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION, PLAN_AUDIT] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
-    TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION, PLAN_AUDIT] + AGENT_TYPES).freeze
+    NEWER_TYPES = ([LATE_WORK, LATE_SUBMISSION, PLAN_AUDIT, PASSES_OR_PATTERN] + AGENT_TYPES - [STUDENT_REQUEST]).freeze
+    TYPES = ([ATTEMPT_GATE, ATTEMPT_LADDER, CHECK_GATE, WELLBEING, LATE_WORK, LATE_SUBMISSION, PLAN_AUDIT, PASSES_OR_PATTERN] + AGENT_TYPES).freeze
     SUMMARY_LIMIT = 2000
     TECHNICAL_TYPES = %w[technical_issue setup_issue access_issue].freeze
     FIELD_LIMIT = 1000
@@ -401,7 +402,7 @@ module Reach
         case value
         when String then scrub(value, install)
         when Array then value.map { |item| scrub_tree(item, install) }
-        when Hash then value.transform_values { |item| scrub_tree(item, install) }
+        when Hash then value.map { |key, item| [key, key.to_s == "fault_id" ? item : scrub_tree(item, install)] }.to_h
         else value
         end
       end

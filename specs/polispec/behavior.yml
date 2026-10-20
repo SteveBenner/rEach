@@ -369,9 +369,18 @@ directives:
     4. Every scenario must fail on the starting copy. A scenario that passes
        on the starting copy proves nothing and is reported as QF-VACUOUS.
 
-    `reach qualify` runs, in order: `reach check` on the owned files, coverage
-    of every graded name (QF-UNCOVERED), your scenarios here when they can run
-    here (QF-LOCAL-FAIL, QF-VACUOUS), then the course server, which runs your
+    At the plan, the scenarios and the code, write several candidate passes
+    through different lenses (the reach-passes skill) and let `reach passes score`
+    and `reach passes pick` install the one the evidence supports; your own opinion
+    of a candidate carries no weight. The pattern ledger lists code patterns that
+    are common in AI output and do not work; `reach passes packet` and `reach check`
+    show the entries that apply, and a finding names its remedy.
+
+    `reach qualify` runs, in order: the plan audit, the candidate passes
+    (QF-PASSES-NONE), the pattern ledger (QF-PATTERN), `reach check` on the owned
+    files, coverage of every graded name (QF-UNCOVERED), your scenarios here when
+    they can run here (QF-LOCAL-FAIL, QF-VACUOUS), the port probe (QF-INSENSITIVE),
+    then the course server, which runs your
     scenarios on the real build, again on the starting copy, and the
     instructors' graded scenarios (QF-REMOTE-FAIL, QF-VACUOUS, QF-HIDDEN). The
     course server answers with scenario names, pass or fail, the failing step
@@ -384,7 +393,9 @@ directives:
     example labels and values; the course server runs the graded scenarios on the
     real data.
 
-    A qualification that failed counts on the attempt ladder (TOZERO). One
+    A qualification that failed counts on the attempt ladder (TOZERO), except one
+    refused for the plan audit, the candidate passes or the pattern ledger, which
+    counts for nothing. One
     that could not reach the course server is pending and counts for nothing;
     run `reach qualify` again later. `reach submit` refuses until the latest
     qualification passed on exactly the files and scenarios you have now.
