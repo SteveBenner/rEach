@@ -35,7 +35,8 @@ module PlatformSmoke
   EXPECTED_DOCTOR_LINES = {
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(SDK not installed\)\z/,
     "R-DOC-SUBSCRIBE" => /\Abackground job installed; last check never\z/,
-    "R-DOC-CODEX" => /\ACodex's sandbox blocks rEach \(internet \w+, folder \w+\) - run reach codex configure\z/
+    "R-DOC-CODEX" => /\ACodex's sandbox blocks rEach \(internet \w+, folder \w+\) - run reach codex configure\z/,
+    "R-DOC-COPIES" => /\A\d+ saves, \d+ KB, (second copy at \S+|no second copy)\z/
   }.freeze
   NO_KIT_DOCTOR_LINES = {
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(no runtime kit\)\z/

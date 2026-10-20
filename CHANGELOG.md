@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.2] - 2026-10-19
+
+### Fixed
+- The platform smoke's doctor step tolerates the informational `R-DOC-COPIES: <n> saves, <k> KB, second copy at <path>`
+  line that 0.53.26 added, which failed the test health check of every promotion since (first seen on 0.54.1).
+
 ## [0.54.1] - 2026-10-19
 
 A student whose agent cannot get a plan through the audit was refused at qualify with nobody told. Now the instructor
