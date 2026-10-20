@@ -776,7 +776,7 @@ module Reach
         Reach::Submit.rejected_notices.each { |text| puts text }
         Array(summary["warnings"]).each { |warning| puts warning }
         puts Reach::Messages.text("M-OFFLINE") if summary["state"] == "offline"
-        puts Reach::Messages.text("M-GATE-REVOKED") if summary["state"] == "revoked"
+        puts Reach::Enroll.revoked_message if summary["state"] == "revoked"
       end
 
       def cmd_status(_args)

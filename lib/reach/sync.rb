@@ -65,7 +65,7 @@ module Reach
           status = cached_status || {}
         rescue Reach::RemoteRefused => e
           if %w[revoked not_enrolled].include?(e.code)
-            Reach::Enroll.mark_revoked!
+            Reach::Enroll.mark_revoked!(e.details)
             summary["state"] = "revoked"
             Reach::Debug.sync(summary, began)
             return summary
@@ -289,7 +289,7 @@ module Reach
           Reach::EnrollmentLock.mark_moved!([])
           raise Reach::GateBlocked.new("M-ENR-MOVED", Reach::Messages.text("M-ENR-MOVED"))
         end
-        Reach::Enroll.mark_revoked! if %w[revoked not_enrolled].include?(e.code)
+        Reach::Enroll.mark_revoked!(e.details) if %w[revoked not_enrolled].include?(e.code)
         raise
       end
 

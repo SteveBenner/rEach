@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-19b
+revision: 2026-10-20b
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -2153,7 +2153,7 @@ errors:
       unauthenticated: {status: 401, reach: "never retried; M-AUTH-FAILED (clock or key)"}
       forbidden: {status: 403, reach: "never retried"}
       not_enrolled: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REVOKED"}
-      revoked: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REVOKED"}
+      revoked: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REPLACED when details.reason is replaced (since 2026-10-20b, W-ENR-8), else M-GATE-REVOKED"}
       not_released: {status: 403, reach: never retried}
       deadline_passed: {status: 403, reach: never retried}
       not_found: {status: 404, reach: "never retried"}
@@ -2968,7 +2968,13 @@ enrollment:
       answers 409 device_move_pending; a repeat of the same request (same student and digest) answers the same move.
       An instructor approves or denies the move with a reason. After approval the same request enrolls the new install
       and revokes the old ones, once; after a denial it answers 403 device_move_denied with the reason. Installs
-      without a stored fingerprint (shape v1) never make a move.
+      without a stored fingerprint (shape v1) never make a move. Since revision 2026-10-20b Teach records why it
+      revoked an install and answers every later request of that install 403 revoked with details {reason: replaced
+      | instructor | unenrolled, revoked_at, replacement}, where replacement is {harness, platform, enrolled_at} of
+      the newer install for replaced and absent otherwise; an install revoked before this revision carries no
+      details. Reach keeps the reason and the replacement with its install record and shows M-GATE-REPLACED for
+      replaced, naming the harness and the day of the newer enrollment and telling the student to work in that copy
+      or to enroll again on this computer, and M-GATE-REVOKED for every other reason or no details.
   W-ENR-9:
     name: roster and limits on Teach
     rule: >-

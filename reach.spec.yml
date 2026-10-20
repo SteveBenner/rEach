@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.54.5
+version: 0.54.6
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -2374,6 +2374,13 @@ student_messages:
     text: Your course rules have an update. Run reach sync to get it, then try again.
   - id: M-GATE-REVOKED
     text: This computer's Reach was switched off by your instructor. Ask them for a new enrollment code.
+  - id: M-GATE-REPLACED
+    text: >-
+      This copy of rEach was switched off because you enrolled again on another app or computer, and only the newest
+      enrollment stays on. Your course work continues in that newer copy. To work on this computer instead, enroll
+      here again: say hi to your AI partner or run reach enroll, and type your course passkey when rEach asks for it.
+  - id: M-GATE-REPLACED-WHERE
+    text: The newer enrollment was made from {where} {when}.
   - id: M-WRITE-OUTSIDE
     text: That file belongs to the course and can't be changed. Your work goes in {owned_files}.
   - id: M-WRITE-ROOT

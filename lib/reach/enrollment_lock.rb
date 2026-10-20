@@ -8,6 +8,7 @@ module Reach
     MESSAGES = {
       "not_enrolled" => "M-GATE-NOENROLL",
       "revoked" => "M-GATE-REVOKED",
+      "replaced" => "M-GATE-REPLACED",
       "stamp_invalid" => "M-ENR-STAMP-INVALID",
       "moved" => "M-ENR-MOVED",
       "restamp" => "M-ENR-RESTAMP",
@@ -53,6 +54,8 @@ module Reach
     end
 
     def message(state_hash = state)
+      return Reach::Enroll.revoked_message if state_hash["reason"] == "replaced"
+
       Reach::Messages.text(state_hash["message_id"])
     end
 
@@ -60,12 +63,13 @@ module Reach
       current = state
       return nil unless current["locked"]
 
-      raise Reach::GateBlocked.new(current["message_id"], Reach::Messages.text(current["message_id"]))
+      raise Reach::GateBlocked.new(current["message_id"], message(current))
     end
 
     def reason_for_state
       install = Reach::Enroll.current
       return "not_enrolled" unless install
+      return "replaced" if Reach::Enroll.replaced?(install)
       return "revoked" if install["revoked"]
       return "moved" if File.file?(Reach::Paths.enroll_moved_file)
 

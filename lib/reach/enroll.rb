@@ -245,13 +245,45 @@ module Reach
       false
     end
 
-    def mark_revoked!
+    REPLACED_WHERE = {
+      "claude-code-tui" => "Claude Code in a terminal", "claude-code-vscode" => "Claude Code in VS Code",
+      "claude-code-headless" => "Claude Code", "claude-agent-sdk" => "a Claude agent", "claude-code-web" => "Claude Code on the web",
+      "claude-desktop" => "the Claude app", "claude-cowork" => "Claude Cowork", "codex-tui" => "Codex in a terminal",
+      "codex-app" => "the Codex app", "codex-vscode" => "Codex in VS Code", "hermes" => "Hermes", "terminal" => "a terminal"
+    }.freeze
+
+    def mark_revoked!(details = nil)
+      details = {} unless details.is_a?(Hash)
+      replacement = details["replacement"].is_a?(Hash) ? details["replacement"] : nil
       with_install_lock do
         data = current || {}
         data["revoked"] = true
+        data["revoked_reason"] = details["reason"].to_s unless details["reason"].to_s.empty?
+        data["revoked_at"] = details["revoked_at"].to_s unless details["revoked_at"].to_s.empty?
+        data["replacement"] = replacement.slice("harness", "platform", "enrolled_at") if replacement
         write_data(data)
       end
       nil
+    end
+
+    def replaced?(data = current)
+      data.is_a?(Hash) && !!data["revoked"] && data["revoked_reason"] == "replaced"
+    end
+
+    def revoked_message_id(data = current)
+      replaced?(data) ? "M-GATE-REPLACED" : "M-GATE-REVOKED"
+    end
+
+    def revoked_message(data = current)
+      return Reach::Messages.text("M-GATE-REVOKED") unless replaced?(data)
+
+      text = Reach::Messages.text("M-GATE-REPLACED")
+      replacement = data["replacement"].is_a?(Hash) ? data["replacement"] : {}
+      return text if replacement["harness"].to_s.empty? && replacement["enrolled_at"].to_s.empty?
+
+      where = REPLACED_WHERE.fetch(replacement["harness"].to_s, "another app")
+      day = replacement["enrolled_at"].to_s[0, 10]
+      "#{text} #{Reach::Messages.text('M-GATE-REPLACED-WHERE', where: where, when: day.empty? ? 'recently' : "on #{day}")}"
     end
 
     def write_private_key(key)

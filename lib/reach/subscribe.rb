@@ -341,7 +341,7 @@ module Reach
         return { "result" => "unsupported" }
       end
       if %w[revoked not_enrolled].include?(error.code)
-        Reach::Enroll.mark_revoked!
+        Reach::Enroll.mark_revoked!(error.details)
         uninstall!
         return { "result" => "revoked" }
       end

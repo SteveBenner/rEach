@@ -11,6 +11,8 @@ messages:
   M-GATE-NOSLICE-NAMED: "There is no slice called {slice} on this computer. Its slices are: {choices}. Name one of these."
   M-GATE-OLDGUARD: "Your course rules have an update. Run reach sync to get it, then try again."
   M-GATE-REVOKED: "This computer's rEach was switched off by your instructor. Ask them for a new course passkey."
+  M-GATE-REPLACED: "This copy of rEach was switched off because you enrolled again on another app or computer, and only the newest enrollment stays on. Your course work continues in that newer copy. To work on this computer instead, enroll here again: say hi to your AI partner or run reach enroll, and type your course passkey when rEach asks for it."
+  M-GATE-REPLACED-WHERE: "The newer enrollment was made from {where} {when}."
   M-GATE-STALE: "rEach hasn't been able to check in with your course for over a day. Connect to the internet and run reach sync."
   M-UPDATE-INSTALLING: "rEach is installing an update (version {version}) that you need to keep using it. Give it a minute, then try again; your work is safe. Please keep the app open meanwhile; if it closes first, rEach finishes the update the next time it opens."
   M-UPDATE-READY: "A rEach update (version {version}) is ready. It installs the next time you start a session, so nothing changes in the middle of your work."

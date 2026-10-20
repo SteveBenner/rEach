@@ -13,6 +13,7 @@ module Reach
     FIRST_MESSAGES = {
       "not_enrolled" => "M-ENR-WELCOME",
       "revoked" => "M-GATE-REVOKED",
+      "replaced" => "M-GATE-REPLACED",
       "stamp_invalid" => "M-ENR-STAMP-INVALID",
       "moved" => "M-ENR-MOVED",
       "restamp" => "M-ENR-RESTAMP"

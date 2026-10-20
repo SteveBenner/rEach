@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.54.5 |
+| **Registry version** | 0.54.6 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -664,6 +664,11 @@ Re-verified 2026-10-01 against the real Teach 0.16.0 on a scratch database:
 - a sandboxed Claude Code session enrolling through the hook.
 
 Not verified: Codex, Hermes and Antigravity sessions, and macOS and Windows machine ids.
+Since 0.54.6 (`STD-GATE-REPLACED`, wire 2026-10-20b) a copy switched off by the student's own newer enrollment is told
+so: Teach's `403 revoked` carries `details.reason replaced` and the newer enrollment's harness, platform and day, and
+rEach shows `M-GATE-REPLACED` (plus `M-GATE-REPLACED-WHERE`) everywhere the lock is shown instead of blaming the
+instructor; `M-GATE-REVOKED` stays for an instructor's revoke, an unenrollment and a Teach without details. Verified
+2026-10-20 in a scratch home.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
 

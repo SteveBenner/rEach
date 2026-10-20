@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.6] - 2026-10-20
+
+### Fixed
+
+- A copy of rEach that was switched off because the student enrolled again (on another app or computer, or the same one) no longer says the instructor switched it off. Teach 0.100.14 answers its requests `403 revoked` with the reason and the newer enrollment's harness, platform and day (wire revision 2026-10-20b, W-ENR-8); rEach keeps them in the install record and shows `M-GATE-REPLACED` (and `M-GATE-REPLACED-WHERE` when the replacement is known) in the prompt hook, the enrollment flow, `reach sync`, the CLI gate and the MCP bridge: the newest enrollment stays on, the work continues there, and to work on this computer the student enrolls here again with the course passkey. An instructor's revoke, an unenrollment and a Teach older than the revision keep `M-GATE-REVOKED`.
+
 ## [0.54.5] - 2026-10-20
 
 ### Fixed
