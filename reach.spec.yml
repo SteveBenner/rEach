@@ -868,7 +868,7 @@ qualification:
     scenarios in vault/runs/<slice>-probe with each required port's answers perturbed, one port at a time (numbers
     scaled by 1.37 and shifted, strings suffixed, collections reversed, booleans negated), and records probe
     [{scenario, port, sensitive}] for each scenario that touched the port. An insensitive scenario is QF-INSENSITIVE, a
-    warning in the record unless qualify.ledger.mode is enforce, when it is a finding.
+    warning in the record unless qualify.ledger.mode is enforce, when it is a finding; either way it is uncounted on the attempt ladder.
   - >-
     remote - a sealed qualification package (W-PKG-7) posted to Teach (W-API-QUALIFY) and polled every 10 seconds, at
     most 36 times (W-API-QUALIFICATION). Teach runs the agent's scenarios on the reference build with the owned files,

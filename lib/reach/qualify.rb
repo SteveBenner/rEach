@@ -17,7 +17,7 @@ module Reach
     MAX_POLLS = 36
     REMOTE_BUDGET_S = 20
     STEP_IDS = %w[plan_audit passes patterns check coverage local_pass local_stub probe remote].freeze
-    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE QF-PLAN-NONE QF-PLAN-UNAUDITED QF-PLAN-AUDIT-FAIL QF-PASSES-NONE QF-PATTERN].freeze
+    NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE QF-PLAN-NONE QF-PLAN-UNAUDITED QF-PLAN-AUDIT-FAIL QF-PASSES-NONE QF-PATTERN QF-INSENSITIVE].freeze
     PREVIEW_STEP = /\bopen the .+ panel\b/.freeze
     PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze

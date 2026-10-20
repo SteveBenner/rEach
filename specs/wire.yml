@@ -2511,7 +2511,7 @@ qualification:
       The port probe reruns the local scenarios with one required port at a time wrapped so its answers are perturbed;
       the manifest carries probe: [{scenario, port, sensitive}] for each scenario that touched the port, sensitive false
       when the scenario still passed. An insensitive scenario is QF-INSENSITIVE, a warning unless
-      qualify.ledger.mode is enforce. qualify.probe turns the probe on or off. A local run that was a dry run or ran no
+      qualify.ledger.mode is enforce, and never counted on the attempt ladder. qualify.probe turns the probe on or off. A local run that was a dry run or ran no
       scenario is never recorded as passed.
   W-QUAL-FAULT-1:
     name: qualify faults
