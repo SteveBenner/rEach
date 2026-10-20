@@ -44,6 +44,8 @@ module Reach
       return nil if disabled?
 
       fault = nil
+      return nil unless scrubber_for
+
       if record["passed"] == false && record["pending"] == false
         fault = build(workspace, record, local_only, counted)
         append(workspace, fault)
@@ -232,6 +234,9 @@ module Reach
       install = Reach::Enroll.current
       return nil unless install
 
+      scrubber = scrubber_for
+      return nil unless scrubber
+
       state = read_state(workspace)
       now = Time.now.to_i
       return nil if state["unsupported_until"].to_i > now
@@ -248,20 +253,42 @@ module Reach
         return nil
       end
 
-      batch = pending.first([room, BATCH].min)
-      result = Reach::Client.with_deadline(SEND_BUDGET_S) do
+      chosen = pending.first([room, BATCH].min)
+      batch = chosen.map { |entry| rescrub(entry, scrubber) }.compact
+      dropped = chosen.map { |entry| entry["fault_id"] } - batch.map { |entry| entry["fault_id"] }
+      if batch.empty?
+        write_state(workspace, state.merge("sent" => ((sent + dropped) & records(workspace).map { |entry| entry["fault_id"] }), "window" => window))
+        return nil
+      end
+
+      result =Reach::Client.with_deadline(SEND_BUDGET_S) do
         Reach::Client.for_install(install).post_json(ROUTE, { "faults" => batch }, idempotency_key: batch.first["fault_id"])
       end
       body = result.json || {}
       settled = Array(body["accepted"]) + Array(body["duplicate"]) + Array(body["rejected"]).map { |row| row.is_a?(Hash) ? row["fault_id"] : nil }.compact
       settled = batch.map { |entry| entry["fault_id"] } if settled.empty?
       kept = records(workspace).map { |entry| entry["fault_id"] }
-      write_state(workspace, state.merge("sent" => ((sent + settled) & kept), "window" => window + Array.new(settled.length, now)))
+      write_state(workspace, state.merge("sent" => ((sent + settled + dropped) & kept), "window" => window + Array.new(settled.length, now)))
       settled
     rescue Reach::RemoteRefused => e
       state = read_state(workspace)
       write_state(workspace, state.merge("unsupported_until" => Time.now.to_i + BACKOFF_S)) if e.code == "not_found"
       nil
+    rescue StandardError
+      nil
+    end
+
+    def rescrub(entry, scrubber)
+      copy = JSON.parse(JSON.generate(entry))
+      Array(copy["findings"]).each do |row|
+        %w[scenario step_text first_error_line location].each do |key|
+          row[key] = Reach::Deidentify.scrub(row[key].to_s, scrubber, RECORD_LIMIT).fetch("text") unless row[key].nil?
+        end
+      end
+      Array(copy["probe"]).each do |row|
+        row["scenario"] = Reach::Deidentify.scrub(row["scenario"].to_s, scrubber, RECORD_LIMIT).fetch("text") unless row["scenario"].nil?
+      end
+      copy
     rescue StandardError
       nil
     end

@@ -215,18 +215,36 @@ module Reach
       all_entries(workspace).last
     end
 
-    def save(workspace, note: nil, automatic: false, via: nil, stamp: true, force: false)
+    EXTRA_DIRS = %w[qualify/features qualify/step_definitions].freeze
+    EXTRA_FILES = %w[.reach/plan.yml].freeze
+
+    def extra_files(workspace)
+      listed = EXTRA_FILES.select { |relative| File.file?(File.join(workspace, relative)) && !File.symlink?(File.join(workspace, relative)) }
+      EXTRA_DIRS.each do |directory|
+        Dir.glob(File.join(workspace, directory, "**", "*")).sort.each do |path|
+          listed << path.sub("#{workspace}/", "") if File.file?(path) && !File.symlink?(path)
+        end
+      end
+      listed
+    end
+
+    def extra_digests(workspace)
+      extra_files(workspace).map { |relative| [relative, Reach::Crypto.digest_hex(File.binread(File.join(workspace, relative)))] }.to_h
+    end
+
+    def save(workspace, note: nil, automatic: false, via: nil, stamp: true, force: false, extras: false)
       via ||= automatic ? "automatic" : "manual"
       Reach::Seal.stamp(workspace) if stamp
       digests = current_digests(workspace)
+      kept = extras ? extra_digests(workspace) : nil
       previous = latest(workspace)
-      if previous && previous["digests"] == digests && !force && (automatic || !hidden?(previous))
+      if previous && previous["digests"] == digests && (kept.nil? || previous["extras"] == kept) && !force && (automatic || !hidden?(previous))
         return { "saved" => false, "n" => previous["n"], "message" => Reach::Messages.text("M-CHECKPOINT-SAME", n: previous["n"]) }
       end
 
       n = previous ? previous["n"].to_i + 1 : 1
       primary = dir(workspace)
-      meta = write_entry(primary, workspace, n, digests, note, automatic, via)
+      meta = write_entry(primary, workspace, n, digests, note, automatic, via, kept)
       mirror_entry(workspace, primary, meta)
       unless AUTOSAVE_VIAS.include?(via)
         Reach::Ledger.append(workspace, "checkpoint", "checkpoint" => n, "note_digest" => Reach::Crypto.digest_hex(note.to_s), "automatic" => automatic)
@@ -244,10 +262,10 @@ module Reach
       nil
     end
 
-    def write_entry(base, workspace, n, digests, note, automatic, via)
+    def write_entry(base, workspace, n, digests, note, automatic, via, kept = nil)
       blobs = private_dir(File.join(base, "blobs"))
       private_dir(File.join(base, format("%03d", n)))
-      digests.each do |relative, digest|
+      digests.merge(kept || {}).each do |relative, digest|
         next if digest.nil?
 
         source = File.join(workspace, relative)
@@ -267,6 +285,7 @@ module Reach
         "marks" => Reach::Seal.verify(workspace),
         "ledger_head" => Reach::Ledger.head(workspace)
       }
+      meta["extras"] = kept if kept
       Reach::StateFile.write_atomic(File.join(base, format("%03d", n), "meta.json"), JSON.generate(meta), mode: 0o600)
       meta
     end
@@ -277,7 +296,7 @@ module Reach
 
       private_dir(File.join(mirror, "blobs"))
       private_dir(File.join(mirror, format("%03d", meta["n"].to_i)))
-      meta["digests"].each_value do |digest|
+      meta["digests"].values.concat(Hash(meta["extras"]).values).each do |digest|
         next unless blob_digest?(digest)
 
         source = File.join(primary, "blobs", digest)
@@ -334,11 +353,14 @@ module Reach
 
       owned = Array(Reach::Workspace.owned_files(workspace))
       contents = owned.each_with_object({}) { |relative, map| map[relative] = entry_content(workspace, entry, relative) }
+      kept = entry["extras"].is_a?(Hash) ? entry["extras"] : nil
+      extra_contents = (kept || {}).each_with_object({}) { |(relative, digest), map| map[relative] = blob_content(workspace, entry, digest) }
       previous = latest(workspace)
-      if previous.nil? || previous["digests"] != current_digests(workspace) || hidden?(previous)
-        save(workspace, note: "before restore #{n}", automatic: true, via: "restore", force: true)
+      if previous.nil? || previous["digests"] != current_digests(workspace) || hidden?(previous) || (kept && previous["extras"] != extra_digests(workspace))
+        save(workspace, note: "before restore #{n}", automatic: true, via: "restore", force: true, extras: !kept.nil?)
       end
 
+      restore_extras(workspace, kept, extra_contents) if kept
       before = current_digests(workspace)
       owned.each do |relative|
         destination = File.join(workspace, relative)
@@ -358,6 +380,27 @@ module Reach
       Reach::Ledger.append(workspace, "restore", "checkpoint" => entry["n"])
       autosave(workspace, via: "restored")
       { "restored" => true, "n" => entry["n"], "message" => Reach::Messages.text("M-CHECKPOINT-RESTORED", n: entry["n"]) }
+    end
+
+    def blob_content(workspace, entry, digest)
+      raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNREADABLE", n: entry["n"]) unless blob_digest?(digest)
+
+      stores(workspace).each do |base|
+        blob = File.join(base, "blobs", digest)
+        return File.binread(blob) if File.file?(blob)
+      end
+      raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNREADABLE", n: entry["n"])
+    end
+
+    def restore_extras(workspace, kept, contents)
+      extra_files(workspace).each do |relative|
+        FileUtils.rm_f(File.join(workspace, relative)) unless kept.key?(relative)
+      end
+      contents.each do |relative, content|
+        destination = File.join(workspace, relative)
+        FileUtils.mkdir_p(File.dirname(destination))
+        Reach::StateFile.write_atomic(destination, content, mode: 0o644)
+      end
     end
 
     def current_digests(workspace)

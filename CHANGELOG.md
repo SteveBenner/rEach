@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.5] - 2026-10-20
+
+### Fixed
+
+- `reach passes pick` saves the existing scenarios, step files and plan in its checkpoint before installing, so `reach checkpoint restore` brings them back exactly; a checkpoint made without them restores as before.
+- Qualify fault records are written and sent only when the identity scrubber is available, and each stored record is scrubbed again with the current scrubber before it is sent; a record that cannot be scrubbed is dropped.
+- `PRIVACY.md` says the send can add up to 5 seconds to `reach qualify` without changing its result, and that unsent records go out at the next qualification.
+
 ## [0.56.4] - 2026-10-20
 
 ### Fixed

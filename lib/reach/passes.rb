@@ -449,7 +449,7 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-PASSES-NOT-VIABLE", point: point) unless winner
 
       meta = Reach::Workspace.metadata(workspace)
-      Reach::Checkpoint.save(workspace, note: "before passes pick #{point}")
+      Reach::Checkpoint.save(workspace, note: "before passes pick #{point}", extras: true, force: true)
       dir = candidate_dir(workspace, point, winner["n"])
       installed = install(workspace, meta, point, dir)
       pick_record = {
