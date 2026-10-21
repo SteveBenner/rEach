@@ -118,13 +118,27 @@ module Reach
           lock = File.join(dir, "Gemfile.lock")
           next unless File.directory?(dir) && File.file?(gemfile) && File.file?(lock)
           next unless normalized_gemfile(File.binread(gemfile)) == wanted
-          next unless lock_without_platforms(File.binread(lock)) == lock_without_platforms(lock_bytes)
+          next unless profile_lock_matches?(entry, File.binread(lock), lock_bytes)
 
           return { "dir" => dir, "gemfile" => gemfile, "lock" => lock }
         end
         nil
       rescue SystemCallError
         nil
+      end
+
+      def profile_lock_matches?(entry, installed_lock, wanted_lock)
+        wanted = lock_without_platforms(wanted_lock)
+        return true if lock_without_platforms(installed_lock) == wanted
+
+        name = entry["name"].to_s
+        return false unless name.match?(/\A[A-Za-z0-9_-]+\z/)
+
+        source = File.join(Reach::Runtime.root, "runtime", "locks", name, "Gemfile.lock")
+        return false unless File.file?(source)
+
+        bytes = File.binread(source)
+        Reach::RuntimeKit.lock_digests(bytes).include?(entry["lock_sha256"]) && lock_without_platforms(bytes) == wanted
       end
 
       def bundle_env_dir(gemfile_bytes, lock_bytes)

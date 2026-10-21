@@ -5,13 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.15] - 2026-10-20
+
+### Fixed
+
+- Match a Windows prebuilt profile through the kit’s recorded source-lock digest, preserving dependency requirements while allowing native platform gem entries and checksums.
+- Isolate the platform smoke’s checkpoint mirror and accept spaces in its reported path, so macOS paths and old operator checkpoints cannot produce false doctor failures.
+
 ## [0.56.14] - 2026-10-20
 
 ### Fixed
 
 - Background ticks and MCP startup request updates through the existing update controls, so updates have another path when a harness session hook does not fire.
 - Qualification whose local checking tools cannot start records the local run, stub, and port probe as unavailable and continues to the course server. Ordinary scenario failures still block locally, and weighted passes, patterns, timing, and fault capture remain active.
-- Prebuilt gem fallback accepts only an identical Gemfile and a lock differing in line endings or platforms. It preserves dependency requirements and resolved versions. An active Windows runtime refuses a fallback gem compilation and reports the repair step.
+- Prebuilt gem fallback accepts only an identical Gemfile and a source lock differing in line endings or platforms. It verifies that source against the kit’s recorded digest, allowing the installed Windows lock’s native gem entries and checksums. It preserves dependency requirements and resolved versions. An active Windows runtime refuses a fallback gem compilation and reports the repair step.
 - Wire revision 2026-10-21f retains the newer weighted-pass protocol and records the local environment exception.
 
 ## [0.56.11] - 2026-10-20

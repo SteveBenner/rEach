@@ -36,7 +36,7 @@ module PlatformSmoke
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(SDK not installed\)\z/,
     "R-DOC-SUBSCRIBE" => /\Abackground job installed; last check never\z/,
     "R-DOC-CODEX" => /\ACodex's sandbox blocks rEach \(internet \w+, folder \w+\) - run reach codex configure\z/,
-    "R-DOC-COPIES" => /\A\d+ saves, \d+ KB, (second copy at \S+|no second copy)\z/
+    "R-DOC-COPIES" => /\A\d+ saves, \d+ KB, (second copy at [^\r\n]+|no second copy)\z/
   }.freeze
   NO_KIT_DOCTOR_LINES = {
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(no runtime kit\)\z/
@@ -103,6 +103,8 @@ module PlatformSmoke
       env["REACH_WORKSPACE_ROOT"] = File.join(@scratch, "work")
       env["RPLUGIN_HOME"] = File.join(@scratch, "rplugin")
       env["XDG_STATE_HOME"] = File.join(@scratch, "state")
+      env["XDG_DATA_HOME"] = File.join(@scratch, "data")
+      env["REACH_CHECKPOINT_MIRROR"] = File.join(@scratch, "checkpoint mirror")
       env["REACH_SYSTEMD_USER_DIR"] = File.join(@scratch, "systemd-user")
       env["REACH_UPDATE_DISABLE"] = "1"
       env
