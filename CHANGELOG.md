@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.11] - 2026-10-20
+
+### Fixed
+
+- The path scrub in qualify fault records consumes any character except a newline, up to the last folder separator on the line, so apostrophes, quotes, brackets and parentheses in folder names no longer leave a part behind; other text after the path on the same line can be dropped with it.
+
 ## [0.56.10] - 2026-10-20
 
 ### Fixed
@@ -63,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The path scrub in qualify fault records no longer depends on the characters in folder names: from `~/`, a drive letter, a network prefix or an absolute `/`, everything up to the final segment is dropped (accented letters, apostrophes and any number of words included), and a home path keeps only `~/…` and the file extension.
+- The path scrub in qualify fault records no longer depends on the characters in folder names: from `~/`, a drive letter, a network prefix or an absolute `/`, everything up to the final segment is dropped (accented letters, any number of words, and, from 0.56.11, apostrophes, quotes and brackets included), and a home path keeps only `~/…` and the file extension.
 
 ### Changed
 

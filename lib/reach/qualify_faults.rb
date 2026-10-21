@@ -18,8 +18,8 @@ module Reach
     SEND_BUDGET_S = 5
     PRE_RUN_STEPS = %w[plan_audit passes patterns check coverage].freeze
     ERROR_CLASS = /\b((?:[A-Z][A-Za-z0-9]*::)+[A-Z][A-Za-z0-9]*|[A-Z][A-Za-z0-9]*(?:Error|Exception|Failure))\b/.freeze
-    BODY = %r{(?:(?!:\d)[^\n"'<>|()])*[/\\]}.freeze
-    FINAL = %r{([^\s/\\:"'<>|()]*)}.freeze
+    BODY = %r{(?:(?!:\d)[^\n])*[/\\]}.freeze
+    FINAL = %r{([^\s/\\:]*)}.freeze
     HOME_PATH = %r{(?<!\w)~(?=[/\\])#{BODY}#{FINAL}}.freeze
     DRIVE_PATH = %r{(?<![A-Za-z0-9])[A-Za-z]:#{BODY}#{FINAL}|(?<!\\)\\\\(?=[^\\\s])#{BODY}#{FINAL}}.freeze
     PATH_TOKEN = %r{(?<![\w./~\\-])(?=/[^\s/])#{BODY}#{FINAL}}.freeze
