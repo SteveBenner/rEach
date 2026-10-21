@@ -948,7 +948,10 @@ module Reach
       return nil if disabled?
 
       spawn_source_pin
-      return nil unless managed?
+      unless managed?
+        background_kick
+        return nil
+      end
 
       record_session!(session_id)
       manifest = load_manifest
