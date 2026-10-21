@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.56.16 |
+| **Registry version** | 0.56.17 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2256,3 +2256,5 @@ Student-first audit:
 6. Friction: background updates cover missing hooks; unavailable local tools do not end qualification.
 7. Failure: work is retained, and an unavailable server stays pending rather than passing.
 8. Recovery: existing runtime reinstall and update rollback paths remain available.
+
+Promotion smoke isolation — 0.56.17: the fixture runner clears the inherited CODEX_SANDBOX_NETWORK_DISABLED hint for its child commands, so a health check launched by Codex can contact the fixture. This changes no application networking or Polispec gate. Build: implemented; promotion health verification pending. Deploy: not released to students.

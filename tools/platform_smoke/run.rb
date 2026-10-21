@@ -107,6 +107,7 @@ module PlatformSmoke
       env["REACH_CHECKPOINT_MIRROR"] = File.join(@scratch, "checkpoint mirror")
       env["REACH_SYSTEMD_USER_DIR"] = File.join(@scratch, "systemd-user")
       env["REACH_UPDATE_DISABLE"] = "1"
+      env["CODEX_SANDBOX_NETWORK_DISABLED"] = nil
       env
     end
 
