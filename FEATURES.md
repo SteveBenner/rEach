@@ -2270,3 +2270,5 @@ Student-first audit: Learning — yes, preserves assignment reasoning and remove
 Wiring: no new service, network call, corpus, schedule, or direct rStack binding. Policy compilation is a build-time Polispec CLI contract. Native end-to-end enforcement remains unverified.
 
 Verification for this candidate: policy validation and catalog drift check pass; package generation is current; source package check and refreshed local installation doctor report zero findings. Direct isolated hook events exercised whole-message buffering, split terminal handoffs, ordinary business and privacy replies, malformed events, bounded correction, and stalled stdin. Independent review findings were corrected and rechecked. Native harness execution and student stable delivery remain unverified. No new tests were written.
+
+Rollout: 0.58.0 is on main and test (7b0211b); all promotion gates and test health passed. Local install check and doctor have zero findings. Student stable is unchanged. The release gate used an existing operator lease and still reports operational backup/alarm findings and two entropy hits on nonsecret generated policy data; these are not reported as clean.
