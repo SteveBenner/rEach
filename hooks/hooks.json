@@ -21,6 +21,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/exe/reach-run\" hook response --harness claude-code",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.56.17
+version: 0.57.0
 kind: plugin
 purpose: >
   The student's side of the course software. A harness plugin that installs
@@ -31,6 +31,8 @@ depends_on:
   - dovetail (the pure-Ruby shape checker the shape package carries in the vault, with a dovetail on the PATH as the fallback)
   - teach (the course server this plugin talks to, protocol 1)
 standards:
+  - id: STD-GUIDED-LEARNER
+    text: "Learner presentation follows the six canonical policies in the compiled Polispec guided-learner catalog artifact policy/guided-learner.json: no code disclosure, no student terminal handoffs (including setup), no implementation disclosures, released-assignment scope, plain-language coaching, and truthful essential disclosures. Student installations need no Polispec runtime. Native display replacement and after-display correction have distinct coverage: neither a pattern check nor a Stop retry establishes complete semantic enforcement. Privacy, recording, consent, grading provenance, submission status, crisis support, and access to instructors remain explainable. Existing CODEFILE file locations govern agent work, not instructions to students to open files. Legacy terminal fallback descriptions elsewhere in this historical specification describe operator capabilities only; agents offer an available in-app path or instructor help."
   - id: STD-RUBY-FLOOR
     text: "Every lib/ file parses and runs on Ruby 2.6.10: no endless methods, no pattern matching, no numbered block parameters, no hash/keyword shorthand."
   - id: STD-RUBY-BOOTSTRAP

@@ -232,6 +232,7 @@ module Reach
     def problems
       doc = application
       found = agent_control_problems
+      found.concat(guided_learner_problems)
       declared = doc.fetch("rules").map { |rule| rule["binding"] }
       (guard_bindings - declared).each { |binding| found << "R-DOC-POLICY: unregistered native guard #{binding}" }
       source = File.join(Reach::Runtime.root, "specs", "polispec", "behavior.yml")
@@ -257,9 +258,39 @@ module Reach
       ["R-DOC-POLICY: #{e.message}"]
     end
 
+    def guided_learner_problems
+      Reach::GuidedLearner.bundle
+      []
+    rescue StandardError => e
+      ["R-DOC-POLICY: learner presentation policy is missing or invalid (#{e.message})"]
+    end
+
     def summary
       doc = application
       status = { "schema" => SCHEMA, "application" => { "id" => doc["id"], "version" => doc["version"], "authority" => doc["authority"], "digest" => bundle["digest"], "directives" => doc["directives"].size, "enforcement" => doc["rules"].group_by { |rule| rule["mode"] }.transform_values(&:size) }, "problems" => problems }
+      begin
+        guided = Reach::GuidedLearner.bundle
+        policy = guided.fetch("policy")
+        presentation = policy.dig("parameters", "presentation")
+        status["learner_presentation"] = {
+          "mode" => "observational",
+          "policy_id" => policy.fetch("id"),
+          "digest" => guided.fetch("digest"),
+          "directive_ids" => policy.fetch("directives").map { |row| row.fetch("id") }.sort,
+          "detector_ids" => presentation.fetch("detectors").map { |row| row.fetch("id") }.uniq.sort,
+          "coverage" => {
+            "claude_message_display" => "configured capability; native behavior unverified",
+            "claude_stop" => "corrective capability; native behavior unverified",
+            "codex_stop" => "corrective capability; native behavior unverified",
+            "other_harnesses" => "advisory context only",
+            "semantic_scope_and_plain_language" => "advisory; no semantic proof",
+            "host_failure_or_timeout" => "host may fail open",
+            "transcript_verbose_and_tool_output" => "unverified and not protected"
+          }
+        }
+      rescue StandardError => e
+        status["learner_presentation"] = { "state" => "unavailable", "reason" => e.message }
+      end
       begin
         policy = course(Reach::Guardrails.load)
         status["course"] = { "authority" => policy["authority"], "version" => policy["version"], "digest" => digest(policy), "directives" => policy["directives"].size, "format" => "signed Teach package adapted locally", "enforcement" => policy["rules"].group_by { |rule| rule["mode"] }.transform_values(&:size) }

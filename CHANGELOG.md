@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.57.0] - 2026-10-20
+
+### Added
+
+- Six guided learner presentation policies compiled from Polispec's optional catalog package. Agent context keeps students focused on their released assignment, preserves essential disclosures, and forbids code, terminal handoffs, and implementation details in replies.
+- Claude Code display buffering and explicit-pattern filtering, with bounded Claude Code and Codex Stop correction. Coverage reports distinguish display replacement, after-display correction, and advisory guidance; native failures can still expose original output.
+
+### Changed
+
+- Enrollment, sign-in, and setup guidance uses available in-app actions or instructor help instead of asking students to run terminal commands. Password privacy and consent requirements are preserved.
+
 ## [0.56.17] - 2026-10-20
 
 ### Fixed

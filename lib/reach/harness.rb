@@ -166,6 +166,7 @@ module Reach
         {
           "hooks" => {
             "SessionStart" => [hook_entry(nil, hook_line("gate", "session", "--harness", "claude-code"), 10)],
+            "MessageDisplay" => [hook_entry(nil, hook_line("hook", "display", "--harness", "claude-code"), 30)],
             "UserPromptSubmit" => [hook_entry(nil, hook_line("gate", "prompt", "--harness", "claude-code"), 10)],
             "PreToolUse" => [
               hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("gate", "write", "--harness", "claude-code"), 10),

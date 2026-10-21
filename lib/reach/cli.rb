@@ -25,6 +25,13 @@ module Reach
 
     class << self
       def run(argv)
+        if argv.first == "hook" && argv[1] == "display"
+          return cmd_hook_display(argv.drop(2))
+        elsif argv.first == "hook" && argv[1] == "response"
+          return cmd_hook_response(argv.drop(2))
+        elsif argv.first == "hook" && argv[1] == "coverage"
+          return cmd_hook_coverage
+        end
         return Reach::Debug.silently { run(argv) } if !Reach::Debug.silent? && (argv.first == "feedback" || (argv.first == "gate" && Reach::Feedback.anonymous_ask_waiting?))
 
         relaunched = Reach::Subscribe.relaunch_windowless(argv)
@@ -95,7 +102,7 @@ module Reach
         when "hello"
           !background_hello?(argv)
         when "hook"
-          argv[1] == "stop"
+          %w[stop display response coverage].include?(argv[1].to_s)
         when "transcript"
           %w[turn code].include?(argv[1])
         when "check"
@@ -486,7 +493,7 @@ module Reach
             support                              help if you are having a hard time
             directive <OPCODE>... | --list       the full text of one or more directives
             reference list|show <path>|search <words>|links|ingest [--force]   the course reference material
-            hook stop [--final] --harness H
+            hook display|response|stop|coverage --harness H
             transcript code --harness H | flush | stream [--force] | status [--format text|json]
             modules [choose <a> <b>]             your modules; choose them when your course lets you
             transfer request --modules a,b       ask your instructor to confirm a module move
@@ -573,6 +580,36 @@ module Reach
         @hook_event = JSON.parse(data)
       rescue StandardError
         {}
+      end
+
+      def read_stdin_json_bounded(max_bytes = 131_072)
+        return {} if STDIN.tty?
+        data = +"".b
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 1.5
+        loop do
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          break if remaining <= 0
+          break unless IO.select([STDIN], nil, nil, remaining)
+
+          begin
+            chunk = STDIN.read_nonblock([16_384, max_bytes + 1 - data.bytesize].min)
+            data << chunk.b
+            raise Reach::GuidedLearner::Invalid, "hook event is too large" if data.bytesize > max_bytes
+          rescue IO::WaitReadable
+            next
+          rescue EOFError
+            break
+          end
+        end
+        raise Reach::GuidedLearner::Invalid, "hook event read timed out" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        return {} if data.empty? || data.strip.empty?
+
+        data.force_encoding(Encoding::UTF_8)
+        raise Reach::GuidedLearner::Invalid, "hook event is not valid UTF-8" unless data.valid_encoding?
+
+        @hook_event = JSON.parse(data)
+      rescue JSON::ParserError => e
+        raise Reach::GuidedLearner::Invalid, "hook event could not be read: #{e.message}"
       end
 
       def open_terminal_window(verb)
@@ -3315,10 +3352,14 @@ module Reach
 
       def cmd_hook(args)
         sub = args.shift
-        unless sub == "stop"
-          warn "usage: reach hook stop [--final] --harness H"
+        unless %w[stop display response coverage].include?(sub)
+          warn "usage: reach hook [stop|display|response|coverage] --harness H"
           return 1
         end
+        return cmd_hook_coverage if sub == "coverage"
+        return cmd_hook_display(args) if sub == "display"
+        return cmd_hook_response(args) if sub == "response"
+
         options, remaining = parse_flags(args, [:harness])
         final, _remaining = parse_bare_flag(remaining, "final")
         Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
@@ -3333,14 +3374,82 @@ module Reach
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
         Reach::Transcript.turn(event: event, harness: options[:harness], quick: true, final: final)
-        Reach::Debug.hook(final ? "SessionEnd" : "Stop", "allow", nil, started)
         shown = final ? nil : Reach::Debug.turn_message(event, options[:harness])
         Reach::Debug.flush(quick: true)
         Reach::Issues.spawn_flush if Reach::Issues.work?
+        review = if !final && %w[claude-code codex].include?(options[:harness].to_s)
+          Reach::GuidedLearner.stop_response(event)
+        end
+        if !final && review
+          decision = { "rewrite" => "block", "exhausted" => "exhausted", "clear" => "allow" }.fetch(review["review"], "unreviewable")
+          rule_ids = Array(review["violations"]).select { |id| id.is_a?(String) && id.match?(/\AGL-[A-Z]+\z/) }.join(",")
+          Reach::Debug.hook("GuidedLearnerStop", decision, rule_ids.empty? ? nil : rule_ids, started)
+        else
+          Reach::Debug.hook(final ? "SessionEnd" : "Stop", "allow", nil, started)
+        end
+        if review && review["review"] == "rewrite"
+          puts JSON.generate("decision" => "block", "reason" => review.fetch("reason"))
+          return 0
+        end
+        if review && review["review"] == "exhausted"
+          puts JSON.generate("systemMessage" => Reach::GuidedLearner.presentation.fetch("fallback"))
+          return 0
+        end
         notice = hermes_hook?(options[:harness], event) ? nil : [Reach::Link.notice!, Reach::Issues.notice!].compact.join("\n\n")
         notice = nil if notice && notice.empty?
         message = [notice, shown].compact.join("\n\n")
         puts JSON.generate("systemMessage" => message) unless message.empty?
+        0
+      end
+
+      def cmd_hook_display(args)
+        options, _remaining = parse_flags(args, [:harness])
+        event = read_stdin_json_bounded
+        result = if options[:harness].to_s == "claude-code"
+          Reach::GuidedLearner.display_event(JSON.generate(event))
+        else
+          Reach::GuidedLearner.fallback_display
+        end
+        puts JSON.generate(result)
+        0
+      rescue StandardError
+        puts JSON.generate(Reach::GuidedLearner.fallback_display)
+        0
+      end
+
+      def cmd_hook_response(args)
+        options, _remaining = parse_flags(args, [:harness])
+        event = read_stdin_json_bounded
+        review = if %w[claude-code codex].include?(options[:harness].to_s)
+          Reach::GuidedLearner.stop_response(event)
+        else
+          { "review" => "advisory" }
+        end
+        started = Reach::Debug.clock
+        decision = { "rewrite" => "block", "exhausted" => "exhausted", "clear" => "allow" }.fetch(review.fetch("review", "unreviewable"), "unreviewable")
+        rule_ids = Array(review["violations"]).select { |id| id.is_a?(String) && id.match?(/\AGL-[A-Z]+\z/) }.join(",")
+        Reach::Debug.hook("GuidedLearnerStop", decision, rule_ids.empty? ? nil : rule_ids, started)
+        if review && review["review"] == "rewrite"
+          puts JSON.generate("decision" => "block", "reason" => review.fetch("reason"))
+        else
+          puts "{}"
+        end
+        0
+      rescue StandardError
+        puts "{}"
+        0
+      end
+
+      def cmd_hook_coverage
+        puts JSON.generate(
+          "configured_capability" => "claude MessageDisplay buffers delta events and supplies a reviewed displayContent",
+          "claude_message_display" => "native behavior unverified; host hook failure or timeout fails open",
+          "claude_stop" => "corrective rewrite request capability from last_assistant_message; native behavior unverified",
+          "codex_stop" => "corrective rewrite request capability from last_assistant_message; native behavior unverified",
+          "other_harnesses" => "advisory context only; native response behavior unverified",
+          "transcript_verbose_and_tool_output" => "unverified and not protected",
+          "semantic_scope_and_plain_language" => "advisory; explicit patterns only, with no semantic proof"
+        )
         0
       end
 

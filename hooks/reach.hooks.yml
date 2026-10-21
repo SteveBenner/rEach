@@ -14,3 +14,10 @@ hooks:
       codex: ["ruby", "${PLUGIN_ROOT}/exe/reach", "gate", "enroll", "--harness", "${HARNESS}"]
     timeout_s: 60
     blocking: true
+  - event: stop
+    match: any
+    run: ["sh", "${PLUGIN_ROOT}/exe/reach-run", "hook", "response", "--harness", "${HARNESS}"]
+    run_by_harness:
+      codex: ["ruby", "${PLUGIN_ROOT}/exe/reach", "hook", "response", "--harness", "${HARNESS}"]
+    timeout_s: 10
+    blocking: true

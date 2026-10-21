@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.56.17 |
+| **Registry version** | 0.57.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2258,3 +2258,15 @@ Student-first audit:
 8. Recovery: existing runtime reinstall and update rollback paths remain available.
 
 Promotion smoke isolation — 0.56.17: the fixture runner clears the inherited CODEX_SANDBOX_NETWORK_DISABLED hint for its child commands, so a health check launched by Codex can contact the fixture. This changes no application networking or Polispec gate. Build: implemented; promotion health verification pending. Deploy: not released to students.
+
+## Guided learner presentation — 0.57.0
+
+**Build: 🟡 Partial. Deploy: 🔵 Built, not enabled in the student stable release. Blocker: Access — native harness observation; Human — stable promotion.**
+
+The compiled Polispec guided-learner catalog supplies six canonical policies: no code disclosure, no student terminal handoffs (including setup), no implementation disclosures, released-assignment scope, plain-language coaching, and essential transparency. rEach injects their context and applies explicit-pattern checks through its own adapter, with no Polispec or rStack runtime dependency. Claude Code MessageDisplay buffers whole assistant messages and replaces violating text on screen; its host still fails open on hook errors or timeouts, and original transcripts, verbose mode, and tool output remain outside the display filter. Claude Code and Codex Stop can request a bounded correction after a reply; other harnesses receive advisory context. Pattern checks do not establish complete semantic enforcement, and generated hook configuration is not proof that an installed harness executes it. `reach hook coverage` reports these limits.
+
+Student-first audit: Learning — yes, preserves assignment reasoning and removes technical distraction. Agency and honesty — yes, business decisions and essential disclosures remain explicit. Wellbeing and safety — yes, crisis support and instructor help remain available without penalties. Privacy and dignity — yes, no external classifier or raw rejected text in audit events. Fairness and access — yes with disclosed native coverage differences; every supported harness receives guidance. Friction — yes, the agent handles technical work and setup failure offers instructor help. Failure — yes, presentation controls do not change work, grades, or consent requirements. Recovery — yes, bounded correction and existing checkpoint and release rollback paths.
+
+Wiring: no new service, network call, corpus, schedule, or direct rStack binding. Policy compilation is a build-time Polispec CLI contract. Native end-to-end enforcement remains unverified.
+
+Verification for this candidate: policy validation and catalog drift check pass; package generation is current; source package check and refreshed local installation doctor report zero findings. Direct isolated hook events exercised whole-message buffering, split terminal handoffs, ordinary business and privacy replies, malformed events, bounded correction, and stalled stdin. Independent review findings were corrected and rechecked. Native harness execution and student stable delivery remain unverified. No new tests were written.

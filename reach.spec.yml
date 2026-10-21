@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.56.17
+version: 0.57.0
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -3672,3 +3672,26 @@ polispec:
   compatibility: Ruby 2.6 compatible and offline; no new student dependency, service, model call, or runtime rStack wire.
   development: specs/polispec/policy.yml and roster.yml govern main, test, and stable when the host ledger is activated.
   stable: The readiness workflow smokes the planned immutable commit and verifies it still matches test; only the operator promotes stable through Polispec.
+
+learner_presentation:
+  catalog: guided-learner
+  artifact: policy/guided-learner.json
+  source_authority: Polispec release; compiled into rEach, no runtime dependency
+  policy_ids: [GL-CODE, GL-NOTERM, GL-DETAIL, GL-SCOPE, GL-PLAIN, GL-OPEN]
+  student_terminal_handoffs: prohibited, including setup
+  recovery: Available in-app action or instructor help; never collect credentials in an untrusted chat
+  guidance: Canonical policy context at session and prompt boundaries
+  display: Claude Code MessageDisplay replacement; whole-message buffering; explicit-pattern review
+  correction: Claude Code and Codex Stop; bounded rewrite request; after-display only
+  limits: Host hook errors and timeouts can fail open; transcript, verbose, and tool output are not display-filtered; semantic scope and clarity are advisory
+  observability: Rule identifiers and coverage only; no raw rejected text in events
+  external_wiring: None; the compiled artifact is application-owned release data
+  student_first:
+    learning: yes; retains assignment reasoning and removes infrastructure distraction
+    agency: yes; essential disclosures and business decisions remain explicit
+    wellbeing: yes; crisis support and instructor help remain available without penalties
+    privacy: yes; no new external classifier or raw rejected text in audit events
+    fairness: yes with disclosed native coverage differences; guidance reaches every harness
+    friction: yes; the agent handles technical work and offers a human path when setup cannot proceed
+    failure: yes; presentation controls do not change work, grades, or consent requirements
+    recovery: yes; bounded correction and existing checkpoint and release rollback paths

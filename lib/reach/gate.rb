@@ -190,6 +190,11 @@ module Reach
 
         return Reach::Instructor.context_once(Reach::Session.resolve_session_id(event))
       end
+      begin
+        Reach::GuidedLearner.bundle
+      rescue StandardError
+        raise Reach::GateBlocked.new("M-POLICY-INVALID", Reach::Messages.text("M-POLICY-INVALID"))
+      end
 
       blocked = nil
       begin
@@ -271,6 +276,7 @@ module Reach
       session = Reach::Session.resolve_session_id(event)
       space = current_space
       context = []
+      context << Reach::GuidedLearner.context unless Reach::Instructor.mode?
       greeted = false
 
       if decision

@@ -21,6 +21,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ruby \"${PLUGIN_ROOT}/exe/reach\" hook response --harness codex",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

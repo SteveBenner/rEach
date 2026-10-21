@@ -47,6 +47,7 @@ module Reach
       Reach::KnownIssues.refresh_if_stale!(quick: true) if mcp
       Reach::InstructorKeyring.refresh_if_stale!(quick: true)
       greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook", mcp: mcp, hookless: hookless)
+      context = [Reach::GuidedLearner.context, context].compact.join("\n\n") unless Reach::Instructor.mode?
       course = course_session(harness_id, format, event, source, cwd)
       context = [context, course["context"]].compact.join("\n") if course && course["context"]
 
