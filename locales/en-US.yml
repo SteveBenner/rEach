@@ -205,6 +205,7 @@ messages:
   M-QUALIFY-KIND-DIFFERED: "On the course's data, a value differed from the expected one."
   M-QUALIFY-NOKIT: "The tools that check this part haven't arrived yet. Run reach sync, and if that doesn't help, tell your instructor."
   M-QUALIFY-NORUNTIME: "The local checks need a newer Ruby than this computer has ({ruby}), and Reach's own Ruby isn't installed yet. Reach is getting it now. Run reach runtime install if it doesn't arrive, then run reach qualify again."
+  M-QUALIFY-LOCAL-UNABLE: "The local checks could not run on this computer ({reason}). This is not a failed try at the code: do not change the student's files for it. The course server runs the scenarios instead, and its result decides this slice; with --local-only, run reach qualify again without it. To repair the local checks later, run reach runtime install."
   M-SUBMIT-UNQUALIFIED: "This part hasn't passed its checks since it last changed, so it can't be submitted yet. Your AI partner runs the checks first, then submits."
   M-LADDER-NOTICE: "I'm taking another pass at this part. My last two tries didn't hold up against the checks, so I'm working through it again."
   M-LADDER-HAND: "After three passes this part still isn't holding up, so I've asked your instructors to take a look. I can keep trying while we wait if you'd like: just say yes, and I'll carry on for up to {limit} passes in all."

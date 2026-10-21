@@ -71,9 +71,15 @@ module Reach
         return unless timed(record, "coverage") { step_coverage(workspace, meta, qualify, record) }
 
         if qualify["local"]
-          return unless timed(record, "local_pass") { step_local(workspace, meta, qualify, record, stub: false) }
-          return unless timed(record, "local_stub") { step_local(workspace, meta, qualify, record, stub: true) }
-          return unless timed(record, "probe") { step_probe(workspace, record) }
+          outcome = timed(record, "local_pass") { step_local(workspace, meta, qualify, record, stub: false) }
+          if outcome == :unable
+            record["steps"]["local_stub"] = { "ran" => false, "passed" => false, "rows" => [], "error" => record["local_unable"], "skipped" => "environment" }
+            record["steps"]["probe"] = { "ran" => false, "passed" => false, "rows" => [], "error" => record["local_unable"], "skipped" => "environment" }
+          else
+            return unless outcome
+            return unless timed(record, "local_stub") { step_local(workspace, meta, qualify, record, stub: true) }
+            return unless timed(record, "probe") { step_probe(workspace, record) }
+          end
         end
         return if local_only
 
@@ -369,18 +375,46 @@ module Reach
         passed
       end
 
+      ENVIRONMENT_FAILURE = /cannot load such file|LoadError|Bundler::GemNotFound|Could not find .+ in (?:locally installed gems|any of the sources)|could not install the checking tools|checking tools are installed but|Gem::Ext::BuildError|M-QUALIFY-NORUNTIME|isn't installed yet/i.freeze
+
+      def environment_failure?(text)
+        text.to_s.match?(ENVIRONMENT_FAILURE)
+      end
+
+      def local_unable!(record, id, reason)
+        reason = reason.to_s.lines.first.to_s.strip[0, 300]
+        record["steps"][id] = { "ran" => false, "passed" => false, "rows" => [], "error" => reason, "skipped" => "environment" }
+        record["local_unable"] = reason
+        record["notice"] = [record["notice"], Reach::Messages.text("M-QUALIFY-LOCAL-UNABLE", reason: reason)].compact.join(" ")
+        :unable
+      end
+
       def run_local(workspace, meta, qualify, record, env, stub:)
         id = stub ? "local_stub" : "local_pass"
         run_dir = assemble_local(workspace, meta, stub: stub)
-        Reach::Suite.select_lock!(run_dir)
-        gems = Reach::Suite.install_gems(run_dir)
-        output = Reach::Suite.cucumber(run_dir, gems, [qualify["tag"]], env)
+        begin
+          Reach::Suite.select_lock!(run_dir)
+          gems = Reach::Suite.install_gems(run_dir)
+          output = Reach::Suite.cucumber(run_dir, gems, [qualify["tag"]], env)
+        rescue Reach::Error, Errno::ENOENT, Errno::EACCES => e
+          raise if stub
+
+          return local_unable!(record, id, e.message)
+        end
         rows = output["timed_out"] ? nil : Reach::Suite.report_rows(output["stdout"])
         if rows.nil? || rows.empty?
           reason = output["timed_out"] ? "the run did not finish in #{Reach::Suite::RUN_TIMEOUT_S} s" : first_error_line(output["stderr"])
+          return local_unable!(record, id, reason) if !stub && environment_failure?(reason)
+
           record["steps"][id] = { "ran" => true, "passed" => false, "rows" => [], "error" => reason }
           record["findings"] << { "code" => stub ? "QF-VACUOUS" : "QF-LOCAL-FAIL", "name" => nil, "detail" => reason }
           return false
+        end
+        if !stub
+          failing = rows.reject { |row| row["result"] == "passed" }
+          if !failing.empty? && failing.all? { |row| environment_failure?(row["message"]) }
+            return local_unable!(record, id, failing.first["message"])
+          end
         end
 
         if stub

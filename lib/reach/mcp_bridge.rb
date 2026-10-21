@@ -490,6 +490,11 @@ module Reach
         output.binmode if output.respond_to?(:binmode)
         Reach::Messages.preload
         Reach::Greetings.preload
+        begin
+          Reach::Update.on_session_start(Reach::Session.fallback_session_id)
+        rescue StandardError
+          nil
+        end
         Reach::Subscribe.start_session_thread
         Reach::Transcript.start_stream_thread
         loop do

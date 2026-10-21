@@ -921,6 +921,29 @@ module Reach
       nil
     end
 
+    def background_kick
+      return nil if disabled? || offline?
+
+      manifest = load_manifest
+      return nil if lock_live?
+
+      if managed?
+        pending = pending_version(manifest)
+        return spawn_background(apply: true) if (interrupted_swap?(manifest) || pending) && !exhausted?(manifest)
+
+        spawn_background(apply: true) if check_due?(manifest)
+      elsif agent_updatable?
+        pending = pending_version(manifest)
+        return spawn_background(apply: true) if pending && %w[detected downloaded].include?(manifest["phase"]) && !exhausted?(manifest)
+
+        spawn_background(apply: false) if check_due?(manifest)
+      elsif uncovered?
+        spawn_background(apply: false) if check_due?(manifest)
+      end
+    rescue StandardError
+      nil
+    end
+
     def on_session_start(session_id)
       return nil if disabled?
 
@@ -1058,7 +1081,7 @@ module Reach
         "claude-code" => File.join(Reach::Paths.claude_config_dir, "plugins", "cache")
       }.each do |harness, cache|
         base = File.realpath(cache)
-        return harness if root == base || root.start_with?(base + File::SEPARATOR)
+        return harness if Reach::Paths.path_within?(root, base)
       rescue SystemCallError
         next
       end

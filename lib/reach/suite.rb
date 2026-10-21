@@ -55,11 +55,20 @@ module Reach
         ruby_exe = runtime && runtime["ruby_exe"]
         ruby_bin = runtime && runtime["ruby_bin"]
 
+        profile_note = nil
         if runtime
-          profile = Reach::RuntimeKit.gems_for(lock_bytes)
-          if profile && profile_ready?(ruby_exe, ruby_bin, profile)
+          profile = Reach::RuntimeKit.gems_for(lock_bytes) || profile_covering(runtime, gemfile_bytes, lock_bytes)
+          if profile.nil?
+            profile_note = "the checking tools carry no prebuilt gems for this course's Gemfile"
+          elsif profile_ready?(ruby_exe, ruby_bin, profile)
             return { "gemfile" => profile["gemfile"], "bundle_path" => profile["dir"], "ruby_bin" => ruby_bin, "ruby_exe" => ruby_exe, "profile" => true }
+          else
+            profile_note = "the prebuilt gems did not pass bundle check: #{@profile_failure || 'no answer in time'}"
           end
+        end
+        if Reach::Untar.windows?
+          raise Reach::Error, "reach: the checking tools could not be used (#{profile_note || 'no runtime kit is installed'}); " \
+                              "rEach does not compile gems on Windows. Run `reach runtime install` to reinstall the checking tools, then run reach qualify again"
         end
 
         env_dir = bundle_env_dir(gemfile_bytes, lock_bytes)
@@ -78,7 +87,7 @@ module Reach
         stdout, stderr, status = Open3.capture3(env, *command, chdir: env_dir)
         unless status.success?
           hint = if runtime
-                   ""
+                   " (#{profile_note})"
                  elsif Reach::RuntimeAuto.installing?
                    Reach::RuntimeAuto::STILL_INSTALLING
                  else
@@ -89,6 +98,33 @@ module Reach
 
         File.write(marker, Time.now.utc.iso8601)
         result
+      end
+
+      def normalized_gemfile(bytes)
+        bytes.to_s.gsub("\r\n", "\n")
+      end
+
+      def lock_without_platforms(bytes)
+        normalized_gemfile(bytes).sub(/^PLATFORMS\n(?:[ \t]+[^\n]*\n|\n)*/, "")
+      end
+
+      def profile_covering(runtime, gemfile_bytes, lock_bytes)
+        wanted = normalized_gemfile(gemfile_bytes)
+        return nil if wanted.empty? || lock_bytes.to_s.empty?
+
+        Array(runtime["profiles"]).each do |entry|
+          dir = entry["dir"].to_s
+          gemfile = File.join(dir, "Gemfile")
+          lock = File.join(dir, "Gemfile.lock")
+          next unless File.directory?(dir) && File.file?(gemfile) && File.file?(lock)
+          next unless normalized_gemfile(File.binread(gemfile)) == wanted
+          next unless lock_without_platforms(File.binread(lock)) == lock_without_platforms(lock_bytes)
+
+          return { "dir" => dir, "gemfile" => gemfile, "lock" => lock }
+        end
+        nil
+      rescue SystemCallError
+        nil
       end
 
       def bundle_env_dir(gemfile_bytes, lock_bytes)
@@ -115,6 +151,9 @@ module Reach
                err_lines.first || out_lines.last || "bundle install exited without a message"
         gem_name = failing_gem(stdout, stderr)
         line = line[0, 300]
+        native = "#{stderr}\n#{stdout}".match?(/Gem::Ext::BuildError|Failed to build gem native extension/)
+        return "the gem #{gem_name || 'a gem'} needs a compiler this computer does not have (#{line})" if native
+
         gem_name ? "the gem #{gem_name} failed to install: #{line}" : line
       end
 
@@ -123,14 +162,38 @@ module Reach
         text[/An error occurred while installing ([A-Za-z0-9_.\-]+)(?: \(|,)/, 1]
       end
 
+      CHECK_TIMEOUT_S = 180
+
       def profile_ready?(ruby_exe, ruby_bin, profile)
+        @profile_failure = nil
         env = Reach::RuntimeKit.clean_env("BUNDLE_GEMFILE" => profile["gemfile"], "BUNDLE_PATH" => profile["dir"], "BUNDLE_FROZEN" => "true",
                                           "PATH" => "#{ruby_bin}#{File::PATH_SEPARATOR}#{ENV['PATH']}")
-        _stdout, _stderr, status = Timeout.timeout(60) do
-          Open3.capture3(env, ruby_exe, File.join(ruby_bin, "bundle"), "check", chdir: profile["dir"])
+        stdout = String.new
+        stderr = String.new
+        status = nil
+        timed_out = false
+        group = Reach::Untar.windows? ? { new_pgroup: true } : { pgroup: true }
+        Open3.popen3(env, ruby_exe, File.join(ruby_bin, "bundle"), "check", chdir: profile["dir"], **group) do |stdin, out, err, waiter|
+          stdin.close
+          readers = [Thread.new { pump(out, stdout) }, Thread.new { pump(err, stderr) }]
+          unless waiter.join(CHECK_TIMEOUT_S)
+            timed_out = true
+            kill_tree(waiter.pid)
+            waiter.join
+          end
+          readers.each { |reader| reader.join(PIPE_GRACE_S) || reader.kill }
+          status = waiter.value
         end
-        status.success?
-      rescue StandardError
+        if timed_out
+          @profile_failure = "bundle check did not finish in #{CHECK_TIMEOUT_S} s"
+          return false
+        end
+        return true if status.success?
+
+        @profile_failure = install_failure_reason(stdout, stderr)
+        false
+      rescue StandardError => e
+        @profile_failure = e.message.to_s.lines.first.to_s.strip[0, 300]
         false
       end
 

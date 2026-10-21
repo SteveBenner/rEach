@@ -186,14 +186,14 @@ module PlatformSmoke
       installed = @steps.last.result == :pass
       step("package_known_answer") { package_known_answer_step } if installed
       unless installed
-        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
+        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "install failed", 0.0))
         end
         return
       end
       step("fake_teach") { fake_teach_step }
       if @steps.last.result != :pass
-        %w[hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
+        %w[hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "fake_teach failed", 0.0))
         end
         return
@@ -203,10 +203,11 @@ module PlatformSmoke
       step("hook_codex") { hook_codex_step }
       step("enroll") { enroll_step }
       if @options[:skip_runtime]
-        %w[runtime kit_known_answer].each { |name| record(Step.new(name, :skip, "--skip-runtime", 0.0)) }
+        %w[runtime kit_known_answer kit_gems].each { |name| record(Step.new(name, :skip, "--skip-runtime", 0.0)) }
       else
         step("runtime") { runtime_step }
         step("kit_known_answer") { kit_known_answer_step }
+        step("kit_gems") { kit_gems_step }
       end
       step("sync_packages") { sync_packages_step }
       step("doctor_report") { doctor_report_step }
@@ -427,6 +428,38 @@ module PlatformSmoke
       [:pass, out.lines.map(&:strip).reject(&:empty?).first.to_s]
     end
 
+    KIT_GEMS_SCRIPT = <<'RUBY'.freeze
+lib, lock_file, run_dir, scrub = ARGV
+require "json"
+require "fileutils"
+require "rbconfig"
+$LOAD_PATH.unshift(lib)
+require "reach"
+FileUtils.mkdir_p(run_dir)
+lock = File.binread(lock_file)
+variant = lock.sub(/^PLATFORMS\n/, "PLATFORMS\n  smoke-only-platform\n")
+File.binwrite(File.join(run_dir, "Gemfile"), File.binread(File.join(File.dirname(lock_file), "Gemfile")))
+File.binwrite(File.join(run_dir, "Gemfile.lock"), variant)
+report = { "variant_matches_digest" => !Reach::RuntimeKit.gems_for(variant).nil? }
+begin
+  gems = Reach::Suite.install_gems(run_dir)
+  report["profile"] = gems["profile"]
+  report["bundle_path"] = gems["bundle_path"]
+  ruby_bin = gems["ruby_bin"]
+  windows = RbConfig::CONFIG["host_os"] =~ /mswin|mingw/
+  path = windows ? [ruby_bin, File.join(ENV.fetch("SystemRoot", "C:/Windows"), "System32")].join(";") : [ruby_bin, "/usr/bin", "/bin"].join(":")
+  env = Reach::RuntimeKit.clean_env("BUNDLE_GEMFILE" => gems["gemfile"], "BUNDLE_PATH" => gems["bundle_path"], "BUNDLE_FROZEN" => "true")
+  env["PATH"] = path if scrub == "scrub"
+  probe = 'require "nokogiri"; require "ffi"; require "capybara/cuprite"; require "cucumber"; puts "ok #{Nokogiri::VERSION} #{FFI::VERSION} #{RUBY_VERSION}"'
+  require "open3"
+  out, err, status = Open3.capture3(env, gems["ruby_exe"], File.join(ruby_bin, "bundle"), "exec", "ruby", "-e", probe, chdir: run_dir)
+  report["load"] = { "ok" => status.success?, "out" => out.strip[0, 200], "err" => err.lines.map(&:strip).reject(&:empty?).first.to_s[0, 300] }
+rescue StandardError => e
+  report["error"] = "#{e.class}: #{e.message.lines.first.to_s.strip[0, 300]}"
+end
+puts JSON.generate(report)
+RUBY
+
     KNOWN_ANSWER_SCRIPT = <<'RUBY'.freeze
 lib, dir = ARGV
 require "json"
@@ -483,6 +516,29 @@ RUBY
 
       result, detail = known_answer_result(out)
       [result, "kit Ruby #{RUNTIME_RUBY}: #{detail}"]
+    end
+
+    def kit_gems_step
+      return [:skip, "no runtime kit was installed on this platform"] unless File.file?(kit_ruby)
+
+      lock = File.join(ROOT, "runtime", "locks", "capybara-cuprite-1", "Gemfile.lock")
+      return [:fail, "profile lock missing at #{lock}"] unless File.file?(lock)
+
+      run_dir = File.join(@scratch, "kit-gems-run")
+      code, out, err = spawn_capture([RbConfig.ruby, "-e", KIT_GEMS_SCRIPT, File.join(@install, "lib"), lock, run_dir, "scrub"], chdir: @scratch, timeout: 600)
+      return [:fail, "kit gems probe exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      report = JSON.parse(out.lines.last.to_s)
+      return [:fail, "install_gems raised: #{report['error']}"] if report["error"]
+      return [:fail, "a lock that differs only in PLATFORMS matched a profile by digest, so the coverage match was not exercised"] if report["variant_matches_digest"]
+      return [:fail, "install_gems did not use the kit's prebuilt gems (profile #{report['profile'].inspect}, bundle_path #{report['bundle_path']})"] unless report["profile"] == true
+
+      load = report["load"] || {}
+      return [:fail, "the kit's native gems did not load on a plain PATH: #{load['err']} #{load['out']}"] unless load["ok"]
+
+      [:pass, "prebuilt profile used for a lock with an extra platform; #{load['out']} loaded nokogiri, ffi, cuprite and cucumber on a plain PATH"]
+    rescue JSON::ParserError
+      [:fail, "kit gems probe printed no JSON: #{tail(out.to_s, err.to_s)}"]
     end
 
     def codex_sandbox_decrypt_step

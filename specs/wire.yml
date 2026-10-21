@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-21e
+revision: 2026-10-21f
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -2438,7 +2438,11 @@ qualification:
       cucumber --format json --tags <qualify.tag> from its root, with gems as W-RUN-1. local_pass needs every scenario
       to pass (QF-LOCAL-FAIL names each that did not); local_stub runs again with the starting copies of the owned
       files (the workspace package's entries) in their place and needs every covered scenario to fail (QF-VACUOUS names
-      each that passed).
+      each that passed). Since 2026-10-21f, when local_pass cannot start at all on the student's computer (the checking
+      tools could not be installed or did not load: a gem that needs a compiler, a LoadError or a GemNotFound from
+      every scenario, a missing kit Ruby; never a scenario that ran and failed), Reach records local_pass and
+      local_stub as {ran: false, passed: false, skipped: environment, error: <cause>}, adds no finding, tells the agent
+      M-QUALIFY-LOCAL-UNABLE with the cause, and goes on to remote; Teach's three runs then decide (W-QUAL-3, W-QUAL-4).
   W-QUAL-3:
     name: Teach's runs
     rule: >-
@@ -2453,7 +2457,8 @@ qualification:
   W-QUAL-4:
     name: verdict
     rule: >-
-      A qualification passes when every step of W-QUAL-2 passed, every agent row passed, every stub row whose name is a
+      A qualification passes when every step of W-QUAL-2 that ran passed (a local step skipped as environment since
+      2026-10-21f counts as neither), every agent row passed, every stub row whose name is a
       graded name failed (QF-VACUOUS otherwise), and every hidden row passed (QF-HIDDEN, shown with the scenario name
       and the plain reason only). An agent row that did not pass is QF-REMOTE-FAIL. A qualification whose remote step
       could not run (REACH_OFFLINE=1, Teach unreachable, 503, or still pending after W-SAFE-10) is pending_remote: not
@@ -2529,7 +2534,7 @@ qualification:
       agent's own features and never a hidden one; first_error_line is scrubbed and at most 500 characters; location is a
       path relative to the workspace inside qualify/ or the owned files. The record holds no files, no prompt or
       README text and no student identity, though first_error_line and step_text can quote one failing line of the student's
-      tests or code (since 2026-10-21e location is null for a hidden finding and any location with .. or an absolute path
+      tests or code (since 2026-10-21f location is null for a hidden finding and any location with .. or an absolute path
       is dropped like other paths): a path under the home directory is cut to ~/… and its file extension, and any
       other path outside the workspace, including Windows drive-letter and backslash paths, is dropped. Reach keeps the newest 200 in .reach/qualify-faults.jsonl, sends them as POST /api/v1/qualify-faults right
       after the attempt and again from that file, at most 60 an hour per install (the rest are counted and sent later),

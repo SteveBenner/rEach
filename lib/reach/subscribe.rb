@@ -159,7 +159,10 @@ module Reach
     def tick(source: "background")
       return { "skipped" => "disabled" } if disabled?
 
-      Reach::CodexSetup.heal! if source == "background"
+      if source == "background"
+        Reach::CodexSetup.heal!
+        Reach::Update.background_kick
+      end
 
       install = Reach::Enroll.current
       return { "skipped" => "not_enrolled" } unless install.is_a?(Hash)
