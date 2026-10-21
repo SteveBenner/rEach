@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.9] - 2026-10-20
+
+### Fixed
+
+- `reach passes pick` checks every file it would write or replace, from the workspace root, for symbolic links and `..` before it changes anything, and refuses the whole install if any path fails, so a linked subfolder or a linked folder on the way to an owned file can no longer send a write outside the assignment folder.
+- `FEATURES.md` build-status ranges run through 0.56.9 and the 0.56.2 note describes the refactor only.
+
 ## [0.56.8] - 2026-10-20
 
 ### Fixed

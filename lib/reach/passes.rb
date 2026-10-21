@@ -472,15 +472,22 @@ module Reach
       pick_record
     end
 
-    def guard_links!(workspace, point)
+    def guard_links!(workspace, point, targets = [])
       watched = point == "plan" ? [".reach"] : [".reach", "qualify", *QUALIFY_DIRS]
-      linked = watched.find { |relative| !Reach::Checkpoint.link_free?(workspace, relative) }
+      linked = (watched + targets).find { |relative| !safe_target?(workspace, relative) }
       raise Reach::Refused, Reach::Messages.text("M-PASSES-LINK", path: linked) if linked
     end
 
+    def safe_target?(workspace, relative)
+      parts = relative.to_s.split("/")
+      return false if relative.to_s.start_with?("/") || parts.any? { |part| part.empty? || part == ".." }
+
+      Reach::Checkpoint.link_free?(workspace, relative)
+    end
+
     def install(workspace, meta, point, dir)
-      guard_links!(workspace, point)
       files = candidate_files(dir).reject { |relative| File.symlink?(File.join(dir, relative)) }
+      guard_links!(workspace, point, point == "plan" ? [] : files)
       if point == "plan"
         raise Reach::Refused, Reach::Messages.text("M-PASSES-NOT-VIABLE", point: point) unless files.include?(PLAN_FILE)
 
