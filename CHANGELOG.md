@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.10] - 2026-10-20
+
+### Fixed
+
+- A stored qualify fault record is blanked again at send time when `REACH_ENV_REPORT_DISABLE=1` is set by then: everything in its environment block except `reach_version` goes out null.
+- `PRIVACY.md` lists every field the fault record holds, including the time, whether the attempt counted, whether it was local-only, which step refused it, and the course package and test suite versions.
+
 ## [0.56.9] - 2026-10-20
 
 ### Fixed
@@ -26,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Course-supplied patterns run under a 2-second budget each (a regex timeout on Ruby 3.2 and later, a timer on older Ruby). A pattern that stalls is skipped with a `pattern_timeout` warning and the check or qualification carries on.
-- `PRIVACY.md` names the fault record's fields exactly (the cutout, slice and assignment), and `FEATURES.md` states the build status of 0.56.0 to 0.56.7 accurately.
+- `PRIVACY.md` names the cutout, slice and assignment as the record's identifying fields (the full field list is completed in 0.56.10), and `FEATURES.md` states the build status of 0.56.0 to 0.56.7 accurately.
 
 ## [0.56.6] - 2026-10-20
 

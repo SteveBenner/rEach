@@ -304,6 +304,9 @@ module Reach
       Array(copy["probe"]).each do |row|
         row["scenario"] = Reach::Deidentify.scrub(row["scenario"].to_s, scrubber, RECORD_LIMIT).fetch("text") unless row["scenario"].nil?
       end
+      if ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1" && copy["environment"].is_a?(Hash)
+        copy["environment"] = copy["environment"].map { |key, value| [key, key == "reach_version" ? value : nil] }.to_h
+      end
       copy
     rescue StandardError
       nil
