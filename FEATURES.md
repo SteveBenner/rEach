@@ -54,7 +54,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.63.0 |
+| **Registry version** | 0.63.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1610,8 +1610,14 @@ and the three that send work or a request to the course server (`reach_submit`, 
 Since 0.51.10 `reach_plan`, `reach_check`, `reach_checkpoint`, `reach_shape_check`, and `reach_part` take a `slice`
 argument, and every `--slice` (submit and hand raise included) resolves a slice by exact name, dashed form, or a
 unique `-<name>` ending, listing the slices when the name is unclear or unknown (`Workspace.named_slice!`).
+Until 0.63.1 `reach_part` used that argument only when recording: the listing took the focused slice, else the course's
+current assignment, so an A2 slice named from the top of the course folder after A2 was due listed the A3 questions.
+Since 0.63.1 a named slice decides the listing, as `reach part --slice` does. Checked on 2026-10-22 by calling
+`MCPBridge#part_tool` from both trees with no focused slice, current assignment A3 and two slices: 0.63.0 listed A3
+for `slice: opportunities.a2s1`, 0.63.1 lists A2, the call without a slice still lists A3, and an unknown slice is refused.
+Not verified: a student's harness calling the tool.
 
-Build ✅ · Deploy 🔵 · Blocker: -.
+Build ✅ · Deploy 🔵 · Blocker: -. (0.63.1: Build ✅ Built · Deploy 🔵 Built, not on stable · Blocker Human: operator promotion.)
 
 ## 7 · Doctor
 

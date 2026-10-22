@@ -1142,7 +1142,7 @@ module Reach
           return { "text" => Reach::Messages.text("M-PART-RECORDED", question: question ? question["question"] : answer["question_id"]), "relay_verbatim" => true }
         end
 
-        workspace = Reach::Gate.focus_workspace
+        workspace = arguments["slice"].to_s.strip.empty? ? Reach::Gate.focus_workspace : workspace_for(arguments["slice"])
         assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
         status = Reach::Sync.cached_status || {}
         assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil

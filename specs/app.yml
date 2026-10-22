@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.63.0
+version: 0.63.1
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.

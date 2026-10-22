@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.63.0
+version: 0.63.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1276,7 +1276,7 @@ mcp_bridge:
   - name: reach_plan
     description: >-
       save, note or show the slice plan; since 0.54.0 also audit_packet, audit_record (verdict, reasons, findings, auditor) and audit_show (STD-PLAN-AUDIT). Since 0.51.10 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
-      reach_part take an optional slice argument like reach_qualify's, used when the chat's folder does not settle the
+      reach_part take an optional slice argument like reach_qualify's (since 0.63.1 a named slice also decides which assignment's questions reach_part lists), used when the chat's folder does not settle the
       slice (a chat at the top of the course folder with two or more slices); a slice argument names a slice by its
       folder name or, when exactly one matches, by its slice name ("backend"), and one that names no slice is refused
       with M-GATE-NOSLICE-NAMED, which lists the slices

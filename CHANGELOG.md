@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.63.1] - 2026-10-22
+
+### Fixed
+
+- `reach_part` lists the own-part questions of the slice it is given. `MCPBridge#part_tool` ignored the `slice` argument when listing and took the focused slice, else the course's current assignment, so an agent asking for an A2 slice from the top of the course folder after A2 was due got the A3 questions and the student could not record the A2 answers. A named slice now decides the listing, as `reach part --slice` already did, and an unknown slice is refused as it is when recording.
+
 ## [0.63.0] - 2026-10-22
 
 Uninstall. Wire revision 2026-10-22d (Teach 0.107.4).
