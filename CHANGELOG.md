@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.59.2] - 2026-10-22
+
+### Fixed
+
+- `reach passes score scenarios` no longer rules out every candidate while the module is still the starting copy. `Passes.code_is_starting_copy?` compared the owned files byte for byte with the package's starting copy, but rEach stamps its mark line into every owned `.rb` file and the student writes the README, so an untouched module never counted as the starting copy. Every scenarios candidate was then run against the unimplemented module and got the hard zero "local_pass failed"; with no scenarios picked, every code candidate failed too. The comparison now leaves out rEach's mark line (`Seal.unmarked`) and the README.
+- A local_pass hard zero now says why (`Passes.local_failure`): up to two failing scenarios with the failing step and the first line of the error, or that no scenario ran, or that the run gave no report. Before, the score said only "local_pass failed".
+- The gate lets `mkdir .reach/passes/<point>/<n>` create the candidate folder the packet names; before, only paths below it were allowed (`Gate.passes_target?`).
+- The gate judges a read-only `sed` on its file operands, not its script, so a regex address such as `sed -n '/def call/,/end/p' FILE` is no longer refused as a path outside the slice (`Gate.sed_script_indexes`). `sed -i`, script files outside the slice and the vault stay refused.
+
 ## [0.59.1] - 2026-10-22
 
 ### Fixed

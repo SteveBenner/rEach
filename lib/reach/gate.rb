@@ -537,7 +537,7 @@ module Reach
       return false unless within?(target, root)
 
       parts = target.to_s.sub("#{resolve_target(root)}/", "").split("/", 3)
-      Reach::Passes::POINTS.include?(parts[0]) && parts[1].to_s.match?(/\A[1-8]\z/) && !parts[2].to_s.empty?
+      Reach::Passes::POINTS.include?(parts[0]) && parts[1].to_s.match?(/\A[1-8]\z/)
     end
 
     def check_ladder!(workspace)
@@ -981,7 +981,8 @@ module Reach
       raise_outside!(event, "shell") if index && args.first == "import"
 
       base = state[:cwd]
-      (args + redirects).each { |token| check_outside_token!(token, base, event) }
+      scripts = index ? [] : sed_script_indexes(command, args)
+      (args.reject.with_index { |_token, position| scripts.include?(position) } + redirects).each { |token| check_outside_token!(token, base, event) }
       check_search_exposes_home!(plain, base)
 
       if %w[cd pushd popd].include?(command) && !index
@@ -2093,15 +2094,45 @@ module Reach
         raise_blocked!("M-SHELL-BLOCKED") if target.dynamic || !OUTSIDE_ALLOWED.include?(target.text)
       end
 
-      words[1..-1].to_a.each do |word|
+      scripts = sed_script_indexes(words[0].text, words[1..-1].to_a.map(&:text))
+      words[1..-1].to_a.each_with_index do |word, position|
         tok = word.text
         next if tok.start_with?("-")
+        next if scripts.include?(position)
         next unless path_like?(tok)
 
         resolved = resolve_arg(tok, cwd)
         next if SKILL_READERS.include?(File.basename(words[0].text)) && plugin_skill_path?(real_resolve(tok, cwd))
         raise_blocked!("M-SHELL-BLOCKED") unless workspace && within?(resolved, workspace)
       end
+    end
+
+    def sed_script_indexes(command, args)
+      return [] unless File.basename(command.to_s).sub(/\.exe\z/i, "") == "sed"
+
+      scripts = []
+      given = false
+      skip_next = nil
+      args.each_with_index do |token, position|
+        if skip_next
+          scripts << position if skip_next == :script
+          skip_next = nil
+          next
+        end
+        if token == "--expression" || token =~ /\A-[A-Za-z]*e\z/
+          given = true
+          skip_next = :script
+        elsif token == "--file" || token =~ /\A-[A-Za-z]*f\z/
+          given = true
+          skip_next = :file
+        elsif token.start_with?("--expression=", "--file=")
+          given = true
+        elsif !token.start_with?("-") && !given
+          scripts << position
+          given = true
+        end
+      end
+      scripts
     end
 
     def readonly_command?(tokens)

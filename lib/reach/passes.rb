@@ -393,9 +393,11 @@ module Reach
 
     def code_is_starting_copy?(workspace, meta)
       starting = Reach::Qualify.starting_copies(workspace, meta)
-      Array(meta["owned_files"]).all? do |relative|
+      Array(meta["owned_files"]).reject { |relative| relative == Reach::ReadmeCheck::FILE }.all? do |relative|
         data = Reach::SafeFiles.read_or_skip(workspace, relative).first
-        starting[relative] && data == starting[relative]
+        starting[relative] && data &&
+          Reach::Seal.unmarked(data, relative, meta["cutout_id"], meta["slice"]) ==
+            Reach::Seal.unmarked(starting[relative], relative, meta["cutout_id"], meta["slice"])
       end
     rescue StandardError
       false
@@ -412,7 +414,7 @@ module Reach
       gems = Reach::Suite.install_gems(pass_dir)
       rows = run_rows(pass_dir, gems, qualify["tag"], env)
       passed = !rows.nil? && !rows.empty? && rows.all? { |row| row["result"] == "passed" }
-      hard << "local_pass failed" if judge_pass && !passed
+      hard << local_failure(rows) if judge_pass && !passed
 
       stub_dir = Reach::Qualify.assemble_local(workspace, meta, stub: true, root: dir, name: "score-#{File.basename(dir)}-stub")
       stub_rows = run_rows(stub_dir, gems, qualify["tag"], env)
@@ -420,6 +422,20 @@ module Reach
       return zero.merge(starting_copy: starting) if rows.nil?
 
       { starting_copy: starting, consistency: judge_pass ? (passed ? 1.0 : 0.0) : 1.0 }
+    end
+
+    def local_failure(rows)
+      return "local_pass failed: the local run did not finish or gave no report" if rows.nil?
+      return "local_pass failed: no scenario ran; write the scenarios, or pick the scenarios point first" if rows.empty?
+
+      failed = rows.reject { |row| row["result"] == "passed" }.first(2).map do |row|
+        error = row["message"].to_s.lines.first.to_s.strip[0, 160]
+        parts = ["\"#{row['name']}\" #{row['result']}"]
+        parts << "at \"#{row['step']}\"" if row["step"]
+        parts << "(#{error})" unless error.empty?
+        parts.join(" ")
+      end
+      "local_pass failed: #{failed.join('; ')}"
     end
 
     def run_rows(run_dir, gems, tag, env)

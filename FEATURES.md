@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.59.1 |
+| **Registry version** | 0.59.2 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2304,3 +2304,23 @@ Verification on 2026-10-22, from a student's module and Grokit 32c036a's policy.
 - On 0.59.1 there were no matches, and both attempts passed.
 - An invented hardcoded value that no contract states is still matched. So is a hardcoded `30` when the contract only mentions `2030`, because contract values count only as whole tokens.
 - A block pattern (P-PORT-STANDIN) refuses submit under enforce, then raises the hand, and does not refuse under advise.
+
+## Candidate passes work on a fresh module — 0.59.2
+
+**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion.**
+
+Fixes to the candidate passes (W-QUAL-PASSES-1) and the shell gate:
+- A scenarios candidate is judged on its local run only once the module is no longer the starting copy. The check now ignores rEach's own mark line and the README, so an untouched module counts as the starting copy again.
+- A local_pass hard zero names the failing scenarios, the step and the error.
+- The gate lets the agent create the candidate folders the packet names.
+- A read-only `sed` with a regex address is no longer taken for a path outside the slice.
+
+Student-first audit: Agency and honesty — yes, the passes stop ruling out every candidate for a reason that has nothing to do with the student's work, and the agent can now see and explain why a candidate failed. Integrity — the vault, keys, files outside the slice and in-place edits stay refused.
+
+Wiring: none. No new service, call, file or binding.
+
+Verification on 2026-10-22:
+- Starting copy: from a student's stamped module and the packaged Grokit stub, `code_is_starting_copy?` answered false on 0.59.1, which is the bug. On 0.59.2 it answers true, and false once the module is edited.
+- Gate: driving `Reach::Gate.shell` on a scratch slice, `mkdir .reach/passes/<point>/<n>` and regex-address `sed` reads are allowed. The point folder, folder 9, unknown points, `sed -i`, `sed -f` with a file outside, and vault reads are still refused.
+- Diagnostics: a cucumber JSON report rendered through `Suite.report_rows` gives the scenario, step and error in the reason.
+- Not run: a full `reach passes score` with the kit's gems.

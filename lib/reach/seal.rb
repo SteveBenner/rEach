@@ -155,6 +155,16 @@ module Reach
       content.lines.first(3).find { |line| line.start_with?(prefix) }
     end
 
+    def unmarked(content, relative, cutout_id, slice)
+      text = content.to_s.dup.force_encoding(Encoding::UTF_8)
+      line = carrier_line(text, relative, cutout_id, slice)
+      return text if line.nil?
+
+      lines = text.lines
+      lines.delete_at(lines.index(line))
+      lines.join
+    end
+
     def write_carrier(full, content, relative, cutout_id, slice, expected)
       prefix = carrier_text(relative, cutout_id, slice)
       payload = encode(expected)
