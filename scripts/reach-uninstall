@@ -1516,7 +1516,8 @@ module ReachUninstall
     entries = ctx[:plan]["windows_path"]
     return step("windows-path", "skipped", "rEach was not in your program search path") if entries.empty?
 
-    raw = run_command(["powershell", "-NoProfile", "-Command", "[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames')"], 20)
+    read_raw = ["[Microsoft.Win32.Registry]", "::CurrentUser", ".OpenSubKey('Environment')", ".GetValue('Path', '', 'DoNotExpandEnvironmentNames')"].join
+    raw = run_command(["powershell", "-NoProfile", "-Command", read_raw], 20)
     return step("windows-path", "failed", "Could not read your program search path.") unless raw[:ok]
 
     if raw[:out].to_s.include?("%")
