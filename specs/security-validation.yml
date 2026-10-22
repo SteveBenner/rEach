@@ -61,13 +61,13 @@ fixture:
     the normal required sections and word floors. Native Check and Checkpoint
     run in a child process with an isolated home and workspace.
   qualification: >-
-    Teach decrypts and authenticates the package, runs normal SubmissionCheck
-    and PartCheck shape validation, validates every question and digest, compares
+    Teach decrypts and authenticates the package, runs its normal submission and
+    part shape validation, validates every question and digest, compares
     the built artifact against the handoff, and checks the README. Qualification
     binds the exact file digest; a changed artifact requires a new qualification.
   storage: >-
     Reach keeps practice files under its private validation state. Teach keeps
-    only synthetic session state and a signed receipt in security_validations.
+    only synthetic session state and a signed receipt.
     There is no student, normal submission, grade, late-work, or course-record
     write until actual enrollment is explicitly continued after the pass.
 receipt:
@@ -92,6 +92,6 @@ failure:
     impersonating rEach or Teach. Please wait and contact your instructor
     through the contact details you already have before continuing to enroll.
   unavailable_support: Blocks enrollment; never fall back to an unverified pass.
-  kill_switches: [REACH_VALIDATION_DISABLE=1, TEACH_VALIDATION_DISABLE=1]
+  kill_switches: [REACH_VALIDATION_DISABLE=1, a matching switch on the course server]
   safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.
 trust_limit: A successful practice receipt does not prove that a local executable or computer is uncompromised.

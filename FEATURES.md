@@ -29,7 +29,7 @@ Student-first audit:
 
 ## Security validation pass (0.61.0)
 
-Build: ✅ implemented on branch security-validation-land (0.61.0, not merged); the in-process scratch walkthrough ran against rEach 0.54.0 and was not repeated on 0.61.0. Deploy: 🔵 pending, not released or enabled for students. Blocker: Human — Teach must deploy its side first and pin wire revision 2026-10-22b byte for byte, requiring the receipt from reach_version 0.61.0 (SecurityValidation::REQUIRED_FROM); then the operator promotes rEach 0.61.0 to test and stable. Contract: `specs/security-validation.yml`.
+Build: ✅ on main (0.61.0, not promoted); the in-process scratch walkthrough ran the real 0.61.0 client against the Teach side of the pass. Deploy: 🔵 pending, not released or enabled for students. Blocker: Human — Teach must deploy its side first and pin wire revision 2026-10-22b byte for byte, requiring the receipt from rEach version 0.61.0; then the operator promotes rEach 0.61.0 to test and stable. Contract: `specs/security-validation.yml`.
 
 The provided harness agent fills the practice answer shapes with fabricated data, plans and builds the practice artifacts, runs native local checks and checkpoint, asks Teach to qualify and receive the sealed package, fetches its signed receipt, and relays the verified result. Both enrollment boundaries require the fresh course, key, harness, version, challenge, and receipt binding. Failures tell the student to wait and contact the instructor through independently known details; a connection problem or impersonation is possible. This smoke uses a practice data assignment; it does not run a student's application, browser scenarios, protected scenarios, or grading.
 
@@ -2379,7 +2379,7 @@ Verification on 2026-10-22:
 
 ## Rolling cutoff for owed assignments — 0.60.0
 
-**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.60.1 (published release, 2026-10-22), with Teach 0.107.0 on stable. Blocker: Human — TEACH_MINIMUM_REACH_VERSION=0.60.1, so older installs update before they see the cutoff described as late work.**
+**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.60.1 (published release, 2026-10-22), with Teach 0.107.0 on stable. Blocker: Human — Teach's minimum accepted rEach version is set to 0.60.1, so older installs update before they see the cutoff described as late work.**
 
 Teach 0.107.0 may add `rolling_until` to an entry of `status.late_assignments` (wire revision 2026-10-22a) when the instructor lets students who have not submitted an assignment submit it, not late, until a cutoff. Inside that window rEach treats the assignment as open work: no late notice at session start, on prompts or in reach status, no `late_work` hand, and no "marked late" wording in the submit ask. reach status and the greeting name the cutoff. Entries without `rolling_until` behave as before, and after the cutoff Teach drops the entry, so the work reads as late again.
 
@@ -2401,7 +2401,7 @@ Course rules come from Teach's compiled course policy (`course_policy.json`, wir
 
 Every session sees every row, and a directive's full text arrives once, when its condition first applies. Harnesses without hooks get the full rules file (`harness.rules_file`, default `auto`).
 
-**Build: ✅ Built on branch injected-directives-land (0.62.0, Polispec 0.37.4, stacked on security-validation-land). Deploy: 🔵 Pending. Blocker: Human — the Teach course-policy slice must be deployed and pinned to wire 2026-10-22c first, then the promotions (`polispec promote reach --to test`, then the operator's `--to stable`), and later TEACH_MINIMUM_REACH_VERSION raised to 0.62.0 to retire `directives.yml`.**
+**Build: ✅ On main (0.62.0, Polispec 0.37.4, after 0.61.0). Deploy: 🔵 Pending. Blocker: Human — the Teach course-policy slice must be deployed and pinned to wire 2026-10-22c first, then the promotions (`polispec promote reach --to test`, then the operator's `--to stable`), and later Teach's minimum accepted rEach version raised to 0.62.0 to retire `directives.yml`.**
 
 Verified in a scratch home with Teach's rendered package:
 
