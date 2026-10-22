@@ -8,11 +8,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.58.1 |
+| **Registry version** | 0.59.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 105 catalogued |
+| **Feature count** | 106 catalogued |
 
 ## How to read this registry
 
@@ -23,7 +23,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 96 | 92% |
+| ✅ Shipped | 97 | 92% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -31,7 +31,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 81 | 78% |
+| 🔵 Built, not enabled | 82 | 78% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install
@@ -2276,3 +2276,16 @@ Wiring: no new service, network call, corpus, schedule, or direct rStack binding
 Verification for this candidate: policy validation and catalog drift check pass; package generation is current; source package check and refreshed local installation doctor report zero findings. Direct isolated hook events exercised whole-message buffering, split terminal handoffs, ordinary business and privacy replies, malformed events, bounded correction, and stalled stdin. Independent review findings were corrected and rechecked. Native harness execution and student stable delivery remain unverified. No new tests were written.
 
 Rollout: 0.58.0 is on main and test (7b0211b); all promotion gates and test health passed. Local install check and doctor have zero findings. Student stable is unchanged. The release gate used an existing operator lease and still reports operational backup/alarm findings and two entropy hits on nonsecret generated policy data; these are not reported as clean.
+
+## Panel preview — 0.59.0
+
+**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion; Engineering — a panel kit carries the practice screen only when Grokit holds a current recording for its module.**
+
+`reach preview` and the reach_preview tool (`STD-PREVIEW`, `lib/reach/preview.rb`) show the panel slice a student is building in their own browser, the way qualify's browser sees it. The slice's qualify run directory is assembled as qualify does, and `lib/reach/kit/preview_server.rb` serves Grokit's own practice app with the course's recorded practice data on 127.0.0.1 in the background, under the kit Ruby. The slice's owned `.svelte` files are read from the workspace on every load, so a saved change shows on refresh. rEach opens the student's default browser and returns the address. The preview stops after 30 idle minutes, on `reach preview stop`, or when another slice is previewed. `--screenshot` (`lib/reach/kit/preview_shot.rb`) saves a PNG with the console errors and failed requests the browser saw, so the agent can look at a rendering problem itself. A backend slice, or a panel kit without the practice screen, is refused in plain words. Origin: a student's agent reported a "local preview failure" on the A2 records panel (fixed in 0.58.1); Sven asked for a realistic way to render the work.
+
+Student-first audit: Learning — yes, the student sees what their decisions produced, in practice data, without reading code. Agency and honesty — yes, the message says it is practice data and not the graded run, and a preview is never a qualification. Wellbeing and safety — yes, nothing is sent and no attempt is spent. Privacy and dignity — yes, it answers only this computer's own address and Host, and reads only the slice's own panel files. Fairness and access — yes, it uses the browser qualify already installs; where the practice screen is missing it says so instead of failing.
+
+Wiring: no new service, network call, corpus or rStack binding. It reuses qualify's run directory, kit gems and Chrome, and emits one `command` debug event per start.
+
+Verification on 2026-10-22, isolated rEach home, real Chrome, a records.a2s1 panel workspace built from Grokit v0.10.1's own qualify kit with a student's real panel file: start in 14.6 s with the state file at 0600; `/records` 200 and a foreign Host 403; an edit to the owned file served on the next load; a second start reused the server; the screenshot found the panel, wrote the PNG and reported the one failing call (`records/examples` 500 on that older Grokit, which qualify would hit too); stop ended the server; a stale state whose pid belonged to an unrelated process left that process alive; a backend slice and a panel without the practice screen were refused with their messages; with a 35 s idle limit the server exited by itself after 57 s; through the CLI the command is listed in help and is locked until enrollment, like qualify.
+

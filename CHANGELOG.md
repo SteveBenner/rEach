@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.59.0] - 2026-10-22
+
+### Added
+
+- `reach preview` and the reach_preview tool show a panel slice in the student's own browser (`lib/reach/preview.rb`, `STD-PREVIEW`): the course's practice screen and recorded practice data served on 127.0.0.1 in the background by `lib/reach/kit/preview_server.rb`, the slice's own `.svelte` files read live so a refresh shows each saved change, the default browser opened at the panel and the address returned. It stops after 30 idle minutes, on `reach preview stop`, or when another slice is previewed, and answers only this computer's own Host.
+- `reach preview --screenshot` (reach_preview action screenshot) saves a PNG of the panel through qualify's headless Chrome (`lib/reach/kit/preview_shot.rb`) with the console errors and failed requests it saw, so the agent can see a rendering problem itself.
+- `Reach::Desktop.open_url` (127.0.0.1 addresses only) and `Reach::Suite.kit_launch`, which `Reach::Suite.cucumber` now uses with the same environment and arguments as before.
+- The reach-course skill tells the agent to preview a panel the student wants to see and to screenshot one that does not render; reach-help asks for a screenshot before a technical_issue hand about a panel.
+
 ## [0.58.1] - 2026-10-21
 
 ### Fixed

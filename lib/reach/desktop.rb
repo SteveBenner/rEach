@@ -26,6 +26,27 @@ module Reach
       false
     end
 
+    def open_url(url)
+      return false unless url.to_s.start_with?("http://127.0.0.1:")
+
+      Timeout.timeout(LIMIT_S) do
+        command = case RbConfig::CONFIG["host_os"]
+                  when /darwin/
+                    ["open", url]
+                  when /mswin|mingw|cygwin/
+                    ["rundll32", "url.dll,FileProtocolHandler", url]
+                  else
+                    ["xdg-open", url]
+                  end
+        group = Reach::Untar.windows? ? { new_pgroup: true } : { pgroup: true }
+        pid = Process.spawn(*command, in: File::NULL, out: File::NULL, err: File::NULL, **group)
+        Process.detach(pid)
+      end
+      true
+    rescue StandardError, Timeout::Error
+      false
+    end
+
     LINUX_TERMINALS = [
       ["x-terminal-emulator", ["-e"]],
       ["gnome-terminal", ["--"]],

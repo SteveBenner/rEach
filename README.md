@@ -209,7 +209,17 @@ reach passes packet|score|pick|status <plan|scenarios|code>   the candidate pass
 reach checkpoint save|list [--all]|show|restore <n>|recover|dismiss|forget   snapshots of the slice, no git needed
 reach directive <OPCODE> | --list                            the directive bodies
 reach reference list | show <path> | search <words> | links | ingest [--force]  the course reference material
+reach preview [--slice <folder>] [--screenshot] | stop | status   a panel slice in the student's own browser
 ```
+
+Since 0.59.0 `reach preview` (or the reach_preview tool) shows a panel slice the way qualify's browser sees it: the
+course's practice screen and recorded practice data, served on this computer's own address (127.0.0.1) and opened in
+the student's default browser. The panel's own files are read from the slice on every load, so saving a change and
+refreshing the page shows it. The preview runs in the background and stops after 30 minutes without use, on
+`reach preview stop`, or when another slice is previewed. `--screenshot` saves a picture of the panel through the
+same headless browser and lists the console errors and failed requests it saw, so the agent can look at a rendering
+problem itself. It needs the practice screen in the slice's qualify kit; a backend slice, or a panel without it, is
+refused with a plain message.
 
 rEach also saves the slice's files by itself on every write the agent makes, before every write it allows and after
 every check, so the history is never more than one edit old; `reach checkpoint list` shows the saves you named and

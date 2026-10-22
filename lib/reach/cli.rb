@@ -322,6 +322,8 @@ module Reach
           cmd_shape(args)
         when "qualify"
           cmd_qualify(args)
+        when "preview"
+          cmd_preview(args)
         when "submit"
           cmd_submit(args)
         when "receipts"
@@ -457,6 +459,7 @@ module Reach
             gate session|prompt|enroll|write|shell|read  called by harness hooks
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
+            preview [--slice ...] [--screenshot] [--format text|json] | stop | status   show the panel you are building in your own browser on this computer, with practice data (--screenshot saves a picture of it)
             submit [--partial] [--slice ...]     ask the student, then submit and wait for the receipt (--partial sends unqualified work for the instructor to review)
             submit archive [--assignment A | --all | --course C | --extracurricular]   save a ZIP of your work to Downloads at any time: one assignment (the default), all your work, one course or your own code folder (a submitted assignment must also be uploaded to the course's learning system)
             receipts [wait|show|acks]            receipts
@@ -1565,6 +1568,42 @@ module Reach
         return 0 if record["passed"]
 
         record["pending"] ? 3 : 1
+      end
+
+      def cmd_preview(args)
+        Reach::Update.hold!
+        word = %w[stop status].include?(args.first) ? args.shift : nil
+        shot, args = parse_bare_flag(args, "screenshot")
+        options, _remaining = parse_flags(args, [:slice, :format])
+        format = options[:format] || "text"
+        result = case word
+                 when "stop"
+                   Reach::Preview.stop
+                 when "status"
+                   Reach::Preview.status
+                 else
+                   workspace = resolve_workspace(options[:slice]) || Reach::Gate.focus_workspace
+                   pick_slice_if_ambiguous(workspace)
+                   unless workspace
+                     warn "reach: no matching slice workspace found; run reach sync"
+                     return 1
+                   end
+                   shot ? Reach::Preview.screenshot(workspace) : Reach::Preview.start(workspace)
+                 end
+        if format == "json"
+          puts JSON.generate(result)
+        else
+          puts result["message"] || (result["state"] == "running" ? result["url"] : result["state"])
+          if shot && word.nil?
+            puts result["png"] if result["png"]
+            Array(result["console_errors"]).each { |line| puts "console error: #{line}" }
+            Array(result["failed_requests"]).each { |row| puts "failed request: #{row['status']} #{row['url']}" }
+          end
+        end
+        0
+      rescue Reach::Refused => e
+        puts e.message
+        1
       end
 
       def cmd_submit_archive(args)

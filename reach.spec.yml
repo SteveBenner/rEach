@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.58.1
+version: 0.59.0
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -1208,6 +1208,10 @@ mcp_bridge:
     description: Shape findings for the current slice (or the slice its slice argument names), classified invisible or visible
   - name: reach_qualify
     description: Qualify the current slice, list its tag and graded names, or run locally only
+  - name: reach_preview
+    description: >-
+      Since 0.59.0 (STD-PREVIEW) start (default), stop or report the panel preview, or take a screenshot of it with
+      the browser's console errors and failed requests; panel slices only
   - name: reach_attempts
     description: Show the attempt ladder or record the student's yes to continue
   - name: reach_submit
@@ -1488,6 +1492,11 @@ cli:
   - name: qualify
     synopsis: reach qualify [--slice ...] [--list] [--local-only] [--task ...] [--summary ...] [--format text|json]
     purpose: Prove the slice before submission (qualification)
+  - name: preview
+    synopsis: reach preview [--slice ...] [--screenshot] [--format text|json] | stop | status
+    purpose: >-
+      Since 0.59.0 (STD-PREVIEW) serve the panel slice's practice screen on 127.0.0.1 in the background and open it in
+      the student's browser; --screenshot saves a PNG under the rEach home with console errors and failed requests
   - name: attempts
     synopsis: reach attempts show|continue [--slice ...]
     purpose: The attempt ladder; continue records the student's yes after the third failed qualification

@@ -240,7 +240,7 @@ module Reach
         false
       end
 
-      def cucumber(run_dir, gems, tags, extra_env = {})
+      def kit_launch(gems, extra_env = {})
         gems = { "gemfile" => gems, "bundle_path" => Reach::Paths.gems_dir } if gems.is_a?(String)
         ruby_exe = gems["ruby_exe"]
         ruby_bin = gems["ruby_bin"]
@@ -252,7 +252,13 @@ module Reach
         env["CUPRITE_NO_SANDBOX"] = "1" if sandbox_blocked?(chrome)
         env.merge!(extra_env)
         env = Reach::RuntimeKit.clean_env(env) if ruby_exe && ruby_bin
-        args = ruby_exe && ruby_bin ? [ruby_exe, File.join(ruby_bin, "bundle"), "exec", "cucumber", "--format", "json"] : ["bundle", "exec", "cucumber", "--format", "json"]
+        prefix = ruby_exe && ruby_bin ? [ruby_exe, File.join(ruby_bin, "bundle"), "exec"] : ["bundle", "exec"]
+        [env, prefix]
+      end
+
+      def cucumber(run_dir, gems, tags, extra_env = {})
+        env, prefix = kit_launch(gems, extra_env)
+        args = prefix + ["cucumber", "--format", "json"]
         Array(tags).each { |tag| args += ["--tags", tag] }
 
         stdout = +""

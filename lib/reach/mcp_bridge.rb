@@ -36,6 +36,17 @@ module Reach
         }
       },
       {
+        "name" => "reach_preview",
+        "description" => "Open the panel the student is building in their own browser (a practice screen on this computer with practice data; edits show on refresh; it stops after 30 idle minutes), or take a screenshot so you can see how it renders, with the browser's console errors. Only for panel slices. The first start can take a few minutes while the checking tools install: tell the student before calling it.",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[start stop status screenshot], "default" => "start" },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
+          }
+        }
+      },
+      {
         "name" => "reach_attempts",
         "description" => "The slice's attempt ladder (action show), or record the student's yes to keep trying after a hand (action continue; refused unless the student has written since the hand)",
         "inputSchema" => {
@@ -727,6 +738,8 @@ module Reach
         when "reach_qualify"
           workspace = workspace_for(slice_argument(arguments))
           Reach::Qualify.run(workspace, local_only: arguments["local_only"] == true, task: arguments["task"], agent_summary: arguments["summary"])
+        when "reach_preview"
+          preview_tool(arguments)
         when "reach_attempts"
           workspace = workspace_for(slice_argument(arguments))
           arguments["action"] == "continue" ? { "message" => Reach::Attempts.continue(workspace) } : Reach::Attempts.show(workspace)
@@ -863,6 +876,23 @@ module Reach
           live_tool(arguments)
         else
           raise Reach::Error, "reach: unknown tool #{name.inspect}"
+        end
+      end
+
+      def preview_tool(arguments)
+        action = arguments["action"].to_s
+        action = "start" if action.empty?
+        raise Reach::Error, "reach: unknown preview action" unless %w[start stop status screenshot].include?(action)
+
+        case action
+        when "stop"
+          Reach::Preview.stop
+        when "status"
+          Reach::Preview.status
+        when "screenshot"
+          Reach::Preview.screenshot(workspace_for(slice_argument(arguments)))
+        else
+          Reach::Preview.start(workspace_for(slice_argument(arguments)))
         end
       end
 
