@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.63.0] - 2026-10-22
 
-Uninstall. Wire revision 2026-10-22d (Teach 0.108.0).
+Uninstall. Wire revision 2026-10-22d (Teach 0.107.4).
 
 ### Added
 
