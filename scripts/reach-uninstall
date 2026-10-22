@@ -1437,9 +1437,16 @@ module ReachUninstall
     end
     return unless changed
 
-    backup = "#{config}.reach-uninstall-backup"
-    File.binwrite(backup, text) unless File.exist?(backup)
     mode = File.stat(config).mode & 0o7777
+    backup = "#{config}.reach-uninstall-backup"
+    begin
+      File.open(backup, File::WRONLY | File::CREAT | File::EXCL, mode) do |file|
+        file.binmode
+        file.write(text)
+      end
+    rescue Errno::EEXIST
+      nil
+    end
     atomic_write(config, YAML.dump(document), mode)
     notes << "removed rEach's hooks and settings from the Hermes configuration (a backup is beside it)"
   rescue StandardError => e

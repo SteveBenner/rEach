@@ -206,6 +206,7 @@ module Reach
         no_session: Reach::Messages.text("M-UNINSTALL-NO-SESSION"),
         needs_consent: Reach::Messages.text("M-UNINSTALL-NEEDS-CONSENT"),
         told: Reach::Messages.text("M-UNINSTALL-TOLD"),
+        failed_told: Reach::Messages.text("M-UNINSTALL-FAILED-TOLD"),
         not_told: why.each_with_object({}) { |(code, reason), memo| memo[code] = Reach::Messages.text("M-UNINSTALL-NOT-TOLD", reason: reason) },
         receipts_saved: Reach::Messages.text("M-UNINSTALL-RECEIPTS-SAVED", folder: SENTINELS[:folder]),
         left: Reach::Messages.text("M-UNINSTALL-LEFT", items: SENTINELS[:items]),
@@ -425,17 +426,18 @@ module Reach
       [text, hint].compact.join("\n")
     end
 
-    def failure_text(result, status)
+    def failure_text(result, status, teach, messages)
       steps = result ? Array(result["steps"]).select { |step| step.is_a?(Hash) && %w[failed skipped].include?(step["status"]) && !step["detail"].to_s.empty? } : []
       detail = steps.map { |step| step["detail"].to_s }.join("; ")
       detail = "the removal did not finish" if detail.empty?
-      "rEach could not finish removing itself (#{detail}). Nothing of your work was touched. Exit code #{status}."
+      told = teach["state"] == "told" ? messages[:failed_told] : ""
+      "rEach could not finish removing itself (#{detail}). Nothing of your work was touched.#{told} Exit code #{status}."
     end
 
     def finish(options, context, teach, messages, stdout, status)
       result = parse_result(stdout)
       ok = result && result["ok"] == true && status.zero?
-      text = ok ? final_text(result, teach, messages, context) : failure_text(result, status)
+      text = ok ? final_text(result, teach, messages, context) : failure_text(result, status, teach, messages)
       if options[:format] == "json"
         merged = (result || { "schema" => "reach.uninstall.result/v1", "ok" => false }).merge("teach" => teach, "text" => text)
         puts JSON.pretty_generate(merged)
