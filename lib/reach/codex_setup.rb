@@ -1493,7 +1493,7 @@ module Reach
 
     def oldest_backup
       dir = File.dirname(config_path)
-      prefix = "#{File.basename(config_path)}#{BACKUP_INFIX}"
+      prefix = File.basename(config_path) + BACKUP_INFIX
       found = Dir.children(dir).select { |name| name.start_with?(prefix) }.map { |name| File.join(dir, name) }.select { |path| File.file?(path) }
       found.min_by { |path| [File.mtime(path), path] }
     rescue SystemCallError
@@ -1506,10 +1506,10 @@ module Reach
 
     def owned_trust
       ids = plugin_hook_plan.map(&:first)
-      prefixes = ["#{CodexHookTrust::PLUGIN_ID}:#{CodexHookTrust::PLUGIN_HOOKS}:"]
+      prefixes = [[CodexHookTrust::PLUGIN_ID, CodexHookTrust::PLUGIN_HOOKS, ""].join(":")]
       course_spaces.each do |path, _kind|
         ids.concat(CodexHookTrust.keys(path, managed_content(path)).map(&:first)) if File.file?(path) && managed_content(path)
-        prefixes << "#{CodexHookTrust.display_path(path)}:" unless File.file?(path)
+        prefixes << (CodexHookTrust.display_path(path) + ":") unless File.file?(path)
       end
       [ids, prefixes]
     end
