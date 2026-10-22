@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.58.1] - 2026-10-21
+
+### Fixed
+
+- `reach qualify` no longer reports a panel scenario that opens the panel by its cutout id (`When I open the "records.a2s1" panel`) as a broken local preview. The browser was asked for `/records.a2s1`, a page that does not exist, and the failure was classed as a qualification that could not be done, with a ZIP export offered and the agent told the preview was failing. It is now QF-PANEL-ID, whose next step names the module id to write (`When I open the "records" panel`) and says the browser and preview are fine (`Reach::Qualify::PANEL_CUTOUT_STEP`, `M-QUALIFY-PANEL-ID`, `STD-QUALIFY-PANEL-ID`).
+- `reach check` flags that step in any feature under `qualify/features` as CK-PANEL-ID with the correction, before a qualification attempt is spent on it.
+
 ## [0.58.0] - 2026-10-20
 
 ### Added

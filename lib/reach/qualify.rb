@@ -20,6 +20,7 @@ module Reach
     NOT_THE_CODE = %w[QF-README QF-NOBROWSER QF-UNREADABLE QF-PLAN-NONE QF-PLAN-UNAUDITED QF-PLAN-AUDIT-FAIL QF-PASSES-NONE QF-PATTERN QF-INSENSITIVE].freeze
     PREVIEW_STEP = /\bopen the .+ panel\b/.freeze
     PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
+    PANEL_CUTOUT_STEP = /\bopen the "([A-Za-z0-9_-]+)\.[A-Za-z0-9_.-]+" panel\b/.freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
     class << self
@@ -430,6 +431,9 @@ module Reach
             if browser_missing?(row)
               record["findings"] << { "code" => "QF-NOBROWSER", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
               record["next"] ||= Reach::Messages.text("M-QUALIFY-NOBROWSER")
+            elsif (panel = panel_cutout_id(row))
+              record["findings"] << { "code" => "QF-PANEL-ID", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
+              record["next"] ||= Reach::Messages.text("M-QUALIFY-PANEL-ID", given: panel[:given], module: panel[:module])
             elsif practice_miss?(row, output)
               record["findings"] << { "code" => "QF-PRACTICE", "name" => row["name"], "step" => row["step"], "detail" => PRACTICE_DETAIL }
             else
@@ -442,6 +446,14 @@ module Reach
 
       def browser_missing?(row)
         row["message"].to_s.include?("Ferrum::BinaryNotFoundError")
+      end
+
+      def panel_cutout_id(row)
+        match = PANEL_CUTOUT_STEP.match(row["step"].to_s)
+        return nil unless match
+
+        given = match[0][/"([^"]+)"/, 1]
+        { given: given, module: match[1] }
       end
 
       def practice_miss?(row, output)

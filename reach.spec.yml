@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.58.0
+version: 0.58.1
 status: draft
 recorded: '2026-09-29'
 licence: MIT
@@ -862,7 +862,7 @@ qualification:
     QF-VACUOUS). Since 0.52.15 the starting copy comes from the stored workspace package whose version the slice's
     marker records (package_version), so a past-due slice of an earlier assignment keeps its own starting copy after a
     newer assignment's package arrives; only a marker with no stored package falls back to the newest one. A local failure whose answer the practice recording does not hold is QF-PRACTICE, which points the
-    agent at qualify/kit/practice/README.md (since 0.14.5). A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest. When Cucumber cannot start, the finding quotes the first error line after bundler's own "failed to load command" line.
+    agent at qualify/kit/practice/README.md (since 0.14.5). Since 0.58.1 a failing step that opens the panel by a dotted cutout id (When I open the "records.a2s1" panel) is QF-PANEL-ID with next M-QUALIFY-PANEL-ID naming the module id, counts on the ladder and is never an unable qualification. A panel scenario that fails because the browser cannot be found is QF-NOBROWSER with next M-QUALIFY-NOBROWSER, and a record whose findings are all QF-README, QF-NOBROWSER or QF-UNREADABLE is not counted on the attempt ladder. Cucumber runs under a 300 second timeout with the kit's gems installed once per lock digest. When Cucumber cannot start, the finding quotes the first error line after bundler's own "failed to load command" line.
   - >-
     probe - since 0.56.0, after local_stub (STD-PATTERN-LEDGER). Mode off (qualify.probe): not run. Reruns the local
     scenarios in vault/runs/<slice>-probe with each required port's answers perturbed, one port at a time (numbers
@@ -993,7 +993,7 @@ submission:
     needed an ingest receipt. It runs past the enrollment lock in every lock state (Cli.dispatch exempts submit archive,
     MCPBridge.dispatch exempts reach_submit with archive true); the timed test lock still applies. Reach::Qualify.unable? marks a qualification that could not be done (every finding
     QF-NOBROWSER, a local step with no result rows, a local scenario whose step opening the panel got a browser
-    status, timeout or connection error, or a remote failed_to_run); the record then carries export {recommended,
+    status, timeout or connection error, or a remote failed_to_run; since 0.58.1 a step naming a cutout id is QF-PANEL-ID and is not one); the record then carries export {recommended,
     assignment, command} and its next adds M-QUALIFY-EXPORT, which names reach submit archive --assignment A.
   retries:
     policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
@@ -2977,7 +2977,8 @@ check:
     0.54.0, a backend slice's owned Ruby never calls a required instructor API: slice-api.json
     required_apis, else its instructor_apis entries that start with ports.), CK-FUSE, CK-PANEL (with
     Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed), CK-README (since 0.41.0, an owned
-    README.md section that is missing or under 25 words, by Reach::ReadmeCheck and wire W-SUB-3)
+    README.md section that is missing or under 25 words, by Reach::ReadmeCheck and wire W-SUB-3), CK-PANEL-ID (since
+    0.58.1, a feature under qualify/features that opens the panel by a dotted cutout id instead of the module id)
   panel_deferral: >-
     Since 0.9.0, when Reach::Shape.ran? (a signed shape was present and the Dovetail checker exited 0 or 1 with a
     report in this run), Reach::Check drops every CK-PANEL finding whose rule starts with "S-", because CK-SHAPE

@@ -82,6 +82,7 @@ module Reach
       end
       findings.concat(shape_found.uniq { |entry| entry[:finding_id] })
       findings.concat(pattern_findings(workspace, changed))
+      findings.concat(panel_step_findings(workspace, changed))
       findings = drop_deferred_panel_findings(findings) if shape_ran
       record(workspace, changed, findings)
       Reach::Checkpoint.autosave(workspace, via: "check")
@@ -102,6 +103,24 @@ module Reach
         entry
       end
     rescue StandardError
+      []
+    end
+
+    def panel_step_findings(workspace, changed)
+      Dir.glob(File.join(workspace, Reach::Qualify::FEATURES_DIR, "**", "*.feature")).sort.flat_map do |full|
+        next [] if changed && Array(changed).none? { |target| same_file?(full, target) }
+
+        relative = relative_of(workspace, full)
+        File.readlines(full, encoding: Encoding::UTF_8).each_with_index.filter_map do |raw, index|
+          match = Reach::Qualify::PANEL_CUTOUT_STEP.match(raw.scrub)
+          next unless match
+
+          given = match[0][/"([^"]+)"/, 1]
+          finding("CK-PANEL-ID", relative, index + 1, Reach::Messages.text("M-CHECK-PANEL-ID", given: given),
+                  Reach::Messages.text("M-CHECK-PANEL-ID-FIX", given: given, module: match[1]))
+        end
+      end
+    rescue SystemCallError
       []
     end
 

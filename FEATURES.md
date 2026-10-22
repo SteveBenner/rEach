@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.58.0 |
+| **Registry version** | 0.58.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -403,7 +403,11 @@ does not hold gives QF-PRACTICE instead of QF-LOCAL-FAIL, naming `qualify/kit/pr
 carries `practice_readme`; checked on 2026-10-01 with one such row and one ordinary failure, which gave QF-PRACTICE and
 QF-LOCAL-FAIL. A panel scenario that fails because the browser cannot be found gives QF-NOBROWSER with the remedy `reach doctor --install-chromium`
 and spends no attempt-ladder rung; checked on 2026-10-10 against a scratch run of the context.a1 reference build with and without Chrome, built on
-the dev branch and not yet released. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
+the dev branch and not yet released. Since 0.58.1 (`STD-QUALIFY-PANEL-ID`) a panel scenario that opens the panel by its cutout id
+(`When I open the "records.a2s1" panel`) gives QF-PANEL-ID with the module-id correction instead of an unable preview failure and an
+export offer, and `reach check` flags the step as CK-PANEL-ID; checked on 2026-10-21 with a student's recorded A2 failure and feature
+file, which gave QF-LOCAL-FAIL, unable and the export offer on 0.58.0 and QF-PANEL-ID, two CK-PANEL-ID findings and no export on
+0.58.1, and no CK-PANEL-ID once the step named "records". Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
 qualify whose local steps outlast the 25-second tool budget still reaches Teach; verified on 2026-10-03 in the slice-build
 smoke (run 20261002_215550, context.a4s2, on the same change over 0.20.5), where both qualifications reached the scratch
 Teach and finished, against none in the run before. Since 0.33.5 (`STD-KIT-CLEAN-ENV`) every launch of the kit Ruby unsets
