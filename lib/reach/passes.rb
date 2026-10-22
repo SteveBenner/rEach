@@ -381,7 +381,7 @@ module Reach
 
       text = source
       text = owned_source(workspace, meta, dir) if text.empty?
-      text.match?(/\b(?:ports\.)?#{Regexp.escape(port)}\s*\.\s*#{Regexp.escape(method)}\b/)
+      text.match?(/\b(?:ports\.)?#{Regexp.escape(port)}\s*\.\s*#{Regexp.escape(method)}(?![A-Za-z0-9_])/)
     end
 
     def owned_source(workspace, meta, dir)

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.62.1] - 2026-10-22
+
+### Fixed
+
+- A required instructor API whose method name ends in `?` or `!` is now seen as called. `Reach::Check.instructor_api_findings` and `Reach::Passes.api_called?` matched the call with a trailing `\b`, which cannot match after `?` when `(` or a space follows. `reach check` reported CK-INSTRUCTOR-API ("never calls ports.evidence.known?(ref)") on code that called it, `Qualify.step_check` recorded QF-CHECK on every attempt so opportunities.a2s2 could not qualify, and the weighted passes counted the API as unused. The pattern now ends in `(?![A-Za-z0-9_])`. Five A3 slices (context.a3s1, records.a3s2, finance.a3s2, people_operations.a3s2, workbench.a3s2) carry the same kind of API.
+
 ## [0.62.0] - 2026-10-22
 
 Lands the injected-directives work (built as 0.57.0 on 0.56.x) on 0.61.0. Wire revision 2026-10-22c.

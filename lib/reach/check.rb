@@ -200,7 +200,7 @@ module Reach
         chain = line.split("(").first.to_s.sub(/\Aports\./, "")
         port, method = chain.split(".", 2)
         next if port.to_s.empty? || method.to_s.empty?
-        next if sources.match?(/\b(?:ports\.)?#{Regexp.escape(port)}\s*\.\s*#{Regexp.escape(method)}\b/)
+        next if sources.match?(/\b(?:ports\.)?#{Regexp.escape(port)}\s*\.\s*#{Regexp.escape(method)}(?![A-Za-z0-9_])/)
 
         found << finding("CK-INSTRUCTOR-API", relative, 1, "never calls #{line}, which this behaviour must use", "Call #{line} with the inputs api/README.md describes, and return what it gives")
       end

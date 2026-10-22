@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.62.0
+version: 0.62.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2990,7 +2990,7 @@ check:
   rules: >-
     CK-RUBY-SYNTAX, CK-RUBY-FLOOR, CK-RUBY-SHAPE, CK-COMMENT, CK-TEST, CK-PURE, CK-PORTS, CK-INSTRUCTOR-API (since
     0.54.0, a backend slice's owned Ruby never calls a required instructor API: slice-api.json
-    required_apis, else its instructor_apis entries that start with ports.), CK-FUSE, CK-PANEL (with
+    required_apis, else its instructor_apis entries that start with ports.; since 0.62.1 a call to an API whose method name ends in ? or ! counts), CK-FUSE, CK-PANEL (with
     Dovetail's S-* ids), CK-SHAPE (from Reach::Shape when a shape is installed), CK-README (since 0.41.0, an owned
     README.md section that is missing or under 25 words, by Reach::ReadmeCheck and wire W-SUB-3), CK-PANEL-ID (since
     0.58.1, a feature under qualify/features that opens the panel by a dotted cutout id instead of the module id), CK-PANEL-EXAMPLE (since 0.60.1, a feature step that runs a panel example by a label the practice README does not list)
