@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.60.0] - 2026-10-22
+
+### Added
+
+- Rolling cutoff for late work (wire revision 2026-10-22a). When an entry of `status.late_assignments` carries `rolling_until`, the instructor has let students who still owe that assignment submit it, not late, until then. Inside that window `LateWork.late?` and `LateWork.info` treat the assignment as open work (`LateWork.rolling_until_for`, `LateWork.rolling?`), so rEach gives no late notice at session start, on prompts or in reach status, raises no `late_work` hand, and does not say the work will be marked late when it asks to submit. `info` adds `rolling_until`.
+- reach status prints "Also open: ID, can be submitted until TIME without being late" and the greeting's course line prints " · ID open, not late, until TIME" for such an entry (`Status.late_assignment_lines`, `Hello.late_assignment_text`). Entries without `rolling_until` read as before.
+
 ## [0.59.2] - 2026-10-22
 
 ### Fixed

@@ -808,7 +808,11 @@ module Reach
 
     def late_assignment_text(status)
       Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] }.map do |entry|
-        " · late work open: #{entry["id"]} (was due #{Reach::Messages.course_time(entry["due"])})"
+        if entry["rolling_until"].to_s.strip.empty?
+          " · late work open: #{entry["id"]} (was due #{Reach::Messages.course_time(entry["due"])})"
+        else
+          " · #{entry["id"]} open, not late, until #{Reach::Messages.course_time(entry["rolling_until"])}"
+        end
       end.join
     end
 

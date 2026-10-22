@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-21f
+revision: 2026-10-22a
 status: normative
 canonical_copy: reach/specs/wire.yml
 pinned_copies:
@@ -850,6 +850,9 @@ routes:
         is none. An assignment leaves the list when every one of the student's slices of it has a submission on
         record. Absent from an older Teach, which Reach reads as []. Reach fetches each listed package with
         GET /api/v1/packages/:kind?assignment=<id> (W-API-PACKAGE) and provisions its work areas (W-PACE-3).
+        Since 2026-10-22a an entry may carry rolling_until, optional, a timestamp like due ('YYYY-MM-DD'T'HH:MM:SSZ'),
+        present only when the instructor set a rolling cutoff for that assignment. Such an assignment stays listed only
+        until rolling_until, and a first submission of an owed slice up to rolling_until is not marked late (W-SUB-1).
       slices: "[{cutout_id, slice, assignment}]"
       packages: "[{kind, version, content_digest}] for the latest package of each kind that exists"
       outstanding_receipts: "[receipt_id]"
@@ -1766,7 +1769,9 @@ submissions:
       has no attempt, supersedes nothing and is never on record. Every submission keeps its receipts. After the due time
       Teach accepts a submission of a slice only when no submission of that slice is on record, and marks it late; any
       other answers 403 deadline_passed and stores nothing. The submission that counts is the one on record that no
-      later one supersedes.
+      later one supersedes. Since 2026-10-22a an assignment may carry a rolling cutoff later than its due time: a first
+      submission of a slice with no submission on record, made up to that cutoff, is not marked late, and the slice
+      with a submission on record is still refused with 403 deadline_passed after the due time.
   W-SUB-2:
     name: what Reach does around a submission
     since: 2026-10-02c
@@ -2895,6 +2900,7 @@ alignment:
       the newer one. It merges the shape packages of the current and the late assignments into one shape vault. It
       names each late assignment, with its due time, in its status report and in the course line of its session
       greeting, and it never removes the work area of an assignment that has left the list. A Teach that sends no late_assignments leaves all of this out.
+      Since 2026-10-22a Reach treats an entry with rolling_until as open work, not late work, until rolling_until.
   W-HAND-TYPES:
     name: hand types
     rule: >-

@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.59.2 |
+| **Registry version** | 0.60.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2324,3 +2324,19 @@ Verification on 2026-10-22:
 - Gate: driving `Reach::Gate.shell` on a scratch slice, `mkdir .reach/passes/<point>/<n>` and regex-address `sed` reads are allowed. The point folder, folder 9, unknown points, `sed -i`, `sed -f` with a file outside, scripts with `r` or `w` to an outside file (in a slice and in the extracurricular folder), and vault reads are still refused.
 - Diagnostics: a cucumber JSON report rendered through `Suite.report_rows` gives the scenario, step and error in the reason.
 - Not run: a full `reach passes score` with the kit's gems.
+
+## Rolling cutoff for owed assignments — 0.60.0
+
+**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion of rEach 0.60.0 and Teach 0.107.0, then TEACH_MINIMUM_REACH_VERSION=0.60.0.**
+
+Teach 0.107.0 may add `rolling_until` to an entry of `status.late_assignments` (wire revision 2026-10-22a) when the instructor lets students who have not submitted an assignment submit it, not late, until a cutoff. Inside that window rEach treats the assignment as open work: no late notice at session start, on prompts or in reach status, no `late_work` hand, and no "marked late" wording in the submit ask. reach status and the greeting name the cutoff. Entries without `rolling_until` behave as before, and after the cutoff Teach drops the entry, so the work reads as late again.
+
+Student-first audit: Agency and honesty — yes, a student the instructor has excused from the deadline is no longer told their work is late. Integrity — unchanged: Teach still decides lateness on arrival, and an on-record slice still cannot be submitted again after the due time.
+
+Wiring: none. One optional field read from the existing status payload.
+
+Verification on 2026-10-22, against a scratch Reach home with a hand-built status cache (A1 with `rolling_until`, A2 without):
+- Inside the window A1 is not late, has no notice and spawns no hand on a write. A2 is late, with today's notice and a `late_work` hand.
+- After the cutoff A1 is late again.
+- The status and greeting lines show the rolling text for A1 and the unchanged late text for A2.
+- Not run: against a live Teach 0.107.0.

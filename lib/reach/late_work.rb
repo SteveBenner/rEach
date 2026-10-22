@@ -67,6 +67,26 @@ module Reach
       nil
     end
 
+    def rolling_until_for(assignment)
+      id = assignment.to_s
+      return nil if id.empty?
+
+      status = Reach::Pace.status_cache
+      listed = status.is_a?(Hash) && status["late_assignments"].is_a?(Array) ? status["late_assignments"] : []
+      row = listed.find { |item| item.is_a?(Hash) && item["id"].to_s == id }
+      row ? parse_time(row["rolling_until"]) : nil
+    rescue StandardError
+      nil
+    end
+
+    def rolling?(meta_or_assignment, at)
+      assignment = meta_or_assignment.is_a?(Hash) ? meta_or_assignment["assignment"] : meta_or_assignment
+      until_time = rolling_until_for(assignment)
+      !until_time.nil? && at <= until_time
+    rescue StandardError
+      false
+    end
+
     def due_for(workspace)
       due_for_meta(Reach::Workspace.metadata(workspace))
     rescue StandardError
@@ -76,8 +96,10 @@ module Reach
     def late?(workspace)
       return false if workspace.nil?
 
-      due = due_for(workspace)
-      !due.nil? && Reach::Pace.server_now >= due
+      meta = Reach::Workspace.metadata(workspace)
+      due = due_for_meta(meta)
+      now = Reach::Pace.server_now
+      !due.nil? && now >= due && !rolling?(meta, now)
     rescue StandardError
       false
     end
@@ -103,7 +125,9 @@ module Reach
     def info(workspace)
       meta = Reach::Workspace.metadata(workspace)
       due = due_for_meta(meta)
-      late = !due.nil? && Reach::Pace.server_now >= due
+      now = Reach::Pace.server_now
+      late = !due.nil? && now >= due && !rolling?(meta, now)
+      rolling_until = rolling_until_for(meta["assignment"])
       receipts = ingest_receipts(meta)
       on_record = on_record?(meta)
       {
@@ -111,6 +135,7 @@ module Reach
         "assignment" => meta["assignment"],
         "slice" => meta["slice"],
         "due" => due && due.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "rolling_until" => rolling_until && rolling_until.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "late_by_s" => late ? (Reach::Pace.server_now - due).to_i : 0,
         "how_late" => late ? how_late(Reach::Pace.server_now - due) : nil,
         "submitted_before_due" => receipts.any? { |receipt| receipt["late"] == false },
