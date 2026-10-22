@@ -1510,11 +1510,19 @@ module ReachUninstall
     step("checkpoint-mirror", "done", "#{done.join('; ').sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}.")
   end
 
-  def step_windows_path(ctx)
+  def step_windows_path(ctx, left)
     return step("windows-path", "skipped", "this step is only for Windows") unless windows?
 
     entries = ctx[:plan]["windows_path"]
     return step("windows-path", "skipped", "rEach was not in your program search path") if entries.empty?
+
+    raw = run_command(["powershell", "-NoProfile", "-Command", "[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames')"], 20)
+    return step("windows-path", "failed", "Could not read your program search path.") unless raw[:ok]
+
+    if raw[:out].to_s.include?("%")
+      left << { "what" => "rEach's entries in your program search path (#{entries.join('; ')})", "how" => "open the environment variables for your account in Windows settings and delete those entries; rEach did not rewrite the list because other entries use % variables that a rewrite would flatten" }
+      return step("windows-path", "left", "Your program search path uses % variables, so rEach did not rewrite it.")
+    end
 
     current = run_command(["powershell", "-NoProfile", "-Command", "[Environment]::GetEnvironmentVariable('Path','User')"], 20)
     return step("windows-path", "failed", "Could not read your program search path.") unless current[:ok]
@@ -1679,7 +1687,7 @@ module ReachUninstall
     steps["antigravity"] = guarded("antigravity") { step_antigravity(ctx, left) }
     steps["hermes"] = guarded("hermes") { step_hermes(ctx, left) }
     steps["checkpoint-mirror"] = guarded("checkpoint-mirror") { step_mirror(ctx, left) }
-    steps["windows-path"] = guarded("windows-path") { step_windows_path(ctx) }
+    steps["windows-path"] = guarded("windows-path") { step_windows_path(ctx, left) }
     steps["homes"] = if steps["receipts-copy"]["status"] == "failed"
                        step("homes", "skipped", "receipts copy failed, nothing was deleted")
                      else
