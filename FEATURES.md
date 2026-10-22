@@ -412,7 +412,7 @@ example by a label the practice README does not list (`I run the "records.a2s1" 
 course server's run, with the practice labels in the next step, and `reach check` flags it as CK-PANEL-EXAMPLE; checked on 2026-10-22 against the
 practice README of records.a2s1 and the failing rows of a student's recorded course-server run, which gave QF-REMOTE-FAIL and an empty next step on
 0.60.0 and QF-PANEL-EXAMPLE with both labels on 0.60.1; the local-run branch was read and syntax-checked but not driven, because no panel kit
-run was available. Build ✅ Built (0.60.1) · Deploy 🔵 Built, not on stable · Blocker Human: operator promotion of rEach 0.60.1. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
+run was available. Build ✅ Built (0.60.1) · Deploy 🟢 Live on stable since v0.60.1 (published release, 2026-10-22) · Blocker -. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
 qualify whose local steps outlast the 25-second tool budget still reaches Teach; verified on 2026-10-03 in the slice-build
 smoke (run 20261002_215550, context.a4s2, on the same change over 0.20.5), where both qualifications reached the scratch
 Teach and finished, against none in the run before. Since 0.33.5 (`STD-KIT-CLEAN-ENV`) every launch of the kit Ruby unsets
@@ -2333,7 +2333,7 @@ Verification on 2026-10-22:
 
 ## Rolling cutoff for owed assignments — 0.60.0
 
-**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion of rEach 0.60.0 and Teach 0.107.0, then TEACH_MINIMUM_REACH_VERSION=0.60.0.**
+**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.60.1 (published release, 2026-10-22), with Teach 0.107.0 on stable. Blocker: Human — TEACH_MINIMUM_REACH_VERSION=0.60.1, so older installs update before they see the cutoff described as late work.**
 
 Teach 0.107.0 may add `rolling_until` to an entry of `status.late_assignments` (wire revision 2026-10-22a) when the instructor lets students who have not submitted an assignment submit it, not late, until a cutoff. Inside that window rEach treats the assignment as open work: no late notice at session start, on prompts or in reach status, no `late_work` hand, and no "marked late" wording in the submit ask. reach status and the greeting name the cutoff. Entries without `rolling_until` behave as before, and after the cutoff Teach drops the entry, so the work reads as late again.
 
