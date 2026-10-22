@@ -2313,7 +2313,7 @@ Fixes to the candidate passes (W-QUAL-PASSES-1) and the shell gate:
 - A scenarios candidate is judged on its local run only once the module is no longer the starting copy. The check now ignores rEach's own mark line and the README, so an untouched module counts as the starting copy again.
 - A local_pass hard zero names the failing scenarios, the step and the error.
 - The gate lets the agent create the candidate folders the packet names.
-- A read-only `sed` with a regex address is no longer taken for a path outside the slice.
+- A read-only `sed` with a regex address is no longer taken for a path outside the slice. A script with `r`, `w` or `e` is still checked as before, in every kind of space.
 
 Student-first audit: Agency and honesty — yes, the passes stop ruling out every candidate for a reason that has nothing to do with the student's work, and the agent can now see and explain why a candidate failed. Integrity — the vault, keys, files outside the slice and in-place edits stay refused.
 
@@ -2321,6 +2321,6 @@ Wiring: none. No new service, call, file or binding.
 
 Verification on 2026-10-22:
 - Starting copy: from a student's stamped module and the packaged Grokit stub, `code_is_starting_copy?` answered false on 0.59.1, which is the bug. On 0.59.2 it answers true, and false once the module is edited.
-- Gate: driving `Reach::Gate.shell` on a scratch slice, `mkdir .reach/passes/<point>/<n>` and regex-address `sed` reads are allowed. The point folder, folder 9, unknown points, `sed -i`, `sed -f` with a file outside, and vault reads are still refused.
+- Gate: driving `Reach::Gate.shell` on a scratch slice, `mkdir .reach/passes/<point>/<n>` and regex-address `sed` reads are allowed. The point folder, folder 9, unknown points, `sed -i`, `sed -f` with a file outside, scripts with `r` or `w` to an outside file (in a slice and in the extracurricular folder), and vault reads are still refused.
 - Diagnostics: a cucumber JSON report rendered through `Suite.report_rows` gives the scenario, step and error in the reason.
 - Not run: a full `reach passes score` with the kit's gems.

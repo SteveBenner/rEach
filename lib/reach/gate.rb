@@ -2113,9 +2113,10 @@ module Reach
       scripts = []
       given = false
       skip_next = nil
+      safe = ->(script) { script.split(/;|\n/).all? { |part| part =~ SAFE_SED_COMMAND } }
       args.each_with_index do |token, position|
         if skip_next
-          scripts << position if skip_next == :script
+          scripts << position if skip_next == :script && safe.call(token)
           skip_next = nil
           next
         end
@@ -2128,7 +2129,7 @@ module Reach
         elsif token.start_with?("--expression=", "--file=")
           given = true
         elsif !token.start_with?("-") && !given
-          scripts << position
+          scripts << position if safe.call(token)
           given = true
         end
       end
