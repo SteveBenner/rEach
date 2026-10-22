@@ -24,6 +24,7 @@ module Reach
     TRUSTED = "trusted".freeze
     TRUST_SCOPE = "hook-trust-1".freeze
     BACKUP_INFIX = ".reach-backup-".freeze
+    UNINSTALL_BACKUP_INFIX = ".reach-uninstall-backup-".freeze
 
     class Unsafe < StandardError; end
 
@@ -322,6 +323,20 @@ module Reach
         false
       end
 
+      def under_path?(path, base)
+        a = File.expand_path(path.to_s)
+        b = File.expand_path(base.to_s)
+        fold = Reach::CodexSetup.windows? || Reach::CodexSetup.macos?
+        a = a.tr("\\", "/") if Reach::CodexSetup.windows?
+        b = b.tr("\\", "/") if Reach::CodexSetup.windows?
+        a = a.downcase if fold
+        b = b.downcase if fold
+        b = b.chomp("/")
+        a == b || a.start_with?("#{b}/")
+      rescue ArgumentError
+        false
+      end
+
       def project_header?(path, workspace)
         path.length == 2 && path[0] == "projects" && same_path?(path[1], workspace)
       end
@@ -603,10 +618,12 @@ module Reach
         line[0...key[:value_start]] + value + line[key[:value_end]..-1].to_s
       end
 
-      def render(doc, replace, after, tail, nl)
+      def render(doc, replace, after, tail, nl, drop = nil)
         out = []
         after[-1].each { |line| out << [line, nl] } if after.key?(-1)
         doc[:lines].each_with_index do |line, index|
+          next if drop && drop[index]
+
           out << [replace.key?(index) ? replace[index] : line[:text], line[:term]]
           after[index].each { |added| out << [added, nl] } if after.key?(index)
         end
@@ -620,6 +637,254 @@ module Reach
 
       def written_path(workspace)
         Reach::CodexSetup.windows? ? workspace.tr("/", "\\") : workspace
+      end
+
+      def array_spans(raw)
+        spans = []
+        cursor = skip_space(raw, 1)
+        loop do
+          break if raw[cursor] == "]" && cursor == raw.length - 1
+
+          start = cursor
+          case raw[cursor]
+          when "\""
+            text, cursor = parse_basic(raw, cursor)
+          when "'"
+            closing = raw.index("'", cursor + 1)
+            raise Unsafe, FORM unless closing
+
+            text = raw[(cursor + 1)...closing]
+            cursor = closing + 1
+          else
+            raise Unsafe, FORM
+          end
+          spans << { text: text, start: start, finish: cursor }
+          cursor = skip_space(raw, cursor)
+          if raw[cursor] == ","
+            cursor = skip_space(raw, cursor + 1)
+          elsif raw[cursor] != "]"
+            raise Unsafe, FORM
+          end
+        end
+        spans
+      end
+
+      def remove_array_items(raw, spans, dropped)
+        kept = (0...spans.length).reject { |index| dropped.include?(index) }
+        return "[]" if kept.empty?
+
+        head = raw[0...spans.first[:start]]
+        tail = raw[spans.last[:finish]..-1]
+        body = kept.each_with_index.map do |index, position|
+          span = spans[index]
+          item = raw[span[:start]...span[:finish]]
+          separator = position < kept.length - 1 ? raw[span[:finish]...spans[index + 1][:start]] : tail
+          item + separator
+        end
+        head + body.join
+      end
+
+      def key_tuple(doc, key)
+        [key[:table] ? key[:table][:path] : nil, key[:path], value_text(doc, key)]
+      end
+
+      def baseline_facts(bytes, workspace)
+        return nil if bytes.nil?
+
+        text = decode(bytes)
+        text = text[1..-1] if text.start_with?("﻿")
+        doc = scan(text)
+        found = locate(doc, workspace)
+        held = facts(text, workspace)
+        projects = doc[:headers].select { |header| header[:path].length == 2 && header[:path][0] == "projects" }.map { |header| header[:path][1] }
+        { "sandbox_mode" => held["sandbox_mode"], "network_access" => held["network_access"], "project" => !found[:project].nil?, "projects" => projects }
+      rescue Unsafe
+        nil
+      end
+
+      def table_empty?(doc, header, drop)
+        (header[:index] + 1...table_end(doc, header)).none? do |index|
+          [:key, :cont, :comment].include?(doc[:kinds][index]) && !drop[index]
+        end
+      end
+
+      def tuple_counts(tuples)
+        tuples.each_with_object(Hash.new(0)) { |tuple, counts| counts[tuple] += 1 }
+      end
+
+      def uninstall_edit(bytes, workspace, roots, trust_ids, trust_prefixes, baseline_bytes, label)
+        text = decode(bytes)
+        bom = text.start_with?("﻿") ? "﻿" : ""
+        body = text[bom.length..-1]
+        nl = newline_of(body)
+        doc = scan(body)
+        trust_guard(doc)
+        found = locate(doc, workspace)
+        base = baseline_facts(baseline_bytes, workspace)
+        drop = {}
+        replace = {}
+        blocks = []
+        changes = []
+        left = []
+        gone = []
+        came = []
+        gone_headers = []
+
+        remove_block = lambda do |header, upto|
+          (header[:index]..upto).each { |index| drop[index] = true }
+          blocks << { first: header[:index], last: upto }
+          gone_headers << header[:path]
+        end
+        close_table = lambda do |header|
+          dropped = (header[:index] + 1...table_end(doc, header)).select { |index| drop[index] }
+          next if dropped.empty? || !table_empty?(doc, header, drop)
+
+          remove_block.call(header, dropped.max || header[:index])
+        end
+
+        if (key = found[:sandbox_mode])
+          current = read_string(doc, key)
+          if [WORKSPACE_WRITE, FULL_ACCESS].include?(current)
+            held = base && base["sandbox_mode"]
+            if base.nil?
+              left << "In #{label} the line sandbox_mode = #{quote(current)} may have been put there by rEach and rEach cannot tell what it was before, so set it back or remove it yourself"
+            elsif held != current
+              gone << key_tuple(doc, key)
+              if held.nil?
+                drop[key[:index]] = true
+                changes << "In #{label} remove the line sandbox_mode = #{quote(current)}"
+              else
+                replace[key[:index]] = splice(doc, key, quote(held))
+                came << [nil, key[:path], quote(held)]
+                changes << "In #{label} set sandbox_mode back to #{quote(held)}"
+              end
+            end
+          end
+        end
+
+        if (key = found[:network_access])
+          if read_bool(doc, key) == true
+            held = base && base["network_access"]
+            if base.nil?
+              left << "In #{label} the line network_access = true under [sandbox_workspace_write] may have been put there by rEach and rEach cannot tell what it was before, so set it back or remove it yourself"
+            elsif held != true
+              gone << key_tuple(doc, key)
+              if held.nil?
+                drop[key[:index]] = true
+                changes << "In #{label} remove the line network_access = true under [sandbox_workspace_write]"
+              else
+                replace[key[:index]] = splice(doc, key, "false")
+                came << [found[:sww][:path], key[:path], "false"]
+                changes << "In #{label} set network_access back to false under [sandbox_workspace_write]"
+              end
+            end
+          end
+        end
+
+        if (key = found[:writable_roots])
+          raw = value_text(doc, key)
+          spans = array_spans(raw)
+          dropped = (0...spans.length).select { |index| roots.any? { |root| same_path?(spans[index][:text], root) } }
+          unless dropped.empty?
+            gone << key_tuple(doc, key)
+            dropped.each { |index| changes << "In #{label} remove #{quote(spans[index][:text])} from writable_roots under [sandbox_workspace_write]" }
+            if dropped.length == spans.length
+              drop[key[:index]] = true
+            else
+              rewritten = remove_array_items(raw, spans, dropped)
+              replace[key[:index]] = splice(doc, key, rewritten)
+              came << [found[:sww][:path], key[:path], rewritten]
+            end
+          end
+        end
+
+        project_headers = doc[:headers].select { |header| header[:path].length == 2 && header[:path][0] == "projects" && !header[:array] && under_path?(header[:path][1], workspace) }
+        project_headers.each do |header|
+          keys = doc[:keys].select { |held| held[:table].equal?(header) && held[:path] == ["trust_level"] }
+          raise Unsafe, TWICE if keys.length > 1
+
+          key = keys.first
+          next unless key && read_string(doc, key) == TRUSTED
+
+          folder = header[:path][1]
+          if base.nil?
+            left << "In #{label} the line trust_level = #{quote(TRUSTED)} under [projects.#{quote(folder)}] may have been put there by rEach and rEach cannot tell whether it was there before, so remove it yourself if you do not want it"
+          elsif base["projects"].none? { |other| same_path?(other, folder) }
+            gone << key_tuple(doc, key)
+            drop[key[:index]] = true
+            changes << "In #{label} remove the line trust_level = #{quote(TRUSTED)} under [projects.#{quote(folder)}]"
+          end
+        end
+
+        close_table.call(found[:sww]) if found[:sww]
+        project_headers.each { |header| close_table.call(header) }
+
+        trust_headers(doc).each do |header|
+          id = header[:path][2]
+          owned = trust_ids.any? { |other| Reach::CodexHookTrust.same_key?(other, id) } ||
+                  trust_prefixes.any? { |prefix| Reach::CodexHookTrust.fold_key(id).start_with?(Reach::CodexHookTrust.fold_key(prefix)) }
+          next unless owned
+
+          upto = (header[:index]...table_end(doc, header)).select { |index| [:header, :key, :cont].include?(doc[:kinds][index]) }.max
+          doc[:keys].each { |held| gone << key_tuple(doc, held) if held[:table].equal?(header) }
+          remove_block.call(header, upto)
+          changes << "In #{label} remove the table [hooks.state.#{quote(id)}]"
+        end
+
+        return { bytes: text, changes: changes, left: left } if replace.empty? && drop.empty?
+
+        base_text = baseline_bytes ? decode(baseline_bytes) : nil
+        total = doc[:lines].length
+        tail_cut = false
+        blocks.each do |block|
+          at_end = ((block[:last] + 1)...total).all? { |index| doc[:kinds][index] == :blank || drop[index] }
+          if at_end
+            tail_cut = true
+            next
+          end
+
+          index = block[:first] - 1
+          while index >= 0 && doc[:kinds][index] == :blank && !drop[index]
+            drop[index] = true
+            index -= 1
+          end
+        end
+
+        if tail_cut
+          allowed = 0
+          if base_text
+            allowed = split_lines(base_text).reverse.take_while { |line| line[:text].strip.empty? }.length
+            allowed = 0 if split_lines(base_text).all? { |line| line[:text].strip.empty? }
+          end
+          kept = (0...total).reject { |index| drop[index] }
+          trailing = kept.reverse.take_while { |index| doc[:kinds][index] == :blank }
+          trailing.drop(allowed).each { |index| drop[index] = true }
+        end
+
+        result = render(doc, replace, Hash.new { |hash, key| hash[key] = [] }, [], nl, drop)
+        if tail_cut && base_text && !base_text.empty? && !base_text.end_with?("\n") && result.end_with?(nl)
+          result = result[0...-nl.length]
+        end
+
+        check = scan(result)
+        trust_guard(check)
+        expected = tuple_counts(doc[:keys].map { |key| key_tuple(doc, key) })
+        gone.each { |tuple| expected[tuple] -= 1 }
+        came.each { |tuple| expected[tuple] += 1 }
+        actual = tuple_counts(check[:keys].map { |key| key_tuple(check, key) })
+        expected.delete_if { |_tuple, count| count.zero? }
+        raise Unsafe, "the result did not read back as it was" unless expected == actual
+
+        paths = doc[:headers].map { |header| header[:path] }
+        gone_headers.each do |path|
+          position = paths.index(path)
+          paths.delete_at(position) if position
+        end
+        raise Unsafe, "the result did not read back as it was" unless paths == check[:headers].map { |header| header[:path] }
+        raise Unsafe, "the result did not read back as it was" unless result.empty? || !result.include?("\n") || newline_of(result) == nl
+
+        facts(result, workspace)
+        { bytes: bom + result, changes: changes, left: left }
       end
     end
 
@@ -1074,9 +1339,9 @@ module Reach
       answer("unsafe", false, "M-CODEX-SETUP-UNSAFE", reason: "the settings file could not be written")
     end
 
-    def write_backup(bytes, file_mode)
+    def write_backup(bytes, file_mode, infix = BACKUP_INFIX)
       stamp = Time.now.utc.strftime("%Y%m%dT%H%M%SZ")
-      base = "#{config_path}#{BACKUP_INFIX}#{stamp}"
+      base = "#{config_path}#{infix}#{stamp}"
       candidate = base
       count = 1
       loop do
@@ -1224,6 +1489,112 @@ module Reach
       emit("withdrawn", "mode" => read_state["mode"], "via" => "terminal")
       backup = newest_backup
       backup ? answer("withdrawn", true, "M-CODEX-SETUP-OFF-DONE", backup: backup) : answer("withdrawn", true, "M-CODEX-SETUP-OFF-DONE-NEW")
+    end
+
+    def oldest_backup
+      dir = File.dirname(config_path)
+      prefix = "#{File.basename(config_path)}#{BACKUP_INFIX}"
+      found = Dir.children(dir).select { |name| name.start_with?(prefix) }.map { |name| File.join(dir, name) }.select { |path| File.file?(path) }
+      found.min_by { |path| [File.mtime(path), path] }
+    rescue SystemCallError
+      nil
+    end
+
+    def owned_roots
+      [Reach::Paths.root, Reach::Paths.workspace_base, Reach::Paths.legacy_home].map { |path| File.expand_path(path) }
+    end
+
+    def owned_trust
+      ids = plugin_hook_plan.map(&:first)
+      prefixes = ["#{CodexHookTrust::PLUGIN_ID}:#{CodexHookTrust::PLUGIN_HOOKS}:"]
+      course_spaces.each do |path, _kind|
+        ids.concat(CodexHookTrust.keys(path, managed_content(path)).map(&:first)) if File.file?(path) && managed_content(path)
+        prefixes << "#{CodexHookTrust.display_path(path)}:" unless File.file?(path)
+      end
+      [ids, prefixes]
+    end
+
+    def unconfigure_plan(before)
+      raise Unsafe, "the settings file is a link" if File.symlink?(config_path)
+
+      ids, prefixes = owned_trust
+      backup = oldest_backup
+      baseline = backup ? File.binread(backup) : nil
+      Editor.uninstall_edit(before, workspace, owned_roots, ids, prefixes, baseline, config_path)
+    end
+
+    def unconfigure_manual
+      path = config_path
+      [
+        "In #{path} remove #{owned_roots.map { |root| Editor.quote(root) }.join(', ')} from writable_roots under [sandbox_workspace_write]",
+        "In #{path} check the lines sandbox_mode and network_access, which rEach may have set, and put them back to what you had before",
+        "In #{path} remove the [hooks.state.\"...\"] tables whose names start with #{CodexHookTrust::PLUGIN_ID}: or point at .codex/hooks.json files in your rEach work folders",
+        "In #{path} remove the trust_level line under [projects.#{Editor.quote(Editor.written_path(workspace))}]"
+      ]
+    end
+
+    def unconfigure_answer(state, sentence, left = [])
+      { "state" => state, "text" => sentence, "left" => left }
+    end
+
+    def unconfigure_locked
+      before = current_bytes
+      plan = unconfigure_plan(before)
+      if plan[:bytes].b == before.b
+        return unconfigure_answer("nothing", "Codex's settings hold nothing that rEach put there.") if plan[:left].empty?
+
+        return unconfigure_answer("left", "Codex's settings were left as they are because rEach cannot tell what to put back.", plan[:left])
+      end
+
+      cli = codex_cli
+      baseline = cli ? codex_accepts?(cli) : nil
+      old_mode = File.stat(config_path).mode & 0o777
+      backup = write_backup(before, old_mode, UNINSTALL_BACKUP_INFIX)
+      write_atomic(plan[:bytes], old_mode)
+      if cli && baseline == true && codex_accepts?(cli) == false
+        write_atomic(before, old_mode)
+        emit("refused", "via" => "uninstall", "reason" => "codex rejected the file")
+        return unconfigure_answer("unsafe", "Codex rejected the cleaned settings file, so it was put back as it was.", unconfigure_manual)
+      end
+
+      emit("unconfigured", "via" => "uninstall", "changes" => plan[:changes].length, "backup" => File.basename(backup))
+      if plan[:left].empty?
+        unconfigure_answer("done", "Codex's settings were cleaned, a copy of the old file is #{backup}.")
+      else
+        unconfigure_answer("left", "Codex's settings were cleaned except for what rEach cannot tell, a copy of the old file is #{backup}.", plan[:left])
+      end
+    rescue Unsafe => e
+      emit("refused", "via" => "uninstall", "reason" => e.message)
+      unconfigure_answer("unsafe", "Codex's settings were not changed because #{e.message}.", unconfigure_manual)
+    rescue SystemCallError => e
+      emit("refused", "via" => "uninstall", "reason" => "the settings file could not be written", "errno" => e.class.name)
+      unconfigure_answer("unsafe", "Codex's settings were not changed because the settings file could not be written.", unconfigure_manual)
+    end
+
+    def unconfigure!
+      return unconfigure_answer("nothing", "Codex has no settings file, so there is nothing to clean.") unless File.file?(config_path) || File.symlink?(config_path)
+
+      if sandboxed?
+        listed = begin
+          plan = unconfigure_plan(current_bytes)
+          plan[:changes] + plan[:left]
+        rescue StandardError
+          unconfigure_manual
+        end
+        return unconfigure_answer("sandboxed", "Codex's settings could not be changed from inside the sandbox.", listed)
+      end
+
+      outcome = locked { unconfigure_locked }
+      return unconfigure_answer("left", "Codex's settings were busy and were not changed.", unconfigure_manual) if outcome == :busy
+
+      outcome
+    rescue StandardError => e
+      begin
+        Reach::Debug.fault(e, "codex_setup:unconfigure")
+      rescue StandardError
+        nil
+      end
+      unconfigure_answer("unsafe", "Codex's settings were not changed because of an unexpected error.", unconfigure_manual)
     end
 
     def heal!

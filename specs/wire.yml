@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-22c
+revision: 2026-10-22d
 status: normative
 security_validation:
   id: W-VAL-1
@@ -1500,6 +1500,36 @@ routes:
       reply: "{text, decided_by, decided_at} or null"
       module_record: "the new signed module record (W-MOD-1) when approved, else null"
     reach_use: Polled on reach sync, and by the session hook, no more often than every 60 seconds and only while the request is pending (W-SAFE-12).
+  - id: W-API-INSTALL-WITHDRAW
+    method: POST
+    path: /api/v1/installs/withdraw
+    auth: install
+    since: 2026-10-22d
+    request_headers:
+      Idempotency-Key: Required, as for submissions.
+    request:
+      consent: W-CONSENT-1 record of the student's yes to the uninstall question
+      client_created_at: W-CONV-3 timestamp
+    response_200: {install_id: string, state: withdrawn, withdrawn_at: W-CONV-3 timestamp}
+    notes: >-
+      Sent by reach uninstall, once, after the student's yes and before Reach removes its keys. It retires the calling
+      install and nothing else: Teach sets revoked_at and revoked_reason withdrawn on that install (W-ENR-8), records
+      install.withdrawn in the audit log and in the student's enrollment history, and leaves the student, the roster
+      entry, submissions, receipts, grades, hands and transcripts exactly as they were. A student who enrolls again
+      afterwards is enrolled as any student with no active install is, with no device move to approve.
+      consent.kind is install_withdraw and consent.subject_digest is the W-CONV-4 digest of
+      canonical_json({"install_id": the calling install id}); anything else is 400 invalid_request. Teach checks the
+      install's state before the signature (W-AUTH-6), so a repeat after success answers 403 revoked.
+      TEACH_INSTALL_WITHDRAW_DISABLE=1 answers 403 forbidden. Reach sends the request once through the shared client
+      with a short deadline and never queues it. 403 revoked, 403 forbidden, 404 not_found (a Teach that predates the
+      route), 429, an unreachable Teach, REACH_OFFLINE=1 and --no-teach all mean Teach was not told by this call: Reach
+      removes the local install anyway and says so to the student, who can ask the instructor to retire the install.
+    errors:
+      400 invalid_request: consent missing, of another kind, or bound to another subject
+      403 forbidden: withdrawals are switched off
+      403 revoked: the install had already ended (W-ENR-8); nothing changes
+      404 not_found: a Teach that predates this route
+      429 rate_limited: over 5 requests per day per install
   - id: W-API-LIVE
     method: POST
     path: /api/v1/live
@@ -2674,7 +2704,7 @@ alignment:
       the student's prompt), asked_at, answered_at}; since 2026-10-03b seq is null and digest is the W-CONV-4 digest
       of the prompt, read as it arrives and not kept. Commands accept only a yes whose subject_digest matches their
       own subject and whose answered_at is at most 30 minutes old, and use it once.
-    kinds: [module_lock, transfer_request, live_session]
+    kinds: [module_lock, transfer_request, live_session, install_withdraw]
     evidence: >-
       Since Reach 0.47.3 (security audit F04) an answer counts only when the question is proven shown: it appears in
       the harness transcript the hook names (Claude Code, Codex), or in an assistant reply Reach spooled for the same
@@ -3099,7 +3129,10 @@ enrollment:
       the newer install for replaced and absent otherwise; an install revoked before this revision carries no
       details. Reach keeps the reason and the replacement with its install record and shows M-GATE-REPLACED for
       replaced, naming the harness and the day of the newer enrollment and telling the student to work in that copy
-      or to enroll again on this computer, and M-GATE-REVOKED for every other reason or no details.
+      or to enroll again on this computer, and M-GATE-REVOKED for every other reason or no details. Since revision
+      2026-10-22d the reasons also include withdrawn, set when the student uninstalls Reach (W-API-INSTALL-WITHDRAW);
+      a withdrawn install is revoked like any other and never counts as an active install, so a later enrollment
+      needs no device move.
   W-ENR-9:
     name: roster and limits on Teach
     rule: >-

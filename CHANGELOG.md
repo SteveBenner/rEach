@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.63.0] - 2026-10-22
+
+Uninstall. Wire revision 2026-10-22d (Teach 0.108.0).
+
+### Added
+
+- `reach uninstall` removes rEach from the computer after the student's yes, and never touches their work. It deletes `~/reach-work/.reach-home` and the legacy `~/.reach`, the background update job, the Claude Code, Codex, Antigravity and Hermes registrations, and the files rEach generated inside the work folders (`.claude/settings.json`, `.mcp.json`, `.codex/config.toml` and `hooks.json`, the write-protected `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`, `.reach-space.json`). It makes the files it had locked read-only editable again. A generated file the student changed is edited or left and listed, never deleted. Everything else in `reach-work` stays, including `deliverables`, `extracurricular`, the older course folders, and the `.reach` folder inside each assignment slice, which holds the student's plan, receipts and kept copies. `STD-UNINSTALL`.
+- The student's yes is a consent record (`install_withdraw`, `M-UNINSTALL-ASK`), captured by the prompt hook from a chat inside a course folder. `--yes` is refused while the install is enrolled and not locked; on a terminal the verb asks for a typed yes itself.
+- Receipts and grade records are copied to `~/Downloads/rEach-receipts-<date>` first; no key, vault, transcript or `install.yml`. The homes are not deleted when that copy fails. The checkpoint mirror and the per-computer sidecar stay unless `--purge-checkpoint-mirror` is given. The Hermes profile stays unless `--delete-hermes-profile` is given. `--no-receipts-copy`, `--keep-workspace-files` and `--no-teach` are the other choices.
+- `Reach::CodexSetup.unconfigure!` puts Codex's `config.toml` back: rEach's `writable_roots`, hook trust entries and project trust level go, and `sandbox_mode` and `network_access` return to the value rEach's own backup holds, only while they still hold what rEach wrote. It writes `config.toml.reach-uninstall-backup-<time>` first and leaves anything it cannot judge, listed for the student.
+- `scripts/reach-uninstall` is a stdlib-only Ruby script that does the removal on its own (`plan` changes nothing, `apply` needs `--yes` or a typed yes). It refuses any home folder that is not exactly named `.reach` or `.reach-home`, does not look like rEach, is a symlink, or holds or lies inside `deliverables` or `extracurricular`. `UNINSTALL.md` has the commands for the agent, and the `reach-uninstall` skill points to it. `REACH_UNINSTALL_KILL_SWITCH=1` stops both.
+- With the student's recorded yes, rEach sends one signed `POST /api/v1/installs/withdraw` (W-API-INSTALL-WITHDRAW, consent kind `install_withdraw`) through the shared client: 5 s connect, 10 s read, one retry, a 25 s deadline. Every failure is soft and the closing text says Teach was not told and why. `REACH_OFFLINE=1`, `--no-teach` and `REACH_UNINSTALL_TELL_TEACH=0` skip it.
+- The shell gate lets `reach uninstall` through on a locked or relocating install when it is the only command on the line.
+
+### Not verified
+
+- The macOS LaunchAgent, Windows Task Scheduler, user PATH and deferred-removal paths, the Antigravity and Hermes steps, and the `claude` and `codex` uninstall commands ran only against stubs on Linux or were read as text.
+
 ## [0.62.1] - 2026-10-22
 
 ### Fixed

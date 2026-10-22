@@ -54,11 +54,11 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.62.1 |
+| **Registry version** | 0.63.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 106 catalogued |
+| **Feature count** | 107 catalogued |
 
 ## How to read this registry
 
@@ -2423,3 +2423,34 @@ Student-first audit:
 6. Friction: improves. Where hooks work, the stub is about 6 KB instead of 27 KB.
 7. Failure: safe. An old package, or a failed body fetch, falls back to the rows.
 8. Recovery: yes. `harness.rules_file` switches the form, and the files are rewritten at the next launch.
+
+## Uninstall — 0.63.0
+
+A student, or the agent working for them in Claude Code, Codex, Antigravity or Hermes, removes rEach from the computer with one command, `reach uninstall` (`UNINSTALL.md`, skill `reach-uninstall`). It deletes rEach's own folders (`~/reach-work/.reach-home` and the legacy `~/.reach`), the background update job, rEach's entries in the four apps, rEach's edits to Codex's settings file, and the files rEach generated inside the work folders (hook, MCP and rules files), and it makes the files rEach locked read-only editable again. It never touches the student's work: `deliverables`, `extracurricular`, older course folders, anything the student wrote, and the `.reach` folder inside each assignment slice (the plan, receipts and kept copies) stay as they are. A generated file the student changed is edited or left and listed, never deleted.
+
+The student confirms with rEach's own question, which names what goes, what stays, the unsent items that will be lost and whether the course server will be told. Their typed yes is recorded like every other rEach consent. A copy of the receipts and grade records is saved to `~/Downloads/rEach-receipts-<date>` first, and nothing is deleted if that copy fails. The extra copies of work files that rEach keeps outside `reach-work` stay unless the student asks for them to go. With the recorded yes, rEach also tells the course server that this copy is gone (`W-API-INSTALL-WITHDRAW`, wire revision 2026-10-22d), once, and finishes the removal whatever the answer. A standalone script, `scripts/reach-uninstall`, does the same when rEach will not start, and `plan` shows what it would remove without changing anything.
+
+**Build: ✅ Implemented on branch uninstall (0.63.0, with Teach 0.108.0 on its own branch); not merged, not promoted. Deploy: 🔵 Pending. Blocker: Human — Teach 0.108.0 must be on its test and then live service before the course server accepts the withdrawal (until then rEach says it could not tell the course server and removes itself anyway), then `polispec promote reach --to test` and the operator's `--to stable`.**
+
+Verified on 2026-10-22 on Linux, only in scratch homes, with stub `claude`, `codex`, `agy`, `hermes` and `systemctl`, and never against the real install:
+- Plan changes nothing on disk. Apply without a yes exits 3 and removes nothing. A second apply reports that rEach is not installed.
+- With a scratch course server running the real Teach code over loopback HTTP: the first run prints the question, the recorded yes makes the second run send one signed request, Teach answers 200 and marks that install withdrawn, and keeps the student and roster rows. The home folder is fully gone afterwards. Work files are byte-identical (sha256) apart from the generated `.mcp.json`, the slice's `.reach` folder is untouched, and a locked file and its folder are writable again.
+- Refusals: a home path that is the work folder, the user folder, a folder named `.reach` holding unrelated files, or one that holds `deliverables`; a symlink home is unlinked and its target untouched; the kill switch exits 2.
+- A receipts-copy failure leaves both homes in place and exits 1. A rEach-generated file the student changed is edited or left and listed.
+- A course server answer of revoked, forbidden, not found, rate limited or server error, a closed port and offline each finish the uninstall and say the server was not told, with at most one retry.
+- Codex settings: restored byte for byte from the baseline in LF and CRLF-with-BOM files, student changes kept, a form the scanner rejects is left untouched and listed.
+- The `claude` and `codex` removal commands match those programs' own help output. `rplugin check` and `tools/policy.rb check` report 0 findings.
+- Not run: Windows (registry, task scheduler, user PATH, deferred removal), macOS (LaunchAgent), real Antigravity or Hermes (`hermes profile delete` is unverified), a real Codex or Claude plugin removal, and a live course server. The Windows user PATH write may store an expandable value as a plain one. The Hermes configuration is rewritten without its comments, with a backup beside it.
+
+Wiring: one signed request to the course server through the shared client (token bucket, breaker, timeouts, one jittered retry, `REACH_OFFLINE`), skipped by `--no-teach` and `REACH_UNINSTALL_TELL_TEACH=0`; no other port, library or rStack path. `REACH_UNINSTALL_KILL_SWITCH=1` stops the verb and the script.
+
+Student-first audit:
+
+1. Learning: n/a. Nothing in the course path changes, and the student's plan, receipts and files stay.
+2. Agency and honesty: yes. The question names what goes and what stays in plain words, only the student's own typed yes counts, and `--yes` is refused while enrolled.
+3. Wellbeing and safety: yes. No pressure or alarm is added; the closing text says what to do next.
+4. Privacy and dignity: yes. The receipts copy holds no key, vault or transcript, and the server is told only that this install is gone.
+5. Fairness and access: yes. The same question and result on every app and computer; Windows and macOS are unverified here and say so.
+6. Friction: yes. One command and one yes; the receipts copy and the server notice need no extra step.
+7. Failure: safe. Nothing is deleted if the receipts copy fails, every refusal is listed, and a server that cannot be reached never blocks the removal. The one loss is unsent items, named in the question.
+8. Recovery: yes. The student installs rEach again and enrolls again with no instructor step; their work, plan and receipts are still there and the kept extra copies let a later install find them.

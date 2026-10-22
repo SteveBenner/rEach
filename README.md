@@ -9,7 +9,8 @@ The agent drives this through `reach validate` or `reach_validate`; the student 
 </p>
 
 > **AI agents:** read [`AGENTS.md`](AGENTS.md) first. Asked to install rEach from
-> this repository's link? Follow [`INSTALL.md`](INSTALL.md).
+> this repository's link? Follow [`INSTALL.md`](INSTALL.md). Asked to remove rEach?
+> Follow [`UNINSTALL.md`](UNINSTALL.md).
 
 The student's side of the course software: a harness plugin that installs into
 Claude Code, Claude Cowork, Codex, Antigravity or Hermes and turns the student's own AI
@@ -167,6 +168,18 @@ agent walk the student through `reach enroll` in a terminal window instead (`STD
 
 A student who later changes AI app on the same computer runs `reach harness move --to <app>`, or asks rEach in a chat,
 and stays enrolled; rEach stays in the old app too (`STD-HARNESS-MOVE`).
+
+### Uninstall
+
+Ask your AI agent to remove rEach, or run `reach uninstall` yourself in a terminal. rEach lists what it will remove and what
+stays, and removes nothing until you say yes. It deletes `~/reach-work/.reach-home` and the older `~/.reach`, turns off the
+background course check, takes itself out of Claude Code, Codex, Antigravity and Hermes, removes the settings files it added
+inside your work folders (and makes the files it had locked editable again), and tells your course server that this copy of
+rEach is gone. Your work is never touched: `deliverables`, `extracurricular` and everything else in `reach-work` stay as they
+are, a copy of your receipts and grade records is saved to `~/Downloads/rEach-receipts-<date>` first, and the extra copies
+of your work files that rEach keeps outside `reach-work` stay unless you ask for them to go (`--purge-checkpoint-mirror`).
+When `reach` will not start, [`UNINSTALL.md`](UNINSTALL.md) has a standalone script that does the same without telling the
+course server. `STD-UNINSTALL` in `specs/app.yml` is the contract.
 
 ### Updates
 

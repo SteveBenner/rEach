@@ -225,11 +225,11 @@ module Reach
       @@breaker
     end
 
-    def self.for_install(install = Reach::Enroll.current, quick: false, bucket: nil, quiet: false)
+    def self.for_install(install = Reach::Enroll.current, quick: false, bucket: nil, quiet: false, connect_timeout: nil, read_timeout: nil, max_retries: nil)
       raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
       private_key = Reach::Crypto.load_private_key(File.read(Reach::Paths.install_key_file))
-      new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick, bucket: bucket, quiet: quiet)
+      new(base_url: install.fetch("teach_url"), install_id: install["install_id"], install_private_key: private_key, quick: quick, bucket: bucket, quiet: quiet, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries)
     end
 
     def self.anonymous(base_url, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, link: true)

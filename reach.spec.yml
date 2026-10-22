@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.62.1
+version: 0.63.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -422,6 +422,19 @@ library:
     role: Detects Claude Code and Codex, installs hooks and configuration, and launches them
   - name: Reach::HarnessMove
     role: Moves rEach into another AI app on the same computer after the student's yes, keeping the enrollment (STD-HARNESS-MOVE); since 0.44.0
+  - name: Reach::Uninstall
+    role: >-
+      The reach uninstall verb (STD-UNINSTALL), since 0.63.0: previews what would be removed, takes the student's yes through
+      Reach::Consent kind install_withdraw (or a terminal prompt, or --yes where no consent can be captured), withdraws the
+      install on Teach once and softly (W-API-INSTALL-WITHDRAW), has Reach::CodexSetup.unconfigure! undo rEach's edits to
+      Codex's config.toml, and hands over to scripts/reach-uninstall, which it loads and runs from a temporary copy so it can
+      delete the plugin it came from
+  - name: ReachUninstall
+    role: >-
+      scripts/reach-uninstall, since 0.63.0: a stdlib-only Ruby script, not part of the plugin's library, that plans and
+      applies the removal on its own (the job, the workspace files and locks, the harness registrations, a receipts copy to
+      Downloads, the Windows PATH entry, the home folders). It is also what Reach::Uninstall loads, and what UNINSTALL.md
+      downloads when rEach will not start
   - name: Reach::Status
     role: The status summary
   - name: Reach::Corpus
@@ -1073,7 +1086,7 @@ course_alignment:
     - The prompt hook signs the student in from a harness session in a course folder when the install has no live sign-in (W-ID-1). One sign-in, in a chat or in a terminal (reach login, reach login password, reach login reset), covers every harness session in every harness on the install, new or already open and across restarts, for max_hours (12) from the moment it is made. It is kept in ~/.reach/state/login/signin.json, bound to the enrolled student and install, so a re-enrollment, another student or a test student (an instructor persona has its own Reach home) starts signed out. A session waiting at any sign-in step when the sign-in is made is confirmed with it. A denied session stays denied. A denial, a sign-in lockout (too many wrong tries, or the course server's limit on password checks) and reach login out each end the sign-in for every session on the install, open or new, so each asks again on its next prompt.
     - It asks for the student ID (M-LOGIN-ASK), then "Am I speaking with <name>?" (M-LOGIN-CONFIRM), and waits for a yes. It blocks every step's prompt, so the agent never sees the ID or the answer.
     - Three wrong IDs in 15 minutes lock the session for 15 minutes, report login_failed and end the install's live sign-in (M-LOGIN-LOCKED-SIGNED-OUT when one was live); a no reports identity_denied and ends course work for the session.
-    - Until the session is signed in, the write, shell and read gates refuse everything with M-LOGIN-NEEDED, except reach support. Submit, qualify, part record, modules choose and transfer request need a sign-in within max_hours (12).
+    - Until the session is signed in, the write, shell and read gates refuse everything with M-LOGIN-NEEDED, except reach support and, since 0.63.0, a shell command that is only reach uninstall with its own options (Gate.uninstall_command?, so a locked or signed-out install can still be removed). Submit, qualify, part record, modules choose and transfer request need a sign-in within max_hours (12).
     - Since 0.32.1 the first sign-in after the update asks Teach whether a password reset is allowed (no
       ~/.reach/state/login/renewed.json yet). When it is, the yes is followed by M-LOGIN-RENEW, which apologizes and
       asks for a new password twice; Reach sets it with POST /api/v1/password/reset and signs the student in. When it
@@ -1386,6 +1399,16 @@ cli:
       whether the background job is installed and where, the last and next check, the last sync, failures and
       unsupported_until; tick makes one check of W-API-REVISION and syncs only when something changed; install and
       uninstall manage the operating system job.
+  - name: uninstall
+    synopsis: reach uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--no-teach] [--yes] [--format text|json]
+    purpose: >-
+      Since 0.63.0 (STD-UNINSTALL), an unlocked command that also passes the shell gate when it is the only command on the
+      line. Without a yes it prints rEach's question (M-UNINSTALL-ASK) and exits 3; the student's typed yes is recorded by the
+      prompt hook as Reach::Consent kind install_withdraw, and the next run removes rEach. --yes is refused while the install is
+      enrolled and not locked (M-UNINSTALL-NEEDS-CONSENT) and accepted when it is not enrolled or is locked. On a terminal the
+      verb asks "Type yes to remove rEach:" itself, and then does not tell Teach (no consent record exists to send). Exit 0
+      removed or nothing to remove, 1 a step failed, 2 usage or REACH_UNINSTALL_KILL_SWITCH=1, 3 needs the student's yes, 4
+      declined.
   - name: setup
     synopsis: reach setup [--harness auto|claude-code|codex|antigravity] [--source <link or path>]
     purpose: >-
@@ -1921,8 +1944,13 @@ installer:
     reach doctor offers to download a pinned Chromium into ~/.reach/chromium when no browser is found, verified
     by sha256.
   uninstall: >-
-    The harness's own plugin removal (or rplugin uninstall reach) removes the plugin; reach profile forget, reach
-    lock and removing ~/.reach remove the student's data after the course.
+    Since 0.63.0 (STD-UNINSTALL) reach uninstall removes rEach from the computer after the student's yes, and
+    UNINSTALL.md is the guide an agent follows. It deletes ~/reach-work/.reach-home and the legacy ~/.reach, the
+    background update job, the Claude Code, Codex, Antigravity and Hermes registrations, the files rEach wrote inside
+    the work folders and the read-only locks on delivered files, withdraws the install on Teach (W-API-INSTALL-WITHDRAW)
+    and leaves every other file in the reach-work folder alone. Removing the plugin with a harness's own command or
+    rplugin uninstall reach leaves the folders and the job behind. reach profile forget and reach lock remain for a
+    student who stays enrolled.
 auto_update:
   summary: >-
     Since 0.13.0 Reach keeps the install at ~/.reach/plugin current by itself. It looks for newer releases when a

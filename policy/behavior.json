@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:a21fdaafb2428793f338bfdcb116011b4b28c13655ed6be5a30507bcd277c448",
+  "digest": "sha256:0398e57090b73ee73bb0005c3a8a65b13df92b3c63834183d919ec7c4e0144e1",
   "policy": {
     "antifeatures": [
       {
@@ -1607,6 +1607,12 @@
         "target": "skills/reach-submit/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-submit.md"
       },
+      "skill-reach-uninstall": {
+        "kind": "skill",
+        "mode": "generated",
+        "target": "skills/reach-uninstall/SKILL.md",
+        "template": "specs/polispec/surfaces/skills/reach-uninstall.md"
+      },
       "workspace-full": {
         "kind": "rules_file",
         "mode": "generated",
@@ -1891,6 +1897,14 @@
 
       ],
       "sha256": "5dc9bb8f78fd44f83c9ea1535372979eb0ad9328828717e45cc27222df03ba39"
+    },
+    "skill-reach-uninstall": {
+      "kind": "skill",
+      "target": "skills/reach-uninstall/SKILL.md",
+      "refs": [
+
+      ],
+      "sha256": "c55bd4a53389ee630e2cb2b4ca1d5ef93daedac70ca42a97b1c9bd9d01c7e522"
     },
     "workspace-full": {
       "kind": "rules_file",

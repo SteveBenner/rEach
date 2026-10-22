@@ -1784,6 +1784,11 @@ surfaces:
     target: skills/reach-submit/SKILL.md
     template: specs/polispec/surfaces/skills/reach-submit.md
     mode: generated
+  skill-reach-uninstall:
+    kind: skill
+    target: skills/reach-uninstall/SKILL.md
+    template: specs/polispec/surfaces/skills/reach-uninstall.md
+    mode: generated
   workspace-stub:
     kind: stub
     target: specs/polispec/surfaces/generated/workspace-stub.md

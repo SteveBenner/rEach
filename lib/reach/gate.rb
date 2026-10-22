@@ -621,6 +621,7 @@ module Reach
       text = command.to_s
       text = text.tr("\\", "/") if @powershell
       return nil if support_command?(text)
+      return nil if uninstall_command?(text)
       return nil if Reach::Validation.shell_command?(text)
 
       Thread.current[:reach_gate_subject] = { "command" => command.to_s }
@@ -966,6 +967,30 @@ module Reach
 
     def ruby_command?(token)
       File.basename(token.to_s).sub(/\.exe\z/i, "") =~ /\Aruby[0-9.]*\z/ ? true : false
+    end
+
+    UNINSTALL_PLAIN_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --delete-hermes-profile --keep-workspace-files --no-teach --yes].freeze
+
+    def uninstall_command?(text)
+      tokens = Shellwords.split(text.to_s)
+      index = shim_index(tokens)
+      return false if index.nil?
+
+      rest = tokens[(index + 1)..-1].to_a
+      return false unless rest.first == "uninstall"
+
+      flags = rest.drop(1)
+      until flags.empty?
+        flag = flags.shift
+        if flag == "--format"
+          return false unless %w[text json].include?(flags.shift)
+        elsif !UNINSTALL_PLAIN_FLAGS.include?(flag)
+          return false
+        end
+      end
+      true
+    rescue ArgumentError
+      false
     end
 
     def support_command?(text)

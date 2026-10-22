@@ -1,0 +1,1789 @@
+#!/usr/bin/env ruby
+
+require "date"
+require "fileutils"
+require "json"
+require "open3"
+require "rbconfig"
+require "securerandom"
+require "time"
+require "tmpdir"
+require "yaml"
+
+module ReachUninstall
+  module_function
+
+  class UsageError < StandardError
+  end
+
+  PLAN_SCHEMA = "reach.uninstall.plan/v1".freeze
+  RESULT_SCHEMA = "reach.uninstall.result/v1".freeze
+  USAGE = "usage: reach-uninstall [plan|apply] [--yes] [--format text|json] [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--prepared FILE] [--skip-teach-note]".freeze
+  COMMAND_TIMEOUT_S = 60
+  MAX_DISCOVERY_ENTRIES = 20_000
+  MAX_DISCOVERY_DEPTH = 6
+  MAX_JSON_BYTES = 8 * 1024 * 1024
+  HOME_NAME = /\A\.reach(-home)?\z/i.freeze
+  HOME_MARKERS = ["install.yml", "plugin", "keys", "state", File.join("bin", "reach")].freeze
+  PROTECTED_NAMES = %w[deliverables extracurricular].freeze
+  SERVICE_NAME = "reach-subscribe.service".freeze
+  TIMER_NAME = "reach-subscribe.timer".freeze
+  LAUNCH_LABEL = "reach.subscribe".freeze
+  TASK_NAME = "rEach\\Update check".freeze
+  COPY_MARKER = ".reach-copy".freeze
+  DOWNLOADS_FOLDER_ID = "{374DE290-123F-4565-9164-39C4925E467B}".freeze
+  SHELL_FOLDERS_KEY = 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'.freeze
+  OWN_HOOK = %r{[/\\]bin[/\\]reach["']?\s+["']?(?:gate|hook|transcript|check|live)\b}.freeze
+  DENY_PATTERN = %r{\ARead\(.*[/\\](?:vault|keys)[/\\]\*\*\)\z}.freeze
+  RULES_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md].freeze
+  RULES_PHRASES = [
+    "Order of authority in this context (highest first)",
+    "# Course rules for this workspace",
+    "# Course rules for this folder",
+    "These rules come from the instructors and always apply.",
+    "## Course directives",
+    "## Engineering directives",
+    "Coursework goes in deliverables/<course>/<assignment>/<slice>/",
+    "You are helping a student with one slice of a course module.",
+    "You are helping a student with their own code, outside any assignment.",
+    "This is the top of your course workspace, not a place to write code.",
+    "Course rules and course directives, then rEach engineering directives."
+  ].freeze
+  CODEX_LINES = [
+    /\Asandbox_mode = "[^"]*"\z/,
+    /\Aweb_search = "[^"]*"\z/,
+    /\A\[sandbox_workspace_write\]\z/,
+    /\Awritable_roots = \["(?:[^"\\]|\\.)*"\]\z/,
+    /\Anetwork_access = (?:true|false)\z/,
+    /\A\[mcp_servers\.reach\]\z/,
+    /\Acommand = "(?:[^"\\]|\\.)*"\z/,
+    /\Aargs = \["(?:[^"\\]|\\.)*", "mcp"\]\z/
+  ].freeze
+  ABSENT_ANSWER = /not (?:installed|found|registered|a known|currently)|unknown|no such|does not exist|could not find|isn't|no plugin|nothing to|not loaded|No such process/i.freeze
+  RECEIPTS_README = "These are the receipts and grade records rEach had saved on this computer when you removed rEach. They are signed by your course server, so keep them if you may need to show what you sent and when.\n".freeze
+  STEP_ORDER = %w[receipts-copy job workspaces claude codex-plugin antigravity hermes checkpoint-mirror windows-path homes].freeze
+
+  def windows?
+    RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
+  end
+
+  def mac?
+    RbConfig::CONFIG["host_os"].to_s =~ /darwin/ ? true : false
+  end
+
+  def platform_name
+    return "windows" if windows?
+    return "macos" if mac?
+
+    "linux"
+  end
+
+  def slashes(path)
+    text = path.to_s.strip.tr("\\", "/")
+    match = text.match(%r{\A/([A-Za-z])(?:/(.*))?\z})
+    return text unless match
+
+    "#{match[1].upcase}:/#{match[2]}"
+  end
+
+  def user_home_path
+    if windows?
+      profile = slashes(ENV["USERPROFILE"])
+      return profile if !profile.empty? && File.directory?(profile)
+    end
+    File.expand_path("~")
+  end
+
+  def expand_home(value, home)
+    text = value.to_s
+    return File.join(home, text[1..-1].to_s) if text == "~" || text.start_with?("~/") || text.start_with?("~\\")
+
+    File.expand_path(windows? ? slashes(text) : text)
+  end
+
+  def fold(path)
+    text = path.to_s
+    windows? || mac? ? text.downcase : text
+  end
+
+  def normalize(path)
+    File.expand_path(windows? ? slashes(path) : path.to_s)
+  end
+
+  def real(path)
+    File.realpath(normalize(path))
+  rescue SystemCallError, ArgumentError
+    normalize(path)
+  end
+
+  def within?(path, base)
+    left = fold(path.to_s.tr("\\", "/")).chomp("/")
+    right = fold(base.to_s.tr("\\", "/")).chomp("/")
+    left == right || left.start_with?("#{right}/")
+  end
+
+  def same?(left, right)
+    fold(left.to_s.tr("\\", "/")).chomp("/") == fold(right.to_s.tr("\\", "/")).chomp("/")
+  end
+
+  def exists_or_link?(path)
+    File.symlink?(path) || File.exist?(path)
+  end
+
+  def real_dir?(path)
+    stat = File.lstat(path)
+    stat.directory? && !stat.symlink?
+  rescue SystemCallError
+    false
+  end
+
+  def clean(text)
+    text.to_s.dup.force_encoding(Encoding::UTF_8).scrub
+  end
+
+  def deep_clean(value)
+    case value
+    when Hash
+      value.each_with_object({}) { |(key, item), memo| memo[clean(key)] = deep_clean(item) }
+    when Array
+      value.map { |item| deep_clean(item) }
+    when String
+      clean(value)
+    else
+      value
+    end
+  end
+
+  def display(path, ctx)
+    text = path.to_s
+    home = ctx[:user_home].to_s
+    return text if home.empty?
+    return "~" if same?(text, home)
+    return "~#{text[home.length..-1]}" if within?(text, home)
+
+    text
+  end
+
+  def human_bytes(count)
+    value = count.to_f
+    units = %w[B KB MB GB]
+    index = 0
+    while value >= 1024 && index < units.length - 1
+      value /= 1024
+      index += 1
+    end
+    index.zero? ? "#{count} B" : format("%.1f %s", value, units[index])
+  end
+
+  def join_words(items)
+    list = items.map(&:to_s)
+    return "" if list.empty?
+    return list.first if list.length == 1
+    return "#{list[0]} and #{list[1]}" if list.length == 2
+
+    "#{list[0..-2].join(', ')}, and #{list[-1]}"
+  end
+
+  def default_flags
+    { receipts_copy: true, purge_checkpoint_mirror: false, delete_hermes_profile: false, keep_workspace_files: false }
+  end
+
+  def normalize_flags(raw)
+    flags = default_flags
+    (raw || {}).each do |key, value|
+      name = key.to_s.sub(/\A--/, "").tr("-", "_")
+      if name == "no_receipts_copy"
+        flags[:receipts_copy] = !value
+      elsif flags.key?(name.to_sym)
+        flags[name.to_sym] = value ? true : false
+      end
+    end
+    flags
+  end
+
+  def parse_args(argv)
+    options = { command: nil, yes: false, format: "text", prepared: nil, skip_teach_note: false, flags: default_flags }
+    args = argv.dup
+    until args.empty?
+      arg = args.shift
+      case arg
+      when "plan", "apply"
+        raise UsageError, "unexpected #{arg}" if options[:command]
+
+        options[:command] = arg
+      when "--yes" then options[:yes] = true
+      when "--no-receipts-copy" then options[:flags][:receipts_copy] = false
+      when "--purge-checkpoint-mirror" then options[:flags][:purge_checkpoint_mirror] = true
+      when "--delete-hermes-profile" then options[:flags][:delete_hermes_profile] = true
+      when "--keep-workspace-files" then options[:flags][:keep_workspace_files] = true
+      when "--skip-teach-note" then options[:skip_teach_note] = true
+      when "--format"
+        options[:format] = format_value(args.shift)
+      when /\A--format=(.*)\z/
+        options[:format] = format_value(Regexp.last_match(1))
+      when "--prepared"
+        value = args.shift
+        raise UsageError, "--prepared needs a file" if value.to_s.empty?
+
+        options[:prepared] = value
+      when /\A--prepared=(.+)\z/
+        options[:prepared] = Regexp.last_match(1)
+      else
+        raise UsageError, "unknown option #{arg}"
+      end
+    end
+    options
+  end
+
+  def format_value(value)
+    raise UsageError, "--format takes text or json" unless %w[text json].include?(value)
+
+    value
+  end
+
+  def build_context(raw_flags)
+    home = user_home_path
+    base_value = ENV["REACH_WORKSPACE_ROOT"].to_s
+    base = expand_home(base_value.empty? ? "~/reach-work" : base_value, home)
+    {
+      flags: normalize_flags(raw_flags),
+      platform: platform_name,
+      user_home: home,
+      workspace_base: base,
+      stamp: Time.now.utc.strftime("%Y%m%d-%H%M%S")
+    }
+  end
+
+  def which(executable)
+    return nil if executable.to_s.empty?
+
+    extensions = windows? ? ENV["PATHEXT"].to_s.split(File::PATH_SEPARATOR) : []
+    ENV["PATH"].to_s.split(File::PATH_SEPARATOR).each do |dir|
+      next if dir.empty?
+
+      candidate = File.join(dir, executable)
+      return candidate if File.file?(candidate) && File.executable?(candidate)
+
+      extensions.each do |extension|
+        with_extension = candidate + extension
+        return with_extension if File.file?(with_extension) && File.executable?(with_extension)
+      end
+    end
+    nil
+  end
+
+  def run_command(args, timeout = COMMAND_TIMEOUT_S)
+    Open3.popen3(*args) do |stdin, stdout, stderr, thread|
+      stdin.close
+      out_reader = Thread.new { stdout.read.to_s }
+      err_reader = Thread.new { stderr.read.to_s }
+      unless thread.join(timeout)
+        begin
+          Process.kill("KILL", thread.pid)
+        rescue SystemCallError
+          nil
+        end
+        thread.join(2)
+        return { ok: false, out: "", err: "timed out", timeout: true }
+      end
+      { ok: thread.value.success?, out: out_reader.value, err: err_reader.value, timeout: false }
+    end
+  rescue SystemCallError => e
+    { ok: false, out: "", err: e.message, timeout: false }
+  end
+
+  def first_line(result)
+    [result[:err], result[:out]].each do |text|
+      line = clean(text).lines.map(&:strip).find { |entry| !entry.empty? }
+      return line[0, 200] if line
+    end
+    ""
+  end
+
+  def cli_call(executable, arguments)
+    path = which(executable)
+    return [:skipped, "#{executable} is not on this computer"] unless path
+
+    result = run_command([path] + arguments)
+    line = first_line(result)
+    return [:done, line] if result[:ok]
+    return [:failed, line.empty? ? "#{executable} did not answer in time" : line] if result[:timeout]
+    return [:skipped, line] if "#{result[:err]} #{result[:out]}" =~ ABSENT_ANSWER
+
+    [:failed, line.empty? ? "#{executable} stopped with an error" : line]
+  end
+
+  def read_json(path)
+    return nil unless File.file?(path) && !File.symlink?(path) && File.size(path) <= MAX_JSON_BYTES
+
+    JSON.parse(File.binread(path).force_encoding(Encoding::UTF_8))
+  rescue StandardError
+    nil
+  end
+
+  def tree_size(path)
+    stat = File.lstat(path)
+    return stat.size if stat.symlink? || !stat.directory?
+
+    total = 0
+    Dir.children(path).each { |name| total += tree_size(File.join(path, name)) }
+    total
+  rescue SystemCallError
+    0
+  end
+
+  def collect_files(root)
+    found = []
+    walk = lambda do |path|
+      stat = File.lstat(path)
+      if stat.symlink?
+        nil
+      elsif stat.directory?
+        Dir.children(path).sort.each { |name| walk.call(File.join(path, name)) }
+      elsif stat.file?
+        found << path
+      end
+    rescue SystemCallError
+      nil
+    end
+    walk.call(root) if real_dir?(root)
+    found
+  end
+
+  def with_writable_dir(dir)
+    original = nil
+    changed = false
+    begin
+      stat = File.lstat(dir)
+      original = stat.mode & 0o7777
+      if !stat.symlink? && stat.directory? && (original & 0o300) != 0o300
+        File.chmod(original | 0o300, dir)
+        changed = true
+      end
+    rescue SystemCallError, NotImplementedError
+      nil
+    end
+    yield
+  ensure
+    if changed
+      begin
+        File.chmod(original, dir) if File.directory?(dir)
+      rescue SystemCallError, NotImplementedError
+        nil
+      end
+    end
+  end
+
+  def remove_file(path)
+    with_writable_dir(File.dirname(path)) do
+      begin
+        File.unlink(path)
+      rescue Errno::EACCES, Errno::EPERM
+        File.chmod(0o666, path)
+        File.unlink(path)
+      end
+    end
+  end
+
+  def remove_tree(path)
+    stat = File.lstat(path)
+    if stat.symlink? || !stat.directory?
+      begin
+        File.unlink(path)
+      rescue Errno::EACCES, Errno::EPERM
+        raise unless stat.symlink? || windows?
+
+        begin
+          File.chmod(0o666, path) unless stat.symlink?
+          File.unlink(path)
+        rescue Errno::EACCES, Errno::EPERM, Errno::ENOENT
+          Dir.rmdir(path)
+        end
+      end
+    else
+      begin
+        File.chmod(stat.mode | 0o700, path) unless (stat.mode & 0o700) == 0o700
+      rescue NotImplementedError
+        nil
+      end
+      Dir.children(path).each { |name| remove_tree(File.join(path, name)) }
+      Dir.rmdir(path)
+    end
+  rescue Errno::ENOENT
+    nil
+  end
+
+  def atomic_write(path, content, mode)
+    with_writable_dir(File.dirname(path)) do
+      temp = "#{path}.reach-uninstall-#{Process.pid}"
+      begin
+        File.open(temp, File::WRONLY | File::CREAT | File::EXCL | File::BINARY, 0o600) { |file| file.write(content) }
+        begin
+          File.chmod(mode, temp)
+        rescue NotImplementedError
+          nil
+        end
+        File.rename(temp, path)
+      ensure
+        File.unlink(temp) if File.exist?(temp)
+      end
+    end
+  end
+
+  def home_refusal(path, ctx)
+    forms = [normalize(path), real(path)].uniq
+    forms.each do |form|
+      return "it is a filesystem root" if File.dirname(form) == form
+
+      [[ctx[:user_home], "your user folder"], [ctx[:workspace_base], "your work folder"]].each do |target, label|
+        [normalize(target), real(target)].uniq.each do |known|
+          return "it is #{label}" if same?(form, known)
+          return "it holds #{label}" if within?(known, form)
+        end
+      end
+      parents = form.tr("\\", "/").split("/")[0...-1].map { |part| fold(part) }
+      return "it lies inside a deliverables or extracurricular folder" if parents.any? { |part| PROTECTED_NAMES.include?(part) }
+    end
+    stat = File.lstat(path)
+    return nil if stat.symlink?
+    return "it is not a folder" unless stat.directory?
+    return "it does not look like rEach" unless HOME_MARKERS.any? { |name| exists_or_link?(File.join(path, name)) }
+
+    held = Dir.children(path).map { |name| fold(name) }
+    return "it holds a deliverables or extracurricular folder" if held.any? { |name| PROTECTED_NAMES.include?(name) }
+
+    nil
+  rescue SystemCallError => e
+    "it could not be inspected (#{e.class.name.split('::').last})"
+  end
+
+  def home_candidates(ctx)
+    base = ctx[:workspace_base]
+    list = []
+    explicit = ENV["REACH_HOME"].to_s
+    list << [expand_home(explicit, ctx[:user_home]), "env"] unless explicit.empty?
+    list << [File.join(base, ".reach-home"), "new"]
+    list << [File.join(ctx[:user_home], ".reach"), "legacy"]
+    if windows? && explicit.empty? && ENV["REACH_WORKSPACE_ROOT"].to_s.empty?
+      [ENV["HOME"], ENV["USERPROFILE"]].each do |value|
+        stray = slashes(value)
+        next if stray.empty? || !File.directory?(stray)
+        next if within?(real(stray), real(ctx[:user_home])) || within?(real(ctx[:user_home]), real(stray))
+
+        list << [File.join(stray, "reach-work", ".reach-home"), "stray"]
+        list << [File.join(stray, ".reach"), "stray"]
+      end
+    end
+    seen = {}
+    homes = []
+    list.each do |path, kind|
+      key = fold(normalize(path))
+      next if seen[key]
+
+      seen[key] = true
+      next unless exists_or_link?(path)
+
+      refusal = nil
+      refusal = "its name is not .reach or .reach-home" if kind == "env" && File.basename(normalize(path)) !~ HOME_NAME
+      refusal ||= home_refusal(path, ctx)
+      homes << { path: normalize(path), kind: kind, refused: refusal, symlink: File.symlink?(path) }
+    end
+    homes
+  end
+
+  def accepted_homes(ctx)
+    ctx[:homes].select { |home| home[:refused].nil? }
+  end
+
+  def home_refusal_now(path, ctx)
+    return "it is gone" unless exists_or_link?(path)
+    return "its name is not .reach or .reach-home" if File.basename(path) !~ HOME_NAME
+
+    home_refusal(path, ctx)
+  end
+
+  def safe_member(root, relative)
+    text = relative.to_s
+    return nil if text.empty? || text.include?("\0") || text =~ %r{\A(?:[/\\]|[A-Za-z]:)}
+
+    parts = text.tr("\\", "/").split("/").reject { |part| part.empty? || part == "." }
+    return nil if parts.empty? || parts.include?("..")
+
+    current = root
+    dirs = []
+    parts.each_with_index do |part, index|
+      current = File.join(current, part)
+      begin
+        stat = File.lstat(current)
+      rescue SystemCallError
+        return nil
+      end
+      return nil if stat.symlink?
+
+      dirs << current if index < parts.length - 1
+    end
+    [current, dirs]
+  end
+
+  def hook_ours?(command)
+    command.to_s =~ OWN_HOOK ? true : false
+  end
+
+  def strip_claude_hooks(hooks)
+    removed = 0
+    result = {}
+    hooks.each do |event, entries|
+      unless entries.is_a?(Array)
+        result[event] = entries
+        next
+      end
+      touched = false
+      kept = []
+      entries.each do |entry|
+        if entry.is_a?(Hash) && entry["hooks"].is_a?(Array)
+          remaining = entry["hooks"].reject { |hook| hook.is_a?(Hash) && hook_ours?(hook["command"]) }
+          if remaining.length != entry["hooks"].length
+            touched = true
+            removed += entry["hooks"].length - remaining.length
+          end
+          kept << entry.merge("hooks" => remaining) unless remaining.empty? && remaining.length != entry["hooks"].length
+          kept << entry if remaining.empty? && remaining.length == entry["hooks"].length
+        else
+          kept << entry
+        end
+      end
+      result[event] = kept unless touched && kept.empty?
+    end
+    [result, removed]
+  end
+
+  def judge_claude_settings(path, rel)
+    data = read_json(path)
+    return nil unless data.is_a?(Hash)
+
+    hooks = data["hooks"].is_a?(Hash) ? data["hooks"] : {}
+    stripped, removed = strip_claude_hooks(hooks)
+    permissions = data["permissions"].is_a?(Hash) ? data["permissions"] : {}
+    deny = permissions["deny"].is_a?(Array) ? permissions["deny"] : []
+    own_deny = deny.select { |item| item.is_a?(String) && item =~ DENY_PATTERN }
+    return nil if removed.zero? && own_deny.empty?
+
+    remaining = data.dup
+    if data["hooks"].is_a?(Hash)
+      if stripped.empty?
+        remaining.delete("hooks")
+      else
+        remaining["hooks"] = stripped
+      end
+    end
+    if data["permissions"].is_a?(Hash)
+      kept_deny = deny - own_deny
+      new_permissions = permissions.dup
+      if kept_deny.empty?
+        new_permissions.delete("deny")
+      else
+        new_permissions["deny"] = kept_deny
+      end
+      if new_permissions.empty?
+        remaining.delete("permissions")
+      else
+        remaining["permissions"] = new_permissions
+      end
+    end
+    test = remaining.dup
+    test.delete("enableAllProjectMcpServers") if test["enableAllProjectMcpServers"] == true
+    return { rel: rel, path: path, verdict: :delete } if test.empty?
+
+    text = File.binread(path)
+    content = JSON.pretty_generate(remaining)
+    content += "\n" if text.end_with?("\n")
+    { rel: rel, path: path, verdict: :edit, content: content }
+  end
+
+  def judge_mcp(path, rel)
+    data = read_json(path)
+    return nil unless data.is_a?(Hash) && data["mcpServers"].is_a?(Hash) && data["mcpServers"].key?("reach")
+
+    remaining = data.dup
+    servers = data["mcpServers"].reject { |name, _| name == "reach" }
+    if servers.empty?
+      remaining.delete("mcpServers")
+    else
+      remaining["mcpServers"] = servers
+    end
+    return { rel: rel, path: path, verdict: :delete } if remaining.empty?
+
+    text = File.binread(path)
+    content = JSON.pretty_generate(remaining)
+    content += "\n" if text.end_with?("\n")
+    { rel: rel, path: path, verdict: :edit, content: content }
+  end
+
+  def judge_codex_config(path, rel)
+    return nil unless File.file?(path) && !File.symlink?(path) && File.size(path) <= MAX_JSON_BYTES
+
+    text = File.binread(path).force_encoding(Encoding::UTF_8).scrub
+    lines = text.lines.map { |line| line.sub(/\r?\n\z/, "") }.reject { |line| line.strip.empty? }
+    return { rel: rel, path: path, verdict: :delete } if !lines.empty? && lines.all? { |line| CODEX_LINES.any? { |pattern| line =~ pattern } } && lines.include?("[mcp_servers.reach]")
+    return nil unless text.include?("[mcp_servers.reach]")
+
+    { rel: rel, path: path, verdict: :left, left: { "what" => "rEach's entry in #{path}", "how" => "remove the [mcp_servers.reach] table from #{path}" } }
+  end
+
+  def judge_codex_hooks(path, rel)
+    data = read_json(path)
+    return nil unless data.is_a?(Hash) && data["hooks"].is_a?(Hash)
+
+    commands = []
+    data["hooks"].each_value do |entries|
+      Array(entries).each do |entry|
+        next unless entry.is_a?(Hash)
+
+        Array(entry["hooks"]).each { |hook| commands << (hook.is_a?(Hash) ? hook["command"] : nil) }
+      end
+    end
+    return nil unless commands.any? { |command| hook_ours?(command) }
+    return { rel: rel, path: path, verdict: :delete } if commands.all? { |command| hook_ours?(command) } && data.keys == ["hooks"]
+
+    { rel: rel, path: path, verdict: :left, left: { "what" => "rEach's hooks in #{path}", "how" => "remove the rEach hooks from #{path}" } }
+  end
+
+  def judge_rules_file(path, rel)
+    stat = File.lstat(path)
+    return nil unless stat.file? && stat.size <= MAX_JSON_BYTES
+
+    text = File.binread(path).force_encoding(Encoding::UTF_8).scrub
+    return nil unless RULES_PHRASES.count { |phrase| text.include?(phrase) } >= 2
+    return { rel: rel, path: path, verdict: :delete } if (stat.mode & 0o222).zero?
+
+    { rel: rel, path: path, verdict: :left, left: { "what" => "#{path} (it has your changes)", "how" => "delete #{path} if you no longer want rEach's rules there" } }
+  rescue SystemCallError
+    nil
+  end
+
+  def judge_space(path, kind)
+    actions = []
+    add = lambda do |action|
+      actions << action if action
+    end
+    add.call(judge_claude_settings(File.join(path, ".claude", "settings.json"), ".claude/settings.json"))
+    add.call(judge_mcp(File.join(path, ".mcp.json"), ".mcp.json"))
+    add.call(judge_codex_config(File.join(path, ".codex", "config.toml"), ".codex/config.toml"))
+    add.call(judge_codex_hooks(File.join(path, ".codex", "hooks.json"), ".codex/hooks.json"))
+    RULES_FILES.each { |name| add.call(judge_rules_file(File.join(path, name), name)) }
+    marker = File.join(path, ".reach-space.json")
+    actions << { rel: ".reach-space.json", path: marker, verdict: :delete } if File.file?(marker) && !File.symlink?(marker)
+    actions
+  end
+
+  def readonly_targets(space_path)
+    data = read_json(File.join(space_path, ".reach", "delivered.json"))
+    return [] unless data.is_a?(Hash) && data["readonly"].is_a?(Hash)
+
+    data["readonly"].keys.map { |relative| safe_member(space_path, relative) }.compact
+  end
+
+  def locked_count(space_path)
+    readonly_targets(space_path).count do |file, _dirs|
+      stat = File.lstat(file)
+      stat.file? && (stat.mode & 0o200).zero?
+    rescue SystemCallError
+      false
+    end
+  end
+
+  def discover_spaces(ctx)
+    base = ctx[:workspace_base]
+    return { spaces: [], truncated: false } unless File.directory?(base)
+
+    seeds = [base]
+    personas = File.join(base, "personas")
+    if real_dir?(personas)
+      Dir.children(personas).sort.each do |name|
+        path = File.join(personas, name)
+        seeds << path if name =~ /\A[0-9a-f]{8}\z/ && real_dir?(path)
+      end
+    end
+    visited = {}
+    queue = []
+    seeds.each do |path|
+      visited[fold(path)] = true
+      queue << [path, 0, true]
+    end
+    count = 0
+    truncated = false
+    spaces = []
+    until queue.empty?
+      path, depth, seed = queue.shift
+      kind = nil
+      if seed
+        kind = "root"
+      elsif File.file?(File.join(path, ".reach", "slice.json")) && !File.symlink?(File.join(path, ".reach"))
+        kind = "slice"
+      elsif File.file?(File.join(path, ".reach-space.json"))
+        kind = "extracurricular"
+      end
+      if kind
+        actions = judge_space(path, kind)
+        locked = kind == "slice" ? locked_count(path) : 0
+        spaces << { path: path, kind: kind, actions: actions, locked: locked }
+        next unless seed
+      end
+      next if depth >= MAX_DISCOVERY_DEPTH
+
+      entries = begin
+        Dir.children(path)
+      rescue SystemCallError
+        []
+      end
+      count += entries.length
+      if count > MAX_DISCOVERY_ENTRIES
+        truncated = true
+        break
+      end
+      entries.sort.each do |name|
+        next if name =~ /\A\.reach-home/i || %w[.git node_modules .reach .claude .codex].include?(name)
+
+        child = File.join(path, name)
+        next unless real_dir?(child)
+        next if visited[fold(child)]
+
+        visited[fold(child)] = true
+        queue << [child, depth + 1, false]
+      end
+    end
+    { spaces: spaces, truncated: truncated }
+  end
+
+  def kept_paths(ctx, spaces)
+    base = ctx[:workspace_base]
+    return [] unless File.directory?(base)
+
+    root = spaces.find { |space| same?(space[:path], base) }
+    generated = root ? root[:actions].map { |action| action[:rel].split("/").first } : []
+    home_paths = ctx[:homes].map { |home| home[:path] }
+    names = Dir.children(base).sort.reject do |name|
+      name =~ /\A\.reach-home/i || generated.include?(name) || home_paths.any? { |home| same?(home, File.join(base, name)) }
+    end
+    first = PROTECTED_NAMES.select { |name| names.include?(name) }
+    (first + (names - first)).map { |name| File.join(base, name) }
+  end
+
+  def harness_state(ctx, hermes_config)
+    claude_dir = ENV["CLAUDE_CONFIG_DIR"].to_s.empty? ? File.join(ctx[:user_home], ".claude") : expand_home(ENV["CLAUDE_CONFIG_DIR"], ctx[:user_home])
+    codex_dir = ENV["CODEX_HOME"].to_s.empty? ? File.join(ctx[:user_home], ".codex") : expand_home(ENV["CODEX_HOME"], ctx[:user_home])
+    claude_found = %w[installed_plugins.json known_marketplaces.json].any? do |name|
+      file = File.join(claude_dir, "plugins", name)
+      File.file?(file) && File.size(file) <= MAX_JSON_BYTES && File.binread(file).include?("reach")
+    end
+    codex_file = File.join(codex_dir, "config.toml")
+    codex_found = File.file?(codex_file) && File.size(codex_file) <= MAX_JSON_BYTES && (File.binread(codex_file).include?('"reach@reach"') || File.binread(codex_file).include?("[marketplaces.reach]"))
+    links = antigravity_targets(ctx).select { |target| exists_or_link?(target) }
+    [
+      { "id" => "claude-code", "found" => claude_found, "detail" => claude_found ? "the rEach plugin is registered in Claude Code" : (which("claude") ? "Claude Code is installed; no rEach plugin record was seen" : "Claude Code was not found") },
+      { "id" => "codex", "found" => codex_found, "detail" => codex_found ? "the rEach plugin is registered in Codex" : (which("codex") ? "Codex is installed; no rEach plugin record was seen" : "Codex was not found") },
+      { "id" => "antigravity", "found" => !links.empty?, "detail" => links.empty? ? (which("agy") ? "Antigravity is installed; no rEach folder was seen" : "Antigravity was not found") : "rEach is linked into Antigravity" },
+      { "id" => "hermes", "found" => !hermes_config.nil?, "detail" => hermes_config ? "rEach is set up in the Hermes profile at #{hermes_config}" : (which("hermes") ? "Hermes is installed; no rEach profile was seen" : "Hermes was not found") }
+    ]
+  end
+
+  def antigravity_targets(ctx)
+    gemini = File.join(ctx[:user_home], ".gemini")
+    [File.join(gemini, "config", "plugins", "reach"), File.join(gemini, "antigravity-cli", "plugins", "reach")]
+  end
+
+  def hermes_config_path(ctx)
+    accepted_homes(ctx).each do |home|
+      next if home[:symlink]
+
+      data = read_json(File.join(home[:path], "state", "hermes.json"))
+      value = data.is_a?(Hash) ? data["config_path"] : nil
+      return value if value.is_a?(String) && !value.empty? && File.file?(value)
+    end
+    nil
+  end
+
+  def job_state(ctx)
+    case ctx[:platform]
+    when "windows"
+      found = which("schtasks") ? run_command(["schtasks", "/Query", "/TN", TASK_NAME])[:ok] : false
+      { "installed" => found, "platform" => "windows", "location" => TASK_NAME }
+    when "macos"
+      plist = File.join(ctx[:user_home], "Library", "LaunchAgents", "#{LAUNCH_LABEL}.plist")
+      { "installed" => File.exist?(plist), "platform" => "macos", "location" => plist }
+    else
+      dir = systemd_dir(ctx)
+      found = [SERVICE_NAME, TIMER_NAME].any? { |name| exists_or_link?(File.join(dir, name)) }
+      { "installed" => found, "platform" => "linux", "location" => dir }
+    end
+  end
+
+  def systemd_dir(ctx)
+    override = ENV["REACH_SYSTEMD_USER_DIR"].to_s
+    override.empty? ? File.join(ctx[:user_home], ".config", "systemd", "user") : expand_home(override, ctx[:user_home])
+  end
+
+  def outbox_state(ctx)
+    kinds = { "submissions" => 0, "hands" => 0, "issues" => 0, "other" => 0 }
+    accepted_homes(ctx).each do |home|
+      next if home[:symlink]
+
+      dirs = [File.join(home[:path], "outbox")]
+      personas = File.join(home[:path], "personas")
+      Dir.children(personas).sort.each { |name| dirs << File.join(personas, name, "outbox") } if real_dir?(personas)
+      dirs.each do |dir|
+        next unless real_dir?(dir)
+
+        Dir.children(dir).sort.each do |name|
+          path = File.join(dir, name)
+          next unless name.end_with?(".json") && File.file?(path) && !File.symlink?(path)
+
+          entry = read_json(path)
+          kind = entry.is_a?(Hash) ? entry["kind"].to_s : ""
+          if entry.is_a?(Hash) && entry["issue"]
+            kinds["issues"] += 1
+          elsif kind == "hand"
+            kinds["hands"] += 1
+          elsif kind =~ /submi|ingest|package/
+            kinds["submissions"] += 1
+          else
+            kinds["other"] += 1
+          end
+        end
+      end
+    end
+    { "total" => kinds.values.sum, "kinds" => kinds }
+  end
+
+  def downloads_dir(ctx)
+    if windows?
+      result = run_command(["reg", "query", SHELL_FOLDERS_KEY, "/v", DOWNLOADS_FOLDER_ID], 10)
+      line = result[:ok] ? result[:out].lines.find { |entry| entry =~ /REG_(?:EXPAND_)?SZ/i } : nil
+      if line
+        raw = line.sub(/\A.*?REG_(?:EXPAND_)?SZ\s+/i, "").strip
+        unresolved = false
+        expanded = raw.gsub(/%([^%\r\n]+)%/) do
+          name = Regexp.last_match(1)
+          pair = ENV.to_h.find { |key, _| key.casecmp(name).zero? }
+          value = pair ? pair[1].to_s : ""
+          value = ctx[:user_home] if value.empty? && name.casecmp("USERPROFILE").zero?
+          unresolved = true if value.empty?
+          value
+        end
+        path = slashes(expanded)
+        return path if !unresolved && !path.empty? && File.directory?(path)
+      end
+    end
+    File.join(ctx[:user_home], "Downloads")
+  end
+
+  def receipt_groups(ctx)
+    groups = []
+    accepted_homes(ctx).each do |home|
+      next if home[:symlink]
+
+      path = home[:path]
+      roots = [File.join(path, "receipts"), File.join(path, "state", "grades.json")]
+      personas = File.join(path, "personas")
+      if real_dir?(personas)
+        Dir.children(personas).sort.each do |name|
+          roots << File.join(personas, name, "receipts")
+          roots << File.join(personas, name, "state", "grades.json")
+        end
+      end
+      files = []
+      roots.each do |root|
+        if real_dir?(root)
+          files.concat(collect_files(root))
+        elsif File.file?(root) && !File.symlink?(root)
+          files << root
+        end
+      end
+      next if files.empty?
+
+      relative = files.map { |file| [file, file[(path.length + 1)..-1]] }
+      groups << { label: File.basename(path).sub(/\A\./, ""), files: relative }
+    end
+    groups
+  end
+
+  def unique_destination(base)
+    return base unless exists_or_link?(base)
+
+    index = 2
+    index += 1 while exists_or_link?("#{base}-#{index}")
+    "#{base}-#{index}"
+  end
+
+  def data_dir(ctx)
+    if mac?
+      File.join(ctx[:user_home], "Library", "Application Support")
+    elsif windows?
+      ENV["LOCALAPPDATA"].to_s.empty? ? File.join(ctx[:user_home], "AppData", "Local") : slashes(ENV["LOCALAPPDATA"])
+    else
+      ENV["XDG_DATA_HOME"].to_s.empty? ? File.join(ctx[:user_home], ".local", "share") : ENV["XDG_DATA_HOME"]
+    end
+  end
+
+  def mirror_path(ctx)
+    override = ENV["REACH_CHECKPOINT_MIRROR"].to_s
+    override.empty? ? File.join(data_dir(ctx), "reach", "checkpoints") : expand_home(override, ctx[:user_home])
+  end
+
+  def sidecar_path(ctx)
+    override = ENV["REACH_SIDECAR"].to_s
+    return normalize(override) unless override.empty?
+
+    base = if mac?
+             File.join(ctx[:user_home], "Library", "Application Support")
+           elsif windows?
+             ENV["LOCALAPPDATA"].to_s.empty? ? File.join(ctx[:user_home], "AppData", "Local") : slashes(ENV["LOCALAPPDATA"])
+           else
+             ENV["XDG_STATE_HOME"].to_s.empty? ? File.join(ctx[:user_home], ".local", "state") : ENV["XDG_STATE_HOME"]
+           end
+    File.join(base, "reach", "seal.json")
+  end
+
+  def keep_refusal(path, ctx)
+    forms = [normalize(path), real(path)].uniq
+    forms.each do |form|
+      return "it is a filesystem root" if File.dirname(form) == form
+
+      [[ctx[:user_home], "your user folder"], [ctx[:workspace_base], "your work folder"]].each do |target, label|
+        [normalize(target), real(target)].uniq.each do |known|
+          return "it is #{label}" if same?(form, known)
+          return "it holds #{label}" if within?(known, form)
+        end
+      end
+      parents = form.tr("\\", "/").split("/").map { |part| fold(part) }
+      return "it lies inside a deliverables or extracurricular folder" if parents.any? { |part| PROTECTED_NAMES.include?(part) }
+    end
+    if real_dir?(path)
+      held = Dir.children(path).map { |name| fold(name) }
+      return "it holds a deliverables or extracurricular folder" if held.any? { |name| PROTECTED_NAMES.include?(name) }
+    end
+    nil
+  rescue SystemCallError
+    "it could not be inspected"
+  end
+
+  def windows_path_entries(ctx)
+    return [] unless windows?
+
+    result = run_command(["powershell", "-NoProfile", "-Command", "[Environment]::GetEnvironmentVariable('Path','User')"], 20)
+    return [] unless result[:ok]
+
+    homes = accepted_homes(ctx).map { |home| slashes(home[:path]) }
+    result[:out].to_s.strip.split(";").select do |entry|
+      expanded = slashes(entry.gsub(/%([^%]+)%/) { ENV[Regexp.last_match(1)].to_s })
+      homes.any? { |home| within?(expanded, home) }
+    end
+  end
+
+  def inspect_state(raw_flags)
+    ctx = build_context(raw_flags)
+    flags = ctx[:flags]
+    ctx[:homes] = home_candidates(ctx)
+    accepted = accepted_homes(ctx)
+    refused = ctx[:homes].reject { |home| home[:refused].nil? }
+    found = discover_spaces(ctx)
+    ctx[:spaces] = found[:spaces]
+    ctx[:truncated] = found[:truncated]
+    relevant = ctx[:spaces].select { |space| !space[:actions].empty? || space[:locked].positive? }
+    ctx[:hermes_config] = hermes_config_path(ctx)
+    harnesses = harness_state(ctx, ctx[:hermes_config])
+    job = job_state(ctx)
+    outbox = outbox_state(ctx)
+    ctx[:groups] = receipt_groups(ctx)
+    receipt_files = ctx[:groups].map { |group| group[:files] }.flatten(1)
+    copy_to = flags[:receipts_copy] && !receipt_files.empty? ? unique_destination(File.join(downloads_dir(ctx), "rEach-receipts-#{ctx[:stamp]}")) : nil
+    mirror = mirror_path(ctx)
+    sidecar = sidecar_path(ctx)
+    purge = flags[:purge_checkpoint_mirror]
+    path_entries = windows_path_entries(ctx)
+    plan = {
+      "schema" => PLAN_SCHEMA,
+      "platform" => ctx[:platform],
+      "user_home" => ctx[:user_home],
+      "workspace_base" => ctx[:workspace_base],
+      "installed" => false,
+      "homes" => ctx[:homes].map { |home| { "path" => home[:path], "kind" => home[:kind], "bytes" => home[:symlink] ? 0 : tree_size(home[:path]), "refused" => home[:refused] } },
+      "kept" => kept_paths(ctx, ctx[:spaces]),
+      "workspaces" => relevant.map { |space| { "path" => space[:path], "kind" => space[:kind], "generated" => space[:actions].map { |action| action[:rel] }, "locked_files" => space[:locked] } },
+      "harnesses" => harnesses,
+      "job" => job,
+      "outbox" => outbox,
+      "receipts" => { "files" => receipt_files.length, "bytes" => receipt_files.map { |file, _| (File.size(file) rescue 0) }.sum, "copy_to" => copy_to },
+      "checkpoint_mirror" => { "path" => mirror, "exists" => exists_or_link?(mirror), "bytes" => exists_or_link?(mirror) ? tree_size(mirror) : 0, "action" => purge ? "purge" : "keep" },
+      "sidecar" => { "path" => sidecar, "exists" => exists_or_link?(sidecar), "bytes" => exists_or_link?(sidecar) ? tree_size(sidecar) : 0, "action" => purge ? "purge" : "keep" },
+      "windows_path" => path_entries,
+      "rplugin_hint" => which("rplugin") ? true : false,
+      "flags" => { "receipts_copy" => flags[:receipts_copy], "purge_checkpoint_mirror" => flags[:purge_checkpoint_mirror], "delete_hermes_profile" => flags[:delete_hermes_profile], "keep_workspace_files" => flags[:keep_workspace_files] }
+    }
+    plan["installed"] = !accepted.empty? || !refused.empty? || job["installed"] || !relevant.empty? || harnesses.any? { |entry| entry["found"] } || !path_entries.empty?
+    ctx[:plan] = plan
+    ctx
+  end
+
+  def plan(flags = {})
+    inspect_state(flags)[:plan]
+  end
+
+  def plan_text(plan, ctx)
+    lines = []
+    lines << "rEach would be removed from this computer. Nothing has been changed yet."
+    lines << ""
+    accepted = plan["homes"].select { |home| home["refused"].nil? }
+    unless accepted.empty?
+      lines << "These rEach folders would be deleted:"
+      accepted.each { |home| lines << "- #{display(home['path'], ctx)} (#{human_bytes(home['bytes'])})" }
+    end
+    plan["homes"].reject { |home| home["refused"].nil? }.each { |home| lines << "Not touched: #{display(home['path'], ctx)} (#{home['refused']})" }
+    lines << ""
+    lines << "Your work stays exactly as it is:"
+    plan["kept"].each { |path| lines << "- #{display(path, ctx)}" }
+    lines << "- the extra copies of your work rEach keeps outside your work folder#{plan['checkpoint_mirror']['action'] == 'purge' ? ' (these would be deleted because you asked)' : ''}"
+    unless plan["workspaces"].empty?
+      lines << ""
+      lines << "rEach's files inside your work folders:"
+      plan["workspaces"].each do |space|
+        parts = []
+        parts << space["generated"].join(", ") unless space["generated"].empty?
+        parts << "#{space['locked_files']} read-only files would become editable again" if space["locked_files"].positive?
+        lines << "- #{display(space['path'], ctx)}: #{parts.join('; ')}"
+      end
+    end
+    lines << ""
+    lines << "Background update job: #{plan['job']['installed'] ? 'would be switched off' : 'none found'}"
+    found = plan["harnesses"].select { |entry| entry["found"] }.map { |entry| entry["id"] }
+    lines << "AI apps where rEach is set up: #{found.empty? ? 'none seen' : found.join(', ')}"
+    lines << "Items not yet sent to your course server: #{plan['outbox']['total']}" if plan["outbox"]["total"].positive?
+    receipts = plan["receipts"]
+    lines << (receipts["copy_to"] ? "Receipts and grade records (#{receipts['files']} files) would be copied to #{display(receipts['copy_to'], ctx)} first." : "Receipts and grade records would not be copied.")
+    mirror = plan["checkpoint_mirror"]
+    lines << "Checkpoint copies: #{mirror['exists'] ? display(mirror['path'], ctx) + ' ' + (mirror['action'] == 'purge' ? 'would be deleted' : 'stay') : 'none found'}"
+    sidecar = plan["sidecar"]
+    lines << "Computer record: #{sidecar['exists'] ? display(sidecar['path'], ctx) + ' ' + (sidecar['action'] == 'purge' ? 'would be deleted' : 'stays') : 'none found'}"
+    lines.join("\n")
+  end
+
+  def step(id, status, detail)
+    { "id" => id, "status" => status, "detail" => detail }
+  end
+
+  def step_receipts(ctx)
+    flags = ctx[:flags]
+    return step("receipts-copy", "skipped", "receipts copy was switched off") unless flags[:receipts_copy]
+
+    dest = ctx[:plan]["receipts"]["copy_to"]
+    return step("receipts-copy", "skipped", "no receipts or grade records were found") unless dest
+
+    created = false
+    begin
+      FileUtils.mkdir_p(File.dirname(dest))
+      Dir.mkdir(dest, 0o700)
+      created = true
+      File.chmod(0o700, dest)
+      multi = ctx[:groups].length > 1
+      copied = 0
+      ctx[:groups].each do |group|
+        group[:files].each do |source, relative|
+          target = File.join(dest, multi ? File.join(group[:label], relative) : relative)
+          current = dest
+          File.dirname(target)[(dest.length + 1)..-1].to_s.split("/").each do |part|
+            current = File.join(current, part)
+            unless File.directory?(current)
+              Dir.mkdir(current, 0o700)
+              File.chmod(0o700, current)
+            end
+          end
+          File.open(source, "rb") do |input|
+            File.open(target, File::WRONLY | File::CREAT | File::EXCL | File::BINARY, 0o600) { |output| IO.copy_stream(input, output) }
+          end
+          File.chmod(0o600, target)
+          raise "a copied file has the wrong size" unless File.size(target) == File.size(source)
+
+          copied += 1
+        end
+      end
+      File.open(File.join(dest, "README.txt"), File::WRONLY | File::CREAT | File::EXCL, 0o600) { |file| file.write(RECEIPTS_README) }
+      ctx[:receipts_copy] = dest
+      step("receipts-copy", "done", "Copied #{copied} receipt and grade files to #{display(dest, ctx)}.")
+    rescue StandardError => e
+      begin
+        remove_tree(dest) if created
+      rescue StandardError
+        nil
+      end
+      step("receipts-copy", "failed", "Could not copy your receipts (#{clean(e.message)[0, 120]}).")
+    end
+  end
+
+  def run_os_call(args)
+    return { ok: false, text: "#{args.first} is not on this computer" } unless which(args.first)
+
+    result = run_command([which(args.first)] + args[1..-1])
+    { ok: result[:ok], text: first_line(result), all: "#{result[:err]} #{result[:out]}" }
+  end
+
+  def step_job(ctx)
+    case ctx[:platform]
+    when "windows" then job_windows(ctx)
+    when "macos" then job_macos(ctx)
+    else job_linux(ctx)
+    end
+  end
+
+  def job_linux(ctx)
+    dir = systemd_dir(ctx)
+    files = [SERVICE_NAME, TIMER_NAME].map { |name| File.join(dir, name) }.select { |file| exists_or_link?(file) }
+    return step("job", "skipped", "no background update job was found") if files.empty?
+
+    override = !ENV["REACH_SYSTEMD_USER_DIR"].to_s.empty?
+    problems = []
+    unless override
+      call = run_os_call(["systemctl", "--user", "disable", "--now", TIMER_NAME])
+      problems << call[:text] unless call[:ok] || call[:all].to_s =~ ABSENT_ANSWER
+    end
+    files.each do |file|
+      remove_file(file)
+    rescue SystemCallError => e
+      problems << "#{File.basename(file)}: #{e.message}"
+    end
+    unless override
+      call = run_os_call(%w[systemctl --user daemon-reload])
+      problems << call[:text] unless call[:ok]
+    end
+    return step("job", "failed", "The background update job was not fully removed (#{problems.first}).") unless problems.empty?
+
+    step("job", "done", "Switched off the background update job.")
+  end
+
+  def job_macos(ctx)
+    plist = File.join(ctx[:user_home], "Library", "LaunchAgents", "#{LAUNCH_LABEL}.plist")
+    return step("job", "skipped", "no background update job was found") unless exists_or_link?(plist)
+
+    problems = []
+    call = run_os_call(["launchctl", "bootout", "gui/#{Process.uid}/#{LAUNCH_LABEL}"])
+    unless call[:ok] || call[:all].to_s =~ ABSENT_ANSWER
+      fallback = run_os_call(["launchctl", "unload", "-w", plist])
+      problems << fallback[:text] unless fallback[:ok]
+    end
+    begin
+      remove_file(plist)
+    rescue SystemCallError => e
+      problems << e.message
+    end
+    return step("job", "failed", "The background update job was not fully removed (#{problems.first}).") unless problems.empty?
+
+    step("job", "done", "Switched off the background update job.")
+  end
+
+  def job_windows(_ctx)
+    return step("job", "skipped", "no background update job was found") unless ctx_job_installed?
+
+    call = run_os_call(["schtasks", "/Delete", "/F", "/TN", TASK_NAME])
+    return step("job", "done", "Switched off the background update job.") if call[:ok]
+    return step("job", "skipped", "no background update job was found") if call[:all].to_s =~ /cannot find|does not exist/i || call[:all].to_s =~ ABSENT_ANSWER
+
+    step("job", "failed", "The background update job was not removed (#{call[:text]}).")
+  end
+
+  def ctx_job_installed?
+    which("schtasks") ? run_command(["schtasks", "/Query", "/TN", TASK_NAME])[:ok] : false
+  end
+
+  def restore_space(space, skip_paths)
+    restored = 0
+    readonly_targets(space[:path]).each do |file, dirs|
+      next if skip_paths.any? { |skip| same?(skip, file) }
+
+      dirs.each do |dir|
+        stat = File.lstat(dir)
+        File.chmod(stat.mode | 0o700, dir) if stat.directory? && (stat.mode & 0o700) != 0o700
+      rescue SystemCallError, NotImplementedError
+        nil
+      end
+      begin
+        stat = File.lstat(file)
+        next unless stat.file?
+
+        if (stat.mode & 0o200).zero?
+          File.chmod(stat.mode | 0o200, file)
+          restored += 1
+        end
+      rescue SystemCallError, NotImplementedError
+        nil
+      end
+    end
+    restored
+  end
+
+  def step_workspaces(ctx, left)
+    return step("workspaces", "skipped", "you asked to keep rEach's files in your work folders") if ctx[:flags][:keep_workspace_files]
+
+    removed = 0
+    edited = 0
+    restored = 0
+    left_count = 0
+    failures = []
+    ctx[:spaces].each do |space|
+      next unless exists_or_link?(space[:path])
+
+      actions = judge_space(space[:path], space[:kind])
+      deletions = actions.select { |action| action[:verdict] == :delete }.map { |action| action[:path] }
+      restored += restore_space(space, deletions) if space[:kind] == "slice"
+      actions.each do |action|
+        case action[:verdict]
+        when :delete
+          remove_file(action[:path])
+          removed += 1
+        when :edit
+          mode = File.stat(action[:path]).mode & 0o7777
+          atomic_write(action[:path], action[:content], mode)
+          edited += 1
+        when :left
+          left << action[:left]
+          left_count += 1
+        end
+      rescue StandardError => e
+        failures << "#{action[:rel]}: #{clean(e.message)[0, 100]}"
+      end
+      %w[.claude .codex].each do |name|
+        dir = File.join(space[:path], name)
+        begin
+          with_writable_dir(space[:path]) { Dir.rmdir(dir) } if real_dir?(dir) && Dir.empty?(dir)
+        rescue SystemCallError
+          nil
+        end
+      end
+    end
+    parts = []
+    parts << "Removed #{removed} rEach file#{removed == 1 ? '' : 's'} from your work folders" if removed.positive?
+    parts << "cleaned rEach out of #{edited} file#{edited == 1 ? '' : 's'} that also held your own settings" if edited.positive?
+    parts << "made #{restored} read-only file#{restored == 1 ? '' : 's'} editable again" if restored.positive?
+    parts << "left #{left_count} file#{left_count == 1 ? '' : 's'} for you to look at" if left_count.positive?
+    parts << "looked at only part of a very large work folder" if ctx[:truncated]
+    detail = parts.empty? ? "no rEach files were found in your work folders" : "#{parts.join('; ')}."
+    detail = detail.sub(/\A([a-z])/) { Regexp.last_match(1).upcase }
+    return step("workspaces", "failed", "#{detail} Problems: #{failures.first(3).join('; ')}") unless failures.empty?
+    return step("workspaces", left_count.positive? && removed.zero? && edited.zero? && restored.zero? ? "left" : "done", detail) if !parts.empty?
+
+    step("workspaces", "skipped", detail)
+  end
+
+  def step_claude
+    results = [
+      cli_call("claude", %w[plugin uninstall reach@reach --scope user]),
+      cli_call("claude", %w[plugin marketplace remove reach])
+    ]
+    summarize_cli("claude", results, "Took the rEach plugin out of Claude Code.")
+  end
+
+  def step_codex_plugin
+    results = [
+      cli_call("codex", %w[plugin remove reach@reach]),
+      cli_call("codex", %w[plugin marketplace remove reach])
+    ]
+    summarize_cli("codex-plugin", results, "Took the rEach plugin out of Codex.")
+  end
+
+  def summarize_cli(id, results, done_text)
+    failed = results.find { |status, _| status == :failed }
+    return step(id, "failed", failed[1]) if failed
+    return step(id, "done", done_text) if results.any? { |status, _| status == :done }
+
+    step(id, "skipped", results.first[1])
+  end
+
+  def own_target?(target_text, ctx)
+    text = target_text.to_s.tr("\\", "/")
+    return true if text.include?(".reach-home") || text.include?("/.reach/") || text.end_with?("/.reach")
+
+    ctx[:homes].any? { |home| within?(text, home[:path]) }
+  end
+
+  def step_antigravity(ctx, left)
+    notes = []
+    changed = false
+    if which("agy")
+      status, line = cli_call("agy", %w[plugin uninstall reach])
+      case status
+      when :done
+        changed = true
+        notes << "took rEach out of Antigravity"
+      when :failed
+        left << { "what" => "the rEach plugin in Antigravity", "how" => "run: agy plugin uninstall reach (#{line})" }
+      end
+    end
+    problems = []
+    antigravity_targets(ctx).each do |target|
+      next unless exists_or_link?(target)
+
+      begin
+        stat = File.lstat(target)
+        if stat.symlink?
+          if own_target?(File.readlink(target), ctx)
+            remove_tree(target)
+            changed = true
+            notes << "removed the rEach link #{display(target, ctx)}"
+          else
+            left << { "what" => display(target, ctx), "how" => "delete #{target} if you no longer want rEach in Antigravity" }
+          end
+        elsif stat.directory? && File.file?(File.join(target, COPY_MARKER))
+          remove_tree(target)
+          changed = true
+          notes << "removed the rEach copy #{display(target, ctx)}"
+        else
+          left << { "what" => display(target, ctx), "how" => "delete #{target} if you no longer want rEach in Antigravity" }
+        end
+      rescue StandardError => e
+        problems << "#{display(target, ctx)}: #{clean(e.message)[0, 100]}"
+      end
+    end
+    return step("antigravity", "failed", "Could not finish removing rEach from Antigravity (#{problems.first}).") unless problems.empty?
+    return step("antigravity", "done", "#{notes.join('; ').sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}.") if changed
+
+    step("antigravity", "skipped", "rEach was not found in Antigravity")
+  end
+
+  def hermes_shims(ctx)
+    paths = ctx[:homes].select { |home| home[:refused].nil? }.map { |home| home[:path] }
+    paths << File.join(ctx[:workspace_base], ".reach-home")
+    paths << File.join(ctx[:user_home], ".reach")
+    explicit = ENV["REACH_HOME"].to_s
+    paths << expand_home(explicit, ctx[:user_home]) unless explicit.empty?
+    paths.uniq.map { |path| File.join(path, "bin", "reach").tr("\\", "/") }
+  end
+
+  def step_hermes(ctx, left)
+    config = ctx[:hermes_config]
+    notes = []
+    problems = []
+    if config
+      skills = File.join(File.dirname(config), "skills")
+      %w[reach-assistant reach-course].each do |name|
+        target = File.join(skills, name)
+        next unless exists_or_link?(target)
+
+        begin
+          stat = File.lstat(target)
+          if stat.symlink? && own_target?(File.readlink(target), ctx)
+            remove_tree(target)
+            notes << "removed the rEach skill link #{name}"
+          elsif stat.directory? && !stat.symlink? && File.file?(File.join(target, COPY_MARKER))
+            remove_tree(target)
+            notes << "removed the rEach skill copy #{name}"
+          else
+            left << { "what" => display(target, ctx), "how" => "delete #{target} if you no longer want rEach in Hermes" }
+          end
+        rescue StandardError => e
+          problems << "#{name}: #{clean(e.message)[0, 100]}"
+        end
+      end
+      hermes_config_edit(config, ctx, notes, problems, left)
+    end
+    if ctx[:flags][:delete_hermes_profile]
+      status, line = cli_call("hermes", %w[profile delete reach])
+      case status
+      when :done then notes << "deleted the Hermes profile reach#{line.empty? ? '' : " (#{line})"}"
+      when :failed then left << { "what" => "the Hermes profile named reach", "how" => "run: hermes profile delete reach (#{line})" }
+      end
+    end
+    return step("hermes", "failed", "Could not finish removing rEach from Hermes (#{problems.first}).") unless problems.empty?
+    return step("hermes", "done", "#{notes.join('; ').sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}.") unless notes.empty?
+    return step("hermes", "skipped", "no Hermes profile for rEach was recorded") unless config
+
+    step("hermes", "skipped", "nothing of rEach was found in Hermes")
+  end
+
+  def hermes_config_edit(config, ctx, notes, problems, left)
+    text = File.binread(config).force_encoding(Encoding::UTF_8)
+    document = begin
+      YAML.safe_load(text, permitted_classes: [Date, Time, Symbol], aliases: false)
+    rescue StandardError, Psych::SyntaxError
+      :bad
+    end
+    document = {} if document.nil?
+    unless document.is_a?(Hash)
+      left << { "what" => "rEach's entries in #{config}", "how" => "remove the rEach hooks and the mcp_servers.reach entry from #{config}" }
+      return
+    end
+    shims = hermes_shims(ctx)
+    changed = false
+    hooks = document["hooks"]
+    if hooks.is_a?(Hash)
+      hooks.keys.each do |event|
+        entries = hooks[event]
+        next unless entries.is_a?(Array)
+
+        kept = entries.reject { |entry| entry.is_a?(Hash) && shims.any? { |shim| entry["command"].to_s.tr("\\", "/").include?(shim) } }
+        next if kept.length == entries.length
+
+        changed = true
+        if kept.empty?
+          hooks.delete(event)
+        else
+          hooks[event] = kept
+        end
+      end
+      document.delete("hooks") if changed && hooks.empty?
+    end
+    servers = document["mcp_servers"]
+    if servers.is_a?(Hash) && servers.key?("reach")
+      servers.delete("reach")
+      document.delete("mcp_servers") if servers.empty?
+      changed = true
+    end
+    return unless changed
+
+    backup = "#{config}.reach-uninstall-backup"
+    File.binwrite(backup, text) unless File.exist?(backup)
+    mode = File.stat(config).mode & 0o7777
+    atomic_write(config, YAML.dump(document), mode)
+    notes << "removed rEach's hooks and settings from the Hermes configuration (a backup is beside it)"
+  rescue StandardError => e
+    problems << "#{display(config, ctx)}: #{clean(e.message)[0, 100]}"
+  end
+
+  def purge_item(path, label, ctx)
+    reason = keep_refusal(path, ctx)
+    return [:left, "#{label} #{display(path, ctx)} was not deleted because #{reason}"] if reason
+
+    remove_tree(path)
+    [:done, "deleted #{label} #{display(path, ctx)}"]
+  rescue StandardError => e
+    [:failed, "could not delete #{label} #{display(path, ctx)} (#{clean(e.message)[0, 100]})"]
+  end
+
+  def step_mirror(ctx, left)
+    plan = ctx[:plan]
+    mirror = plan["checkpoint_mirror"]
+    sidecar = plan["sidecar"]
+    unless ctx[:flags][:purge_checkpoint_mirror]
+      parts = []
+      parts << "the checkpoint copies at #{display(mirror['path'], ctx)} (#{human_bytes(mirror['bytes'])})" if mirror["exists"]
+      parts << "the computer record at #{display(sidecar['path'], ctx)} (#{human_bytes(sidecar['bytes'])})" if sidecar["exists"]
+      return step("checkpoint-mirror", "skipped", parts.empty? ? "no checkpoint copies were found" : "Kept #{parts.join(' and ')}.")
+    end
+    results = []
+    results << purge_item(mirror["path"], "the checkpoint copies", ctx) if mirror["exists"]
+    if sidecar["exists"]
+      override = !ENV["REACH_SIDECAR"].to_s.empty?
+      if override && File.basename(sidecar["path"]) != "seal.json"
+        results << [:left, "the computer record #{display(sidecar['path'], ctx)} was not deleted because its name is not seal.json"]
+      else
+        results << purge_item(sidecar["path"], "the computer record", ctx)
+        unless override
+          parent = File.dirname(sidecar["path"])
+          begin
+            Dir.rmdir(parent) if File.basename(parent) == "reach" && real_dir?(parent) && Dir.empty?(parent)
+          rescue SystemCallError
+            nil
+          end
+        end
+      end
+    end
+    reach_parent = File.dirname(mirror["path"])
+    begin
+      Dir.rmdir(reach_parent) if File.basename(reach_parent) == "reach" && same?(File.dirname(reach_parent), data_dir(ctx)) && real_dir?(reach_parent) && Dir.empty?(reach_parent)
+    rescue SystemCallError
+      nil
+    end
+    return step("checkpoint-mirror", "skipped", "no checkpoint copies were found") if results.empty?
+
+    results.each { |status, text| left << { "what" => text, "how" => "delete it yourself if you want it gone" } if status == :left }
+    failed = results.find { |status, _| status == :failed }
+    return step("checkpoint-mirror", "failed", failed[1].sub(/\A([a-z])/) { Regexp.last_match(1).upcase } + ".") if failed
+
+    done = results.select { |status, _| status == :done }.map { |_, text| text }
+    return step("checkpoint-mirror", "left", "Nothing was deleted.") if done.empty?
+
+    step("checkpoint-mirror", "done", "#{done.join('; ').sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}.")
+  end
+
+  def step_windows_path(ctx)
+    return step("windows-path", "skipped", "this step is only for Windows") unless windows?
+
+    entries = ctx[:plan]["windows_path"]
+    return step("windows-path", "skipped", "rEach was not in your program search path") if entries.empty?
+
+    current = run_command(["powershell", "-NoProfile", "-Command", "[Environment]::GetEnvironmentVariable('Path','User')"], 20)
+    return step("windows-path", "failed", "Could not read your program search path.") unless current[:ok]
+
+    kept = current[:out].to_s.strip.split(";").reject { |entry| entries.include?(entry) }
+    value = kept.join(";").gsub("'", "''")
+    written = run_command(["powershell", "-NoProfile", "-Command", "[Environment]::SetEnvironmentVariable('Path', '#{value}', 'User')"], 20)
+    return step("windows-path", "failed", "Could not update your program search path.") unless written[:ok]
+
+    step("windows-path", "done", "Removed #{entries.length} rEach entr#{entries.length == 1 ? 'y' : 'ies'} from your program search path.")
+  end
+
+  def defer_removal(path, ctx, error)
+    reason = home_refusal_now(path, ctx)
+    return [:failed, "#{display(path, ctx)} could not be removed (#{error.class.name.split('::').last}) and was not retried because #{reason}"] if reason
+    return [:failed, "#{display(path, ctx)} is in use and its name cannot be handed to the Windows cleanup helper"] if path =~ /["%&^|<>!]/
+
+    cmd = File.join(Dir.tmpdir, "reach-uninstall-#{SecureRandom.hex(4)}.cmd")
+    line = "@for /l %%i in (1,1,30) do @if exist \"#{path.tr('/', '\\')}\" (rmdir /s /q \"#{path.tr('/', '\\')}\" 2>nul & ping -n 3 127.0.0.1 >nul)\r\n@(goto) 2>nul & del \"%~f0\"\r\n"
+    File.binwrite(cmd, line)
+    pid = Process.spawn("cmd.exe", "/c", "start", "", "/b", cmd, in: File::NULL, out: File::NULL, err: File::NULL)
+    Process.detach(pid)
+    [:deferred, "#{display(path, ctx)} is in use and will be removed in the background in a few moments"]
+  rescue StandardError => e
+    [:failed, "#{display(path, ctx)} could not be removed (#{clean(e.message)[0, 100]})"]
+  end
+
+  def remove_home(path, ctx)
+    attempts = 0
+    begin
+      attempts += 1
+      remove_tree(path)
+      [:done, "deleted #{display(path, ctx)}"]
+    rescue Errno::EACCES, Errno::EPERM, Errno::EBUSY, Errno::ENOTEMPTY => e
+      if windows?
+        if attempts < 3
+          sleep 0.5
+          retry
+        end
+        return defer_removal(path, ctx, e)
+      end
+      [:failed, "could not delete #{display(path, ctx)} (#{e.class.name.split('::').last})"]
+    end
+  rescue StandardError => e
+    [:failed, "could not delete #{display(path, ctx)} (#{clean(e.message)[0, 100]})"]
+  end
+
+  def step_homes(ctx, left)
+    accepted = accepted_homes(ctx)
+    ctx[:homes].reject { |home| home[:refused].nil? }.each do |home|
+      left << { "what" => "#{display(home[:path], ctx)} (not deleted: #{home[:refused]})", "how" => "check the folder yourself and delete it if it is yours" }
+    end
+    return step("homes", "skipped", "no rEach folder was found to delete") if accepted.empty?
+
+    results = accepted.map do |home|
+      reason = home_refusal_now(home[:path], ctx)
+      if reason == "it is gone"
+        [:done, "#{display(home[:path], ctx)} was already gone"]
+      elsif reason
+        left << { "what" => "#{display(home[:path], ctx)} (not deleted: #{reason})", "how" => "check the folder yourself and delete it if it is yours" }
+        [:left, "not deleted #{display(home[:path], ctx)} because #{reason}"]
+      elsif home[:symlink] && File.symlink?(home[:path])
+        begin
+          remove_tree(home[:path])
+          [:done, "unlinked #{display(home[:path], ctx)} (the folder it pointed to was not touched)"]
+        rescue StandardError => e
+          [:failed, "could not unlink #{display(home[:path], ctx)} (#{clean(e.message)[0, 100]})"]
+        end
+      else
+        remove_home(home[:path], ctx)
+      end
+    end
+    text = results.map { |_, line| line }.join("; ")
+    text = "#{text.sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}."
+    return step("homes", "failed", text) if results.any? { |status, _| status == :failed }
+    return step("homes", "deferred", text) if results.any? { |status, _| status == :deferred }
+    return step("homes", "left", text) if results.all? { |status, _| status == :left }
+
+    step("homes", "done", text)
+  end
+
+  def load_prepared(path)
+    return nil if path.to_s.empty?
+
+    data = JSON.parse(File.read(path))
+    data.is_a?(Hash) ? data : nil
+  rescue StandardError => e
+    warn "reach-uninstall: could not read the prepared file (#{clean(e.message)[0, 100]})"
+    nil
+  end
+
+  def prepared_steps(prepared, skip_teach, left)
+    steps = []
+    return steps unless prepared
+
+    teach = prepared["teach"]
+    if teach.is_a?(Hash) && !skip_teach
+      state = teach["state"].to_s
+      reason = teach["reason"].to_s
+      steps << (state == "told" ? step("teach", "done", "Your course server was told this copy of rEach is gone.") : step("teach", "skipped", state == "skipped" ? "Your course server was not told (#{reason.empty? ? 'skipped' : reason})." : "Your course server was not told (#{reason})."))
+    end
+    codex = prepared["codex_config"]
+    if codex.is_a?(Hash)
+      state = codex["state"].to_s
+      text = codex["text"].to_s
+      status = { "done" => "done", "nothing" => "skipped", "left" => "left", "unsafe" => "left", "sandboxed" => "left" }.fetch(state, "skipped")
+      steps << step("codex-config", status, text.empty? ? "Codex settings: #{state}" : text)
+      if %w[left unsafe sandboxed].include?(state)
+        Array(codex["left"]).each do |item|
+          left << { "what" => "a rEach setting in your Codex configuration", "how" => item.to_s }
+        end
+      end
+    end
+    steps
+  end
+
+  def result_text(result, ctx)
+    lines = []
+    done = result["steps"].select { |entry| %w[done deferred].include?(entry["status"]) }
+    lines << "rEach was removed from this computer."
+    done.each { |entry| lines << "- #{entry['detail']}" }
+    lines << ""
+    lines << "Your work was not touched:"
+    result["kept"].each { |path| lines << "- #{display(path, ctx)}" }
+    if result["receipts_copy"]
+      lines << ""
+      lines << "Your receipts and grade records are saved in #{display(result['receipts_copy'], ctx)}."
+    end
+    failed = result["steps"].select { |entry| entry["status"] == "failed" }
+    unless failed.empty?
+      lines << ""
+      lines << "Something did not finish:"
+      failed.each { |entry| lines << "- #{entry['detail']}" }
+    end
+    unless result["left"].empty?
+      lines << ""
+      lines << "Left for you:"
+      result["left"].each { |item| lines << "- #{item['what']}: #{item['how']}" }
+    end
+    if result["rplugin_hint"]
+      lines << ""
+      lines << "If you installed rEach with rplugin, also run: rplugin uninstall reach"
+    end
+    lines << ""
+    lines << "Start a new chat in your AI app so it stops looking for rEach."
+    lines.join("\n")
+  end
+
+  def apply(options)
+    ctx = inspect_state(options[:flags])
+    plan = ctx[:plan]
+    return { code: 0, ctx: ctx, result: { "schema" => RESULT_SCHEMA, "ok" => true, "steps" => [], "installed" => false }, text: "rEach is not installed on this computer, so there is nothing to remove." } unless plan["installed"]
+
+    left = []
+    steps = {}
+    prepared = prepared_steps(load_prepared(options[:prepared]), options[:skip_teach_note], left)
+    steps["receipts-copy"] = step_receipts(ctx)
+    steps["job"] = step_job(ctx)
+    steps["workspaces"] = guarded("workspaces") { step_workspaces(ctx, left) }
+    steps["claude"] = guarded("claude") { step_claude }
+    steps["codex-plugin"] = guarded("codex-plugin") { step_codex_plugin }
+    steps["antigravity"] = guarded("antigravity") { step_antigravity(ctx, left) }
+    steps["hermes"] = guarded("hermes") { step_hermes(ctx, left) }
+    steps["checkpoint-mirror"] = guarded("checkpoint-mirror") { step_mirror(ctx, left) }
+    steps["windows-path"] = guarded("windows-path") { step_windows_path(ctx) }
+    steps["homes"] = if steps["receipts-copy"]["status"] == "failed"
+                       step("homes", "skipped", "receipts copy failed, nothing was deleted")
+                     else
+                       guarded("homes") { step_homes(ctx, left) }
+                     end
+    ordered = prepared + STEP_ORDER.map { |id| steps[id] }
+    kept = plan["kept"].dup
+    mirror = plan["checkpoint_mirror"]
+    kept << mirror["path"] if mirror["exists"] && !ctx[:flags][:purge_checkpoint_mirror]
+    sidecar = plan["sidecar"]
+    kept << sidecar["path"] if sidecar["exists"] && !ctx[:flags][:purge_checkpoint_mirror]
+    left = left.uniq
+    refused_only = !ctx[:homes].empty? && accepted_homes(ctx).empty?
+    failed = ordered.any? { |entry| entry["status"] == "failed" }
+    result = {
+      "schema" => RESULT_SCHEMA,
+      "ok" => !failed,
+      "installed" => true,
+      "steps" => ordered,
+      "kept" => kept,
+      "left" => left,
+      "receipts_copy" => ctx[:receipts_copy],
+      "rplugin_hint" => plan["rplugin_hint"]
+    }
+    result["text"] = result_text(result, ctx)
+    code = failed ? 1 : (refused_only ? 2 : 0)
+    { code: code, ctx: ctx, result: result }
+  end
+
+  def guarded(id)
+    yield
+  rescue StandardError => e
+    step(id, "failed", "Could not finish this part (#{clean(e.message)[0, 120]}).")
+  end
+
+  def emit(object)
+    puts JSON.generate(deep_clean(object))
+  end
+
+  def main(argv)
+    begin
+      options = parse_args(argv)
+    rescue UsageError => e
+      warn "reach-uninstall: #{e.message}"
+      warn USAGE
+      return 2
+    end
+    json = options[:format] == "json"
+    if ENV["REACH_UNINSTALL_KILL_SWITCH"] == "1"
+      message = "rEach uninstall is switched off on this computer."
+      if json
+        emit("schema" => RESULT_SCHEMA, "ok" => false, "refused" => message)
+      else
+        warn message
+      end
+      return 2
+    end
+    command = options[:command] || "plan"
+    if command == "plan"
+      ctx = inspect_state(options[:flags])
+      if json
+        emit(ctx[:plan])
+      else
+        puts plan_text(ctx[:plan], ctx)
+      end
+      return 0
+    end
+    ctx = inspect_state(options[:flags])
+    unless ctx[:plan]["installed"]
+      if json
+        emit("schema" => RESULT_SCHEMA, "ok" => true, "steps" => [], "installed" => false)
+      else
+        puts "rEach is not installed on this computer, so there is nothing to remove."
+      end
+      return 0
+    end
+    unless options[:yes]
+      if $stdin.tty? && $stdout.tty?
+        puts plan_text(ctx[:plan], ctx)
+        $stdout.print "Type yes to remove rEach: "
+        $stdout.flush
+        answer = $stdin.gets.to_s.strip.downcase
+        unless %w[yes y].include?(answer)
+          puts "Nothing was removed."
+          return 4
+        end
+      else
+        if json
+          emit(ctx[:plan].merge("needs_confirmation" => true))
+        else
+          puts plan_text(ctx[:plan], ctx)
+          puts "needs confirmation: run this again with --yes once the student has agreed."
+        end
+        return 3
+      end
+    end
+    outcome = apply(options)
+    if json
+      emit(outcome[:result])
+    elsif outcome[:result]["installed"] == false
+      puts outcome[:text]
+    else
+      puts outcome[:result]["text"]
+    end
+    outcome[:code]
+  rescue Interrupt
+    warn "reach-uninstall: interrupted"
+    1
+  rescue StandardError => e
+    warn "reach-uninstall: #{clean(e.message)}"
+    1
+  end
+end
+
+exit ReachUninstall.main(ARGV) if $PROGRAM_NAME == __FILE__
