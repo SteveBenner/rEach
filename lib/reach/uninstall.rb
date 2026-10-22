@@ -140,7 +140,7 @@ module Reach
     def locked?
       Reach::EnrollmentLock.state["locked"] ? true : false
     rescue StandardError
-      true
+      false
     end
 
     def build_context(options, plan, flags)

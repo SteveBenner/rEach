@@ -546,8 +546,9 @@ module ReachUninstall
             touched = true
             removed += entry["hooks"].length - remaining.length
           end
-          kept << entry.merge("hooks" => remaining) unless remaining.empty? && remaining.length != entry["hooks"].length
-          kept << entry if remaining.empty? && remaining.length == entry["hooks"].length
+          next if remaining.empty? && remaining.length != entry["hooks"].length
+
+          kept << (remaining.length == entry["hooks"].length ? entry : entry.merge("hooks" => remaining))
         else
           kept << entry
         end
