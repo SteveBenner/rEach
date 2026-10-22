@@ -3,6 +3,7 @@ require "rbconfig"
 require "timeout"
 require "shellwords"
 require "base64"
+require "uri"
 
 module Reach
   module Desktop
@@ -27,7 +28,7 @@ module Reach
     end
 
     def open_url(url)
-      return false unless url.to_s.start_with?("http://127.0.0.1:")
+      return false unless local_url?(url)
 
       Timeout.timeout(LIMIT_S) do
         command = case RbConfig::CONFIG["host_os"]
@@ -44,6 +45,13 @@ module Reach
       end
       true
     rescue StandardError, Timeout::Error
+      false
+    end
+
+    def local_url?(url)
+      uri = URI.parse(url.to_s)
+      uri.is_a?(URI::HTTP) && uri.scheme == "http" && uri.host == "127.0.0.1" && uri.userinfo.nil? && uri.port.to_i.positive?
+    rescue URI::InvalidURIError
       false
     end
 

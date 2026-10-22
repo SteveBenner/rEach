@@ -12,11 +12,13 @@ begin
   workspace = ENV.fetch("REACH_PREVIEW_WORKSPACE")
   owned = JSON.parse(ENV.fetch("REACH_PREVIEW_OWNED", "[]"))
   idle_s = Integer(ENV.fetch("REACH_PREVIEW_IDLE_S", "1800"))
+  key = ENV.fetch("REACH_PREVIEW_KEY")
 rescue KeyError, ArgumentError, JSON::ParserError => e
   preview_fail("bad environment: #{e.message}"[0, 200])
 end
 preview_fail("bad environment: owned paths") unless owned.is_a?(Array)
 preview_fail("bad environment: idle seconds") unless idle_s.positive?
+preview_fail("bad environment: key") unless key.match?(/\A[0-9a-f]{32}\z/)
 
 run_dir = Dir.pwd
 $LOAD_PATH.unshift(File.join(run_dir, "lib"))
@@ -43,11 +45,16 @@ class PreviewGate
   LIVE = %r{\Amodules/[^/]+/panel/src/.+\.svelte\z}
   FORBIDDEN = [403, { "content-type" => "text/plain; charset=utf-8" },
                ["preview answers only on this computer's own address"]].freeze
+  UNKEYED = [403, { "content-type" => "text/plain; charset=utf-8" },
+             ["open the preview from the address rEach gave you"]].freeze
+  COOKIE = "reach_preview".freeze
+  QUERY = "reach_key".freeze
 
   attr_reader :last_request
 
-  def initialize(app, port, workspace, owned)
+  def initialize(app, port, workspace, owned, key)
     @app = app
+    @key = key
     @hosts = ["127.0.0.1:#{port}", "localhost:#{port}"]
     @workspace = File.expand_path(workspace)
     @owned = owned.select { |item| item.is_a?(String) }
@@ -58,6 +65,11 @@ class PreviewGate
     @last_request = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     return FORBIDDEN.dup unless @hosts.include?(env["HTTP_HOST"].to_s)
 
+    request = Rack::Request.new(env)
+    given = request.GET[QUERY].to_s
+    return enter(request) if !given.empty? && Rack::Utils.secure_compare(given, @key)
+    return UNKEYED.dup unless Rack::Utils.secure_compare(request.cookies[COOKIE].to_s, @key)
+
     if env["REQUEST_METHOD"] == "GET" && env["PATH_INFO"].to_s.start_with?("/live/")
       served = live(env["PATH_INFO"].sub(%r{\A/live/}, ""))
       return served if served
@@ -67,6 +79,13 @@ class PreviewGate
 
   private
 
+  def enter(request)
+    query = Rack::Utils.build_query(request.GET.reject { |name, _| name == QUERY })
+    location = query.empty? ? request.path : "#{request.path}?#{query}"
+    cookie = "#{COOKIE}=#{@key}; Path=/; HttpOnly; SameSite=Strict"
+    [303, { "location" => location, "set-cookie" => cookie, "cache-control" => "no-store" }, []]
+  end
+
   def live(relative)
     return nil unless relative.match?(LIVE)
     return nil if relative.include?("..") || relative.include?("\0")
@@ -74,6 +93,7 @@ class PreviewGate
 
     path = File.join(@workspace, relative)
     return nil if File.symlink?(path) || !File.file?(path)
+    return nil unless File.realpath(path).start_with?(File.join(File.realpath(@workspace), ""))
 
     body = File.binread(path)
     [200, { "content-type" => "text/plain; charset=utf-8", "cache-control" => "no-store",
@@ -83,7 +103,7 @@ class PreviewGate
   end
 end
 
-gate = PreviewGate.new(Grokit::Api.freeze.app, port, workspace, owned)
+gate = PreviewGate.new(Grokit::Api.freeze.app, port, workspace, owned, key)
 handler = defined?(Rackup::Handler::WEBrick) ? Rackup::Handler::WEBrick : Rack::Handler::WEBrick
 
 stopping = false

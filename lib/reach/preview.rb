@@ -1,4 +1,5 @@
 require "json"
+require "securerandom"
 require "net/http"
 require "open3"
 require "socket"
@@ -40,18 +41,20 @@ module Reach
       gems = prepare_kit(run_dir)
       module_id = meta["cutout_id"].to_s.split(".").first.to_s
       port = free_port
+      key = SecureRandom.hex(16)
       qualify = meta["qualify"].is_a?(Hash) ? meta["qualify"] : {}
       env, _dropped = Reach::Qualify.sanitize_env(qualify["env"])
       env = env.merge(
         "REACH_PREVIEW_PORT" => port.to_s,
         "REACH_PREVIEW_WORKSPACE" => File.expand_path(workspace),
         "REACH_PREVIEW_OWNED" => JSON.generate(Array(meta["owned_files"]).map(&:to_s)),
-        "REACH_PREVIEW_IDLE_S" => IDLE_S.to_s
+        "REACH_PREVIEW_IDLE_S" => IDLE_S.to_s,
+        "REACH_PREVIEW_KEY" => key
       )
       env, prefix = Reach::Suite.kit_launch(gems, env)
       log = "#{run_dir}.log"
       pid = spawn_server(env, prefix, run_dir, log)
-      url = "http://127.0.0.1:#{port}/#{module_id.tr('_', '-')}"
+      url = "http://127.0.0.1:#{port}/#{module_id.tr('_', '-')}?reach_key=#{key}"
       wait_for_server(pid, port, log)
       state = {
         "pid" => pid, "port" => port, "url" => url, "workspace" => File.expand_path(workspace), "run_dir" => run_dir,
@@ -141,7 +144,8 @@ module Reach
 
     def spawn_server(env, prefix, run_dir, log)
       group = Reach::Untar.windows? ? { new_pgroup: true } : { pgroup: true }
-      sink = File.open(log, "a")
+      sink = File.open(log, File::WRONLY | File::APPEND | File::CREAT, 0o600)
+      sink.chmod(0o600)
       pid = Process.spawn(env, *prefix, "ruby", SERVER, chdir: run_dir, in: File::NULL, out: sink, err: sink, **group)
       sink.close
       Process.detach(pid)
