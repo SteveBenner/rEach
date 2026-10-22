@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.60.1 |
+| **Registry version** | 0.60.2 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2250,6 +2250,7 @@ Patch lines (all on main, not promoted; each verified in a scratch home and work
 - 0.56.9: a pick checks every target path of the winning candidate for links and refuses before writing or deleting anything.
 - 0.56.10: a stored fault record is blanked again at send time when `REACH_ENV_REPORT_DISABLE=1` is set by then; PRIVACY.md lists every field of the record.
 - 0.56.11: the path scrub consumes any character up to the last folder separator on the line, so apostrophes, quotes and brackets in folder names leave nothing behind.
+- 0.60.2: the three fixes parked on the weighted-passes branch as 0.56.12 land on main: the fault record's home-folder replacement matches whole path segments only; every course-pattern kind honours its 2-second budget; PRIVACY.md lists the probe rows; sent fault records are deleted from the assignment folder while the id chain carries on. Built on main, not promoted. Verified in a scratch home and workspace, not on a live Teach or Ruby 2.6.
 
 ## Self-update and Windows qualification repair — 0.56.16
 

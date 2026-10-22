@@ -81,6 +81,7 @@ module Reach
     def append(workspace, fault)
       list = records(workspace) + [fault]
       Reach::StateFile.write_atomic(path(workspace), list.last(KEEP).map { |entry| JSON.generate(entry) }.join("\n") + "\n")
+      write_state(workspace, read_state(workspace).merge("last_fault_id" => fault["fault_id"]))
     end
 
     def build(workspace, record, local_only, counted)
@@ -113,7 +114,7 @@ module Reach
         "kit_digest" => kit_digest(workspace),
         "suite_version" => record["suite_version"],
         "environment" => environment,
-        "previous_fault_id" => previous && previous["fault_id"],
+        "previous_fault_id" => previous ? previous["fault_id"] : read_state(workspace)["last_fault_id"],
         "qualification_id" => record["qualification_id"]
       }
       fit(fault)
@@ -185,7 +186,7 @@ module Reach
       rescue StandardError
         ""
       end
-      value = value.gsub(home, "~") unless home.length < 3
+      value = value.gsub(/#{Regexp.escape(home)}(?=[\/\\]|$)/, "~") unless home.length < 3
       value = value.gsub(FILE_URI, DROPPED)
       value = value.gsub(UP_PATH, DROPPED)
       value = value.gsub(HOME_PATH) { HOME_MASK + File.extname(Regexp.last_match(1).to_s) }
@@ -270,6 +271,7 @@ module Reach
       batch = chosen.map { |entry| rescrub(entry, scrubber) }.compact
       dropped = chosen.map { |entry| entry["fault_id"] } - batch.map { |entry| entry["fault_id"] }
       if batch.empty?
+        prune(workspace, dropped)
         write_state(workspace, state.merge("sent" => ((sent + dropped) & records(workspace).map { |entry| entry["fault_id"] }), "window" => window))
         return nil
       end
@@ -280,6 +282,7 @@ module Reach
       body = result.json || {}
       settled = Array(body["accepted"]) + Array(body["duplicate"]) + Array(body["rejected"]).map { |row| row.is_a?(Hash) ? row["fault_id"] : nil }.compact
       settled = batch.map { |entry| entry["fault_id"] } if settled.empty?
+      prune(workspace, settled + dropped)
       kept = records(workspace).map { |entry| entry["fault_id"] }
       write_state(workspace, state.merge("sent" => ((sent + settled + dropped) & kept), "window" => window + Array.new(settled.length, now)))
       settled
@@ -289,6 +292,14 @@ module Reach
       nil
     rescue StandardError
       nil
+    end
+
+    def prune(workspace, ids)
+      return if ids.empty?
+
+      remaining = records(workspace).reject { |entry| ids.include?(entry["fault_id"]) }
+      body = remaining.map { |entry| JSON.generate(entry) }.join("\n")
+      Reach::StateFile.write_atomic(path(workspace), remaining.empty? ? "" : body + "\n")
     end
 
     def rescrub(entry, scrubber)

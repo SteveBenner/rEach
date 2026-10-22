@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.60.2] - 2026-10-22
+
+### Fixed
+
+- The fault record's home-folder replacement only matches the home folder as a whole path segment, so a sibling folder whose name starts with the home path is dropped as an outside path instead of leaving its name behind.
+- Every course-pattern kind checks its 2-second budget in its file and line loops (the i18n, literal-echo, faked-port and last-run kinds were missing it).
+- After a successful send, qualify fault records that were sent are deleted from `.reach/qualify-faults.jsonl`, which keeps only unsent records (still capped at 200); the chain of record ids carries on across the deletion. `PRIVACY.md` says so.
+- `PRIVACY.md` lists the probe rows: the names of the student's scenarios that use a required instructor API, that API's name, and whether each one noticed a changed answer.
+
 ## [0.60.1] - 2026-10-22
 
 ### Fixed

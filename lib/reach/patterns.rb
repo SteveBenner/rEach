@@ -334,10 +334,12 @@ module Reach
       call = compile(params["call"]) || I18N_CALL
       hits = []
       scope.code_files(extensions(params)).each do |relative|
+        check_deadline!
         text = scope.read(relative)
         next unless text
 
         text.each_line.with_index(1) do |line, number|
+          check_deadline!
           next if line.strip.start_with?("//")
 
           line.scan(call) { |match| hits << [relative, number] unless known.key?(Array(match).first.to_s) }
@@ -366,6 +368,7 @@ module Reach
       blocks = []
       current = nil
       text.each_line.with_index(1) do |line, number|
+        check_deadline!
         if line.match?(SCENARIO_LINE)
           current = []
           blocks << current
@@ -382,6 +385,7 @@ module Reach
 
       hits = []
       scope.feature_files.each do |relative|
+        check_deadline!
         text = scope.read(relative)
         next unless text
 
@@ -407,10 +411,12 @@ module Reach
     def owned_then_hits(scope)
       asserted = {}
       scope.feature_files.each do |relative|
+        check_deadline!
         text = scope.read(relative)
         next unless text
 
         text.each_line do |line|
+          check_deadline!
           next unless line.strip.start_with?("Then", "And")
 
           literals(line).each { |value| asserted[value] = true }
@@ -423,10 +429,12 @@ module Reach
       stated = ->(value) { constraints.include?(value) || contract.match?(/(?<![\w.])#{Regexp.escape(value)}(?![\w.])/) }
       hits = []
       scope.code_files(%w[rb]).each do |relative|
+        check_deadline!
         text = scope.read(relative)
         next unless text
 
         text.each_line.with_index(1) do |line, number|
+          check_deadline!
           next if comment_line?(relative, line)
 
           found = literals(line).find { |value| asserted.key?(value) && !stated.call(value) }
@@ -451,10 +459,12 @@ module Reach
       values = []
       fixed = false
       scope.step_files.each do |relative|
+        check_deadline!
         text = scope.read(relative)
         next unless text
 
         text.each_line do |line|
+          check_deadline!
           next if comment_line?(relative, line)
 
           match = line.match(FAKE_CALL)
@@ -477,6 +487,7 @@ module Reach
 
       hits = []
       scope.feature_files.each do |relative|
+        check_deadline!
         text = scope.read(relative)
         next unless text
 
