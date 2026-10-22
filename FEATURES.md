@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.59.0 |
+| **Registry version** | 0.59.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2289,3 +2289,18 @@ Wiring: no new service, network call, corpus or rStack binding. It reuses qualif
 
 Verification on 2026-10-21, isolated rEach home, real Chrome, a records.a2s1 panel workspace built from Grokit v0.10.1's own qualify kit with a student's real panel file: start in 14.6 s with the state file at 0600; `/records` 200 and a foreign Host 403; an edit to the owned file served on the next load; a second start reused the server; the screenshot found the panel, wrote the PNG and reported the one failing call (`records/examples` 500 on that older Grokit, which qualify would hit too); stop ended the server; a stale state whose pid belonged to an unrelated process left that process alive; a backend slice and a panel without the practice screen were refused with their messages; with a 35 s idle limit the server exited by itself after 57 s; through the CLI the command is listed in help and is locked until enrollment, like qualify. After the release audit: the keyed address answered 303 with an HttpOnly, SameSite=Strict cookie, then 200 with it, and 403 without it, with a wrong key or from a foreign Host (live sources too); the opener refused an address with a user part; the log is 0600.
 
+## Pattern warnings no longer block submit — 0.59.1
+
+**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion.**
+
+Two fixes to the pattern ledger (W-QUAL-PATTERN-1, STD-CHECK-BEFORE-SUBMIT). P-HARDCODED-EXPECTED now treats a value as stated when the operation schema in `api/slice-api.json` or `contract/README.md` states it, so a module that returns its contract's labels is not flagged. `reach submit` now follows `qualify.ledger.mode` for CK-PATTERN findings: under advise, the default, they are shown and never refuse; under enforce only a block match counts toward the check gate.
+
+Student-first audit: Agency and honesty — yes, a student whose work passed every graded case can submit it, and pattern warnings are still shown to them. Learning — yes, a value the student really hardcoded is still flagged.
+
+Wiring: none. No new service, call, file or binding.
+
+Verification on 2026-10-22, from the student's own module (hand_bd1041c3c712ef5b0fa1) and Grokit 32c036a's policy.a2s1 slice API, with scenarios that assert the three statuses:
+- On 0.59.0, P-HARDCODED-EXPECTED matched lines 11, 14 and 16, as the student reported. The submit preconditions then refused with M-SUBMIT-FIX-FIRST and next with M-SUBMIT-BLOCKED-CHECK.
+- On 0.59.1 there were no matches, and both attempts passed.
+- A real hardcoded value that no contract states (`"days_since_hygiene"`) is still matched.
+- A block pattern (P-PORT-STANDIN) refuses submit under enforce, then raises the hand, and does not refuse under advise.

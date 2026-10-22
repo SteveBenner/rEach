@@ -465,7 +465,10 @@ module Reach
             "M-SUBMIT-README", min: Reach::ReadmeCheck::MIN_WORDS, list: readme.map { |finding| "- #{finding[:message]}" }.join("\n")
           )
         end
-        check_gate!(workspace, meta, findings.reject { |finding| %w[CK-SHAPE CK-README].include?(finding[:id]) })
+        enforce = Reach::Patterns.mode == "enforce"
+        check_gate!(workspace, meta, findings.reject do |finding|
+          %w[CK-SHAPE CK-README].include?(finding[:id]) || (finding[:id] == "CK-PATTERN" && !(enforce && finding[:severity] == "error"))
+        end)
         if meta["slice"].to_s == "panel" && Array(findings).any? { |finding| finding[:classification] == :visible }
           raise Reach::Refused, "reach: the shape check still finds visible problems; fix them before submitting"
         end

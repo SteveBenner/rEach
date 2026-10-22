@@ -1,5 +1,33 @@
 # TODO
 
+## Pattern warnings block submit on contract-required labels (found 2026-10-22 in live session live_718376cd43ea8b006339)
+
+A student on 0.58.1 (Codex) could not submit policy.a2s1 (Assignment 2, backend). Qualification passed every local and
+course case. `reach check` then reported three P-HARDCODED-EXPECTED warnings ("A number or text in the module equals a
+value that a scenario of yours asserts, and the constraints do not state it") on the returned status labels, which the
+released contract requires: `{rule: rule or null, status: ok | not_found | invalid}`. `reach submit` refused with
+M-SUBMIT-FIX-FIRST. Nothing was submitted. The instructor chose a rEach fix over a student-side workaround, and the
+student is waiting on it. Nothing in these paths changed between v0.58.1 and v0.59.0, so an update does not help. The
+debrief is in Teach under that session.
+
+- [x] P-HARDCODED-EXPECTED ignores the contract. `Patterns#owned_then_hits` exempts a literal only when
+  `scope.constraints_text` contains it, and `constraints_text` reads only the `constraints` array of
+  `api/slice-api.json`. Values the slice's contract declares, such as output status labels, count as unstated, so every
+  correct module that returns a contract label its scenarios assert is flagged. Treat values the contract declares
+  as stated.
+- [x] Submit blocks on every pattern finding, whatever the severity or mode. Since 0.56.0, `Check#pattern_findings` adds
+  CK-PATTERN rows to `Check.run`, and `Submit#check_gate!` (from the initial commit) blocks on any finding except
+  CK-SHAPE and CK-README. The first attempt is refused with M-SUBMIT-FIX-FIRST. A repeat with the same findings raises a
+  check_gate hand and is still refused with M-SUBMIT-BLOCKED-CHECK, so there is no path to submit and no instructor
+  waiver. This contradicts specs/app.yml (W-QUAL-PATTERN-1): under `qualify.ledger.mode` advise, the default, pattern
+  findings are shown and sent, and even enforce refuses only a block match. `Patterns.mode` is checked only for "off" in
+  check.rb, so advise and enforce behave the same at submit. Make the submit gate follow the ledger mode and severity.
+- [x] The student's report placed the third hit on `ok`, but `Patterns#literals` compares only double-quoted strings of
+  three characters or more, so `"ok"` cannot match on its own. Confirm the real rows when reproducing.
+- Levers that need no release, none of them used: the course profile's `qualify.ledger.mode` off stops local matching
+  for the whole course (Teach still matches server-side), and a Teach patterns-package entry with the same id
+  replaces the shipped rule and can be scoped to one cutout and slice.
+
 ## Assignment-one smoke is stale (found 2026-10-18 running it for 0.53.22)
 
 The same failures and skips occur on 0.53.21, so they predate partial work.

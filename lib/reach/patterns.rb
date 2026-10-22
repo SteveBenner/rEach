@@ -94,6 +94,18 @@ module Reach
         end
       end
 
+      def stated_text
+        @stated_text ||= begin
+          file = File.join(workspace, "api", "slice-api.json")
+          data = File.file?(file) ? JSON.parse(File.read(file)) : {}
+          operation = data.is_a?(Hash) && data["operation"].is_a?(Hash) ? JSON.generate(data["operation"]) : ""
+          contract = read(File.join("contract", "README.md"), workspace).to_s
+          [constraints_text, operation, contract].join("\n")
+        rescue StandardError
+          constraints_text
+        end
+      end
+
       def message_keys
         @message_keys ||= begin
           keys = {}
@@ -407,7 +419,7 @@ module Reach
       end
       return [] if asserted.empty?
 
-      constraints = scope.constraints_text
+      constraints = scope.stated_text
       hits = []
       scope.code_files(%w[rb]).each do |relative|
         text = scope.read(relative)
