@@ -2279,7 +2279,7 @@ Rollout: 0.58.0 is on main and test (7b0211b); all promotion gates and test heal
 
 ## Panel preview — 0.59.0
 
-**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion; Engineering — a panel kit carries the practice screen only when Grokit holds a current recording for its module.**
+**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.59.2 (published release, 2026-10-22). Blocker: Engineering — a panel kit carries the practice screen only when Grokit holds a current recording for its module.**
 
 `reach preview` and the reach_preview tool (`STD-PREVIEW`, `lib/reach/preview.rb`) show the panel slice a student is building in their own browser, the way qualify's browser sees it. The slice's qualify run directory is assembled as qualify does, and `lib/reach/kit/preview_server.rb` serves Grokit's own practice app with the course's recorded practice data on 127.0.0.1 in the background, under the kit Ruby. The slice's owned `.svelte` files are read from the workspace on every load, so a saved change shows on refresh. rEach opens the student's default browser and returns the address. The preview stops after 30 idle minutes, on `reach preview stop`, or when another slice is previewed. `--screenshot` (`lib/reach/kit/preview_shot.rb`) saves a PNG with the console errors and failed requests the browser saw, so the agent can look at a rendering problem itself. A backend slice, or a panel kit without the practice screen, is refused in plain words. Origin: a student's agent reported a "local preview failure" on the A2 records panel (fixed in 0.58.1); Sven asked for a realistic way to render the work.
 
@@ -2291,7 +2291,7 @@ Verification on 2026-10-21, isolated rEach home, real Chrome, a records.a2s1 pan
 
 ## Pattern warnings no longer block submit — 0.59.1
 
-**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion.**
+**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.59.2 (published release, 2026-10-22).**
 
 Two fixes to the pattern ledger (W-QUAL-PATTERN-1, STD-CHECK-BEFORE-SUBMIT). P-HARDCODED-EXPECTED now treats a value as stated when the operation schema in `api/slice-api.json` or `contract/README.md` states it as a whole token, so a module that returns its contract's labels is not flagged. `reach submit` now follows `qualify.ledger.mode` for CK-PATTERN findings: under advise, the default, they are shown and never refuse; under enforce only a block match counts toward the check gate.
 
@@ -2307,7 +2307,7 @@ Verification on 2026-10-22, from a student's module and Grokit 32c036a's policy.
 
 ## Candidate passes work on a fresh module — 0.59.2
 
-**Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion.**
+**Build: ✅ Shipped. Deploy: 🟢 Live on stable at v0.59.2 (published release, 2026-10-22).**
 
 Fixes to the candidate passes (W-QUAL-PASSES-1) and the shell gate:
 - A scenarios candidate is judged on its local run only once the module is no longer the starting copy. The check now ignores rEach's own mark line and the README, so an untouched module counts as the starting copy again.
