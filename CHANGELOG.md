@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A module that returns the values its contract requires can be submitted again. P-HARDCODED-EXPECTED (`lib/reach/patterns.rb`, `Scope#stated_text`) now counts a value as stated when the operation schema in `api/slice-api.json` or `contract/README.md` states it, not only the slice's constraints. On policy.a2s1 it flagged the output key `status` and the labels `not_found` and `invalid` on every return line of a module that passed every graded case. Found in live session live_718376cd43ea8b006339.
+- A module that returns the values its contract requires can be submitted again. P-HARDCODED-EXPECTED (`lib/reach/patterns.rb`) now counts a value as stated when the operation schema in `api/slice-api.json` or `contract/README.md` states it as a whole token, not only when the slice's constraints contain it (`Scope#contract_text`). On policy.a2s1 it flagged the output key `status` and the labels `not_found` and `invalid` on every return line of a module that passed every graded case.
 - `reach submit` no longer refuses on pattern warnings (`lib/reach/submit.rb`). CK-PATTERN findings follow `qualify.ledger.mode` as qualify does: under advise, the default, they are shown and never refuse; under enforce only a block match counts toward the check gate (STD-CHECK-BEFORE-SUBMIT). Before, any CK-PATTERN finding refused twice and then raised a check_gate hand, with no way to submit.
 
 ## [0.59.0] - 2026-10-21

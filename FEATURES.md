@@ -2293,14 +2293,14 @@ Verification on 2026-10-21, isolated rEach home, real Chrome, a records.a2s1 pan
 
 **Build: ✅ Shipped. Deploy: 🔵 Built, not enabled until stable. Blocker: Human — stable promotion.**
 
-Two fixes to the pattern ledger (W-QUAL-PATTERN-1, STD-CHECK-BEFORE-SUBMIT). P-HARDCODED-EXPECTED now treats a value as stated when the operation schema in `api/slice-api.json` or `contract/README.md` states it, so a module that returns its contract's labels is not flagged. `reach submit` now follows `qualify.ledger.mode` for CK-PATTERN findings: under advise, the default, they are shown and never refuse; under enforce only a block match counts toward the check gate.
+Two fixes to the pattern ledger (W-QUAL-PATTERN-1, STD-CHECK-BEFORE-SUBMIT). P-HARDCODED-EXPECTED now treats a value as stated when the operation schema in `api/slice-api.json` or `contract/README.md` states it as a whole token, so a module that returns its contract's labels is not flagged. `reach submit` now follows `qualify.ledger.mode` for CK-PATTERN findings: under advise, the default, they are shown and never refuse; under enforce only a block match counts toward the check gate.
 
 Student-first audit: Agency and honesty — yes, a student whose work passed every graded case can submit it, and pattern warnings are still shown to them. Learning — yes, a value the student really hardcoded is still flagged.
 
 Wiring: none. No new service, call, file or binding.
 
-Verification on 2026-10-22, from the student's own module (hand_bd1041c3c712ef5b0fa1) and Grokit 32c036a's policy.a2s1 slice API, with scenarios that assert the three statuses:
+Verification on 2026-10-22, from a student's module and Grokit 32c036a's policy.a2s1 slice API, with scenarios that assert the three statuses:
 - On 0.59.0, P-HARDCODED-EXPECTED matched lines 11, 14 and 16, as the student reported. The submit preconditions then refused with M-SUBMIT-FIX-FIRST and next with M-SUBMIT-BLOCKED-CHECK.
 - On 0.59.1 there were no matches, and both attempts passed.
-- A real hardcoded value that no contract states (`"days_since_hygiene"`) is still matched.
+- An invented hardcoded value that no contract states is still matched. So is a hardcoded `30` when the contract only mentions `2030`, because contract values count only as whole tokens.
 - A block pattern (P-PORT-STANDIN) refuses submit under enforce, then raises the hand, and does not refuse under advise.

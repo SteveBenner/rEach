@@ -94,15 +94,14 @@ module Reach
         end
       end
 
-      def stated_text
-        @stated_text ||= begin
+      def contract_text
+        @contract_text ||= begin
           file = File.join(workspace, "api", "slice-api.json")
           data = File.file?(file) ? JSON.parse(File.read(file)) : {}
           operation = data.is_a?(Hash) && data["operation"].is_a?(Hash) ? JSON.generate(data["operation"]) : ""
-          contract = read(File.join("contract", "README.md"), workspace).to_s
-          [constraints_text, operation, contract].join("\n")
+          [operation, read(File.join("contract", "README.md"), workspace).to_s].join("\n")
         rescue StandardError
-          constraints_text
+          ""
         end
       end
 
@@ -419,7 +418,9 @@ module Reach
       end
       return [] if asserted.empty?
 
-      constraints = scope.stated_text
+      constraints = scope.constraints_text
+      contract = scope.contract_text
+      stated = ->(value) { constraints.include?(value) || contract.match?(/(?<![\w.])#{Regexp.escape(value)}(?![\w.])/) }
       hits = []
       scope.code_files(%w[rb]).each do |relative|
         text = scope.read(relative)
@@ -428,7 +429,7 @@ module Reach
         text.each_line.with_index(1) do |line, number|
           next if comment_line?(relative, line)
 
-          found = literals(line).find { |value| asserted.key?(value) && !constraints.include?(value) }
+          found = literals(line).find { |value| asserted.key?(value) && !stated.call(value) }
           hits << [relative, number] if found
         end
       end
