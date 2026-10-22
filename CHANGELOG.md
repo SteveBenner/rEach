@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.60.1] - 2026-10-22
+
+### Fixed
+
+- A panel scenario that runs an example by a label the practice screen does not have no longer fails as an unexplained `Capybara::ElementNotFound`. `I run the "records.a2s1" example "coffee"` failed every scenario on the course server with only that error kind, QF-REMOTE-FAIL and no next step, so the agent asked the student for the label. `Reach::Qualify.practice_examples` reads the Practice examples list of `qualify/kit/practice/README.md` (through `Reach::SafeFiles`), and `Reach::Qualify.panel_example` compares a failing step's label with it. In the local run and in the course server's run of the agent's scenarios the finding is now QF-PANEL-EXAMPLE, with next M-QUALIFY-PANEL-EXAMPLE listing the labels and telling the agent to pick one itself. Nothing is flagged when the README is missing or lists no examples. Like QF-PANEL-ID it counts on the attempt ladder.
+- `reach check` reports the same step in any feature under `qualify/features` as CK-PANEL-EXAMPLE, with the labels in the correction (`Reach::Check.panel_step_findings`), before a qualification is spent on it.
+
 ## [0.60.0] - 2026-10-22
 
 ### Added

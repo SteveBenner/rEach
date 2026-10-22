@@ -21,6 +21,8 @@ module Reach
     PREVIEW_STEP = /\bopen the .+ panel\b/.freeze
     PREVIEW_FAILURE = /Ferrum::(?:StatusError|TimeoutError|PendingConnectionsError|DeadBrowserError|ProcessTimeoutError)|net::ERR_/.freeze
     PANEL_CUTOUT_STEP = /\bopen the "([A-Za-z0-9_-]+)\.[A-Za-z0-9_.-]+" panel\b/.freeze
+    PANEL_EXAMPLE_STEP = /\bI run the "[^"]+" example "([^"]*)"/.freeze
+    PRACTICE_EXAMPLES_HEADING = "## Practice examples".freeze
     SCENARIO_LINE = /\A\s*(?:Scenario|Scenario Outline|Example):\s*(.+?)\s*\z/.freeze
 
     class << self
@@ -434,6 +436,9 @@ module Reach
             elsif (panel = panel_cutout_id(row))
               record["findings"] << { "code" => "QF-PANEL-ID", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
               record["next"] ||= Reach::Messages.text("M-QUALIFY-PANEL-ID", given: panel[:given], module: panel[:module])
+            elsif (example = panel_example(row["step"], practice_examples(workspace)))
+              record["findings"] << { "code" => "QF-PANEL-EXAMPLE", "name" => row["name"], "step" => row["step"], "detail" => row["message"] }
+              record["next"] ||= Reach::Messages.text("M-QUALIFY-PANEL-EXAMPLE", given: example[:given], labels: example_labels_text(example[:labels]))
             elsif practice_miss?(row, output)
               record["findings"] << { "code" => "QF-PRACTICE", "name" => row["name"], "step" => row["step"], "detail" => PRACTICE_DETAIL }
             else
@@ -454,6 +459,33 @@ module Reach
 
         given = match[0][/"([^"]+)"/, 1]
         { given: given, module: match[1] }
+      end
+
+      def practice_examples(workspace)
+        text = Reach::SafeFiles.read_or_skip(workspace, PRACTICE_README).first
+        return [] unless text.is_a?(String)
+
+        inside = false
+        text.dup.force_encoding(Encoding::UTF_8).scrub.lines.each_with_object([]) do |raw, labels|
+          line = raw.strip
+          if line.start_with?("## ")
+            inside = line == PRACTICE_EXAMPLES_HEADING
+          elsif inside && line.start_with?("- ")
+            label = line[2..-1].strip
+            labels << label unless label.empty?
+          end
+        end
+      end
+
+      def panel_example(step, labels)
+        match = PANEL_EXAMPLE_STEP.match(step.to_s)
+        return nil if match.nil? || labels.empty? || labels.include?(match[1])
+
+        { given: match[1], labels: labels }
+      end
+
+      def example_labels_text(labels)
+        labels.map { |label| "\"#{label}\"" }.join(", ")
       end
 
       def practice_miss?(row, output)
@@ -595,7 +627,7 @@ module Reach
         result = poll(client, qualification_id)
         return pending!(record, qualification_id, "the course server has not finished yet") unless result
 
-        judge_remote(record, result)
+        judge_remote(workspace, record, result)
       end
 
       def pending!(record, qualification_id, reason)
@@ -662,7 +694,7 @@ module Reach
         nil
       end
 
-      def judge_remote(record, result)
+      def judge_remote(workspace, record, result)
         if result["status"] == "failed_to_run"
           record["steps"]["remote"] = { "ran" => true, "passed" => false, "rows" => [], "error" => result["reason"], "failed_to_run" => true }
           record["findings"] << { "code" => "QF-REMOTE-FAIL", "name" => nil, "detail" => result["reason"] }
@@ -674,8 +706,11 @@ module Reach
         stub = Array(result["stub"])
         hidden = Array(result["hidden"])
         record["suite_version"] = result["suite_version"]
+        labels = practice_examples(workspace)
         agent.reject { |row| row["result"] == "passed" }.each do |row|
-          record["findings"] << { "code" => "QF-REMOTE-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["error"] }
+          example = panel_example(row["step"], labels)
+          record["findings"] << { "code" => example ? "QF-PANEL-EXAMPLE" : "QF-REMOTE-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["error"] }
+          record["next"] ||= Reach::Messages.text("M-QUALIFY-PANEL-EXAMPLE", given: example[:given], labels: example_labels_text(example[:labels])) if example
         end
         record["findings"] << { "code" => "QF-REMOTE-FAIL", "name" => nil, "detail" => "no scenario ran on the course server" } if agent.empty?
         stub.select { |row| graded.include?(row["name"]) && row["result"] == "passed" }.each do |row|

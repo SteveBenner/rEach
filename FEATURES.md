@@ -8,7 +8,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.60.0 |
+| **Registry version** | 0.60.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -407,7 +407,12 @@ the dev branch and not yet released. Since 0.58.1 (`STD-QUALIFY-PANEL-ID`) a pan
 (`When I open the "records.a2s1" panel`) gives QF-PANEL-ID with the module-id correction instead of an unable preview failure and an
 export offer, and `reach check` flags the step as CK-PANEL-ID; checked on 2026-10-21 with a student's recorded A2 failure and feature
 file, which gave QF-LOCAL-FAIL, unable and the export offer on 0.58.0 and QF-PANEL-ID, two CK-PANEL-ID findings and no export on
-0.58.1, and no CK-PANEL-ID once the step named "records". Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
+0.58.1, and no CK-PANEL-ID once the step named "records". Since 0.60.1 (`STD-QUALIFY-PANEL-EXAMPLE`) a panel scenario that runs an
+example by a label the practice README does not list (`I run the "records.a2s1" example "coffee"`) gives QF-PANEL-EXAMPLE, from the local run or from the
+course server's run, with the practice labels in the next step, and `reach check` flags it as CK-PANEL-EXAMPLE; checked on 2026-10-22 against the
+practice README of records.a2s1 and the failing rows of a student's recorded course-server run, which gave QF-REMOTE-FAIL and an empty next step on
+0.60.0 and QF-PANEL-EXAMPLE with both labels on 0.60.1; the local-run branch was read and syntax-checked but not driven, because no panel kit
+run was available. Build ✅ Built (0.60.1) · Deploy 🔵 Built, not on stable · Blocker Human: operator promotion of rEach 0.60.1. Since 0.21.2 the Teach half (upload and polls) runs under its own 20-second deadline after the local steps, so an MCP
 qualify whose local steps outlast the 25-second tool budget still reaches Teach; verified on 2026-10-03 in the slice-build
 smoke (run 20261002_215550, context.a4s2, on the same change over 0.20.5), where both qualifications reached the scratch
 Teach and finished, against none in the run before. Since 0.33.5 (`STD-KIT-CLEAN-ENV`) every launch of the kit Ruby unsets

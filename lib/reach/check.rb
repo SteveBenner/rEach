@@ -107,17 +107,24 @@ module Reach
     end
 
     def panel_step_findings(workspace, changed)
+      labels = Reach::Qualify.practice_examples(workspace)
       Dir.glob(File.join(workspace, Reach::Qualify::FEATURES_DIR, "**", "*.feature")).sort.flat_map do |full|
         next [] if changed && Array(changed).none? { |target| same_file?(full, target) }
 
         relative = relative_of(workspace, full)
         File.readlines(full, encoding: Encoding::UTF_8).each_with_index.filter_map do |raw, index|
           match = Reach::Qualify::PANEL_CUTOUT_STEP.match(raw.scrub)
-          next unless match
+          if match
+            given = match[0][/"([^"]+)"/, 1]
+            next finding("CK-PANEL-ID", relative, index + 1, Reach::Messages.text("M-CHECK-PANEL-ID", given: given),
+                         Reach::Messages.text("M-CHECK-PANEL-ID-FIX", given: given, module: match[1]))
+          end
 
-          given = match[0][/"([^"]+)"/, 1]
-          finding("CK-PANEL-ID", relative, index + 1, Reach::Messages.text("M-CHECK-PANEL-ID", given: given),
-                  Reach::Messages.text("M-CHECK-PANEL-ID-FIX", given: given, module: match[1]))
+          example = Reach::Qualify.panel_example(raw.scrub, labels)
+          next unless example
+
+          finding("CK-PANEL-EXAMPLE", relative, index + 1, Reach::Messages.text("M-CHECK-PANEL-EXAMPLE", given: example[:given]),
+                  Reach::Messages.text("M-CHECK-PANEL-EXAMPLE-FIX", labels: Reach::Qualify.example_labels_text(example[:labels])))
         end
       end
     rescue SystemCallError
