@@ -9,6 +9,7 @@ slice: backend
 tier: public
 when:
 - path:**/*.rb
+scope: everywhere
 ---
 # RUBY: one dialect for every module
 

@@ -9,6 +9,7 @@ tier: public
 when:
 - task:after-task
 - task:rewrite
+scope: everywhere
 ---
 # CHECKPOINT: save what works, before you risk it
 

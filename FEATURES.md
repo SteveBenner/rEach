@@ -54,7 +54,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.61.0 |
+| **Registry version** | 0.62.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -2392,3 +2392,32 @@ Verification on 2026-10-22, against a scratch Reach home with a hand-built statu
 - After the cutoff A1 is late again.
 - The status and greeting lines show the rolling text for A1 and the unchanged late text for A2.
 - Not run: against a live Teach 0.107.0.
+
+## Injected directives as polispec surfaces — 0.62.0
+
+Every rule rEach puts in an agent's context has one canonical directive. Every other place a rule appears is rendered from its directive and checked for drift and for restatement. These places are the persona, the skills, the Antigravity rules, the agent-control framing, the wrapper text, the workspace rules files, and this repository's `AGENTS.md`.
+
+Course rules come from Teach's compiled course policy (`course_policy.json`, wire revision 2026-10-22c), and QUALIFY and CODEFILE carry the engineering ones the course used to restate. Grokit's 70 copied cutout guardrails are gone.
+
+Every session sees every row, and a directive's full text arrives once, when its condition first applies. Harnesses without hooks get the full rules file (`harness.rules_file`, default `auto`).
+
+**Build: ✅ Built on branch injected-directives-land (0.62.0, Polispec 0.37.4, stacked on security-validation-land). Deploy: 🔵 Pending. Blocker: Human — the Teach course-policy slice must be deployed and pinned to wire 2026-10-22c first, then the promotions (`polispec promote reach --to test`, then the operator's `--to stable`), and later TEACH_MINIMUM_REACH_VERSION raised to 0.62.0 to retire `directives.yml`.**
+
+Verified in a scratch home with Teach's rendered package:
+
+- A package with `course_policy.json` gives 15 course rows and the cutout overlay. A legacy package gives the same set minus RECEIPT and AIPOLICY.
+- A simulated write injects each matching body once per session.
+- `auto` picks the stub only after a harness's hooks have run.
+- A one-byte persona edit fails both `tools/policy.rb check` and the runtime check.
+- `tools/policy.rb build` and `check` pass with the installed Polispec, and `rplugin check` reports 0 findings.
+
+Student-first audit:
+
+1. Learning: yes. The same rules reach every harness.
+2. Agency: yes. The privacy summary stays always allowed, and the student is told what the agent follows.
+3. Wellbeing: yes. The crisis rule stays first in every rules file and in FOCUS, duplicated on purpose.
+4. Privacy: yes. Course bodies travel as hashes and are fetched only through the authenticated route, and the session record holds opcodes only.
+5. Fairness: yes. A harness without hooks gets the full text instead of less.
+6. Friction: improves. Where hooks work, the stub is about 6 KB instead of 27 KB.
+7. Failure: safe. An old package, or a failed body fetch, falls back to the rows.
+8. Recovery: yes. `harness.rules_file` switches the form, and the files are rewritten at the next launch.

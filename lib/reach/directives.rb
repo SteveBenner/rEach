@@ -18,6 +18,16 @@ module Reach
     POINTER_SENTENCE = "Every row binds. When a row's condition applies, run `reach directive <OPCODE>` (or the reach_directive tool) and follow the full text. Rows cover different surfaces and do not override one another; the numbered rules above come first.".freeze
     POINTER_SENTENCE_RENDERED = "Every row binds. When a row's condition applies, run `reach directive <OPCODE>` (or the reach_directive tool) and follow the full text. Rows cover different surfaces and do not override one another.".freeze
 
+    INJECTED_FILE = "injected.json".freeze
+    INJECTED_KEEP = 40
+    INJECTION_DEFAULTS = { "max_bodies" => 10, "max_bytes" => 40_000, "max_private_fetch" => 3 }.freeze
+    PHASE_TASKS = {
+      "plan" => %w[plan], "part" => %w[readme], "build" => %w[build fix], "submit" => %w[submit after-task],
+      "review" => %w[fix after-task]
+    }.freeze
+    WRITE_TOOLS = %w[Write Edit MultiEdit NotebookEdit apply_patch write_file patch].freeze
+    SHELL_TOOLS = %w[Bash PowerShell shell exec_command terminal].freeze
+
     module_function
 
     def public_dir
@@ -70,12 +80,151 @@ module Reach
       lines.join("\n")
     end
 
+    def space_scope(space)
+      Reach::Guardrails::SPACE_SCOPE[space.to_s]
+    end
+
+    def scope_applies?(row, space)
+      scope = (row["scope"] || "everywhere").to_s
+      return false if scope == "repo"
+
+      scope == "everywhere" || (!space.nil? && scope == space_scope(space))
+    end
+
+    def course_rows_for(space, guardrails, slice: nil)
+      private_rows(guardrails).select do |row|
+        scope_applies?(row, space) && (space != "slice" || row["slice"].to_s.empty? || row["slice"] == "all" || slice.nil? || row["slice"] == slice.to_s)
+      end
+    end
+
+    def all_rows(space, guardrails = nil)
+      data = guardrails || Reach::Guardrails.safe_load
+      public_part = Reach::BehaviorPolicy.directive_rows.select { |row| scope_applies?(row, space) }
+      public_part + course_rows_for(space, data)
+    end
+
+    def hello_rows_text(space, workspace)
+      data = Reach::Guardrails.safe_load
+      rows = public_hello_rows(space) + course_rows_for(space, data)
+      cutout = workspace ? Reach::Workspace.metadata(workspace)["cutout_id"].to_s : ""
+      overlays = cutout.empty? ? [] : Array(data["directives"]).select { |entry| entry["opcode"].nil? && entry["id"].to_s.start_with?("G-CUTOUT-#{cutout}-") }
+      lines = rows.map { |row| Reach::BehaviorPolicy.row_line(row) } + overlays.map { |row| Reach::BehaviorPolicy.row_line(row.merge("when" => ["always"], "enforce" => "none")) }
+      return nil if lines.empty?
+
+      (["Directive rows. Every row binds. When a row's condition applies and its full text has not been given to you, run `reach directive <OPCODE>` (or the reach_directive tool); rEach also gives you a directive's full text once, the first time its condition applies.", ""] + lines).join("\n")
+    rescue StandardError
+      nil
+    end
+
+    def public_hello_rows(space)
+      Reach::BehaviorPolicy.directive_rows.select { |row| space.nil? ? row["scope"].to_s == "everywhere" : scope_applies?(row, space) }
+    end
+
+    def injection_settings
+      INJECTION_DEFAULTS.merge(Reach::BehaviorPolicy.parameters("directive_injection"))
+    rescue StandardError
+      INJECTION_DEFAULTS
+    end
+
+    def phase_tasks(session)
+      thread = Reach::Threads.read["threads"][session.to_s]
+      PHASE_TASKS.fetch(thread && thread["phase"], [])
+    rescue StandardError
+      []
+    end
+
+    def tool_event(event)
+      input = event["tool_input"].is_a?(Hash) ? event["tool_input"] : {}
+      tool = event["tool_name"].to_s
+      paths = [input["file_path"], input["path"], input["notebook_path"]].compact.map(&:to_s)
+      command = [input["command"], input["cmd"]].compact.map(&:to_s)
+      command.each { |text| paths.concat(Reach::Gate.patch_targets(text)) if text.start_with?("*** Begin Patch") }
+      tasks = WRITE_TOOLS.include?(tool) || SHELL_TOOLS.include?(tool) ? %w[build fix] : []
+      { "event" => ["PreToolUse"], "tool" => [tool], "path" => paths, "command" => command, "task" => tasks }
+    rescue StandardError
+      { "event" => ["PreToolUse"], "tool" => [event["tool_name"].to_s], "task" => [] }
+    end
+
+    def hook_event(kind, event, session)
+      case kind.to_s
+      when "tool" then tool_event(event).tap { |found| found["task"] = (found["task"] + phase_tasks(session)).uniq }
+      when "prompt" then { "event" => ["UserPromptSubmit"], "task" => phase_tasks(session) }
+      else { "event" => ["SessionStart", event["source"].to_s].reject(&:empty?), "task" => phase_tasks(session) }
+      end
+    end
+
+    def injected_for(session)
+      Array(Reach::StateFile.read(INJECTED_FILE).dig("sessions", session.to_s, "opcodes"))
+    end
+
+    def claim_injected(session, opcodes)
+      Reach::StateFile.update(INJECTED_FILE) do |state|
+        sessions = state["sessions"] = state["sessions"].is_a?(Hash) ? state["sessions"] : {}
+        entry = sessions[session.to_s] ||= { "opcodes" => [] }
+        fresh = opcodes - entry["opcodes"]
+        entry["opcodes"] = entry["opcodes"] + fresh
+        entry["at"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        order = (Array(state["order"]) - [session.to_s]) + [session.to_s]
+        order.shift.then { |old| sessions.delete(old) } while order.length > INJECTED_KEEP
+        state["order"] = order
+        fresh
+      end
+    end
+
+    def inject(kind, event, harness: nil)
+      event = {} unless event.is_a?(Hash)
+      return nil if event["session_id"].to_s.empty?
+
+      session = Reach::Session.resolve_session_id(event)
+      cwd = event["cwd"] || Reach::Paths.cwd
+      space = Reach::Workspace.space_for(cwd)
+      kind_name = space && space["kind"]
+      workspace = space && space["kind"] == "slice" ? space["path"] : nil
+      facts = hook_event(kind, event, session)
+      settings = injection_settings
+      given = injected_for(session)
+      candidates = all_rows(kind_name).select { |row| !given.include?(row["opcode"]) && Reach::BehaviorPolicy.when_matches?(row, facts) }
+      return nil if candidates.empty?
+
+      texts = {}
+      bytes = 0
+      fetched = 0
+      candidates.each do |row|
+        break if texts.size >= settings["max_bodies"].to_i
+
+        if row["tier"] == "public"
+          body = public_body(row)
+        else
+          break if fetched >= settings["max_private_fetch"].to_i
+
+          fetched += 1
+          body = remote_body(row, workspace)
+          body = Reach::Guardrails.private_body(row["opcode"]) if body.nil?
+        end
+        next if body.to_s.strip.empty?
+        break if bytes + body.bytesize > settings["max_bytes"].to_i && !texts.empty?
+
+        bytes += body.bytesize
+        texts[row["opcode"]] = body
+      end
+      return nil if texts.empty?
+
+      fresh = claim_injected(session, texts.keys)
+      selected = texts.select { |opcode, _| fresh.include?(opcode) }
+      return nil if selected.empty?
+
+      text = selected.map { |opcode, body| "Directive #{opcode}, full text:\n\n#{body.strip}" }.join("\n\n---\n\n")
+      Reach::AgentControl.channel("rules.directives") { text }
+    rescue StandardError
+      nil
+    end
+
     def pointer_sentence
       Reach::AgentControl.flag?("render") ? POINTER_SENTENCE_RENDERED : POINTER_SENTENCE
     end
 
     def render_row(row)
-      label = "[#{row['alias']} · #{row['opcode']}]"
+      label = row["alias"].to_s.empty? ? "[#{row['opcode']}]" : "[#{row['alias']} · #{row['opcode']}]"
       pointer = "reach directive #{row['opcode']}"
       format("%-#{LABEL_WIDTH}s %-#{RULE_WIDTH}s %-#{POINTER_WIDTH}s ⚙ %-#{ENFORCE_WIDTH}s ⚡ %s", label, row["rule"], pointer, row["enforce"], when_text(row["when"]))
     end

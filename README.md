@@ -205,6 +205,17 @@ guardrails package as rows only: `reach directive <OPCODE>` asks Teach for the
 one body, which is never stored on the student's computer, and shows the
 one-line rule when offline.
 
+Each rule is written once. `specs/polispec/behavior.yml` holds every engineering
+directive, the wrapper text, the framing and the surfaces rendered from them:
+the persona, the skills, `rules/reach.md`, `agent-control/agent-control.yml`
+and the workspace rules files. `ruby tools/policy.rb check` fails when one of
+them drifts or restates a rule without naming its directive. Every session
+starts with all the rows, and the hooks add a directive's full text once per
+session when its condition first applies. `harness.rules_file` in `config.yml`
+picks the workspace file's form: `auto` (the default) writes the short stub for
+a harness whose hooks have run on this computer and the full text elsewhere,
+`stub` and `full` force one.
+
 ```
 reach check [--changed <path>] [--format text|agent|json]   the one checker the hooks run
 reach plan save|note|show                                    the slice plan, read back each session

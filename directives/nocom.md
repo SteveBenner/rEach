@@ -9,6 +9,7 @@ tier: public
 when:
 - path:**/*.rb
 - path:**/*.svelte
+scope: everywhere
 ---
 # NOCOM: no comments in code
 

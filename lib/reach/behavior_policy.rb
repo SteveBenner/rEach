@@ -6,8 +6,11 @@ module Reach
   module BehaviorPolicy
     class Invalid < Reach::Refused; end
 
-    SCHEMA = "polispec.behavior/v1".freeze
-    COMPILED_SCHEMA = "polispec.behavior.compiled/v1".freeze
+    SCHEMA = "polispec.behavior/v2".freeze
+    COMPILED_SCHEMA = "polispec.behavior.compiled/v2".freeze
+    DEFAULT_SCOPE = "everywhere".freeze
+    DEFAULT_LOCALE = "en-US".freeze
+    CONDITION_FLAGS = File::FNM_PATHNAME | File::FNM_DOTMATCH | File::FNM_EXTGLOB
     MAX_BYTES = 2 * 1024 * 1024
     CONTROL_EVENTS = {
       "control.pause" => ["C-PAUSE", %w[space active]],
@@ -78,11 +81,22 @@ module Reach
       ids = doc["directives"].map { |row| row.is_a?(Hash) ? row["id"] : nil }
       raise Invalid, "invalid or duplicate directive ids" if ids.include?(nil) || ids.uniq != ids
       doc["directives"].each do |row|
+        if row["scope"] == "repo"
+          raise Invalid, "invalid repository directive #{row['id']}" unless row["rule"].is_a?(String) && row["when"].is_a?(Array)
+          next
+        end
         unless row["tier"] == "public" && row["opcode"].is_a?(String) && row["opcode"].match?(/\A[A-Z][A-Z0-9]{2,9}\z/) && row["body"].is_a?(String) && row["rule"].is_a?(String) && row["when"].is_a?(Array)
           raise Invalid, "invalid engineering directive #{row['id']}"
         end
       end
+      raise Invalid, "policy messages are missing" unless doc["messages"].is_a?(Hash) && doc["messages"].values.all? { |entry| entry.is_a?(Hash) && entry["text"].is_a?(String) }
+      surfaces = candidate["surfaces"]
+      raise Invalid, "policy surfaces are missing" unless surfaces.is_a?(Hash) && surfaces.values.all? { |entry| entry.is_a?(Hash) && entry["target"].is_a?(String) && entry["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/) }
       params = doc["parameters"]
+      ladder = params.is_a?(Hash) ? params["attempt_ladder"] : nil
+      unless ladder.is_a?(Hash) && ladder.values_at("notice_from", "hand_at", "hard_stop").all? { |value| value.is_a?(Integer) && value > 0 }
+        raise Invalid, "invalid attempt ladder"
+      end
       unless params.is_a?(Hash) && params["course_defaults"].is_a?(Hash) && params["control"].is_a?(Hash)
         raise Invalid, "policy parameters are missing"
       end
@@ -145,7 +159,76 @@ module Reach
     end
 
     def directive_rows
-      copy(application.fetch("directives"))
+      copy(application.fetch("directives").reject { |row| row["scope"] == "repo" })
+    end
+
+    def message(id)
+      application.fetch("messages").fetch(id.to_s).fetch("text")
+    end
+
+    def surface_digests
+      copy(bundle.fetch("surfaces"))
+    end
+
+    def row_line(row)
+      opcode = row["opcode"] || row["id"]
+      pointer = row["opcode"] || row["scope"] == "repo" ? "   d/#{opcode}" : ""
+      "[#{opcode}] #{row['rule']}#{pointer}   ⚙ #{row['enforce']}   ⚡ [#{Array(row['when']).join(', ')}]"
+    end
+
+    def when_matches?(row, event)
+      Array(row["when"]).any? { |condition| condition_matches?(condition, event) }
+    end
+
+    def condition_matches?(condition, event)
+      kind, argument = condition.to_s.split(":", 2)
+      return true if condition.to_s == "always"
+      return false if argument.nil? || argument.empty?
+
+      case kind
+      when "task" then Array(event["task"]).include?(argument)
+      when "event" then Array(event["event"]).include?(argument)
+      when "path" then Array(event["path"] || event["paths"]).any? { |path| File.fnmatch?(argument, path.to_s, CONDITION_FLAGS) }
+      when "tool" then tool_condition?(argument, event)
+      else false
+      end
+    end
+
+    def tool_condition?(argument, event)
+      name, pattern = argument.match(/\A([^(]+)(?:\((.*)\))?\z/m)&.captures
+      return false unless name && Array(event["tool"]).include?(name)
+      return true if pattern.nil?
+
+      Array(event["command"] || event["input"]).any? { |text| File.fnmatch?(pattern, text.to_s, File::FNM_EXTGLOB) }
+    end
+
+    def ladder_problems
+      declared = application.fetch("parameters").fetch("attempt_ladder")
+      actual = { "notice_from" => Reach::Ladder::NOTICE_FROM, "hand_at" => Reach::Ladder::HAND_AT, "hard_stop" => Reach::Ladder::HARD_STOP }
+      actual.reject { |key, value| declared[key] == value }.keys.map { |key| "R-DOC-POLICY: attempt_ladder #{key} differs from Reach::Ladder" }
+    end
+
+    def surface_problems
+      found = []
+      bundle.fetch("surfaces").each do |id, entry|
+        file = File.join(Reach::Runtime.root, entry.fetch("target"))
+        actual = File.file?(file) ? Digest::SHA256.file(file).hexdigest : nil
+        found << "R-DOC-POLICY: generated surface #{id} (#{entry['target']}) differs from its policy digest" unless actual == entry.fetch("sha256")
+      end
+      found
+    end
+
+    def surface_drift?(id)
+      entry = bundle.fetch("surfaces").fetch(id)
+      file = File.join(Reach::Runtime.root, entry.fetch("target"))
+      !(File.file?(file) && Digest::SHA256.file(file).hexdigest == entry.fetch("sha256"))
+    rescue StandardError
+      true
+    end
+
+    def generated_section(name)
+      file = File.join(Reach::Runtime.root, "specs", "polispec", "surfaces", "generated", "#{name}.md")
+      File.file?(file) ? File.read(file) : nil
     end
 
     def course(data)
@@ -155,7 +238,7 @@ module Reach
       given = data.fetch("course")
       rows = data.fetch("directives").map do |entry|
         raise Invalid, "the course package contains an unreadable directive" unless entry.is_a?(Hash) && entry["id"].is_a?(String) && entry["rule"].is_a?(String)
-        row = entry.select { |key, _| %w[id opcode alias tier slice scope spaces rule when enforce].include?(key) }
+        row = entry.select { |key, _| %w[id opcode alias tier slice scope spaces rule when enforce body_sha256 directive].include?(key) }
         row["when"] = Array(row["when"] || "always")
         row["enforce"] ||= "none"
         if row["opcode"]
@@ -237,11 +320,14 @@ module Reach
       (guard_bindings - declared).each { |binding| found << "R-DOC-POLICY: unregistered native guard #{binding}" }
       source = File.join(Reach::Runtime.root, "specs", "polispec", "behavior.yml")
       raw = YAML.safe_load(File.read(source), aliases: false)
-      found << "R-DOC-POLICY: compiled policy differs from specs/polispec/behavior.yml" unless digest(raw) == bundle.fetch("digest")
-      expected = doc.fetch("directives").map { |row| "#{row.fetch('opcode').downcase}.md" }.sort
+      found << "R-DOC-POLICY: compiled policy differs from specs/polispec/behavior.yml" unless digest(with_defaults(raw)) == bundle.fetch("digest")
+      found.concat(ladder_problems)
+      found.concat(surface_problems)
+      engineering = doc.fetch("directives").reject { |row| row["scope"] == "repo" }
+      expected = engineering.map { |row| "#{row.fetch('opcode').downcase}.md" }.sort
       actual = Dir.glob(File.join(Reach::Runtime.root, "directives", "*.md")).map { |file| File.basename(file) }.reject { |file| file == "README.md" }.sort
       found << "R-DOC-POLICY: directive projections are missing or unexpected" unless actual == expected
-      doc.fetch("directives").each do |row|
+      engineering.each do |row|
         file = File.join(Reach::Runtime.root, "directives", "#{row.fetch('opcode').downcase}.md")
         found << "R-DOC-POLICY: #{File.basename(file)} differs from its policy source" unless File.file?(file) && File.read(file) == projection(row)
       end
@@ -265,9 +351,16 @@ module Reach
       ["R-DOC-POLICY: learner presentation policy is missing or invalid (#{e.message})"]
     end
 
+    def with_defaults(raw)
+      value = copy(raw)
+      value["directives"].each { |row| row["scope"] ||= DEFAULT_SCOPE }
+      value.fetch("messages", {}).each_value { |entry| entry["locale"] ||= DEFAULT_LOCALE }
+      value
+    end
+
     def summary
       doc = application
-      status = { "schema" => SCHEMA, "application" => { "id" => doc["id"], "version" => doc["version"], "authority" => doc["authority"], "digest" => bundle["digest"], "directives" => doc["directives"].size, "enforcement" => doc["rules"].group_by { |rule| rule["mode"] }.transform_values(&:size) }, "problems" => problems }
+      status = { "schema" => SCHEMA, "application" => { "id" => doc["id"], "version" => doc["version"], "authority" => doc["authority"], "digest" => bundle["digest"], "directives" => directive_rows.size, "enforcement" => doc["rules"].group_by { |rule| rule["mode"] }.transform_values(&:size) }, "problems" => problems }
       begin
         guided = Reach::GuidedLearner.bundle
         policy = guided.fetch("policy")

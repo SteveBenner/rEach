@@ -8,6 +8,7 @@ slice: all
 tier: public
 when:
 - task:after-task
+scope: everywhere
 ---
 # VERIFY: evidence, not fluency
 

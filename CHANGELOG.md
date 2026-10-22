@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.62.0] - 2026-10-22
+
+Lands the injected-directives work (built as 0.57.0 on 0.56.x) on 0.61.0. Wire revision 2026-10-22c.
+
+### Added
+
+- Every rule rEach gives an agent is written once. `specs/polispec/behavior.yml` is now `polispec.behavior/v2` (Polispec 0.35.0 and newer). It holds:
+  - the engineering directives;
+  - the wrapper messages `TOOLS-RULE`, `WAIT-RULE`, and `EXTRA-RULE-1` to `-5`, formerly `TOOLS_RULE`, `WAIT_RULE`, and the locale's `extracurricular_rules`;
+  - the framing, antifeatures, and controls of `agent-control/agent-control.yml`;
+  - nine repo-scope directives;
+  - 24 surfaces rendered from them: the persona (`agents/reach.md`, `skills/reach-assistant/SKILL.md`), every `skills/reach-*/SKILL.md`, `rules/reach.md`, `agent-control/agent-control.yml`, the workspace stub and full rules files, and this repository's `AGENTS.md`, now a stub of directive rows reserved for an advanced persona.
+- `ruby tools/policy.rb check` fails when a surface drifts from its rendering, or when a sentence restates a directive without naming it. It runs Polispec's compile, drift and lint when `polispec` is on the path or a compiler is named, and `REACH_POLICY_CORPUS` adds corpus globs, such as a folder of course directive files. Without Polispec it checks the shipped artifacts as before.
+- The persona check compares each persona and skill file with the sha256 that `policy/behavior.json` carries for its surface, so it needs no Polispec on the student's computer.
+- Reach reads Teach's `course_policy.json` from the guardrails package when present (wire revision 2026-10-22c, W-PKG-1). It holds hash-only course directive rows with a scope, plus the cutout overlays. A package without it is read from `directives.yml` exactly as before. RECEIPT and AIPOLICY, the course's two new directives, have no alias letter and show as `[OPCODE]`.
+- SessionStart prints every directive row once. The SessionStart, prompt, and Claude Code tool hooks inject a directive's full text once per session, when its `when` condition first matches (`Reach::BehaviorPolicy.when_matches?`).
+  - Each event injects at most 10 bodies and 40 000 bytes (`parameters.directive_injection`).
+  - A course body comes through the authenticated `reach directive` route.
+  - `injected.json` records which directives each session has received: opcodes per session id, for the last 40 sessions.
+- `harness.rules_file` in `config.yml` sets the form of each workspace rules file.
+  - `auto` (the default) writes the short stub, rows and a pointer, for a harness whose hooks have run on this install, and the full rules file elsewhere. Antigravity, and Codex without trusted hooks, therefore get the full text.
+  - `stub` and `full` force one form.
+
+### Changed
+
+- QUALIFY now carries the course's shape-check, own-scenarios, and third-failed-qualification rules (formerly G-SHAPE-1, G-TEST-1, and G-SHAPE-2), worded for the required qualification names, which are the supplied practice names for replay panels. `parameters.attempt_ladder` records the ladder's numbers, and `reach policy` reports a problem if they differ from `Reach::Ladder`. CODEFILE already carried G-CODE-1.
+- Directive rows use the polispec form `[OPCODE] rule   d/OPCODE   ⚙ enforce   ⚡ [when]`. `reach directive --list` keeps the alias form.
+- `ruby tools/policy.rb build` renders every surface and also writes the guided learner presentation artifact from the same compiler.
+
 ## [0.61.0] - 2026-10-22
 
 Lands the security validation pass and the full course smoke suite (built as 0.55.0 and 0.55.1 on 0.54.x) on 0.60.2.

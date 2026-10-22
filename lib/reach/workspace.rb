@@ -381,8 +381,10 @@ module Reach
     end
 
     def write_space_rules_files(target, space)
-      text = Reach::Guardrails.render_rules(space: space)
+      texts = {}
       %w[AGENTS.md CLAUDE.md GEMINI.md].each do |name|
+        mode = Reach::Harness.rules_mode(name)
+        text = texts[mode] ||= Reach::Guardrails.render_rules(space: space, mode: mode)
         path = File.join(target, name)
         safe_chmod(0o644, path) if File.file?(path)
         File.write(path, text)
@@ -413,14 +415,17 @@ module Reach
 
     def write_rules_files(workspace_path)
       slice = metadata(workspace_path)
-      text = Reach::Guardrails.render_rules(
-        cutout_id: slice["cutout_id"],
-        slice: slice["slice"],
-        behavior: slice["behavior"],
-        due: slice["due"],
-        owned_files: slice["owned_files"]
-      )
+      texts = {}
       %w[AGENTS.md CLAUDE.md GEMINI.md].each do |name|
+        mode = Reach::Harness.rules_mode(name)
+        text = texts[mode] ||= Reach::Guardrails.render_rules(
+          cutout_id: slice["cutout_id"],
+          slice: slice["slice"],
+          behavior: slice["behavior"],
+          due: slice["due"],
+          owned_files: slice["owned_files"],
+          mode: mode
+        )
         path = File.join(workspace_path, name)
         safe_chmod(0o644, path) if File.file?(path)
         File.write(path, text)

@@ -9,6 +9,7 @@ tier: public
 when:
 - task:build
 - task:fix
+scope: everywhere
 ---
 # FLOW: every change goes through a flow
 

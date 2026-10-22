@@ -60,6 +60,46 @@ module Reach
         nil
       end
 
+      RULES_FILES = { "CLAUDE.md" => "claude-code", "AGENTS.md" => "codex", "GEMINI.md" => "antigravity" }.freeze
+      RULES_SETTINGS = %w[auto stub full].freeze
+      HOOKED = %w[claude-code codex hermes].freeze
+      HOOKS_VERIFIED_FILE = "hooks_verified.json".freeze
+      FAMILY_HARNESS = { "claude" => "claude-code", "codex" => "codex", "hermes" => "hermes" }.freeze
+
+      def rules_file_setting
+        section = Reach::Runtime.load_config["harness"]
+        value = section.is_a?(Hash) ? section["rules_file"].to_s : ""
+        RULES_SETTINGS.include?(value) ? value : "auto"
+      rescue StandardError
+        "auto"
+      end
+
+      def rules_mode(file_name)
+        setting = rules_file_setting
+        return setting unless setting == "auto"
+
+        hooks_verified?(RULES_FILES.fetch(file_name.to_s, "antigravity")) ? "stub" : "full"
+      end
+
+      def hooks_verified?(harness_id)
+        return false unless HOOKED.include?(harness_id.to_s)
+        return false unless Reach::StateFile.read(HOOKS_VERIFIED_FILE)[harness_id.to_s].is_a?(String)
+
+        harness_id.to_s != "codex" || !Reach::CodexSetup.plugin_hooks_untrusted?
+      rescue StandardError
+        false
+      end
+
+      def note_hooks_ran(label)
+        harness_id = FAMILY_HARNESS[label.to_s.split("-").first]
+        return nil unless harness_id
+
+        Reach::StateFile.update(HOOKS_VERIFIED_FILE) { |state| state[harness_id] = Reach::StateFile.now_s }
+        nil
+      rescue StandardError
+        nil
+      end
+
       def launch(harness_id, workspace_path, initial_prompt: nil)
         is_workspace = workspace_launch?(workspace_path)
         prepare_hermes if harness_id.to_s == "hermes"

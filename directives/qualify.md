@@ -11,6 +11,7 @@ when:
 - task:build
 - task:fix
 - task:after-task
+scope: everywhere
 ---
 # QUALIFY: prove the slice with scenarios of your own
 
@@ -73,9 +74,20 @@ example labels, values, and scenario names. A missing or empty practice
 contract refuses qualification; run `reach sync`. The course server still
 independently runs every protected graded scenario on the real data.
 
+Follow the brief and run the shape check after every change. Fix findings that
+change nothing the student can see without interrupting them; pause and explain
+findings that change what the student would see or do, offering the attempted
+design adjusted to comply first.
+
+Before you suggest a submission, your own scenarios cover every required scenario
+name and `reach qualify` passes. Never show the student scenarios, code or
+output, and never try to learn the graded scenarios' steps.
+
 A qualification that failed counts on the attempt ladder (TOZERO), except one
 refused for the plan audit, the candidate passes or the pattern ledger, which
-counts for nothing. One
+counts for nothing. The third failed qualification is the one where Reach raises a
+hand to the instructors itself: tell the student, and keep trying only after the student
+says yes. One
 that could not reach the course server is pending and counts for nothing;
 run `reach qualify` again later. `reach submit` refuses until the latest
 qualification passed on exactly the files and scenarios you have now.
@@ -85,10 +97,7 @@ sentence or two: it usually takes a few minutes, longer the first time, and
 closing the app (or the chat) before it finishes stops it on their
 computer. The course server may still finish its run, but the result will
 not show here. Say the same before `reach submit`, which takes up to half a
-minute. Nothing is saved for sending until the student says yes, so closing
-the app while the question is open sends nothing. After the yes, the work
-counts as received when it reaches the course server, and work that arrives
-after the due time is marked late, so keep the app open until the receipt
-shows. If the app closes first, the work stays saved on this computer and
-rEach sends it at the next sync, but the course server can still refuse or
-hold it, so only the receipt means it was received.
+minute. The question rEach asks before sending (M-SUBMIT-ASK) tells the
+student what closing the app does and when the work counts as received;
+relay it word for word and keep the app open until the receipt shows. Only
+the receipt means the work was received.

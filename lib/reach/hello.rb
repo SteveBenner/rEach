@@ -321,7 +321,7 @@ module Reach
         Reach::Feedback.reach_out_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
-      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session, source: source)
+      context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session, source: source, event: event, cwd: cwd)
       [greeting_id, greeting_text, banner, context]
     end
 
@@ -717,7 +717,7 @@ module Reach
       nil
     end
 
-    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false, session: nil, source: nil)
+    def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false, session: nil, source: nil, event: nil, cwd: nil)
       entries = []
       entries << ["hello.session", "rEach session context (from reach hello)"]
       entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
@@ -731,6 +731,8 @@ module Reach
       else
         entries << ["hello.session", "- This session continues an earlier one. Do not greet again."]
       end
+      rows_text = safe_rows_text(workspace, cwd)
+      entries << ["rules.directives", rows_text] if rows_text
       entries << ["hello.session", "- Wherever the skills say `reach <command>`, run `#{Reach::Runtime.agent_command(harness: harness_id)} <command>` if `reach` is not on the path, or use the reach_* tools when you have them."]
       entries << ["hello.update", update_line(updating)] if updating
       entries << ["hello.profile", profile_line]
@@ -754,10 +756,25 @@ module Reach
       safe_exam_entries.each { |text, fields| entries << ["hello.test", text, fields] }
 
       text = Reach::AgentControl.compose(entries)
+      injected = local && event.is_a?(Hash) && !event["session_id"].to_s.empty? ? safe_inject(event.merge("cwd" => cwd)) : nil
+      text = "#{text}\n\n#{injected}" if injected
       if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"
         text = "#{text}\n\n#{framed("hello.persona", persona_body)}"
       end
       text
+    end
+
+    def safe_rows_text(workspace, cwd)
+      space = Reach::Workspace.space_for(cwd)
+      Reach::Directives.hello_rows_text(space && space["kind"], workspace)
+    rescue StandardError
+      nil
+    end
+
+    def safe_inject(event)
+      Reach::Directives.inject("session", event)
+    rescue StandardError
+      nil
     end
 
     def alignment_lines

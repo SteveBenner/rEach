@@ -9,6 +9,7 @@ slice: backend
 tier: public
 when:
 - path:**/*.rb
+scope: everywhere
 ---
 # PURE: the same input always gives the same output
 

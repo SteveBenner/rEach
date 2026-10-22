@@ -10,6 +10,7 @@ tier: public
 when:
 - task:build
 - event:SessionStart
+scope: everywhere
 ---
 # PLAN1ST: the plan comes before the code
 

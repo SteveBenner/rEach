@@ -9,6 +9,7 @@ slice: all
 tier: public
 when:
 - always
+scope: everywhere
 ---
 # LEAN: spend tokens on the slice, not on ceremony
 

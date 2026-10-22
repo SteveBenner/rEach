@@ -119,3 +119,5 @@ agent_control:
   render: true
   controls: true
   test_mode: true
+harness:
+  rules_file: auto

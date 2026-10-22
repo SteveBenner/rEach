@@ -9,6 +9,7 @@ tier: public
 when:
 - event:SessionStart
 - event:Stop
+scope: everywhere
 ---
 # RESUME: every session starts from the record, not from memory
 

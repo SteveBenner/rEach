@@ -785,9 +785,3 @@ rejection_fixes:
   not_qualified: "Run reach qualify until it passes on the course server, then submit again without changing any file."
   too_large: "Your files are larger than the course allows (5 MB)."
   default: "Try again in a few minutes. If it keeps failing, tell your instructor."
-extracurricular_rules:
-  - "This is the student's own code folder. Nothing here is graded, submitted or shared with classmates."
-  - "Put code in files in this folder, never in chat. Explanations in chat stay prose."
-  - "Coursework does not belong here: code for an assignment goes only in that slice's owned files under deliverables/, and never write or move coursework into this folder."
-  - "Files in this folder stay on the student's computer and are never sent to the instructors. Nothing said in this folder is recorded or sent. Only signed-in assignment work is recorded for the instructors. Say so if the student asks."
-  - "Do not reach the network from here; use rEach's own commands for anything the course server provides."

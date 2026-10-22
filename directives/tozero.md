@@ -8,6 +8,7 @@ slice: all
 tier: public
 when:
 - task:after-task
+scope: everywhere
 ---
 # TOZERO: a finding is work, not a report
 

@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-22b
+revision: 2026-10-22c
 status: normative
 security_validation:
   id: W-VAL-1
@@ -335,6 +335,15 @@ packages:
         with n counting from 1 per cutout. Then, since protocol 1 revision 2026-09-28, the private directive rows
         {id, opcode, alias, tier: private, slice, rule, when, enforce}, one per file in Teach's directives/ directory
         (id "D-<OPCODE>", alias N-Z). A Reach that predates the rows renders them as numbered rules, which is harmless.
+      course_policy.json: >-
+        Optional, since revision 2026-10-22c. JSON map {schema: teach.course_policy/v1, digest, directives, overlays}. directives holds one row per
+        private directive {id, opcode, alias (absent for RECEIPT and AIPOLICY), tier: private, slice, scope: everywhere |
+        slice | extracurricular | course_root, rule, when, enforce, body_sha256}; a row carries the sha256 of its body and
+        never the body, which stays in protected retrieval (W-API-DIRECTIVE). overlays holds the per-cutout rules
+        {id "G-CUTOUT-<cutout_id>-<n>", scope: slice, rule, directive (the opcode a rule only references, when it names
+        one)}. A Reach that reads it renders its directive rows, scopes and overlays from this entry; a Reach that does
+        not reads directives.yml, which a Teach writes beside it with the same rules. directives.yml stays until the
+        operator raises the minimum Reach version past the Reach that reads course_policy.json.
       course.yml: >-
         YAML map {id, title, term, timezone, current_assignment: {id, due}, interview: {course_question}}. Since
         protocol 1 revision 2026-09-30b it also carries the course policy (W-POL-1): login, limits, support,

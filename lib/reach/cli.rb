@@ -919,6 +919,7 @@ module Reach
           Reach::KnownIssues.record_hook!(label, "prompt") if codex_prompt_event?(options[:harness], event)
         else
           Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
+          Reach::Harness.note_hooks_ran(Reach::Fingerprint.harness_label(options[:harness]))
         end
         Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
         Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
@@ -1005,6 +1006,8 @@ module Reach
           return gate_hermes_prompt(event) if hermes
 
           context = Reach::Gate.prompt(event: event, harness: options[:harness])
+          injected = Reach::Directives.inject("prompt", event, harness: options[:harness])
+          context = [context, injected].compact.join("\n\n") if injected
           @gate_decision = "context" if context
           payload = {}
           payload["hookSpecificOutput"] = { "hookEventName" => "UserPromptSubmit", "additionalContext" => context } if context
@@ -1020,6 +1023,7 @@ module Reach
           patch = tool_input["patch"].to_s if tool_name == "patch" && tool_input["mode"] == "patch"
           Reach::Gate.code_tool! if hermes && tool_name == "execute_code"
           Reach::Gate.write(path: path, patch: patch, event: event, harness: options[:harness])
+          emit_tool_directives(event, options)
           0
         when "shell"
           raw = options[:command] || tool_input["command"] || tool_input["cmd"]
@@ -1031,14 +1035,29 @@ module Reach
           else
             Reach::Gate.shell(command: command, event: event, harness: options[:harness], dialect: dialect)
           end
+          emit_tool_directives(event, options)
           0
         when "read"
           Reach::Gate.read(event: event, harness: options[:harness])
+          emit_tool_directives(event, options)
           0
         else
           warn "usage: reach gate session|prompt|enroll|write|shell|read"
           1
         end
+      end
+
+      def emit_tool_directives(event, options)
+        return nil unless options[:harness].to_s == "claude-code"
+
+        text = Reach::Directives.inject("tool", event, harness: options[:harness])
+        return nil unless text
+
+        @gate_decision = "context"
+        puts JSON.generate("hookSpecificOutput" => { "hookEventName" => "PreToolUse", "additionalContext" => text })
+        nil
+      rescue StandardError
+        nil
       end
 
       def cmd_instructor(args)
@@ -2465,10 +2484,10 @@ module Reach
         agent_path = File.join(root, "agents", "reach.md")
         return ["R-DOC-PERSONA: skills/reach-assistant/SKILL.md or agents/reach.md is missing"] unless File.file?(skill_path) && File.file?(agent_path)
 
-        skill_body = File.read(skill_path).sub(/\A---.*?---\n/m, "")
-        agent_body = File.read(agent_path).sub(/\A---.*?---\n/m, "")
-        return ["R-DOC-PERSONA: the reach-assistant skill body and the reach agent body do not match"] unless skill_body == agent_body
+        drifted = %w[persona-agent persona-skill].select { |id| Reach::BehaviorPolicy.surface_drift?(id) }
+        return ["R-DOC-PERSONA: #{drifted.join(', ')} differs from its generated surface in policy/behavior.json"] unless drifted.empty?
 
+        skill_body = File.read(skill_path).sub(/\A---.*?---\n/m, "")
         greeting = Reach::Greetings.text("G-FIRST-RUN")
         missing = greeting.split("\n").reject { |line| line.empty? || skill_body.include?(line) }
         return ["R-DOC-PERSONA: the persona body does not quote the first-run greeting in full"] unless missing.empty?

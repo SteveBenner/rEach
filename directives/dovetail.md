@@ -9,6 +9,7 @@ slice: panel
 tier: public
 when:
 - path:**/*.svelte
+scope: everywhere
 ---
 # DOVETAIL: free inside the slot, bound at its edge
 

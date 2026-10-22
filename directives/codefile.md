@@ -13,6 +13,7 @@ spaces:
 tier: public
 when:
 - always
+scope: everywhere
 ---
 # CODEFILE: code goes in files, never in chat
 
