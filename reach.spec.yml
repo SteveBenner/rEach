@@ -1108,7 +1108,7 @@ course_alignment:
     agent M-CONSENT-DONE with the outcome to relay word for word. A yes is "yes" or "y", or since 0.63.2 a reply of at
     most 8 words that starts with yes or y and whose other words all come from a fixed list of filler ("Yes, submit
     it", "yes please"); a reply with any other word, such as "yes but wait", is neither yes nor no, and "yeah", "ok"
-    and "sure" never count (RAUD-48).
+    and "sure" never count on their own or as the first word (RAUD-48).
   modules:
     - Teach signs a record of the student's modules (W-MOD-1). Reach verifies it, keeps current and history under ~/.reach/state/modules/, and refuses writes in a slice of a module that is not the student's (M-GATE-NOT-YOUR-MODULE). Old workspaces stay on disk.
     - In a student_choice course (BUS 201), reach modules lists the options until the window closes; reach modules choose <a> <b> asks "Lock in A and B for the rest of the course?", seals the choice locally, sends it with the student's yes, and stores Teach's signed record. It is then locked; a second choice is refused.

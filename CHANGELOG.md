@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A student's yes written as a short sentence is recorded. `Reach::Consent.yes?` (`lib/reach/consent.rb`) took only `yes` or `y`, so "Yes, submit it" to the submit question was neither yes nor no and `reach_submit` kept answering state `asked`. It now also takes a reply of at most 8 words that starts with `yes` or `y` and whose other words all come from a fixed filler list (please, submit, it, go, ahead, now, thanks, and so on). Any other word, such as "yes but wait", still makes the reply neither yes nor no; `yeah`, `ok` and `sure` still never count (RAUD-48), and the yes must still answer the question shown.
+- A student's yes written as a short sentence is recorded. `Reach::Consent.yes?` (`lib/reach/consent.rb`) took only `yes` or `y`, so "Yes, submit it" to the submit question was neither yes nor no and `reach_submit` kept answering state `asked`. It now also takes a reply of at most 8 words that starts with `yes` or `y` and whose other words all come from a fixed filler list (please, submit, it, go, ahead, now, thanks, and so on). Any other word, such as "yes but wait", still makes the reply neither yes nor no; `yeah`, `ok` and `sure` still never count on their own or as the first word (RAUD-48), and the yes must still answer the question shown.
 
 ## [0.63.1] - 2026-10-22
 
