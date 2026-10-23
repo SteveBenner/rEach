@@ -2387,7 +2387,7 @@ Verification on 2026-10-22:
 
 ## Rolling cutoff for owed assignments — 0.60.0
 
-**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.60.1 (published release, 2026-10-22), with Teach 0.107.0 on stable. Blocker: Human — Teach's minimum accepted rEach version is set to 0.60.1, so older installs update before they see the cutoff described as late work.**
+**Build: ✅ Shipped. Deploy: 🟢 Live on stable since v0.60.1 (published release, 2026-10-22), with Teach 0.107.0 on stable. Blocker: —. Teach's minimum accepted rEach version (0.60.1) is checked only at enrollment, so an install enrolled on an older rEach keeps describing owed work as late until it updates itself from the stable release; Teach does not mark that work late either way.**
 
 Teach 0.107.0 may add `rolling_until` to an entry of `status.late_assignments` (wire revision 2026-10-22a) when the instructor lets students who have not submitted an assignment submit it, not late, until a cutoff. Inside that window rEach treats the assignment as open work: no late notice at session start, on prompts or in reach status, no `late_work` hand, and no "marked late" wording in the submit ask. reach status and the greeting name the cutoff. Entries without `rolling_until` behave as before, and after the cutoff Teach drops the entry, so the work reads as late again.
 
