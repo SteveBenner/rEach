@@ -37,7 +37,8 @@ module PlatformSmoke
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(SDK not installed\)\z/,
     "R-DOC-SUBSCRIBE" => /\Abackground job installed; last check never\z/,
     "R-DOC-CODEX" => /\ACodex's sandbox blocks rEach \(internet \w+, folder \w+\) - run reach codex configure\z/,
-    "R-DOC-COPIES" => /\A\d+ saves, \d+ KB, (second copy at [^\r\n]+|no second copy)\z/
+    "R-DOC-COPIES" => /\A\d+ saves, \d+ KB, (second copy at [^\r\n]+|no second copy)\z/,
+    "R-DOC-HEALTH" => /\ArEach sees that Codex has not approved rEach's course checks on this computer, so they are not running\./
   }.freeze
   NO_KIT_DOCTOR_LINES = {
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(no runtime kit\)\z/
