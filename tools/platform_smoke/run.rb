@@ -2,6 +2,7 @@
 
 require "json"
 require "net/http"
+require "openssl"
 require "open3"
 require "optparse"
 require "rbconfig"
@@ -189,14 +190,14 @@ module PlatformSmoke
       installed = @steps.last.result == :pass
       step("package_known_answer") { package_known_answer_step } if installed
       unless installed
-        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
+        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex validate enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "install failed", 0.0))
         end
         return
       end
       step("fake_teach") { fake_teach_step }
       if @steps.last.result != :pass
-        %w[hook_session_start hook_prompt_locked hook_codex enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
+        %w[hook_session_start hook_prompt_locked hook_codex validate enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "fake_teach failed", 0.0))
         end
         return
@@ -204,6 +205,7 @@ module PlatformSmoke
       step("hook_session_start") { hook_session_start_step }
       step("hook_prompt_locked") { hook_prompt_locked_step }
       step("hook_codex") { hook_codex_step }
+      step("validate") { validate_step }
       step("enroll") { enroll_step }
       if @options[:skip_runtime]
         %w[runtime kit_known_answer kit_gems].each { |name| record(Step.new(name, :skip, "--skip-runtime", 0.0)) }
@@ -280,13 +282,15 @@ module PlatformSmoke
     def fake_teach_step
       gem_env, webrick_note = ensure_webrick
       port = free_port
-      @teach_url = "http://127.0.0.1:#{port}"
+      @teach_url = "https://127.0.0.1:#{port}"
+      tls = File.join(@scratch, "tls")
+      ca = File.join(tls, "ca.pem")
       @server_log = File.join(@scratch, "fake_teach.log")
       log = File.open(@server_log, "w")
       begin
         @server_pid = Process.spawn(
           @env.merge(gem_env),
-          RbConfig.ruby, File.join(ROOT, "tools", "fake_teach", "server.rb"), "--port", port.to_s, "--home", File.join(@scratch, "teach"),
+          RbConfig.ruby, File.join(ROOT, "tools", "fake_teach", "server.rb"), "--port", port.to_s, "--home", File.join(@scratch, "teach"), "--tls", tls,
           in: File::NULL, out: log, err: log, chdir: ROOT
         )
       ensure
@@ -295,10 +299,15 @@ module PlatformSmoke
       30.times do |attempt|
         begin
           http = Net::HTTP.new("127.0.0.1", port)
+          http.use_ssl = true
+          http.ca_file = ca
           http.open_timeout = 2
           http.read_timeout = 2
           response = http.get("/api/v1/health")
-          return [:pass, "health 200 on #{@teach_url} after #{attempt + 1} attempt(s); #{webrick_note}"] if response.code == "200"
+          if response.code == "200"
+            trust_fake_teach(ca)
+            return [:pass, "health 200 on #{@teach_url} after #{attempt + 1} attempt(s), certificate verified against the scratch CA; #{webrick_note}"]
+          end
         rescue StandardError
           nil
         end
@@ -306,6 +315,14 @@ module PlatformSmoke
       end
       log_text = File.file?(@server_log) ? File.read(@server_log)[0, 400] : ""
       [:fail, "health did not answer 200 in 30 attempts: #{log_text.strip}"]
+    end
+
+    def trust_fake_teach(ca)
+      bundle = File.join(File.dirname(ca), "trust.pem")
+      sources = [OpenSSL::X509::DEFAULT_CERT_FILE, ENV["SSL_CERT_FILE"]].compact.uniq.select { |path| File.file?(path) }
+      File.write(bundle, (sources.map { |path| File.read(path) } << File.read(ca)).join("\n"))
+      @env["SSL_CERT_FILE"] = bundle
+      @env["REACH_TEACH_URL"] = @teach_url
     end
 
     def stop_server
@@ -421,6 +438,51 @@ module PlatformSmoke
       return [:pass, "blocked with exit 0 and a JSON block on stdout"] if codex_block_reason(code, out)
 
       [:fail, "expected exit 0 with {\"decision\":\"block\",\"reason\":...} on stdout, got exit #{code.inspect}: #{tail(out, err)}"]
+    end
+
+    VALIDATION_ANSWER = "In this invented cafe, a fictional manager checks made up sales and stock numbers before deciding how many pastries to bake. The manager compares the forecast with yesterday's waste and keeps the final decision. No real student or business is represented.".freeze
+    VALIDATION_README = "This synthetic cafe practice checks the delivered contract and expected behavior with invented evidence. The fictional manager reviews the decision, the information flow, the boundaries, and the expected outcome. It is platform smoke machinery, not a student's work.".freeze
+
+    def validation_readme
+      require File.join(ROOT, "lib", "reach", "readme_check.rb")
+      Reach::ReadmeCheck::SECTIONS.map { |section| "## #{section}\n\n#{VALIDATION_README}\n" }.join("\n")
+    end
+
+    def validation_harness
+      probe = 'require "reach"; begin; print Reach::Validation.harness; rescue Reach::Refused; print "codex"; end'
+      code, out, = spawn_capture([RbConfig.ruby, "-I", File.join(@install, "lib"), "-e", probe], chdir: @scratch)
+      code == 0 && !out.strip.empty? ? out.strip : "codex"
+    end
+
+    def validate_step
+      @validation_harness = validation_harness
+      code, out, err = reach("validate", "--course-code", COURSE_CODE, "--harness", @validation_harness)
+      return [:fail, "start exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      questions = JSON.parse(out).fetch("questions")
+      answers = {}
+      questions.each do |question|
+        text = VALIDATION_ANSWER.dup
+        text << " All values in this case are synthetic." while text.split(/\s+/).length < question.fetch("min_words")
+        answers[question.fetch("id")] = text
+        code, out, err = reach("validate", "answer", "--question", question.fetch("id"), "--text", text)
+        return [:fail, "answer #{question['id']} exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+      end
+      [
+        ["plan", "--text", "Save the invented answers in answers.json and explain the practice in README.md."],
+        ["artifact", "--question", "answers.json", "--text", JSON.generate(answers)],
+        ["artifact", "--question", "README.md", "--text", validation_readme],
+        ["check"], ["qualify"], ["submit"], ["finish"]
+      ].each do |args|
+        code, out, err = reach("validate", *args)
+        return [:fail, "#{args.first} exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+      end
+      phase = JSON.parse(out)["phase"]
+      return [:fail, "finish left phase #{phase.inspect}: #{tail(out, err)}"] unless phase == "passed"
+
+      [:pass, "phase passed after #{questions.length} fabricated answer(s), plan, artifacts, check, qualify, submit, and a re-fetched signed receipt"]
+    rescue JSON::ParserError, KeyError => e
+      [:fail, "unreadable validate output (#{e.class}): #{tail(out, err)}"]
     end
 
     def enroll_step

@@ -46,6 +46,8 @@ Student-first audit:
 
 Verification: the scratch walkthrough verified a signed Teach receipt, then completed a fabricated enrollment. Forged signatures, wrong course and challenge bindings, expired runs, missing passes, changed artifacts, different harnesses, wrong request keys, and proof reuse were refused. This was an in-process transport exercise, not a deployed HTTPS or platform-matrix run. Existing release blockers remain; rhomeostasis is disabled.
 
+Since 0.64.1 the platform smoke runs the pass on every leg through the installed `reach validate` against `tools/fake_teach` over verified HTTPS before it enrolls; from 0.61.0 to 0.64.0 it had no pass, so enroll failed and the test health gate refused every stable promotion. Also since 0.64.1 the practice Check and Checkpoint mirror into the session's own directory, not the student's checkpoint mirror, so `reach doctor` no longer reports a gone security-validation work folder (R-DOC-COPIES). Verified 2026-10-23 on Linux with `ruby tools/platform_smoke/run.rb --leg test`: 18 passed, 1 skipped (the macOS-only sandbox step). The macOS and Windows legs run in `.github/workflows/platforms.yml` on push.
+
 **The registry of the software features rEach carries, with build and deployment status.**
 
 rEach is the student's course partner: it enrolls a student with Teach, syncs signed course packages, guards the
@@ -54,7 +56,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.64.0 |
+| **Registry version** | 0.64.1 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |

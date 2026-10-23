@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.1] - 2026-10-23
+
+The platform smoke passes again: it runs the security validation pass before it enrolls.
+
+### Fixed
+
+- The security validation pass no longer leaves its practice save in the student's checkpoint mirror. `Reach::Validation.worker` gave the child process its own `REACH_HOME` and `REACH_WORKSPACE_ROOT` but not `REACH_CHECKPOINT_MIRROR`, so the synthetic Checkpoint landed beside the student's own saves and `reach doctor` then reported `R-DOC-COPIES`: the work folder workspace of security-validation is gone but its saves are kept. The child now mirrors into the session's validation directory.
+- `tools/platform_smoke/run.rb` failed `enroll`, `sync_packages`, `hook_prompt_open`, `codex_course_hook`, `status` and `doctor` on every leg since 0.61.0, because `tools/fake_teach` served no security validation routes and plain HTTP, which the pass refuses. polispec's test health check therefore never passed, and G-TESTED refused every stable promotion (stable stayed at 0.60.1). The new `validate` step runs the whole pass through `reach validate` (fabricated answers, plan, both artifacts, check, qualify, submit and the re-fetched signed receipt) before `enroll`, under the harness `Reach::Validation` detects.
+
+### Added
+
+- `tools/fake_teach/server.rb --tls DIR` serves HTTPS with a scratch CA and a 127.0.0.1 certificate written to `DIR/ca.pem`. The smoke trusts it through `SSL_CERT_FILE` (beside the platform's default bundle) with normal certificate verification and points `REACH_TEACH_URL` at it.
+- `tools/fake_teach` serves `POST /api/v1/validation`, `POST /api/v1/validation/:id/qualify`, `POST /api/v1/validation/:id/submit` and `GET /api/v1/validation/:id/receipt` with attempt-signed requests: it opens the sealed practice package, checks the answers, digests and README, and signs the receipt. From rEach 0.61.0 its enroll refuses a validation session, receipt, key, course, version or harness family that does not match, and consumes the pass once.
+
 ## [0.64.0] - 2026-10-23
 
 Known issues removed; rEach checks its own health. Wire revision 2026-10-23a.

@@ -18,11 +18,12 @@ The scratch workspace root is `<scratch>/work` (`REACH_WORKSPACE_ROOT`), so prov
 | --- | --- |
 | install | `scripts/reach-install --archive` of a `git archive` of HEAD installs the same VERSION and an `exe/reach` |
 | package_known_answer | the installed copy's `Reach::Crypto.open_envelope` and `Reach::Tarball.read` open `fixtures/known-answer/envelope.json`, sealed by real Teach's crypto, with the committed test keys; the content digest and the `hello.txt` digest equal `expected.json`; a failure prints the exception class and message |
-| fake_teach | the fixture answers `GET /api/v1/health` with 200 |
+| fake_teach | the fixture answers `GET /api/v1/health` with 200 over HTTPS (`--tls`), its certificate verified against the run's scratch CA; later steps trust that CA through `SSL_CERT_FILE` and reach the fixture through `REACH_TEACH_URL` (since 0.64.1) |
 | hook_session_start | the SessionStart command from the installed `hooks/hooks.json` exits 0 |
 | hook_prompt_locked | the UserPromptSubmit gate blocks before enrollment: exit 0 with {"decision":"block","reason":...} on stdout (since 0.50.1, STD-CLAUDE-WINDOWS-HOOKS) |
 | hook_codex | the same block through the command from `hooks/codex.json`: exit 0 and `{"decision":"block","reason":...}` on stdout (STD-CODEX-PROMPT-JSON-BLOCK) |
-| enroll | `reach enroll` against the fixture connects the student to the course |
+| validate | the security validation pass through `reach validate`: fabricated answers, plan, both artifacts, check, qualify, submit and finish reach phase `passed` under the harness `Reach::Validation` detects, codex when none (since 0.64.1, `specs/security-validation.yml`) |
+| enroll | `reach enroll` against the fixture connects the student to the course, consuming the validation pass |
 | machine_id | `Reach::Fingerprint.machine_id` is not `unknown` and has the platform's form |
 | sync_packages | `reach sync` exits 0 with no package fetch, course rules or workspace warning; `packages/guardrails/1.pkg` and `packages/workspace/1.pkg` are stored under the scratch `REACH_HOME`; a second `reach sync` makes the fixture answer 304 to both kinds, counted from its `requests.jsonl`; it then waits for Reach's local request budget to refill so doctor's health check is not rate limited |
 | hook_prompt_open | the same gate command exits 0 and does not block once enrolled |

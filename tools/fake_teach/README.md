@@ -6,7 +6,9 @@ It serves wire revision 2026-10-01b only and is superseded by Teach 0.16.0 for a
 
 ## Start
 
-    ruby tools/fake_teach/server.rb [--port 9480] [--home DIR]
+    ruby tools/fake_teach/server.rb [--port 9480] [--home DIR] [--tls DIR]
+
+`--tls DIR` (since rEach 0.64.1) serves HTTPS: it generates a scratch CA and a certificate for 127.0.0.1 and localhost on every start and writes the CA to `DIR/ca.pem`, for clients to trust through `SSL_CERT_FILE`. The security validation pass refuses anything but an HTTPS Teach, so enrollment from rEach 0.61.0 needs it.
 
 It binds 127.0.0.1 only. State lives under `--home` (default a fresh temporary directory): `installs.json` and `keys/` (an RSA-4096 signing key `fake-sign-1` and encryption key `fake-enc-1`, generated on first start and reused when `--home` is reused). Nothing is written outside `--home`. Stop it with SIGTERM or Ctrl-C.
 
@@ -14,7 +16,8 @@ It binds 127.0.0.1 only. State lives under `--home` (default a fresh temporary d
 
 - `GET /api/v1/health`
 - `GET /api/v1/enrollment/preview?course_code=...`: course, expires_at, identity rules.
-- `POST /api/v1/enroll` shape v2 only (shape v1 answers 400 invalid_request). Checks reach_version against minimum 0.12.0, resolves the code (W-ENR-1: secret lookup, course id within Damerau-Levenshtein distance 2, did_you_mean), finds the roster entry matching both username and student_id, and answers with a signed W-ENR-5 stamp. Enroll and preview share a limit of 30 per minute per IP (429 with Retry-After).
+- `POST /api/v1/enroll` shape v2 only (shape v1 answers 400 invalid_request). Checks reach_version against minimum 0.12.0, resolves the code (W-ENR-1: secret lookup, course id within Damerau-Levenshtein distance 2, did_you_mean), finds the roster entry matching both username and student_id, and answers with a signed W-ENR-5 stamp. Enroll and preview share a limit of 30 per minute per IP (429 with Retry-After). From reach_version 0.61.0 it also requires a matching security validation pass (session, receipt, key, course, version and harness family) and consumes it once; otherwise 403 validation_required.
+- Since rEach 0.64.1, the security validation pass (`specs/security-validation.yml`): `POST /api/v1/validation` opens a session with one practice text question of 25 words; `POST /api/v1/validation/:id/qualify` and `/submit` verify the attempt signature (X-Reach-Attempt), open the sealed practice package, and check its files, manifest, answers, digests, `answers.json` and README sections; submit signs a `teach.security-validation/v1` receipt with `fake-sign-1`; `GET /api/v1/validation/:id/receipt` returns it. Sessions live in memory for an hour.
 - `GET /api/v1/status` verifies the W-AUTH request signature against the stored install key, compares X-Reach-Fingerprint with the stored digest (403 fingerprint_mismatch) and answers a minimal body listing one slice (`demo.a1` backend, assignment A1) and the two packages below.
 - `wire_contract_sha256` is the SHA-256 of specs/wire.yml in this checkout.
 - `POST /api/v1/submissions` (since rEach 0.17.0, W-SUB-1) verifies the install signature, honours Idempotency-Key, numbers attempts per student, cutout, slice and assignment, and answers a signed ingest receipt carrying `attempt` with `due` and `resubmit`. `FAKE_TEACH_DUE` (a W-CONV-3 time) sets the due time, also shown as `current_assignment` in status; after it, a slice already on record answers 403 deadline_passed. The package is not opened or checked.

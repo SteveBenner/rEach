@@ -13,9 +13,15 @@ require "time"
 ROOT = File.expand_path("../..", __dir__)
 require File.join(ROOT, "lib", "reach", "crypto.rb")
 require File.join(ROOT, "lib", "reach", "tarball.rb")
+require File.join(ROOT, "lib", "reach", "readme_check.rb")
 
 module FakeTeach
   MINIMUM_REACH_VERSION = "0.12.0".freeze
+  VALIDATION_FROM = "0.61.0".freeze
+  VALIDATION_SCHEMA = "teach.security-validation/v1".freeze
+  VALIDATION_TTL_S = 3600
+  VALIDATION_OWNED = %w[answers.json README.md].freeze
+  VALIDATION_HARNESSES = %w[claude-code codex antigravity hermes].freeze
   SIGN_KEY_ID = "fake-sign-1".freeze
   ENC_KEY_ID = "fake-enc-1".freeze
   RATE_LIMIT = 30
@@ -118,6 +124,7 @@ module FakeTeach
       @feedback = []
       @feedback_replays = {}
       @packages = {}
+      @validations = {}
     end
 
     def fixture(*parts)
@@ -600,6 +607,165 @@ module FakeTeach
       }
     end
 
+    def stamp_time(time)
+      time.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end
+
+    def validation_open(body)
+      invalid = Failure.new(400, "invalid_request", "invalid validation request")
+      raise invalid unless body.keys.sort == %w[course_code harness nonce public_key reach_version]
+      raise invalid unless VALIDATION_HARNESSES.include?(body["harness"]) && body["nonce"].to_s =~ HEX64
+      raise invalid unless body["reach_version"].is_a?(String) && body["public_key"].is_a?(String) && body["public_key"].length <= 4096
+
+      public_key = begin
+        OpenSSL::PKey::RSA.new(body["public_key"])
+      rescue OpenSSL::PKey::PKeyError
+        raise invalid
+      end
+      raise invalid if public_key.private? || public_key.n.num_bits < 2048
+
+      course = resolve_code(body["course_code"])
+      id = "vld_#{SecureRandom.hex(12)}"
+      session = {
+        "id" => id,
+        "course_id" => course["normalized_id"],
+        "public_key_pem" => public_key.to_pem,
+        "key_digest" => Reach::Crypto.digest_hex(public_key.public_key.to_der),
+        "expires_at" => stamp_time(Time.now + VALIDATION_TTL_S),
+        "nonce" => body["nonce"],
+        "harness" => body["harness"],
+        "reach_version" => body["reach_version"],
+        "questions" => [{
+          "id" => "practice_1",
+          "question" => "Invent a fictional business decision, its inputs, expected output, and a case to check. Use made-up names and values only.",
+          "shape" => "text",
+          "min_words" => 25
+        }]
+      }
+      @mutex.synchronize { @validations[id] = session }
+      session.slice("nonce", "harness", "reach_version", "questions", "course_id", "expires_at").merge(
+        "schema" => VALIDATION_SCHEMA, "session_id" => id,
+        "signing_public_keys" => signing_public_keys, "encryption_key" => encryption_key
+      )
+    end
+
+    def live_validation(id)
+      session = @validations[id]
+      raise Failure.new(403, "validation_required", "the security validation pass is required") unless session && Time.iso8601(session["expires_at"]) > Time.now.utc
+
+      session
+    end
+
+    def validation_session!(req, body, id)
+      session = live_validation(id)
+      raise Failure.new(401, "unauthenticated", "validation identity does not match") unless req["X-Reach-Attempt"].to_s == id
+
+      verify_signature!(req, body, "validation:#{id}", session["public_key_pem"])
+      session
+    end
+
+    def word_count(text)
+      text.to_s.split(/\s+/).count { |token| token =~ /[[:alnum:]]/ }
+    end
+
+    def validation_unpack!(session, body)
+      id = session["id"]
+      request = JSON.parse(body)
+      raise KeyError unless request.is_a?(Hash) && (request.keys - %w[package qualification_id]).empty?
+
+      _header, plaintext = Reach::Crypto.open_envelope(
+        request["package"], expected_kind: "submission", expected_student_id: "synthetic:#{id}",
+        recipient_private_key: @encryption_key,
+        signer_public_key_for: lambda { |_key_id| OpenSSL::PKey::RSA.new(session["public_key_pem"]) }
+      )
+      entries = Reach::Tarball.read(plaintext)
+      raise KeyError unless entries.keys.sort == (%w[manifest.json part.json] + VALIDATION_OWNED.map { |name| "files/#{name}" }).sort
+
+      digests = VALIDATION_OWNED.to_h { |name| [name, Reach::Crypto.digest_hex(entries.fetch("files/#{name}"))] }
+      manifest = JSON.parse(entries.fetch("manifest.json"))
+      raise KeyError unless manifest["course"] == session["course_id"] && manifest["assignment"] == "security-validation" &&
+                            manifest["cutout_id"] == id && manifest["reach_version"] == session["reach_version"] && manifest["digests"] == digests
+
+      part = JSON.parse(entries.fetch("part.json"))
+      answers = part.fetch("answers")
+      questions = session["questions"]
+      raise KeyError unless part["student_id"] == "synthetic:#{id}" && answers.map { |answer| answer["question_id"] }.sort == questions.map { |question| question["id"] }.sort
+
+      answers.each do |answer|
+        question = questions.find { |item| item["id"] == answer["question_id"] }
+        words = word_count(answer["text"])
+        raise KeyError unless words >= question["min_words"] && answer["words"] == words && answer["digest"] == Reach::Crypto.digest_hex(answer["text"])
+      end
+      raise KeyError unless JSON.parse(entries.fetch("files/answers.json")) == answers.to_h { |answer| [answer["question_id"], answer["text"]] }
+      raise KeyError unless Reach::ReadmeCheck.problems(entries.fetch("files/README.md")).empty?
+
+      [request, Reach::Crypto.digest_hex(Reach::Crypto.canonical_json(digests)), Reach::Crypto.digest_hex(plaintext)]
+    rescue Reach::Error, JSON::ParserError, KeyError, TypeError, NoMethodError
+      raise Failure.new(400, "invalid_request", "invalid validation package")
+    end
+
+    def validation_qualify(req, body, id)
+      session = validation_session!(req, body, id)
+      raise Failure.new(403, "validation_required", "this pass was used for enrollment") if session["install_id"]
+
+      _request, digest, = validation_unpack!(session, body)
+      @mutex.synchronize do
+        raise Failure.new(409, "conflict", "validation already submitted") if session["receipt"]
+
+        session["qualification_id"] = "vq_#{SecureRandom.hex(12)}" unless session["qualification_digest"] == digest
+        session["qualification_digest"] = digest
+        { "passed" => true, "qualification_id" => session["qualification_id"] }
+      end
+    end
+
+    def validation_submit(req, body, id)
+      session = validation_session!(req, body, id)
+      raise Failure.new(403, "validation_required", "this pass was used for enrollment") if session["install_id"]
+
+      request, digest, content_digest = validation_unpack!(session, body)
+      @mutex.synchronize do
+        unless session["qualification_digest"] == digest && !request["qualification_id"].to_s.empty? && session["qualification_id"] == request["qualification_id"]
+          raise Failure.new(409, "not_qualified", "validation has not qualified")
+        end
+        if session["receipt"]
+          raise Failure.new(409, "conflict", "validation submission changed") unless session["receipt"]["content_digest"] == content_digest
+
+          next { "receipt" => session["receipt"] }
+        end
+
+        receipt = session.slice("nonce", "harness", "reach_version", "course_id", "expires_at").merge(
+          "schema" => VALIDATION_SCHEMA, "kind" => "security-validation", "session_id" => id,
+          "public_key_digest" => session["key_digest"], "receipt_id" => "vrc_#{SecureRandom.hex(12)}",
+          "files_digest" => digest, "content_digest" => content_digest,
+          "issued_at" => stamp_time(Time.now), "signing_key_id" => SIGN_KEY_ID
+        )
+        receipt["signature"] = Base64.strict_encode64(Reach::Crypto.sign_pss(@signing_key, Reach::Crypto.canonical_json(receipt)))
+        session["receipt"] = receipt
+        { "receipt" => receipt }
+      end
+    end
+
+    def validation_receipt(req, body, id)
+      session = validation_session!(req, body, id)
+      raise Failure.new(404, "not_found", "no receipt yet") unless session["receipt"]
+
+      { "receipt" => session["receipt"] }
+    end
+
+    def enrollment_validation!(body, course, public_key)
+      return nil unless Text.version_at_least?(body["reach_version"], VALIDATION_FROM)
+
+      session = live_validation(body["validation_session"].to_s)
+      receipt = session["receipt"]
+      label = body.dig("fingerprint", "descriptive", "harness").to_s
+      family = label.start_with?("codex-") ? "codex" : (label.start_with?("claude-code-") ? "claude-code" : label)
+      matches = session["course_id"] == course["normalized_id"] && session["key_digest"] == Reach::Crypto.digest_hex(public_key.public_key.to_der) &&
+                receipt && receipt["receipt_id"] == body["validation_receipt"] && session["reach_version"] == body["reach_version"] && session["harness"] == family
+      raise Failure.new(403, "validation_required", "the security validation pass is required") unless matches && !session["install_id"]
+
+      session
+    end
+
     def enroll(body)
       shape = body["shape"] || "v1"
       unless shape == "v2"
@@ -644,6 +810,7 @@ module FakeTeach
         s["username"] == body["username"] && s["student_id"] == body["student_id"]
       end
       raise Failure.new(403, "enrollment_refused", "enrollment was refused") unless entry
+      validation = enrollment_validation!(body, course, public_key)
       password_enroll!(entry["student_id"], password)
 
       install_id = "ins_#{SecureRandom.hex(10)}"
@@ -675,6 +842,7 @@ module FakeTeach
           "revoked" => false,
           "enrolled_at" => issued.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
+        validation["install_id"] = install_id if validation
         save_installs
       end
 
@@ -765,6 +933,11 @@ module FakeTeach
       raise Failure.new(403, "not_enrolled", "install is not enrolled") unless install
       raise Failure.new(403, "revoked", "install was revoked") if install["revoked"]
 
+      verify_signature!(req, body, install_id, install["public_key_pem"])
+      install
+    end
+
+    def verify_signature!(req, body, scope, public_key_pem)
       timestamp = req["X-Teach-Timestamp"].to_s
       nonce = req["X-Teach-Nonce"].to_s
       signature = req["X-Teach-Signature"].to_s
@@ -781,7 +954,7 @@ module FakeTeach
       target = req.path.to_s
       target += "?#{req.query_string}" unless req.query_string.to_s.empty?
       payload = [req.request_method.to_s.upcase, target, timestamp, nonce, Reach::Crypto.digest_hex(body)].join("\n")
-      public_key = OpenSSL::PKey::RSA.new(install["public_key_pem"])
+      public_key = OpenSSL::PKey::RSA.new(public_key_pem)
       raw = begin
         Base64.strict_decode64(signature)
       rescue ArgumentError
@@ -790,14 +963,13 @@ module FakeTeach
       raise unauth.call("signature does not verify") unless Reach::Crypto.verify_pss(public_key, raw, payload)
 
       @mutex.synchronize do
-        seen = @nonces[install_id]
+        seen = @nonces[scope]
         now = Time.now.to_f
         seen.reject! { |_, t| now - t > NONCE_TTL_S }
         raise unauth.call("nonce was already used") if seen.key?(nonce)
 
         seen[nonce] = now
       end
-      install
     end
 
     def late_assignments_status(install_id, install)
@@ -905,6 +1077,15 @@ module FakeTeach
       elsif method == "GET" && path == "/api/v1/enrollment/preview"
         @store.rate_limit!(req.peeraddr[3])
         @store.preview(req.query["course_code"].to_s)
+      elsif method == "POST" && path == "/api/v1/validation"
+        @store.rate_limit!(req.peeraddr[3])
+        @store.validation_open(parse_json(body))
+      elsif method == "POST" && path =~ %r{\A/api/v1/validation/(vld_[0-9a-f]{24})/qualify\z}
+        @store.validation_qualify(req, body, Regexp.last_match(1))
+      elsif method == "POST" && path =~ %r{\A/api/v1/validation/(vld_[0-9a-f]{24})/submit\z}
+        @store.validation_submit(req, body, Regexp.last_match(1))
+      elsif method == "GET" && path =~ %r{\A/api/v1/validation/(vld_[0-9a-f]{24})/receipt\z}
+        @store.validation_receipt(req, body, Regexp.last_match(1))
       elsif method == "POST" && path == "/api/v1/enroll"
         @store.rate_limit!(req.peeraddr[3])
         @store.enroll(parse_json(body))
@@ -960,25 +1141,67 @@ module FakeTeach
       respond(res, failure.status, "error" => error, "request_id" => SecureRandom.hex(8))
     end
   end
+
+  module Tls
+    module_function
+
+    def certificate(subject, issuer, public_key, serial, extensions, signer)
+      cert = OpenSSL::X509::Certificate.new
+      cert.version = 2
+      cert.serial = serial
+      cert.subject = OpenSSL::X509::Name.parse(subject)
+      cert.issuer = issuer ? issuer.subject : cert.subject
+      cert.public_key = public_key
+      cert.not_before = Time.now - 300
+      cert.not_after = Time.now + 86_400
+      factory = OpenSSL::X509::ExtensionFactory.new
+      factory.subject_certificate = cert
+      factory.issuer_certificate = issuer || cert
+      extensions.each { |name, value, critical| cert.add_extension(factory.create_extension(name, value, critical)) }
+      cert.sign(signer, OpenSSL::Digest::SHA256.new)
+      cert
+    end
+
+    def material(dir)
+      FileUtils.mkdir_p(dir, mode: 0o700)
+      ca_key = OpenSSL::PKey::RSA.new(2048)
+      ca = certificate("/CN=fake teach smoke CA", nil, ca_key, 1,
+                       [["basicConstraints", "CA:TRUE", true], ["keyUsage", "keyCertSign,cRLSign", true], ["subjectKeyIdentifier", "hash", false]], ca_key)
+      key = OpenSSL::PKey::RSA.new(2048)
+      cert = certificate("/CN=127.0.0.1", ca, key, 2,
+                         [["basicConstraints", "CA:FALSE", true], ["keyUsage", "digitalSignature,keyEncipherment", true], ["extendedKeyUsage", "serverAuth", false],
+                          ["subjectAltName", "IP:127.0.0.1,DNS:localhost", false], ["authorityKeyIdentifier", "keyid:always", false]], ca_key)
+      File.write(File.join(dir, "ca.pem.tmp"), ca.to_pem)
+      File.rename(File.join(dir, "ca.pem.tmp"), File.join(dir, "ca.pem"))
+      [cert, key]
+    end
+  end
 end
 
-options = { port: 9480, home: nil }
+options = { port: 9480, home: nil, tls: nil }
 OptionParser.new do |opts|
-  opts.banner = "usage: server.rb [--port N] [--home DIR]"
+  opts.banner = "usage: server.rb [--port N] [--home DIR] [--tls DIR]"
   opts.on("--port N", Integer) { |v| options[:port] = v }
   opts.on("--home DIR") { |v| options[:home] = v }
+  opts.on("--tls DIR") { |v| options[:tls] = v }
 end.parse!
 
 home = options[:home] || Dir.mktmpdir("fake-teach-")
 store = FakeTeach::Store.new(File.expand_path(home))
-server = WEBrick::HTTPServer.new(
+config = {
   BindAddress: "127.0.0.1",
   Port: options[:port],
   AccessLog: [],
   Logger: WEBrick::Log.new($stderr, WEBrick::Log::INFO)
-)
+}
+if options[:tls]
+  require "webrick/https"
+  cert, key = FakeTeach::Tls.material(File.expand_path(options[:tls]))
+  config.merge!(SSLEnable: true, SSLCertificate: cert, SSLPrivateKey: key)
+end
+server = WEBrick::HTTPServer.new(config)
 server.mount("/", FakeTeach::Servlet, store)
 %w[INT TERM].each { |sig| trap(sig) { server.shutdown } }
-$stdout.puts("fake teach listening on http://127.0.0.1:#{options[:port]} home=#{File.expand_path(home)}")
+$stdout.puts("fake teach listening on #{options[:tls] ? 'https' : 'http'}://127.0.0.1:#{options[:port]} home=#{File.expand_path(home)}")
 $stdout.flush
 server.start

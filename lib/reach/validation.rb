@@ -341,7 +341,7 @@ module Reach
 
     def worker(state, action, text = nil)
       root = File.dirname(workspace(state))
-      env = { "REACH_HOME" => File.join(root, "home"), "REACH_WORKSPACE_ROOT" => File.join(root, "work"), "REACH_PERSONA" => nil }
+      env = { "REACH_HOME" => File.join(root, "home"), "REACH_WORKSPACE_ROOT" => File.join(root, "work"), "REACH_CHECKPOINT_MIRROR" => File.join(root, "mirror"), "REACH_PERSONA" => nil }
       script = 'require "reach"; Reach::Validation.work(ARGV.fetch(0), ARGV.fetch(1), STDIN.read)'
       output = nil
       Open3.popen3(env, RbConfig.ruby, "-I", File.expand_path("..", __dir__), "-e", script, action, workspace(state)) do |input, stdout, stderr, waiter|
