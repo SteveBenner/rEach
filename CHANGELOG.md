@@ -22,7 +22,7 @@ Known issues removed; rEach checks its own health. Wire revision 2026-10-23a.
 
 ### Added
 
-- A hand linked to a Teach issue that carries a workaround shows it: `reach_hand_status` and `reach hands status` answer `workaround` (at most 600 characters) from W-API-HAND-STATUS `student_workaround`.
+- A hand linked to a Teach issue that carries a workaround shows it: `reach_hand_status` and `reach hand status` answer `workaround` (at most 600 characters) from W-API-HAND-STATUS `student_workaround`.
 
 ## [0.63.2] - 2026-10-22
 
