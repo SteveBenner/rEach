@@ -19,7 +19,7 @@ module Reach
       def compute_step(mcp: false)
         return result("M-NEXT-ENROLL") unless Reach::Enroll.current
         if Reach::Login.required? && !Reach::Login.any_active?
-          return result(Reach::KnownIssues.untrusted_or("M-NEXT-LOGIN-NO-HOOK")) if mcp && Reach::KnownIssues.signin_hook_dead?
+          return result(Reach::HookLiveness.untrusted_or("M-NEXT-LOGIN-NO-HOOK")) if mcp && Reach::HookLiveness.signin_hook_dead?
 
           return result("M-NEXT-LOGIN")
         end

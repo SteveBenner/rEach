@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.63.2
+version: 0.64.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1208,7 +1208,7 @@ mcp_bridge:
     reach_raise_hand), so Codex still reviews those (instructor decision 2026-10-13), false for the rest;
     readOnlyHint true for the tools that only read (READ_ONLY_TOOLS: reach_status, reach_receipts, reach_shape_check,
     reach_check, reach_hand_status, reach_profile_show, reach_enroll, reach_directive, reach_reference, reach_recall,
-    reach_next, reach_grade, reach_extra_credit_list, reach_feedback_list, reach_announcements, reach_known_issues); destructiveHint true only
+    reach_next, reach_grade, reach_extra_credit_list, reach_feedback_list, reach_announcements); destructiveHint true only
     for the tools that can delete the student's data (DESTRUCTIVE_TOOLS: reach_profile_forget, reach_memory_forget,
     reach_transcripts, reach_storage), false for the rest, whose consequential actions rEach already puts behind the
     student's own captured yes or a checkpoint. Codex (0.160.0 to 0.162.1, codex-rs mcp_tool_call.rs
@@ -1246,7 +1246,9 @@ mcp_bridge:
       Raise a hand with a summary. Since 0.19.0 it takes type (an enum of the agent-chosen request types, default
       student_request; trigger remains an alias) and refuses an unknown one before any network call
   - name: reach_hand_status
-    description: A hand's state and reply
+    description: >-
+      A hand's state and reply. Since 0.64.0 (STD-HEALTH) also workaround, when the hand is linked to a Teach issue that
+      carries a student workaround (W-API-HAND-STATUS student_workaround, at most 600 characters)
   - name: reach_hello
     description: The greeting to use now and the session context (profile state, course, next step)
   - name: reach_profile_show
@@ -1325,12 +1327,6 @@ mcp_bridge:
     description: >-
       Since 0.21.8 (STD-CODEX-SANDBOX), the reach doctor health check through the bridge, which Codex runs outside its
       sandbox; works before enrollment like reach doctor
-  - name: reach_known_issues
-    description: >-
-      Since 0.21.9 (STD-KNOWN-ISSUES), the known issues from Teach that match this computer's operating system, harness
-      and Reach version, each with its symptom, whether its detector fires and the steps for this system and harness;
-      works before enrollment. Since 0.31.0 (STD-CODEX-SETUP): each entry carries remedy, null or the tool call that
-      fixes it, and the text names that call (M-KNOWN-ISSUE-REMEDY)
   - name: reach_setup
     description: >-
       Since 0.31.0 (STD-CODEX-SETUP), sets Codex up so rEach's commands work in its sandbox: action status (the default)
@@ -1697,8 +1693,8 @@ subscription:
     background is true, and uninstalls it when not. It runs from the detached reach hello --background, from a
     detached reach subscribe ensure after enrollment and after reach update applies a release, never in a hook.
   notices: >-
-    status course_update, grades grade, hands hand_reply, extra_credit extra_credit, receipts receipt; known_issues adds
-    none. Since 0.33.6 a hands change whose new replies all carry answered_by service-desk or teach-issues is stored as
+    status course_update, grades grade, hands hand_reply, extra_credit extra_credit, receipts receipt; known_issues (a constant
+    since 0.64.0) adds none. Since 0.33.6 a hands change whose new replies all carry answered_by service-desk or teach-issues is stored as
     support_message ("technical support sent a message about a problem you reported") instead of hand_reply, and every
     entry of the sync summary's hand_replies names from as technical_support or instructor. They are stored unannounced and deduplicated by kind; the prompt hook reads them and adds M-SUBSCRIBE-UPDATES
     once, then marks them announced; a notice older than 7 days is dropped.
@@ -3554,7 +3550,7 @@ codex_setup:
     configure and a reach codex configure without a terminal ask through Reach::Consent (kind codex_setup, subject the
     mode and the SHA-256 of the current file, kept on the computer); the prompt hook captures the typed answer and its
     follow-up applies on a yes or records the no (M-CODEX-SETUP-DECLINED). In the MCP server on Codex, while
-    KnownIssues.hooks_stale? holds, no yes can be captured, so it answers M-CODEX-SETUP-TERMINAL and asks nothing. Before enrollment
+    HookLiveness.hooks_stale? holds, no yes can be captured, so it answers M-CODEX-SETUP-TERMINAL and asks nothing. Before enrollment
     the MCP tool answers M-CODEX-SETUP-SIGN-IN and asks nothing, because a chat yes is captured only for a signed-in
     student; the terminal command works before enrollment. A withdrawal with no backup on disk answers
     M-CODEX-SETUP-OFF-DONE-NEW, and the outcome text sent to Teach from a live action names the backup by file name only.
@@ -3626,7 +3622,7 @@ codex_hook_trust:
     keeps one marker per (session id, turn id) for a prompt and per (session id, start source) for a session start under
     <root>/state/hook_once, so an older course-folder gate prompt or gate session that still runs does nothing when the
     plugin did the work, and the reverse; markers older than a day are pruned by the writer. The plugin's gate enroll
-    stamps prompt_at, never work_at (KnownIssues.record_hook!), on every Codex run, before any gating. The course folder's
+    stamps prompt_at, never work_at (HookLiveness.record_hook!), on every Codex run, before any gating. The course folder's
     hooks.json keeps PreToolUse, PostToolUse and Stop in their old group order and text.
   trust_state: >-
     CodexSetup writes the entries only for a course hooks.json whose parsed content equals exactly what
@@ -3651,9 +3647,9 @@ codex_hook_trust:
     folder that is not trusted, so heal and the already-set-up answers treat it as stale trust. On Windows, hook keys
     and project paths are matched ignoring case and with / and \ alike, and an existing entry's spelling is reused.
   detection: >-
-    KnownIssues.course_hooks_untrusted? (Codex only, false while the sign-in is pending, unknown never counts) is true
+    HookLiveness.course_hooks_untrusted? (Codex only, false while the sign-in is pending, unknown never counts) is true
     when a handler of the current folder's hooks.json is modified or untrusted. require_hooks! then refuses with
-    M-HOOKS-UNTRUSTED, the known-issue detector codex_hooks_untrusted fires, and reach_next, the sign-in texts and
+    M-HOOKS-UNTRUSTED, the health check codex_hooks_untrusted fires (STD-HEALTH), and reach_next, the sign-in texts and
     M-HOOKS-REQUIRED give way to M-HOOKS-UNTRUSTED where they would have been chosen. The remedy is codex_configure,
     which asks the student's consent as before. CodexSetup.ask_chat and configure_terminal no longer answer already
     set up while trust is stale. While the sign-in is pending the hooks_not_running and

@@ -13,9 +13,9 @@ The course server is only what `reach` reports. `docs/`, `specs/` and `tools/` a
 [RPLUGIN] reach is an rplugin plugin; sources, skills and release rules are in the full text   d/RPLUGIN   ⚙ none   ⚡ [task:feature-change, task:component-create, task:policy-change]
 [CORPUS] read and write the corpus only through the plugin or rcorpus, never by editing files   d/CORPUS   ⚙ none   ⚡ [task:corpus-backup, task:corpus-mirror, task:corpus-change]
 [COURSEMAT] no course material in this repository; reference blobs come only from Teach   d/COURSEMAT   ⚙ none   ⚡ [task:feature-change, task:course-material]
-[KNOWNISSUE] known issues live in Teach, not in TODO.md; reach only reads them   d/KNOWNISSUE   ⚙ none   ⚡ [task:known-issue, task:feature-change]
+[TEACHISSUE] student problems are Teach issues, not TODO.md items; reach reads them via hand status   d/TEACHISSUE   ⚙ none   ⚡ [task:issue, task:feature-change]
 [CHANGEIT] manifest, ports and zero-finding checks govern every change to reach   d/CHANGEIT   ⚙ none   ⚡ [task:feature-create, task:feature-change, task:component-create]
 
-The full text of INSTALL, RPLUGIN, CORPUS, COURSEMAT, KNOWNISSUE and CHANGEIT is in `specs/polispec/surfaces/generated/repo-directives.md`; ENVS, MICRODB and STUDENT1ST are under `.agents/directives/`.
+The full text of INSTALL, RPLUGIN, CORPUS, COURSEMAT, TEACHISSUE and CHANGEIT is in `specs/polispec/surfaces/generated/repo-directives.md`; ENVS, MICRODB and STUDENT1ST are under `.agents/directives/`.
 
 `CLAUDE.md` links to this file, so every harness reads the same text.

@@ -20,7 +20,7 @@ module Reach
       event = {}
       if !STDIN.tty? && format.to_s == "hook"
         event = read_stdin_json
-        Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(harness || resolve_harness(nil)), event["source"])
+        Reach::HookLiveness.session_started!(Reach::Fingerprint.harness_label(harness || resolve_harness(nil)), event["source"])
         Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(harness || resolve_harness(nil)))
         source = event["source"] if source.nil?
         cwd = event["cwd"] if event["cwd"]
@@ -44,7 +44,6 @@ module Reach
       harness_id = resolve_harness(harness == "antigravity" ? nil : harness)
       Reach::Debug.begin_hook(event, harness_id)
       Reach::Debug.session(harness_id, source)
-      Reach::KnownIssues.refresh_if_stale!(quick: true) if mcp
       Reach::InstructorKeyring.refresh_if_stale!(quick: true)
       greeting_id, greeting_text, banner, context = session_parts(harness_id, format, source, cwd, event, local: format.to_s == "hook", mcp: mcp, hookless: hookless)
       context = [Reach::GuidedLearner.context, context].compact.join("\n\n") unless Reach::Instructor.mode?
@@ -61,7 +60,7 @@ module Reach
       return nil unless in_course_folder?(cwd)
       return nil unless Reach::Gate.once!(event, "session")
 
-      Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label("codex"), source)
+      Reach::HookLiveness.session_started!(Reach::Fingerprint.harness_label("codex"), source)
       begin
         if File.directory?(cwd.to_s)
           Dir.chdir(cwd) { Reach::Gate.session(harness: "codex") }
@@ -414,8 +413,8 @@ module Reach
       nil
     end
 
-    def known_issue_lines(mcp)
-      Reach::KnownIssues.context_lines(mcp: mcp).map { |line| "- #{line}" }
+    def health_lines(mcp)
+      Reach::Health.context_lines(mcp: mcp).map { |line| "- #{line}" }
     rescue StandardError
       []
     end
@@ -424,7 +423,7 @@ module Reach
       return false if format.to_s == "hook" || mcp
       return true if harness == "antigravity"
 
-      resolve_harness(harness) == "unknown" && Reach::KnownIssues.harness.nil?
+      resolve_harness(harness) == "unknown" && Reach::HookLiveness.harness.nil?
     rescue StandardError
       false
     end
@@ -438,7 +437,7 @@ module Reach
         "M-ENR-AGENT-NOHOOK-GUIDE",
         command: terminal_command("guide"), enroll_command: terminal_command("enroll"), window_command: terminal_command("enroll", "--window")
       )
-      ["#{Reach::Messages.text("M-ENR-AGENT-NOHOOK-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
+      ["#{Reach::Messages.text("M-ENR-AGENT-NOHOOK-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *health_lines(mcp)].join("\n")
     end
 
     def wrong_folder_parts(message, lock, format, mcp)
@@ -450,12 +449,12 @@ module Reach
       guide = Reach::Messages.text(
         "M-LOGIN-NOHOOK-GUIDE", window_command: terminal_command("login", "--window"), login_command: terminal_command("login")
       )
-      ["#{MINIMAL_CONTEXT}\n- #{guide}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
+      ["#{MINIMAL_CONTEXT}\n- #{guide}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *health_lines(mcp)].join("\n")
     end
 
     def locked_context(format = "hook", mcp: false)
       guide = Reach::Messages.text("M-ENR-AGENT-GUIDE", command: Reach::Runtime.agent_command("guide"), enroll_command: terminal_command("enroll"))
-      text = ["#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *known_issue_lines(mcp)].join("\n")
+      text = ["#{Reach::Messages.text("M-ENR-AGENT-CONTEXT")}\n#{guide}\n#{Reach::Messages.text("M-AGENT-TALK")}", *health_lines(mcp)].join("\n")
       return text if format.to_s == "hook" || !Reach::CodexCache.repaired?
 
       "#{text}\n#{Reach::Messages.text("M-ENR-AGENT-CODEX-REPAIRED")}"
@@ -475,8 +474,8 @@ module Reach
     end
 
     def login_context(updating = nil, mcp: false)
-      needed = mcp && Reach::KnownIssues.signin_hook_dead? ? Reach::KnownIssues.untrusted_or("M-LOGIN-NEEDED-NO-HOOK") : "M-LOGIN-NEEDED"
-      text = ["#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text(needed)}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *known_issue_lines(mcp)].join("\n")
+      needed = mcp && Reach::HookLiveness.signin_hook_dead? ? Reach::HookLiveness.untrusted_or("M-LOGIN-NEEDED-NO-HOOK") : "M-LOGIN-NEEDED"
+      text = ["#{MINIMAL_CONTEXT}\n- #{Reach::Messages.text(needed)}\n- #{Reach::Messages.text('M-AGENT-TALK')}", *health_lines(mcp)].join("\n")
       updating ? "#{text}\n#{update_line(updating)}" : text
     end
 
@@ -722,7 +721,7 @@ module Reach
       entries << ["hello.session", "rEach session context (from reach hello)"]
       entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
       entries << ["hello.session", "- #{Reach::Messages.text("M-AGENT-TALK")}"]
-      known_issue_lines(mcp).each { |line| entries << ["hello.issues", line] }
+      health_lines(mcp).each { |line| entries << ["hello.issues", line] }
       entries << ["hello.session", "- #{Reach::Messages.text("M-AGENT-UPDATE")}"]
       if greeting_text
         entries << ["hello.greeting", "- Greeting for this session: open your first reply with exactly this text, then continue as it asks:"]

@@ -21,7 +21,7 @@ module Reach
     def start(workspace, open: true)
       Reach::BehaviorPolicy.ensure!
       Reach::Login.require_active!
-      Reach::KnownIssues.require_hooks!
+      Reach::HookLiveness.require_hooks!
       launch(workspace, open: open)
     end
 

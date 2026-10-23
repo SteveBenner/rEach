@@ -47,12 +47,6 @@ module Reach
         transcript_result = safe_call(summary) { Reach::Transcript.flush(quick: false) }
         summary["transcript_sent"] = transcript_result.is_a?(Hash) ? transcript_result["sent"].to_i : 0
 
-        begin
-          Reach::KnownIssues.fetch!(quick: false)
-        rescue StandardError
-          nil
-        end
-
         offline = false
         begin
           status = refresh_status(quick: false)

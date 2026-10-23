@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-22d
+revision: 2026-10-23a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -1098,7 +1098,7 @@ routes:
     method: GET
     path: /api/v1/hands/:id
     auth: install
-    response_200: {state: string, reply: "object or null", issue_state: "since 2026-10-03c, on an issue hand only (W-ISSUE-7)", fix_version: "since 2026-10-03c, on an issue hand only (W-ISSUE-7)"}
+    response_200: {state: string, reply: "object or null", issue_state: "since 2026-10-03c, on an issue hand only (W-ISSUE-7)", fix_version: "since 2026-10-03c, on an issue hand only (W-ISSUE-7)", student_workaround: "since 2026-10-23a, on a hand linked to an issue that carries one only: plain words for the student, at most 600 characters, what to do until the fix reaches them; Reach shows it to the student's agent with the hand status"}
   - id: W-API-GRADES
     method: GET
     path: /api/v1/grades
@@ -1608,21 +1608,18 @@ routes:
     response_200: {status: "ok | degraded", database: boolean, blob_store: boolean}
   - id: W-API-KNOWN-ISSUES
     since: 2026-10-03d
+    deprecated: 2026-10-23a
     method: GET
     path: /api/v1/known-issues
     auth: none (rate limited per IP, shared with W-API-ENROLL)
-    request_headers: If-None-Match with the revision Reach last cached, optional
     response_200:
-      revision: "lowercase hex SHA-256 of the canonical JSON of issues (W-KI-1); also sent as the ETag header"
-      issues: "[known issue (W-KI-1)], every entry not retired, ordered by id"
-    response_304: when If-None-Match equals the current revision; no body
-    reach_use: W-KI-3. Carries no student, install or course data, so it is served before enrollment.
-    out_of_date: >-
-      Since revision 2026-10-13c. When the entry reach-out-of-date is not retired, Teach serves it with
-      applies.reach_max set to the reference release of W-COMPAT-6 with ".a" appended (for 0.51.0, "0.51.0.a"), so it
-      matches every Reach older than the reference release and none at or above it; when there is no reference release
-      Teach leaves the entry out. The served value changes the revision, so an outdated Reach refreshes it. Its remedy is
-      update, so the student's agent can run Reach's own update, which on a plugin-cache install refreshes the app's copy.
+      revision: "a constant string, also sent as the ETag header"
+      issues: "[] always"
+    response_304: when If-None-Match equals the constant revision; no body
+    reach_use: >-
+      None since revision 2026-10-23a (Reach 0.64.0): Teach keeps no known issues, and Reach neither fetches nor shows
+      them. Teach keeps answering an empty list so an older Reach does not fail, until minimum_reach_version reaches
+      0.64.0, and then removes the route.
   - id: W-API-INSTRUCTOR-KEYRING
     since: 2026-10-06a
     method: GET
@@ -1658,7 +1655,7 @@ routes:
         hands: "W-CONV-4 digest of canonical_json of [{hand_id, state, reply}] for every hand of the install's student, sorted by hand_id, with state and reply as W-API-HAND-STATUS answers them"
         extra_credit: "W-CONV-4 digest of canonical_json of the W-API-EXTRA-CREDIT-LIST entries, or null while extra credit is switched off"
         receipts: "W-CONV-4 digest of canonical_json of the receipt_ids of every receipt of the install's student, sorted"
-        known_issues: "the W-API-KNOWN-ISSUES revision"
+        known_issues: "the W-API-KNOWN-ISSUES revision, a constant since 2026-10-23a; absent once that route is removed"
         announcements: "since 2026-10-04g: W-CONV-4 digest of canonical_json of [[id, sent_at]] for the install's W-API-ANNOUNCEMENTS list, or null while announcements are switched off; absent from a Teach that predates the revision"
         controls: "since 2026-10-06a: W-CONV-4 digest of canonical_json of the W-API-CONTROLS body this install would get, with server_time removed, or null while controls are switched off; absent from a Teach that predates the revision"
         tests: "since 2026-10-06a: W-CONV-4 digest of canonical_json of the W-API-TEST-CURRENT body this install would get, with server_time removed, or null while tests are switched off; absent from a Teach that predates the revision"
@@ -2317,9 +2314,9 @@ compatibility:
       installs the newest commit of the branch it tracks. A plugin-cache install of a Reach that cannot update itself
       moves only when its harness refreshes the plugin. Teach keeps answering W-API-STATUS with minimum_reach_version
       and refusing a Reach below that minimum with 400 reach_outdated (W-COMPAT-1), so the student is told to update.
-      Since 2026-10-13c the update path also includes W-API-KNOWN-ISSUES and the known_issues revision of
-      W-API-REVISION, through which Teach tells an outdated Reach's agent that it is out of date (reach-out-of-date).
-      Every other section may change without keeping an outdated Reach working. Teach does not compare an outdated
+      From 2026-10-13c to 2026-10-23a the update path also included W-API-KNOWN-ISSUES and the known_issues revision
+      of W-API-REVISION; since 2026-10-23a both answer constants and an outdated Reach learns it is out of date from
+      W-API-STATUS alone. Every other section may change without keeping an outdated Reach working. Teach does not compare an outdated
       install's wire digest against its own and raises no alarm for it; the drift that matters is that of installs on
       the reference release or newer.
 reach_client_safety:
@@ -3174,48 +3171,21 @@ extra_credit:
       refused entries that Teach does not know. Teach shows every code and its entry on the console's Extra credit page
       and on the student's page. A debug event about extra credit carries entry_id, state and outcome, never the code
       or the answer (W-DBG-SCRUB).
-known_issues:
-  since: 2026-10-03d
-  W-KI-1:
-    name: known issue entry
+health:
+  since: 2026-10-23a
+  W-HEALTH-1:
+    name: what Reach checks on the student's computer
     rule: >-
-      {id, title, symptom, detector, remedy, applies, steps}. id matches ^[a-z0-9][a-z0-9-]{1,47}$; title is at most
-      120 characters; symptom (what the student or agent sees, for the agent) is at most 600; detector is null or a
-      name matching ^[a-z_]{1,40}$; remedy (since revision 2026-10-04h) is null or the name of one fixed action of
-      W-LIVE-5 that fixes the issue on the student's computer, always present in the canonical JSON, read as null by
-      Reach when an older Teach sends an entry without it, and ignored by Reach when it does not know the name; a
-      remedy is advice to the student's agent, which runs it only through Reach's own tool for that action and never
-      without the student's yes where that action asks for one; applies is {os: [macos | windows | linux], harness: [harness label or family], reach_min:
-      version or null, reach_max: version or null}, where an empty list means any and a version is compared as
-      RubyGems orders it, so a prerelease such as 0.51.0.a lies above every 0.50.x and below 0.51.0; steps is a list of at most 12
-      {os: [...], harness: [...], text} with text (plain words for the student, at most 1500 characters) and the same
-      empty-means-any lists. A harness label is one Reach's fingerprint reports (claude-code-tui, claude-cowork,
-      claude-desktop, claude-code-vscode, claude-code-headless, claude-agent-sdk, codex-tui, codex-app, codex-vscode,
-      hermes, terminal); a family (claude, codex) matches every label that starts with it and a hyphen. The canonical
-      JSON for the revision is JSON.generate of the issues list with keys in the order above and no extra whitespace.
-  W-KI-2:
-    name: matching
-    rule: >-
-      An entry matches an install when its os list is empty or holds the install's operating system, its harness list
-      is empty or holds the install's label or that label's family, and the install's Reach version is at or above
-      reach_min and at or below reach_max where they are set. For a matching entry the steps shown are the first step
-      set whose os and harness lists match the same way; an entry with no matching step set is shown with its symptom
-      only. When Reach knows only the install's harness family (claude or codex), every label in that family matches.
-      Reach takes the harness from its fingerprint's environment markers, then from the name of the process that
-      started it (an MCP server under Codex is started by codex and may not see Codex's variables), then from the label
-      the last hook recorded in hooks_seen.json; with none of them it matches only entries whose harness list is empty.
-  W-KI-3:
-    name: what Reach does with them
-    rule: >-
-      Reach fetches the list without signing (no install key is needed), sends If-None-Match with its cached revision,
-      and keeps the answer in known_issues.json (0600) under the Reach root state directory; a 304 only refreshes the
-      fetched time. It fetches from reach sync, from a detached refresh the session start hook spawns when the cache is
-      older than one hour, and inline (the quick client) from reach_hello and reach_known_issues when the cache is
-      older than one hour. A failed fetch keeps the cache, never shows the student an error and leaves the connection state (link.json) alone. The agent's session
-      context names each matching entry in one line, marks one whose detector Reach sees firing as detected, and points
-      to reach_known_issues for the full steps.
-  W-KI-4:
-    name: detectors
+      Since revision 2026-10-23a Reach checks its own health on the student's computer with no list from Teach. It takes
+      the harness from its fingerprint's environment markers, then from the name of the process that started it (an
+      MCP server under Codex is started by codex and may not see Codex's variables), then from the label the last hook
+      recorded in hooks_seen.json. The agent's session context names each check that fires with what to tell the
+      student and, where Reach can fix it, the tool call that does; reach doctor reports the hook checks as R-DOC-HEALTH
+      findings (the sandbox one is already R-DOC-CODEX). Known issues (W-KI-1 to W-KI-3, revisions 2026-10-03d to
+      2026-10-22d) are gone: Reach never fetched them after 0.63.2, and their cache file known_issues.json is left
+      unread.
+  W-HEALTH-2:
+    name: the checks
     rule: >-
       Reach implements codex_sandbox (Reach::Sandbox.blocked?, STD-CODEX-SANDBOX) and hooks_not_running (an MCP call
       on a Codex harness when no Reach hook has run on this computer for 15 minutes; since 2026-10-04e a
@@ -3226,8 +3196,8 @@ known_issues:
       start, or neither ever ran, or with no session start recorded neither has run for 15 minutes); hooks_not_running
       reads only the course-folder hooks. Since 2026-10-05d Reach also implements codex_hooks_untrusted (an MCP call on a
       Codex harness, outside a pending sign-in, when a handler of the current course folder's hooks.json is untrusted
-      or modified in the student's Codex settings, so Codex skips it); its remedy is codex_configure. A detector name
-      Reach does not implement is never detected; its entry is still listed.
+      or modified in the student's Codex settings, so Codex skips it); its fix is reach_setup with action
+      configure, as is codex_sandbox's.
 feedback:
   since: 2026-10-13d
   W-FB-1:

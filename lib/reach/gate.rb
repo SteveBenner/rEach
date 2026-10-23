@@ -80,7 +80,6 @@ module Reach
     module_function
 
     def session(harness:)
-      safely { Reach::KnownIssues.spawn_refresh! }
       return nil if Reach::Instructor.mode?
 
       check_enrolled!
@@ -388,7 +387,7 @@ module Reach
     end
 
     def login_needed_id
-      Reach::KnownIssues.signin_hook_dead? ? Reach::KnownIssues.untrusted_or("M-LOGIN-NEEDED-NO-HOOK") : "M-LOGIN-NEEDED"
+      Reach::HookLiveness.signin_hook_dead? ? Reach::HookLiveness.untrusted_or("M-LOGIN-NEEDED-NO-HOOK") : "M-LOGIN-NEEDED"
     rescue StandardError
       "M-LOGIN-NEEDED"
     end

@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.0] - 2026-10-23
+
+Known issues removed; rEach checks its own health. Wire revision 2026-10-23a.
+
+### Removed
+
+- Known issues. rEach no longer fetches `GET /api/v1/known-issues`: not from `reach sync`, not from a detached refresh when a session starts, and not from `reach_hello`. The `reach_known_issues` tool, the `reach known-issues` command and the messages `M-KNOWN-ISSUES-AGENT`, `M-KNOWN-ISSUE-DETECTED`, `M-KNOWN-ISSUE-REMEDY` and `M-KNOWN-ISSUES-NONE` are gone. An old `known_issues.json` cache is left unread. `STD-KNOWN-ISSUES` is withdrawn; W-API-KNOWN-ISSUES is deprecated (Teach answers an empty list until its minimum rEach version reaches 0.64.0) and W-KI-1 to W-KI-3 are gone. `tools/fake_teach` no longer serves the route.
+
+### Changed
+
+- The hook and harness code that lived in `Reach::KnownIssues` moved unchanged to `Reach::HookLiveness` (`lib/reach/hook_liveness.rb`): `hooks_seen.json`, `record_hook!`, `prompt_hook_dead?`, `signin_hook_dead?`, `course_hooks_untrusted?`, `require_hooks!` and the harness lookup. Every caller points at it.
+- The four detectors are now local health checks in `Reach::Health` (`lib/reach/health.rb`, `STD-HEALTH`, W-HEALTH-1 and W-HEALTH-2), with the same conditions: `codex_sandbox`, `signin_hook_not_running`, `hooks_not_running` and `codex_hooks_untrusted`. Each session's context (label `hello.issues`) names a check that fires with the student's steps (`M-HEALTH-*`) and, for the sandbox and untrusted hooks, the `reach_setup` configure call that fixes it (`M-HEALTH-FIX`). `reach doctor` reports the three hook checks as `R-DOC-HEALTH`; the sandbox stays `R-DOC-CODEX`.
+- `M-HOOKS-REQUIRED` and `M-PART-NO-HOOK` carry the steps themselves instead of sending the agent to `reach_known_issues`.
+- The repository directive `KNOWNISSUE` is now `TEACHISSUE`: problems students hit are Teach issues, not `TODO.md` items, and rEach reads them only through hand status.
+
+### Added
+
+- A hand linked to a Teach issue that carries a workaround shows it: `reach_hand_status` and `reach hands status` answer `workaround` (at most 600 characters) from W-API-HAND-STATUS `student_workaround`.
+
 ## [0.63.2] - 2026-10-22
 
 ### Fixed

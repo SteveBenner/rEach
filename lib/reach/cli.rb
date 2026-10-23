@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "known-issues", "subscribe", "relocate", "codex", "harness", "transcripts", "uninstall"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "subscribe", "relocate", "codex", "harness", "transcripts", "uninstall"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -406,8 +406,6 @@ module Reach
           cmd_issues(args)
         when "live"
           cmd_live(args)
-        when "known-issues"
-          cmd_known_issues(args)
         when "codex"
           cmd_codex(args)
         when "harness"
@@ -918,14 +916,14 @@ module Reach
         hook_kind = { "prompt" => "prompt", "session" => "session", "write" => "work", "shell" => "work", "read" => "work" }.fetch(sub.to_s, "other")
         if sub == "enroll"
           label = Reach::Fingerprint.harness_label(options[:harness])
-          Reach::KnownIssues.record_enroll_hook!(label)
-          Reach::KnownIssues.record_hook!(label, "prompt") if codex_prompt_event?(options[:harness], event)
+          Reach::HookLiveness.record_enroll_hook!(label)
+          Reach::HookLiveness.record_hook!(label, "prompt") if codex_prompt_event?(options[:harness], event)
         else
-          Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
+          Reach::HookLiveness.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
           Reach::Harness.note_hooks_ran(Reach::Fingerprint.harness_label(options[:harness]))
         end
         Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
-        Reach::KnownIssues.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
+        Reach::HookLiveness.session_started!(Reach::Fingerprint.harness_label(options[:harness]), event["source"]) if sub == "session" && event.is_a?(Hash)
         Reach::EnrollmentLock.pass_session = event.is_a?(Hash) && !event["session_id"].to_s.empty? ? Reach::Session.resolve_session_id(event) : nil
         Reach::Debug.begin_hook(event, options[:harness])
         started = Reach::Debug.clock
@@ -2052,6 +2050,7 @@ module Reach
         problems.concat(check_net)
         problems.concat(check_outbox)
         problems.concat(check_issues)
+        problems.concat(Reach::Health.doctor_problems)
         problems.concat(check_outdated)
         problems.concat(check_wire)
         problems.concat(check_gate)
@@ -2527,38 +2526,13 @@ module Reach
           Reach::Hello.background(session: options[:session], cwd: Reach::Paths.cwd)
           return 0
         end
-        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil)), "session") if (options[:format] || "hook") == "hook"
+        Reach::HookLiveness.record_hook!(Reach::Fingerprint.harness_label(options[:harness] || Reach::Hello.resolve_harness(nil)), "session") if (options[:format] || "hook") == "hook"
         puts Reach::Hello.run(
           harness: options[:harness],
           source: options[:source],
           format: options[:format] || "hook",
           cwd: Reach::Paths.cwd
         )
-        0
-      end
-
-      def cmd_known_issues(args)
-        refresh, args = parse_bare_flag(args, "refresh")
-        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
-        if refresh
-          Reach::KnownIssues.fetch!(quick: true)
-          return 0
-        end
-
-        Reach::KnownIssues.refresh_if_stale!(quick: true)
-        issues = Reach::KnownIssues.matching
-        if json
-          puts JSON.generate("issues" => issues)
-        elsif issues.empty?
-          puts Reach::Messages.text("M-KNOWN-ISSUES-NONE")
-        else
-          issues.each_with_index do |issue, index|
-            puts "" if index.positive?
-            puts issue["detected"] ? Reach::Messages.text("M-KNOWN-ISSUE-DETECTED", title: issue["title"]) : issue["title"]
-            puts "  #{issue['symptom']}"
-            puts "  #{issue['steps']}" if issue["steps"]
-          end
-        end
         0
       end
 
@@ -3470,7 +3444,7 @@ module Reach
 
         options, remaining = parse_flags(args, [:harness])
         final, _remaining = parse_bare_flag(remaining, "final")
-        Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
+        Reach::HookLiveness.record_hook!(Reach::Fingerprint.harness_label(options[:harness]))
         event = read_stdin_json
         Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
         if hermes_hook?(options[:harness], event)
@@ -3570,7 +3544,7 @@ module Reach
           cmd_hook(["stop"] + remaining + (final ? ["--final"] : []))
         when "code"
           options, _remaining = parse_flags(args, [:harness])
-          Reach::KnownIssues.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), "work")
+          Reach::HookLiveness.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), "work")
           event = read_stdin_json
           Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))
           if hermes_hook?(options[:harness], event)

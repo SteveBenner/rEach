@@ -988,7 +988,7 @@ module Reach
     end
 
     def codex_harness?
-      Reach::KnownIssues.family_of(Reach::KnownIssues.harness) == "codex"
+      Reach::HookLiveness.family_of(Reach::HookLiveness.harness) == "codex"
     rescue StandardError
       false
     end

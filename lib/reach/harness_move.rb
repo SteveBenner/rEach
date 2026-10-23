@@ -31,7 +31,7 @@ module Reach
     end
 
     def current
-      label = (Reach::KnownIssues.harness || Reach::Fingerprint.harness_label(nil)).to_s
+      label = (Reach::HookLiveness.harness || Reach::Fingerprint.harness_label(nil)).to_s
       return "claude-code" if label.start_with?("claude-")
       return "codex" if label.start_with?("codex-")
       return "hermes" if label == "hermes"
@@ -43,7 +43,7 @@ module Reach
     end
 
     def hookless?(source)
-      source == "antigravity" || Reach::KnownIssues.harness.nil?
+      source == "antigravity" || Reach::HookLiveness.harness.nil?
     rescue StandardError
       false
     end

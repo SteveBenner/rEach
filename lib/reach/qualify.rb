@@ -29,7 +29,7 @@ module Reach
       def run(workspace, local_only: false, task: nil, agent_summary: nil)
         Reach::BehaviorPolicy.ensure!
         Reach::Login.require_active!
-        Reach::KnownIssues.require_hooks!
+        Reach::HookLiveness.require_hooks!
         meta = Reach::Workspace.metadata(workspace)
         qualify = meta["qualify"]
         raise Reach::Refused, Reach::Messages.text("M-QUALIFY-NOKIT") unless qualify.is_a?(Hash) && qualify["tag"]

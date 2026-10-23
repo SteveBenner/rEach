@@ -4,29 +4,15 @@ require "fileutils"
 require "rbconfig"
 
 module Reach
-  module KnownIssues
-    STALE_S = 3600
+  module HookLiveness
     HOOKS_QUIET_S = 900
     PROMPT_WITHOUT_WORK_S = 600
     WORK_KEYS = %w[work_at prompt_at session_at session_label].freeze
     SESSION_SOURCES = %w[startup resume clear].freeze
     FAMILIES = %w[claude codex].freeze
     PROCESS_FAMILIES = { "codex" => "codex", "claude" => "claude" }.freeze
-    REMEDIES = {
-      "codex_configure" => ["reach_setup", { "action" => "configure" }],
-      "sandbox_probe" => ["reach_setup", { "action" => "probe" }],
-      "doctor" => ["reach_doctor", {}],
-      "status" => ["reach_status", {}],
-      "sync" => ["reach_sync", {}],
-      "update_check" => ["reach_update", { "action" => "status" }],
-      "update" => ["reach_update", { "action" => "run" }]
-    }.freeze
 
     module_function
-
-    def cache_file
-      File.join(Reach::Paths.root_state_dir, "known_issues.json")
-    end
 
     def hooks_seen_file
       File.join(Reach::Paths.root_state_dir, "hooks_seen.json")
@@ -49,66 +35,8 @@ module Reach
       File.chmod(0o600, path)
     end
 
-    def cache
-      data = read_json(cache_file)
-      data && data["issues"].is_a?(Array) ? data : nil
-    end
-
-    def stale?
-      data = cache
-      return true unless data
-
-      fetched = Time.parse(data["fetched_at"].to_s)
-      Time.now - fetched > STALE_S
-    rescue StandardError
-      true
-    end
-
     def now_s
       Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    end
-
-    def fetch!(quick: true)
-      base = Reach::Runtime.default_teach_url
-      return nil if base.to_s.empty?
-
-      current = cache
-      headers = {}
-      headers["If-None-Match"] = "\"#{current['revision']}\"" if current && current["revision"].to_s != ""
-      client = Reach::Client.anonymous(base, quick: quick, link: false)
-      response = client.get("/api/v1/known-issues", headers: headers)
-      if response.status == 304
-        write_json(cache_file, current.merge("fetched_at" => now_s)) if current
-        return current
-      end
-
-      body = response.json
-      return nil unless body.is_a?(Hash) && body["issues"].is_a?(Array)
-
-      revision = body["revision"].to_s
-      revision = response.headers["etag"].to_s.delete("\"") if revision.empty?
-      data = { "revision" => revision, "fetched_at" => now_s, "issues" => body["issues"] }
-      write_json(cache_file, data)
-      data
-    rescue StandardError
-      nil
-    end
-
-    def refresh_if_stale!(quick: true)
-      fetch!(quick: quick) if stale?
-      nil
-    rescue StandardError
-      nil
-    end
-
-    def spawn_refresh!
-      return nil unless stale?
-      return nil if Reach::Runtime.default_teach_url.to_s.empty?
-
-      exe = File.join(Reach::Runtime.root, "exe", "reach")
-      Reach::Runtime.spawn_background(RbConfig.ruby, exe, "known-issues", "--refresh")
-    rescue StandardError
-      nil
     end
 
     def os_name
@@ -170,49 +98,6 @@ module Reach
 
     def family_of(label)
       label.to_s.split("-").first
-    end
-
-    def harness_matches?(list, env_harness)
-      list = Array(list)
-      return true if list.empty?
-      return false if env_harness.to_s.empty?
-
-      if FAMILIES.include?(env_harness)
-        list.any? { |item| item == env_harness || item.start_with?("#{env_harness}-") }
-      else
-        list.include?(env_harness) || list.include?(family_of(env_harness))
-      end
-    end
-
-    def os_matches?(list, env_os)
-      list = Array(list)
-      list.empty? || list.include?(env_os)
-    end
-
-    def version_ok?(applies, version)
-      current = Gem::Version.new(version.to_s)
-      min = applies["reach_min"].to_s
-      max = applies["reach_max"].to_s
-      return false if min != "" && current < Gem::Version.new(min)
-      return false if max != "" && current > Gem::Version.new(max)
-
-      true
-    rescue StandardError
-      false
-    end
-
-    def matches?(entry, env)
-      applies = entry["applies"].is_a?(Hash) ? entry["applies"] : {}
-      os_matches?(applies["os"], env["os"]) &&
-        harness_matches?(applies["harness"], env["harness"]) &&
-        version_ok?(applies, env["reach_version"])
-    end
-
-    def steps_for(entry, env)
-      step = Array(entry["steps"]).find do |candidate|
-        candidate.is_a?(Hash) && os_matches?(candidate["os"], env["os"]) && harness_matches?(candidate["harness"], env["harness"])
-      end
-      step && step["text"]
     end
 
     def hook_quiet?(key, limit, file = hooks_seen_file)
@@ -347,73 +232,6 @@ module Reach
       return nil unless prompt_hook_dead?
 
       raise Reach::Refused, Reach::Messages.text("M-HOOKS-REQUIRED")
-    end
-
-    def detected?(entry, env = environment, mcp: false)
-      case entry["detector"]
-      when "codex_sandbox"
-        Reach::Sandbox.blocked?
-      when "hooks_not_running"
-        mcp && !signin_pending? && prompt_hook_dead?(env)
-      when "signin_hook_not_running"
-        mcp && signin_hook_dead?(env)
-      when "codex_hooks_untrusted"
-        mcp && course_hooks_untrusted?(env)
-      else
-        false
-      end
-    rescue StandardError
-      false
-    end
-
-    def matching(mcp: false)
-      data = cache
-      return [] unless data
-
-      env = environment
-      data["issues"].select { |entry| entry.is_a?(Hash) && matches?(entry, env) }.map do |entry|
-        {
-          "id" => entry["id"],
-          "title" => entry["title"],
-          "symptom" => entry["symptom"],
-          "detected" => detected?(entry, env, mcp: mcp),
-          "remedy" => remedy_for(entry["remedy"]),
-          "steps" => steps_for(entry, env)
-        }
-      end
-    end
-
-    def remedy_for(name)
-      found = REMEDIES[name.to_s]
-      return nil unless found
-
-      { "id" => name.to_s, "tool" => found[0], "arguments" => found[1].dup }
-    end
-
-    def remedy_call(remedy)
-      arguments = remedy["arguments"].map { |key, value| "#{key} #{value}" }
-      arguments.empty? ? remedy["tool"] : "#{remedy['tool']} with #{arguments.join(', ')}"
-    end
-
-    def remedy_lines(found)
-      Array(found).select { |item| item.is_a?(Hash) && item["detected"] && item["remedy"].is_a?(Hash) }.map do |item|
-        Reach::Messages.text("M-KNOWN-ISSUE-REMEDY", title: item["title"], call: remedy_call(item["remedy"]))
-      end
-    rescue StandardError
-      []
-    end
-
-    def context_lines(mcp: false)
-      found = matching(mcp: mcp)
-      return [] if found.empty?
-
-      lines = [Reach::Messages.text("M-KNOWN-ISSUES-AGENT", titles: found.map { |item| item["title"] }.join("; "))]
-      found.each do |item|
-        lines << Reach::Messages.text("M-KNOWN-ISSUE-DETECTED", title: item["title"]) if item["detected"]
-      end
-      lines.concat(remedy_lines(found))
-    rescue StandardError
-      []
     end
 
     def record_hook!(harness_label, kind = "work")

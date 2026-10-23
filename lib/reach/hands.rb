@@ -217,7 +217,10 @@ module Reach
         response = client(install).get("/api/v1/hands/#{hand_id}")
         body = response.json || {}
         Reach::Issues.record_status(hand_id, body) if body["fix_version"]
-        { state: body["state"], reply: body["reply"] }
+        result = { state: body["state"], reply: body["reply"] }
+        workaround = body["student_workaround"].to_s.strip
+        result[:workaround] = workaround[0, 600] unless workaround.empty?
+        result
       rescue Reach::NetworkError, Reach::Offline
         { state: "unknown", reply: nil }
       end

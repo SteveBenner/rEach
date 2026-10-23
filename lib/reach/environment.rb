@@ -54,7 +54,7 @@ module Reach
 
     def build
       {
-        "os" => Reach::KnownIssues.os_name,
+        "os" => Reach::HookLiveness.os_name,
         "os_release" => os_release,
         "arch" => arch,
         "ruby" => RUBY_VERSION
@@ -78,7 +78,7 @@ module Reach
     end
 
     def os_release
-      value = case Reach::KnownIssues.os_name
+      value = case Reach::HookLiveness.os_name
               when "macos" then macos_release
               when "windows" then windows_release
               else linux_release

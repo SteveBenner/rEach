@@ -106,7 +106,7 @@ module Reach
       },
       {
         "name" => "reach_hand_status",
-        "description" => "A hand's state and reply",
+        "description" => "A hand's state and reply, and, when the problem is one the course server is already fixing, a workaround for the student to follow in the meantime; walk them through it in plain words",
         "inputSchema" => {
           "type" => "object",
           "properties" => { "hand_id" => { "type" => "string" } },
@@ -436,11 +436,6 @@ module Reach
         }
       },
       {
-        "name" => "reach_known_issues",
-        "description" => "The known problems from the course server that match this computer's system and AI app, whether rEach sees each one happening now, and the steps for the student; works before enrollment. Walk the student through the steps in plain words, one at a time",
-        "inputSchema" => { "type" => "object", "properties" => {} }
-      },
-      {
         "name" => "reach_setup",
         "description" => "Sets Codex up so rEach's commands work in its sandbox: action status (the default) says whether Codex's settings hold what rEach needs, probe tests what a command inside Codex's sandbox can reach, and configure asks the student rEach's own question before anything changes; action harness with to (and from) moves rEach into another AI app on this computer after the student's yes, keeping the enrollment; relay its question word for word and never answer it yourself; works before enrollment. A probe can take up to about 20 seconds: before running it, tell the student that and that closing the app stops it",
         "inputSchema" => {
@@ -488,11 +483,10 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_known_issues reach_update reach_setup reach_transcripts].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_update reach_setup reach_transcripts].freeze
     READ_ONLY_TOOLS = %w[
       reach_status reach_receipts reach_shape_check reach_check reach_hand_status reach_profile_show reach_enroll
       reach_directive reach_reference reach_passes_packet reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements reach_feedback_list
-      reach_known_issues
     ].freeze
     DESTRUCTIVE_TOOLS = %w[reach_profile_forget reach_memory_forget reach_transcripts reach_storage].freeze
     REVIEWED_TOOLS = %w[reach_submit reach_qualify reach_raise_hand].freeze
@@ -715,15 +709,15 @@ module Reach
       end
 
       def login_text(message)
-        return message unless message == Reach::Messages.text("M-LOGIN-NEEDED") && Reach::KnownIssues.signin_hook_dead?
+        return message unless message == Reach::Messages.text("M-LOGIN-NEEDED") && Reach::HookLiveness.signin_hook_dead?
 
-        Reach::Messages.text(Reach::KnownIssues.untrusted_or("M-LOGIN-NEEDED-NO-HOOK"))
+        Reach::Messages.text(Reach::HookLiveness.untrusted_or("M-LOGIN-NEEDED-NO-HOOK"))
       rescue StandardError
         message
       end
 
       def enroll_refusal_id
-        Reach::KnownIssues.signin_hook_dead? ? "M-ENROLL-NO-HOOK" : "M-GATE-NOENROLL"
+        Reach::HookLiveness.signin_hook_dead? ? "M-ENROLL-NO-HOOK" : "M-GATE-NOENROLL"
       rescue StandardError
         "M-GATE-NOENROLL"
       end
@@ -869,8 +863,6 @@ module Reach
           { "announcements" => Reach::Announcements.list }
         when "reach_test"
           Reach::ExamMode.tool(arguments)
-        when "reach_known_issues"
-          known_issues_tool
         when "reach_setup"
           setup_tool(arguments)
         when "reach_storage"
@@ -1017,18 +1009,6 @@ module Reach
         else
           raise Reach::Error, "reach: unknown debug action"
         end
-      end
-
-      def known_issues_tool
-        Reach::KnownIssues.refresh_if_stale!(quick: true)
-        issues = Reach::KnownIssues.matching(mcp: true)
-        remedies = Reach::KnownIssues.remedy_lines(issues)
-        text = if issues.empty?
-                 Reach::Messages.text("M-KNOWN-ISSUES-NONE")
-               elsif !remedies.empty?
-                 remedies.join("\n")
-               end
-        { "issues" => issues, "text" => text }
       end
 
       def setup_tool(arguments)

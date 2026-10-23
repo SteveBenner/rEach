@@ -53,7 +53,7 @@ module Reach
 
       def record!(question_id, workspace:)
         Reach::Login.require_active!
-        Reach::KnownIssues.require_hooks!
+        Reach::HookLiveness.require_hooks!
         meta = Reach::Workspace.metadata(workspace)
         assignment = meta["assignment"].to_s
         question = questions(assignment).find { |item| item["id"] == question_id.to_s }
@@ -61,7 +61,7 @@ module Reach
 
         entry = latest_prompt(assignment)
         unless entry
-          quiet = Reach::KnownIssues.prompt_hook_quiet?(WINDOW_S)
+          quiet = Reach::HookLiveness.prompt_hook_quiet?(WINDOW_S)
           raise Reach::Refused, Reach::Messages.text(quiet ? "M-PART-NO-HOOK" : "M-PART-NO-ANSWER")
         end
 

@@ -12,7 +12,7 @@ module Reach
       def submit(slice:, partial: false)
         Reach::BehaviorPolicy.ensure!
         Reach::Login.require_active!
-        Reach::KnownIssues.require_hooks!
+        Reach::HookLiveness.require_hooks!
         workspace = resolve_workspace(slice)
         if partial
           raise Reach::Refused, Reach::Messages.text("M-SUBMIT-PARTIAL-UNSUPPORTED") unless Reach::Compat.accepts_partial?

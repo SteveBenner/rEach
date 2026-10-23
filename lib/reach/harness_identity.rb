@@ -100,10 +100,10 @@ module Reach
       label = recorded_label(current_session_id)
       return { "label" => label, "confidence" => "verified" } if label
 
-      label = Reach::KnownIssues.marker_harness.to_s
+      label = Reach::HookLiveness.marker_harness.to_s
       return { "label" => label, "confidence" => "inferred" } unless label.empty? || label == Reach::Fingerprint::UNKNOWN
 
-      label = (Reach::KnownIssues.parent_harness || Reach::KnownIssues.recorded_harness).to_s
+      label = (Reach::HookLiveness.parent_harness || Reach::HookLiveness.recorded_harness).to_s
       return { "label" => label, "confidence" => "weak" } unless label.empty?
 
       { "label" => ($stdin.tty? ? "terminal" : "unknown"), "confidence" => "weak" }

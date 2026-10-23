@@ -214,7 +214,7 @@ module CourseNative
       output = StringIO.new
       configured = Reach::CodexSetup.configure_terminal(input: StringIO.new("yes\n"), output: output)
       write("codex-setup.json", configured)
-      Reach::KnownIssues.record_hook!("codex", "prompt")
+      Reach::HookLiveness.record_hook!("codex", "prompt")
       result
     end
 

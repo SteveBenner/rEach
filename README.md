@@ -396,10 +396,10 @@ runs after setup), in a chat when the agent calls the `reach_setup` tool, or dur
 status`, `reach codex probe` and `reach doctor` show where it stands, and `reach codex off` stops rEach putting the
 settings back. `codex.setup: false` in `config.yml` or `REACH_CODEX_SETUP=0` turns it off.
 
-rEach also tells the agent about known problems the instructors have recorded in Teach for this
-computer's operating system and AI app: each session's context names the ones that match, and marks one rEach can see
-happening now, and the agent gets the student's steps from the `reach_known_issues` tool (or `reach known-issues`).
-This works before enrollment, and from the last saved copy when the course server can't be reached.
+rEach also checks its own health on this computer: whether Codex's sandbox blocks it, and whether Codex runs and trusts
+rEach's hooks. Each session's context names a check that fails, with the steps for the student and, where rEach can fix
+it, the call that does; `reach doctor` reports the hook checks too. When a problem the student raised a hand about is
+one the course server is already fixing, the hand's status carries a workaround to follow until the fix arrives.
 
 rEach also reports its own technical problems by itself. A fault that stops enrollment, sign-in, sync,
 qualify or submit is reported the first time it happens, any other the third time in a day, as a hand of type

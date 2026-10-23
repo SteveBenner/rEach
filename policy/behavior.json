@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:0398e57090b73ee73bb0005c3a8a65b13df92b3c63834183d919ec7c4e0144e1",
+  "digest": "sha256:404a6a5c2d7dd018e9f8088f5a39b7fb5057e9e28b555e6d660d329c11d1ada0",
   "policy": {
     "antifeatures": [
       {
@@ -102,15 +102,11 @@
     },
     "controls": {
       "hold_submissions": {
-        "allowed_tools": [
-
-        ],
+        "allowed_tools": [],
         "text_ref": "AC-CONTROL-HOLD"
       },
       "pause_course_work": {
-        "allowed_tools": [
-
-        ],
+        "allowed_tools": [],
         "text_ref": "AC-CONTROL-PAUSE"
       },
       "test": {
@@ -400,15 +396,15 @@
         ]
       },
       {
-        "body": "# KNOWNISSUE: known issues are not TODO.md\n\nKnown issues are not `TODO.md`. A known issue is a problem students hit, with its workaround, kept in Teach (on its console's Issues page) and shown to students' agents through `reach known-issues`; reach only reads them. `TODO.md` is this repository's code backlog. Never write a known issue or its status into `TODO.md`, and never treat a `TODO.md` item as a known issue; an unbuilt fix for a known issue may be a `TODO.md` item that names the issue id.\n",
+        "body": "# TEACHISSUE: Teach issues are not TODO.md\n\nTeach issues are not `TODO.md`. A problem students hit is an issue in Teach, with its state, its fix version and, when there is one, a workaround that reaches the student only through the status of the hand they raised; reach only reads it. `TODO.md` is this repository's code backlog. Never write an issue or its status into `TODO.md`, and never treat a `TODO.md` item as an issue; an unbuilt fix for an issue may be a `TODO.md` item that names the issue id.\n",
         "enforce": "none",
-        "id": "R-KNOWNISSUE",
-        "opcode": "KNOWNISSUE",
-        "rule": "known issues live in Teach, not in TODO.md; reach only reads them",
+        "id": "R-TEACHISSUE",
+        "opcode": "TEACHISSUE",
+        "rule": "student problems are Teach issues, not TODO.md items; reach reads them via hand status",
         "scope": "repo",
         "tier": "public",
         "when": [
-          "task:known-issue",
+          "task:issue",
           "task:feature-change"
         ]
       },
@@ -726,7 +722,7 @@
         "locale": "en-US"
       },
       "REPO-BODIES": {
-        "text": "The full text of INSTALL, RPLUGIN, CORPUS, COURSEMAT, KNOWNISSUE and CHANGEIT is in `specs/polispec/surfaces/generated/repo-directives.md`; ENVS, MICRODB and STUDENT1ST are under `.agents/directives/`.",
+        "text": "The full text of INSTALL, RPLUGIN, CORPUS, COURSEMAT, TEACHISSUE and CHANGEIT is in `specs/polispec/surfaces/generated/repo-directives.md`; ENVS, MICRODB and STUDENT1ST are under `.agents/directives/`.",
         "locale": "en-US"
       },
       "REPO-INSTALL": {
@@ -788,9 +784,7 @@
             "QUALIFY",
             "CHECKPOINT"
           ],
-          "done": [
-
-          ],
+          "done": [],
           "part": [
             "RESUME"
           ],
@@ -829,8 +823,7 @@
         ]
       },
       "course_defaults": {
-        "enrollment": {
-        },
+        "enrollment": {},
         "limits": {
           "corpus_max_bytes": 52428800,
           "import_max_bytes": 20971520,
@@ -851,17 +844,14 @@
           "count": 2,
           "mode": "instructor",
           "opens_at": null,
-          "options": [
-
-          ],
+          "options": [],
           "slices": [
             "backend",
             "panel"
           ]
         },
         "student_part": {
-          "questions": {
-          },
+          "questions": {},
           "required": true
         },
         "support": {
@@ -1495,7 +1485,7 @@
           "R-RPLUGIN",
           "R-CORPUS",
           "R-COURSEMAT",
-          "R-KNOWNISSUE",
+          "R-TEACHISSUE",
           "R-CHANGEIT"
         ],
         "target": "specs/polispec/surfaces/generated/repo-directives.md",
@@ -1512,7 +1502,7 @@
           "R-RPLUGIN",
           "R-CORPUS",
           "R-COURSEMAT",
-          "R-KNOWNISSUE",
+          "R-TEACHISSUE",
           "R-CHANGEIT",
           "REPO-PERSONA",
           "REPO-INSTALL",
@@ -1710,9 +1700,7 @@
     "antigravity-rules": {
       "kind": "rules_file",
       "target": "rules/reach.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "defe2f3ddafed8fccec026149afc8300222bf5a3e7d1bccef756a1de81250527",
       "harness": [
         "antigravity"
@@ -1760,10 +1748,10 @@
         "R-RPLUGIN",
         "R-CORPUS",
         "R-COURSEMAT",
-        "R-KNOWNISSUE",
+        "R-TEACHISSUE",
         "R-CHANGEIT"
       ],
-      "sha256": "b1bfe49125b784b1f4bfc1108f341cb1d6bed7acfc9d9bd9ac38a798f4d05b2c"
+      "sha256": "0ab3a7f14b010e83abd294b173c9243aa4663333898150fff01c61c256a7ab4e"
     },
     "repo-stub": {
       "kind": "stub",
@@ -1776,7 +1764,7 @@
         "R-RPLUGIN",
         "R-CORPUS",
         "R-COURSEMAT",
-        "R-KNOWNISSUE",
+        "R-TEACHISSUE",
         "R-CHANGEIT",
         "REPO-PERSONA",
         "REPO-INSTALL",
@@ -1784,126 +1772,96 @@
         "REPO-BODIES",
         "REPO-LINK"
       ],
-      "sha256": "d7a3bf040a904ab4b2406fdc79c85e06d9ca35e240d853c91e5e260f9f4cae11"
+      "sha256": "8c0461bad3b0f6532e6bedbba5bdda32c9b89f3d9c37bd0d4994d4064c267e0a"
     },
     "skill-reach-bug": {
       "kind": "skill",
       "target": "skills/reach-bug/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "dc897e7a4fafa025d660ebb5c723f636356eecf422ce79eca5faa1720364a98c"
     },
     "skill-reach-build": {
       "kind": "skill",
       "target": "skills/reach-build/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "5c33373d321cb94e904d055e2c377cdf07452db037f1525d5b72ff49bacb42c8"
     },
     "skill-reach-checkpoint": {
       "kind": "skill",
       "target": "skills/reach-checkpoint/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "47e548d319ac0a5c5b95f155c9e07b9852ccc969e7fca3087c29518d93839bcd"
     },
     "skill-reach-course": {
       "kind": "skill",
       "target": "skills/reach-course/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "5319aa8ffa2743bf9f42d466a4f8bd6fb0f21ae46c5f2a36f1b79336c4dde485"
     },
     "skill-reach-feature": {
       "kind": "skill",
       "target": "skills/reach-feature/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "9b4577ecb81fc868d3ab013537a2a767ab6034a56f87127457c443108dc63c79"
     },
     "skill-reach-feedback": {
       "kind": "skill",
       "target": "skills/reach-feedback/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "fa89ff1d2a5c14f7d7d5a3f81cdd5d2d2ccfa85b02c5dec18824c7778b0a0dbd"
     },
     "skill-reach-fix": {
       "kind": "skill",
       "target": "skills/reach-fix/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "9e3835944492f23bae76e6fa1b587c86760fb2225958aef3dbb3ef8bbbcf5d63"
     },
     "skill-reach-help": {
       "kind": "skill",
       "target": "skills/reach-help/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "6f290e82906f21db9ddf1d9b55c7cdddb9df2f396d97703d4db4740ffcad82a9"
     },
     "skill-reach-import": {
       "kind": "skill",
       "target": "skills/reach-import/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "1417c476db83c123c55c6f6726856f8d180050f6b024f90e98d744ef5a5d42c9"
     },
     "skill-reach-passes": {
       "kind": "skill",
       "target": "skills/reach-passes/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "3f5865e66bc390a07f3ea7e10b673839659621bb89842e894b1eb618e20ab631"
     },
     "skill-reach-plan-audit": {
       "kind": "skill",
       "target": "skills/reach-plan-audit/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "56b3741d87bda9dae3fc6697ceaba0750dd0e4830a033813428d0b9882378a1c"
     },
     "skill-reach-sidecar": {
       "kind": "skill",
       "target": "skills/reach-sidecar/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "a37e7cfe8ceda3b9a64551fd19025e15f3d1ad9f86f8cc6389bd6cf3ef32f314"
     },
     "skill-reach-storage": {
       "kind": "skill",
       "target": "skills/reach-storage/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "f2fb3b861de84b15c4f15aeb5aeb37de93abc3fc3ebf13ab32410d6a44378ff6"
     },
     "skill-reach-submit": {
       "kind": "skill",
       "target": "skills/reach-submit/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "5dc9bb8f78fd44f83c9ea1535372979eb0ad9328828717e45cc27222df03ba39"
     },
     "skill-reach-uninstall": {
       "kind": "skill",
       "target": "skills/reach-uninstall/SKILL.md",
-      "refs": [
-
-      ],
+      "refs": [],
       "sha256": "c55bd4a53389ee630e2cb2b4ca1d5ef93daedac70ca42a97b1c9bd9d01c7e522"
     },
     "workspace-full": {

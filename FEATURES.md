@@ -54,7 +54,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.63.2 |
+| **Registry version** | 0.64.0 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -856,7 +856,7 @@ Not verified on the macOS Codex installs that reported it.
 
 Build ✅ · Deploy 🔵 · Blocker: Human (no live harness session yet).
 
-### 2.30e · Known issues for the agent
+### 2.30e · Health checks for the agent (known issues until 0.63.2)
 
 Since 0.21.9 (`STD-KNOWN-ISSUES`, W-API-KNOWN-ISSUES) rEach fetches Teach's known issues without signing, caches them,
 names the matching ones for this operating system, harness and version in every session context, flags detected ones
@@ -913,8 +913,19 @@ Verified 2026-10-05 in a scratch home with the real `gate write`, `gate shell` a
 commands on an install that is not enrolled: each exited 0 with only the deny JSON on standard output, and
 `gate shell --harness claude-code` still exited 2 with the message on standard error. Not run under PowerShell or
 inside a real Codex.
+Since 0.64.0 (`STD-HEALTH`, wire revision 2026-10-23a) known issues are gone: rEach fetches nothing from
+`/api/v1/known-issues`, and `reach_known_issues` and `reach known-issues` are removed. The four detectors are local
+health checks (`Reach::Health`) with the same conditions, named in the session context with the student's steps and,
+for the sandbox and untrusted hooks, the `reach_setup` configure call; `reach doctor` reports the hook checks as
+`R-DOC-HEALTH`. The hook and harness code moved unchanged to `Reach::HookLiveness`. A hand whose Teach issue carries
+a workaround shows it in `reach_hand_status`. Verified 2026-10-23 on Linux in a scratch home with a Codex session
+start and no prompt hook: the 0.63.2 detectors and the new checks fire the same three checks; `reach doctor` printed
+three `R-DOC-HEALTH` lines; `reach_hello` over the real MCP server carried the three lines; the hook guard refused
+with the unchanged `M-HOOKS-UNTRUSTED`; `reach_known_issues` and `reach known-issues` fell through to the lock; and
+`Reach::Hands.status` with a stubbed answer returned the trimmed workaround. Not run inside a real Codex, on macOS or
+on Windows, and no Teach sends `student_workaround` yet (Teach phase A).
 
-Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach 0.27.1 is live with both entries; students update to 0.21.9 on their own).
+Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach must send `student_workaround`; students update to 0.64.0 on their own).
 
 ### 2.31 · Opening a course folder
 
