@@ -26,9 +26,9 @@ If it owns a corpus, rplugin created it for the plugin. Read and write it only t
 
 This repository carries no course material, encrypted or not. Course reference blobs reach an install only from Teach, as `reference/<name>.rref` entries in the encrypted guardrails package, and `reach reference` reads them from the vault. reach-course wires them in as grounding material only, never as a source of answers.
 
-# KNOWNISSUE: known issues are not TODO.md
+# TEACHISSUE: Teach issues are not TODO.md
 
-Known issues are not `TODO.md`. A known issue is a problem students hit, with its workaround, kept in Teach (on its console's Issues page) and shown to students' agents through `reach known-issues`; reach only reads them. `TODO.md` is this repository's code backlog. Never write a known issue or its status into `TODO.md`, and never treat a `TODO.md` item as a known issue; an unbuilt fix for a known issue may be a `TODO.md` item that names the issue id.
+Teach issues are not `TODO.md`. A problem students hit is an issue in Teach, with its state, its fix version and, when there is one, a workaround that reaches the student only through the status of the hand they raised; reach only reads it. `TODO.md` is this repository's code backlog. Never write an issue or its status into `TODO.md`, and never treat a `TODO.md` item as an issue; an unbuilt fix for an issue may be a `TODO.md` item that names the issue id.
 
 # CHANGEIT: changing reach
 
