@@ -9,7 +9,7 @@ module Reach
     KINDS = %w[module_lock transfer_request submission submission_partial compaction export_import live_session live_action live_send codex_setup harness_move profile_share transcripts_forget checkpoints_forget checkpoints_recover checkpoints_dismiss feedback_send install_withdraw].freeze
     WINDOW_S = 1800
     WIRE_KEYS = %w[kind subject_digest message_id answer session_id seq digest asked_at answered_at].freeze
-    YES_LEADS = %w[yes y yeah yep yup].freeze
+    YES_LEADS = %w[yes y].freeze
     YES_FILLER = %w[
       yes please submit it now go ahead send thanks thank you do that sure definitely absolutely confirm confirmed
       and then my work all i am ready let's lets proceed ok okay

@@ -54,7 +54,7 @@ agent harness.
 
 | | |
 |---|---|
-| **Registry version** | 0.63.1 |
+| **Registry version** | 0.63.2 |
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
@@ -1905,7 +1905,7 @@ Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 publ
 Since 0.46.1 rEach carries the fixes from the 2026-10-08 five-area review (`TODO.md` "Audit 2026-10-08", RAUD-01 to
 RAUD-67; `CHANGELOG.md` 0.46.1).
 - **Shell gate.** It fails closed: a command it cannot model is refused (`M-SHELL-UNMODELED`), wrappers are unwrapped, and run-a-string forms are refused. Every operand of a mutating command must be owned, and PowerShell commands are translated to the modeled forms. The five reproduced bypasses are closed.
-- **Consent.** It takes only `yes` or `y`, bound to the question shown, and a live diagnosis needs the consent recorded locally.
+- **Consent.** It takes only `yes` or `y`, bound to the question shown, and a live diagnosis needs the consent recorded locally. Since 0.63.2 a short reply that starts with `yes` or `y` and adds only words from a fixed filler list (at most 8 words, such as "Yes, submit it") counts too; until then a student's "Yes, submit it" left `reach_submit` asking again. `yeah`, `ok` and `sure` still never count. Checked on 2026-10-22 by calling `Reach::Consent.yes?` on 0.63.2: "Yes, submit it", "yes please" and "Y, submit" are yes; "yeah", "ok yes", "yes but wait", "maybe yes", "yes no" and "Yes submit my A2" are not. Build ✅ · Deploy 🔵 On test (0.63.2). · Blocker: Human (stable promotion).
 - **Atomic, locked state.** `install.yml`, receipts, acks, packages and keys are written atomically, and `install.yml` changes happen under a lock.
 - **Student files.** A package refresh no longer locks the student's own files.
 - **Outbox.** Queued submissions replay in order, and a refused one is kept and reported.
