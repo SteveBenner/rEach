@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.3] - 2026-10-23
+
+### Added
+
+- `specs/app.yml` gains nine sections ahead of `standards`, so the spec describes what rEach is as well as the rules it keeps: `actors` (9), `journeys` (14), `data` (19 stores, 90 entities, 23 lifecycles, 37 enumerations), `interfaces` (157 CLI entries, one MCP server with 50 tools, 17 skills, 37 hooks across the harnesses, 19 outbound dependencies, the local preview server), `configuration` (58 environment variables, 47 files), `security`, `environments`, `decisions` (28) and `known_gaps` (23). Every environment variable, state constant, CLI verb, MCP tool and skill in the code is named. Every `STD-*` entry and every existing key is unchanged.
+- `known_gaps` G20 to G23 record drift found while writing the sections: `STD-STABLE-CADENCE` describes a promotion plan the stable workflow no longer runs, `specs/polispec/environments.yml` names a test update channel the updater does not have, several standards place files under `~/.reach` where the code defaults to a `.reach-home` folder in the workspace, and the hand outbox entries and open-hands tracker are written with the default file mode.
+
 ## [0.64.2] - 2026-10-23
 
 ### Fixed
