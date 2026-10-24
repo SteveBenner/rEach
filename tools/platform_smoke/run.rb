@@ -206,8 +206,6 @@ module PlatformSmoke
       step("hook_session_start") { hook_session_start_step }
       step("hook_prompt_locked") { hook_prompt_locked_step }
       step("hook_codex") { hook_codex_step }
-      step("validate") { validate_step }
-      step("enroll") { enroll_step }
       if @options[:skip_runtime]
         %w[runtime kit_known_answer kit_gems].each { |name| record(Step.new(name, :skip, "--skip-runtime", 0.0)) }
       else
@@ -215,6 +213,8 @@ module PlatformSmoke
         step("kit_known_answer") { kit_known_answer_step }
         step("kit_gems") { kit_gems_step }
       end
+      step("validate") { validate_step }
+      step("enroll") { enroll_step }
       step("sync_packages") { sync_packages_step }
       step("doctor_report") { doctor_report_step }
       step("codex_sandbox_decrypt") { codex_sandbox_decrypt_step }

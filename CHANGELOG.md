@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.2] - 2026-10-23
+
+### Fixed
+
+- The platform smoke's `validate` step failed on both macOS legs in 0.64.1, and `enroll` and every step behind it failed with it. There `reach` still ran on the system Ruby 2.6.10, whose LibreSSL 3.3.6 loads only its built-in CA bundle and never reads `SSL_CERT_FILE`, so it could not trust the smoke's scratch CA. `validate` and `enroll` now run after the runtime kit steps, so on macOS `reach` has moved to the kit's Ruby (OpenSSL 3, which honours `SSL_CERT_FILE`), as it does for every command on a student's Mac once the kit is installed. Students were not affected: the system Ruby trusts Teach's public certificate through its own bundle. With `--skip-runtime` on a LibreSSL Ruby, `validate` cannot pass.
+
 ## [0.64.1] - 2026-10-23
 
 The platform smoke passes again: it runs the security validation pass before it enrolls.
