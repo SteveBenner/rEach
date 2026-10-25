@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.6
+version: 0.64.8
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection

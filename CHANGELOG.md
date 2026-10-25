@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.8] - 2026-10-24
+
+### Changed
+
+- The app spec's standards say what the code does today (known gaps G20 and G22). `STD-STABLE-CADENCE` describes the stable workflow as it runs: the plan starts at the tip of the test branch and its highest version tag, the workflow applies only a notice, a stable-ready issue, or a hold, and stable moves only by the operator's promotion. Nineteen of the twenty standards that placed files under `~/.reach` now name the folder `<home>`, which `Reach::Paths.root` resolves from `$REACH_HOME`, else the `.reach-home` folder in the workspace, with `~/.reach` only as the legacy fallback; `STD-HOME-IN-WORKSPACE` and `STD-UNINSTALL` keep `~/.reach` on purpose as that fallback. G20 and G22 are `fixed_unshipped`. No code changes, so nothing a student runs behaves differently. The installation guide copies (G12) and the unknown test update channel (G21) are separate gaps and stay open.
+
 ## [0.64.6] - 2026-10-24
 
 ### Fixed
