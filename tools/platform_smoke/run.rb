@@ -799,8 +799,14 @@ RUBY
 
         code, out, err = spawn_capture([*shell, command], stdin: course_shell_payload("ls", work), chdir: work)
         return [:fail, "#{name}: expected exit 0 and no output for ls, got exit #{code.inspect}: #{tail(out, err)}\ncommand: #{command}"] unless code == 0 && out.strip.empty?
+
+        code, out, err = spawn_capture([*shell, command], stdin: course_shell_payload("Get-Content README.md | Select-Object -First 5", work), chdir: work)
+        return [:fail, "#{name}: expected exit 0 and no output for Get-Content README.md | Select-Object -First 5, got exit #{code.inspect}: #{tail(out, err)}\ncommand: #{command}"] unless code == 0 && out.strip.empty?
+
+        code, out, err = spawn_capture([*shell, command], stdin: course_shell_payload("Get-Process", work), chdir: work)
+        return [:fail, "#{name}: expected exit 0 and a PreToolUse deny on stdout for Get-Process, got exit #{code.inspect}: #{tail(out, err)}\ncommand: #{command}"] unless codex_deny_reason(code, out)
       end
-      [:pass, "the course folder's gate shell ran through #{shells.map { |shell| shell.take(3).map { |part| File.basename(part) }.join(' ') }.join(' and ')}, denied cat $HOME/notes.txt with JSON on stdout and let ls through"]
+      [:pass, "the course folder's gate shell ran through #{shells.map { |shell| shell.take(3).map { |part| File.basename(part) }.join(' ') }.join(' and ')}, denied cat $HOME/notes.txt with JSON on stdout, let ls and a Get-Content read through, and refused Get-Process"]
     end
 
     def course_hook_shells

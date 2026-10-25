@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.3
+version: 0.64.5
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2813,6 +2813,13 @@ shell_rules:
     backgrounded or chained after && or ||. A command reaches the write gate only as a recognized apply_patch form. On
     Windows, powershell or pwsh -Command is unwrapped, and a fixed set of cmdlets maps to the modeled commands.
     -EncodedCommand, -File and any other cmdlet are refused. The Claude Code matcher covers Bash and PowerShell.
+    Since 0.64.5 a command is judged as PowerShell, which also reads a backslash as a path separator, when it comes
+    from the Claude Code PowerShell tool, when it is wrapped in powershell or pwsh -Command, when the hook runs for
+    Codex on a Windows host (whose session shell is PowerShell), and, on any host, when every segment starts with a
+    modeled Verb-Noun cmdlet. A segment that starts with anything else never selects PowerShell by itself, so a POSIX
+    command is not judged as one. Before, a bare Get-Content, Get-ChildItem or Select-String from Codex on Windows was
+    refused with M-SHELL-UNMODELED and a backslash path was read as POSIX escapes. Select-Object -First N and -Last N
+    map to head -n N and tail -n N; any other Select-Object parameter is refused.
   honesty: >-
     Shell rules catch ordinary mistakes and casual attempts; a student determined to bypass them on their own machine
     can; the submit-time check and Teach's grading are the backstop.

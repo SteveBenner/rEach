@@ -1029,7 +1029,7 @@ module Reach
         when "shell"
           raw = options[:command] || tool_input["command"] || tool_input["cmd"]
           command = shell_text(raw)
-          dialect = event["tool_name"] == "PowerShell" || !powershell_inner(raw).nil? ? "powershell" : nil
+          dialect = event["tool_name"] == "PowerShell" || !powershell_inner(raw).nil? || (options[:harness].to_s == "codex" && Reach::Runtime.windows?) ? "powershell" : nil
           patch = Reach::Gate.apply_patch_payload(command, event)
           if patch
             Reach::Gate.write(patch: patch, event: event, harness: options[:harness])

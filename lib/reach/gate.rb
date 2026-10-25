@@ -38,9 +38,11 @@ module Reach
       "rm" => %w[remove-item ri rm del erase rd rmdir],
       "mv" => %w[move-item mi mv move],
       "cp" => %w[copy-item cp copy cpi],
-      "rename" => %w[rename-item rni ren]
+      "rename" => %w[rename-item rni ren],
+      "select" => %w[select-object]
     }.freeze
     PS_CMDLET_INDEX = POWERSHELL_CMDLETS.each_with_object({}) { |(canon, names), memo| names.each { |name| memo[name] = canon } }.freeze
+    POWERSHELL_VERB_NOUN = PS_CMDLET_INDEX.keys.select { |name| name.include?("-") }.freeze
     PS_SPECS = {
       "ls" => { path: %w[path literalpath], value: %w[filter include exclude depth], switch: %w[recurse force name file directory], positional: [:path], rest: :path },
       "testpath" => { path: %w[path literalpath], value: %w[pathtype], switch: %w[isvalid], positional: [:path], rest: :path },
@@ -55,7 +57,8 @@ module Reach
       "rm" => { path: %w[path literalpath], value: %w[filter include exclude], switch: %w[recurse force], positional: [:path], rest: :path },
       "mv" => { path: %w[path literalpath], dest: %w[destination], value: %w[filter include exclude], switch: %w[force], positional: [:path, :dest], rest: nil },
       "cp" => { path: %w[path literalpath], dest: %w[destination], value: %w[filter include exclude], switch: %w[recurse force container], positional: [:path, :dest], rest: nil },
-      "rename" => { path: %w[path literalpath], value: %w[newname], switch: %w[force], positional: [:path, :newname], rest: nil }
+      "rename" => { path: %w[path literalpath], value: %w[newname], switch: %w[force], positional: [:path, :newname], rest: nil },
+      "select" => { path: [], value: %w[first last], switch: [], positional: [], rest: nil }
     }.freeze
     WRITE_INPLACE_COMMANDS = %w[sed perl].freeze
     NETWORK_COMMANDS = %w[curl wget ssh scp nc iwr irm].freeze
@@ -616,7 +619,7 @@ module Reach
     end
 
     def shell(command:, event: nil, harness: nil, dialect: nil)
-      @powershell = dialect.to_s == "powershell"
+      @powershell = dialect.to_s == "powershell" || cmdlet_command?(command.to_s)
       text = command.to_s
       text = text.tr("\\", "/") if @powershell
       return nil if support_command?(text)
@@ -1414,6 +1417,15 @@ module Reach
       split_segments_with_seps(text).map(&:first)
     end
 
+    def cmdlet_command?(text)
+      segments = split_segments(text)
+      return false if segments.empty?
+
+      segments.all? { |segment| POWERSHELL_VERB_NOUN.include?(segment.split(/\s+/, 2).first.to_s.downcase.sub(/\.exe\z/, "")) }
+    rescue ShellUnmodeled, ArgumentError
+      false
+    end
+
     def split_segments_with_seps(text)
       out = []
       current = +""
@@ -1682,7 +1694,7 @@ module Reach
       return words unless canon
 
       spec = PS_SPECS.fetch(canon)
-      found = { path: [], dest: [], arg: [], pattern: [], newname: [], name: [] }
+      found = { path: [], dest: [], arg: [], pattern: [], newname: [], name: [], first: [], last: [] }
       positional = []
       recurse = false
       rest = words[1..-1]
@@ -1715,6 +1727,10 @@ module Reach
               found[:name] << value
             elsif key == "inputobject"
               found[:arg] << value
+            elsif key == "first"
+              found[:first] << value
+            elsif key == "last"
+              found[:last] << value
             end
           elsif spec[:switch].include?(key) || PS_COMMON_SWITCH.include?(key)
             recurse = true if key == "recurse"
@@ -1786,6 +1802,13 @@ module Reach
 
         target = SHELL_WORD.new(File.join(File.dirname(paths.first.text), found[:newname].first.text), paths.first.dynamic || found[:newname].first.dynamic)
         [plain.call("mv"), paths.first, target]
+      when "select"
+        raise ShellUnmodeled unless found[:first].length + found[:last].length == 1 && paths.empty?
+
+        count = (found[:first] + found[:last]).first
+        raise ShellUnmodeled unless count.text =~ /\A\d+\z/ && !count.dynamic
+
+        [plain.call(found[:first].empty? ? "tail" : "head"), plain.call("-n"), count]
       end
     end
 

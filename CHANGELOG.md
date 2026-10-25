@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.5] - 2026-10-24
+
+### Fixed
+
+- A student on Windows with Codex can read their files again. A bare PowerShell command from Codex, such as `Get-Content README.md`, `Get-ChildItem` or `Select-String`, was judged as POSIX shell and refused with `M-SHELL-UNMODELED` ("rEach did not run that step because it could not check it safely"), so the agent could not read the assignment README or a skill's `SKILL.md` and the student could not finish. `reach gate shell` (`lib/reach/cli.rb`, `Reach::Gate.shell` in `lib/reach/gate.rb`) now judges a command as PowerShell when the hook runs for Codex on a Windows host, and on any host when every segment of the command starts with a modeled Verb-Noun cmdlet (`Reach::Gate.cmdlet_command?`). What Codex puts in the PreToolUse payload on Windows is not confirmed; the host rule assumes the command arrives as the bare text the model wrote.
+- The same wrong dialect read a Windows backslash path as POSIX escapes, so the gate judged a backslash path to a protected folder as a mangled relative path. Judged as PowerShell, it is the folder it names and is refused as before.
+
+### Added
+
+- `Select-Object -First N` and `Select-Object -Last N` in a PowerShell command map to `head -n N` and `tail -n N`; any other `Select-Object` parameter is still refused.
+- The platform smoke step `codex_course_hook` sends `Get-Content README.md | Select-Object -First 5`, which must pass, and `Get-Process`, which must be refused, through the written Codex hook.
+
 ## [0.64.3] - 2026-10-23
 
 ### Added

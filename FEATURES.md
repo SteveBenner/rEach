@@ -328,10 +328,15 @@ Since 0.51.10 every course hook rEach writes for Codex on Windows runs as
 `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE` in PowerShell (`Harness.hook_line`, `STD-CODEX-WINDOWS-HOOKS`), where it
 had been a PowerShell parse error that left Windows Codex students with no gates, and a platform smoke step proves the
 form through powershell.exe and pwsh.exe.
+Since 0.64.5 the Codex shell gate judges a command as PowerShell on a Windows host, and on any host when every segment
+starts with a modeled Verb-Noun cmdlet, so a Windows Codex student's `Get-Content`, `Get-ChildItem` and `Select-String`
+reads are no longer refused as `M-SHELL-UNMODELED`, and `Select-Object -First N` or `-Last N` passes as `head` or `tail`
+(`Gate.cmdlet_command?`, `STD-CODEX-WINDOWS-HOOKS`). Run on Linux against the gate only; the Windows host rule has not run
+on a student's Windows computer, and what Codex sends in the payload there is unconfirmed.
 Since 0.51.10 a course whose rules are in place but whose named slice is not on this computer gets a message that says
 so and lists the slices (`M-GATE-NOSLICE`, `M-GATE-NOSLICE-NAMED`) instead of "Your course rules haven't arrived yet".
 
-Build ✅ · Deploy 🔵 · Blocker: Human (0.50.3 on test, stable is the operator's; plugin hooks still need `sh` on Windows).
+Build ✅ · Deploy 🔵 · Blocker: Human (0.50.3 on test, stable is the operator's; plugin hooks still need `sh` on Windows; 0.64.5 is on branch windows-codex-cmdlets, not pushed).
 
 ### 2.4 · Check
 
