@@ -39,6 +39,7 @@ module SecurityAuditScan
   WORD = /[A-Za-z][A-Za-z'\-]*/
   LOCAL_PATH = %r{(?:/home/[A-Za-z0-9._\-]+/|/Users/[A-Za-z0-9._\-]+/|[A-Za-z]:\\Users\\[A-Za-z0-9._\-]+\\)}
   QUOTED = /["']([^"'\s]{32,})["']/
+  ENV_REFERENCE = %r{\A(?:\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})/}
   STUDENT_ID = /student[\s_\-]*id\D{0,24}(?<!\d)(\d{6,9})(?!\d)/i
   INSTITUTION_EMAIL = /[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9\-]+\.)+edu\b/i
 
@@ -203,7 +204,7 @@ module SecurityAuditScan
         unless file =~ LOCK_FILE || chunked
           text.scan(QUOTED) do
             value = Regexp.last_match[1]
-            next unless entropy(value) > 4.5
+            next unless entropy(value.sub(ENV_REFERENCE, "")) > 4.5
 
             add.call("high", "entropy", file, line, "High-entropy quoted string", "A #{value.length}-character string #{mask(value)} looks like a generated secret", value)
           end

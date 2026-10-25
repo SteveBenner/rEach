@@ -2035,7 +2035,12 @@ run under Ruby 2.6.10, against live Teach, or on a real release.
 Since 0.40.0 the hook runs `tools/release_gate/gate.rb` (11.8): block at high by default, `REACH_SECURITY_AUDIT=0`
 ignored, the instructor's recorded override the only way past a block, and Teach's own pushes pass the same gate.
 
-Build ✅ · Deploy 🔵 · Blocker: -
+Since 0.64.6 the entropy rule judges a quoted value after a leading `${NAME}/` or `$NAME/` (`ENV_REFERENCE` in
+`tools/security_audit/scan.rb`), so the plugin-root hook commands that 0.64.3 put in `specs/app.yml` no longer block the
+gate or keep the model audit from running. Run against the real 0.64.3 diff and eight probes: the three findings are
+gone, and random values with and without such a prefix are still flagged.
+
+Build ✅ · Deploy 🔵 · Blocker: - (0.64.6 is on branch windows-codex-cmdlets, not pushed)
 
 ### 11.8 · Release integrity gate and accepts-aware degrade
 

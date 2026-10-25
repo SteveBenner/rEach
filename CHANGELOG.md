@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.6] - 2026-10-24
+
+### Fixed
+
+- The release gate no longer reads a plugin-root hook command as a generated secret. The entropy rule in `tools/security_audit/scan.rb` flagged the three `sh "${CLAUDE_PLUGIN_ROOT}/exe/reach-run" ...` commands that 0.64.3 added to `specs/app.yml` (lines 3611, 3619 and 3627) as high-entropy quoted strings, so every branch off 0.64.3 was blocked with three high `SEC-SCAN` findings and the model audit of its diff never ran ("Audit not run"). The rule now judges the part of a quoted value after a leading `${NAME}/` or `$NAME/`; a long random tail after such a prefix, and every value without one, is still flagged. `specs/release_gate.yml`, whose copy Teach pins, is unchanged.
+
 ## [0.64.5] - 2026-10-24
 
 ### Fixed
