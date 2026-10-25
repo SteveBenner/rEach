@@ -31,7 +31,6 @@ module Reach
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
 
         Reach::Controls.check_submit!
-        check_closed!(meta, partial: partial)
         pending = approve!(workspace, meta, partial: partial)
         if pending
           Reach::Debug.submit("state" => pending["state"])
@@ -647,15 +646,6 @@ module Reach
         Reach::LateWork.due_for_meta(meta)
       rescue StandardError
         nil
-      end
-
-      def check_closed!(meta, partial: false)
-        due = due_for(meta)
-        return unless due && Reach::Pace.server_now >= due
-
-        return unless Reach::LateWork.on_record?(meta)
-
-        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-CLOSED", assignment: meta["assignment"], due: Reach::Messages.course_time(due), slice: meta["slice"])
       end
 
       def approval_mode

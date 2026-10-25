@@ -424,8 +424,8 @@ receipt verifies, rEach saves a ZIP of the whole assignment folder (every slice,
 files, plus the receipts and the student's own part) in the Downloads folder as
 `<assignment>-<email local part>-<YYYYMMDD>.zip` (such as `A1-jruiz-20261007.zip`) dated in course time, never overwriting a file
 (`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
-may submit again until the due time and the last one counts. After the due time a slice already submitted is refused,
-by rEach before it asks and by Teach. rEach says plainly, before and after every submission, that the ZIP in
+may submit again and the last one counts. After the due time a slice may still be submitted, however many submissions
+are on record, and each one is marked late (wire revision 2026-10-25b, W-SUB-1; M-SUBMIT-CLOSED is retired). rEach says plainly, before and after every submission, that the ZIP in
 Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (the
 course names that system); `reach submit archive` makes the ZIP again. Since 0.53.21 it also saves the ZIP of
 an assignment not yet submitted, at any point and even while rEach is locked, saying it is not a submission, and `reach qualify` recommends that when the course's
@@ -440,7 +440,7 @@ its offline receipt as `evidence/sidecar-receipt.json` in the submission.
 ### Late work and grades
 
 A student may keep working on an assignment after its due time: rEach says clearly and repeatedly that
-the work is late, lets the instructor know once, and says when it can no longer be submitted. `reach grade` shows the
+the work is late, lets the instructor know once, and says it can be submitted again, each time marked late. `reach grade` shows the
 points the instructor has recorded in Teach, when there are any.  A hand raised for help carries a type (a grade question, a technical issue, an extension request and so
 on) so the instructor sees what it is about.
 

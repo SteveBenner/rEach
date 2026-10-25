@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.10
+version: 0.64.11
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -953,12 +953,10 @@ submission:
   - Every question of the student's own part is answered (M-SUBMIT-NO-PART).
   - Since 0.41.0 README.md has every W-SUB-3 section at 25 words or more (M-SUBMIT-README, refused before the check gate and without a hand); Teach rejects the same package with readme_incomplete, and one whose evidence does not match a passed qualification with not_qualified (W-SUB-4).
   - >-
-    The slice is not closed: when the due time has passed and a receipt putting the slice on record is already stored
-    (Reach::Receipts.on_record?: an ingest, grade or validation receipt for the slice and assignment, since 0.53.3;
-    before, only an ingest receipt counted, so a submission an instructor accepted by hand, which carries only a grade
-    receipt, was offered again and Teach refused it with deadline_passed), reach submit refuses with M-SUBMIT-CLOSED
-    before asking; with no cached due time or no local receipt it goes on and Teach stays the authority
-    (STD-SUBMIT-APPROVAL, W-SUB-2).
+    The slice is never closed for submission: since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) reach submit does not
+    look at the due time or at a receipt on record before asking, and Teach accepts every submission after the due time
+    and marks it late. M-SUBMIT-CLOSED, which refused a slice already on record after the due time, is retired
+    (Reach::Submit.check_closed! is removed).
   approval: >-
     After the preconditions Reach asks the student (M-SUBMIT-ASK) and submits only on their yes (STD-SUBMIT-APPROVAL,
     STD-CONSENT-FROM-REACH). With the prompt hook, reach submit records the question and answers asked; the hook captures
@@ -1020,9 +1018,9 @@ submission:
   deadline: >-
     The due time is judged by Teach's received_at; Reach warns the student 24 hours and 1 hour before a due time
     when a slice has no ingest receipt. Since 0.17.0 a slice may be submitted again until the due time and the last
-    submission counts (W-SUB-1); after the due time a slice already on record is refused by Reach before it asks
-    (M-SUBMIT-CLOSED) and by Teach (403 deadline_passed), while a slice with nothing on record may still be submitted
-    once, marked late.
+    submission counts (W-SUB-1); since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) a slice may also be submitted after
+    the due time, however many submissions are on record, and each one is marked late. Reach no longer refuses it
+    (M-SUBMIT-CLOSED is retired) and Teach no longer answers 403 deadline_passed.
   refusals: >-
     Since 0.52.13 (STD-SUBMIT-REFUSALS) an outbox retry settles a queued submission by the state Teach answers with,
     not by the absence of an error. ingested, and a repeat of an ingested submission that Teach has since moved on
@@ -1125,7 +1123,7 @@ course_alignment:
   sandbox:
     - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), since 0.47.3 a read of the extracurricular folder from a slice or the course root (M-GATE-EXTRACURRICULAR-READ), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access. A shell tool call that names a workdir (Codex exec_command) is judged in the space of that workdir, not of the chat's folder, and a shell-routed patch has its relative paths resolved against it; a workdir outside every course space is refused (M-GATE-OUTSIDE). reach work, run where no terminal is attached, does not start the harness and exits 0. Since 0.51.10, when the chat's folder is the course root or the folder asked for, it tells the agent to keep working from that chat by full path and --slice and not to send the student to another folder, project or chat (M-WORK-HERE); otherwise in Codex it tells the student to open the course project, the one with reach-work as its folder (M-WORK-CODEX-PROJECT), because a Codex project is one folder and the app cannot open a slice's folder inside it; elsewhere it prints the folder to open as a new chat (M-WORK-NO-TERMINAL).
     - "Imports: a file the student drags into the chat (its path in the prompt) is copied into <folder>/materials/ within limits: at most 5 per prompt, 20 MB each, 200 MB per folder, common document, data and image types only. reach import <path> does the same from the student's own terminal and is refused to the agent. materials/ is never submitted or scanned into the course record."
-  pace: Since 0.64.10 (wire revision 2026-10-25a, W-PACE-1 to W-PACE-3) a student may work on any released assignment, past or future, and Reach refuses no write because a slice is not the current assignment or because its due time has not come or has passed; M-GATE-NOT-CURRENT is retired. current_assignment is only the default Reach starts from. A slice whose due time has passed is late work (W-PACE-2). extracurricular/ is outside the time gate. Since 0.60.0 (wire revision 2026-10-22a) a late_assignments entry with rolling_until is open, not late, until that time, and Reach raises no late notice or hand for it.
+  pace: Since 0.64.10 (wire revision 2026-10-25a, W-PACE-1 to W-PACE-3) a student may work on any released assignment, past or future, and Reach refuses no write because a slice is not the current assignment or because its due time has not come or has passed; M-GATE-NOT-CURRENT is retired. Since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) a slice whose due time has passed can be submitted again however many submissions are on record, each marked late. current_assignment is only the default Reach starts from. A slice whose due time has passed is late work (W-PACE-2). extracurricular/ is outside the time gate. Since 0.60.0 (wire revision 2026-10-22a) a late_assignments entry with rolling_until is open, not late, until that time, and Reach raises no late notice or hand for it.
   coaching:
     - reach next gives the student's next step from local state (sign in, choose modules, plan, answer your part, build, submit, wait for the result, review, done).
     - Every prompt in a slice or the root gets a short anchor in the agent's context naming the current step and the next one. Since 0.53.5 it keeps the conversation on that step, on an overdue earlier assignment the student is finishing as late work, or on the work the instructor asked for (M-ANCHOR).
@@ -2902,7 +2900,7 @@ templates:
     If the ZIP was not saved (Reach says it was too large or could not be saved), or the student lost it, run `reach submit archive` (or the reach_submit tool with archive true) to make it again for an assignment that has been submitted, and tell them it still has to be uploaded to Blackboard.
     The student can have a ZIP of their work for an assignment at any point, submitted or not: when they ask, or when `reach qualify` says the checks could not run and recommends it, run `reach submit archive --assignment <assignment>` (or the reach_submit tool with archive true and assignment). For work not submitted that ZIP is not a submission: tell the student in plain words that rEach has not sent it to their instructors, and that to hand it in another way they upload it to Blackboard (or the system Reach names) or send it to their instructor, saying the course's checks could not run when that was the reason. It works even while rEach is locked; then the student runs `reach submit archive` in a terminal. Reach refuses only when there is no work for that assignment on this computer, and during a timed test. For more than one assignment, `reach submit archive --course <course>` saves one course, `--extracurricular` the student's own code folder, and `--all` everything (or the reach_submit tool with archive true and scope course, extracurricular or all).
     The student can also hand in unfinished work that has not passed `reach qualify`: run `reach submit --partial` (or the reach_submit tool with partial true) when they want that. Reach asks them itself, as for a full submission; relay its question word for word and submit only after their yes. Tell them in plain words that partial work goes to their instructor for review, is not graded automatically, and that they can still submit the finished work later. If Reach says the course server can't take partial work yet, offer the ZIP instead.
-    If Reach says the part is late, tell the student in plain words that it will be marked late and cannot be submitted again after this one. If submit says the due time has passed and the part is already submitted, tell the student it can't be submitted again and that their instructor can help; never try to submit a slice Reach says is closed.
+    If Reach says the part is late, tell the student in plain words that it will be marked late, and that it can be submitted again as many times as they need, each one marked late. A submission after the due time is accepted every time and marked late; never tell the student a slice is closed for submission.
     On Antigravity, Reach cannot ask for you: ask the same question in plain words, and run the command only after the student's yes.
     If submit says the work is queued, run `reach receipts wait --submission <id>` when you have an id, or `reach sync` when you are back online, and tell the student it has not been received yet.
     If submit says the work wasn't accepted, read the reason and the fix to the student in plain words.
@@ -3376,15 +3374,15 @@ late_work:
     current_assignment.due when the slice's assignment is the current one, otherwise the workspace package's due
     (Reach::LateWork.due_for_meta), and is used only to tell the student the work is late.
   info: >-
-    Reach::LateWork.late?(workspace) and .info(workspace) give the due, how late (M-LATE-HOW-*), submitted_before_due (an
-    ingest receipt with late false exists for the slice), on_record (since 0.53.3 Reach::Receipts.on_record?, any
-    ingest, grade or validation receipt for the slice and assignment; before, ingest receipts only) and can_submit (not
-    on record, or the due has not passed).
+    Reach::LateWork.late?(workspace) and .info(workspace) give the due, how late (M-LATE-HOW-*), on_record (since 0.53.3
+    Reach::Receipts.on_record?, any ingest, grade or validation receipt for the slice and assignment; before, ingest
+    receipts only) and can_submit, which since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) is always true;
+    submitted_before_due is removed.
   notices: >-
     M-LATE-NOTICE in reach hello's context when the cwd workspace is late; on the first prompt of each session in a late
     workspace and every notice_every prompts after (a per-session counter in state late-prompts.json, no network);
-    M-LATE-STATUS in reach status; the submit ask uses M-SUBMIT-ASK-LATE. M-LATE-CAN-SUBMIT, M-LATE-CANNOT-SUBMIT and
-    M-LATE-CANNOT-SUBMIT-ONTIME say whether it can still be submitted.
+    M-LATE-STATUS in reach status; the submit ask uses M-SUBMIT-ASK-LATE. M-LATE-CAN-SUBMIT says it can be submitted again and is marked late;
+    M-LATE-CANNOT-SUBMIT and M-LATE-CANNOT-SUBMIT-ONTIME are retired since 0.64.11.
   hands: >-
     The first allowed late write in an assignment (the gate's write path) records it in state late-hands.json and spawns
     a detached reach hand late --assignment A (trigger late_work); a verified ingest receipt with late true does the same

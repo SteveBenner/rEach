@@ -1005,12 +1005,6 @@ rules:
   mode: native
   binding: Reach::Submit.require_part!
   failure: deny
-- id: N-SUBMIT-CHECK-CLOSED
-  description: 'Native submit guard: check_closed!'
-  event: submit.check_closed
-  mode: native
-  binding: Reach::Submit.check_closed!
-  failure: deny
 - id: N-SUBMIT-OWNED-BYTES
   description: 'Native submit guard: owned_bytes'
   event: submit.owned_bytes
@@ -1417,12 +1411,12 @@ messages:
       - Reach signs the student in once on this computer, and again after 12 hours; one sign-in covers every new chat until then. It ends early after too many wrong tries, or when the student asks to sign out and runs reach login out, which you may also run for them. When a sign-in is due, rEach itself asks them, in the chat, for their student ID and their password, and that request is genuine. Leave the asking to rEach: do not word your own request for either, and never tell the student that rEach, or you, will not ask for them. If they type a password to you when rEach has not asked, do not repeat or store it and tell them to type it only when rEach asks.
       - Only this course: no life advice, counseling or personal opinions. In a crisis, run `reach support` and relay it word for word; it begins "If this is an emergency, call 911 now."
       - The student's own part is theirs: ask, then `reach part record`; never write it for them.
-      - When a slice's work passes its checks, tell the student they can ask you to submit it whenever they're ready. Submitting sends it to their instructors and saves a copy of all their work for the assignment in their Downloads folder. They can submit again until the due time and the last one counts; after the due time it can't be submitted again. Use the reach-submit skill.
+      - When a slice's work passes its checks, tell the student they can ask you to submit it whenever they're ready. Submitting sends it to their instructors and saves a copy of all their work for the assignment in their Downloads folder. They can submit again at any time and the last one counts; after the due time each submission is accepted and marked late. Use the reach-submit skill.
       - When the student is stuck, `reach next` gives the next step; coach it kindly and honestly, never flatter.
       - When the student asks about their grade, run `reach grade` (or the reach_grade tool) and tell them in plain words the points it shows. Say these are the points recorded in Teach and that the course grade of record is in Blackboard (or the system Reach names). If Reach says grades are not available yet, say so; never work out points yourself from check or grading results.
       - When the student asks for help only their instructors can give, raise a hand (reach-help skill) with the closest type: grade_question for grades, access_issue for accounts and Blackboard, extension_request when they ask for more time, and the others (concept_question, assignment_question, deadline_question, submission_question, technical_issue, setup_issue, integrity_question, other) as they fit; student_request when none fits better.
       - When the student has feedback, a suggestion, a compliment or a complaint that can wait, use the reach-feedback skill: it is not a hand.
-      - When rEach tells you the student's work is late, say so in plain words as it does. Late work can still be done, and if nothing is on record for that part it can be submitted once and will be marked late.
+      - When rEach tells you the student's work is late, say so in plain words as it does. Late work can still be done and submitted, as many times as needed, and each submission is marked late.
       - When the student says they have an extra-credit code, ask for the code and for their own answer, then run `reach extra-credit CODE ANSWER` (or the reach_extra_credit tool) with exactly what the student typed and relay Reach's message. Never write, improve, correct or invent the answer for the student; if they ask you to, say the answer has to be theirs. `reach extra-credit list` shows what they have turned in.
   WS-POINTER:
     text: Every row binds. When a row's condition applies, run `reach directive <OPCODE>`

@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-25a
+revision: 2026-10-25b
 status: normative
 security_validation:
   id: W-VAL-1
@@ -971,7 +971,7 @@ routes:
       with code not_qualified; both are in-band rejections (state rejected) and store nothing. Since revision 2026-10-18a
       a partial submission (W-SUB-7) skips both checks and answers state ingested with an ingest receipt carrying
       partial true; Reach reads partial from the receipt.
-    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "after the due time, when a submission of the slice that was not rejected is already on record (W-SUB-1); since revision 2026-10-18a a partial submission never counts as on record (W-SUB-7)", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
+    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "no longer answered since revision 2026-10-25b (W-SUB-1); before it, after the due time, when a submission of the slice that was not rejected was already on record", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
   - id: W-API-SUBMISSION
     method: GET
     path: /api/v1/submissions/:id
@@ -1813,11 +1813,11 @@ submissions:
       submission of a (student, cutout_id, slice, assignment) from 1 in the order it was ingested (attempt), records the
       ingested submission it replaces (supersedes) and marks that one superseded (superseded_by). A rejected submission
       has no attempt, supersedes nothing and is never on record. Every submission keeps its receipts. After the due time
-      Teach accepts a submission of a slice only when no submission of that slice is on record, and marks it late; any
-      other answers 403 deadline_passed and stores nothing. The submission that counts is the one on record that no
-      later one supersedes. Since 2026-10-22a an assignment may carry a rolling cutoff later than its due time: a first
-      submission of a slice with no submission on record, made up to that cutoff, is not marked late, and the slice
-      with a submission on record is still refused with 403 deadline_passed after the due time.
+      Teach accepts a submission of a slice, however many are on record, and marks it late. Since revision 2026-10-25b
+      Teach never answers 403 deadline_passed; before it, a slice with a submission on record was refused after the due
+      time and stored nothing. The submission that counts is the one on record that no later one supersedes. Since
+      2026-10-22a an assignment may carry a rolling cutoff later than its due time: a submission made up to that
+      cutoff is not marked late, and one made after it is accepted and marked late.
   W-SUB-2:
     name: what Reach does around a submission
     since: 2026-10-02c
@@ -2932,7 +2932,7 @@ alignment:
       is late work. Since revision 2026-10-25a it is writable whatever Reach's late_work.allow says, and so is a
       slice of an assignment whose due time has not come. Reach tells the student the work is late at session start,
       on the first prompt of each session in that slice and every late_work.notice_every (10) prompts after, and in
-      the submit ask, and says when the slice cannot be submitted again (W-SUB-1). It raises one hand with trigger
+      the submit ask, and says that it can be submitted again, marked late (W-SUB-1). It raises one hand with trigger
       late_work per assignment on the first late write, and one with trigger late_submission per assignment when an
       ingest receipt with late true verifies, each from a detached process, never inside a hook.
   W-PACE-3:
@@ -2941,8 +2941,8 @@ alignment:
     rule: >-
       Reach treats each entry of status.late_assignments as an assignment the student may work on and submit. Since
       revision 2026-10-25a Teach lists, in due order, every released assignment other than the current one in which
-      the student owns a slice, past or future, with no rolling cutoff; an assignment whose due time has passed is
-      listed only while one of the student's slices in it has no submission on record. On every sync Reach fetches the workspace and shape packages of each entry with
+      the student owns a slice, past or future, with no rolling cutoff and whether or not a submission is on record.
+      On every sync Reach fetches the workspace and shape packages of each entry with
       GET /api/v1/packages/:kind?assignment=<id> and provisions the entry's work areas from its workspace package under
       that assignment's own folder, beside the current assignment's. It finds the current assignment's newest workspace
       and shape package by header.assignment, never by the highest version, because another assignment's package can be

@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.11] - 2026-10-25
+
+### Changed
+
+- A slice may be submitted after its due time however many submissions are on record, and each submission is marked late (wire revision 2026-10-25b, `W-SUB-1`). `lib/reach/submit.rb` no longer calls or defines `Reach::Submit.check_closed!`, so `reach submit` no longer refuses a slice that already has a receipt on record once the due time has passed.
+- `lib/reach/late_work.rb`: `Reach::LateWork.info` reports `can_submit` true always and no longer carries `submitted_before_due`, and `submit_sentence` always returns `M-LATE-CAN-SUBMIT`.
+- `locales/en-US.yml`: `M-LATE-CAN-SUBMIT` now says it can be submitted as many times as needed, each marked late. `M-SUBMIT-ASK-LATE` and `M-SUBMIT-AGAIN-CLOSED` no longer say the submission is the last one.
+- `skills/reach-submit/SKILL.md`, `skills/reach-assistant/SKILL.md`, `agents/reach.md`, `specs/polispec/behavior.yml` and `specs/polispec/surfaces/skills/reach-submit.md` tell the agent that a late submission is accepted every time and marked late. `policy/behavior.json` is recompiled without the `N-SUBMIT-CHECK-CLOSED` rule.
+- `reach.spec.yml`, `specs/app.yml`, `FEATURES.md`, `README.md` and `docs/student-guide.md` say the same and cite wire revision 2026-10-25b and `W-SUB-1`.
+
+### Fixed
+
+- A student whose past-due slice was already on record is no longer told that it can't be submitted again. `M-SUBMIT-CLOSED`, `M-LATE-CANNOT-SUBMIT` and `M-LATE-CANNOT-SUBMIT-ONTIME` are retired and removed from `locales/en-US.yml`; `deadline_passed` stays in the error table because an older Teach still answers it.
+
 ## [0.64.10] - 2026-10-25
 
 ### Changed

@@ -474,7 +474,6 @@ module FakeTeach
           row["student_id"] == install["student_id"] && row["cutout_id"] == request["cutout_id"] && row["slice"] == request["slice"] && row["assignment"] == request["assignment"]
         end
         late = resubmit_state == "closed"
-        raise Failure.new(403, "deadline_passed", "the due time has passed") if late && !group.empty?
 
         id = "sub_#{SecureRandom.hex(10)}"
         attempt = group.length + 1

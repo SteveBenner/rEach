@@ -108,14 +108,6 @@ module Reach
       allow? && late?(workspace)
     end
 
-    def ingest_receipts(meta)
-      Reach::Receipts.list.select do |receipt|
-        receipt["kind"] == "ingest" && receipt["cutout_id"] == meta["cutout_id"] && receipt["slice"] == meta["slice"] && receipt["assignment"] == meta["assignment"]
-      end
-    rescue StandardError
-      []
-    end
-
     def on_record?(meta)
       Reach::Receipts.on_record?(cutout_id: meta["cutout_id"], slice: meta["slice"], assignment: meta["assignment"], ignore_partial: true)
     rescue StandardError
@@ -128,7 +120,6 @@ module Reach
       now = Reach::Pace.server_now
       late = !due.nil? && now >= due && !rolling?(meta, now)
       rolling_until = rolling_until_for(meta["assignment"])
-      receipts = ingest_receipts(meta)
       on_record = on_record?(meta)
       {
         "late" => late,
@@ -138,9 +129,8 @@ module Reach
         "rolling_until" => rolling_until && rolling_until.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "late_by_s" => late ? (Reach::Pace.server_now - due).to_i : 0,
         "how_late" => late ? how_late(Reach::Pace.server_now - due) : nil,
-        "submitted_before_due" => receipts.any? { |receipt| receipt["late"] == false },
         "on_record" => on_record,
-        "can_submit" => !on_record || !late
+        "can_submit" => true
       }
     end
 
@@ -160,14 +150,8 @@ module Reach
       end
     end
 
-    def submit_sentence(details)
-      if details["can_submit"]
-        Reach::Messages.text("M-LATE-CAN-SUBMIT")
-      elsif details["submitted_before_due"]
-        Reach::Messages.text("M-LATE-CANNOT-SUBMIT-ONTIME")
-      else
-        Reach::Messages.text("M-LATE-CANNOT-SUBMIT")
-      end
+    def submit_sentence(_details)
+      Reach::Messages.text("M-LATE-CAN-SUBMIT")
     end
 
     def notice_text(workspace)
