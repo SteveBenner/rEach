@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-23a
+revision: 2026-10-25a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -927,7 +927,7 @@ routes:
     path: /api/v1/packages/:kind
     auth: install
     request_query:
-      assignment: "Since 2026-10-18c, optional: A1, A2, A3 or A4. Absent means the current assignment, as before. Otherwise the assignment must be the current one or one listed in this student's status late_assignments; Teach then answers the newest package of that kind for that assignment, built on demand as for the current assignment. 400 invalid_request for an id that is not an assignment, 403 not_released for an assignment that is neither current nor open late work for this student. header.assignment of the envelope is the asked assignment, and Reach stores no envelope whose header.assignment differs."
+      assignment: "Since 2026-10-18c, optional: A1, A2, A3 or A4. Absent means the current assignment, as before. Since 2026-10-25a the student may ask for any released assignment they own slices in, past or future: Teach then answers the newest package of that kind for that assignment, built on demand as for the current assignment. 400 invalid_request for an id that is not an assignment, 403 not_released for an assignment that is not released or in which the student owns no slice. header.assignment of the envelope is the asked assignment, and Reach stores no envelope whose header.assignment differs."
     request_headers:
       If-None-Match: The quoted content_digest of the newest package of this kind Reach has stored, when it has one.
     response_200: The envelope (W-ENV-1) of the latest package of that kind for this install's student, with ETag "<content_digest>" in double quotes.
@@ -2917,35 +2917,39 @@ alignment:
     name: outside access events
     rule: The third refused outside read in one harness session queues integrity kind outside_access (detail {session_id, tool, count}), once per session.
   W-PACE-1:
-    name: time gate
+    name: assignment choice
     rule: >-
-      Reach refuses writes (M-GATE-NOT-CURRENT) in a slice whose assignment is not status.current_assignment and
-      whose due time has not passed by Teach's clock (server_time from the last status plus the time elapsed locally
-      since it was fetched). Reads stay allowed. extracurricular/ is outside the time gate. Since revision 2026-10-02e
-      (W-PACE-2) a past-due slice, the current assignment's or an earlier one's, is writable as late work while
-      late_work.allow is true, and refused when it is false; before that revision a past-due slice was refused too.
+      Since revision 2026-10-25a the student chooses which released assignment to work on. Reach refuses no write
+      because a slice's assignment is not status.current_assignment, because its due time has not come, or because it
+      has passed; M-GATE-NOT-CURRENT is retired. current_assignment names the default Reach starts from and is never
+      a limit. Reads stay allowed. extracurricular/ is outside the gate. Before revision 2026-10-25a a slice whose
+      assignment was not current and not yet due was refused, and since 2026-10-02e a past-due slice was writable
+      only while late_work.allow was true.
   W-PACE-2:
     name: late work
     rule: >-
       Since revision 2026-10-02e. A slice whose own due time (its workspace package's due) has passed by Teach's clock
-      stays writable while Reach's late_work.allow is true (default); an assignment whose due time has not come and
-      that is not status.current_assignment stays refused. Reach tells the student the work is late at session start,
+      is late work. Since revision 2026-10-25a it is writable whatever Reach's late_work.allow says, and so is a
+      slice of an assignment whose due time has not come. Reach tells the student the work is late at session start,
       on the first prompt of each session in that slice and every late_work.notice_every (10) prompts after, and in
       the submit ask, and says when the slice cannot be submitted again (W-SUB-1). It raises one hand with trigger
       late_work per assignment on the first late write, and one with trigger late_submission per assignment when an
       ingest receipt with late true verifies, each from a detached process, never inside a hook.
   W-PACE-3:
-    name: late assignments
+    name: open assignments
     since: 2026-10-18c
     rule: >-
-      Reach treats each entry of status.late_assignments as work the student may still do and submit as late work
-      (W-PACE-2). On every sync it fetches the workspace and shape packages of each entry with
+      Reach treats each entry of status.late_assignments as an assignment the student may work on and submit. Since
+      revision 2026-10-25a Teach lists, in due order, every released assignment other than the current one in which
+      the student owns a slice, past or future, with no rolling cutoff; an assignment whose due time has passed is
+      listed only while one of the student's slices in it has no submission on record. On every sync Reach fetches the workspace and shape packages of each entry with
       GET /api/v1/packages/:kind?assignment=<id> and provisions the entry's work areas from its workspace package under
       that assignment's own folder, beside the current assignment's. It finds the current assignment's newest workspace
-      and shape package by header.assignment, never by the highest version, because a late assignment's package can be
-      the newer one. It merges the shape packages of the current and the late assignments into one shape vault. It
-      names each late assignment, with its due time, in its status report and in the course line of its session
-      greeting, and it never removes the work area of an assignment that has left the list. A Teach that sends no late_assignments leaves all of this out.
+      and shape package by header.assignment, never by the highest version, because another assignment's package can be
+      the newer one. It merges the shape packages of the current and the listed assignments into one shape vault. It
+      names each listed assignment, with its due time, in its status report and in the course line of its session
+      greeting, as late work when the due time has passed and as open work otherwise, and it never removes the work
+      area of an assignment that has left the list. A Teach that sends no late_assignments leaves all of this out.
       Since 2026-10-22a Reach treats an entry with rolling_until as open work, not late work, until rolling_until.
   W-HAND-TYPES:
     name: hand types

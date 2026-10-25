@@ -373,7 +373,6 @@ messages:
   M-GATE-OUTSIDE: "rEach only works inside your course workspace. If you need a file from elsewhere, drag it into the chat or paste its text."
   M-GATE-EXTRACURRICULAR-READ: "Your extracurricular folder is private and stays out of course work. Reading it from here would put it into this assignment's record, so rEach won't. If you want your AI partner to use something from it, paste the relevant text into the chat yourself."
   M-GATE-NOWEB: "Web lookups are switched off for course work. Your AI partner can use the course's own materials instead, or you can ask your instructor."
-  M-GATE-NOT-CURRENT: "This part of the course isn't open for changes right now: it isn't the current assignment yet, or its due time has passed and late work is switched off. Ask your instructor if you need an exception."
   M-GATE-NOT-YOUR-MODULE: "This module isn't one of yours right now, so rEach can't change it. Your modules are {modules}."
   M-IMPORT-OK: "The file the student dropped is now materials/{name} in this workspace; use that copy only."
   M-IMPORT-REFUSED: "rEach didn't copy {source_name} into the workspace: {reason}. Tell the student in plain words and suggest pasting the part that matters instead."

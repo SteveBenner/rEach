@@ -652,7 +652,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 ### 2.21 · Time gate
 
-Since 0.12.0 writes are refused in a slice that is not the current assignment, by Teach's clock; until 0.19.0 a slice whose due time had passed was refused too, and since then it stays writable as late work (3.7, W-PACE-2). Since 0.53.5 the prompt anchor (M-ANCHOR) also names an overdue earlier assignment the student is finishing, and the instructor's request, as on the step, so the agent no longer steers late work back to the current assignment. Re-verified 2026-10-01: an unreleased A2 was not delivered, and a past-due or non-current slice gave M-GATE-NOT-CURRENT.
+Since 0.64.10 (wire revision 2026-10-25a, W-PACE-1 to W-PACE-3) a student may work on any released assignment, past or future, and M-GATE-NOT-CURRENT is retired. From 0.12.0 to 0.64.9 writes were refused in a slice that was not the current assignment, by Teach's clock; until 0.19.0 a slice whose due time had passed was refused too, and since then it stays writable as late work (3.7, W-PACE-2). Since 0.53.5 the prompt anchor (M-ANCHOR) also names an overdue earlier assignment the student is finishing, and the instructor's request, as on the step, so the agent no longer steers late work back to the current assignment. Re-verified 2026-10-01 (before 0.64.10): an unreleased A2 was not delivered, and a past-due or non-current slice gave M-GATE-NOT-CURRENT.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
@@ -1436,8 +1436,8 @@ Build ✅ Shipped · Deploy 🟢 Live (released 2026-10-03 as v0.25.0, GitHub La
 
 Since 0.19.0 (`STD-LATE-WORK`, `W-PACE-2`) a past-due slice stays writable with repeated late notices, and rEach raises
 one late_work hand per assignment and one late_submission hand per late submission. Verified 2026-10-02 against
-tools/fake_teach: past-due writes allowed, a future assignment still refused, notices on prompts 1 and 11 only, exactly
-one hand of each kind, no network call from any hook (strace), and `late_work.allow: false` restoring the old refusal.
+tools/fake_teach: past-due writes allowed, a future assignment refused (before 0.64.10), notices on prompts 1 and 11 only, exactly
+one hand of each kind, no network call from any hook (strace), and `late_work.allow: false` restoring the old refusal (and, since 0.64.10, no refusal of either).
 
 Since 0.53.3 a slice counts as on record when any ingest, grade or validation receipt for it is stored
 (`Reach::Receipts.on_record?`), not only an ingest receipt. Until then a submission an instructor accepted by hand,

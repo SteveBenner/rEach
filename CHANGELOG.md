@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.10] - 2026-10-25
+
+### Changed
+
+- A student chooses which released assignment to work on, past or future (wire revision 2026-10-25a, `W-PACE-1` to `W-PACE-3`). `lib/reach/gate.rb` no longer refuses a write because a slice is not the current assignment or its due time has not come, and `lib/reach/pace.rb` drops `Reach::Pace.writable?`. `current_assignment` stays the default Reach starts from.
+- `reach status` (`lib/reach/status.rb`) and the greeting's course line (`lib/reach/hello.rb`) name a listed assignment whose due time has not come as `Also open: ID, due TIME` and `ID open, due TIME`; the late-work and rolling wording is unchanged for the other two cases.
+- `reach.spec.yml`, `specs/app.yml` and `FEATURES.md` say a student may work on any released assignment.
+
+### Fixed
+
+- `M-GATE-NOT-CURRENT` is retired and removed from `locales/en-US.yml`: a student who started a later released assignment, or went back to an earlier one, is no longer refused.
+
 ## [0.64.8] - 2026-10-24
 
 ### Changed

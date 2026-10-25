@@ -28,26 +28,5 @@ module Reach
     rescue StandardError
       Time.now.utc
     end
-
-    def writable?(workspace)
-      return true if workspace.nil?
-
-      status = status_cache
-      return true unless status
-
-      meta = Reach::Workspace.metadata(workspace)
-      current = current_assignment
-      due = Reach::LateWork.due_for_meta(meta)
-      if current && meta["assignment"].to_s == current["id"].to_s
-        return true if due.nil?
-        return true if server_now < due
-
-        return Reach::LateWork.allow?
-      end
-
-      !due.nil? && server_now >= due && Reach::LateWork.allow?
-    rescue StandardError
-      true
-    end
   end
 end

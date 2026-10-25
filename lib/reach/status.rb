@@ -82,10 +82,13 @@ module Reach
       def late_assignment_lines
         status = cached_status
         Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] }.map do |entry|
-          if entry["rolling_until"].to_s.strip.empty?
-            "Also open as late work: #{entry['id']}, was due #{Reach::Messages.course_time(entry['due'])}"
-          else
+          due = Reach::LateWork.parse_time(entry["due"])
+          if !entry["rolling_until"].to_s.strip.empty?
             "Also open: #{entry['id']}, can be submitted until #{Reach::Messages.course_time(entry['rolling_until'])} without being late"
+          elsif due && due > Reach::Pace.server_now
+            "Also open: #{entry['id']}, due #{Reach::Messages.course_time(entry['due'])}"
+          else
+            "Also open as late work: #{entry['id']}, was due #{Reach::Messages.course_time(entry['due'])}"
           end
         end
       end

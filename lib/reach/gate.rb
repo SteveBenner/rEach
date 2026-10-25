@@ -923,7 +923,6 @@ module Reach
       return unless workspace
 
       meta = Reach::Workspace.metadata(workspace)
-      raise_blocked!("M-GATE-NOT-CURRENT") unless Reach::Pace.writable?(workspace)
       safely { Reach::LateWork.note_write(workspace) }
 
       allowed = begin
