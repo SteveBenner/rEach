@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.12] - 2026-10-25
+
+### Added
+
+- `locales/en-US.yml`: `rejection_fixes.conflict` tells the student that the part has reached the limit of 50 submissions and to ask their instructor, shown when Teach answers 409 conflict to a submission (wire revision 2026-10-25c, `W-SUB-1`, `W-API-SUBMIT`).
+
+### Changed
+
+- Teach accepts at most 50 submissions of one slice that were not rejected, partial ones included, before or after the due time; the 51st answers 409 conflict and stores nothing. `reach.spec.yml`, `specs/app.yml` (`STD-LATE-WORK`), `FEATURES.md`, `README.md` and `docs/student-guide.md` state the limit and cite wire revision 2026-10-25c and `W-SUB-1`.
+- `locales/en-US.yml`: `M-LATE-CAN-SUBMIT` names the limit of 50 submissions instead of saying as many times as needed.
+
+### Fixed
+
+- `locales/en-US.yml`: `rejection_fixes.forbidden` no longer says "current assignment", since a student may submit any released assignment they own.
+
 ## [0.64.11] - 2026-10-25
 
 ### Changed

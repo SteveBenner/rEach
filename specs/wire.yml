@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-25b
+revision: 2026-10-25c
 status: normative
 security_validation:
   id: W-VAL-1
@@ -971,7 +971,7 @@ routes:
       with code not_qualified; both are in-band rejections (state rejected) and store nothing. Since revision 2026-10-18a
       a partial submission (W-SUB-7) skips both checks and answers state ingested with an ingest receipt carrying
       partial true; Reach reads partial from the receipt.
-    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 deadline_passed: "no longer answered since revision 2026-10-25b (W-SUB-1); before it, after the due time, when a submission of the slice that was not rejected was already on record", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
+    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 409 conflict: "since revision 2026-10-25c, the slice already has 50 submissions that were not rejected (W-SUB-1)", 403 deadline_passed: "no longer answered since revision 2026-10-25b (W-SUB-1); before it, after the due time, when a submission of the slice that was not rejected was already on record", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
   - id: W-API-SUBMISSION
     method: GET
     path: /api/v1/submissions/:id
@@ -1815,7 +1815,9 @@ submissions:
       has no attempt, supersedes nothing and is never on record. Every submission keeps its receipts. After the due time
       Teach accepts a submission of a slice, however many are on record, and marks it late. Since revision 2026-10-25b
       Teach never answers 403 deadline_passed; before it, a slice with a submission on record was refused after the due
-      time and stored nothing. The submission that counts is the one on record that no later one supersedes. Since
+      time and stored nothing. The submission that counts is the one on record that no later one supersedes. Since revision 2026-10-25c
+      Teach accepts at most 50 submissions of one slice that were not rejected, counting partial ones, before or after
+      the due time; the 51st answers 409 conflict and stores nothing. Since
       2026-10-22a an assignment may carry a rolling cutoff later than its due time: a submission made up to that
       cutoff is not marked late, and one made after it is accepted and marked late.
   W-SUB-2:

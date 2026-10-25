@@ -417,8 +417,9 @@ Since 0.17.0 (wire 2026-10-02c) the agent offers to submit once a slice passes i
 student through rEach and sends only on a hook-captured yes (a terminal prompt in a terminal, the agent's relayed yes on
 Antigravity). After the ingest receipt it saves a ZIP of the whole assignment in the Downloads folder, named with the
 course, assignment and course-time stamp, and says until when the student may submit again; since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) a slice may
-also be submitted after the due time, however many submissions are on record, and each is marked late (before it, a
-submitted slice was refused before asking). The assignment-one smoke asked, captured the yes, submitted and checked the
+also be submitted after the due time, and each is marked late (before it, a submitted slice was refused before asking);
+since 0.64.12 (wire revision 2026-10-25c, W-SUB-1) at most 50 submissions of a slice that were not rejected are accepted,
+before or after the due time, and the 51st is refused with a 409 conflict. The assignment-one smoke asked, captured the yes, submitted and checked the
 ZIP against a scratch Teach 0.18.0; resubmission and the past-due refusal were exercised against the fake Teach.
 Since 0.53.21 `reach submit archive` also saves the ZIP of an assignment that was not submitted, saying it is not a
 submission and must be uploaded to the learning system or sent to the instructor, and `reach qualify` recommends it when
@@ -1440,8 +1441,12 @@ one late_work hand per assignment and one late_submission hand per late submissi
 tools/fake_teach: past-due writes allowed, a future assignment refused (before 0.64.10), notices on prompts 1 and 11 only, exactly
 one hand of each kind, no network call from any hook (strace), and `late_work.allow: false` restoring the old refusal (and, since 0.64.10, no refusal of either).
 
-Since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) a slice may be submitted again after its due time, however many
-submissions are on record, and each is marked late. `Reach::Submit.check_closed!` is removed, `Reach::LateWork.info`
+Since 0.64.11 (wire revision 2026-10-25b, W-SUB-1) a slice may be submitted again after its due time, and each is
+marked late. Since 0.64.12 (wire revision 2026-10-25c, W-SUB-1) Teach accepts at most 50 submissions of one slice that
+were not rejected, partial ones included, before or after the due time; the 51st answers 409 conflict and stores
+nothing, and `rejection_fixes.conflict` in `locales/en-US.yml` tells the student the part has reached the limit of 50
+submissions and to ask the instructor. `M-LATE-CAN-SUBMIT` names the limit, and `rejection_fixes.forbidden` no longer says
+"current assignment". `Reach::Submit.check_closed!` is removed, `Reach::LateWork.info`
 reports `can_submit` true always and no longer carries `submitted_before_due`, and `M-SUBMIT-CLOSED`,
 `M-LATE-CANNOT-SUBMIT` and `M-LATE-CANNOT-SUBMIT-ONTIME` are retired; Teach no longer answers `deadline_passed`. The
 paragraph below describes 0.53.3 to 0.64.10 and no longer applies.

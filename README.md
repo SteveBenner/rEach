@@ -424,8 +424,7 @@ receipt verifies, rEach saves a ZIP of the whole assignment folder (every slice,
 files, plus the receipts and the student's own part) in the Downloads folder as
 `<assignment>-<email local part>-<YYYYMMDD>.zip` (such as `A1-jruiz-20261007.zip`) dated in course time, never overwriting a file
 (`REACH_DOWNLOADS_DIR` overrides the folder; `config.yml` `submit.archive_max_mb`, default 256, caps it). The student
-may submit again and the last one counts. After the due time a slice may still be submitted, however many submissions
-are on record, and each one is marked late (wire revision 2026-10-25b, W-SUB-1; M-SUBMIT-CLOSED is retired). rEach says plainly, before and after every submission, that the ZIP in
+may submit again and the last one counts, up to 50 submissions of a slice that were not rejected (the 51st is refused with a 409 conflict, and rEach tells the student to ask the instructor; wire revision 2026-10-25c, W-SUB-1). After the due time a slice may still be submitted, within that limit, and each one is marked late (wire revision 2026-10-25b, W-SUB-1; M-SUBMIT-CLOSED is retired). rEach says plainly, before and after every submission, that the ZIP in
 Downloads must also be uploaded to the course's learning system to receive credit, when the course requires it (the
 course names that system); `reach submit archive` makes the ZIP again. Since 0.53.21 it also saves the ZIP of
 an assignment not yet submitted, at any point and even while rEach is locked, saying it is not a submission, and `reach qualify` recommends that when the course's
