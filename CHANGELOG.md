@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.13] - 2026-10-25
+
+### Changed
+
+- The refusal shown when rEach could not check a step safely now tells the assistant to run one plain read of the file by itself, such as cat README.md or Get-Content README.md, and keeps the pointer to the reach_directive tool.
+
+### Fixed
+
+- A student on Windows with Codex can read the assignment README and a skill's SKILL.md when the shell command arrives wrapped as a quoted PowerShell path with spaces (for example "C:\Program Files\PowerShell\7\pwsh.exe" -Command ...), with a leading & call operator, or with -WindowStyle; the wrapper is unwrapped and the inner command is checked as before. Commands the check cannot model, such as Get-Process, -EncodedCommand, script blocks and reads outside the course folder, are still refused.
+
 ## [0.64.12] - 2026-10-25
 
 ### Added
