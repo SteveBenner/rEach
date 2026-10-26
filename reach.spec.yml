@@ -1914,8 +1914,8 @@ installer:
     pure-Ruby reader, materialises symlinks safely, backs up an existing install before replacing it, and downloads
     the Dovetail archive pinned in dovetail-revision.txt (Dovetail is also a git submodule at dovetail). It enforces
     size and count limits and bounded retries (since 0.64.14 at most 5 attempts per download with full-jitter
-    exponential backoff from 2 s capped at 30 s, in both scripts/reach-install and scripts/reach-install.ps1, which
-    also gives each download a 70 s timeout), and REACH_INSTALL_KILL_SWITCH stops it. Verified only against a local
+    exponential backoff from 2 s capped at 30 s, in both scripts/reach-install and scripts/reach-install.ps1; the
+    Windows installer sets no whole-download timeout, which would fail a large archive on a slow connection), and REACH_INSTALL_KILL_SWITCH stops it. Verified only against a local
     GitHub-shaped ZIP; the real public download and the Windows path are unverified.
   from_a_link: >-
     The student pastes the repository link into their agent (Claude Code, the Claude app's Code tab, Codex, Antigravity

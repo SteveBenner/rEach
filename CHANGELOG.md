@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `scripts/reach-install`: a download is tried up to 5 times (was 3) with full-jitter exponential backoff from 2 s capped at 30 s (was a fixed 1 s then 2 s). The platform smoke's macOS x64 leg on 0.64.6 failed when all three attempts to fetch the pinned Dovetail archive from GitHub timed out inside about 40 s; a student's install fails the same way on a short GitHub outage.
-- `scripts/reach-install.ps1`: the same bounded backoff and 5 attempts on Windows, and each download now has a 70 s timeout (`-TimeoutSec`), so a hung connection fails over to the next attempt instead of waiting forever.
+- `scripts/reach-install.ps1`: the same bounded backoff and 5 attempts on Windows. It sets no download timeout: in PowerShell 7 `-TimeoutSec` caps the whole transfer, and the 66.7 MB Windows Ruby kit would fail every attempt on a connection under about 7.6 Mbit/s.
 - `tools/stable_promote.rb`: when the platform smoke passes on test, `apply ready` also closes every open `stable-hold` issue. Holds were closed only by `apply promote`, which the workflow no longer runs since stable moves by the operator's `polispec promote reach --to stable`, so the v0.64.0 hold stayed open after every later smoke passed and the release gate's `VER-STABLE` kept reporting it.
 - `README.md`, `specs/app.yml` (`stable_cadence` and the smoke failure mode) and `reach.spec.yml` (installer limits) describe the stable flow and the installer's retry bound as they now work.
 

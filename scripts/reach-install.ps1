@@ -14,7 +14,6 @@ try {
 $RawBase = 'https://raw.githubusercontent.com/SteveBenner/rEach/stable'
 $LockStaleSeconds = 900
 $DownloadAttempts = 5
-$DownloadTimeoutSeconds = 70
 $RetryBaseMs = 2000
 $RetryCapMs = 30000
 $LogThreshold = 3
@@ -288,7 +287,7 @@ function Save-File([string]$Url, [string]$Path) {
     for ($attempt = 1; $attempt -le $DownloadAttempts; $attempt++) {
         $began = [DateTime]::UtcNow
         try {
-            Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Path -TimeoutSec $DownloadTimeoutSeconds
+            Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Path
             $bytes = $null
             $hash = $null
             try {
