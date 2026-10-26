@@ -18,7 +18,9 @@ require "yaml"
 module ReachInstall
   MAX_BYTES = 100 * 1024 * 1024
   MAX_UNPACKED_BYTES = 500 * 1024 * 1024
-  MAX_ATTEMPTS = 3
+  MAX_ATTEMPTS = 5
+  RETRY_BASE_S = 2
+  RETRY_CAP_S = 30
   CONNECT_TIMEOUT_S = 10
   READ_TIMEOUT_S = 60
   MIN_DOWNLOAD_INTERVAL_S = 1
@@ -604,7 +606,7 @@ module ReachInstall
         rescue StandardError => e
           last_error = e
           log_step("download", began, "attempt" => attempt + 1, "url" => log_text(url), "status" => @fetch_status, "error" => log_text(e.class.name), "message" => log_text(e.message))
-          sleep(attempt + 1) if attempt + 1 < MAX_ATTEMPTS
+          sleep(rand * [RETRY_CAP_S, RETRY_BASE_S * (2**attempt)].min) if attempt + 1 < MAX_ATTEMPTS
         end
       end
       raise "could not download #{url}: #{last_error.message}"

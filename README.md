@@ -193,8 +193,9 @@ the `stable` branch too, but rEach can refresh it only through the app or the ha
 version is waiting rEach tells the student to update from the app's Plugins page or to ask the assistant to reinstall rEach
 with the installer, which makes the copy that updates itself. `stable` moves only to the Latest release, at most
 once a day: the `stable` workflow (`.github/workflows/stable.yml`, 15:00 UTC) runs the platform smoke on the Latest tag
-and moves `stable` with `tools/stable_promote.rb` only when every leg passes; a failed smoke holds `stable` and opens a
-`stable-hold` issue. A release that changes `hooks/` first gets a notice ref, which rEach shows to Codex students
+and, when every leg passes, `tools/stable_promote.rb` opens a `stable-ready` issue and closes any open `stable-hold`
+issue; `stable` itself moves only when the operator runs `polispec promote reach --to stable`. A failed smoke holds
+`stable` and opens a `stable-hold` issue. A release that changes `hooks/` first gets a notice ref, which rEach shows to Codex students
 (Codex asks them to approve changed hooks again), and reaches `stable` no sooner than the next day.
 `ruby tools/release_stable.rb vX.Y.Z` still moves `stable` by hand.
 

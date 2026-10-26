@@ -1605,6 +1605,18 @@ installed here). Installs older than 0.43.0 keep taking the newest tag until the
 
 Build ✅ · Deploy ⚫ (not released) · Blocker: Human (release, push)
 
+Since 0.64.14 a passing smoke on test also closes every open `stable-hold` issue (`apply ready`); before, only
+`apply promote` closed them, and the workflow stopped running that once stable moved by the operator's
+`polispec promote reach --to stable`, so the v0.64.0 hold (#4) stayed open after every later smoke passed. #4 and the
+stale v0.64.8 `stable-ready` issue (#3) were closed by hand on 2026-10-25 after v0.64.12 passed on test (run
+40246555650, five legs green). The same release gives both installers 5 download attempts with full-jitter exponential
+backoff from 2 s capped at 30 s (the 0.64.6 macOS x64 smoke leg failed when three attempts to fetch Dovetail timed out),
+and the Windows download a 70 s timeout. Verified: the Ruby installer against an unresolvable host, 3 attempts in 3.0 s
+before and 5 in 11.4 s after. Not verified: `reach-install.ps1` (no PowerShell here) and the hold-closing path on
+GitHub, which runs on the next stable run that plans a promotion.
+
+Build ✅ · Deploy 🔵 (main, then test by promotion) · Blocker: Human (stable promotion)
+
 ## 5 · Interview and profile
 
 ### 5.1 · Intake interview and student profile

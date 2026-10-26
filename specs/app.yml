@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.64.13
+version: 0.64.14
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -543,7 +543,7 @@ journeys:
       - when: "A check at or above the block severity fails."
         result: "The push is refused, and only a time-boxed lease of at most 24 hours, with a reason, lets it through while every check still runs."
       - when: "Any smoke leg fails or is cancelled."
-        result: "Stable stays where it is and one stable-hold issue names the tag and the run."
+        result: "Stable stays where it is and one stable-hold issue names the tag and the run; the next passing smoke on test closes it."
       - when: "An untagged patch exists on main."
         result: "It is never offered to students."
     standards: [STD-RELEASE-GATE, STD-RELEASE-GATE-LEASE, STD-STABLE-CADENCE, STD-PLATFORM-SMOKE, STD-SMOKE, STD-SECURITY-AUDIT-MODE, STD-ISSUE-CLOSEOUT-HOOK]
@@ -5125,7 +5125,8 @@ environments:
     stable_cadence: >
       The stable workflow runs daily at 15:00 UTC and on dispatch. It reads the test tip and its version tag, pushes a hook
       notice ref when a hook changes (and waits the next day), runs the platform smoke on the hosted legs, and then opens a
-      stable-ready issue when the smoke passes or a stable-hold issue when it fails. It never moves stable.
+      stable-ready issue when the smoke passes or a stable-hold issue when it fails. Since 0.64.14 a passing smoke also closes
+      every open stable-hold issue, which before stayed open after a later release passed. It never moves stable.
     freezes: >
       A class session (30 minutes lead) and an assignment due time (24 hours lead) from the course calendar freeze promotion to
       stable and canary, live activity on the course server freezes promotion to stable, and a manual freeze can be set.

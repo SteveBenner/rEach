@@ -13,6 +13,10 @@ try {
 
 $RawBase = 'https://raw.githubusercontent.com/SteveBenner/rEach/stable'
 $LockStaleSeconds = 900
+$DownloadAttempts = 5
+$DownloadTimeoutSeconds = 70
+$RetryBaseMs = 2000
+$RetryCapMs = 30000
 $LogThreshold = 3
 $LogEnvKeep = '^(?i)(PATH|HOME|USERPROFILE|SHELL|LANG|LC_ALL|TERM|TMPDIR|TEMP|XDG_[A-Z_]+|RUBY[A-Z_]*|GEM_[A-Z_]+|BUNDLE_[A-Z_]+|REACH_[A-Z_]+|CLAUDE[A-Z_]*|CODEX[A-Z_]*|HERMES[A-Z_]*|ANTIGRAVITY[A-Z_]*|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|SSL_CERT_FILE|SSL_CERT_DIR)$'
 $LogEnvDrop = '(?i)(token|key|secret|password|passphrase|signature|pem|credential|passkey|course_code|enroll_code|enrollment_code)'
@@ -281,10 +285,10 @@ function Get-KitRuby([string]$ReachHome) {
 
 function Save-File([string]$Url, [string]$Path) {
     $last = $null
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
+    for ($attempt = 1; $attempt -le $DownloadAttempts; $attempt++) {
         $began = [DateTime]::UtcNow
         try {
-            Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Path
+            Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Path -TimeoutSec $DownloadTimeoutSeconds
             $bytes = $null
             $hash = $null
             try {
@@ -302,7 +306,10 @@ function Save-File([string]$Url, [string]$Path) {
             } catch {
             }
             Write-LogStep 'download' $began @{ attempt = $attempt; url = (Get-LogText $Url); status = $status; error = (Get-LogText $last) }
-            Start-Sleep -Seconds ($attempt * 2)
+            if ($attempt -lt $DownloadAttempts) {
+                $ceiling = [math]::Min($RetryCapMs, $RetryBaseMs * [math]::Pow(2, $attempt - 1))
+                Start-Sleep -Milliseconds ([int](Get-Random -Minimum 0 -Maximum ([int]$ceiling + 1)))
+            }
         }
     }
     throw ('could not download ' + $Url + ' (' + $last + ')')

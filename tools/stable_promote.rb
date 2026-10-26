@@ -190,8 +190,10 @@ module StablePromote
     title = "stable-ready: #{tag} passed the platform smoke on test"
     body = "test is at #{sha} (#{tag}) and the platform smoke passed. Stable moves only when the operator runs `polispec promote reach --to stable`."
     existing = open_ready(name).first
+    holds = open_holds(name)
     if options[:dry_run]
       puts(existing ? "would update issue ##{existing}: #{title}" : "would open issue #{title.inspect} labeled #{READY_LABEL}")
+      holds.each { |number| puts "would close issue ##{number} labeled #{LABEL}" }
       return 0
     end
 
@@ -201,6 +203,10 @@ module StablePromote
     else
       run_command("gh", "label", "create", READY_LABEL, "--repo", name, "--description", "test passed the smoke; waiting for the operator", "--force")
       puts run_command("gh", "issue", "create", "--repo", name, "--title", title, "--body", body, "--label", READY_LABEL)
+    end
+    holds.each do |number|
+      run_command("gh", "issue", "close", number, "--repo", name, "--comment", "the platform smoke passed on test at #{sha} (#{tag}), so this hold no longer applies.")
+      puts "closed issue ##{number}"
     end
     0
   end
