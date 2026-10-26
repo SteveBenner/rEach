@@ -63,6 +63,8 @@ Any other finding fails the step and is printed in full.
 
 `windows-runner/register.ps1 -Url <repository url> -Token <registration token> -Label win10|win11 -Name <runner name>` registers the runner as a service. The token is passed at run time and never written to disk.
 
+The `machine_id_unreadable` step runs `unreadable_probe.rb` against the installed copy in its own scratch REACH_HOME. It replaces the machine id readers with ones that fail and checks the 24 hour unreadable grace, the lock after it, and the cause token on a validation refusal.
+
 ## Groups and the tested matrix
 
 `matrix.rb` groups the steps. `claude-code` is hook_session_start, hook_prompt_locked and hook_prompt_open; `codex` is hook_codex, codex_course_hook and codex_sandbox_decrypt; every other step belongs to `core`. A group passes when none of its steps failed and at least one passed. `claude-code` and `codex` also need `core` to pass.
