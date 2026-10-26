@@ -74,9 +74,9 @@ hermetic:
     isolate: [RPLUGIN_HOME, XDG_STATE_HOME, XDG_DATA_HOME, REACH_HOME, REACH_WORKSPACE_ROOT]
     protected_roots: ["~/.corpora/reach", "~/.reach", "~/.local/state/rplugin/reach", "~/reach-work"]
 freezes:
-  - { id: F-CLASS, applies_to: [promote.to_stable, promote.to_canary], source: teach.calendar, project: teach, kind: class_session, lead_minutes: 30 }
-  - { id: F-DUE, applies_to: [promote.to_stable, promote.to_canary], source: teach.calendar, project: teach, kind: assignment_due, lead_hours: 24 }
-  - { id: F-LIVE, applies_to: [promote.to_stable], source: teach.activity, project: teach }
+  - { id: F-CLASS, applies_to: [promote.to_stable, promote.to_canary], source: command, command: [bin/teach, calendar, freezes, --json], project: teach, kind: class_session, lead_minutes: 30 }
+  - { id: F-DUE, applies_to: [promote.to_stable, promote.to_canary], source: command, command: [bin/teach, calendar, freezes, --json], project: teach, kind: assignment_due, lead_hours: 24 }
+  - { id: F-LIVE, applies_to: [promote.to_stable], source: command, command: [bin/teach, activity, --json], project: teach }
   - { id: F-MANUAL, applies_to: [promote.to_stable], rrule: null, from: null, until: null }
 data_classes:
   synthetic: { allowed_in: [dev, test, prod] }
