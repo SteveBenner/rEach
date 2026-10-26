@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.16] - 2026-10-26
+
+### Fixed
+
+- A security validation step refused on this computer showed the student the full warning that Teach could not be verified and that rEach or Teach might be impersonated, and the cause token added in 0.64.15 never reached them: `reach validate` and the `reach_validate` tool printed the bare text. A plan text over 400 characters, the first time it happened (cause `input`), sent nothing to Teach yet read as a possible attack. Both now show the refusal with its cause (`Reach::Validation.failure_text`). A refusal made before any request (causes `busy`, `course_code`, `harness_label`, `input`, `state`) says nothing was sent to Teach, names its cause and, for `input`, states the limits (plan text 10-400 characters; answers, `answers.json` and `README.md` up to 128 KB each); it still blocks the pass. Connection, reply and address failures, and the kill switch, keep the warning with the cause appended; any other error is named `error:<class>`. The plan step hint states the 10-400 character limit, the debug event records the cause, and `specs/security-validation.yml` gains `failure.local_refusal`. Measured: the plan refusal was reproduced on a student install and, after the change, re-run through the CLI and the MCP tool with the validation state byte-identical before and after; each cause was mapped once by hand.
+
 ## [0.64.15] - 2026-10-25
 
 ### Added

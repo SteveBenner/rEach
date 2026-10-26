@@ -742,8 +742,10 @@ instructor; `M-GATE-REVOKED` stays for an instructor's revoke, an unenrollment a
 2026-10-20 in a scratch home.
 Since 0.64.15 (`STD-FINGERPRINT-OS-USER`) a machine id or login name probe that fails is retried and, if it still fails,
 does not lock the install as moved for 24 hours, and a security validation refusal names its cause.
+Since 0.64.16 that cause reaches the student and the agent, and a validation step refused on this computer says nothing was sent to Teach
+instead of warning of a connection problem or impersonation.
 
-Build ✅ (0.64.15) · Deploy 🔵 (0.64.15 pending) · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
+Build ✅ (0.64.16) · Deploy 🔵 (0.64.16 pending) · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
 
 ### 2.27.1 · A reinstall keeps the computer
 
