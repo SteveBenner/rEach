@@ -692,6 +692,10 @@ module Reach
       File.join(enroll_state_dir, "moved.json")
     end
 
+    def enroll_unreadable_file
+      File.join(enroll_state_dir, "unreadable.json")
+    end
+
     def enroll_pending_key_file
       File.join(enroll_state_dir, "pending_key.pem")
     end

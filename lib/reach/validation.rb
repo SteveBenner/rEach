@@ -22,6 +22,20 @@ module Reach
 
     module_function
 
+    def blocked(cause)
+      "#{BLOCKED} (cause: #{cause})"
+    end
+
+    def harness_cause(label)
+      label.to_s.downcase.gsub(/[^a-z0-9-]/, "")[0, 32]
+    end
+
+    def network_cause(error)
+      token = error.respond_to?(:cause_name) ? error.cause_name.to_s : ""
+      token = error.class.name.to_s.split("::").last.to_s.downcase if token.empty?
+      token.gsub(/[^a-z0-9_]/, "")[0, 48]
+    end
+
     def directory
       File.join(Reach::Paths.root_state_dir, "validation")
     end
@@ -46,18 +60,18 @@ module Reach
     def configured_url
       url = Reach::Runtime.default_teach_url.to_s.sub(%r{/+\z}, "")
       uri = URI.parse(url)
-      raise Reach::Refused, BLOCKED unless uri.is_a?(URI::HTTPS) && uri.host && !uri.userinfo && !uri.query && !uri.fragment && ["", "/"].include?(uri.path)
+      raise Reach::Refused, blocked("teach_url") unless uri.is_a?(URI::HTTPS) && uri.host && !uri.userinfo && !uri.query && !uri.fragment && ["", "/"].include?(uri.path)
 
       url
     rescue URI::InvalidURIError
-      raise Reach::Refused, BLOCKED
+      raise Reach::Refused, blocked("teach_url")
     end
 
     def harness(value = nil)
       label = value.to_s.empty? ? Reach::HarnessIdentity.detect["label"] : value.to_s
       label = "codex" if label.to_s.start_with?("codex-")
       label = "claude-code" if label.to_s.start_with?("claude-code-")
-      raise Reach::Refused, BLOCKED unless HARNESSES.include?(label)
+      raise Reach::Refused, blocked("harness_label:#{harness_cause(label)}") unless HARNESSES.include?(label)
 
       label
     end
@@ -67,7 +81,7 @@ module Reach
     end
 
     def client(state)
-      raise Reach::Refused, BLOCKED unless state["teach_url"] == configured_url
+      raise Reach::Refused, blocked("teach_url") unless state["teach_url"] == configured_url
 
       Reach::Client.for_attempt(state["teach_url"], state.fetch("session_id"), key(state), connect_timeout: 5, read_timeout: 15, max_retries: 1)
     end
@@ -82,10 +96,10 @@ module Reach
     end
 
     def start(course_code:, harness: nil, restart: false)
-      raise Reach::Refused, BLOCKED if ENV["REACH_VALIDATION_DISABLE"] == "1"
+      raise Reach::Refused, blocked("disabled") if ENV["REACH_VALIDATION_DISABLE"] == "1"
       label = self.harness(harness)
       parsed = Reach::Identity.parse_course_code(course_code)
-      raise Reach::Refused, BLOCKED unless parsed
+      raise Reach::Refused, blocked("course_code") unless parsed
 
       code = parsed["code"]
       held = read
@@ -97,22 +111,26 @@ module Reach
       private_key = Reach::Crypto.generate_install_key
       Reach::StateFile.write_atomic(File.join(root, "key.pem"), private_key.to_pem)
       nonce = SecureRandom.hex(32)
-      reply = Reach::Client.anonymous(configured_url, connect_timeout: 5, read_timeout: 15, max_retries: 1, link: false).post_json(
-        ROUTE, { "course_code" => code, "public_key" => private_key.public_key.to_pem, "nonce" => nonce,
-                 "harness" => label, "reach_version" => Reach::VERSION }, idempotency_key: local
-      ).json
-      raise Reach::VerificationFailed, BLOCKED unless reply.is_a?(Hash) && reply["schema"] == SCHEMA && reply["nonce"] == nonce && reply["session_id"].to_s.match?(/\Avld_[0-9a-f]{24}\z/)
+      reply = begin
+        Reach::Client.anonymous(configured_url, connect_timeout: 5, read_timeout: 15, max_retries: 1, link: false).post_json(
+          ROUTE, { "course_code" => code, "public_key" => private_key.public_key.to_pem, "nonce" => nonce,
+                   "harness" => label, "reach_version" => Reach::VERSION }, idempotency_key: local
+        ).json
+      rescue Reach::NetworkError, Reach::CertificateError => e
+        raise Reach::Refused, blocked("network:#{network_cause(e)}")
+      end
+      raise Reach::VerificationFailed, blocked("reply") unless reply.is_a?(Hash) && reply["schema"] == SCHEMA && reply["nonce"] == nonce && reply["session_id"].to_s.match?(/\Avld_[0-9a-f]{24}\z/)
 
       state = reply.merge("local_id" => local, "teach_url" => configured_url, "course_digest" => Reach::Crypto.digest_hex(code),
                           "harness" => label, "reach_version" => Reach::VERSION, "phase" => "handoff")
-      raise Reach::VerificationFailed, BLOCKED unless fresh?(state)
-      raise Reach::VerificationFailed, BLOCKED unless state["course_id"].is_a?(String) && state["course_id"].match?(/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\z/)
+      raise Reach::VerificationFailed, blocked("reply") unless fresh?(state)
+      raise Reach::VerificationFailed, blocked("course") unless state["course_id"].is_a?(String) && state["course_id"].match?(/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\z/)
       questions = state["questions"]
       valid_questions = questions.is_a?(Array) && questions.length.between?(1, 64) && questions.all? do |item|
         item.is_a?(Hash) && item["id"].is_a?(String) && item["id"].match?(/\A[a-z0-9_]{1,64}\z/) && item["shape"] == "text" &&
           item["question"].is_a?(String) && item["question"].bytesize <= 2000 && item["min_words"].is_a?(Integer) && item["min_words"].between?(1, 2000)
       end
-      raise Reach::VerificationFailed, BLOCKED unless valid_questions && questions.map { |item| item["id"] }.uniq.length == questions.length
+      raise Reach::VerificationFailed, blocked("questions") unless valid_questions && questions.map { |item| item["id"] }.uniq.length == questions.length
 
       workspace = File.join(root, "workspace")
       FileUtils.mkdir_p(File.join(workspace, ".reach"))
@@ -125,7 +143,7 @@ module Reach
 
     def workspace(state)
       id = state["local_id"].to_s
-      raise Reach::Refused, BLOCKED unless id.match?(/\A[0-9a-f]{32}\z/)
+      raise Reach::Refused, blocked("state") unless id.match?(/\A[0-9a-f]{32}\z/)
 
       File.join(directory, id, "workspace")
     end
@@ -162,20 +180,20 @@ module Reach
     def locked
       FileUtils.mkdir_p(directory, mode: 0o700)
       result = Reach::Locks.exclusive(File.join(directory, "operation.lock"), wait_s: 2.0) { yield }
-      raise Reach::Refused, BLOCKED if result == :busy
+      raise Reach::Refused, blocked("busy") if result == :busy
 
       result
     end
 
     def advance(action, question: nil, text: nil)
-      raise Reach::Refused, BLOCKED if ENV["REACH_VALIDATION_DISABLE"] == "1"
+      raise Reach::Refused, blocked("disabled") if ENV["REACH_VALIDATION_DISABLE"] == "1"
       locked do
         state = read
-        raise Reach::Refused, BLOCKED unless fresh?(state)
+        raise Reach::Refused, blocked("state") unless fresh?(state)
 
         case action
         when "artifact"
-          raise Reach::Refused, BLOCKED unless %w[build checked qualified].include?(state["phase"]) && OWNED.include?(question) && text.is_a?(String) && text.bytesize <= MAX_INPUT
+          raise Reach::Refused, blocked("input") unless %w[build checked qualified].include?(state["phase"]) && OWNED.include?(question) && text.is_a?(String) && text.bytesize <= MAX_INPUT
 
           Reach::StateFile.write_atomic(File.join(workspace(state), question), text)
           state["phase"] = "build"
@@ -183,22 +201,22 @@ module Reach
           state.delete("checked_digest")
           state.delete("pending_submission")
         when "answer"
-          raise Reach::Refused, BLOCKED unless state["phase"] == "handoff"
+          raise Reach::Refused, blocked("state") unless state["phase"] == "handoff"
 
           item = Array(state["questions"]).find { |entry| entry["id"] == question }
-          raise Reach::Refused, BLOCKED unless item && text.is_a?(String) && text.bytesize <= MAX_INPUT
+          raise Reach::Refused, blocked("input") unless item && text.is_a?(String) && text.bytesize <= MAX_INPUT
 
           answer = Reach::Part.build_answer(item, { "text" => text, "session_id" => state["session_id"], "seq" => 1 }, "synthetic:#{state['session_id']}")
           state["answers"] ||= {}
           state["answers"][question] = answer.reject { |name, _| name == "student_id" }
           state["phase"] = "plan" if Array(state["questions"]).all? { |entry| state["answers"].key?(entry["id"]) }
         when "plan"
-          raise Reach::Refused, BLOCKED unless state["phase"] == "plan" && text.is_a?(String) && text.strip.length.between?(10, 400)
+          raise Reach::Refused, blocked("input") unless state["phase"] == "plan" && text.is_a?(String) && text.strip.length.between?(10, 400)
 
           worker(state, "plan", text)
           state["phase"] = "build"
         when "check"
-          raise Reach::Refused, BLOCKED unless %w[build checked qualified].include?(state["phase"])
+          raise Reach::Refused, blocked("state") unless %w[build checked qualified].include?(state["phase"])
 
           artifact = JSON.parse(files(state).fetch("answers.json"))
           expected_answers = state.fetch("answers").to_h { |id, answer| [id, answer["text"]] }
@@ -208,7 +226,7 @@ module Reach
           state["phase"] = "checked"
         when "qualify", "submit"
           expected = action == "qualify" ? "checked" : "qualified"
-          raise Reach::Refused, BLOCKED unless state["phase"] == expected && state["checked_digest"] == files_digest(state)
+          raise Reach::Refused, blocked("state") unless state["phase"] == expected && state["checked_digest"] == files_digest(state)
 
           entries = submission_entries(state)
           body = action == "submit" && state["pending_submission"] ? state["pending_submission"] : package(state, entries)
@@ -218,10 +236,10 @@ module Reach
             write(state)
           end
           reply = client(state).post_json("#{ROUTE}/#{state['session_id']}/#{action}", body, idempotency_key: "#{state['session_id']}:#{action}:#{state['checked_digest']}").json
-          raise Reach::VerificationFailed, BLOCKED unless reply.is_a?(Hash)
+          raise Reach::VerificationFailed, blocked("reply") unless reply.is_a?(Hash)
 
           if action == "qualify"
-            raise Reach::VerificationFailed, BLOCKED unless reply["passed"] == true && reply["qualification_id"].to_s.match?(/\Avq_[0-9a-f]{24}\z/)
+            raise Reach::VerificationFailed, blocked("reply") unless reply["passed"] == true && reply["qualification_id"].to_s.match?(/\Avq_[0-9a-f]{24}\z/)
 
             state["qualification_id"] = reply["qualification_id"]
             state["phase"] = "qualified"
@@ -231,12 +249,12 @@ module Reach
             state["phase"] = "received"
           end
         when "finish"
-          raise Reach::Refused, BLOCKED unless %w[received passed].include?(state["phase"])
+          raise Reach::Refused, blocked("state") unless %w[received passed].include?(state["phase"])
 
           reply = client(state).get("#{ROUTE}/#{state['session_id']}/receipt").json
           receipt = reply.is_a?(Hash) ? reply["receipt"] : nil
           verify_receipt!(state, receipt)
-          raise Reach::VerificationFailed, BLOCKED unless receipt == state["receipt"]
+          raise Reach::VerificationFailed, blocked("reply") unless receipt == state["receipt"]
 
           state["phase"] = "passed"
         else
@@ -280,26 +298,26 @@ module Reach
     end
 
     def verify_receipt!(state, receipt)
-      raise Reach::VerificationFailed, BLOCKED unless receipt.is_a?(Hash)
+      raise Reach::VerificationFailed, blocked("reply") unless receipt.is_a?(Hash)
 
       expected = { "schema" => SCHEMA, "kind" => "security-validation", "session_id" => state["session_id"], "nonce" => state["nonce"], "course_id" => state["course_id"],
                    "harness" => state["harness"], "reach_version" => Reach::VERSION, "files_digest" => state["checked_digest"], "expires_at" => state["expires_at"],
                    "public_key_digest" => Reach::Crypto.digest_hex(key(state).public_key.to_der) }
       expected["content_digest"] = state["content_digest"]
-      raise Reach::VerificationFailed, BLOCKED unless expected.all? { |name, value| receipt[name] == value } && receipt["receipt_id"].to_s.match?(/\Avrc_[0-9a-f]{24}\z/)
+      raise Reach::VerificationFailed, blocked("reply") unless expected.all? { |name, value| receipt[name] == value } && receipt["receipt_id"].to_s.match?(/\Avrc_[0-9a-f]{24}\z/)
 
       signer = Array(state["signing_public_keys"]).find { |item| item["key_id"] == receipt["signing_key_id"] }
       signature = Base64.strict_decode64(receipt.fetch("signature"))
       valid = signer && Reach::Crypto.verify_pss(Reach::Crypto.load_public_key(signer.fetch("pem")), signature, Reach::Crypto.canonical_json(receipt.reject { |name, _| name == "signature" }))
-      raise Reach::VerificationFailed, BLOCKED unless valid && fresh?(state)
+      raise Reach::VerificationFailed, blocked("reply") unless valid && fresh?(state)
 
       receipt
     rescue KeyError, ArgumentError, TypeError, OpenSSL::OpenSSLError
-      raise Reach::VerificationFailed, BLOCKED
+      raise Reach::VerificationFailed, blocked("reply")
     end
 
     def enrollment_key!(course_code:, teach_url:, harness:)
-      raise Reach::Refused, BLOCKED if ENV["REACH_VALIDATION_DISABLE"] == "1"
+      raise Reach::Refused, blocked("disabled") if ENV["REACH_VALIDATION_DISABLE"] == "1"
       state = read
       label = if harness == "cli"
                 begin
@@ -311,7 +329,7 @@ module Reach
                 self.harness(harness)
               end
       parsed = Reach::Identity.parse_course_code(course_code)
-      raise Reach::Refused, BLOCKED unless parsed && teach_url.to_s.sub(%r{/+\z}, "") == configured_url && fresh?(state, course_code: parsed["code"], harness: label) && state["phase"] == "passed"
+      raise Reach::Refused, blocked("state") unless parsed && teach_url.to_s.sub(%r{/+\z}, "") == configured_url && fresh?(state, course_code: parsed["code"], harness: label) && state["phase"] == "passed"
 
       verify_receipt!(state, state["receipt"])
       [key(state), state["receipt"]["receipt_id"], state["session_id"]]
@@ -375,7 +393,7 @@ module Reach
 
         Reach::Checkpoint.save(workspace, note: "synthetic security validation")
       else
-        raise Reach::Refused, BLOCKED
+        raise Reach::Refused, blocked("state")
       end
       puts JSON.generate("passed" => true)
     end

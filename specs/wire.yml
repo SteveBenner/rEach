@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-25c
+revision: 2026-10-25d
 status: normative
 security_validation:
   id: W-VAL-1
@@ -2258,7 +2258,7 @@ errors:
       course_code_unknown: {status: 400, reach: "never retried; M-ENR-CODE-UNKNOWN, or M-ENR-CODE-SUGGEST when details.did_you_mean is present (since 2026-10-01b), or M-ENR-CODE-COURSE-ONLY when details.course_only is present (since 2026-10-01d)"}
       course_code_expired: {status: 400, reach: "never retried; M-ENR-CODE-EXPIRED (since 2026-10-01b)"}
       enrollment_refused: {status: 403, reach: "never retried; M-ENR-REFUSED; counts toward the local enrollment lockout (since 2026-10-01b)"}
-      fingerprint_mismatch: {status: 403, reach: "never retried; Reach drops its stamp and locks into the enrollment flow with M-ENR-MOVED (since 2026-10-01b)"}
+      fingerprint_mismatch: {status: 403, reach: "never retried; Reach drops its stamp and locks into the enrollment flow with M-ENR-MOVED (since 2026-10-01b), except that since 2026-10-25d, when every binding component that differs from the stored fingerprint is one Reach could not read on this computer (a failed machine id or login probe), Reach keeps its stamp, does not lock, and surfaces the refusal as it came, for at most 24 hours from the first unreadable observation; after that, and on any readable mismatch, it locks as above"}
       instructor_code_refused: {status: 403, reach: "never retried; M-PERSONA-CODE-REFUSED; details {reason} (since 2026-10-02a)"}
       course_required: {status: 409, reach: "never retried; M-PERSONA-COURSE-NEEDED naming details.courses (since 2026-10-02a)"}
       student_not_found: {status: 404, reach: "never retried; M-PERSONA-NO-STUDENT (since 2026-10-02a)"}
