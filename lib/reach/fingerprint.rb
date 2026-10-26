@@ -26,6 +26,8 @@ module Reach
     }.freeze
     COWORK_ENTRYPOINT = /\A(?:local[-_]agent|remote_cowork|claude-coworker)/.freeze
     READER_TIMEOUT_S = 3
+    WINDOWS_READER_TIMEOUT_S = 8
+    READER_ATTEMPTS = 3
     UNKNOWN = "unknown".freeze
 
     module_function
@@ -80,15 +82,37 @@ module Reach
         return cached["value"]
       end
 
-      binding_hashes = binding_for(salt, load_install_public_key)
+      machine = machine_id
+      login = login_name
+      binding_hashes = binding_for(salt, load_install_public_key, machine: machine, login: login)
       hostname_hash = component(salt, "hostname", hostname)
       digests = digests_for(binding_hashes, hostname_hash)
+      unreadable = []
+      unreadable << "machine_id" if machine == UNKNOWN
+      unreadable << "os_user" if login == UNKNOWN
       value = {
         "digest" => digests[0], "strict_digest" => digests[1], "binding" => binding_hashes, "hostname" => hostname_hash,
-        "alternates" => alternate_digests(salt, binding_hashes, hostname_hash)
+        "alternates" => alternate_digests(salt, binding_hashes, hostname_hash), "unreadable" => unreadable
       }
-      write_cache("key" => key, "computed_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "value" => value)
+      write_cache("key" => key, "computed_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "value" => value) if unreadable.empty?
       value
+    end
+
+    def inconclusive?(stored_document, live_value)
+      return false unless stored_document.is_a?(Hash) && live_value.is_a?(Hash)
+
+      changed = changed_components(stored_document, live_value)
+      unreadable = Array(live_value["unreadable"])
+      return false if changed.empty? || !(changed - unreadable).empty?
+
+      was = stored_document["binding"].is_a?(Hash) ? stored_document["binding"] : {}
+      salt = stored_document["salt"].to_s
+      changed.none? { |name| unknown_components(salt, name).include?(was[name]) }
+    end
+
+    def unknown_components(salt, name)
+      values = name == "os_user" ? [UNKNOWN, "#{UNKNOWN}:#{Process.uid}"] : [UNKNOWN]
+      values.map { |value| component(salt, name, value) }
     end
 
     def stored
@@ -146,10 +170,10 @@ module Reach
       FileUtils.rm_f(Reach::Paths.fingerprint_cache_file)
     end
 
-    def binding_for(salt, install_public_key)
+    def binding_for(salt, install_public_key, machine: nil, login: nil)
       {
-        "machine_id" => component(salt, "machine_id", machine_id),
-        "os_user" => component(salt, "os_user", os_user),
+        "machine_id" => component(salt, "machine_id", machine || machine_id),
+        "os_user" => component(salt, "os_user", format_os_user(login || login_name)),
         "platform" => Reach::Enroll.platform,
         "install_key" => component(salt, "install_key", install_key_digest(install_public_key))
       }
@@ -196,15 +220,25 @@ module Reach
     end
 
     def os_user
-      name = begin
-        Etc.getlogin
-      rescue StandardError
-        nil
-      end
-      name = ENV["USER"] if name.to_s.empty?
-      name = ENV["USERNAME"] if name.to_s.empty?
-      name = UNKNOWN if name.to_s.empty?
+      format_os_user(login_name)
+    end
+
+    def format_os_user(name)
       windows? ? name.to_s : "#{name}:#{Process.uid}"
+    end
+
+    def login_name
+      READER_ATTEMPTS.times do
+        name = begin
+          Etc.getlogin
+        rescue StandardError
+          nil
+        end
+        name = ENV["USER"] if name.to_s.empty?
+        name = ENV["USERNAME"] if name.to_s.empty?
+        return name.to_s unless name.to_s.empty?
+      end
+      UNKNOWN
     end
 
     def os_user_alternates
@@ -248,19 +282,25 @@ module Reach
     end
 
     def macos_machine_id
-      out = run_reader("ioreg", "-rd1", "-c", "IOPlatformExpertDevice")
-      match = out.match(/"IOPlatformUUID"\s*=\s*"([^"]+)"/)
-      match && match[1]
+      READER_ATTEMPTS.times do
+        out = run_reader("ioreg", "-rd1", "-c", "IOPlatformExpertDevice")
+        match = out.match(/"IOPlatformUUID"\s*=\s*"([^"]+)"/)
+        return match[1] if match
+      end
+      nil
     end
 
     def windows_machine_id
-      out = run_reader("reg", "query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid")
-      match = out.match(/MachineGuid\s+REG_SZ\s+(\S+)/)
-      match && match[1]
+      READER_ATTEMPTS.times do
+        out = run_reader("reg", "query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid", timeout: WINDOWS_READER_TIMEOUT_S)
+        match = out.match(/MachineGuid\s+REG_SZ\s+(\S+)/)
+        return match[1] if match
+      end
+      nil
     end
 
-    def run_reader(*command)
-      Timeout.timeout(READER_TIMEOUT_S) do
+    def run_reader(*command, timeout: READER_TIMEOUT_S)
+      Timeout.timeout(timeout) do
         out, _err, status = Open3.capture3(*command)
         status.success? ? out.to_s.strip : ""
       end

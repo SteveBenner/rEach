@@ -740,8 +740,10 @@ so: Teach's `403 revoked` carries `details.reason replaced` and the newer enroll
 rEach shows `M-GATE-REPLACED` (plus `M-GATE-REPLACED-WHERE`) everywhere the lock is shown instead of blaming the
 instructor; `M-GATE-REVOKED` stays for an instructor's revoke, an unenrollment and a Teach without details. Verified
 2026-10-20 in a scratch home.
+Since 0.64.13 (`STD-FINGERPRINT-OS-USER`) a machine id or login name probe that fails is retried and, if it still fails,
+does not lock the install as moved for 24 hours, and a security validation refusal names its cause.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
+Build ✅ (0.64.13) · Deploy 🔵 (0.64.13 pending) · Blocker: Human (the live Teach units still run 0.15.1 and need a restart, a roster and a minted code before a student can enroll with a course code).
 
 ### 2.27.1 · A reinstall keeps the computer
 

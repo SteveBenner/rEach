@@ -280,11 +280,25 @@ module Reach
         status
       rescue Reach::RemoteRefused => e
         if e.code == "fingerprint_mismatch"
+          raise e if unreadable_inconclusive?
           Reach::EnrollmentLock.mark_moved!([])
           raise Reach::GateBlocked.new("M-ENR-MOVED", Reach::Messages.text("M-ENR-MOVED"))
         end
         Reach::Enroll.mark_revoked!(e.details) if %w[revoked not_enrolled].include?(e.code)
         raise
+      end
+
+      def unreadable_inconclusive?
+        stored = Reach::Fingerprint.stored
+        return false unless stored
+
+        live = Reach::Fingerprint.live(salt: stored["salt"])
+        return false unless Reach::Fingerprint.inconclusive?(stored, live)
+
+        since = Reach::EnrollmentLock.note_unreadable!(Reach::Fingerprint.changed_components(stored, live))
+        Reach::EnrollmentLock.unreadable_within_grace?(since)
+      rescue StandardError
+        false
       end
 
       def fingerprint_headers

@@ -16,6 +16,7 @@ module Reach
       "instructor_revoked" => "M-PERSONA-LOCKED"
     }.freeze
     MOVED_KIND = "fingerprint_mismatch".freeze
+    UNREADABLE_GRACE_S = 86_400
 
     module_function
 
@@ -86,7 +87,15 @@ module Reach
       live = Reach::Fingerprint.live(salt: stored["salt"])
       strict = Reach::Policy.enrollment["fingerprint_match"] == "strict"
       wanted = strict ? stamp["fingerprint_strict_digest"] : stamp["fingerprint_digest"]
-      return nil if Reach::Fingerprint.matches?(live, wanted, strict)
+      if Reach::Fingerprint.matches?(live, wanted, strict)
+        clear_unreadable!
+        return nil
+      end
+
+      if Reach::Fingerprint.inconclusive?(stored, live)
+        since = note_unreadable!(Reach::Fingerprint.changed_components(stored, live))
+        return nil if unreadable_within_grace?(since)
+      end
 
       mark_moved!(Reach::Fingerprint.changed_components(stored, live))
       "moved"
@@ -125,6 +134,43 @@ module Reach
 
     def clear_moved!
       FileUtils.rm_f(Reach::Paths.enroll_moved_file)
+      clear_unreadable!
+    end
+
+    def clear_unreadable!
+      FileUtils.rm_f(Reach::Paths.enroll_unreadable_file)
+    end
+
+    def read_unreadable
+      path = Reach::Paths.enroll_unreadable_file
+      return nil unless File.file?(path)
+
+      data = JSON.parse(File.read(path))
+      data.is_a?(Hash) ? data : nil
+    rescue StandardError
+      nil
+    end
+
+    def note_unreadable!(changed)
+      held = read_unreadable
+      since = held && held["since"].to_s
+      return since if since && !since.empty? && held["changed"] == Array(changed)
+
+      since = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ") if since.to_s.empty?
+      FileUtils.mkdir_p(Reach::Paths.enroll_state_dir)
+      path = Reach::Paths.enroll_unreadable_file
+      tmp = "#{path}.tmp.#{Process.pid}.#{rand(1_000_000)}"
+      File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate("since" => since, "changed" => Array(changed))) }
+      Reach::StateFile.rename_into_place(tmp, path)
+      since
+    rescue StandardError
+      since
+    end
+
+    def unreadable_within_grace?(since)
+      Time.now.utc - Time.iso8601(since.to_s) < UNREADABLE_GRACE_S
+    rescue ArgumentError
+      false
     end
 
     def queue_mismatch(record)
