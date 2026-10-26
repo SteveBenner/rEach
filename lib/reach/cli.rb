@@ -1543,7 +1543,7 @@ module Reach
             flag = parts[index].downcase
             if POWERSHELL_PLAIN_FLAGS.include?(flag)
               index += 1
-            elsif flag == "-executionpolicy"
+            elsif %w[-executionpolicy -windowstyle].include?(flag)
               index += 2
             elsif %w[-command -c].include?(flag)
               return parts[(index + 1)..-1].join(" ")
@@ -1555,14 +1555,17 @@ module Reach
         end
         return nil unless command.is_a?(String)
 
-        match = command.match(/\A\s*"?(?:[^\s"]*[\\\/])?(?:powershell|pwsh)(?:\.exe)?"?\s+(.*)\z/mi)
+        match = command.match(/\A\s*(?:&\s*)?(?:"([^"]+)"|'([^']+)'|(\S+))\s+(.*)\z/m)
         return nil unless match
 
-        rest = match[1]
+        host = (match[1] || match[2] || match[3]).downcase.tr("\\", "/").split("/").last.to_s.sub(/\.exe\z/, "")
+        return nil unless host =~ /\A(?:powershell|pwsh)\z/
+
+        rest = match[4]
         loop do
           if rest =~ /\A(?:-NoProfile|-NoLogo|-NonInteractive|-Sta|-Mta)\s+/i
             rest = Regexp.last_match.post_match
-          elsif rest =~ /\A-ExecutionPolicy\s+\S+\s+/i
+          elsif rest =~ /\A-(?:ExecutionPolicy|WindowStyle)\s+\S+\s+/i
             rest = Regexp.last_match.post_match
           else
             break
