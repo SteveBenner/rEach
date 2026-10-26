@@ -749,8 +749,8 @@ module Reach
               Reach::Validation.advance(action, question: arguments["question"], text: arguments["text"])
             end
           rescue StandardError => e
-            Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
-            { "phase" => "blocked", "text" => Reach::Validation::BLOCKED }
+            Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name, "cause" => Reach::Validation.cause_of(e))
+            Reach::Validation.failure(e)
           end
         when "reach_status"
           with_submit_notices("summary" => Reach::Status.summary)

@@ -92,6 +92,11 @@ failure:
     impersonating rEach or Teach. Please wait and contact your instructor
     through the contact details you already have before continuing to enroll.
   unavailable_support: Blocks enrollment; never fall back to an unverified pass.
+  local_refusal: >-
+    A step refused on this computer before any request (causes busy,
+    course_code, harness_label, input, state) names its cause, says nothing
+    was sent to Teach and states the input limits; it still blocks the pass.
+    Every other failure uses the text above with its cause appended.
   kill_switches: [REACH_VALIDATION_DISABLE=1, a matching switch on the course server]
   safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.
 trust_limit: A successful practice receipt does not prove that a local executable or computer is uncompromised.

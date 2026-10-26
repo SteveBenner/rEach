@@ -675,8 +675,8 @@ module Reach
         puts JSON.pretty_generate(result)
         result["phase"] == "blocked" ? 1 : 0
       rescue StandardError => e
-        Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
-        warn Reach::Validation::BLOCKED
+        Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name, "cause" => Reach::Validation.cause_of(e))
+        warn Reach::Validation.failure_text(e)
         1
       end
 

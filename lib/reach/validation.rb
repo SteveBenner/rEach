@@ -26,6 +26,35 @@ module Reach
       "#{BLOCKED} (cause: #{cause})"
     end
 
+LOCAL_CAUSES = %w[busy course_code harness_label input state].freeze
+INPUT_LIMITS = "plan text 10-400 characters; answers, answers.json and README.md up to 128 KB each".freeze
+
+# The cause a refusal carries, or nil when it is not a blocked() refusal.
+def cause_of(error)
+  error.message.to_s[/\(cause: ([^)]*)\)\z/, 1]
+end
+
+# What the agent is told when a step fails. Only connection, server-reply
+# and address failures keep the impersonation warning; a step refused on
+# this computer says so, names its cause, and sent nothing to Teach.
+def failure_text(error)
+  cause = cause_of(error)
+  if cause && LOCAL_CAUSES.include?(cause.split(":").first)
+    hint = cause == "input" ? " Limits: #{INPUT_LIMITS}." : ""
+    "This practice step was refused on this computer (cause: #{cause}). Nothing was sent to Teach. Correct the step and run it again.#{hint}"
+  elsif cause
+    blocked(cause)
+  elsif error.is_a?(Reach::Refused) && error.message.to_s.start_with?("reach:")
+    error.message.to_s
+  else
+    blocked("error:#{error.class.name.to_s.downcase.gsub('::', '_').gsub(/[^a-z0-9_]/, '')[0, 48]}")
+  end
+end
+
+def failure(error)
+  { "phase" => "blocked", "text" => failure_text(error), "cause" => cause_of(error) }
+end
+
     def harness_cause(label)
       label.to_s.downcase.gsub(/[^a-z0-9-]/, "")[0, 32]
     end
@@ -159,7 +188,7 @@ module Reach
                  "readme_min_words_per_section" => Reach::ReadmeCheck::MIN_WORDS }
       result["next"] = case state["phase"]
                        when "handoff" then "Act as the smoke student: fabricate one answer per provided shape. Call reach validate answer --question ID --text TEXT for each. Never use real student answers."
-                       when "plan" then "Call reach validate plan --text TEXT describing how you will preserve the fabricated answers in answers.json and explain them in README.md."
+                       when "plan" then "Call reach validate plan --text TEXT (10-400 characters) describing how you will preserve the fabricated answers in answers.json and explain them in README.md."
                        when "build" then "Use reach validate artifact --question answers.json --text JSON to write an object mapping question ids to the exact fabricated answer texts, then the same command with --question README.md and its text to explain the fictional decision under each required section. Then run reach validate check."
                        when "checked" then "Run reach validate qualify to have Teach independently check the sealed practice work."
                        when "qualified" then "Run reach validate submit, then reach validate finish."
