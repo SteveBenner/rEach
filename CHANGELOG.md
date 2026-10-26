@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.64.15] - 2026-10-25
 
+### Added
+
+- `tools/platform_smoke/unreadable_probe.rb` and the platform smoke step `machine_id_unreadable` (group `core`): on every leg the real machine id readers are made to fail, and the step checks that the install is not locked inside the 24 hour grace and keeps its stamp, that it locks as moved after the grace and on a readable mismatch, that the lock clears the observation, and that a validation refusal ends with its cause token.
+
 ### Fixed
 
 - A student on a new install could be locked as moved (`M-ENR-MOVED`) and then not re-enroll. A machine id or login name probe that failed (for example a slow Windows `reg query`) became `unknown`, the live fingerprint then differed from the signed stamp, and the lock dropped the stamp and wrote a moved record that only a full enrollment clears. The probes are now retried up to 3 times (the Windows registry query waits 8 seconds), a probe that still fails is listed as unreadable and not cached, and an install whose only changed components are unreadable keeps its stamp and is not locked for 24 hours (`enroll/unreadable.json`); the status check's `fingerprint_mismatch` in that window does not lock it either. After 24 hours, or on any readable mismatch, it locks as before. Measured: the cause for the reporting student is unproven because the moved record's changed list was not available; the behaviour was checked by reading the code path and by running the lock with a stubbed failing probe in a scratch home (`STD-FINGERPRINT-OS-USER`). The wire file's `fingerprint_mismatch` line states the exception, so `specs/wire.yml` moves to revision 2026-10-25d and its digest changes: Teach must re-pin `specs/wire.yml` and `tools/release_gate/PIN.yml` before this release reaches stable, or students' `reach doctor` reports R-DOC-WIRE until it does.

@@ -191,14 +191,14 @@ module PlatformSmoke
       installed = @steps.last.result == :pass
       step("package_known_answer") { package_known_answer_step } if installed
       unless installed
-        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex validate enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
+        %w[package_known_answer fake_teach hook_session_start hook_prompt_locked hook_codex validate enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id machine_id_unreadable hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "install failed", 0.0))
         end
         return
       end
       step("fake_teach") { fake_teach_step }
       if @steps.last.result != :pass
-        %w[hook_session_start hook_prompt_locked hook_codex validate enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id hook_prompt_open codex_course_hook status doctor].each do |name|
+        %w[hook_session_start hook_prompt_locked hook_codex validate enroll runtime kit_known_answer kit_gems sync_packages doctor_report codex_sandbox_decrypt machine_id machine_id_unreadable hook_prompt_open codex_course_hook status doctor].each do |name|
           record(Step.new(name, :skip, "fake_teach failed", 0.0))
         end
         return
@@ -219,6 +219,7 @@ module PlatformSmoke
       step("doctor_report") { doctor_report_step }
       step("codex_sandbox_decrypt") { codex_sandbox_decrypt_step }
       step("machine_id") { machine_id_step }
+      step("machine_id_unreadable") { machine_id_unreadable_step }
       step("hook_prompt_open") { hook_prompt_open_step }
       step("codex_course_hook") { codex_course_hook_step }
       step("status") { status_step }
@@ -716,6 +717,16 @@ RUBY
       end
     rescue StandardError
       nil
+    end
+
+    def machine_id_unreadable_step
+      code, out, err = spawn_capture(
+        [RbConfig.ruby, "-I", File.join(@install, "lib"), File.join(ROOT, "tools", "platform_smoke", "unreadable_probe.rb")],
+        chdir: @scratch, extra_env: { "REACH_HOME" => File.join(@scratch, "unreadable-home") }
+      )
+      return [:fail, "exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      [:pass, out.lines.last.to_s.strip]
     end
 
     def machine_id_step
