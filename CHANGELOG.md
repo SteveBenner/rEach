@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.18] - 2026-10-26
+
+### Fixed
+
+- `Reach::HookLiveness.signin_hook_dead?` (`lib/reach/hook_liveness.rb`): a Codex student who is enrolled but not signed in, and whose Codex runs none of rEach's plugin hooks, is now told so. The check compared the last sign-in hook run with the last Codex session start, but that stamp comes from the plugin's own SessionStart hook, so when Codex loads no plugin hooks both stamps froze together and the detector stayed off for good. `reach doctor` reported no problem, `reach_hello` told the agent that rEach would ask for the student ID in the chat, and `reach_next` kept answering `Sign in: type your student ID.` while the student typed it to the model, which nothing took. While sign-in is pending, a sign-in hook that has not run for 15 minutes now counts as silent even after a recorded session start, so `reach_next` answers `M-NEXT-LOGIN-NO-HOOK`, `reach_hello` and tool refusals use `M-LOGIN-NEEDED-NO-HOOK`, and `reach doctor` reports `signin_hook_not_running`. A signed-in student keeps the old rule (`STD-SIGNIN-HOOK-SILENT`). Measured with Codex CLI 0.164.0 on Linux: a cached copy of rEach holding a root `plugin.json` loads no plugin hook (`STD-CODEX-PLUGIN-HOOKS`), and after the cache repair a headless chat sign-in completes. Not run on Windows or in the Codex desktop app.
+
 ## [0.64.17] - 2026-10-26
 
 ### Fixed

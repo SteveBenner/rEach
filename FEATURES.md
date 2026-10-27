@@ -909,6 +909,18 @@ Since 0.34.11 the sign-in step counts as running when either prompt hook ran (th
 course folder's `gate prompt`), and tool gates refuse with `M-LOGIN-NEEDED-NO-HOOK` while neither did. Verified
 2026-10-05 with the real hook commands: session start only (silent, new text), course-folder `gate prompt` only
 (running, old text), a new session with both silent (silent), then `gate enroll` (running).
+Since 0.64.18 a student who is enrolled but not signed in also gets the silent case when neither prompt hook ran in
+the last 15 minutes, even though one ran after the last recorded session start. That stamp comes from the plugin's
+own SessionStart hook, so when Codex loads none of the plugin's hooks it froze with them and kept the detector off.
+Verified 2026-10-26 on Linux with Codex CLI 0.164.0 against the fixture Teach in a platform-smoke scratch home: with a
+root `plugin.json` in Codex's cached copy, app-server `hooks/list` showed only the six course-folder hooks, a typed
+prompt reached the model and `reach status` said `Sign in: type your student ID.`; after `Reach::CodexCache.repair`
+the three plugin hooks loaded trusted and a headless `codex exec` sign-in went from the ID to the password to signed
+in. In the silent state the real MCP server answered `reach_hello` with `M-LOGIN-NEEDED-NO-HOOK` and the
+`signin_hook_not_running` health line, and `reach_next` with `M-NEXT-LOGIN-NO-HOOK`; 0.64.16 answered `M-LOGIN-NEEDED`
+and `M-NEXT-LOGIN` there. A prompt hook that ran a minute earlier, a hook older than the session start, 14 quiet
+minutes and a signed-in student all kept their old verdicts. Not run on Windows or in the Codex desktop app.
+Build ✅ (0.64.18) · Deploy 🔵 (0.64.18 pending).
 Since 0.35.16 (`STD-CODEX-PROMPT-JSON-BLOCK`) `gate enroll` and `gate prompt` with `--harness codex` block by printing
 `{"decision":"block","reason":...}` on standard output and exiting 0, not by exiting 2. Codex on Windows runs hooks
 in the session's PowerShell (`-Command`), which turns a native exit 2 into 1, and Codex treats exit 1 as a hook

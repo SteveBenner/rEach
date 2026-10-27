@@ -185,7 +185,8 @@ module Reach
       ran = stamps.map { |stamp| Time.parse(stamp) }.max
       started = seen["session_at"].to_s
       if !started.empty? && family_of(seen["session_label"]) == "codex"
-        return ran < Time.parse(started)
+        return true if ran < Time.parse(started)
+        return false unless signin_pending?
       end
       Time.now - ran > HOOKS_QUIET_S
     rescue StandardError
