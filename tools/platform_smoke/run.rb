@@ -832,7 +832,7 @@ RUBY
 
     def course_shell_payload(tool_command, work)
       JSON.generate(
-        "session_id" => "platform-smoke-codex", "turn_id" => "t7", "hook_event_name" => "PreToolUse",
+        "session_id" => "platform-smoke-codex", "turn_id" => "t6", "hook_event_name" => "PreToolUse",
         "tool_name" => "exec_command", "tool_input" => { "command" => tool_command }, "cwd" => work
       )
     end
