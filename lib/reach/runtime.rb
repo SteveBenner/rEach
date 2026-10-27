@@ -10,8 +10,28 @@ module Reach
 
     module_function
 
+    VERSION_DIR = /\A\d+\.\d+\.\d+\z/.freeze
+
     def root
+      own = own_root
+      return own if File.file?(File.join(own, "VERSION"))
+
+      replacement_root(own) || own
+    end
+
+    def own_root
       File.expand_path("../..", __dir__)
+    end
+
+    def replacement_root(own)
+      if File.basename(own).match?(VERSION_DIR)
+        siblings = Dir.glob(File.join(File.dirname(own), "*", "VERSION")).map { |file| File.dirname(file) }
+        siblings = siblings.select { |dir| File.basename(dir).match?(VERSION_DIR) }
+        newest = siblings.max_by { |dir| Gem::Version.new(File.basename(dir)) }
+        return newest if newest
+      end
+      managed = Reach::Paths.managed_install_dir
+      File.file?(File.join(managed, "VERSION")) ? managed : nil
     end
 
     def exe_path
