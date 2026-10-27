@@ -920,7 +920,21 @@ in. In the silent state the real MCP server answered `reach_hello` with `M-LOGIN
 `signin_hook_not_running` health line, and `reach_next` with `M-NEXT-LOGIN-NO-HOOK`; 0.64.16 answered `M-LOGIN-NEEDED`
 and `M-NEXT-LOGIN` there. A prompt hook that ran a minute earlier, a hook older than the session start, 14 quiet
 minutes and a signed-in student all kept their old verdicts. Not run on Windows or in the Codex desktop app.
-Build ✅ (0.64.18) · Deploy 🔵 (0.64.18 pending).
+Build ✅ (0.64.18) · Deploy ✅ (0.64.18 on stable).
+Since 0.64.19 the silent sign-in state no longer opens with the `G-LOGIN` greeting on the MCP path: `reach_hello` returns
+no greeting, so the agent cannot greet the student with "please type your student ID" while the context says no hook
+can take it. The hook-driven session start keeps `G-LOGIN`. A signed-in student whose plugin hooks are silent while the
+course folder's hooks keep running is also reported now: the course folder's tool hooks and the plugin's prompt hook
+each record the Codex `turn_id` they ran under (`prompt_turn` and `work_turn` in `hooks_seen.json`), and
+`HookLiveness.prompt_turns_unseen?` is true when a tool hook ran in the last 15 minutes under a turn no prompt hook
+stamped, after the last stamped prompt. The `hooks_not_running` detector (`reach doctor` and the health line) reads it;
+`HookLiveness.prompt_hook_dead?`, and with it the `M-HOOKS-REQUIRED` refusal, does not. Verified 2026-10-26 on Linux in
+the platform-smoke scratch home with state files written for six situations (same turn, new turn with fresh tools, a
+50-minute turn on one id, a new turn with tools quiet, no prompt turn ever, old stamps with no turn ids) and the real
+MCP server: `reach_hello` answered with a null greeting and `M-LOGIN-NEEDED-NO-HOOK` where 0.64.18 answered `G-LOGIN`.
+Not run against a live Codex that sends a subagent's tool hooks under a turn id of its own, which would raise the
+health line wrongly; the refusal is left off for that reason.
+Build ✅ (0.64.19) · Deploy 🔵 (0.64.19 pending).
 Since 0.35.16 (`STD-CODEX-PROMPT-JSON-BLOCK`) `gate enroll` and `gate prompt` with `--harness codex` block by printing
 `{"decision":"block","reason":...}` on standard output and exiting 0, not by exiting 2. Codex on Windows runs hooks
 in the session's PowerShell (`-Command`), which turns a native exit 2 into 1, and Codex treats exit 1 as a hook

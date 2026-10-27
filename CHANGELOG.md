@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.19] - 2026-10-26
+
+### Fixed
+
+- `reach_hello` (`lib/reach/hello.rb`): when Codex runs none of rEach's sign-in hooks and the student is enrolled but not signed in, the MCP answer no longer carries the `G-LOGIN` greeting ("please type your student ID"). The context already said no hook can take an ID; the greeting contradicted it. The hook-driven session start keeps the greeting.
+- `hooks_not_running` (`lib/reach/health.rb`, `lib/reach/hook_liveness.rb`, `lib/reach/cli.rb`): a signed-in Codex student whose plugin hooks are silent while the course folder's tool hooks keep running was reported healthy, because the tool hooks kept `work_at` fresh. `gate` now records the Codex `turn_id` of the prompt hook and of the tool hooks (`prompt_turn`, `work_turn` in `hooks_seen.json`), and the new `HookLiveness.prompt_turns_unseen?` is true when a tool hook ran in the last 15 minutes under a turn no prompt hook stamped. The detector reads it; the `M-HOOKS-REQUIRED` refusal still reads only `prompt_hook_dead?` (`STD-HOOK-GUARD`, `STD-SIGNIN-HOOK-SILENT`).
+
 ## [0.64.18] - 2026-10-26
 
 ### Fixed

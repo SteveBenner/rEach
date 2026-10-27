@@ -917,9 +917,9 @@ module Reach
         if sub == "enroll"
           label = Reach::Fingerprint.harness_label(options[:harness])
           Reach::HookLiveness.record_enroll_hook!(label)
-          Reach::HookLiveness.record_hook!(label, "prompt") if codex_prompt_event?(options[:harness], event)
+          Reach::HookLiveness.record_hook!(label, "prompt", turn: event["turn_id"]) if codex_prompt_event?(options[:harness], event)
         else
-          Reach::HookLiveness.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind)
+          Reach::HookLiveness.record_hook!(Reach::Fingerprint.harness_label(options[:harness]), hook_kind, turn: event.is_a?(Hash) ? event["turn_id"] : nil)
           Reach::Harness.note_hooks_ran(Reach::Fingerprint.harness_label(options[:harness]))
         end
         Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(options[:harness]))

@@ -301,7 +301,8 @@ module Reach
 
       if login_pending?(event)
         updating = safe_update_start(session_id, source)
-        greeting_text = [nil, "startup", "clear"].include?(source) ? Reach::Greetings.text("G-LOGIN") : nil
+        asks_id = !(mcp && Reach::HookLiveness.signin_hook_dead?)
+        greeting_text = asks_id && [nil, "startup", "clear"].include?(source) ? Reach::Greetings.text("G-LOGIN") : nil
         return [greeting_text && "G-LOGIN", greeting_text, nil, framed("hello.login", login_context(updating, mcp: mcp))]
       end
 

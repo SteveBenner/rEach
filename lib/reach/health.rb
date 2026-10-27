@@ -14,7 +14,7 @@ module Reach
       when "codex_sandbox"
         Reach::Sandbox.blocked?
       when "hooks_not_running"
-        mcp && !Reach::HookLiveness.signin_pending? && Reach::HookLiveness.prompt_hook_dead?(env)
+        mcp && !Reach::HookLiveness.signin_pending? && (Reach::HookLiveness.prompt_hook_dead?(env) || Reach::HookLiveness.prompt_turns_unseen?(env))
       when "signin_hook_not_running"
         mcp && Reach::HookLiveness.signin_hook_dead?(env)
       when "codex_hooks_untrusted"

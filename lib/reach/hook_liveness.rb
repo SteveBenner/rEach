@@ -7,7 +7,7 @@ module Reach
   module HookLiveness
     HOOKS_QUIET_S = 900
     PROMPT_WITHOUT_WORK_S = 600
-    WORK_KEYS = %w[work_at prompt_at session_at session_label].freeze
+    WORK_KEYS = %w[work_at prompt_at session_at session_label prompt_turn work_turn].freeze
     SESSION_SOURCES = %w[startup resume clear].freeze
     FAMILIES = %w[claude codex].freeze
     PROCESS_FAMILIES = { "codex" => "codex", "claude" => "claude" }.freeze
@@ -175,6 +175,20 @@ module Reach
       false
     end
 
+    def prompt_turns_unseen?(env = environment)
+      return false unless family_of(env["harness"]) == "codex"
+
+      seen = read_json(hooks_seen_file) || {}
+      work_turn = seen["work_turn"].to_s
+      return false if work_turn.empty? || work_turn == seen["prompt_turn"].to_s
+
+      work = stamp_time(seen["work_at"])
+      prompted = stamp_time(seen["prompt_at"])
+      return false if work.nil? || Time.now - work > HOOKS_QUIET_S
+
+      prompted.nil? || work > prompted
+    end
+
     def signin_hook_dead?(env = environment)
       return false unless family_of(env["harness"]) == "codex"
 
@@ -235,12 +249,14 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-HOOKS-REQUIRED")
     end
 
-    def record_hook!(harness_label, kind = "work")
+    def record_hook!(harness_label, kind = "work", turn: nil)
       seen = read_json(hooks_seen_file) || {}
       data = { "at" => now_s, "label" => harness_label.to_s }
       WORK_KEYS.each { |key| data[key] = seen[key] if seen[key].is_a?(String) }
       data["work_at"] = data["at"] if kind == "work"
       data["prompt_at"] = data["at"] if kind == "prompt"
+      data["work_turn"] = turn.to_s if kind == "work" && !turn.to_s.empty?
+      data["prompt_turn"] = turn.to_s if kind == "prompt" && !turn.to_s.empty?
       write_json(hooks_seen_file, data)
       nil
     rescue StandardError
