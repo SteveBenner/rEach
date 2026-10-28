@@ -1,6 +1,6 @@
 # FEATURES — rEach
 
-## Document assignments — 0.65.1
+## Document assignments — 0.67.0
 
 An instructor can make an assignment a document assignment (wire revision 2026-10-26a): written work handed in as files instead of code. `reach sync` gives the student a folder with a read-only `INSTRUCTIONS.md` (the title and the task, no due line) and the usual rules files; there is no README, brief, plan, qualification or shape check. The student and the agent write in the folder, and the agent may create and edit only `.md` and `.txt` files; pdf, Word, OpenDocument and image files the student adds are theirs. `reach submit` lists the files, refuses an empty folder, more than 200 files, a name over 255 bytes, names that differ only by case, a file with no extension or a kind the assignment does not accept (naming the file; nothing is sent), asks the student's yes, and sends one body with an idempotency key, waiting up to two minutes. After a timeout it asks Teach by that key before it queues the body once in the outbox. The grade arrives in percent with the instructor's feedback and shows in `reach grades`, `reach status` and `reach next`; a grade for an earlier submission is marked as that. An assignment handed in elsewhere keeps only `INSTRUCTIONS.md`, records no transcript and stays out of late lists, hands and exports. Directives now carry a `slice` scope: ten engineering directives apply to code slices only, and the new `FLOWDOC` and `RESUMEDOC` apply to document slices.
 
@@ -14,15 +14,15 @@ Verified on 2026-10-28 on Linux, only in scratch homes, against an in-process st
 - An elsewhere assignment held only the read-only `INSTRUCTIONS.md`, refused writes and submission with the instructor's note, recorded no transcript and was not a late assignment.
 - The directives were compiled with the candidate polispec 0.51.0: `ruby tools/policy.rb check` was ok, `Reach::Directives.problems` was empty, a document slice's rules file lists only FLOWDOC and RESUMEDOC and a code slice lists the ten code directives.
 
-Verified on 2026-10-28 in process against the real, not yet deployed course server code on a scratch database, the 0.65.1 client with only the network call replaced, no socket:
-- A 0.65.0 client was withheld: its status showed no document slices and its workspace package request was refused as an invalid assignment; the 0.65.1 client saw BOOK as the current document assignment and `slices`, `packages` and late entries as Teach built them.
+Verified on 2026-10-28 in process against the real, not yet deployed course server code on a scratch database, the 0.67.0 client with only the network call replaced, no socket:
+- A 0.65.0 client was withheld (the course server then cut at 0.65.1; it now cuts at 0.67.0): its status showed no document slices and its workspace package request was refused as an invalid assignment; the 0.67.0 client saw BOOK as the current document assignment and `slices`, `packages` and late entries as Teach built them.
 - A `.exe` was refused naming `run.exe`, with no POST. A submission with essay.md and figure.png was accepted: Teach stored it as `awaiting_grade`, attempt 1, not late, never offered to the grader queue, and the signed ingest receipt verified and was acknowledged.
 - An assignment handed in elsewhere (FINAL): submit was refused locally with the instructor's note and no POST; a forced POST was answered 403 `submit_elsewhere`; Teach stored 0 submissions.
 - A grade of 87.5% with feedback entered through `teach grade document` reached the student on the next sync as `88%` with the feedback; `reach grades`, status and next agreed after fix 3 below, and next said to review. A grade of 50% also sent the student to review.
 - Resubmission gave attempt 2 (`awaiting_grade`) while attempt 1 stayed `graded`; `reach grades` showed `88% (for your earlier submission; your newest one has not been graded yet)` and next said to wait.
 - An upload whose read timed out after Teach stored it sent 1 POST and then one GET by idempotency key, which returned 200; attempt 3 was `awaiting_grade` with no second POST.
 - A late assignment (LATEDOC) accepted attempts 1 and 2 with `late` 1 on Teach and `late: true` on both ingest receipts.
-- The version stamp in `DOCUMENT_FROM_REACH` matched the client (0.65.1).
+- The version stamp in `DOCUMENT_FROM_REACH` matched the client (0.67.0).
 - After the round 3 fixes the same run again showed: FINAL, a released elsewhere assignment that was not the current one, was provisioned with a mode 444 `INSTRUCTIONS.md` and no late mention while BOOK was current (status listed only LATEDOC as late work); a grade and its ingest receipt in the same second ordered the grade first in `Reach::Receipts.list` in three scratch runs with the two timestamps forced equal, and next read `M-NEXT-DOC-REVIEW`; the 87.5 grade read `88%` in sync, status and `reach grades`.
 
 Not verified: any request to a live Teach, Teach's console grade screen (blocked, being redesigned), uploads near 26 MiB and the 36 MiB body limit, 200 or more files, Windows and macOS, a real harness session writing to a document folder, `sidecar verify` with an empty student part, the regenerated course matrix proof digests, and the release gate with the installed polispec 0.50.0 (it cannot compile the new directive scopes).

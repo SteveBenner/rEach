@@ -1941,7 +1941,11 @@ submissions:
       only by the course that retired it. The slot name doc is reserved for document cutout ids (W-DOC-2); no code
       definition may use it in cutout_slots. A document slice is outside the course's modules: W-MOD-1 to W-MOD-3 and
       W-SUB-5 skip it, and module selection never stops it. student_part is read from the definition (W-POL-1,
-      W-PART-1).
+      W-PART-1). Document assignments exist only for a Reach whose X-Reach-Version is 0.67.0 or higher: for an older
+      Reach (or one that sends no version), Teach leaves every document definition out of status (current_assignment,
+      assignments, late_assignments and slices), out of the workspace package, and answers a package
+      request that names one with 400 invalid_request, so an older Reach sees only the course's code assignments and
+      never a slice it cannot handle.
   W-DOC-2:
     name: document slice
     since: 2026-10-26a
