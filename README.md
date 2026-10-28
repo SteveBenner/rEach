@@ -179,7 +179,7 @@ rEach is gone. Your work is never touched: `deliverables`, `extracurricular` and
 are, a copy of your receipts and grade records is saved to `~/Downloads/rEach-receipts-<date>` first, and the extra copies
 of your work files that rEach keeps outside `reach-work` stay unless you ask for them to go (`--purge-checkpoint-mirror`).
 rEach's memory of you (`~/reach-work/.reach-brain` and its copy of what you typed under `~/.local/state/rplugin/reach`) stays too, so
-a later install finds it again, unless you ask for it to go (`--purge-microbrain`).
+a later install finds it again, unless you ask for it to go (`--purge-microbrain`, which deletes it for everyone who uses this computer account).
 When `reach` will not start, [`UNINSTALL.md`](UNINSTALL.md) has a standalone script that does the same without telling the
 course server. `STD-UNINSTALL` in `specs/app.yml` is the contract.
 
@@ -281,10 +281,10 @@ adds the profile at session start and the matching memories on each prompt. A no
 floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced sources are pruned first), and nothing here is sent to Teach. Ask rEach what it remembers, or run `reach memory list`; `reach memory
 forget <id>` or `reach memory forget --all --yes` erases it from rEach's files. The settings are in `config.yml`
 under `brain`. Since 0.65.0 the memory's own files live in `~/reach-work/.reach-brain/<student key>` (marked with the
-student's ID, so a second student on the same computer account does not get them), not inside the rEach home folder, and
-the first run moves an older one there by itself. The saved copy of what the student typed (the brain spool under the
-rplugin state folder) is not split by student: it is shared by everyone who uses the same computer account, so a shared
-computer should give each student their own account. `reach reclaim` brings back memory and course folders an earlier
+student's ID, so a second student on the same computer account does not get that folder), not inside the rEach home
+folder, and the first run moves an older one there by itself. What rEach learned and its copy of what was typed (the
+brain spool under the rplugin state folder) are not split by student: they are shared by everyone who uses the same
+computer account, so a shared computer should give each student their own account. `reach reclaim` brings back memory and course folders an earlier
 install left behind, after the student says yes; see Reclaim below.
 
 Once the runtime kit is present, rEach also installs its small SDK kit (rplugin and rBrain, verified against a manifest

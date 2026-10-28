@@ -30,7 +30,7 @@ Use "Claude Code, Codex, Antigravity and Hermes" below whenever you can run shel
 3. After the student's yes in their next message, run the same command again. rEach tells the course server, removes itself and prints a closing text. Give that text to the student word for word. If it lists anything under "left for you", walk the student through each item.
 4. Tell the student to start a new chat in their AI app so it stops looking for rEach. If they installed rEach with rplugin, also run `rplugin uninstall reach`.
 
-Choices the student can ask for, added to the same command: `--purge-checkpoint-mirror` also deletes the extra copies of their work files, `--purge-microbrain` also deletes rEach's memory of them (`.reach-brain` and the saved copy of what they typed), `--no-receipts-copy` skips the receipts copy, `--delete-hermes-profile` also deletes the Hermes profile named reach, `--keep-workspace-files` leaves the settings files in the work folders, and `--no-teach` does not tell the course server. Add one only when the student asks for it.
+Choices the student can ask for, added to the same command: `--purge-checkpoint-mirror` also deletes the extra copies of their work files, `--purge-microbrain` also deletes rEach's memory (`.reach-brain` and the saved copy of what was typed, for every student who uses this computer account), `--no-receipts-copy` skips the receipts copy, `--delete-hermes-profile` also deletes the Hermes profile named reach, `--keep-workspace-files` leaves the settings files in the work folders, and `--no-teach` does not tell the course server. Add one only when the student asks for it.
 
 ### When rEach cannot run, or cannot take a yes
 

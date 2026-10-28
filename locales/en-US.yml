@@ -285,7 +285,7 @@ messages:
   M-UNINSTALL-MIRROR-KEEP: " The extra copies rEach keeps of your work files outside your work folder ({records}) stay, so a later install can find them again; you can delete them yourself."
   M-UNINSTALL-MIRROR-PURGE: " The extra copies rEach keeps of your work files outside your work folder ({records}) are deleted too; your work files stay."
   M-UNINSTALL-BRAIN-KEEP: " Your microbrain, what rEach remembers about how you work ({records}), stays on this computer, so a later install can find it again; add --purge-microbrain to delete it."
-  M-UNINSTALL-BRAIN-PURGE: " Your microbrain, what rEach remembers about how you work ({records}), is deleted too; your work files stay."
+  M-UNINSTALL-BRAIN-PURGE: " Your microbrain, what rEach remembers about how you work ({records}), is deleted too, together with what it remembers about anyone else who uses rEach on this computer account; your work files stay."
   M-UNINSTALL-TEACH: " rEach also tells your course server that this copy of rEach is gone; your enrollment, submissions and grades stay with your instructor."
   M-UNINSTALL-DECLINED: "Nothing was removed. rEach is still installed."
   M-UNINSTALL-NO-SESSION: "rEach can only take your yes from a chat inside your reach-work folder. Open the reach-work folder in your AI app and ask again, or type reach uninstall yourself in a terminal."

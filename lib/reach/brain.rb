@@ -143,6 +143,7 @@ module Reach
       target = Reach::Paths.brain_home
       return nil unless File.directory?(source)
       return nil if owner_mismatch?
+      return nil if foreign_source?(source)
 
       files = migration_files(source)
       return nil if files.empty?
@@ -154,6 +155,18 @@ module Reach
     rescue StandardError => error
       log("brain.migrate_failed", "error" => error.class.name)
       nil
+    end
+
+    def foreign_source?(source)
+      ids = Reach::Reclaim.json_ids(File.join(source, OWNER_FILE))
+      ids += Dir.glob(File.join(source, "sessions", "*.json")).first(Reach::Reclaim::OWNER_SCAN_LIMIT).flat_map { |path| Reach::Reclaim.json_ids(path) }
+      ids += Dir.glob(File.join(source, "imports", "*", "job.json")).first(Reach::Reclaim::OWNER_SCAN_LIMIT).flat_map { |path| Reach::Reclaim.json_ids(path) }
+      ids = ids.uniq
+      return false if ids.empty? || ids.include?(owner_id)
+
+      log("brain.migrate_skipped_other_owner") if @foreign_logged != source
+      @foreign_logged = source
+      true
     end
 
     def migration_files(source)

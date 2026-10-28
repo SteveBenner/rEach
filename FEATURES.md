@@ -7,7 +7,7 @@
 Build ✅ · Deploy 🔵 · Blocker: Human (stable promotion).
 
 Verified on 2026-10-27 on Linux, only in scratch homes:
-- Migration moved a populated `<home>/brain` with sha256-identical files, wrote `MOVED.json`, and `owner.json` named the student. A second student ID on the same account saw only its own brain. An `owner.json` naming another student made the brain unavailable and logged `brain.owner_mismatch`.
+- Migration moved a populated `<home>/brain` with sha256-identical files, wrote `MOVED.json`, and `owner.json` named the student. A second student ID on the same account saw only its own brain. An `owner.json` naming another student made the brain unavailable and logged `brain.owner_mismatch`. On 2026-10-28 a home brain whose sessions named only another student was not moved and logged `brain.migrate_skipped_other_owner`, and one naming the student moved.
 - The uninstall plan listed the kept microbrain and, with `--purge-microbrain`, its deletion.
 - Reclaim listed an owned set-aside brain, another student's brain and the pre-enrollment `local` brain, and merged only the owned one on a typed yes (maximum reinforcement counts, union of pending erases). A repeat run was a no-op, and `local` was taken only with `--only brain`.
 - `--from` copied new files, left a differing deliverable unchanged and listed it, skipped a symlink and `AGENTS.md`, and a repeat said already brought back.
@@ -20,7 +20,7 @@ Student-first audit:
 1. Learning: n/a. Nothing in the course path changes; the student's own earlier notes and files come back.
 2. Agency and honesty: yes. The student sees the list first, only their own typed yes counts, `--only` narrows it, and the offer never acts by itself.
 3. Wellbeing and safety: yes. No pressure is added; the offer appears once.
-4. Privacy and dignity: yes. Another student's memory and memory with no owner are listed and left alone, and nothing is sent to the course server.
+4. Privacy and dignity: partly. Another student's brain folder and memory with no owner are listed and left alone, and nothing is sent to the course server; the brain spool stays shared per computer account (Known limits).
 5. Fairness and access: yes. The same flow in every app; Windows and macOS are unverified and say so.
 6. Friction: yes. One command and one yes, and the move of the active home's own memory needs no step at all.
 7. Failure: safe. Nothing is overwritten, a source is removed only after every file in it is settled, and a failed course folder is named while the others go on.
@@ -28,7 +28,8 @@ Student-first audit:
 
 Known limits:
 - Before this version the uninstall question never said the brain spool (every prompt the student typed, under the rplugin state folder) stays. It does now (`M-UNINSTALL-BRAIN-KEEP`).
-- The brain spool is shared by every student on one operating-system account, and `BrainIndex` does not filter it by student ID. It is left as it was.
+- The brain spool (findings and the copy of what was typed) is shared by every student on one operating-system account, and `BrainIndex` does not filter it by student ID, so `owner.json` separates only the `.reach-brain` folder. It is left as it was, and `--purge-microbrain` deletes the spool for everyone on the account.
+- `reach reclaim --from` copies from any folder the student names after their yes and does not check whose files they are.
 - The planes corpus is deleted with the home while `brain-spool/admitted` stays, so explicit planes recall restarts empty after a reinstall, though lexical recall sees everything.
 
 ## Full course smoke suite (0.61.0)
