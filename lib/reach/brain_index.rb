@@ -79,7 +79,7 @@ module Reach
       end
 
       def cache_path
-        File.join(Reach::Paths.home, "brain", "index.json")
+        File.join(Reach::Brain.dir, "index.json")
       end
     end
 

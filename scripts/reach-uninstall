@@ -18,7 +18,7 @@ module ReachUninstall
 
   PLAN_SCHEMA = "reach.uninstall.plan/v1".freeze
   RESULT_SCHEMA = "reach.uninstall.result/v1".freeze
-  USAGE = "usage: reach-uninstall [plan|apply] [--yes] [--format text|json] [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--prepared FILE] [--skip-teach-note]".freeze
+  USAGE = "usage: reach-uninstall [plan|apply] [--yes] [--format text|json] [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--prepared FILE] [--skip-teach-note]".freeze
   COMMAND_TIMEOUT_S = 60
   MAX_DISCOVERY_ENTRIES = 20_000
   MAX_DISCOVERY_DEPTH = 6
@@ -61,7 +61,7 @@ module ReachUninstall
   ].freeze
   ABSENT_ANSWER = /not (?:installed|found|registered|a known|currently)|unknown|no such|does not exist|could not find|isn't|no plugin|nothing to|not loaded|No such process/i.freeze
   RECEIPTS_README = "These are the receipts and grade records rEach had saved on this computer when you removed rEach. They are signed by your course server, so keep them if you may need to show what you sent and when.\n".freeze
-  STEP_ORDER = %w[receipts-copy job workspaces claude codex-plugin antigravity hermes checkpoint-mirror windows-path homes].freeze
+  STEP_ORDER = %w[receipts-copy job workspaces claude codex-plugin antigravity hermes checkpoint-mirror microbrain windows-path homes].freeze
 
   def windows?
     RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
@@ -185,7 +185,7 @@ module ReachUninstall
   end
 
   def default_flags
-    { receipts_copy: true, purge_checkpoint_mirror: false, delete_hermes_profile: false, keep_workspace_files: false }
+    { receipts_copy: true, purge_checkpoint_mirror: false, delete_hermes_profile: false, keep_workspace_files: false, purge_microbrain: false }
   end
 
   def normalize_flags(raw)
@@ -216,6 +216,7 @@ module ReachUninstall
       when "--purge-checkpoint-mirror" then options[:flags][:purge_checkpoint_mirror] = true
       when "--delete-hermes-profile" then options[:flags][:delete_hermes_profile] = true
       when "--keep-workspace-files" then options[:flags][:keep_workspace_files] = true
+      when "--purge-microbrain" then options[:flags][:purge_microbrain] = true
       when "--skip-teach-note" then options[:skip_teach_note] = true
       when "--format"
         options[:format] = format_value(args.shift)
@@ -764,7 +765,7 @@ module ReachUninstall
     generated = root ? root[:actions].map { |action| action[:rel].split("/").first } : []
     home_paths = ctx[:homes].map { |home| home[:path] }
     names = Dir.children(base).sort.reject do |name|
-      name =~ /\A\.reach-home/i || generated.include?(name) || home_paths.any? { |home| same?(home, File.join(base, name)) }
+      name =~ /\A\.reach-(?:home|brain)/i || generated.include?(name) || home_paths.any? { |home| same?(home, File.join(base, name)) }
     end
     first = PROTECTED_NAMES.select { |name| names.include?(name) }
     (first + (names - first)).map { |name| File.join(base, name) }
@@ -931,6 +932,29 @@ module ReachUninstall
     override.empty? ? File.join(data_dir(ctx), "reach", "checkpoints") : expand_home(override, ctx[:user_home])
   end
 
+  def brain_root_path(ctx)
+    explicit = ENV["REACH_HOME"].to_s
+    anchor = explicit.empty? ? ctx[:workspace_base] : File.dirname(expand_home(explicit, ctx[:user_home]))
+    File.join(anchor, ".reach-brain")
+  end
+
+  def brain_spool_paths(ctx)
+    state = ENV["XDG_STATE_HOME"].to_s
+    base = File.join(state.empty? ? File.join(ctx[:user_home], ".local", "state") : state, "rplugin", "reach")
+    [File.join(base, "brain-spool"), File.join(base, "import-spool")]
+  end
+
+  def microbrain_state(ctx)
+    root = brain_root_path(ctx)
+    spools = brain_spool_paths(ctx).select { |path| exists_or_link?(path) }
+    paths = ([root] + spools).select { |path| exists_or_link?(path) }
+    {
+      "path" => root, "exists" => exists_or_link?(root), "spools" => spools,
+      "bytes" => paths.sum { |path| tree_size(path) },
+      "action" => ctx[:flags][:purge_microbrain] ? "purge" : "keep"
+    }
+  end
+
   def sidecar_path(ctx)
     override = ENV["REACH_SIDECAR"].to_s
     return normalize(override) unless override.empty?
@@ -1001,6 +1025,7 @@ module ReachUninstall
     mirror = mirror_path(ctx)
     sidecar = sidecar_path(ctx)
     purge = flags[:purge_checkpoint_mirror]
+    microbrain = microbrain_state(ctx)
     path_entries = windows_path_entries(ctx)
     plan = {
       "schema" => PLAN_SCHEMA,
@@ -1017,9 +1042,10 @@ module ReachUninstall
       "receipts" => { "files" => receipt_files.length, "bytes" => receipt_files.map { |file, _| (File.size(file) rescue 0) }.sum, "copy_to" => copy_to },
       "checkpoint_mirror" => { "path" => mirror, "exists" => exists_or_link?(mirror), "bytes" => exists_or_link?(mirror) ? tree_size(mirror) : 0, "action" => purge ? "purge" : "keep" },
       "sidecar" => { "path" => sidecar, "exists" => exists_or_link?(sidecar), "bytes" => exists_or_link?(sidecar) ? tree_size(sidecar) : 0, "action" => purge ? "purge" : "keep" },
+      "microbrain" => microbrain,
       "windows_path" => path_entries,
       "rplugin_hint" => which("rplugin") ? true : false,
-      "flags" => { "receipts_copy" => flags[:receipts_copy], "purge_checkpoint_mirror" => flags[:purge_checkpoint_mirror], "delete_hermes_profile" => flags[:delete_hermes_profile], "keep_workspace_files" => flags[:keep_workspace_files] }
+      "flags" => { "receipts_copy" => flags[:receipts_copy], "purge_checkpoint_mirror" => flags[:purge_checkpoint_mirror], "delete_hermes_profile" => flags[:delete_hermes_profile], "keep_workspace_files" => flags[:keep_workspace_files], "purge_microbrain" => flags[:purge_microbrain] }
     }
     plan["installed"] = !accepted.empty? || !refused.empty? || job["installed"] || !relevant.empty? || harnesses.any? { |entry| entry["found"] } || !path_entries.empty?
     ctx[:plan] = plan
@@ -1065,6 +1091,13 @@ module ReachUninstall
     lines << "Checkpoint copies: #{mirror['exists'] ? display(mirror['path'], ctx) + ' ' + (mirror['action'] == 'purge' ? 'would be deleted' : 'stay') : 'none found'}"
     sidecar = plan["sidecar"]
     lines << "Computer record: #{sidecar['exists'] ? display(sidecar['path'], ctx) + ' ' + (sidecar['action'] == 'purge' ? 'would be deleted' : 'stays') : 'none found'}"
+    brain = plan["microbrain"]
+    if brain["exists"] || !brain["spools"].empty?
+      places = ([brain["exists"] ? brain["path"] : nil] + brain["spools"]).compact.map { |path| display(path, ctx) }.join(", ")
+      lines << "Microbrain: #{places} #{brain['action'] == 'purge' ? 'would be deleted because you asked' : 'stays, so a later install can find it again'}"
+    else
+      lines << "Microbrain: none found"
+    end
     lines.join("\n")
   end
 
@@ -1510,6 +1543,25 @@ module ReachUninstall
     step("checkpoint-mirror", "done", "#{done.join('; ').sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}.")
   end
 
+  def step_microbrain(ctx, left)
+    brain = ctx[:plan]["microbrain"]
+    places = ([brain["exists"] ? brain["path"] : nil] + brain["spools"]).compact
+    return step("microbrain", "skipped", "no microbrain was found") if places.empty?
+
+    unless ctx[:flags][:purge_microbrain]
+      return step("microbrain", "skipped", "Kept the microbrain at #{places.map { |path| display(path, ctx) }.join(' and ')}.")
+    end
+    results = places.map { |path| purge_item(path, "the microbrain", ctx) }
+    results.each { |status, text| left << { "what" => text, "how" => "delete it yourself if you want it gone" } if status == :left }
+    failed = results.find { |status, _| status == :failed }
+    return step("microbrain", "failed", failed[1].sub(/\A([a-z])/) { Regexp.last_match(1).upcase } + ".") if failed
+
+    done = results.select { |status, _| status == :done }.map { |_, text| text }
+    return step("microbrain", "left", "Nothing was deleted.") if done.empty?
+
+    step("microbrain", "done", "#{done.join('; ').sub(/\A([a-z])/) { Regexp.last_match(1).upcase }}.")
+  end
+
   def step_windows_path(ctx, left)
     return step("windows-path", "skipped", "this step is only for Windows") unless windows?
 
@@ -1688,6 +1740,11 @@ module ReachUninstall
     steps["antigravity"] = guarded("antigravity") { step_antigravity(ctx, left) }
     steps["hermes"] = guarded("hermes") { step_hermes(ctx, left) }
     steps["checkpoint-mirror"] = guarded("checkpoint-mirror") { step_mirror(ctx, left) }
+    steps["microbrain"] = if steps["receipts-copy"]["status"] == "failed"
+                            step("microbrain", "skipped", "receipts copy failed, nothing was deleted")
+                          else
+                            guarded("microbrain") { step_microbrain(ctx, left) }
+                          end
     steps["windows-path"] = guarded("windows-path") { step_windows_path(ctx, left) }
     steps["homes"] = if steps["receipts-copy"]["status"] == "failed"
                        step("homes", "skipped", "receipts copy failed, nothing was deleted")
@@ -1700,6 +1757,8 @@ module ReachUninstall
     kept << mirror["path"] if mirror["exists"] && !ctx[:flags][:purge_checkpoint_mirror]
     sidecar = plan["sidecar"]
     kept << sidecar["path"] if sidecar["exists"] && !ctx[:flags][:purge_checkpoint_mirror]
+    brain = plan["microbrain"]
+    kept << brain["path"] if brain["exists"] && !ctx[:flags][:purge_microbrain]
     left = left.uniq
     refused_only = !ctx[:homes].empty? && accepted_homes(ctx).empty?
     failed = ordered.any? { |entry| entry["status"] == "failed" }

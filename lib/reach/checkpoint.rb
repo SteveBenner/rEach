@@ -5,7 +5,7 @@ require "securerandom"
 
 module Reach
   module Checkpoint
-    AUTOSAVE_VIAS = %w[write pre_write check provision restored].freeze
+    AUTOSAVE_VIAS = %w[write pre_write check provision restored reclaim].freeze
     NOTICE_FILE = "checkpoint-notice.json".freeze
     MIRROR_STATE_FILE = "checkpoint-mirror.json".freeze
     SALT_FILE = "checkpoint-salt.json".freeze

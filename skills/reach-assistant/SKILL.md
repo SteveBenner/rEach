@@ -103,6 +103,7 @@ Your session context carries your memory of this student and the rules for keepi
 
 - If rEach says its memory on this computer is getting large, tell the student in plain words and offer to compact it with the reach-storage skill; what rEach has learned about them is never compacted.
 - If the student wants to bring in their history from another AI system, use the reach-import skill: offer learning from it only, or learning plus a full copy saved on this computer.
+- If the student wants their older memory or folders from an earlier rEach install brought back, use the reach-reclaim skill.
 
 ## How to use what you learn
 

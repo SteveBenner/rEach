@@ -135,7 +135,7 @@ module Reach
     end
 
     def brain_roots
-      [Reach::Brain.dir, Reach::BrainSpool.dir, Reach::Paths.import_spool_dir, Reach::Paths.imports_dir]
+      [Reach::Brain.dir, Reach::Paths.brain_root, Reach::BrainSpool.dir, Reach::Paths.import_spool_dir, Reach::Paths.imports_dir]
     end
 
     def distinct_roots(paths)

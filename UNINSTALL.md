@@ -6,7 +6,7 @@ These steps are for the AI agent a student asked to remove rEach from their comp
 
 It removes rEach: its two folders (`~/reach-work/.reach-home` and the older `~/.reach`, whichever exist), its background course check, its entry in Claude Code, Codex, Antigravity and Hermes, the settings files rEach added inside the student's work folders, and the read-only lock it put on delivered files. It also tells the student's course server that this copy of rEach is gone, when rEach itself runs the uninstall and the student answered yes in a chat.
 
-It never touches the student's work. Everything else in `~/reach-work` stays exactly as it is: `deliverables`, `extracurricular`, older course folders and any file the student wrote. A copy of the student's receipts and grade records is saved first in `~/Downloads/rEach-receipts-<date>`. The extra copies rEach keeps of work in progress (rEach's checkpoint mirror, outside `reach-work`) stay unless the student asks for them to go.
+It never touches the student's work. Everything else in `~/reach-work` stays exactly as it is: `deliverables`, `extracurricular`, older course folders and any file the student wrote. A copy of the student's receipts and grade records is saved first in `~/Downloads/rEach-receipts-<date>`. The extra copies rEach keeps of work in progress (rEach's checkpoint mirror, outside `reach-work`) stay unless the student asks for them to go. So does rEach's memory of the student: the `~/reach-work/.reach-brain` folder and the copy of what the student typed under `~/.local/state/rplugin/reach` (the rplugin state folder), so a later install finds it again; `reach reclaim` brings older memory back.
 
 Never delete any of this yourself with `rm`, never edit Codex's or Claude's settings by hand, and never remove `reach-work`.
 
@@ -30,7 +30,7 @@ Use "Claude Code, Codex, Antigravity and Hermes" below whenever you can run shel
 3. After the student's yes in their next message, run the same command again. rEach tells the course server, removes itself and prints a closing text. Give that text to the student word for word. If it lists anything under "left for you", walk the student through each item.
 4. Tell the student to start a new chat in their AI app so it stops looking for rEach. If they installed rEach with rplugin, also run `rplugin uninstall reach`.
 
-Choices the student can ask for, added to the same command: `--purge-checkpoint-mirror` also deletes the extra copies of their work files, `--no-receipts-copy` skips the receipts copy, `--delete-hermes-profile` also deletes the Hermes profile named reach, `--keep-workspace-files` leaves the settings files in the work folders, and `--no-teach` does not tell the course server. Add one only when the student asks for it.
+Choices the student can ask for, added to the same command: `--purge-checkpoint-mirror` also deletes the extra copies of their work files, `--purge-microbrain` also deletes rEach's memory of them (`.reach-brain` and the saved copy of what they typed), `--no-receipts-copy` skips the receipts copy, `--delete-hermes-profile` also deletes the Hermes profile named reach, `--keep-workspace-files` leaves the settings files in the work folders, and `--no-teach` does not tell the course server. Add one only when the student asks for it.
 
 ### When rEach cannot run, or cannot take a yes
 

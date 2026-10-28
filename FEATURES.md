@@ -1,5 +1,36 @@
 # FEATURES — rEach
 
+## Reclaim earlier memory and work — 0.65.0
+
+`reach reclaim` (and the `reach_reclaim` tool and `reach-reclaim` skill) finds the older rEach memory and course folders an earlier install left on the computer and brings them back after the student's typed yes. It lists the microbrain folders of the legacy `~/.reach`, of `.reach-home.set-aside-*`, `.reach-home.failed-*` and `.reach-home.pre-*` folders, of other `reach-work*` folders and of `.reach-brain`; it takes only memory that carries the enrolled student's ID and lists, then leaves alone, another student's memory and memory with no owner (the pre-enrollment `local` folder is taken only with `--only brain`). The merge never overwrites (the larger reinforcement counts, the union of pending erases, SHA-256 checks), `reclaimed.jsonl` makes a repeat a no-op, and an old folder is removed only after everything in it is settled. Course folders whose rules files are missing are adopted in place after a checkpoint autosave; `--from FOLDER` copies deliverables and extracurricular files without moving or overwriting and lists files that differ. The consent kind is `reclaim`, `--only brain|work|from` narrows it, and the greeting offers it once (`G-RECLAIM-OFFER`). The microbrain's state moved to `<reach-work>/.reach-brain/<student key>/` with an `owner.json`, migrated silently with a `MOVED.json`, and `reach uninstall` now keeps it unless `--purge-microbrain` is given. Contract: `STD-RECLAIM`, `STD-BRAIN`, `STD-UNINSTALL`, `STD-STORAGE-GATES` in `specs/app.yml`.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (stable promotion).
+
+Verified on 2026-10-27 on Linux, only in scratch homes:
+- Migration moved a populated `<home>/brain` with sha256-identical files, wrote `MOVED.json`, and `owner.json` named the student. A second student ID on the same account saw only its own brain. An `owner.json` naming another student made the brain unavailable and logged `brain.owner_mismatch`.
+- The uninstall plan listed the kept microbrain and, with `--purge-microbrain`, its deletion.
+- Reclaim listed an owned set-aside brain, another student's brain and the pre-enrollment `local` brain, and merged only the owned one on a typed yes (maximum reinforcement counts, union of pending erases). A repeat run was a no-op, and `local` was taken only with `--only brain`.
+- `--from` copied new files, left a differing deliverable unchanged and listed it, skipped a symlink and `AGENTS.md`, and a repeat said already brought back.
+- `hello` showed `G-RECLAIM-OFFER` once.
+
+Not verified: adopting a real course folder with a real guardrails package (it ran only with the rules renderer stubbed), the `checkpoints_recover` hand-off, `reach_reclaim` over a real MCP session, the consent hook capturing a real typed yes, Windows and macOS, and uninstall apply and purge (only the plan output was read).
+
+Student-first audit:
+
+1. Learning: n/a. Nothing in the course path changes; the student's own earlier notes and files come back.
+2. Agency and honesty: yes. The student sees the list first, only their own typed yes counts, `--only` narrows it, and the offer never acts by itself.
+3. Wellbeing and safety: yes. No pressure is added; the offer appears once.
+4. Privacy and dignity: yes. Another student's memory and memory with no owner are listed and left alone, and nothing is sent to the course server.
+5. Fairness and access: yes. The same flow in every app; Windows and macOS are unverified and say so.
+6. Friction: yes. One command and one yes, and the move of the active home's own memory needs no step at all.
+7. Failure: safe. Nothing is overwritten, a source is removed only after every file in it is settled, and a failed course folder is named while the others go on.
+8. Recovery: yes. `--from` only copies, a repeat is a no-op, and the uninstall now keeps the memory so a later install finds it again.
+
+Known limits:
+- Before this version the uninstall question never said the brain spool (every prompt the student typed, under the rplugin state folder) stays. It does now (`M-UNINSTALL-BRAIN-KEEP`).
+- The brain spool is shared by every student on one operating-system account, and `BrainIndex` does not filter it by student ID. It is left as it was.
+- The planes corpus is deleted with the home while `brain-spool/admitted` stays, so explicit planes recall restarts empty after a reinstall, though lexical recall sees everything.
+
 ## Full course smoke suite (0.61.0)
 
 Build: runnable native fixture suite, planner, external agent-adapter interface, and evidence verifier implemented. Deploy: developer tooling only, not published. Complete r8 sweep: 278 passed and two failed out of 280 attempted; subsequent r9 fixture correction: both affected cases passed. These are separate source cohorts, not a single green 280-case snapshot. Commands and evidence protocol: `tools/smoke/README.md`.
@@ -60,7 +91,7 @@ agent harness.
 | **Last audited** | 2026-10-05 |
 | **Coverage** | Complete: every surface in `README.md` and `reach.spec.yml` (enroll, sync, check, checkpoint, plan, qualify, the attempt ladder, the feature and bug flows, submit, receipts, hands, setup, installer, reference, the intake interview and profile, the MCP bridge tools (26 at 0.16.21, 41 at 0.46.1), doctor's 18 checks, the shape checker's 19 rules, the public directive table, the course record, the course folders, each supported harness catalogued on its own, and the surfaces in `lib/reach/cli.rb`'s usage text, `hooks/reach.hooks.yml`, `skills/`, `update/`, `runtime/` and `CHANGELOG.md` through 0.16.21, with planned work in section 11). |
 | **Running instance** | None: rEach is a cli and plugin. Deploy is judged against the released artifact. 0.11.0 is published on GitHub `main`; no student runs it against a hosted Teach yet, so most features stay 🔵 until one does. A live Codex session against a real Teach was run by the operator on 2026-09-29 (10.3), which is the one exception. |
-| **Feature count** | 107 catalogued |
+| **Feature count** | 108 catalogued |
 
 ## How to read this registry
 
@@ -71,7 +102,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 
 | Build | Count | Share |
 |---|---|---|
-| ✅ Shipped | 97 | 92% |
+| ✅ Shipped | 98 | 91% |
 | ⚪ Planned | 6 | 6% |
 | ⛔ Torn down | 2 | 2% |
 
@@ -79,7 +110,7 @@ Temporal · Inference · Financial · Human · Engineering; a dash means nothing
 |---|---|---|
 | 🟢 Live | 11 | 11% |
 | 🟡 Partly live | 1 | 1% |
-| 🔵 Built, not enabled | 82 | 78% |
+| 🔵 Built, not enabled | 83 | 77% |
 | ⚫ No runtime path | 11 | 11% |
 
 ## 1 · Install

@@ -970,7 +970,7 @@ module Reach
       File.basename(token.to_s).sub(/\.exe\z/i, "") =~ /\Aruby[0-9.]*\z/ ? true : false
     end
 
-    UNINSTALL_PLAIN_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --delete-hermes-profile --keep-workspace-files --no-teach --yes].freeze
+    UNINSTALL_PLAIN_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --delete-hermes-profile --keep-workspace-files --purge-microbrain --no-teach --yes].freeze
 
     def uninstall_command?(text)
       tokens = Shellwords.split(text.to_s)

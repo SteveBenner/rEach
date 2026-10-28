@@ -70,13 +70,147 @@ module Reach
     def enabled?
       return @enabled if defined?(@enabled) && !@enabled.nil?
 
-      @enabled = settings["enabled"] && !Reach::Enroll.current.nil? && !Reach::EnrollmentLock.locked?
+      @enabled = settings["enabled"] && !Reach::Enroll.current.nil? && !Reach::EnrollmentLock.locked? && !owner_mismatch?
     rescue StandardError
       false
     end
 
+    OWNER_FILE = "owner.json".freeze
+    MOVED_FILE = "MOVED.json".freeze
+    MIGRATE_SKIP = %w[index.json].freeze
+
     def dir
+      settle_home!
+      Reach::Paths.brain_home
+    end
+
+    def settle_home!
+      key = [Reach::Paths.home, Reach::Paths.root, File.mtime(Reach::Paths.install_file).to_f]
+      return if @settled == key
+
+      @settled = key
+      migrate_home!
+      write_owner!
+    rescue StandardError
+      @settled = nil
+    end
+
+    def source_home
       File.join(Reach::Paths.home, "brain")
+    end
+
+    def owner_id
+      Reach::Checkpoint.student_id
+    end
+
+    def owner_path
+      File.join(Reach::Paths.brain_home, OWNER_FILE)
+    end
+
+    def owner_mismatch?
+      return false if Reach::Paths.brain_in_home?
+
+      recorded = read_json(owner_path)["student_id"].to_s
+      current = owner_id.to_s
+      mismatch = !recorded.empty? && !current.empty? && recorded != current
+      log("brain.owner_mismatch") if mismatch && @owner_mismatch_logged != Reach::Paths.brain_home
+      @owner_mismatch_logged = Reach::Paths.brain_home if mismatch
+      mismatch
+    end
+
+    def write_owner!
+      return nil if Reach::Paths.brain_in_home?
+
+      student = owner_id
+      return nil unless student
+      return nil if owner_mismatch?
+      return nil if File.file?(owner_path)
+
+      target = Reach::Paths.brain_home
+      FileUtils.mkdir_p(target)
+      File.chmod(0o700, target)
+      write_json(owner_path, "student_id" => student)
+      nil
+    rescue SystemCallError
+      nil
+    end
+
+    def migrate_home!
+      return nil if Reach::Paths.brain_in_home?
+      return nil unless owner_id
+
+      source = source_home
+      target = Reach::Paths.brain_home
+      return nil unless File.directory?(source)
+      return nil if owner_mismatch?
+
+      files = migration_files(source)
+      return nil if files.empty?
+
+      FileUtils.mkdir_p(File.dirname(target))
+      File.chmod(0o700, File.dirname(target))
+      result = Reach::Locks.exclusive(File.join(File.dirname(target), ".migrate.lock"), wait_s: 0) { move_files(source, target, files) }
+      result == :busy ? nil : result
+    rescue StandardError => error
+      log("brain.migrate_failed", "error" => error.class.name)
+      nil
+    end
+
+    def migration_files(source)
+      Dir.glob(File.join(source, "**", "*"), File::FNM_DOTMATCH).select do |path|
+        File.file?(path) && !File.symlink?(path) && !File.basename(path).end_with?(".lock") && path != File.join(source, MOVED_FILE)
+      end
+    end
+
+    def file_sha256(path)
+      Digest::SHA256.file(path).hexdigest
+    end
+
+    def move_files(source, target, files)
+      FileUtils.mkdir_p(target)
+      File.chmod(0o700, target)
+      plan = files.map { |path| [path, File.join(target, path.sub("#{source}#{File::SEPARATOR}", ""))] }
+      copied = []
+      plan.each do |from, to|
+        base = File.basename(from)
+        if MIGRATE_SKIP.include?(base) && File.dirname(from) == source
+          copied << [from, nil]
+          next
+        end
+        if File.exist?(to)
+          outcome = Reach::Reclaim.merge_existing(from.sub("#{source}#{File::SEPARATOR}", ""), from, to)
+          copied << [from, outcome == :same ? to : nil] if Reach::Reclaim::SETTLED.include?(outcome)
+          next
+        end
+        FileUtils.mkdir_p(File.dirname(to))
+        tmp = "#{to}.tmp-#{Process.pid}-#{SecureRandom.hex(3)}"
+        FileUtils.cp(from, tmp, preserve: true)
+        raise IOError, "size" unless File.size(tmp) == File.size(from) && file_sha256(tmp) == file_sha256(from)
+
+        File.rename(tmp, to)
+        copied << [from, to]
+      end
+      copied.each do |from, to|
+        next if to && !(File.size(to) == File.size(from) && file_sha256(to) == file_sha256(from))
+
+        File.delete(from)
+      end
+      return nil unless copied.length == plan.length
+
+      prune_empty(source)
+      write_json(File.join(source, MOVED_FILE), "to" => target, "at" => Time.now.utc.iso8601)
+      log("brain.migrated", "files" => copied.length)
+      copied.length
+    end
+
+    def prune_empty(source)
+      Dir.glob(File.join(source, "**", "*"), File::FNM_DOTMATCH).sort_by { |path| -path.length }.each do |path|
+        next unless File.directory?(path) && !%w[. ..].include?(File.basename(path))
+
+        Dir.rmdir(path) if Dir.empty?(path)
+      end
+    rescue SystemCallError
+      nil
     end
 
     def sessions_dir
@@ -93,6 +227,8 @@ module Reach
     end
 
     def ensure_dir!
+      return nil if owner_mismatch?
+
       FileUtils.mkdir_p(sessions_dir)
       File.chmod(0o700, dir)
       File.chmod(0o700, sessions_dir)

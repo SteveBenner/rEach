@@ -165,6 +165,17 @@ module Reach
         }
       },
       {
+        "name" => "reach_reclaim",
+        "description" => "Find the student's older rEach memory and course folders on this computer (an earlier install, a set-aside home, another reach-work folder, or a folder named in from) and bring back what is theirs. It asks the student through Reach on the first call, so relay the question word for word; after the student's yes the same call acts once. only limits it to brain, work or from; memory saved before enrollment comes back only when only is brain",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "only" => { "type" => "string", "enum" => %w[brain work from] },
+            "from" => { "type" => "string", "description" => "A reach-work folder to copy the student's files from; nothing there is moved or overwritten" }
+          }
+        }
+      },
+      {
         "name" => "reach_checkpoint",
         "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing; dismiss stops rEach reporting a work folder the student removed on purpose; forget deletes the saved copies of one slice or of everything and saves a receipt. recover, dismiss and forget each ask the student through Reach on the first call, so relay the question word for word; after the student's yes the same call acts once",
         "inputSchema" => {
@@ -822,6 +833,8 @@ module Reach
           else
             checkpoint_tool(current_workspace!(arguments["slice"]), arguments)
           end
+        when "reach_reclaim"
+          Reach::Reclaim.via_consent!(only: arguments["only"], from: arguments["from"])
         when "reach_plan"
           plan_tool(current_workspace!(arguments["slice"]), arguments)
         when "reach_passes_packet"

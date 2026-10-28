@@ -178,6 +178,8 @@ inside your work folders (and makes the files it had locked editable again), and
 rEach is gone. Your work is never touched: `deliverables`, `extracurricular` and everything else in `reach-work` stay as they
 are, a copy of your receipts and grade records is saved to `~/Downloads/rEach-receipts-<date>` first, and the extra copies
 of your work files that rEach keeps outside `reach-work` stay unless you ask for them to go (`--purge-checkpoint-mirror`).
+rEach's memory of you (`~/reach-work/.reach-brain` and its copy of what you typed under `~/.local/state/rplugin/reach`) stays too, so
+a later install finds it again, unless you ask for it to go (`--purge-microbrain`).
 When `reach` will not start, [`UNINSTALL.md`](UNINSTALL.md) has a standalone script that does the same without telling the
 course server. `STD-UNINSTALL` in `specs/app.yml` is the contract.
 
@@ -278,7 +280,10 @@ findings (a preference, a goal, a decision, a struggle, a skill, a project, a fa
 adds the profile at session start and the matching memories on each prompt. A novelty check and a write budget stop
 floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced sources are pruned first), and nothing here is sent to Teach. Ask rEach what it remembers, or run `reach memory list`; `reach memory
 forget <id>` or `reach memory forget --all --yes` erases it from rEach's files. The settings are in `config.yml`
-under `brain`.
+under `brain`. Since 0.65.0 the memory's own files live in `~/reach-work/.reach-brain/<student key>` (marked with the
+student's ID, so a second student on the same computer account never sees them), not inside the rEach home folder, and
+the first run moves an older one there by itself. `reach reclaim` brings back memory and course folders an earlier
+install left behind, after the student says yes; see Reclaim below.
 
 Once the runtime kit is present, rEach also installs its small SDK kit (rplugin and rBrain, verified against a manifest
 pinned in rEach) and organizes the memory into its own rBrain corpus in `~/reach-work/.reach-home/corpora/reach`, in a
@@ -289,7 +294,18 @@ background helper that never slows a hook. Recall then searches that corpus, and
 reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID]   keep one finding (the agent runs this)
 reach memory [list | show ID | forget ID... | forget --all --yes | export]   see, export or erase what it remembers
 reach sdk [install [--from DIR] | status [--json]]                           install or show the SDK kit
+reach reclaim [--only brain|work|from] [--from FOLDER]                      bring back older memory and course folders
 ```
+
+### Reclaim
+
+`reach reclaim` lists the older rEach memory and course folders it finds on this computer (the legacy `~/.reach`, folders
+an earlier install set aside, other `reach-work*` folders) and asks before it does anything. Memory is taken only when it
+carries the student's own ID, is merged without overwriting what the student has now, and the old folder is removed only
+once everything in it is safely merged; memory that belongs to another student or has no owner is listed and left alone.
+`--from FOLDER` copies deliverables and extracurricular files from another `reach-work` folder, for example a backup,
+without moving or overwriting anything, and lists the files that differ. `--only brain|work|from` limits the question. The
+agent uses the `reach_reclaim` tool and the `reach-reclaim` skill; `STD-RECLAIM` in `specs/app.yml` is the contract.
 
 ### Storage
 

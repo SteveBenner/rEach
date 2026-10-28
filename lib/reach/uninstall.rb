@@ -13,10 +13,10 @@ module Reach
     KIND = "install_withdraw".freeze
     SCRIPT_MISSING = "rEach's uninstall script is missing from this install. Follow UNINSTALL.md to download it, then run it.".freeze
     SWITCHED_OFF = "rEach uninstall is switched off on this computer.".freeze
-    USAGE = "usage: reach uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--no-teach] [--yes] [--format text|json]".freeze
+    USAGE = "usage: reach uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--no-teach] [--yes] [--format text|json]".freeze
     AGENT_ASK_HINT = "Ask the student with your own question tool, then run this again with --yes.".freeze
     RPLUGIN_HINT = "If you installed rEach with rplugin, also run: rplugin uninstall reach".freeze
-    SCRIPT_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --delete-hermes-profile --keep-workspace-files].freeze
+    SCRIPT_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --delete-hermes-profile --keep-workspace-files --purge-microbrain].freeze
     TOGGLES = (SCRIPT_FLAGS + %w[--no-teach --yes]).freeze
     HARNESS_NAMES = { "claude-code" => "Claude Code", "codex" => "Codex", "antigravity" => "Antigravity", "hermes" => "Hermes" }.freeze
     OUTBOX_NAMES = { "submissions" => ["submission", "submissions"], "hands" => ["hand raise", "hand raises"], "issues" => ["issue report", "issue reports"], "other" => ["other item", "other items"] }.freeze
@@ -100,7 +100,8 @@ module Reach
         "receipts_copy" => !toggles.include?("--no-receipts-copy"),
         "purge_checkpoint_mirror" => toggles.include?("--purge-checkpoint-mirror"),
         "delete_hermes_profile" => toggles.include?("--delete-hermes-profile"),
-        "keep_workspace_files" => toggles.include?("--keep-workspace-files")
+        "keep_workspace_files" => toggles.include?("--keep-workspace-files"),
+        "purge_microbrain" => toggles.include?("--purge-microbrain")
       }
     end
 
@@ -160,6 +161,7 @@ module Reach
           unsent: unsent_text(plan),
           receipts: receipts_text(plan),
           mirror: mirror_text(plan, flags),
+          microbrain: microbrain_text(plan, flags),
           teach: teach_planned ? Reach::Messages.text("M-UNINSTALL-TEACH") : ""
         },
         messages: render_messages
@@ -195,6 +197,15 @@ module Reach
 
       id = flags["purge_checkpoint_mirror"] ? "M-UNINSTALL-MIRROR-PURGE" : "M-UNINSTALL-MIRROR-KEEP"
       Reach::Messages.text(id, records: records.join(" and "))
+    end
+
+    def microbrain_text(plan, flags)
+      brain = plan["microbrain"].is_a?(Hash) ? plan["microbrain"] : {}
+      places = ([brain["exists"] ? brain["path"] : nil] + Array(brain["spools"])).compact.map { |path| tilde(path) }
+      return "" if places.empty?
+
+      id = flags["purge_microbrain"] ? "M-UNINSTALL-BRAIN-PURGE" : "M-UNINSTALL-BRAIN-KEEP"
+      Reach::Messages.text(id, records: places.join(" and "))
     end
 
     def render_messages

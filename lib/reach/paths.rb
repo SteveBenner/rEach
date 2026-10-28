@@ -11,6 +11,7 @@ module Reach
 
     PERSONA_ID = /\A[0-9a-f]{8}\z/.freeze
     NEW_HOME_NAME = ".reach-home".freeze
+    BRAIN_ROOT_NAME = ".reach-brain".freeze
     RESOLUTION_TTL_S = 2
 
     PROFILE_FOLDER_ID = [0x5E6C858F, 0x0E22, 0x4760, 0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73].freeze
@@ -406,11 +407,25 @@ module Reach
     def home_name?(name)
       text = name.to_s
       text = text.downcase if case_insensitive_fs?
-      text.start_with?(NEW_HOME_NAME)
+      text.start_with?(NEW_HOME_NAME) || text == (case_insensitive_fs? ? BRAIN_ROOT_NAME.downcase : BRAIN_ROOT_NAME)
+    end
+
+    def brain_root
+      File.join(File.dirname(root), BRAIN_ROOT_NAME)
+    end
+
+    def brain_in_home?
+      persona_id ? true : (legacy_active? || File.basename(root) == ".reach")
+    end
+
+    def brain_home
+      return File.join(home, "brain") if brain_in_home?
+
+      File.join(brain_root, Reach::Checkpoint.student_key)
     end
 
     def home_dirs
-      [root, new_home].map { |dir| realish(dir) }.uniq
+      [root, new_home, File.join(File.dirname(root), BRAIN_ROOT_NAME), File.join(workspace_base, BRAIN_ROOT_NAME)].map { |dir| realish(dir) }.uniq
     end
 
     def ancestor_of_home?(resolved)

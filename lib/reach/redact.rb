@@ -151,6 +151,7 @@ module Reach
         roots.concat([File.join(base, "profile.yml"), File.join(base, "brain"), File.join(base, "brain-store"), File.join(base, "corpora")])
       end
       roots << File.join(Reach::Paths.state_dir, "hello")
+      roots << Reach::Paths.brain_root
       roots.compact.uniq
     rescue StandardError
       []

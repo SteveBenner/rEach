@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.24
+version: 0.65.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -263,9 +263,10 @@ layout:
       The latest gate-allowed prompt typed in a slice or the workspace root that is long enough to answer an own-part
       question and is not a consent yes or no (0600); reach part record takes it and deletes it. No other prompt text
       is kept outside the microbrain
-  - path: "~/.reach/brain/"
+  - path: "~/reach-work/.reach-brain/<student key>/"
     content: >-
-      The microbrain's own state (since 0.16.15): state.json (write budgets, local reinforcements, admit backoff,
+      The microbrain's own state (since 0.16.15; at ~/.reach/brain/ before 0.65.0, and still there for the legacy home and an
+      instructor persona home): owner.json (the student_id it belongs to), reclaimed.jsonl (sources already brought back by reach reclaim), state.json (write budgets, local reinforcements, admit backoff,
       memory-notice flag), sessions/<session>.json (nudge counters, last source, recent injections)
       and index.json (a rebuildable cache of the spool's findings); directory 0700, files 0600
   - path: "~/.reach/receipts/"
@@ -444,18 +445,29 @@ library:
       The microbrain, since 0.16.15: captures each gate-allowed prompt the student types, in any folder, as a
       private source (capture_prompt, called from the prompt hook), takes the findings the agent distils (reach remember), gates them for novelty and budget,
       injects a profile at session start and matching memories on each prompt, and forgets on request. Hooks never
-      raise; every record stays on this computer.
+      raise; every record stays on this computer. Since 0.65.0 its folder is Reach::Paths.brain_home, <reach-work>/.reach-brain/<student key>
+      with an owner.json (owner_mismatch? makes a folder naming another student unavailable and logs brain.owner_mismatch once); the legacy
+      home and a persona home keep <home>/brain. migrate_home! moves the active home's own <home>/brain there on the first run of an enrolled
+      student, silently: copy, size and SHA-256 check, delete the source file only then, a MOVED.json left behind, and nothing deleted unless every
+      file verified.
+  - name: Reach::Reclaim
+    role: >-
+      The reach reclaim verb, since 0.65.0 (STD-RECLAIM): scans the old brain folders (legacy ~/.reach, stray bases, set-aside, failed and pre homes,
+      other reach-work* folders, .reach-brain subfolders), decides ownership from the enrolled student_id, merges owned ones into the current brain
+      without overwriting (state.json maximum count and later last, pending-erase.jsonl union, course-ingest.json and any differing file kept),
+      records each source in reclaimed.jsonl, adopts course folders whose rules files are missing and copies files from --from without moving
+      or overwriting. It acts only after Reach::Consent kind reclaim, and offer_due? drives the once-only G-RECLAIM-OFFER in the greeting.
   - name: Reach::BrainIndex
     role: >-
       The read model over every brain-spool line (pending and admitted, latest line per id, tombstones hide):
       BM25 search and term-frequency cosine similarity over active findings, decay and reinforcement salience, and a
-      cache in ~/.reach/brain/index.json keyed by each spool file's inode, size and mtime; since 0.17.1 also course
+      cache in index.json in the brain folder keyed by each spool file's inode, size and mtime; since 0.17.1 also course
       sources split into passages of at most 600 bytes, with search_course over them
   - name: Reach::CourseCorpus
     role: >-
       Since 0.17.1, the course reference corpus into the microbrain (STD-COURSE-CORPUS): fingerprints the delivered
       blobs and keys, decrypts them on a change, spools each file as a private source under course/<course>/<path>,
-      tombstones replaced ones and records ~/.reach/brain/course-ingest.json. Runs after reach sync, at session start
+      tombstones replaced ones and records course-ingest.json in the brain folder. Runs after reach sync, at session start
       (no forced admission) and from reach reference ingest; never raises to a hook.
   - name: Reach::Directives
     role: The public directive files, the private rows from the vault, the AGENTS.md table and reach directive (a private body fetched from Teach per call)
@@ -707,6 +719,12 @@ harness_integration:
       - The intake interview and its guardrails (see persona below)
       - Staying on course and redirecting off-topic requests
       - Profile show, save and forget
+    reach-reclaim:
+      purpose: Loaded when the student asks to bring back older memory or work, or rEach says it found some; the agent runs reach reclaim, relays its question word for word, and runs it again only after the student's own typed yes.
+      contents:
+      - Never copy, move or delete rEach's folders or the student's work by hand
+      - Memory saved before enrollment is taken only with --only brain and the student's answer
+      - reach reclaim --from FOLDER copies and lists differing files, never moves or overwrites
     reach-course:
       purpose: Loaded in every course session; tells the agent how to work in a slice.
       contents:
@@ -1308,6 +1326,8 @@ mcp_bridge:
     description: Show the student's modules or options, or choose them; returns Reach's lock-in question until the student's captured yes
   - name: reach_next
     description: The deterministic next step for the student, in business terms; since 0.34.9 (STD-SIGNIN-HOOK-SILENT) it says M-NEXT-LOGIN-NO-HOOK instead of asking for the student ID when Codex is not running rEach's sign-in hook
+  - name: reach_reclaim
+    description: Find older rEach memory and course folders on this computer and bring them back; since 0.65.0 (STD-RECLAIM) it returns rEach's own question, listing what it found, until the student's captured yes, then acts once; optional only (brain, work or from) and from (a reach-work folder to copy from)
   - name: reach_remember
     description: Keep one durable finding about the student or their work (category, claim, evidence, optional supersedes and, since 0.18.0, origin import:JOB/CONVERSATION); returns saved, reinforced or held
   - name: reach_recall
@@ -1400,7 +1420,7 @@ cli:
       unsupported_until; tick makes one check of W-API-REVISION and syncs only when something changed; install and
       uninstall manage the operating system job.
   - name: uninstall
-    synopsis: reach uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--no-teach] [--yes] [--format text|json]
+    synopsis: reach uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--no-teach] [--yes] [--format text|json]
     purpose: >-
       Since 0.63.0 (STD-UNINSTALL), an unlocked command that also passes the shell gate when it is the only command on the
       line. Without a yes it prints rEach's question (M-UNINSTALL-ASK) and exits 3; the student's typed yes is recorded by the
@@ -1408,7 +1428,17 @@ cli:
       enrolled and not locked (M-UNINSTALL-NEEDS-CONSENT) and accepted when it is not enrolled or is locked. On a terminal the
       verb asks "Type yes to remove rEach:" itself, and then does not tell Teach (no consent record exists to send). Exit 0
       removed or nothing to remove, 1 a step failed, 2 usage or REACH_UNINSTALL_KILL_SWITCH=1, 3 needs the student's yes, 4
-      declined.
+      declined. Since 0.65.0 the microbrain stays (the .reach-brain folder and the brain and import spools under the rplugin state
+      folder) and the question says so (M-UNINSTALL-BRAIN-KEEP); --purge-microbrain also deletes them (M-UNINSTALL-BRAIN-PURGE).
+  - name: reclaim
+    synopsis: reach reclaim [--only brain|work|from] [--from FOLDER] [--format text|json]
+    purpose: >-
+      Since 0.65.0 (STD-RECLAIM), bring back older rEach memory and course folders. Needs an enrolled, unlocked install and no
+      instructor persona. Without the student's yes it lists what it found (memory carrying the student's ID, course folders whose rules
+      files are missing, and memory left alone because it belongs to someone else or has no owner) and prints rEach's question,
+      writing nothing; the yes is Reach::Consent kind reclaim, and the next run acts once and prints what it did. The pre-enrollment
+      local brain is taken only with --only brain. --from FOLDER copies deliverables and extracurricular files without moving or
+      overwriting and lists files that differ. A repeat is a no-op (reclaimed.jsonl). Tool reach_reclaim, skill reach-reclaim.
   - name: setup
     synopsis: reach setup [--harness auto|claude-code|codex|antigravity] [--source <link or path>]
     purpose: >-
@@ -1909,7 +1939,7 @@ corpus:
       ~/.reach/logs/brain.jsonl: brain.captured, brain.source_held, brain.pruned, brain.remembered, brain.recalled, brain.nudged,
       brain.forgotten, brain.admit_failed, and since 0.17.1 brain.course_ingested, brain.course_ingest_failed and
       brain.course_recalled; ids, counts, bytes and outcomes only, never claim, evidence, turn or course text.
-    state: "~/.reach/brain/ (mode 0700) holds state.json (budgets, reinforcements, admit backoff, notice flag), sessions/<session>.json and index.json (a cache)."
+    state: "The brain folder (<reach-work>/.reach-brain/<student key>/ since 0.65.0, <home>/brain for the legacy and persona homes; mode 0700) holds owner.json, reclaimed.jsonl, state.json (budgets, reinforcements, admit backoff, notice flag), sessions/<session>.json and index.json (a cache)."
   privacy: >-
     The corpus lives on the student's disk only; nothing in it is sent to Teach except what a hand-raise bundle
     explicitly includes.

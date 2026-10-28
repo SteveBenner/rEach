@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.65.0] - 2026-10-28
+
+### Added
+
+- `reach reclaim [--only brain|work|from] [--from FOLDER]` (`lib/reach/reclaim.rb`, `lib/reach/cli.rb`) finds the older rEach memory and course folders on this computer and brings them back after the student's typed yes: the brain folders of the legacy `~/.reach`, of `.reach-home.set-aside-*`, `.reach-home.failed-*` and `.reach-home.pre-*` folders, of other `reach-work*` folders and of `.reach-brain`, and the course folders whose rules files are missing. Only memory that carries the enrolled student's ID is taken; another student's and memory with no owner are listed and left alone; the pre-enrollment `local` folder is taken only with `--only brain`. A merge never overwrites (the larger reinforcement count and the union of pending erases are kept), every file is checked by SHA-256, `reclaimed.jsonl` makes a repeat a no-op, and a source is removed only once everything in it is settled. Course folders are adopted in place (checkpoint autosave first, then rules files, read-only locks and harness settings); `--from` only copies, never moves or overwrites, and lists files that differ. The question is recorded as the new consent kind `reclaim` (`lib/reach/consent.rb`), and `lib/reach/checkpoint.rb` accepts `reclaim` as an autosave source.
+- The `reach_reclaim` MCP tool (`lib/reach/mcp_bridge.rb`) and the `reach-reclaim` skill (`skills/reach-reclaim/SKILL.md`, registered in `reach.rplugin.yml` and `.claude-plugin/plugin.json`), with matching lines in `agents/reach.md` and `skills/reach-assistant/SKILL.md`.
+- `G-RECLAIM-OFFER` (`locales/greetings.en-US.yml`, `lib/reach/hello.rb`): once, at the first session start after enrollment that finds a brain folder owned by the student or a course folder to adopt, the greeting says older memory or folders can be brought back. It never acts by itself.
+- `reach uninstall --purge-microbrain` (`lib/reach/uninstall.rb`, `lib/reach/gate.rb`, `scripts/reach-uninstall`) also deletes `.reach-brain` and the brain and import spools.
+- `specs/polispec/behavior.yml` and the surface templates `specs/polispec/surfaces/skills/reach-reclaim.md` and `reach-uninstall.md` cover the new skill.
+
+### Changed
+
+- The microbrain's state moved out of the Reach home: it lives in `<reach-work>/.reach-brain/<student key>/` (`lib/reach/paths.rb`, `lib/reach/brain.rb`, `lib/reach/brain_index.rb`, `lib/reach/storage.rb`, `lib/reach/redact.rb`), with an `owner.json` naming the student. A brain whose `owner.json` names another student is unavailable and logs `brain.owner_mismatch`, so a second student on one computer account never sees the first one's memory. The legacy `~/.reach` home and instructor persona homes keep `<home>/brain`. The storage gates treat `.reach-brain` like a home folder.
+- The first run of an enrolled student silently moves the active home's `<home>/brain` to the new place: each file is copied, checked by SHA-256 and only then deleted, nothing is deleted unless every file was verified, and a `MOVED.json` is left behind.
+- `reach uninstall` keeps the microbrain (`.reach-brain` and the brain and import spools under the rplugin state folder) so a later install finds it, and its question now says so (`M-UNINSTALL-BRAIN-KEEP`, `locales/en-US.yml`); before, it never said the brain spool stays. `--purge-microbrain` changes that and the question says so (`M-UNINSTALL-BRAIN-PURGE`).
+
 ## [0.64.24] - 2026-10-27
 
 ### Fixed

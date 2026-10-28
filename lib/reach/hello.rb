@@ -316,6 +316,9 @@ module Reach
       if greeting_text && safe_memory_notice_due?
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-MEMORY-NOTICE")}"
         Reach::Brain.memory_notice_shown!
+      elsif greeting_text && safe_reclaim_offer_due?
+        greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-RECLAIM-OFFER")}"
+        Reach::Reclaim.offer_shown!
       elsif greeting_text && safe_reach_out_due?(greeting_id)
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-REACH-OUT")}"
         Reach::Feedback.reach_out_shown!
@@ -361,6 +364,12 @@ module Reach
 
     def safe_memory_notice_due?
       Reach::Brain.memory_notice_due?
+    rescue StandardError
+      false
+    end
+
+    def safe_reclaim_offer_due?
+      Reach::Reclaim.offer_due?
     rescue StandardError
       false
     end

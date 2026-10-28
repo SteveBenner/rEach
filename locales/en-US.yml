@@ -255,11 +255,37 @@ messages:
   M-CHECKPOINT-FORGET-DECLINED: "Nothing was deleted."
   M-CHECKPOINT-FORGET-NEEDS-TTY: "Deleting your saved copies needs your yes. Ask your assistant to delete them and answer rEach's question. Nothing was deleted."
   M-CHECKPOINT-FORGOT: "Deleted the saved copies ({files} files, about {kb} KB) from this computer. The receipt is saved at {receipt}. Your work files are untouched."
-  M-UNINSTALL-ASK: "This removes rEach from this computer. It deletes rEach's own folders ({homes}), turns off its background course check, takes rEach out of {harnesses}, and removes the rEach settings files it added inside your work folders. Your work is not touched: {kept} stay exactly as they are, and any file rEach made read-only becomes editable again.{unsent}{receipts}{mirror}{teach} You can install rEach again later and enroll in your course again. Say yes to remove rEach."
+  M-RECLAIM-NONE: "rEach looked for older copies of your memory and course folders on this computer and found nothing to bring back."
+  M-RECLAIM-PERSONA: "Bringing back older memory and folders is not available in this mode."
+  M-RECLAIM-NEEDS-ENROLL: "rEach can only bring back your older memory and folders after you are enrolled and signed in. Finish signing in first, then ask again."
+  M-RECLAIM-ONLY: "rEach can only limit this to: {values}."
+  M-RECLAIM-FROM-BAD: "{path} does not look like a reach-work folder: it has no deliverables or extracurricular folder in it. Nothing was copied."
+  M-RECLAIM-DECLINED: "Nothing was brought back or changed."
+  M-RECLAIM-ITEM-BRAIN: "- Your memory, kept in {path} ({files} file(s)). It is merged into the memory you have now."
+  M-RECLAIM-ITEM-BRAIN-LOCAL: "- Memory in {path} ({files} file(s)) that was saved before you enrolled. It is on this computer account, but rEach cannot tell it is yours, so it stays unless you ask for the memory by name (reach reclaim --only brain)."
+  M-RECLAIM-ITEM-BRAIN-LOCAL-NAMED: "- Memory in {path} ({files} file(s)) that was saved before you enrolled. You asked for your memory by name, so it is merged in even though rEach cannot prove it is yours."
+  M-RECLAIM-ITEM-OTHER: "- {path} ({files} file(s)) belongs to a different student. It stays exactly where it is."
+  M-RECLAIM-ITEM-UNKNOWN: "- {path} ({files} file(s)) has no owner on record, so rEach cannot tell it is yours. It stays exactly where it is."
+  M-RECLAIM-ITEM-WORK: "- Your course folder {folder}: its rules files, settings and read-only locks are put back."
+  M-RECLAIM-ITEM-EXTRA: "- Your extracurricular folder: its marker and rules files are put back."
+  M-RECLAIM-ITEM-FROM: "- Your files in {path}: {copy} to copy over, {same} already here, {differ} different from what is here. Different files are left as they are and listed."
+  M-RECLAIM-ITEM-FROM-DONE: "- Your files in {path} were already brought back."
+  M-RECLAIM-ITEM-DIFFERS: "  different, left as it is: {file}"
+  M-RECLAIM-LEFT: "rEach found these, but they stay exactly where they are:\n{items}"
+  M-RECLAIM-ASK: "rEach found these on this computer:\n{items}\nOnly what is yours is brought back. Memory is merged into what you have now and nothing you have now is overwritten; an old memory folder is emptied only after everything in it is safely merged. Say yes to go ahead."
+  M-RECLAIM-DONE-BRAIN: "Memory: {sources} old memory folder(s) brought back, {copied} files copied, {merged} merged or already here, {kept} left as they were because they differ from yours."
+  M-RECLAIM-BRAIN-BUSY: "{count} memory folder(s) were busy and were not touched. Ask again in a moment."
+  M-RECLAIM-DONE-WORK: "Course folders: {count} brought up to date (rules files, settings and read-only locks)."
+  M-RECLAIM-DONE-EXTRA: "Extracurricular folder: put back."
+  M-RECLAIM-WORK-FAILED: "These could not be put back: {folders}."
+  M-RECLAIM-DONE-FROM: "Files from {path}: {copied} copied, {same} already here, {differ} different and left as they are, {failed} could not be copied."
+  M-UNINSTALL-ASK: "This removes rEach from this computer. It deletes rEach's own folders ({homes}), turns off its background course check, takes rEach out of {harnesses}, and removes the rEach settings files it added inside your work folders. Your work is not touched: {kept} stay exactly as they are, and any file rEach made read-only becomes editable again.{unsent}{receipts}{mirror}{microbrain}{teach} You can install rEach again later and enroll in your course again. Say yes to remove rEach."
   M-UNINSTALL-UNSENT: " {count} items rEach had not finished sending to your course server ({kinds}) will be lost; your work files stay, so you can send them again after you install rEach again."
   M-UNINSTALL-RECEIPTS: " A copy of your receipts and grade records is saved first in {folder}."
   M-UNINSTALL-MIRROR-KEEP: " The extra copies rEach keeps of your work files outside your work folder ({records}) stay, so a later install can find them again; you can delete them yourself."
   M-UNINSTALL-MIRROR-PURGE: " The extra copies rEach keeps of your work files outside your work folder ({records}) are deleted too; your work files stay."
+  M-UNINSTALL-BRAIN-KEEP: " Your microbrain, what rEach remembers about how you work ({records}), stays on this computer, so a later install can find it again; add --purge-microbrain to delete it."
+  M-UNINSTALL-BRAIN-PURGE: " Your microbrain, what rEach remembers about how you work ({records}), is deleted too; your work files stay."
   M-UNINSTALL-TEACH: " rEach also tells your course server that this copy of rEach is gone; your enrollment, submissions and grades stay with your instructor."
   M-UNINSTALL-DECLINED: "Nothing was removed. rEach is still installed."
   M-UNINSTALL-NO-SESSION: "rEach can only take your yes from a chat inside your reach-work folder. Open the reach-work folder in your AI app and ask again, or type reach uninstall yourself in a terminal."
@@ -285,10 +311,13 @@ messages:
     This folder holds your course work. Each assignment has its own folder under deliverables, and
     extracurricular is yours for anything else you build.
 
-    The hidden folder .reach-home belongs to rEach. It holds your enrollment, the copies rEach keeps of
-    every file you write (your checkpoints), and what rEach has learned about how you like to work. Deleting
-    it signs you out of the course and loses those copies. If something goes missing, ask your AI partner to
-    bring your work back, or run reach checkpoint recover.
+    The hidden folder .reach-home belongs to rEach. It holds your enrollment and the copies rEach keeps of
+    every file you write (your checkpoints). Deleting it signs you out of the course and loses those copies.
+    If something goes missing, ask your AI partner to bring your work back, or run reach checkpoint recover.
+
+    The hidden folder .reach-brain also belongs to rEach. It holds what rEach has learned about how you like
+    to work, one folder per student on this computer. Removing rEach keeps it, so a later install finds it
+    again. Delete it only if you want rEach to forget you.
 
     rEach also keeps a second copy of your checkpoints outside this folder, in your computer account's
     application data folder, so your work survives even if this folder is deleted.

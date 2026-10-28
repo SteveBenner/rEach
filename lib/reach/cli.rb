@@ -394,6 +394,8 @@ module Reach
           cmd_login(args)
         when "relocate"
           cmd_relocate(args)
+        when "reclaim"
+          cmd_reclaim(args)
         when "remember"
           cmd_remember(args)
         when "memory"
@@ -488,7 +490,8 @@ module Reach
             runtime install [--only ruby|chrome] [--from DIR] [--yes] | status [--json] | remove --yes [--old]   the Ruby, gems and Chrome for local checks
             update status|check|run [--apply]    look for, download and install a newer rEach
             subscribe status [--format text|json] | install | uninstall   the course server update check and its background job
-            uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--no-teach]   remove rEach from this computer, never your work
+            reclaim [--only brain|work|from] [--from DIR] [--yes]   list and, after your yes, bring back your older memory and course folders found on this computer
+            uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--no-teach]   remove rEach from this computer, never your work
             announcements [--format text|json]   the instructors' announcements, newest first
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
@@ -3146,6 +3149,39 @@ module Reach
 
         puts JSON.generate(findings)
         1
+      end
+
+      def cmd_reclaim(args)
+        confirmed, args = parse_bare_flag(args, "yes")
+        options, remaining = parse_flags(args, [:only, :from, :format])
+        unless remaining.empty?
+          warn "usage: reach reclaim [--only brain|work|from] [--from DIR] [--yes] [--format text|json]"
+          return 1
+        end
+        only = Reach::Reclaim.parse_only(options[:only])
+        json = options[:format] == "json"
+        result = if confirmed || !$stdin.tty? || !$stdout.tty?
+                   Reach::Reclaim.via_consent!(only: only, from: options[:from])
+                 else
+                   reclaim_interactive(only, options[:from])
+                 end
+        json ? puts(JSON.generate(result)) : puts(result["message"])
+        %w[bad_folder needs_enrollment].include?(result["state"]) ? 1 : 0
+      rescue Reach::Refused => e
+        warn e.message
+        1
+      end
+
+      def reclaim_interactive(only, from)
+        result = Reach::Reclaim.via_consent!(only: only, from: from)
+        return result unless result["state"] == "needs_confirmation"
+
+        puts result["message"]
+        print "yes/no: "
+        answer = $stdin.gets.to_s.strip.downcase
+        return { "state" => "declined", "message" => Reach::Messages.text("M-RECLAIM-DECLINED") } unless %w[yes y].include?(answer)
+
+        Reach::Reclaim.perform(only: only, from: from)
       end
 
       def cmd_checkpoint(args)
