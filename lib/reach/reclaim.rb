@@ -19,6 +19,7 @@ module Reach
     SKIP_COPY_NAMES = %w[AGENTS.md CLAUDE.md GEMINI.md .mcp.json .reach-space.json].freeze
     SKIP_COPY_DIRS = %w[.reach .claude .codex].freeze
     OWNER_SCAN_LIMIT = 50
+    OFFER_RECHECK_S = 86_400
     FAILURES = [SystemCallError, IOError, Reach::Error].freeze
 
     module_function
@@ -576,11 +577,23 @@ module Reach
 
     def offer_due?
       return false unless available? && enrolled?
-      return false if Reach::StateFile.read(OFFER_FILE)["offered"] == true
+      record = Reach::StateFile.read(OFFER_FILE)
+      return false if record["offered"] == true
+      return false if checked_recently?(record["checked_at"])
 
       found = scan
-      found["brain"].any? { |item| item["owner"] == "ours" } || !(found["work"] && found["work"]["slices"]).to_a.empty?
+      due = found["brain"].any? { |item| item["owner"] == "ours" } || !(found["work"] && found["work"]["slices"]).to_a.empty?
+      Reach::StateFile.write(OFFER_FILE, "offered" => false, "checked_at" => Time.now.utc.iso8601) unless due
+      due
     rescue *FAILURES
+      false
+    end
+
+    def checked_recently?(stamp)
+      return false unless stamp.is_a?(String)
+
+      Time.now.utc - Time.iso8601(stamp) < OFFER_RECHECK_S
+    rescue ArgumentError
       false
     end
 
