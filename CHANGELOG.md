@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A panel slice can write its own labels. Its owned cutout `.svelte` may carry one Dovetail 0.5.0 message block: `messages('<cutout_id>', {...})` inside a `<script module lang="ts">`, with a strict JSON object. `Reach::PanelMessages` (`lib/reach/panel_messages.rb`) parses it without running it.
-- `reach check` reports CK-MESSAGES, an error, for each problem in a block: it is outside a module script, is not strict JSON, names another cutout, has no en-US, has a bad locale code, has more than 40 keys in a locale, has a key without the `<cutout_id>.` prefix, has a value over 200 characters or not a string, has a non-en-US key that en-US lacks, or is a second block. The per-line CK-PANEL checks skip the block's lines, so a label such as "Order #123" is not read as a colour.
+- `reach check` reports CK-MESSAGES, an error, for each problem in a block: it is outside a module script, is not strict JSON, names another cutout, has no en-US, has a bad locale code, has more than 40 keys in a locale, has a key without the `<cutout_id>.` prefix, has a value over 200 characters or not a string, has a non-en-US key that en-US lacks, or is a second block. The per-line CK-PANEL checks skip the lines that hold only the block, so a label such as "Order #123" is not read as a colour. Code that shares a line with the block's opening or closing is still checked.
 
 ### Changed
 

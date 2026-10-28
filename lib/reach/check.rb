@@ -367,12 +367,25 @@ module Reach
         findings << finding("CK-MESSAGES", relative, problem[:line], problem[:message],
                             "Keep one messages('#{cutout_id}', {...}) call in a <script module lang=\"ts\"> with an en-US object, at most #{Reach::PanelMessages::MAX_KEYS} keys and #{Reach::PanelMessages::MAX_VALUE} characters each, every key starting with #{cutout_id}.")
       end
-      block_lines = Reach::PanelMessages.blocks(content).select { |block| block[:last_line] }.map { |block| block[:first_line]..block[:last_line] }
+      block_lines = {}
+      Reach::PanelMessages.blocks(content).select { |block| block[:last_line] }.each do |block|
+        first = block[:first_line]
+        last = block[:last_line]
+        opening_alone = lines[first - 1].to_s.strip.start_with?("messages(")
+        closing_alone = lines[last - 1].to_s.strip.match?(/\)\s*;?\z/)
+        ((first + 1)..(last - 1)).each { |number| block_lines[number] = true }
+        if first == last
+          block_lines[first] = true if opening_alone && closing_alone
+        else
+          block_lines[first] = true if opening_alone
+          block_lines[last] = true if closing_alone
+        end
+      end
       in_script = false
       lines.each_with_index do |line, index|
         number = index + 1
         in_script = true if line.include?("<script")
-        if block_lines.any? { |range| range.cover?(number) }
+        if block_lines[number]
           in_script = false if line.include?("</script>")
           next
         end
