@@ -112,12 +112,11 @@ module ReleaseGate
       "KNOWN-ISSUE" => { repos: %w[reach teach], class: "critical_class" },
       "KNOWN-DOCTOR" => { repos: %w[reach teach], class: "critical_class" },
       "KNOWN-BACKUP" => { repos: %w[reach teach], class: "critical_class" },
-      "INST-FLAP" => { repos: %w[reach teach], class: "critical_class" },
       "INST-STALE" => { repos: %w[reach teach], class: "critical_class" }
     }.freeze
     ORDER = %w[CMP-WIRE-LIVE CMP-WIRE-MAIN CMP-PIN CMP-INSTALLS VER-COLLISION VER-HOMES VER-TAG-RELEASE VER-DEMOTE VER-STABLE
-               KNOWN-ALARM KNOWN-ISSUE KNOWN-DOCTOR KNOWN-BACKUP INST-FLAP INST-STALE].freeze
-    FACTS_CHECKS = %w[CMP-WIRE-LIVE CMP-WIRE-MAIN CMP-PIN CMP-INSTALLS KNOWN-ALARM KNOWN-ISSUE KNOWN-DOCTOR KNOWN-BACKUP INST-FLAP INST-STALE].freeze
+               KNOWN-ALARM KNOWN-ISSUE KNOWN-DOCTOR KNOWN-BACKUP INST-STALE].freeze
+    FACTS_CHECKS = %w[CMP-WIRE-LIVE CMP-WIRE-MAIN CMP-PIN CMP-INSTALLS KNOWN-ALARM KNOWN-ISSUE KNOWN-DOCTOR KNOWN-BACKUP INST-STALE].freeze
     DESK_STALE_S = 3 * 3600
     SELF_ALARMS = /\Arelease_gate(?:_override)?:/.freeze
 
@@ -497,15 +496,6 @@ module ReleaseGate
       return nil if line["state"] == "green"
 
       finding("KNOWN-BACKUP", "high", "The backup line is #{line['state']}", Array(line["reasons"]).join("; "), "a fresh restore-tested backup is in every configured place")
-    end
-
-    def inst_flap(_repo, _release, facts, _ctx, _overrides)
-      rows = Array(facts["flapping"]).select { |row| row.is_a?(Hash) && !(row["check_name"].to_s =~ SELF_ALARMS) }
-      return nil if rows.empty?
-
-      finding("INST-FLAP", "high", "Flapping alarms (3 or more openings in 24 h)",
-              rows.first(10).map { |row| "#{row['check_name']} opened #{row['opens']}x in #{row['window_h']} h (#{row['severity']})" }.join("; "),
-              "24 hours pass without a new opening of that alarm")
     end
 
     def inst_stale(_repo, _release, facts, _ctx, _overrides)

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.22] - 2026-10-27
+
+### Removed
+
+- Release gate check INST-FLAP (`tools/release_gate/checks.rb`, `specs/release_gate.yml`, `specs/app.yml`): the gate no longer blocks a release because an alarm opened three or more times in 24 hours. How often an alarm opens is the service desk's to track, not a release's to wait on; the other critical checks (KNOWN-ALARM for open blockers, KNOWN-DOCTOR, KNOWN-BACKUP, INST-STALE) are unchanged. Teach re-pins the same `checks.rb`.
+
 ## [0.64.21] - 2026-10-27
 
 ### Fixed
