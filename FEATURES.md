@@ -2594,3 +2594,22 @@ Student-first audit:
 6. Friction: yes. One command and one yes; the receipts copy and the server notice need no extra step.
 7. Failure: safe. Nothing is deleted if the receipts copy fails, every refusal is listed, and a server that cannot be reached never blocks the removal. The one loss is unsent items, named in the question.
 8. Recovery: yes. The student installs rEach again and enrolls again with no instructor step; their work, plan and receipts are still there and the kept extra copies let a later install find them.
+
+## Cutout message block — 0.66.0
+
+**Build: ✅ Built in 0.66.0. Deploy: 🟡 Pending the test promotion; not on stable. Students must not be told about the block until Sven moves Teach's Grokit root to Grokit 0.12.0 and the practice set is rebuilt with Dovetail 0.5.0.**
+
+A panel slice's owned cutout `.svelte` may carry one Dovetail 0.5.0 message block: `messages('<cutout_id>', {...})` in a `<script module lang="ts">`, with strict JSON, at most 40 keys per locale, values of at most 200 characters, en-US required and other locales falling back to en-US. `reach check` reports a bad block as CK-MESSAGES, and P-I18N-INVENTED counts the block's keys as known (STD-CUTOUT-MESSAGES). The owned files and the wire do not change.
+
+Verified on 2026-10-28 with sixteen scratch samples (good, `context="module"`, a "#123" label, and one per problem code): each bad sample gives exactly its CK-MESSAGES code and the good ones give none. A scratch workspace's P-I18N-INVENTED flags only the invented key. Grokit's real `ExtractIdeaTitle.svelte`, with and without a block, gives no finding. Teach's and Dovetail's copies of the parser are identical apart from the module name. Not run: Ruby 2.6 (the code was checked by reading it), and the platform smoke.
+
+Student-first audit:
+
+1. Learning: yes. The student writes the words their panel shows instead of bending the design to the shared list.
+2. Agency and honesty: yes. The wording sits in a file the student owns, and a bad block is named with its fix.
+3. Wellbeing and safety: n/a. Nothing about distress, deadlines or messages to students changes.
+4. Privacy and dignity: yes. The block holds interface labels only, and nothing new is collected.
+5. Fairness and access: yes. The same block and limits apply on every computer and AI app, and other locales fall back to en-US.
+6. Friction: yes. There is no new owned file and no requalification, and CK-MESSAGES says what to fix.
+7. Failure: yes, with an ordering condition. A cutout with a block fails to load in a practice app built with an older Dovetail, so the announcement waits for the rebuild. A student who writes no block is unaffected.
+8. Recovery: yes. Deleting or correcting the block restores the earlier behaviour.

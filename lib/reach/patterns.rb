@@ -328,14 +328,23 @@ module Reach
     end
 
     def i18n_hits(scope, params)
-      known = scope.message_keys
+      known = scope.message_keys.dup
+      files = scope.code_files(extensions(params))
+      texts = {}
+      files.each do |relative|
+        text = scope.read(relative)
+        next unless text
+
+        texts[relative] = text
+        known.merge!(Reach::PanelMessages.keys(text))
+      end
       return [] if known.empty?
 
       call = compile(params["call"]) || I18N_CALL
       hits = []
-      scope.code_files(extensions(params)).each do |relative|
+      files.each do |relative|
         check_deadline!
-        text = scope.read(relative)
+        text = texts[relative]
         next unless text
 
         text.each_line.with_index(1) do |line, number|

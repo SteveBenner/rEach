@@ -362,10 +362,20 @@ module Reach
       unless content.include?('<script lang="ts">')
         findings << finding("CK-PANEL", relative, 1, "the component has no <script lang=\"ts\"> block", "Write the script in TypeScript", rule: "CK-PANEL-TS")
       end
+      cutout_id = meta["cutout_id"].to_s
+      Reach::PanelMessages.problems(content, cutout_id).each do |problem|
+        findings << finding("CK-MESSAGES", relative, problem[:line], problem[:message],
+                            "Keep one messages('#{cutout_id}', {...}) call in a <script module lang=\"ts\"> with an en-US object, at most #{Reach::PanelMessages::MAX_KEYS} keys and #{Reach::PanelMessages::MAX_VALUE} characters each, every key starting with #{cutout_id}.")
+      end
+      block_lines = Reach::PanelMessages.blocks(content).select { |block| block[:last_line] }.map { |block| block[:first_line]..block[:last_line] }
       in_script = false
       lines.each_with_index do |line, index|
         number = index + 1
         in_script = true if line.include?("<script")
+        if block_lines.any? { |range| range.cover?(number) }
+          in_script = false if line.include?("</script>")
+          next
+        end
         PANEL_RULES.each do |pattern, rule, message|
           findings << finding("CK-PANEL", relative, number, "line #{number} uses #{message}", "See the DOVETAIL directive's seam table", rule: rule) if line.match?(pattern)
         end

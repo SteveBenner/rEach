@@ -39,8 +39,8 @@ patterns:
     kind: i18n_keys
     parameters:
       ext: [svelte]
-    message: "A panel asks for a message key that the module's messages file does not have, so the panel shows a raw key."
-    remedy: "Use only the message keys the module already has for this cutout; the messages file is not yours to change."
+    message: "A panel asks for a message key that neither the module's messages file nor the cutout's own message block has, so the panel shows a raw key."
+    remedy: "Use a key from qualify/kit/modules/<module>/panel/messages/en-US.json, or add your own label to the cutout's messages block (one messages('<cutout_id>', {...}) in a <script module lang=\"ts\">, keys starting with <cutout_id>.)."
   - id: P-DRYRUN-PASS
     severity: block
     points: [scenarios, code]

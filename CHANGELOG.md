@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.66.0] - 2026-10-28
+
+### Added
+
+- A panel slice can write its own labels. Its owned cutout `.svelte` may carry one Dovetail 0.5.0 message block: `messages('<cutout_id>', {...})` inside a `<script module lang="ts">`, with a strict JSON object. `Reach::PanelMessages` (`lib/reach/panel_messages.rb`) parses it without running it.
+- `reach check` reports CK-MESSAGES, an error, for each problem in a block: it is outside a module script, is not strict JSON, names another cutout, has no en-US, has a bad locale code, has more than 40 keys in a locale, has a key without the `<cutout_id>.` prefix, has a value over 200 characters or not a string, has a non-en-US key that en-US lacks, or is a second block. The per-line CK-PANEL checks skip the block's lines, so a label such as "Order #123" is not read as a colour.
+
+### Changed
+
+- The i18n_keys pattern kind (P-I18N-INVENTED) counts a block's keys as known, beside the module's messages file and its read-only copy in `qualify/kit`. The pattern's message and remedy now point at the block instead of saying the messages file is not the student's to change.
+
 ## [0.65.0] - 2026-10-28
 
 ### Added
