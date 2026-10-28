@@ -129,7 +129,9 @@ module Reach
       return false if File.symlink?(absolute)
 
       parent = File.dirname(absolute)
-      File.exist?(parent) ? File.realpath(parent).start_with?(root) : true
+      parent = File.dirname(parent) until File.exist?(parent)
+      real_parent = File.realpath(parent)
+      real_parent == root || real_parent.start_with?("#{root}#{File::SEPARATOR}")
     rescue SystemCallError
       false
     end
