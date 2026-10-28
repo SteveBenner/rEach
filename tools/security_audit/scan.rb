@@ -1,4 +1,5 @@
 require "json"
+require "yaml"
 require "openssl"
 require "open3"
 
@@ -44,6 +45,38 @@ module SecurityAuditScan
   INSTITUTION_EMAIL = /[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9\-]+\.)+edu\b/i
 
   module_function
+
+  def private_terms_path
+    given = ENV["RELEASE_GATE_PRIVATE_TERMS"].to_s
+    File.expand_path(given.empty? ? "~/.config/release-gate/private-terms.yml" : given)
+  end
+
+  def private_terms
+    data = YAML.safe_load(File.read(private_terms_path), permitted_classes: [], aliases: false)
+    return { terms: [], patterns: [], invalid: 0 } unless data.is_a?(Hash)
+
+    invalid = 0
+    patterns = Array(data["patterns"]).map(&:to_s).reject(&:empty?).filter_map do |source|
+      Regexp.new(source, Regexp::IGNORECASE)
+    rescue RegexpError
+      invalid += 1
+      nil
+    end
+    { terms: Array(data["terms"]).map { |term| term.to_s.downcase }.reject(&:empty?), patterns: patterns, invalid: invalid }
+  rescue Errno::ENOENT, Errno::EACCES, Psych::Exception
+    nil
+  end
+
+  def private_hits(text, known)
+    lowered = text.downcase
+    hits = known[:terms].select { |term| lowered.include?(term) }
+    hits += known[:patterns].filter_map { |pattern| text[pattern] }
+    hits.uniq
+  end
+
+  def private_hint(value)
+    "#{value.to_s[0, 2]}\u2026"
+  end
 
   def mask(value)
     text = value.to_s
@@ -150,7 +183,7 @@ module SecurityAuditScan
     index[:memo][value] ||= OpenSSL::HMAC.hexdigest("SHA256", index[:salt], value)
   end
 
-  def run(root, base, diff, roster, roster_check)
+  def run(root, base, diff, roster, roster_check, visibility = :public)
     findings = []
     seen = {}
     index = roster_check ? roster_index(roster) : nil
@@ -160,6 +193,15 @@ module SecurityAuditScan
 
       seen[id] = true
       findings << { "severity" => severity, "category" => category, "file" => file, "line" => line, "title" => title, "detail" => detail }
+    end
+
+    known = visibility == :public ? private_terms : false
+    if known.nil?
+      findings << { "severity" => "info", "category" => "private-name", "file" => nil, "line" => nil, "title" => "Private-name list not configured",
+                    "detail" => "the private-name list does not exist or is unreadable, so no private-name check ran" }
+    elsif known && known[:invalid].positive?
+      findings << { "severity" => "info", "category" => "private-name", "file" => nil, "line" => nil, "title" => "Private-name patterns skipped",
+                    "detail" => "#{known[:invalid]} pattern#{known[:invalid] == 1 ? '' : 's'} in the private-name list are not valid regular expressions" }
     end
 
     diff[:paths].each do |path|
@@ -210,11 +252,17 @@ module SecurityAuditScan
           end
         end
 
+        if known
+          private_hits(text, known).each do |value|
+            add.call("critical", "private-name", file, line, "Private name in release", "A private term starting #{private_hint(value)} is on this line", value)
+          end
+        end
+
         text.scan(LOCAL_PATH) do
           value = Regexp.last_match[0]
           next if carried?(root, base, file, value)
 
-          add.call("medium", "local-path", file, line, "Absolute home path", "Path #{value} exposes a local account name", value)
+          add.call(visibility == :public ? "high" : "medium", "local-path", file, line, "Absolute home path", "Path #{value} exposes a local account name", value)
         end
       end
     end

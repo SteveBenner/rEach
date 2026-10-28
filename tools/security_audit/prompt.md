@@ -1,6 +1,19 @@
-You are auditing a release of a public, student-facing plugin before it is published to GitHub. Nothing in the repository is yet public; this audit decides whether it may leave this computer.
+You are auditing a release before it leaves this computer. The repository's visibility is: {{VISIBILITY}}. A public repository is readable by anyone, so judge every line as if it were published; a private repository is readable only by its collaborators, so judge what must still never leave this computer.
 
-Audit the release for ANY issue. Concentrate first on exposure: anything that should not be public. Cover liability, data loss prevention, security and privacy: student data, instructor data, credentials and tokens, local filesystem paths, internal hostnames and addresses, Teach internals that the public documentation deliberately keeps opaque, licensing and attribution problems, and anything that could harm a student or the instructor if published.
+Audit the release for ANY issue. Concentrate first on exposure: anything that should not be in the repository for its visibility. Cover liability, data loss prevention, security and privacy: student data, instructor data, credentials and tokens, local filesystem paths, internal hostnames and addresses, internals that the public documentation deliberately keeps opaque, licensing and attribution problems, and anything that could harm a student or the instructor if published.
+
+Commit metadata (author, dates, commit messages) is out of scope; audit file content only.
+
+Every finding carries one category from this list:
+
+- secret: a credential, token, key or password.
+- student-data: a student's identity, work, grades or contact details.
+- course-data: course rosters, schedules, grading or other course records not meant for the public.
+- internal-process: operator workflow, internal tooling, agent instructions and plans not meant for users.
+- self-talk: unfinished notes, scratch reasoning and TODO chatter aimed at the author rather than the reader.
+- local-path: an absolute path that exposes a local account or machine layout.
+- licensing: a licence, attribution or provenance problem.
+- exposure: any other thing that should not be visible at this visibility.
 
 The release diff and the deterministic scan summary are in this directory:
 

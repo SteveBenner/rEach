@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.0] - 2026-10-28
+
+### Added
+
+- The release gate decides whether the repository is public or private (`tools/release_gate/repo.rb`, `Repo#visibility`). It normalises the origin remote to host/owner/repo and checks the optional machine-local `~/.config/release-gate/visibility.yml` (`RELEASE_GATE_VISIBILITY_FILE`; `public_remotes` first, then `private_remotes`, both glob lists). For a github.com remote it then asks `gh repo view` with a 5 second timeout and caches the answer for an hour in the state directory. Everything else counts as public, including no remote, an unknown host, a missing `gh`, an error and a timeout.
+- A new deterministic scan category, `private-name` (critical, SEC-SCAN), runs on public repositories (`tools/security_audit/scan.rb`). It reads the optional machine-local `~/.config/release-gate/private-terms.yml` (`RELEASE_GATE_PRIVATE_TERMS`), whose `terms` are literal and case-insensitive and whose `patterns` are regular expressions. A finding shows only the first two characters of the term. Without the file the scan adds one informational note and does not fail.
+
+### Changed
+
+- On a public repository, a blocking exposure finding can no longer be leased or overridden (`tools/release_gate/gate.rb`). Exposure means any SEC-SCAN finding, or a SEC-AUDIT finding the model put in the secret, student-data, course-data, internal-process, self-talk, local-path or exposure category. The run stays blocked, and the console and the report say so in one line. An audit that could not run or is disabled keeps the lease and override behaviour. Private repositories are unchanged.
+- On a public repository the model audit runs only for a release: a tag, a changed VERSION, or a check run without `--as-push`. A push that carries no release runs the deterministic scan alone and says so (`tools/security_audit/gate.rb`). A scan-only verdict is cached apart, so a release never reuses it.
+- An absolute home path is a high finding on a public repository and stays medium on a private one.
+- The audit prompt (`tools/security_audit/prompt.md`) gets the repository's visibility from the gate instead of assuming public, lists the eight categories a finding must carry, and puts commit metadata out of scope.
+- `specs/release_gate.yml` gains a `visibility` section describing all of the above.
+
 ## [0.67.0] - 2026-10-28
 
 ### Added

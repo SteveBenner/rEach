@@ -12,7 +12,8 @@ require_relative "../security_audit/gate"
 
 module ReleaseGate
   module Gate
-    SCAN_CATEGORIES = %w[secret-file secret student-data student-data-shape entropy local-path].freeze
+    SCAN_CATEGORIES = %w[secret-file secret student-data student-data-shape entropy local-path private-name].freeze
+    EXPOSURE_NOTE = "exposure on a public repository is never leasable or overridable".freeze
     FACTS_ROUTE = "/api/v1/ops/release-gate/facts".freeze
     RUNS_ROUTE = "/api/v1/ops/release-gate/runs".freeze
     OVERRIDES_ROUTE = "/api/v1/ops/release-gate/overrides".freeze
@@ -108,9 +109,12 @@ module ReleaseGate
     def security_findings(result, settings)
       out = []
       Array(result[:findings]).each do |row|
-        id = SCAN_CATEGORIES.include?(row["category"].to_s) ? "SEC-SCAN" : "SEC-AUDIT"
+        scanned = SCAN_CATEGORIES.include?(row["category"].to_s)
+        id = scanned ? "SEC-SCAN" : "SEC-AUDIT"
         where = row["file"] ? "#{row['file']}#{row['line'] ? ":#{row['line']}" : ''}" : "release"
-        out << Checks.finding(id, row["severity"], "#{row['category']} #{where}: #{row['title']}", row["detail"], "remove the value from the release")
+        found = Checks.finding(id, row["severity"], "#{row['category']} #{where}: #{row['title']}", row["detail"], "remove the value from the release")
+        found["exposure"] = true if scanned || SecurityAuditGate::EXPOSURE_CATEGORIES.include?(row["category"].to_s)
+        out << found
       end
       if result[:status] == "blocked" && Array(result[:findings]).none? { |row| SecurityAuditGate::BLOCKING.fetch(settings["block_at"], SecurityAuditGate::BLOCKING["high"]).include?(row["severity"].to_s.downcase) }
         out << Checks.finding("SEC-AUDIT", "critical", "The model audit answered fail", "the audit verdict was fail without a blocking finding to name", "read the audit report and remove the cause")
@@ -144,7 +148,7 @@ module ReleaseGate
       (SecurityAuditGate::SEVERITIES + %w[error]).map { |s| [s, findings.count { |f| f["severity"] == s }] }.select { |_, n| n.positive? }
     end
 
-    def report(repo, release, run, findings, settings)
+    def report(repo, release, run, findings, settings, note: nil)
       lines = ["# Release gate: #{repo.name} #{release[:version]}", ""]
       lines << "- Status: #{run['status']}#{run['override_id'] ? " (override #{run['override_id']})" : ''}#{run['lease_id'] ? " (lease #{run['lease_id']})" : ''}"
       lines << "- Commit: #{run['commit']}"
@@ -152,6 +156,7 @@ module ReleaseGate
       lines << "- Block at: #{settings ? settings['block_at'] : 'high'}"
       lines << "- Findings: #{counts(findings).map { |s, n| "#{n} #{s}" }.join(', ')}" unless findings.empty?
       lines << "- Duration: #{run['duration_s']} s"
+      lines << "- Note: #{note}" if note
       lines << ""
       lines << "## Findings"
       lines << ""
@@ -173,12 +178,20 @@ module ReleaseGate
       end.join("\n") + "\n"
     end
 
+    def release_run?(release, record, as_push)
+      return true if record || !as_push || release[:trigger] == "tag"
+
+      previous = release[:base] == SecurityAuditScan::EMPTY_TREE ? nil : SecurityAuditGate.read_version(release[:base])
+      previous.nil? || previous != release[:version].to_s
+    end
+
     def run_release(repo, release, security:, record:, as_push: false, min_lease_minutes: nil)
       started = Time.now
       commit = SecurityAuditGate.git("rev-parse", "#{release[:sha]}^{commit}") || release[:sha]
       tree = SecurityAuditGate.git("rev-parse", "#{commit}^{tree}") || commit
       release = release.merge(sha: commit, tree: tree, base: SecurityAuditGate.base_for(commit, "since_release"))
       ctx = Context.new(repo)
+      visibility = repo.visibility
       findings = []
       spec_error = Checks.spec_mismatch(repo)
       findings << spec_error if spec_error
@@ -191,7 +204,8 @@ module ReleaseGate
         config = SecurityAuditGate.load_config
         settings = config["settings"]
         if settings["enabled"]
-          result = SecurityAuditGate.process({ sha: commit, trigger: release[:trigger], version: release[:version] }, config, record: record)
+          result = SecurityAuditGate.process({ sha: commit, trigger: release[:trigger], version: release[:version] }, config, record: record,
+                                                       model_audit: release_run?(release, record, as_push))
           findings.concat(security_findings(result, settings))
         else
           findings << Checks.finding("SEC-AUDIT", "info", "Security audit disabled in Teach settings", "no scan and no model audit ran", "enable it on the Ops page")
@@ -202,7 +216,8 @@ module ReleaseGate
       status = decision[:status]
       override = nil
       lease = nil
-      lease = Lease.active(repo.name) if %w[blocked error].include?(status)
+      exposure = visibility == :public && status == "blocked" && findings.any? { |row| row["exposure"] && blocking?(row, block_at) }
+      lease = Lease.active(repo.name) if %w[blocked error].include?(status) && !exposure
       lease_short = false
       if lease && (record || as_push)
         status = "leased"
@@ -213,7 +228,7 @@ module ReleaseGate
           lease_short = remaining < min_lease_minutes
           say("lease has #{remaining.floor} minutes left, fewer than the required #{min_lease_minutes}") if lease_short
         end
-      elsif %w[blocked error].include?(status) && (record || as_push)
+      elsif %w[blocked error].include?(status) && !exposure && (record || as_push)
         override = Override.covering(repo, decision[:ids])
         if override
           status = "overridden"
@@ -223,16 +238,17 @@ module ReleaseGate
       duration = (Time.now - started).round
       run = {
         "repo" => repo.name, "release_version" => release[:version].to_s, "commit" => commit, "tree" => tree, "trigger" => release[:trigger],
-        "status" => status, "findings" => findings.first(200).map { |row| row.reject { |key, _| key == "clear" } },
+        "status" => status, "findings" => findings.first(200).map { |row| row.reject { |key, _| %w[clear exposure].include?(key) } },
         "override_id" => override && override["id"], "lease_id" => status == "leased" ? lease["id"] : nil, "duration_s" => duration,
         "error" => findings.select { |row| row["severity"] == "error" }.map { |row| row["detail"] }.first(5).join("; ").then { |text| text.empty? ? nil : text[0, 2000] }
       }
-      report_md = report(repo, release, run, findings, settings)
+      report_md = report(repo, release, run, findings, settings, note: exposure ? EXPOSURE_NOTE : nil)
       report_path = File.join(repo.state_dir, "reports", "#{release[:version]}-#{tree[0, 12]}-gate.md")
       SecurityAuditGate.write_private(report_path, report_md)
       run_id = record ? SecurityAuditGate.post_run(run, RUNS_ROUTE) : nil
       say("#{status}#{override ? " (override #{override['id']})" : ''}#{status == 'leased' ? " (lease #{lease['id']} until #{lease['expires_at']})" : ''}: #{counts(findings).empty? ? 'no findings' : counts(findings).map { |s, n| "#{n} #{s}" }.join(', ')}")
       findings.select { |row| blocking?(row, block_at) }.each { |row| say("#{row['severity']} #{row['id']}: #{row['title']}") }
+      say(EXPOSURE_NOTE) if exposure
       say("a lease (#{lease['id']} until #{lease['expires_at']}) would let this push through; nothing is recorded") if lease && !record && !as_push
       say("override #{override['id']} would let this push through; the push consumes it, this check does not") if override && !record
       say("report #{report_path}")

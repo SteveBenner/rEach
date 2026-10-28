@@ -1,5 +1,27 @@
 # FEATURES — rEach
 
+## Public-repository exposure in the release gate — 0.68.0
+
+The release gate now knows whether the repository it guards is public. It checks a machine-local list of public and private remote patterns first, then asks GitHub (cached for an hour), and treats anything it cannot tell as public. On a public repository:
+- an exposure finding (anything the deterministic scan finds, or a model finding about secrets, student or course data, internal process, self-talk, local paths or other exposure) blocks the push, and no lease or override can let it through;
+- a new `private-name` scan check flags added lines that contain a term from a machine-local private-terms list, and shows only the term's first two characters;
+- home paths are high findings;
+- the model audit runs only at release time, and other pushes run the deterministic scan.
+
+Private repositories behave as before and run no private-name check.
+
+Build ✅ · Deploy 🔵 · Blocker: none (the course server's pinned copy of the gate is re-pinned next).
+
+Verified on 2026-10-28 on Linux in scratch repositories, with a local lease responder and a stubbed model:
+- With an active lease, a public remote and an added `*.impl.yml` line holding a listed term, the run stayed blocked with the critical private-name finding and printed the exposure note (exit 1).
+- The same repository with a private remote pattern was leased (exit 0) and reported no private-name finding.
+- A wildcard SEC-SCAN override did not unblock the public run, and it did override the private one.
+- A github.com remote was public with `gh` absent, with a `gh` error and after a hung `gh` (5 seconds). A live lookup of this repository returned public and was cached. A stub answering PRIVATE gave private.
+- With no private-terms file, the scan completed and reported one informational note.
+- The scan gave critical private-name and high local-path on public, and medium local-path only on private.
+- On a public push without a release, only the deterministic scan ran and the console said so. A push with a version change, and a check without `--as-push`, ran the model audit.
+- `ruby -wc` passed on all four changed Ruby files.
+
 ## Document assignments — 0.67.0
 
 An instructor can make an assignment a document assignment (wire revision 2026-10-26a): written work handed in as files instead of code. `reach sync` gives the student a folder with a read-only `INSTRUCTIONS.md` (the title and the task, no due line) and the usual rules files; there is no README, brief, plan, qualification or shape check. The student and the agent write in the folder, and the agent may create and edit only `.md` and `.txt` files; pdf, Word, OpenDocument and image files the student adds are theirs. `reach submit` lists the files, refuses an empty folder, more than 200 files, a name over 255 bytes, names that differ only by case, a file with no extension or a kind the assignment does not accept (naming the file; nothing is sent), asks the student's yes, and sends one body with an idempotency key, waiting up to two minutes. After a timeout it asks Teach by that key before it queues the body once in the outbox. The grade arrives in percent with the instructor's feedback and shows in `reach grades`, `reach status` and `reach next`; a grade for an earlier submission is marked as that. An assignment handed in elsewhere keeps only `INSTRUCTIONS.md`, records no transcript and stays out of late lists, hands and exports. Directives now carry a `slice` scope: ten engineering directives apply to code slices only, and the new `FLOWDOC` and `RESUMEDOC` apply to document slices.
@@ -2269,6 +2291,8 @@ Every check still runs, the run is recorded as leased with the lease id, and no 
 source nothing changes. Checked on 2026-10-08 in a scratch clone against a stub lease server: a valid lease ended
 leased with exit 0 and left an active override unconsumed; no source, a closed port, 404, a lease for another
 repository, an expired lease, a 25 hour lease, malformed JSON and a 3 s delay all stayed blocked.
+Since 0.68.0 a lease does not cover an exposure finding on a public repository; see "Public-repository exposure in the
+release gate".
 
 Build ✅ · Deploy 🔵 (live once the course server accepts status leased and the clone has a lease source) · Blocker: -
 

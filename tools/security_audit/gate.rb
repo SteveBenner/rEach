@@ -35,6 +35,7 @@ module SecurityAuditGate
   CUSTOM_MODEL = /\A[a-z0-9][a-z0-9.\-\[\]]{1,63}\z/
   SEVERITIES = %w[critical high medium low info].freeze
   BLOCKING = { "critical" => %w[critical], "high" => %w[critical high], "any" => %w[critical high medium] }.freeze
+  EXPOSURE_CATEGORIES = %w[secret student-data course-data internal-process self-talk local-path exposure].freeze
   HTTP_TIMEOUT = 5
   ATTEMPTS = 3
   RUNS_ROUTE = "/api/v1/ops/security-audit/runs".freeze
@@ -272,15 +273,15 @@ module SecurityAuditGate
     ["passed", 0]
   end
 
-  def audit(settings, base, sha, scan_findings, diff_raw)
+  def audit(settings, base, sha, scan_findings, diff_raw, visibility = :public)
     binary = [ENV["RELEASE_GATE_CLAUDE"], ENV["REACH_SECURITY_AUDIT_CLAUDE"]].find { |value| !value.to_s.empty? } || "claude"
     model = MODEL_IDS[settings["model"]] || settings["model"]
     workdir = Dir.mktmpdir("reach-security-audit-")
     File.chmod(0o700, workdir)
     begin
       File.write(File.join(workdir, "diff.patch"), diff_raw)
-      File.write(File.join(workdir, "scan.json"), JSON.pretty_generate("base" => base, "commit" => sha, "findings" => scan_findings))
-      prompt = "#{repo && repo.prompt_paragraph}#{File.read(File.join(__dir__, "prompt.md")).gsub("{{WORKDIR}}", workdir)}"
+      File.write(File.join(workdir, "scan.json"), JSON.pretty_generate("base" => base, "commit" => sha, "visibility" => visibility.to_s, "findings" => scan_findings))
+      prompt = "#{repo && repo.prompt_paragraph}#{File.read(File.join(__dir__, "prompt.md")).gsub("{{WORKDIR}}", workdir).gsub("{{VISIBILITY}}", visibility.to_s)}"
       args = [binary, "-p", "--model", model]
       args += ["--effort", settings["effort"]] unless settings["effort"] == "default"
       args += ["--max-budget-usd", settings["budget_usd"].to_s] unless settings["token_open"]
@@ -482,19 +483,21 @@ module SecurityAuditGate
     line
   end
 
-  def cache_key(tree, base, settings)
+  def cache_key(tree, base, settings, audited = true)
     digest = Digest::SHA256.hexdigest(JSON.generate(settings.sort.to_h))
-    Digest::SHA256.hexdigest("#{tree}\n#{base}\n#{digest}")
+    Digest::SHA256.hexdigest("#{tree}\n#{base}\n#{digest}#{audited ? '' : "\nscan-only"}")
   end
 
-  def process(release, config, record: true)
+  def process(release, config, record: true, model_audit: true)
     settings = config["settings"]
+    visibility = repo ? repo.visibility : :public
+    audited = model_audit || visibility == :private
     sha = release[:sha]
     commit = git("rev-parse", "#{sha}^{commit}") || sha
     release = release.merge(sha: commit)
     tree = git("rev-parse", "#{commit}^{tree}") || commit
     base = base_for(commit, settings["scope"])
-    key = cache_key(tree, base, settings)
+    key = cache_key(tree, base, settings, audited)
     cache_path = File.join(state_dir, "verdicts", "#{key}.json")
     if File.file?(cache_path)
       begin
@@ -512,10 +515,17 @@ module SecurityAuditGate
     roster = config["roster"]
     roster_on = settings["roster_check"]
     errors << "roster unavailable" if roster_on && SecurityAuditScan.roster_index(roster).nil?
-    scan_findings = SecurityAuditScan.run(root, base, diff, roster, roster_on)
+    scan_findings = SecurityAuditScan.run(root, base, diff, roster, roster_on, visibility)
 
     scan_blocks = settings["mode"] == "gate" && scan_findings.any? { |f| (BLOCKING[settings["block_at"]] || BLOCKING["high"]).include?(f["severity"].to_s.downcase) }
-    audit_result = scan_blocks ? { summary: "Audit not run: the deterministic scan already blocks this release." } : audit(settings, base, commit, scan_findings, diff[:raw])
+    audit_result = if scan_blocks
+                     { summary: "Audit not run: the deterministic scan already blocks this release." }
+                   elsif !audited
+                     say("the model audit runs at release time; this push ran the deterministic scan only")
+                     { summary: "Model audit not run: it runs at release time for a public repository." }
+                   else
+                     audit(settings, base, commit, scan_findings, diff[:raw], visibility)
+                   end
     cost = audit_result[:cost].to_f
     errors << audit_result[:error] if audit_result[:error]
     audit_findings = audit_result[:findings] || []

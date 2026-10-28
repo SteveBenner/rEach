@@ -97,6 +97,32 @@ override:
     A run whose every blocking finding (by check id) is covered by one active record ends overridden with exit 0, the
     record is marked consumed, and the run names the record. The next push is judged afresh. A record covers one push.
   record_everywhere: the course server records the override and alarms release_gate_override:<repo> until it is consumed or expired
+visibility:
+  source: >-
+    The origin remote url is normalised to host/owner/repo (scheme, user@ and a trailing .git removed; git@host:o/r
+    becomes host/o/r). ~/.config/release-gate/visibility.yml (RELEASE_GATE_VISIBILITY_FILE) may list private_remotes
+    and public_remotes, each a list of File.fnmatch globs over the normalised remote. A public_remotes match is public,
+    then a private_remotes match is private, then a github.com remote asks gh repo view <owner/repo> --json visibility
+    with a 5 second timeout and the answer is cached for one hour in the state directory (PUBLIC and INTERNAL are
+    public, PRIVATE is private). Everything else, no remote, an unknown host, a missing gh, a gh error, a timeout or an
+    unparseable answer, is public. A repository with no project remote is decided by the file alone.
+  exposure_rule: >-
+    On a public repository, when a blocking finding is exposure-class, neither a lease nor an override applies: the
+    run stays blocked and the report says so in one line. Exposure-class means every SEC-SCAN finding and every
+    SEC-AUDIT finding the model reported with a category of secret, student-data, course-data, internal-process,
+    self-talk, local-path or exposure. SEC-AUDIT entries for an audit that could not run or is disabled keep the lease
+    and override behaviour. A private repository keeps the lease and override behaviour for every finding.
+  cadence: >-
+    On a public repository the model audit runs for a release or promote run only (a tag, a changed VERSION, or a
+    dry run without --as-push); a push that carries no release runs the deterministic scan alone and prints one line
+    saying the model audit runs at release time. A private repository runs both on every run.
+  private_names: >-
+    ~/.config/release-gate/private-terms.yml (RELEASE_GATE_PRIVATE_TERMS) may list terms (literal strings matched
+    case-insensitively as substrings) and patterns (regular expression sources). Each match on an added line is a
+    critical private-name finding under SEC-SCAN; the finding states the file, the line and the term's first two
+    characters, never the term. No file means one informational note and no failure. A private repository runs no
+    private-name check, because its own text names its private hosts and repositories.
+  local_path: an absolute home path is medium on a private repository and high on a public one
 facts:
   endpoint: the course server's release-gate facts answer, read with the gate's service token
   freshness: fetched on every run; never served from a cache, because a stale fact defeats a broken-state check
@@ -132,14 +158,14 @@ checks:
     repos: [reach, teach]
     class: critical_class
     reads: the lines added between the base (the newest v* tag before the commit, or the empty tree for scope whole_tree) and the pushed commit; Teach's salted roster digests
-    broken: a secret shape or a secret-bearing file name (critical); a roster match (critical); a student-style address or id, a high-entropy quoted string (high); an absolute home path (medium)
+    broken: a secret shape or a secret-bearing file name (critical); a roster match (critical); a private-name match (critical); a student-style address or id, a high-entropy quoted string (high); an absolute home path (medium, high on a public repository)
     severity: as each finding states
     clear: remove the value from the release
   - id: SEC-AUDIT
     part: A
     repos: [reach, teach]
     class: warn_class
-    reads: one headless read-only claude -p over the diff and the scan summary with tools/security_audit/prompt.md; for teach a paragraph naming the repository is prepended at run time
+    reads: one headless read-only claude -p over the diff and the scan summary with tools/security_audit/prompt.md, which states the repository visibility; for teach a paragraph naming the repository is prepended at run time; on a public repository it runs at release time only
     broken: a model finding at or above block_at; the scale decides, never the model alone
     severity: as each finding states; an audit that fails follows security_audit.on_error (default block)
     clear: resolve the finding
