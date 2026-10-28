@@ -1985,7 +1985,7 @@ record into the planes; recall went through the child in 0.25 s and fell back to
 spool and planes, and a queued forget ran before the next admission; with no kit every brain verb matched 0.37.3. Not
 verified: macOS, Windows, Hermes and a real student session.
 
-Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer; the 0.64.23 index rebuild is on main and test, not stable). · Blocker: -.
+Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer; the 0.64.23 index rebuild is not yet on stable). · Blocker: -.
 
 ### 2.52 · Audit hardening (2026-10-08 review)
 
