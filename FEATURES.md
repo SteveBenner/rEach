@@ -2116,8 +2116,8 @@ through `specs/release_gate.yml`: the security scan and audit, then nineteen spe
 digest against the live and main Teach, pinned copies against their owner, installs that could not report), version
 integrity (collisions across branches and worktrees, VERSION against its eight homes and the tag, tags without a
 GitHub release, a release that would demote Latest, `stable` behind Latest without a hold), known broken state (open
-blocker alarms and issues, a failing doctor, a backup line that is not green) and instability (flapping alarms, a
-long-lived unit on stale code). One severity scale; critical and high block; a check that cannot run says so and blocks
+blocker alarms and issues, a failing doctor, a backup line that is not green) and instability (flapping alarms until 0.64.22,
+a long-lived unit on stale code). One severity scale; critical and high block; a check that cannot run says so and blocks
 in the critical class. Every run and every override is recorded on Teach; the override is typed on a terminal with a
 reason and an expiry, raises an alarm until one push consumes it, and no environment variable skips the gate. Teach
 also advertises the hand triggers, debug kinds and harnesses it accepts, so a drifted install degrades (issue hand with
@@ -2130,7 +2130,7 @@ for a push named `HEAD:main` was found on the first live push and fixed before t
 until it is re-pinned from Teach main. 0.40.1 moved Teach's schedule, settings, alarm names, routes, scopes, port and
 commands out of `specs/release_gate.yml` into the private superproject's copy (`STD-TEACH-OPAQUE`); the public file keeps
 the tables the gate reads; the 0.40.0 commits before this fix are superseded, and no tag or release carried them.
-Since 0.47.1 INST-FLAP skips the gate's own `release_gate:*` and `release_gate_override:*` alarms, as KNOWN-ALARM does,
+Since 0.47.1, until its removal in 0.64.22, INST-FLAP skipped the gate's own `release_gate:*` and `release_gate_override:*` alarms, as KNOWN-ALARM does,
 so a refused push no longer keeps the gate refusing for 24 hours. Checked on 2026-10-08 in process with the live
 flapping facts: the gate's own alarms (8 and 7 openings) produced no finding, and `doctor` (3 openings) still did.
 Teach's pinned copies of `checks.rb` and `specs/release_gate.yml` still need re-pinning.
@@ -2259,7 +2259,7 @@ Verification on 2026-10-08: plugin package/check and policy drift checks report 
 
 Local installation on 2026-10-08: rplugin check and doctor report zero findings; reach policy reports 13 directives, 49 native bindings, four declarative controls, four advisory entries, and no policy problems. The local corpus index was rebuilt and six derived embeddings of already-retired sources received retirement markers through the corpus API; source records and journal history were preserved. The full model audit was rerun after packaging corrections: no high security finding in that run, with existing fleet alarms blocking the overall release gate and public-documentation warnings retained for review. The development policy remains versioned for host-side resolution; its paths are generic home-relative defaults and its roster is development configuration, not student policy. Stable was not moved, and no matching formal verifier exists for this change in the local attestation corpus.
 
-Publication status: the main push was refused at 2026-10-09T02:23:39Z by the existing KNOWN-ALARM and INST-FLAP checks, with no active reach lease. main was pushed at 2eac996 on 2026-10-09 under reach lease gtl_d8bf3d4dfae14f2c2948 (rEach now holds its own gate app); the gate still reported KNOWN-ALARM and INST-FLAP. No release was created and stable was not moved.
+Publication status: the main push was refused at 2026-10-09T02:23:39Z by the existing KNOWN-ALARM and INST-FLAP checks, with no active reach lease. main was pushed at 2eac996 on 2026-10-09 under a reach gate lease (rEach now holds its own gate app); the gate still reported KNOWN-ALARM and INST-FLAP. No release was created and stable was not moved.
 
 ## Security and privacy audit remediation — 0.47.3
 
