@@ -496,7 +496,8 @@ module Reach
         current = table[id].is_a?(Hash) ? table[id] : nil
         table[id] = current ? { "count" => [current["count"].to_i, entry["count"].to_i].max, "last" => later(current["last"], entry["last"]) } : entry
       end
-      Reach::Brain.write_json(to, mine.merge("reinforcements" => table)) unless table == mine["reinforcements"]
+      merged = theirs.merge(mine).merge("reinforcements" => table)
+      Reach::Brain.write_json(to, merged) unless merged == mine
       :merged
     end
 
