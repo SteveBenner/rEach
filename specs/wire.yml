@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-25d
+revision: 2026-10-26a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -236,7 +236,7 @@ envelope:
       id: {type: string, required: true, note: "Teach: pkgenv_<20 hex>. Reach: renv_<20 hex>."}
       version: {type: integer, minimum: 1, required: true, note: "Teach: per student per kind, increasing. Reach-sealed: always 1."}
       course: {type: string, required: true}
-      assignment: {type: [string, "null"], enum: [A1, A2, A3, A4, null], required: false}
+      assignment: {type: [string, "null"], pattern: "^[A-Z][A-Z0-9]{0,7}$", required: false, note: "an enum of A1, A2, A3, A4 and null before revision 2026-10-26a (W-DOC-1)"}
       student_id: {type: string, required: true}
       created_at: {type: string, format: W-CONV-3, required: true}
       content_digest: {type: string, format: W-CONV-4, required: true, note: "digest of the plaintext bytes (the .tar.gz)"}
@@ -413,7 +413,7 @@ packages:
     built_by: teach
     entries:
       slices.json: >-
-        {"schema": "teach.workspace/v1", "course": <course id>, "assignment": <A1-A4>, "slices": [<slice>...]} where each
+        {"schema": "teach.workspace/v1", "course": <course id>, "assignment": <assignment id (W-DOC-1)>, "slices": [<slice>...]} where each
         slice is {cutout_id, slice, module, assignment, due, behavior, owned_files, instructor_apis, panel_slice,
         contract_refs, tags, class, acceptance_mode, scenarios, qualify, root}. root is "<cutout_id>-<slice>". owned_files lists paths relative to the slice
         workspace. tags is ["@<cutout_id>", "@<slice>"] since protocol 1 revision 2026-09-28d (["@<cutout_id>"]
@@ -426,6 +426,12 @@ packages:
         Teach drops any name outside [A-Z][A-Z0-9_]{0,63}, any of PATH, HOME, RUBYOPT, RUBYLIB, any name starting with
         BUNDLE_, GEM_, LD_, DYLD_, REACH_ or TEACH_, and any value that is absolute, contains "..", or passes 512 bytes,
         and Reach applies the same rule again before it sets them for a local run.
+        Since revision 2026-10-26a a document slice's entry (W-DOC-2) holds instead {cutout_id, slice: document,
+        module: null, assignment, due, root, kind: document, owned_files: [], accepts: {extensions, max_bytes}, submit,
+        submit_note}; kind, accepts, submit and submit_note are present on a document slice and may be present, with kind
+        code and submit reach, on any other, and Reach reads their absence as kind code and submit reach. A document
+        slice carries none of behavior, instructor_apis, panel_slice, contract_refs, tags, class, acceptance_mode,
+        scenarios or qualify.
       "<root>/<owned file>": >-
         The student's starting copy of each owned file: the course repository's stub at stubs/<owned file> when it has
         one (since 2026-09-28d), otherwise empty.
@@ -455,6 +461,8 @@ packages:
     never_included: >-
       A cutout's reference_implementation, its regeneration prompt, its acceptance scenarios, its status, step or group,
       or any file that is not one of the entries above. Teach copies slice fields by allowlist, never by blocklist.
+      Since revision 2026-10-26a, for a document slice also: the grading notes, any other student's file, and every
+      definition field other than title and instructions (INSTRUCTIONS.md), submit, submit_note and student_part.
     reach_use: W-PROV-1.
   W-PKG-3:
     name: shape
@@ -578,7 +586,7 @@ packages:
       - Every other entry is manifest.json, ledger.jsonl, part.json (since 2026-09-30b) or under evidence/; since 2026-09-29d any other entry rejects the submission.
       - >-
         part.json is checked by W-PART-3 (not from 2026-10-03b to 2026-10-03h, when it was stored as sent).
-      - When the course spec is available, manifest.owned_files equals the W-PKG-2 owned_file_split for that cutout and slice.
+      - When the course spec is available, manifest.owned_files equals the W-PKG-2 owned_file_split for that cutout and slice; since revision 2026-10-26a a document slice is checked by W-DOC-3 instead.
       - A failed check rejects the submission with code invalid_request and reason "the package does not match the slice".
       - >-
         Provenance (W-SEAL-4) is assessed after the checks above and never rejects a submission; its verdict is stored
@@ -594,7 +602,8 @@ packages:
         client_created_at}. files maps each owned file to its text or null. attempts is the slice's recent attempt records.
         plan is the slice plan (reach.plan/v1) or null. profile is the student's saved profile fields, present only when
         the student agreed to include it; otherwise null. Reach 0.11.0 and later send reach.hand/v2 (W-PKG-6-v2);
-        Teach 0.11.0 and later accept both.
+        Teach 0.11.0 and later accept both. slice is backend, panel, verification or, since revision 2026-10-26a, document; for a
+        document slice files maps only the student's text files (md and txt, W-DOC-3) to their text and every other file to null.
   W-PKG-6-v2:
     name: hand bundle, version 2
     since: 2026-09-29d
@@ -656,12 +665,19 @@ render:
       opcode whose id does not start with "G-CUTOUT-" followed by those whose id starts with
       "G-CUTOUT-<this slice's cutout_id>-", in file order, then the directive table (W-RENDER-2) when it is not empty,
       a blank line, then "Your files: <owned files joined by ', '>", "Slice: <cutout_id> (<slice>) - <behavior>" and
-      "Due: <due>", each on its own line, ending with a newline.
+      "Due: <due>", each on its own line, ending with a newline. For a document slice (since revision 2026-10-26a) the
+      intro sentence reads "You are helping a student with one written assignment. These rules come from the
+      instructors and always apply.", the numbered list holds only the entries whose slice is all or document (never
+      code), and the closing lines are M-RULES-DOC-FILES ("Your files: the .md and .txt files you write in this folder for the student.
+      Never INSTRUCTIONS.md, AGENTS.md, ..."), "Slice: <cutout_id> (document) - written work handed in as files" and
+      "Due: <due>"; it
+      carries no code workflow, no README and no qualify step.
   W-RENDER-2:
     name: directive table
     rule: >-
       A blank line, "## Course directives", a blank line, one row per directives.yml entry with an opcode whose slice is
-      all or equals this slice; a blank line, "## Engineering directives", a blank line, one row per file in Reach's
+      all or equals this slice (code covers the backend, panel and verification slices, document covers a document
+      slice only); a blank line, "## Engineering directives", a blank line, one row per file in Reach's
       directives/ directory whose slice applies; a blank line, then the pointer sentence. A section with no rows is
       omitted. A row is "[<alias> · <OPCODE>]" padded to 20, the rule padded to 88, "reach directive <OPCODE>" padded to
       26, "⚙ " and the enforce value padded to 22, "⚡ " and the when list as "[a, b]", separated by single spaces.
@@ -676,7 +692,11 @@ provisioning:
       cutout_id, slice, kind = slice, behavior, due, owned_files, tags, package_version, and since 2026-09-29d
       scenarios and qualify) and .reach/delivered.json, and makes every file except the owned files read-only. Since
       2026-09-29d the qualify/features and qualify/step_definitions folders stay writable and are left out of
-      delivered.json, like the owned files; qualify/kit stays read-only.
+      delivered.json, like the owned files; qualify/kit stays read-only. A document slice (since revision 2026-10-26a)
+      has no README, no shape/brief.md and no stamp: Reach writes INSTRUCTIONS.md from the package, the W-RENDER-1
+      files and the harness configuration, the marker (kind slice, assignment_kind document, accepts, submit,
+      submit_note) and delivered.json, and makes them read-only; the folder otherwise belongs to the student, and an
+      elsewhere assignment gets only the read-only INSTRUCTIONS.md and those generated files.
   W-PROV-2:
     name: never overwrite the student's work
     rule: >-
@@ -872,6 +892,9 @@ routes:
         Since 2026-10-22a an entry may carry rolling_until, optional, a timestamp like due ('YYYY-MM-DD'T'HH:MM:SSZ'),
         present only when the instructor set a rolling cutoff for that assignment. Such an assignment stays listed only
         until rolling_until, and a first submission of an owed slice up to rolling_until is not marked late (W-SUB-1).
+        Since 2026-10-26a current_assignment and every entry also carry title (string or null), kind (code or
+        document), submit (reach or elsewhere) and submit_note (string or null) from the course's definition
+        (W-DOC-1); a Teach that predates the revision sends none of them and Reach reads kind code and submit reach.
       slices: "[{cutout_id, slice, assignment}]"
       packages: "[{kind, version, content_digest}] for the latest package of each kind that exists"
       outstanding_receipts: "[receipt_id]"
@@ -927,7 +950,7 @@ routes:
     path: /api/v1/packages/:kind
     auth: install
     request_query:
-      assignment: "Since 2026-10-18c, optional: A1, A2, A3 or A4. Absent means the current assignment, as before. Since 2026-10-25a the student may ask for any released assignment they own slices in, past or future: Teach then answers the newest package of that kind for that assignment, built on demand as for the current assignment. 400 invalid_request for an id that is not an assignment, 403 not_released for an assignment that is not released or in which the student owns no slice. header.assignment of the envelope is the asked assignment, and Reach stores no envelope whose header.assignment differs."
+      assignment: "Since 2026-10-18c, optional: an assignment id, A1, A2, A3 or A4 before revision 2026-10-26a and since it any id of the course's assignments (W-DOC-1). Absent means the current assignment, as before. Since 2026-10-25a the student may ask for any released assignment they own slices in, past or future: Teach then answers the newest package of that kind for that assignment, built on demand as for the current assignment. 400 invalid_request for an id that is not an assignment, 403 not_released for an assignment that is not released or in which the student owns no slice. header.assignment of the envelope is the asked assignment, and Reach stores no envelope whose header.assignment differs."
     request_headers:
       If-None-Match: The quoted content_digest of the newest package of this kind Reach has stored, when it has one.
     response_200: The envelope (W-ENV-1) of the latest package of that kind for this install's student, with ETag "<content_digest>" in double quotes.
@@ -948,9 +971,9 @@ routes:
     request_headers:
       Idempotency-Key: Required. A UUID Reach generates once per submission and reuses on every retry of it.
     request:
-      cutout_id: {type: string, pattern: "^[a-z_]+\\.a[1-4](s[12])?$"}
-      slice: {type: string, enum: [backend, panel, verification]}
-      assignment: {type: string, enum: [A1, A2, A3, A4]}
+      cutout_id: {type: string, pattern: "^[a-z0-9_]+\\.[a-z0-9]{1,16}$", note: "^[a-z_]+\\.a[1-4](s[12])?$ before revision 2026-10-26a"}
+      slice: {type: string, enum: [backend, panel, verification, document], note: "document since revision 2026-10-26a (W-DOC-2)"}
+      assignment: {type: string, pattern: "^[A-Z][A-Z0-9]{0,7}$", note: "an enum of A1, A2, A3 and A4 before revision 2026-10-26a (W-DOC-1)"}
       package: W-ENV-1 envelope, header.kind submission (W-PKG-5)
       client_created_at: W-CONV-3 timestamp
       partial: "Since revision 2026-10-18a, optional boolean: true submits partial, unqualified work (W-SUB-7); the manifest carries the same value"
@@ -971,7 +994,20 @@ routes:
       with code not_qualified; both are in-band rejections (state rejected) and store nothing. Since revision 2026-10-18a
       a partial submission (W-SUB-7) skips both checks and answers state ingested with an ingest receipt carrying
       partial true; Reach reads partial from the receipt.
-    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 409 conflict: "since revision 2026-10-25c, the slice already has 50 submissions that were not rejected (W-SUB-1)", 403 deadline_passed: "no longer answered since revision 2026-10-25b (W-SUB-1); before it, after the due time, when a submission of the slice that was not rejected was already on record", 413 too_large: "body over 5 MB", 429 rate_limited: ""}
+    errors: {403 not_released: "", 403 forbidden: "not the student's slice, or submissions disabled", 403 submit_elsewhere: "since revision 2026-10-26a, the assignment is handed in outside Reach (W-DOC-5)", 409 conflict: "since revision 2026-10-25c, the slice already has 50 submissions that were not rejected (W-SUB-1)", 403 deadline_passed: "no longer answered since revision 2026-10-25b (W-SUB-1); before it, after the due time, when a submission of the slice that was not rejected was already on record", 413 too_large: "body over 5 MiB; since revision 2026-10-26a a document slice's body may reach 36 MiB (W-DOC-3)", 429 rate_limited: ""}
+  - id: W-API-SUBMIT-KEY
+    method: GET
+    path: /api/v1/submissions
+    auth: install
+    since: 2026-10-26a
+    request:
+      idempotency_key: "query parameter, the Idempotency-Key of an earlier W-API-SUBMIT of this install"
+    response_200: "the answer W-API-SUBMIT gave, or would give, for that key: submission_id, state, receipt, rejection, attempt, due and resubmit"
+    notes: >-
+      Reach asks this after a document submission's upload read timed out (W-SAFE-1), before it sends the body again.
+      404 not_found means Teach holds no finished submission for the key (the first request did not arrive, or is still
+      being read); Reach then sends the body once more with the same key. A Teach that does not serve the route answers
+      404 and Reach behaves the same.
   - id: W-API-SUBMISSION
     method: GET
     path: /api/v1/submissions/:id
@@ -991,9 +1027,9 @@ routes:
     request_headers:
       Idempotency-Key: Required. A UUID Reach generates once per qualification and reuses on every retry of it.
     request:
-      cutout_id: {type: string, pattern: "^[a-z_]+\\.a[1-4](s[12])?$"}
+      cutout_id: {type: string, pattern: "^[a-z0-9_]+\\.[a-z0-9]{1,16}$", note: "^[a-z_]+\\.a[1-4](s[12])?$ before revision 2026-10-26a; a document slice is never qualified (W-DOC-3)"}
       slice: {type: string, enum: [backend, panel]}
-      assignment: {type: string, enum: [A1, A2, A3, A4]}
+      assignment: {type: string, pattern: "^[A-Z][A-Z0-9]{0,7}$", note: "an enum of A1, A2, A3 and A4 before revision 2026-10-26a"}
       package: W-ENV-1 envelope, header.kind qualification (W-PKG-7)
       client_created_at: W-CONV-3 timestamp
     response_202: {qualification_id: string, status: pending}
@@ -1080,7 +1116,7 @@ routes:
       Idempotency-Key: Required, as for submissions.
     request:
       cutout_id: string
-      slice: {enum: [backend, panel, verification]}
+      slice: {enum: [backend, panel, verification, document], note: "document since revision 2026-10-26a (W-DOC-2); an issue hand (W-ISSUE-4) carries the slice of the work it was raised in and may name document"}
       trigger: {enum: [attempt_gate, attempt_ladder, student_request, check_gate, wellbeing, late_work, late_submission, plan_audit, passes_or_pattern, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, feedback, integrity_question, other, issue], note: "attempt_ladder since 2026-09-29d; attempt_gate is sent by Reach older than 0.11.0 only; wellbeing since 2026-09-30b (W-SUP-2); late_work through other since 2026-10-02e (W-HAND-TYPES); issue since 2026-10-03c (W-ISSUE-1); plan_audit since 2026-10-19b (W-QUAL-PLAN-1), passes_or_pattern since 2026-10-21a (W-QUAL-PASSES-1), each sent only to a Teach that advertises it; feedback is not sent by Reach of 2026-10-13d and later, which uses W-API-FEEDBACK (W-FB-1), and Teach keeps accepting it from older Reach"}
       originator: {enum: [agent, student, reach], required: false, note: "since 2026-09-29d; absent means student; reach since 2026-10-03c, on an issue hand only (W-ISSUE-1)"}
       summary: {type: string, maxBytes: 2000}
@@ -1106,7 +1142,7 @@ routes:
     since: 2026-10-02e
     response_200:
       available: "boolean; false while the course has no recorded points for this student, or grades are switched off"
-      grades: "[{assignment, points, points_possible, recorded_at}] for the install's own student, one row per assignment, the latest recording of each; points and points_possible are non-negative numbers, points_possible may be null"
+      grades: "[{assignment, points, points_possible, recorded_at, graded_by}] (graded_by since revision 2026-10-26a, present only on an instructor's grade of a document submission, whose points are the percentage and points_possible 100) for the install's own student, one row per assignment, the latest recording of each; points and points_possible are non-negative numbers, points_possible may be null"
       total: "{points, points_possible} summed over grades, points_possible null when any row's is null; null when grades is empty"
       as_of: W-CONV-3 timestamp of the answer
     errors: {403: grades_disabled when Teach's grade kill switch is on}
@@ -1339,7 +1375,7 @@ routes:
       session_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,128}$", note: "the harness's own session id"}
       harness: {enum: [claude-code, codex, hermes, unknown], note: "hermes since protocol 1 revision 2026-09-29e; a Reach sends hermes when W-COMPAT-ACCEPTS allows it (since 2026-10-06d: accepts.harnesses names it, or there is no list and the advertised wire_contract_sha256 equals its own), and unknown otherwise"}
       cutout_id: {type: [string, "null"], maxBytes: 128}
-      slice: {type: [string, "null"], enum: [backend, panel, verification, null]}
+      slice: {type: [string, "null"], enum: [backend, panel, verification, document, null], note: "document since revision 2026-10-26a (W-DOC-2); a document slice's entries are W-TRN-4 kinds code (text files only), chat and event"}
       entries:
         type: array
         minItems: 1
@@ -1388,7 +1424,7 @@ routes:
             note: {type: [string, "null"], maxBytes: 200, note: "'subagent', 'error' or 'subagent, error'"}
           code:
             category: {enum: [assignment, extracurricular]}
-            scope: "{assignment, cutout_id, slice} (strings of 1 to 128 bytes, slice backend, panel or verification) for assignment; null for extracurricular"
+            scope: "{assignment, cutout_id, slice} (strings of 1 to 128 bytes, slice backend, panel, verification or document since revision 2026-10-26a) for assignment; null for extracurricular"
             path: >-
               POSIX path relative to the slice workspace or the extracurricular folder, at most 512 bytes, 1 to 32
               segments, none empty, "." or "..", no leading "/", no backslash or control character. A chat snippet's
@@ -1839,7 +1875,8 @@ submissions:
       least 25 words, a word being a letter followed by letters, digits or apostrophes. Reach reports each short or
       missing section as CK-README from reach check, fails reach qualify on it without counting a ladder attempt, and
       refuses reach submit. Teach answers 422 readme_incomplete to a qualification and rejects a submission with the
-      same code. TEACH_README_CHECK_DISABLE=1 turns Teach's half off.
+      same code. TEACH_README_CHECK_DISABLE=1 turns Teach's half off. A document slice has no README and none of
+      these checks.
   W-SUB-4:
     name: qualification evidence at ingest
     since: 2026-10-06e
@@ -1848,7 +1885,8 @@ submissions:
       student, cutout_id, slice and assignment, is done and passed (every agent and hidden row passed, at least one of
       each, every stub row failed), and whose stored package has the same owned-file digests as the submission's manifest
       and the same qualify/ test digests as the submission's evidence/qualify/ files. Anything else is rejected with
-      not_qualified. TEACH_QUALIFY_EVIDENCE_DISABLE=1, or qualifications switched off, turns the check off.
+      not_qualified. TEACH_QUALIFY_EVIDENCE_DISABLE=1, or qualifications switched off, turns the check off. A document
+      submission carries no evidence/qualification.json and is not checked this way (W-DOC-3).
   W-SUB-5:
     name: a reassigned slice voids its submissions
     since: 2026-10-06e
@@ -1857,7 +1895,9 @@ submissions:
       rejected to state orphaned: it stays on record with its receipts, never counts toward a grade or progress, and
       the grade export shows it with counts false. When the student is given the slice back, each orphaned submission
       returns to graded if it holds a grade receipt and to ingested otherwise; since revision 2026-10-18a a partial
-      submission without a grade receipt returns to partial.
+      submission without a grade receipt returns to partial. A document slice is outside modules (W-DOC-1): module
+      reassignment never voids it, and a document submission restored after an orphaning returns to awaiting_grade
+      or graded.
   W-SUB-6:
     name: assignment completeness
     since: 2026-10-06e
@@ -1868,7 +1908,9 @@ submissions:
       audited. The grade export carries one row per owned slice with no counting grade: status missing with score 0
       when nothing was submitted, status ungraded with no score while a submission waits for its grade. Since revision
       2026-10-18a a partial submission (W-SUB-7) counts as a submission for <assignment>.submitted, and its slice shows
-      as ungraded until a grade receipt counts.
+      as ungraded until a grade receipt counts. A document slice (W-DOC-4) meets the qualified rung with its newest
+      accepted submission, and a document assignment handed in elsewhere is excluded from <assignment>.submitted and is
+      never exported as missing with score 0.
   W-SUB-7:
     name: partial submission
     since: 2026-10-18a
@@ -1884,6 +1926,89 @@ submissions:
       manifest that disagree about partial are rejected invalid_request. Reach sends partial only when W-API-STATUS
       accepts names it (W-COMPAT-ACCEPTS) and refuses locally after the due time only when a submission that is not
       partial is on record.
+  W-DOC-1:
+    name: course assignment definitions
+    since: 2026-10-26a
+    rule: >-
+      An assignment id is a capital letter followed by at most seven capital letters or digits. A course may carry its
+      own assignment definitions, kept by Teach and edited by its instructors; each is {id, title, kind: code |
+      document, submit: reach | elsewhere, submit_note, due, rolling_until, instructions, cutout_slots (code only),
+      student_part}. A course with at least one active definition uses its definitions as its assignment list in place
+      of the shared one, for current_assignment, late_assignments, packages, submissions, qualifications, grades and the
+      student's part; every other course keeps the shared list. A per-course due time (W-API-STATUS) overlays a
+      definition's due as it overlays a shared assignment's. Ids are unique across the shared list and every course's
+      active definitions: an id active in one course cannot be defined in another, and a retired id may be defined again
+      only by the course that retired it. The slot name doc is reserved for document cutout ids (W-DOC-2); no code
+      definition may use it in cutout_slots. A document slice is outside the course's modules: W-MOD-1 to W-MOD-3 and
+      W-SUB-5 skip it, and module selection never stops it. student_part is read from the definition (W-POL-1,
+      W-PART-1).
+  W-DOC-2:
+    name: document slice
+    since: 2026-10-26a
+    rule: >-
+      A document assignment has one slice per student: cutout_id "<id lowercased>.doc", slice document. Its workspace
+      package (W-PKG-2) holds slices.json with one slice entry {cutout_id, slice: document, module: null, assignment,
+      due, root, kind: document, owned_files: [], accepts: {extensions, max_bytes}, submit, submit_note} and the entry
+      "<root>/INSTRUCTIONS.md", the definition's title and instructions as Markdown: "# <title>", a blank line and the
+      instructions, with no Due line, because a due time changes with a per-course overlay and a stale line would
+      mislead; the due time shows in Reach's status from the overlaid value (W-API-STATUS). A definition edit rebuilds
+      the packages and moves the revision of W-API-REVISION. extensions is [pdf, docx, odt, md,
+      txt, png, jpg, jpeg] and max_bytes is 26214400 (25 MiB). The slice has no shape, no qualify kit, no api/ or
+      contract/ entries and no module; it is outside module selection (W-MOD) and the guardrails seal marks (W-SEAL-1).
+      Teach gives the slice to every student enrolled in the course when the assignment is released, and to a student
+      who enrolls after. Reach marks the slice's folder with the marker key kind slice (W-PROV-1) and the assignment's
+      kind under assignment_kind. An assignment whose submit is elsewhere (W-DOC-5) is provisioned with INSTRUCTIONS.md
+      only, read-only; it records no transcripts and is excluded from late_assignments, from hands, from the grade
+      export and from <assignment>.submitted.
+  W-DOC-3:
+    name: submitting a document slice
+    since: 2026-10-26a
+    rule: >-
+      The student's files are the regular files under the slice root that are not symlinks, not listed in
+      .reach/delivered.json, not generated (AGENTS.md, CLAUDE.md, GEMINI.md, README.md, INSTRUCTIONS.md, .claude/,
+      .codex/, .mcp.json, shape/ and .reach/), not junk (Thumbs.db, desktop.ini, .DS_Store, a name starting with ~$ and
+      a name ending in .tmp) and not under materials/, which is reference material that is never submitted. One
+      function, Reach::DocumentFiles.list, defines the set for the gate, submission, history, checkpoints, consent and
+      packets. Reach refuses locally, before asking, naming the file, when a file's extension (lowercased) is not in
+      accepts.extensions, when the files total more than accepts.max_bytes, when there is no file, when a name passes
+      255 bytes, when two names differ only by case, or when a file has no extension; it changes nothing in the folder.
+      Reach sends at most 200 files and refuses before encoding when the encoded body would pass 36 MiB. The submission package (W-PKG-5) carries manifest.json with
+      owned_files equal to the sorted list of those files and their digests, files/<path> for each, ledger.jsonl and
+      part.json as for any slice, and no evidence/. A document slice is never qualified, W-SUB-3 and W-SUB-4 do not
+      apply, and partial is never sent. Teach checks the manifest as W-PKG-5 except the owned_file_split, refuses an
+      extension outside the list or files over max_bytes with invalid_request, and, only after authenticating the install,
+      accepts a request body up to 36 MiB (37748736 bytes) for a document slice; the limit before authentication stays
+      5 MiB. Every limit is in MiB: 25 MiB of files, 36 MiB of body. A student may submit again until the assignment's
+      due time (rolling_until when set); after it Teach answers as for any late submission. W-SUB-1 numbering, the late rule and the 50-submission cap apply unchanged.
+  W-DOC-4:
+    name: document ingest
+    since: 2026-10-26a
+    rule: >-
+      Teach stores an ingested document submission with the ingest receipt of W-RCPT-1 in a state of its own,
+      awaiting_grade, that automatic grading never sees, and lists it to instructors as awaiting a grade until an
+      instructor grades it (W-DOC-6). The grade export shows it as ungraded until then (W-SUB-6). A document slice's
+      qualified rung (W-SUB-6) is met by its newest submission in awaiting_grade or graded, and Reach's
+      <assignment>.qualified for a document slice is met by an accepted submission; an assignment handed in
+      elsewhere is never exported as a missing 0.
+  W-DOC-5:
+    name: handed in elsewhere
+    since: 2026-10-26a
+    rule: >-
+      When a definition's submit is elsewhere, Teach answers W-API-SUBMIT for that assignment with 403 submit_elsewhere
+      and stores nothing, and Reach refuses reach submit locally with M-SUBMIT-ELSEWHERE, which quotes submit_note when it
+      is set. The assignment still appears in status with its due time, and its work area is still provisioned.
+  W-DOC-6:
+    name: instructor grade
+    since: 2026-10-26a
+    rule: >-
+      An instructor grades a document submission on Teach with a score from 0 to 100 percent and optional feedback.
+      Teach signs a grade receipt (W-RCPT-1) with scenarios [], score the percentage divided by 100, suite_version and
+      fixture_version null, graded_by the instructor id and feedback, sets the submission graded, and releases the
+      receipt under the course's grade-release setting like any grade. A later grade of the same submission supersedes
+      the earlier one. While a newer submission awaits its grade Reach shows the earlier grade marked as for the earlier
+      attempt (M-GRADED-DOC-EARLIER). W-API-GRADES reports a document grade as grade_points, the percentage, with
+      graded_by, and a receipt carries the same numbers; when the course releases grades manually, Reach says the grade
+      appears once the instructor releases it.
 receipts:
   W-RCPT-1:
     name: body
@@ -1903,10 +2028,12 @@ receipts:
       late: ingest only, boolean
       attempt: "ingest only, integer, since revision 2026-10-02c: the submission's attempt (W-SUB-1); absent from an older Teach"
       partial: "ingest only, boolean, since revision 2026-10-18a: true for a partial submission (W-SUB-7); absent means false"
-      scenarios: "grade only, [{name, result: passed|failed|skipped, reason?}]"
+      scenarios: "grade only, [{name, result: passed|failed|skipped, reason?}]; [] for an instructor's grade of a document slice (W-DOC-6)"
       score: grade only, number 0-1
-      suite_version: grade only
-      fixture_version: grade only
+      suite_version: grade only; null for an instructor's grade
+      fixture_version: grade only; null for an instructor's grade
+      graded_by: "grade only, since revision 2026-10-26a: the instructor id of an instructor's grade (W-DOC-6); absent from an automatic grade"
+      feedback: "grade only, since revision 2026-10-26a: the instructor's feedback text of at most 4000 characters, or null; absent from an automatic grade"
       validated_by: validation only
       note: validation only
       supersedes: optional
@@ -1918,7 +2045,9 @@ receipts:
     name: what Reach shows
     rule: >-
       Received: slice, cutout_id, received_at in the student's local time as "%a %-d %b %-l:%M %P", receipt_id.
-      Graded: passed = the number of scenarios whose result is "passed", total = the number of scenarios.
+      Graded: passed = the number of scenarios whose result is "passed", total = the number of scenarios. Since revision
+      2026-10-26a a grade with graded_by and no scenarios shows its score as a whole percentage and its feedback
+      verbatim, or no feedback line when feedback is null.
   W-RCPT-4:
     name: acknowledgment (receipt of a receipt)
     since: 2026-09-30
@@ -2248,6 +2377,7 @@ errors:
       revoked: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REPLACED when details.reason is replaced (since 2026-10-20b, W-ENR-8), else M-GATE-REVOKED"}
       not_released: {status: 403, reach: never retried}
       deadline_passed: {status: 403, reach: never retried}
+      submit_elsewhere: {status: 403, reach: "never retried; since revision 2026-10-26a, the assignment is handed in outside Reach (W-DOC-5); M-SUBMIT-ELSEWHERE, which quotes the definition's submit_note; the rejection_fixes of the locale carry a fix for it"}
       not_found: {status: 404, reach: "never retried"}
       conflict: {status: 409, reach: never retried}
       too_large: {status: 413, reach: never retried}
@@ -2322,7 +2452,7 @@ compatibility:
       install's wire digest against its own and raises no alarm for it; the drift that matters is that of installs on
       the reference release or newer.
 reach_client_safety:
-  W-SAFE-1: {name: timeouts, rule: "connect 5 s, read 30 s, upload read 120 s; quick mode (hooks) connect 2 s, read 2 s, no retries"}
+  W-SAFE-1: {name: timeouts, rule: "connect 5 s, read 30 s, upload read 120 s; quick mode (hooks) connect 2 s, read 2 s, no retries", upload_timeout: "since revision 2026-10-26a the upload read timeout applies to a document submission's POST (W-DOC-3), and Reach's own deadline for the submit command is raised to cover it. When that upload times out Reach does not send the body again at once: it polls W-API-SUBMIT with the same Idempotency-Key, which Teach answers from the stored result once the first request finished, and re-uploads only when the key is still unknown after the poll"}
   W-SAFE-2: {name: rate limit, rule: "a token bucket of 20 requests per minute shared by every Reach process on the machine through ~/.reach/state/bucket.json under an exclusive file lock; Teach allows 30"}
   W-SAFE-3: {name: retries, rule: "at most 4 retries, exponential backoff with full jitter (1 s base, 30 s cap), Retry-After honoured up to 60 s; only codes W-ERR-2 marks retried, plus connection failures and timeouts; a fresh nonce and timestamp on every attempt"}
   W-SAFE-4: {name: circuit breaker, rule: "five consecutive failures open the breaker for 60 s; while open, calls raise Reach::Offline at once"}
@@ -2407,7 +2537,10 @@ transcripts:
       space (a slice's owned files; every file in the extracurricular folder except Reach's own rules and harness
       files and the .git, node_modules, vendor, .bundle and tmp directories) with the digests it last recorded, and
       records each changed or new file with origin scan and each vanished file as deleted. Category assignment carries
-      the slice's scope; extracurricular carries none.
+      the slice's scope; extracurricular carries none. For a document slice (since revision 2026-10-26a) the files
+      scanned are the W-DOC-3 file set (Reach::DocumentFiles.list), with md and txt files recorded whole and any other
+      file recorded by its sha256 digest only; materials/ is skipped, and an elsewhere assignment records no
+      transcript.
   W-TRN-7:
     name: background sending and whole text
     rule: >-
@@ -2650,6 +2783,10 @@ seal:
       sent. rules_current is whether seal.guardrails_version equals the latest guardrails package for the student. The
       summary is clean when every file is own and witnessed, the ledger is verified and the rules are current;
       otherwise review with the reasons listed.
+      Since revision 2026-10-26a the summary of a document submission is written (written work, not witnessed): a
+      document's files are written in ordinary applications, so witnessed, own and the mark checks do not apply to
+      them and never make the summary review; the summary says so in those words and instructors read the files
+      themselves. The agent-written md and txt files of a document slice are still recorded in the ledger (W-SEAL-2).
 alignment:
   summary: >-
     Since protocol 1 revision 2026-09-30b. The rules that keep a student, their course and their instructors aligned:
@@ -2671,7 +2808,8 @@ alignment:
         W-API-ENROLL-PREVIEW serves.
       limits: "{corpus_max_bytes (52428800), transcript_spool_max_bytes (209715200), materials_max_bytes (209715200), import_max_bytes (20971520), import_max_per_prompt (5)}; transcript_spool_max_bytes is ignored since 2026-10-03b; since 2026-10-03c also issues: {enabled, repeat_threshold, max_per_day, max_queued}, which only tighten Reach's own limits (W-ISSUE-3)"
       support: "{text: string, the course's own support line appended to W-SUP-1}"
-      student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}"
+      grading: "{pass_percent: number 0 to 100, default 60}; since revision 2026-10-26a. Reach tells a student to review a document grade that is below it, or that carries feedback (W-RCPT-3)"
+      student_part: "{required: boolean (default true), questions: {<assignment id>: [{id, question, min_words}]}}; since revision 2026-10-26a the questions of a course-defined assignment come from its definition's student_part (W-DOC-1), and an empty list is valid for a document assignment"
       module_selection: "{mode: instructor | student_choice, count (2), options: [{id, title}], opens_at, closes_at, capacity_per_module (null), slices: [slice kinds each chosen module gets, default [backend, panel]]}"
   W-POL-2:
     name: course profile
@@ -2827,7 +2965,7 @@ alignment:
       signature: W-CONV-5 base64 of W-CONV-6 by the key named in signing_key_id over canonical_json(body without signature)
     rule: >-
       The newest record is the student's current pair. Records are never edited or deleted; a change is a new record
-      that supersedes the old one.
+      that supersedes the old one. A document slice has no module and no record entry (W-DOC-1).
   W-MOD-2:
     name: Reach's use of the record
     rule: >-
@@ -2836,7 +2974,8 @@ alignment:
       refuses writes (M-GATE-NOT-YOUR-MODULE) in a slice whose cutout's module (the cutout id before its first dot)
       is not in the current record. Before sending a student_choice selection Reach seals it locally as
       ~/.reach/state/modules/pending.json, signed with the install key, and deletes it only after a signed record
-      for the same modules is stored.
+      for the same modules is stored. The refusal never applies to a document slice, whose cutout id (<id>.doc) names
+      no module, and module_selection mode does not stop a student from working on one.
   W-MOD-3:
     name: slice assignments follow the record
     rule: >-
@@ -2846,7 +2985,9 @@ alignment:
       the student's slice assignments of every assignment that is not yet released, and, only when the instructor
       says include_current, of the current released assignment, mapping each removed cutout <old>.<slot> to
       <new>.<slot> with the same slice kind, old and new paired in sorted order. Released past assignments, their
-      submissions, receipts and grades are never changed. Reach keeps the old slice workspaces read-only.
+      submissions, receipts and grades are never changed. Reach keeps the old slice workspaces read-only. Document
+      slices are skipped throughout: module assignment, reassignment and orphaning neither add, replace nor void
+      them.
   W-MOD-5:
     name: prompts before a choice
     rule: >-
@@ -2864,7 +3005,9 @@ alignment:
     rule: >-
       The questions for an assignment are the policy's student_part.questions[<assignment id>]: things only the
       student can answer (their professional use case, their users, their baseline, the human decision, what they
-      decided and why). Each has an id (for example A1-Q1), the question text and min_words.
+      decided and why). Each has an id (for example A1-Q1), the question text and min_words. Since revision 2026-10-26a
+      the questions of a course-defined assignment are read from the definition's student_part; a document assignment
+      may have none.
   W-PART-2:
     name: recording an answer
     rule: >-

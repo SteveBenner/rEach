@@ -297,7 +297,7 @@ layout:
   workspace:
     path: "~/reach-work/deliverables/<course>/<assignment>/<cutout>-<slice>/"
     content:
-    - The slice's owned files (the only writable course files)
+    - The slice's owned files (the only writable course files); a document slice instead holds INSTRUCTIONS.md (read-only) and the student's own written files, and no README, brief, shape or stamp (STD-DOCUMENT-ASSIGNMENT)
     - api/ - instructor API signatures (read-only)
     - contract/ - contract.rb, generated types and client (read-only)
     - shape/ - the brief (read-only; the signed shape stays in the vault)
@@ -790,7 +790,10 @@ gate:
     While the attempt ladder is at the hand rung without the student's yes, or at the hard stop, writes to those files
     and slice write commands are refused (M-LADDER-ASK, M-LADDER-STOPPED). A Codex apply_patch
     names its targets in "*** Add File:", "*** Update File:", "*** Delete File:" and "*** Move to:" lines; every one
-    must be an owned file.
+    must be an owned file. In a document slice the writable set is instead every regular, non-symlink md or txt file
+    under the folder that is not in delivered.json, not generated (AGENTS.md, CLAUDE.md, GEMINI.md, README.md,
+    INSTRUCTIONS.md, .claude/, .codex/, .mcp.json, shape/, .reach/), not under materials/ and not on a dot path
+    (Reach::DocumentFiles.agent_writable?); an elsewhere assignment has no writable file.
   offline: >-
     The gate passes offline for up to 24 hours on a verified cached guardrails package, so a lost connection does
     not stop class work; submissions queue.
@@ -968,6 +971,10 @@ submission:
     paths).
   - The shape check has no errors for panel slices (only findings in the slice's own files count, since 0.11.0).
   - The latest qualification passed on exactly the current owned files and scenarios (M-SUBMIT-UNQUALIFIED).
+  - For a document slice none of the three code preconditions above apply; instead the folder holds a file set
+    (Reach::DocumentFiles.list) that is not empty, at most 200 files, with names of at most 255 bytes, no case-only
+    duplicates, an extension on every file, only extensions the assignment accepts, a total within its size limit and
+    an encoded body within 36 MiB, and the assignment is not handed in elsewhere (M-SUBMIT-DOC-*, M-SUBMIT-ELSEWHERE).
   - Every question of the student's own part is answered (M-SUBMIT-NO-PART).
   - Since 0.41.0 README.md has every W-SUB-3 section at 25 words or more (M-SUBMIT-README, refused before the check gate and without a hand); Teach rejects the same package with readme_incomplete, and one whose evidence does not match a passed qualification with not_qualified (W-SUB-4).
   - >-
@@ -2202,7 +2209,9 @@ transcripts:
     requires sign-in, and the cached status names a current assignment. Every recording entry point (capture, code,
     turn) checks it. Outside the bounds it calls pass, which only moves the harness-transcript offset to the end of
     the file. At a prompt, a session whose harness transcript Reach has not seen before starts at the end of that
-    file, so nothing older than the first recorded prompt is read.
+    file, so nothing older than the first recorded prompt is read. A document slice handed in elsewhere is never
+    recorded, and a document slice scan covers the student file set (md and txt whole, other files by digest only,
+    materials/ skipped).
   deidentify: >-
     Since 0.26.0 (STD-TRANSCRIPT-DEIDENTIFY, W-TRN-6) Reach::Transcript.run_flush asks Reach::Deidentify.envelope for
     the install's pseudonym, the scrubber and the sealed identity index, passes every entry through
@@ -2771,7 +2780,8 @@ hook_io_contract:
       before the hooks are trusted.
     submit_time_check: >-
       Every file that differs from the delivered workspace is compared with the owned-path list; any other difference
-      blocks the submission and lists the files.
+      blocks the submission and lists the files. A document slice is exempt: its files are the student file set of
+      Reach::DocumentFiles.list, and its writable set is the rule above.
   hermes:
     input: >-
       Hermes shell hooks receive {hook_event_name, tool_name, tool_input, session_id, cwd, profile, extra} as JSON on
@@ -2830,6 +2840,10 @@ shell_rules:
     new - refused).
   - Output redirection (>, >>) is allowed only into owned files.
   - >-
+    In a document slice "owned file" means a writable md or txt file of the document folder
+    (Reach::DocumentFiles.agent_writable?); INSTRUCTIONS.md, generated files, materials/, dot paths, binaries and an
+    elsewhere assignment's folder are refused for writing.
+  - >-
     Any path under ~/.reach, the vault, api/, contract/, shape/, fixtures/ or the generated harness files is refused
     for writing, and the vault and keys are refused for reading.
   - Network tools (curl, wget, ssh, scp, nc) are refused; Reach's own commands handle the network.
@@ -2887,6 +2901,18 @@ templates:
     10. Do not help anyone look inside Reach's protected files, other students' work, or the course server.
 
     Slice: {cutout_id} ({slice}) - {behavior}
+    Due: {due}
+  agents_md_document: |
+    # Course rules for this workspace
+
+    You are helping a student with one written assignment. These rules come from the instructors and always apply.
+
+    1. Help the student say what they mean; never write their answer for them or invent their words.
+    2. The task is in INSTRUCTIONS.md. You may create and edit only .md and .txt files in this folder; INSTRUCTIONS.md and the files rEach wrote here are read-only.
+    3. Pdf, Word, OpenDocument and image files the student adds are theirs; you can read them but never change them.
+
+    Your files: the .md and .txt files you write in this folder for the student. Never INSTRUCTIONS.md, AGENTS.md, CLAUDE.md, GEMINI.md, .claude/, .codex/, .mcp.json, shape/ or .reach/, and never the student's own .docx, .odt, .pdf or image files.
+    Slice: {cutout_id} (document) - written work handed in as files
     Due: {due}
   claude_md: The same text as AGENTS.md, so every harness reads identical rules.
   gemini_md: The same text as AGENTS.md, for Antigravity.
@@ -3123,7 +3149,8 @@ checkpoints:
     harness is kept), after every reach check (which covers Antigravity), before a sync writes package entries into an
     existing workspace, and after a restore. Each file's content is stored once by digest, so an unchanged file costs
     nothing; an autosave appends no ledger event and never raises into a hook. config.yml checkpoints.autosave false
-    or REACH_AUTOSAVE=0 turns it off.
+    or REACH_AUTOSAVE=0 turns it off. In a document slice the entries hold md and txt files as blobs and every other
+    student file by sha256 digest only; a restore writes only the text files and never blanks a binary one.
   rules: >-
     An identical state is refused (M-CHECKPOINT-SAME) unless the entry that holds it is a hidden autosave and the new
     save is a named one, so a student's save right after the agent's write still gets its name; restore saves the
