@@ -126,7 +126,10 @@ module Reach
       return false if materials?(relative) || !text_file?(relative)
       return false unless student_relative?(workspace, relative)
 
-      !File.symlink?(absolute)
+      return false if File.symlink?(absolute)
+
+      parent = File.dirname(absolute)
+      File.exist?(parent) ? File.realpath(parent).start_with?(root) : true
     rescue SystemCallError
       false
     end

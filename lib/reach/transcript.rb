@@ -313,7 +313,7 @@ module Reach
               next
             end
 
-            fields = file_fields(absolute, large_limit: SCAN_LARGE_BYTES)
+            fields = file_fields(absolute, large_limit: SCAN_LARGE_BYTES, digest_only: slice == Reach::DocumentFiles::SLICE && !Reach::DocumentFiles.text_file?(relative))
             current[relative] = { "digest" => fields["digest"], "size" => size, "mtime" => mtime }
             prior_digest = prior.is_a?(Hash) ? prior["digest"] : prior
             next if prior_digest && prior_digest == fields["digest"]
@@ -449,12 +449,16 @@ module Reach
       end
     end
 
-    def file_fields(absolute_path, large_limit: nil)
+    def file_fields(absolute_path, large_limit: nil, digest_only: false)
       unless File.file?(absolute_path)
         return { "deleted" => true, "binary" => false, "text" => nil, "bytes" => 0, "truncated" => false, "digest" => nil, "note" => nil }
       end
 
       bytes_total = File.size(absolute_path)
+      if digest_only
+        return { "deleted" => false, "binary" => true, "text" => nil, "bytes" => bytes_total, "truncated" => false, "digest" => Reach::Crypto.digest_hex(File.binread(absolute_path)), "note" => nil }
+      end
+
       if large_limit && bytes_total > large_limit
         digest = Reach::Crypto.digest_hex(File.binread(absolute_path))
         return { "deleted" => false, "binary" => false, "text" => nil, "bytes" => bytes_total, "truncated" => false, "digest" => digest, "note" => "too large" }
