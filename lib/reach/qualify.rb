@@ -31,6 +31,8 @@ module Reach
         Reach::Login.require_active!
         Reach::HookLiveness.require_hooks!
         meta = Reach::Workspace.metadata(workspace)
+        raise Reach::Refused, Reach::Messages.text("M-QUALIFY-DOCUMENT") if Reach::DocumentFiles.document_meta?(meta)
+
         qualify = meta["qualify"]
         raise Reach::Refused, Reach::Messages.text("M-QUALIFY-NOKIT") unless qualify.is_a?(Hash) && qualify["tag"]
 

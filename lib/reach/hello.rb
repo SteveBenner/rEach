@@ -823,7 +823,7 @@ module Reach
       status = safe_cached_status
       current_assignment = status && status["current_assignment"]
       slices = current_assignment_slices(current_assignment)
-      assignment_text = current_assignment ? "#{current_assignment["id"]} due #{Reach::Messages.course_time(current_assignment["due"])}" : "no current assignment"
+      assignment_text = current_assignment ? "#{[current_assignment["id"], current_assignment["title"]].map(&:to_s).reject { |part| part.strip.empty? }.join(' ')} due #{Reach::Messages.course_time(current_assignment["due"])}#{elsewhere_text(current_assignment)}" : "no current assignment"
       slices_text = slices.map { |workspace| "#{safe_metadata(workspace) && safe_metadata(workspace)["slice"]} #{safe_state_word(workspace)}" }.join(", ")
       slices_text = "none" if slices_text.empty?
       late_text = late_assignment_text(status)
@@ -832,8 +832,14 @@ module Reach
       "- Course: not connected yet"
     end
 
+    def elsewhere_text(entry)
+      return "" unless entry["submit"].to_s == "elsewhere"
+
+      " · " + Reach::Messages.text("M-STATUS-ELSEWHERE", note: entry["submit_note"].to_s.strip.empty? ? Reach::Messages.text("M-SUBMIT-ELSEWHERE-NONOTE") : entry["submit_note"].to_s.strip)
+    end
+
     def late_assignment_text(status)
-      Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] }.map do |entry|
+      Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] && entry["submit"].to_s != "elsewhere" }.map do |entry|
         due = Reach::LateWork.parse_time(entry["due"])
         if !entry["rolling_until"].to_s.strip.empty?
           " · #{entry["id"]} open, not late, until #{Reach::Messages.course_time(entry["rolling_until"])}"

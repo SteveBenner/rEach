@@ -152,6 +152,7 @@ module Reach
     def walk(directory, prefix, top, readonly = nil, relative = nil)
       Dir.children(directory).sort.flat_map do |name|
         next [] if top && (name.start_with?(".") || SKIPPED_TOP_FILES.include?(name))
+        next [] if top && name == Reach::DocumentFiles::MATERIALS_DIR && Reach::DocumentFiles.document?(directory)
 
         path = File.join(directory, name)
         child = relative ? "#{relative}/#{name}" : name

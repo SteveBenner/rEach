@@ -334,7 +334,7 @@ module Reach
 
       def late_assignment_entries(status)
         Array(status["late_assignments"]).select do |entry|
-          entry.is_a?(Hash) && entry["id"].is_a?(String) && entry["id"].match?(/\AA[1-4]\z/)
+          entry.is_a?(Hash) && entry["id"].is_a?(String) && entry["id"].match?(/\A[A-Z][A-Z0-9]{0,7}\z/) && entry["submit"].to_s != "elsewhere"
         end
       end
 

@@ -6,7 +6,10 @@ require "securerandom"
 module Reach
   module Submit
     ROUTE = "/api/v1/submissions"
-    DELIVERED_STATES = %w[grading graded grade_failed validated orphaned].freeze
+    DELIVERED_STATES = %w[grading graded grade_failed validated orphaned awaiting_grade].freeze
+    UPLOAD_READ_TIMEOUT_S = 120
+    POLL_READ_TIMEOUT_S = 10
+    POLL_WAITS_S = [3, 6, 12].freeze
 
     class << self
       def submit(slice:, partial: false)
@@ -14,7 +17,12 @@ module Reach
         Reach::Login.require_active!
         Reach::HookLiveness.require_hooks!
         workspace = resolve_workspace(slice)
-        if partial
+        meta = Reach::Workspace.metadata(workspace)
+        document = Reach::DocumentFiles.document_meta?(meta)
+        if document
+          run_document_preconditions(workspace, meta, partial: partial)
+          qualification = nil
+        elsif partial
           raise Reach::Refused, Reach::Messages.text("M-SUBMIT-PARTIAL-UNSUPPORTED") unless Reach::Compat.accepts_partial?
 
           run_partial_preconditions(workspace)
@@ -25,7 +33,6 @@ module Reach
           raise Reach::Refused, Reach::Messages.text("M-SUBMIT-UNQUALIFIED") unless qualification
         end
 
-        meta = Reach::Workspace.metadata(workspace)
         require_part!(meta["assignment"]) unless partial
         install = Reach::Enroll.current
         raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
@@ -42,7 +49,10 @@ module Reach
         manifest = manifest.merge("partial" => true) if partial
         tail = Reach::Ledger.tail_text(workspace)
         Reach::Ledger.append(workspace, "submit", "manifest_digest" => Reach::Crypto.digest_hex(JSON.generate(manifest)))
-        tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification, meta["assignment"]))
+        tar_bytes = Reach::Tarball.write(submission_entries(manifest, workspace, tail, qualification, meta["assignment"], document: document))
+        if document && Reach::DocumentFiles.encoded_too_large?(tar_bytes.bytesize)
+          raise Reach::Refused, Reach::Messages.text("M-SUBMIT-DOC-BODY", limit_mb: Reach::DocumentFiles::BODY_LIMIT_BYTES / (1024 * 1024))
+        end
         envelope = seal_submission(install, meta, tar_bytes)
         idempotency_key = SecureRandom.uuid
         body = {
@@ -53,20 +63,20 @@ module Reach
           "client_created_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
         body["partial"] = true if partial
-        outbox_path = write_outbox(idempotency_key, "submission", ROUTE, body, workspace: workspace)
+        outbox_path = write_outbox(idempotency_key, "submission", ROUTE, body, workspace: workspace, external: document)
         supersede_queued(outbox_path, body)
 
         begin
-          response = client(install).post_json(ROUTE, body, idempotency_key: idempotency_key)
-          result = handle_response(response.json || {})
+          answer = document ? upload_document(install, body, idempotency_key) : client(install).post_json(ROUTE, body, idempotency_key: idempotency_key).json
+          result = handle_response(answer || {})
           result = result.merge("archive" => Reach::Archive.write!(workspace, meta)) if result["state"] == "ingested"
           result = result.merge("text" => student_text(result)) if result["state"] == "ingested"
           result = result.merge("text" => rejection_text(result["rejection"], workspace)) if result["state"] == "rejected"
-          FileUtils.rm_f(outbox_path) unless result["state"] == "queued"
+          drop_outbox(outbox_path) unless result["state"] == "queued"
           Reach::Debug.submit(result)
           result
         rescue Reach::RemoteRefused => e
-          FileUtils.rm_f(outbox_path)
+          drop_outbox(outbox_path)
           Reach::Debug.submit("state" => "rejected", "rejection" => { "code" => e.code })
           rejection = { "code" => e.code, "reason" => e.message }
           { "submission_id" => nil, "state" => "rejected", "receipt" => nil, "rejection" => rejection, "text" => rejection_text(rejection, workspace) }
@@ -74,6 +84,32 @@ module Reach
           Reach::Debug.submit("state" => "queued")
           { "submission_id" => nil, "state" => "queued", "receipt" => nil, "rejection" => nil }
         end
+      end
+
+      def upload_document(install, body, idempotency_key)
+        Reach::Client.for_install(install, read_timeout: UPLOAD_READ_TIMEOUT_S, max_retries: 0).post_json(ROUTE, body, idempotency_key: idempotency_key).json
+      rescue Reach::Offline
+        raise
+      rescue Reach::NetworkError
+        answer = poll_submission(install, idempotency_key)
+        raise unless answer
+
+        answer
+      end
+
+      def poll_submission(install, idempotency_key)
+        POLL_WAITS_S.each do |wait|
+          sleep(wait)
+          begin
+            probe = Reach::Client.for_install(install, read_timeout: POLL_READ_TIMEOUT_S, max_retries: 0)
+            return probe.get(ROUTE, query: { "idempotency_key" => idempotency_key }).json || {}
+          rescue Reach::RemoteRefused => e
+            raise unless e.code == "not_found"
+          rescue Reach::NetworkError
+            next
+          end
+        end
+        nil
       end
 
       def archive_again(assignment: nil)
@@ -148,8 +184,11 @@ module Reach
           end
 
           begin
-            response = client(install).post_json(entry.fetch("route"), entry.fetch("body"), idempotency_key: entry.fetch("idempotency_key"))
-            body = response.json || {}
+            body = if entry["body_file"]
+                     upload_document(install, outbox_body(entry), entry.fetch("idempotency_key")) || {}
+                   else
+                     client(install).post_json(entry.fetch("route"), entry.fetch("body"), idempotency_key: entry.fetch("idempotency_key")).json || {}
+                   end
             if entry["kind"] == "submission"
               results << settle_submission(path, entry, body)
               next
@@ -159,12 +198,12 @@ module Reach
               Reach::Hands.track(body["hand_id"], slice: entry["slice"], hand_ref: entry["hand_ref"], originator: entry.dig("body", "originator") || "student")
               results << { "hand_id" => body["hand_id"], "state" => body["state"] }
             end
-            FileUtils.rm_f(path)
+            drop_outbox(path)
           rescue Reach::RemoteRefused => e
             if entry["kind"] == "submission"
               shelve_rejected(path, entry, "code" => e.code, "reason" => e.message, "status" => e.status)
             else
-              FileUtils.rm_f(path)
+              drop_outbox(path)
             end
             results << { "state" => "rejected", "rejection" => { "code" => e.code, "reason" => e.message } }
           rescue Reach::Offline, Reach::NetworkError
@@ -205,15 +244,18 @@ module Reach
       def rejection_text(rejection, workspace)
         rejection = rejection.is_a?(Hash) ? rejection : {}
         disagreement = qualification_disagreement(rejection["code"], workspace)
-        fix = disagreement ? disagreement_text(disagreement) : Reach::Messages.rejection_fix(rejection["code"])
+        code = rejection["code"].to_s == "too_large" && Reach::DocumentFiles.document?(workspace) ? "too_large_document" : rejection["code"]
+        fix = disagreement ? disagreement_text(disagreement) : Reach::Messages.rejection_fix(code)
         Reach::Messages.text("M-SUBMIT-REJECTED", reason: rejection["reason"], fix: fix)
       end
 
       def student_text(result)
         receipt = result["receipt"].is_a?(Hash) ? result["receipt"] : {}
+        received_id = receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED"
+        received_id = "M-SUBMIT-DOC-RECEIVED" if receipt["slice"] == Reach::DocumentFiles::SLICE
         received = Reach::Messages.text(
-          receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED",
-          slice: receipt["slice"], cutout: receipt["cutout_id"], time: Reach::Messages.course_time(receipt["received_at"])
+          received_id,
+          slice: receipt["slice"], cutout: receipt["cutout_id"], assignment: receipt["assignment"], time: Reach::Messages.course_time(receipt["received_at"])
         )
         received = [received, Reach::Receipts.reference_text(receipt)].reject { |text| text.empty? }.join(" ")
         rest = followup_text(result).lines.map(&:chomp).reject(&:empty?)
@@ -223,14 +265,15 @@ module Reach
       def followup_text(result)
         lines = []
         archive = result["archive"].is_a?(Hash) ? result["archive"] : nil
+        document = result["receipt"].is_a?(Hash) && result["receipt"]["slice"] == Reach::DocumentFiles::SLICE
         if archive
           case archive["state"]
           when "saved"
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"], credit: Reach::Archive.credit("M-LMS-UPLOAD-ZIP"))
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVED", assignment: archive_assignment(result), name: archive["name"], credit: document ? "" : Reach::Archive.credit("M-LMS-UPLOAD-ZIP"))
           when "skipped"
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED", credit: Reach::Archive.credit("M-LMS-UPLOAD-WORK"))
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-SKIPPED", credit: document ? "" : Reach::Archive.credit("M-LMS-UPLOAD-WORK"))
           else
-            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED", credit: Reach::Archive.credit("M-LMS-UPLOAD-WORK"))
+            lines << Reach::Messages.text("M-SUBMIT-ARCHIVE-FAILED", credit: document ? "" : Reach::Archive.credit("M-LMS-UPLOAD-WORK"))
           end
         end
         due = result["due"].to_s.empty? ? nil : Reach::Messages.course_time(result["due"])
@@ -285,8 +328,21 @@ module Reach
           next unless entry.is_a?(Hash) && entry["kind"] == "submission" && entry["body"].is_a?(Hash)
 
           other = [entry["body"]["cutout_id"], entry["body"]["slice"], entry["body"]["assignment"]]
-          FileUtils.rm_f(path) if other == key
+          drop_outbox(path) if other == key
         end
+      end
+
+      def outbox_companion(path)
+        path.sub(/\.json\z/, ".body")
+      end
+
+      def drop_outbox(path)
+        FileUtils.rm_f(outbox_companion(path))
+        FileUtils.rm_f(path)
+      end
+
+      def outbox_body(entry)
+        JSON.parse(File.read(File.join(Reach::Paths.outbox_dir, entry.fetch("body_file"))))
       end
 
       def settle_submission(path, entry, body)
@@ -300,7 +356,7 @@ module Reach
         else
           handled = handled.merge("archive" => archive_for_outbox(entry["workspace"])) if handled["state"] == "ingested" && entry["workspace"]
           handled = handled.merge("text" => student_text(handled)) if handled["state"] == "ingested"
-          FileUtils.rm_f(path)
+          drop_outbox(path)
           handled
         end
       end
@@ -315,7 +371,7 @@ module Reach
         disagreement = qualification_disagreement(rejection["code"], entry["workspace"])
         record["disagreement"] = disagreement if disagreement
         write_json_atomic(File.join(rejected_dir, File.basename(path)), record)
-        FileUtils.rm_f(path)
+        drop_outbox(path)
       end
 
       def qualification_disagreement(code, workspace)
@@ -474,6 +530,26 @@ module Reach
         end
       end
 
+      def run_document_preconditions(workspace, meta, partial:)
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-DOC-PARTIAL") if partial
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ELSEWHERE", note: elsewhere_note(meta)) if meta["submit"] == "elsewhere"
+
+        begin
+          Reach::Gate.session(harness: "cli")
+        rescue Reach::GateBlocked => e
+          raise Reach::Refused, e.message
+        end
+        raise Reach::Refused, "reach: a read-only course file was changed; submission refused" unless Reach::Workspace.verify(workspace)
+
+        id, fields = Reach::DocumentFiles.problem(workspace, meta)
+        raise Reach::Refused, Reach::Messages.text(id, **fields) if id
+      end
+
+      def elsewhere_note(meta)
+        note = meta["submit_note"].to_s.strip
+        note.empty? ? Reach::Messages.text("M-SUBMIT-ELSEWHERE-NONOTE") : note
+      end
+
       def check_gate!(workspace, meta, findings)
         gate_file = File.join(Reach::Paths.submit_gate_dir, "#{File.basename(workspace)}.json")
         if findings.empty?
@@ -509,6 +585,8 @@ module Reach
       end
 
       def owned_digests(workspace, meta)
+        return Reach::DocumentFiles.digests(workspace) if Reach::DocumentFiles.document_meta?(meta)
+
         digests = {}
         Array(meta["owned_files"]).each do |relative_path|
           data = owned_bytes(workspace, relative_path)
@@ -518,8 +596,9 @@ module Reach
       end
 
       def build_manifest(workspace, meta)
-        owned = Array(meta["owned_files"])
-        digests = owned_digests(workspace, meta)
+        document = Reach::DocumentFiles.document_meta?(meta)
+        owned = document ? Reach::DocumentFiles.list(workspace) : Array(meta["owned_files"])
+        digests = document ? Reach::DocumentFiles.digests(workspace, owned) : owned_digests(workspace, meta)
         {
           "schema" => "reach.submission/v1",
           "course" => meta["course"],
@@ -582,13 +661,13 @@ module Reach
         end
       end
 
-      def submission_entries(manifest, workspace, tail, qualification, assignment)
+      def submission_entries(manifest, workspace, tail, qualification, assignment, document: false)
         entries = { "manifest.json" => JSON.generate(manifest) }
         entries["part.json"] = JSON.generate(Reach::Part.document(assignment)) unless Reach::Part.questions(assignment).empty?
-        Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data }
+        Reach::Qualify.test_files(workspace).each { |relative, data| entries["evidence/#{relative}"] = data } unless document
         entries["evidence/qualification.json"] = JSON.generate(qualification.reject { |key, _| key == "ladder" }) if qualification
         receipt = File.join(workspace, Reach::Workspace::MARKER_DIR, Reach::Packet::RECEIPT_FILE)
-        entries["evidence/sidecar-receipt.json"] = File.binread(receipt) if File.file?(receipt)
+        entries["evidence/sidecar-receipt.json"] = File.binread(receipt) if File.file?(receipt) && !document
         Array(manifest["owned_files"]).each do |relative_path|
           data = owned_bytes(workspace, relative_path)
           next unless data
@@ -627,10 +706,15 @@ module Reach
 
       public :seal_package
 
-      def write_outbox(idempotency_key, kind, route, body, workspace: nil)
+      def write_outbox(idempotency_key, kind, route, body, workspace: nil, external: false)
         FileUtils.mkdir_p(Reach::Paths.outbox_dir)
         path = File.join(Reach::Paths.outbox_dir, "#{idempotency_key}.json")
         entry = { "kind" => kind, "route" => route, "idempotency_key" => idempotency_key, "body" => body, "queued_at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%6NZ") }
+        if external
+          write_json_atomic(outbox_companion(path), body)
+          entry["body_file"] = File.basename(outbox_companion(path))
+          entry["body"] = body.reject { |key, _| key == "package" }
+        end
         entry["workspace"] = workspace if workspace
         write_json_atomic(path, entry)
         path
@@ -655,7 +739,7 @@ module Reach
         "hook"
       end
 
-      def ask_fields(meta, partial: false)
+      def ask_fields(meta, partial: false, workspace: nil)
         due = due_for(meta)
         prefix = partial ? "M-SUBMIT-PARTIAL-ASK" : "M-SUBMIT-ASK"
         again = if due.nil?
@@ -665,17 +749,20 @@ module Reach
                 else
                   Reach::Messages.text("#{prefix}-LATE", due: Reach::Messages.course_time(due))
                 end
-        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again, credit: Reach::Archive.credit("M-LMS-UPLOAD-THAT") }
+        document = Reach::DocumentFiles.document_meta?(meta)
+        files = document && workspace ? Reach::DocumentFiles.list(workspace).join(", ") : ""
+        { slice: meta["slice"], cutout: meta["cutout_id"], assignment: meta["assignment"], again: again, files: files, credit: document ? "" : Reach::Archive.credit("M-LMS-UPLOAD-THAT") }
       end
 
       def approve!(workspace, meta, partial: false)
         kind = partial ? "submission_partial" : "submission"
         message_id = partial ? "M-SUBMIT-PARTIAL-ASK" : "M-SUBMIT-ASK"
+        message_id = "M-SUBMIT-ASK-DOC" if Reach::DocumentFiles.document_meta?(meta)
         case approval_mode
         when "agent"
           nil
         when "terminal"
-          puts Reach::Messages.text(message_id, **ask_fields(meta, partial: partial)).strip
+          puts Reach::Messages.text(message_id, **ask_fields(meta, partial: partial, workspace: workspace)).strip
           print Reach::Messages.text("M-SUBMIT-TERMINAL-PROMPT")
           $stdout.flush
           answer = $stdin.gets
@@ -688,7 +775,7 @@ module Reach
           end
           return nil if Reach::Consent.take!(kind: kind, subject: subject)
 
-          question = Reach::Consent.ask!(kind: kind, subject: subject, message_id: message_id, fields: ask_fields(meta, partial: partial), replay: { "slice_id" => File.basename(workspace) })
+          question = Reach::Consent.ask!(kind: kind, subject: subject, message_id: message_id, fields: ask_fields(meta, partial: partial, workspace: workspace), replay: { "slice_id" => File.basename(workspace) })
           { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
         end
       end

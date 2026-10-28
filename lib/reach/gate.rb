@@ -449,7 +449,7 @@ module Reach
 
       workspace = kind == "slice" ? space["path"] : nil
       owned = workspace ? owned_absolute_paths(workspace) : []
-      writable = ->(target) { owned.any? { |candidate| same_path?(candidate, target) } || qualify_target?(workspace, target) }
+      writable = ->(target) { slice_writable?(workspace, owned, target) }
 
       if patch
         base = workspace || Reach::Paths.cwd
@@ -502,7 +502,7 @@ module Reach
         when "slice"
           workspace = space["path"]
           owned = owned_absolute_paths(workspace)
-          allowed = owned.any? { |candidate| same_path?(candidate, target) } || qualify_target?(workspace, target)
+          allowed = slice_writable?(workspace, owned, target)
           raise_blocked!("M-WRITE-OUTSIDE", owned_files: owned_files_display(workspace)) unless allowed
         when "extracurricular"
           raise_blocked!("M-WRITE-OUTSIDE-EXTRA") unless within?(target, space["path"])
@@ -532,6 +532,18 @@ module Reach
       return nil if Reach::Paths.inside_home?(target)
 
       Reach::Workspace.space_for_target(target)
+    end
+
+    def slice_writable?(workspace, owned, target)
+      return document_target?(workspace, target) if workspace && Reach::DocumentFiles.document?(workspace)
+
+      owned.any? { |candidate| same_path?(candidate, target) } || qualify_target?(workspace, target) || document_target?(workspace, target)
+    end
+
+    def document_target?(workspace, target)
+      return false unless workspace
+
+      Reach::DocumentFiles.agent_writable?(workspace, target)
     end
 
     def qualify_target?(workspace, target)
@@ -925,6 +937,8 @@ module Reach
       meta = Reach::Workspace.metadata(workspace)
       safely { Reach::LateWork.note_write(workspace) }
 
+      return if Reach::DocumentFiles.document_meta?(meta)
+
       allowed = begin
         Reach::Modules.allows?(meta["cutout_id"])
       rescue StandardError
@@ -1104,7 +1118,7 @@ module Reach
         ->(resolved) { within?(resolved, root) }
       else
         owned = workspace ? owned_absolute_paths(workspace) : []
-        ->(resolved) { owned.any? { |candidate| same_path?(candidate, resolved) } || qualify_target?(workspace, resolved) }
+        ->(resolved) { slice_writable?(workspace, owned, resolved) }
       end
     end
 
@@ -1366,6 +1380,8 @@ module Reach
     end
 
     def owned_absolute_paths(workspace)
+      return [] if Reach::DocumentFiles.document?(workspace)
+
       Reach::Workspace.owned_files(workspace).map do |relative|
         resolve_target(File.join(workspace, relative))
       end
@@ -1373,6 +1389,7 @@ module Reach
 
     def owned_files_display(workspace)
       return "" unless workspace
+      return Reach::Messages.text(Reach::DocumentFiles.elsewhere?(workspace) ? "M-WRITE-DOC-ELSEWHERE" : "M-WRITE-DOC-PLACE") if Reach::DocumentFiles.document?(workspace)
 
       Reach::Workspace.owned_files(workspace).join(", ")
     rescue StandardError

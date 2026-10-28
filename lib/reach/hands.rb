@@ -155,7 +155,7 @@ module Reach
 
         workspace = Reach::Gate.focus_workspace
         meta = workspace ? Reach::Workspace.metadata(workspace) : {}
-        slice_kind = %w[backend panel verification].include?(meta["slice"]) ? meta["slice"] : nil
+        slice_kind = %w[backend panel verification document].include?(meta["slice"]) ? meta["slice"] : nil
         cutout_id = slice_kind ? meta["cutout_id"] : nil
         space_kind = space.is_a?(Hash) ? space["kind"] : space
         space_kind = "outside" if space_kind.to_s.empty?
@@ -277,7 +277,10 @@ module Reach
       end
 
       def build_bundle(workspace, meta, trigger, summary, include_profile, originator, details, approved_profile: nil)
-        files, skipped = Reach::SafeFiles.collect(workspace, meta["owned_files"])
+        listed = Reach::DocumentFiles.document_meta?(meta) ? Reach::DocumentFiles.list(workspace) : meta["owned_files"]
+        readable = Reach::DocumentFiles.document_meta?(meta) ? listed.select { |relative| Reach::DocumentFiles.text_file?(relative) } : listed
+        files, skipped = Reach::SafeFiles.collect(workspace, readable)
+        (listed - readable).each { |relative| files[relative] = nil }
         files = files.map { |relative, data| [relative, data && data.force_encoding(Encoding::UTF_8)] }.to_h
         tests, test_skipped = Reach::Qualify.collect_test_files(workspace)
         skipped += test_skipped

@@ -94,7 +94,7 @@ module Reach
     end
 
     def late?(workspace)
-      return false if workspace.nil?
+      return false if workspace.nil? || Reach::DocumentFiles.elsewhere?(workspace)
 
       meta = Reach::Workspace.metadata(workspace)
       due = due_for_meta(meta)

@@ -52,6 +52,8 @@ module Reach
 
     def run(workspace, changed: nil, format: :agent, stamp: true)
       meta = Reach::Workspace.metadata(workspace)
+      return(format == :text ? Reach::Messages.text("M-CHECK-DOCUMENT") : []) if Reach::DocumentFiles.document_meta?(meta)
+
       Reach::Seal.stamp(workspace) if stamp
       findings = []
       owned = Array(meta["owned_files"])

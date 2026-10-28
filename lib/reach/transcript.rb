@@ -26,7 +26,7 @@ module Reach
     SESSION_ID_PATTERN = /\A[A-Za-z0-9._:-]{1,128}\z/
     HARNESSES = %w[claude-code codex hermes unknown].freeze
     HERMES_WRITE_TOOLS = %w[write_file patch].freeze
-    SLICES = %w[backend panel verification].freeze
+    SLICES = %w[backend panel verification document].freeze
     KINDS = %w[prompt reply reasoning action output code].freeze
     PART_KINDS = %w[prompt reply reasoning action output].freeze
     CAPTURE_SPACES = %w[slice root].freeze
@@ -54,6 +54,7 @@ module Reach
       return false unless Reach::Enroll.current
       return false if Reach::Enroll.revoked?
       return false unless CAPTURE_SPACES.include?(space)
+      return false if space == "slice" && Reach::DocumentFiles.elsewhere?(safe_current_workspace)
       return false if Reach::Login.required? && !Reach::Login.session_confirmed?(session_id)
 
       assignment = (Reach::Sync.cached_status || {})["current_assignment"]

@@ -75,7 +75,7 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. With archive true and scope all, course (name the course) or extracurricular it saves a ZIP of all the student's work, one course's work or their own code folder instead; that is never a submission. With partial true it submits unqualified work on the student's yes, held for the instructor and not graded automatically. Submitting takes up to half a minute: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. With archive true and scope all, course (name the course) or extracurricular it saves a ZIP of all the student's work, one course's work or their own code folder instead; that is never a submission. With partial true it submits unqualified work on the student's yes, held for the instructor and not graded automatically. Submitting takes up to half a minute, and up to two minutes for written work with large files: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
@@ -511,6 +511,7 @@ module Reach
       tool.merge("annotations" => hints)
     end.freeze
     TOOL_BUDGET_S = 25
+    SUBMIT_BUDGET_S = 180
 
     class << self
       PROTOCOL_VERSIONS = %w[2025-06-18 2025-03-26 2024-11-05].freeze
@@ -664,7 +665,7 @@ module Reach
       def run_tool(id, params)
         name = params["name"]
         arguments = params["arguments"] || {}
-        payload = relay_channel(name, Reach::Client.with_deadline(TOOL_BUDGET_S) { dispatch(name, arguments) })
+        payload = relay_channel(name, Reach::Client.with_deadline(name == "reach_submit" ? SUBMIT_BUDGET_S : TOOL_BUDGET_S) { dispatch(name, arguments) })
         result(id, { "content" => [{ "type" => "text", "text" => JSON.generate(payload) }] })
       rescue Reach::StateFile::Held => e
         Reach::Debug.fault(e, "mcp:#{tool_label(name)}")
@@ -771,6 +772,8 @@ module Reach
           Reach::Shape.check(workspace_path: shape_workspace(arguments["slice"]), changed: arguments["changed"], format: :agent)
         when "reach_qualify"
           workspace = workspace_for(slice_argument(arguments))
+          return { "document" => true, "text" => Reach::Messages.text("M-QUALIFY-DOCUMENT") } if Reach::DocumentFiles.document?(workspace)
+
           Reach::Qualify.run(workspace, local_only: arguments["local_only"] == true, task: arguments["task"], agent_summary: arguments["summary"])
         when "reach_preview"
           preview_tool(arguments)

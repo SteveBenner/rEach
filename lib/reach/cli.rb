@@ -1635,6 +1635,10 @@ module Reach
           puts Reach::Qualify.listing(workspace)
           return 0
         end
+        if Reach::DocumentFiles.document?(workspace)
+          puts Reach::Messages.text("M-QUALIFY-DOCUMENT")
+          return 0
+        end
         format = (options[:format] || "text").to_sym
         record = Reach::Qualify.run(workspace, local_only: local_only, task: options[:task], agent_summary: options[:summary])
         puts Reach::Qualify.render(record, format)
@@ -3112,7 +3116,7 @@ module Reach
         findings = Reach::Check.run(workspace_path, changed: changed, format: format)
         if format == :text
           puts findings
-          findings == Reach::Messages.text("M-CHECK-CLEAN") ? 0 : 1
+          [Reach::Messages.text("M-CHECK-CLEAN"), Reach::Messages.text("M-CHECK-DOCUMENT")].include?(findings) ? 0 : 1
         else
           puts JSON.generate(findings)
           findings.empty? ? 0 : 1

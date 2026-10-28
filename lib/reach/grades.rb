@@ -33,7 +33,7 @@ module Reach
       grades = Array(body["grades"]).select { |row| row.is_a?(Hash) }.map do |row|
         {
           "assignment" => row["assignment"].to_s, "points" => row["points"], "points_possible" => row["points_possible"],
-          "recorded_at" => row["recorded_at"]
+          "recorded_at" => row["recorded_at"], "graded_by" => row["graded_by"]
         }
       end
       total = body["total"].is_a?(Hash) ? { "points" => body["total"]["points"], "points_possible" => body["total"]["points_possible"] } : nil
@@ -80,7 +80,9 @@ module Reach
     end
 
     def lines_for(answer)
-      lines = answer["grades"].map do |row|
+      lines = answer["grades"].flat_map do |row|
+        next document_lines(row) if row["graded_by"]
+
         if row["points_possible"].nil?
           Reach::Messages.text("M-GRADES-ROW-OPEN", assignment: row["assignment"], points: number(row["points"]))
         else
@@ -95,6 +97,15 @@ module Reach
                    Reach::Messages.text("M-GRADES-TOTAL", points: number(total["points"]), possible: number(total["points_possible"]))
                  end
       end
+      lines
+    end
+
+    def document_lines(row)
+      receipt = Reach::Receipts.latest_grade_for_assignment(row["assignment"])
+      earlier = receipt && Reach::Receipts.earlier_attempt?(receipt)
+      lines = [Reach::Messages.text(earlier ? "M-GRADES-ROW-DOC-EARLIER" : "M-GRADES-ROW-DOC", assignment: row["assignment"], points: number(row["points"]))]
+      feedback = receipt && receipt["feedback"]
+      lines << Reach::Messages.text("M-GRADES-FEEDBACK", feedback: feedback) if feedback.is_a?(String) && !feedback.strip.empty?
       lines
     end
 

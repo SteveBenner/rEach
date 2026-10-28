@@ -18,7 +18,7 @@ module Reach
       "control.submit" => ["C-HOLD", %w[active]],
       "control.mcp" => ["C-TEST-TOOL", %w[locked allowed]]
     }.freeze
-    ASSIGNMENT_PHASES = %w[start plan part build submit wait review done].freeze
+    ASSIGNMENT_PHASES = %w[start plan part build submit wait review done doc-start doc-work doc-submit doc-wait doc-review doc-elsewhere].freeze
 
     module_function
 

@@ -26,7 +26,7 @@ module Reach
 
         status = Reach::Sync.cached_status || {}
         selection = status["module_selection"].is_a?(Hash) ? status["module_selection"] : {}
-        if status["modules"].nil?
+        if status["modules"].nil? && !documents_only?(status)
           if selection["open"]
             closes = Reach::Messages.course_time(selection["closes_at"])
             return result("M-NEXT-CHOOSE-OPEN", count: selection_count) if closes.to_s.empty?
@@ -51,7 +51,7 @@ module Reach
           step = slice_step(slice, assignment, workspaces[[slice["cutout_id"], slice["slice"]]])
           next unless step
 
-          if step["id"] == "M-NEXT-WAIT-GRADE"
+          if %w[M-NEXT-WAIT-GRADE M-NEXT-DOC-WAIT].include?(step["id"])
             waiting ||= step
             next
           end
@@ -96,11 +96,25 @@ module Reach
 
       def assignment_slices(status, assignment)
         Array(status["slices"]).select do |slice|
-          slice["assignment"].to_s == assignment.to_s && Reach::Modules.allows?(slice["cutout_id"])
+          slice["assignment"].to_s == assignment.to_s && (document_slice?(slice) || Reach::Modules.allows?(slice["cutout_id"]))
         end
       end
 
+      def document_slice?(slice)
+        slice.is_a?(Hash) && slice["slice"].to_s == Reach::DocumentFiles::SLICE
+      end
+
+      def documents_only?(status)
+        current = status["current_assignment"]
+        return false unless current.is_a?(Hash) && current["id"]
+
+        slices = Array(status["slices"]).select { |slice| slice["assignment"].to_s == current["id"].to_s }
+        !slices.empty? && slices.all? { |slice| document_slice?(slice) }
+      end
+
       def module_of(cutout_id)
+        return nil if Reach::Modules.document_cutout?(cutout_id)
+
         cutout_id.to_s.split(".").first
       end
 
@@ -114,13 +128,57 @@ module Reach
       end
 
       def module_names(slices)
-        names = slices.map { |slice| module_title(module_of(slice["cutout_id"])) }.uniq
+        names = slices.reject { |slice| document_slice?(slice) }.map { |slice| module_title(module_of(slice["cutout_id"])) }.uniq
         return names.first.to_s if names.size <= 1
 
         "#{names[0..-2].join(', ')} and #{names[-1]}"
       end
 
+      def document_step(slice, assignment, workspace)
+        if slice["submit"].to_s == "elsewhere"
+          return result("M-NEXT-ELSEWHERE", assignment_id: assignment, assignment: assignment, note: elsewhere_note(slice))
+        end
+        return result("M-NEXT-DOC-START", assignment_id: assignment, assignment: assignment) unless workspace
+
+        if Reach::Part.required?(assignment)
+          open_question = Reach::Part.missing(assignment).first
+          return result("M-NEXT-PART", assignment_id: assignment, question: open_question["question"]) if open_question
+        end
+        return result("M-NEXT-DOC-WORK", assignment_id: assignment, folder: File.basename(workspace)) if Reach::DocumentFiles.list(workspace).empty?
+
+        latest = Reach::Receipts.latest_for(cutout_id: slice["cutout_id"], slice: slice["slice"])
+        sent = latest && %w[ingest grade].include?(latest["kind"]) && !changed_since?(workspace, latest)
+        return result("M-NEXT-DOC-SUBMIT", assignment_id: assignment, assignment: assignment) unless sent
+        return result("M-NEXT-DOC-WAIT", assignment_id: assignment, assignment: assignment) unless latest["kind"] == "grade"
+
+        percent = document_percent(latest)
+        pass = Reach::Policy.pass_percent
+        return nil unless latest["feedback"].to_s.strip != "" || (percent && pass && percent < pass)
+
+        result("M-NEXT-DOC-REVIEW", assignment_id: assignment, assignment: assignment, percent: percent.nil? ? "" : percent)
+      end
+
+      def elsewhere_note(slice)
+        note = slice["submit_note"].to_s.strip
+        note.empty? ? Reach::Messages.text("M-SUBMIT-ELSEWHERE-NONOTE") : note
+      end
+
+      def document_percent(receipt)
+        return nil unless receipt["graded_by"] && receipt["score"].is_a?(Numeric)
+
+        (receipt["score"] * 100).round
+      end
+
+      def changed_since?(workspace, receipt)
+        stamp = Time.parse(receipt["issued_at"].to_s)
+        Reach::DocumentFiles.list(workspace).any? { |relative| File.mtime(File.join(workspace, relative)).to_i > stamp.to_i }
+      rescue ArgumentError, SystemCallError
+        false
+      end
+
       def slice_step(slice, assignment, workspace)
+        return document_step(slice, assignment, workspace) if document_slice?(slice)
+
         module_id = module_of(slice["cutout_id"])
         name = module_title(module_id)
         return result("M-NEXT-START", module_id: module_id, assignment_id: assignment, assignment: assignment, module: name) unless workspace

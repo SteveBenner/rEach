@@ -65,8 +65,9 @@ module Reach
         next unless row["imported"]
 
         write_import_record(row["workspace"], root, packet, result, row)
-        row["check"] = check_count(row["workspace"])
-        row["qualify"] = qualify ? qualify_outcome(row["workspace"]) : "skipped"
+        document = Reach::DocumentFiles.document?(row["workspace"])
+        row["check"] = document ? -1 : check_count(row["workspace"])
+        row["qualify"] = qualify && !document ? qualify_outcome(row["workspace"]) : "skipped"
       end
       result["ok"] = result["slices"].all? { |row| row["imported"] }
       result["text"] = render(result)
@@ -288,10 +289,14 @@ module Reach
           "name" => File.basename(dir),
           "cutout_id" => meta["cutout_id"].to_s,
           "slice" => meta["slice"].to_s,
-          "owned_files" => Array(meta["owned_files"]).map(&:to_s),
+          "owned_files" => (meta["slice"].to_s == Reach::DocumentFiles::SLICE ? document_listing(dir) : Array(meta["owned_files"])).map(&:to_s),
           "checkpoints" => File.join(root, ".checkpoints", slug.to_s, File.basename(File.dirname(dir)), File.basename(dir))
         }
       end
+    end
+
+    def document_listing(dir)
+      Reach::DocumentFiles.all_files(dir)
     end
 
     def import_slice(root, rec, result)
@@ -303,8 +308,9 @@ module Reach
         return row
       end
 
-      owned = Array(meta["owned_files"]).map(&:to_s)
-      unless Reach::Workspace.changed_owned_files(workspace).empty?
+      document = Reach::DocumentFiles.document_meta?(meta)
+      owned = (document ? Array(rec["owned_files"]) : Array(meta["owned_files"])).map(&:to_s)
+      unless document || Reach::Workspace.changed_owned_files(workspace).empty?
         Reach::Checkpoint.save(workspace, note: "before sidecar import", automatic: true)
       end
       row["checkpoints"] = replay_checkpoints(root, rec, workspace, owned)

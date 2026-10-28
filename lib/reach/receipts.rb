@@ -8,6 +8,7 @@ require "base64"
 module Reach
   module Receipts
     POLL_INTERVAL_S = 30
+    REGRADE_POLL_INTERVAL_S = 3600
     ON_RECORD_KINDS = %w[ingest grade validation].freeze
 
     class << self
@@ -118,16 +119,45 @@ module Reach
         id.empty? ? "" : Reach::Messages.text("M-RECEIPT-REFERENCE", id: id)
       end
 
+      def earlier_attempt?(receipt)
+        return false unless receipt["kind"] == "grade" && receipt["slice"] == Reach::DocumentFiles::SLICE
+
+        newest = list.find { |other| other["kind"] == "ingest" && other["cutout_id"] == receipt["cutout_id"] && other["slice"] == receipt["slice"] }
+        !newest.nil? && newest["submission_id"] != receipt["submission_id"]
+      end
+
+      def document_grade?(receipt)
+        receipt["kind"] == "grade" && receipt["graded_by"] && Array(receipt["scenarios"]).empty?
+      end
+
+      def percent_of(receipt)
+        receipt["score"].is_a?(Numeric) ? (receipt["score"] * 100).round : nil
+      end
+
+      def latest_grade_for_assignment(assignment)
+        list.find { |receipt| receipt["kind"] == "grade" && receipt["assignment"] == assignment.to_s && document_grade?(receipt) }
+      end
+
+      def grade_lines(receipt)
+        id = earlier_attempt?(receipt) ? "M-GRADED-DOC-EARLIER" : "M-GRADED-DOC"
+        lines = [Reach::Messages.text(id, assignment: receipt["assignment"], slice: receipt["slice"], cutout: receipt["cutout_id"], percent: percent_of(receipt))]
+        feedback = receipt["feedback"]
+        lines << Reach::Messages.text("M-GRADED-FEEDBACK", feedback: feedback) if feedback.is_a?(String) && !feedback.strip.empty?
+        lines
+      end
+
       def refresh_grades(now: Time.now)
-        outstanding = list.select { |receipt| receipt["kind"] == "ingest" && !stored_for_submission(receipt["submission_id"], "grade") }
+        outstanding = list.select { |receipt| receipt["kind"] == "ingest" && (receipt["slice"] == Reach::DocumentFiles::SLICE || !stored_for_submission(receipt["submission_id"], "grade")) }
         outstanding.each_with_object([]) do |ingest, announced|
           submission_id = ingest["submission_id"].to_s
-          next if submission_id.empty? || polled_recently?(submission_id, now)
+          interval = stored_for_submission(submission_id, "grade") ? REGRADE_POLL_INTERVAL_S : POLL_INTERVAL_S
+          next if submission_id.empty? || polled_recently?(submission_id, now, interval)
 
           mark_polled(submission_id, now)
           begin
             fetched = fetch_receipt(submission_id, "grade")
             next unless fetched
+            next if show(fetched["receipt_id"])
 
             verify!(fetched)
             store(fetched)
@@ -166,11 +196,11 @@ module Reach
         File.join(Reach::Paths.state_dir, "grade-polls", "#{submission_id.gsub(/[^A-Za-z0-9_-]/, '_')}.at")
       end
 
-      def polled_recently?(submission_id, now)
+      def polled_recently?(submission_id, now, interval = POLL_INTERVAL_S)
         path = poll_marker(submission_id)
         return false unless File.file?(path)
 
-        now - Time.iso8601(File.read(path).strip) < POLL_INTERVAL_S
+        now - Time.iso8601(File.read(path).strip) < interval
       rescue ArgumentError
         false
       end
@@ -188,7 +218,7 @@ module Reach
       def fetch_receipt(submission_id, kind)
         response = teach_client.get("/api/v1/submissions/#{submission_id}")
         body = response.json || {}
-        Array(body["receipts"]).find { |receipt| receipt["kind"] == kind }
+        Array(body["receipts"]).select { |receipt| receipt["kind"] == kind }.max_by { |receipt| receipt["issued_at"].to_s }
       rescue Reach::NetworkError
         nil
       end
@@ -221,6 +251,8 @@ module Reach
 
       def message_for(receipt)
         kind = receipt["kind"].to_s
+        return grade_lines(receipt).join("\n").then { |text| [text, reference_text(receipt)].reject { |part| part.to_s.empty? }.join(" ") } if document_grade?(receipt)
+
         text = if kind == "grade"
           scenarios = Array(receipt["scenarios"])
           Reach::Messages.text(
@@ -232,9 +264,10 @@ module Reach
           )
         else
           Reach::Messages.text(
-            receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED",
+            receipt["slice"] == Reach::DocumentFiles::SLICE ? "M-SUBMIT-DOC-RECEIVED" : (receipt["partial"] == true ? "M-SUBMIT-PARTIAL-RECEIVED" : "M-SUBMIT-RECEIVED"),
             slice: receipt["slice"],
             cutout: receipt["cutout_id"],
+            assignment: receipt["assignment"],
             time: Reach::Messages.course_time(receipt["received_at"])
           )
         end

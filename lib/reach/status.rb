@@ -76,12 +76,23 @@ module Reach
         assignment = status && status["current_assignment"]
         return "Current assignment: none" unless assignment
 
-        "Current assignment: #{assignment['id']}, due #{Reach::Messages.course_time(assignment['due'])}"
+        "Current assignment: #{assignment_label(assignment)}, due #{Reach::Messages.course_time(assignment['due'])}#{elsewhere_suffix(assignment)}"
+      end
+
+      def assignment_label(entry)
+        title = entry["title"].to_s.strip
+        title.empty? ? entry["id"].to_s : "#{entry['id']} #{title}"
+      end
+
+      def elsewhere_suffix(entry)
+        return "" unless entry["submit"].to_s == "elsewhere"
+
+        " " + Reach::Messages.text("M-STATUS-ELSEWHERE", note: entry["submit_note"].to_s.strip.empty? ? Reach::Messages.text("M-SUBMIT-ELSEWHERE-NONOTE") : entry["submit_note"].to_s.strip)
       end
 
       def late_assignment_lines
         status = cached_status
-        Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] }.map do |entry|
+        Array(status && status["late_assignments"]).select { |entry| entry.is_a?(Hash) && entry["id"] && entry["submit"].to_s != "elsewhere" }.map do |entry|
           due = Reach::LateWork.parse_time(entry["due"])
           if !entry["rolling_until"].to_s.strip.empty?
             "Also open: #{entry['id']}, can be submitted until #{Reach::Messages.course_time(entry['rolling_until'])} without being late"
@@ -110,6 +121,8 @@ module Reach
         cutout_id = meta["cutout_id"]
         slice = meta["slice"]
         state = Reach::Workspace.state_word(workspace_path)
+        return document_line(workspace_path, meta, state) if slice == Reach::DocumentFiles::SLICE
+
         shape = shape_summary(workspace_path)
         checks = qualify_summary(workspace_path)
         line = "#{cutout_id}  #{slice}  #{state}   shape: #{shape}   checks: #{checks}"
@@ -117,6 +130,17 @@ module Reach
         line = "#{line}\n    #{saved}" if saved
         late = Reach::LateWork.status_text(workspace_path)
         late ? "#{line}\n    #{late}" : line
+      end
+
+      def document_line(workspace_path, meta, state)
+        count = Reach::DocumentFiles.list(workspace_path).length
+        line = Reach::Messages.text("M-STATUS-DOC-LINE", cutout: meta["cutout_id"], state: state, count: count)
+        line = "#{line}\n    #{Reach::Messages.text('M-STATUS-ELSEWHERE', note: meta['submit_note'].to_s.strip.empty? ? Reach::Messages.text('M-SUBMIT-ELSEWHERE-NONOTE') : meta['submit_note'])}" if meta["submit"] == "elsewhere"
+        grade = Reach::Receipts.latest_for(cutout_id: meta["cutout_id"], slice: meta["slice"])
+        grade = Reach::Receipts.list.find { |receipt| Reach::Receipts.document_grade?(receipt) && receipt["cutout_id"] == meta["cutout_id"] } unless grade && Reach::Receipts.document_grade?(grade)
+        line = "#{line}\n    #{Reach::Receipts.grade_lines(grade).join("\n    ")}" if grade
+        saved = Reach::Checkpoint.status_line(workspace_path)
+        saved ? "#{line}\n    #{saved}" : line
       end
 
       def shape_summary(workspace_path)

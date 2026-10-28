@@ -276,8 +276,10 @@ module Reach
     def write_entry(base, workspace, n, digests, note, automatic, via, kept = nil)
       blobs = private_dir(File.join(base, "blobs"))
       private_dir(File.join(base, format("%03d", n)))
+      document = Reach::DocumentFiles.document?(workspace)
       digests.merge(kept || {}).each do |relative, digest|
         next if digest.nil?
+        next if document && !kept&.key?(relative) && !Reach::DocumentFiles.text_file?(relative)
 
         source = File.join(workspace, relative)
         blob = File.join(blobs, digest)
@@ -362,7 +364,8 @@ module Reach
       entry = show(workspace, n)
       raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNKNOWN", n: n) unless entry
 
-      owned = Array(Reach::Workspace.owned_files(workspace))
+      document = Reach::DocumentFiles.document?(workspace)
+      owned = document ? entry["digests"].keys.select { |relative| Reach::DocumentFiles.text_file?(relative) } : Array(Reach::Workspace.owned_files(workspace))
       contents = owned.each_with_object({}) { |relative, map| map[relative] = entry_content(workspace, entry, relative) }
       kept = entry["extras"].is_a?(Hash) ? entry["extras"] : nil
       extra_contents = (kept || {}).each_with_object({}) { |(relative, digest), map| map[relative] = blob_content(workspace, entry, digest) }
@@ -378,7 +381,7 @@ module Reach
         content = contents[relative]
         if content
           Reach::StateFile.write_atomic(destination, content, mode: 0o644)
-        elsif File.file?(destination)
+        elsif File.file?(destination) && !document
           Reach::StateFile.write_atomic(destination, "", mode: 0o644)
         end
       end
@@ -471,7 +474,9 @@ module Reach
       window = since_deliberate(workspace)
       return [] if window.empty?
 
-      Array(Reach::Workspace.owned_files(workspace)).select do |relative|
+      tracked = Array(Reach::Workspace.owned_files(workspace))
+      tracked = (tracked + window.flat_map { |entry| entry["digests"].keys.select { |relative| Reach::DocumentFiles.text_file?(relative) } }).uniq if Reach::DocumentFiles.document?(workspace)
+      tracked.select do |relative|
         full = File.join(workspace, relative)
         (!File.file?(full) || File.size(full).zero?) && window.any? { |entry| content?(entry["digests"][relative]) }
       end
@@ -758,7 +763,7 @@ module Reach
       items.each do |item|
         workspace = item["path"]
         Reach::Workspace.provision_from_package(assignment: item["assignment"]) if item["kind"] == "orphan"
-        unless File.directory?(workspace) && !Reach::Workspace.owned_files(workspace).empty?
+        unless File.directory?(workspace) && (!Reach::Workspace.owned_files(workspace).empty? || (Reach::DocumentFiles.document?(workspace) && latest(workspace)))
           messages << Reach::Messages.text("M-CHECKPOINT-RECOVER-FAILED", slice: item["folder"])
           next
         end

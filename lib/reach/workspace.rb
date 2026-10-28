@@ -66,16 +66,18 @@ module Reach
       owned = Array(slice["owned_files"])
       target = Reach::Paths.workspace_path(course, assignment, cutout_id, slice_name)
 
+      document = slice_name == Reach::DocumentFiles::SLICE
       Reach::Checkpoint.autosave(target, via: "provision") if File.file?(File.join(target, MARKER_DIR, MARKER_FILE))
       prune_stale_kit(target, root, entries)
       kept_files = write_package_entries(target, root, entries, owned)
 
       write_marker(target, course, assignment, slice, version)
-      write_readme(target, slice)
+      write_readme(target, slice) unless document
       write_rules_files(target)
-      copy_brief(target, cutout_id)
-      stamp(target)
+      copy_brief(target, cutout_id) unless document
+      stamp(target) unless document
       delivered = delivered_relatives(target, root, entries)
+      delivered -= %w[README.md shape/brief.md] if document
       write_delivered_digests(target, owned, kept_files, delivered, stub_digests(root, entries, owned))
       lock_down(target, owned, delivered)
 
@@ -171,7 +173,10 @@ module Reach
     end
 
     def owned_files(workspace_path)
-      Array(metadata(workspace_path)["owned_files"])
+      meta = metadata(workspace_path)
+      return Reach::DocumentFiles.list(workspace_path) if meta["slice"] == Reach::DocumentFiles::SLICE
+
+      Array(meta["owned_files"])
     end
 
     def verify(workspace_path)
@@ -195,6 +200,9 @@ module Reach
       latest = Reach::Receipts.latest_for(cutout_id: meta["cutout_id"], slice: meta["slice"])
       return "graded" if latest && latest["kind"] == "grade"
       return "submitted" if latest && latest["kind"] == "ingest"
+      if meta["slice"] == Reach::DocumentFiles::SLICE
+        return Reach::DocumentFiles.list(workspace_path).empty? ? "not started yet" : "in progress"
+      end
       return "in progress" unless changed_owned_files(workspace_path).empty?
 
       "not started yet"
@@ -462,6 +470,10 @@ module Reach
           "cutout_id" => slice["cutout_id"],
           "slice" => slice["slice"],
           "kind" => "slice",
+          "assignment_kind" => slice["kind"] || "code",
+          "accepts" => slice["accepts"],
+          "submit" => slice["submit"] || "reach",
+          "submit_note" => slice["submit_note"],
           "behavior" => slice["behavior"],
           "due" => slice["due"],
           "owned_files" => slice["owned_files"],

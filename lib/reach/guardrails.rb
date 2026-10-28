@@ -189,11 +189,12 @@ module Reach
       lines = []
       lines << "# Course rules for this workspace"
       lines << ""
-      lines << "You are helping a student with one slice of a course module. These rules come from the instructors and always apply."
+      document = slice.to_s == Reach::DocumentFiles::SLICE
+      lines << (document ? "You are helping a student with one written assignment. These rules come from the instructors and always apply." : "You are helping a student with one slice of a course module. These rules come from the instructors and always apply.")
       lines << ""
 
       numbered = Array(data["directives"]).select { |d| d.is_a?(Hash) && d["opcode"].nil? }
-      other = numbered.reject { |d| d["id"].to_s.start_with?("G-CUTOUT-") }.select { |d| %w[slice everywhere].include?(rule_scope(d)) }
+      other = numbered.reject { |d| d["id"].to_s.start_with?("G-CUTOUT-") }.select { |d| %w[slice everywhere].include?(rule_scope(d)) && Reach::Directives.slice_matches?(d, slice) }
       cutout = numbered.select { |d| d["id"].to_s.start_with?("G-CUTOUT-#{cutout_id}-") }
 
       index = 1
@@ -207,7 +208,11 @@ module Reach
       lines << Reach::BehaviorPolicy.message("WAIT-RULE")
 
       table = rules_table("slice", data, slice: slice)
-      tail = ["Your files: #{Array(owned_files).join(', ')}", "Slice: #{cutout_id} (#{slice}) - #{behavior}", "Due: #{due}"]
+      tail = if document
+               [Reach::Messages.text("M-RULES-DOC-FILES"), Reach::Messages.text("M-RULES-DOC-SLICE", cutout: cutout_id), "Due: #{due}"]
+             else
+               ["Your files: #{Array(owned_files).join(', ')}", "Slice: #{cutout_id} (#{slice}) - #{behavior}", "Due: #{due}"]
+             end
       assemble("rules.slice", lines, table, tail)
     end
 
@@ -295,15 +300,16 @@ module Reach
       unless course.empty?
         blocks << (["## Course directives", ""] + course.map { |row| Reach::BehaviorPolicy.row_line(row) }).join("\n")
       end
-      engineering = engineering_section(space)
+      engineering = engineering_section(space, slice: slice)
       blocks << engineering unless engineering.to_s.empty?
       blocks.join("\n\n")
     end
 
-    def engineering_section(space)
+    def engineering_section(space, slice: nil)
       return "" if space == "root"
 
-      name = "#{space == 'extracurricular' ? 'extra' : 'workspace'}-#{@rules_mode || 'stub'}"
+      family = space == "extracurricular" ? "extra" : (slice.to_s == Reach::DocumentFiles::SLICE ? "document" : "workspace")
+      name = "#{family}-#{@rules_mode || 'stub'}"
       text = Reach::BehaviorPolicy.generated_section(name)
       return text.rstrip if text
 

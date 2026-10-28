@@ -1,6 +1,7 @@
 module Reach
   module Policy
     SECTIONS = %w[login limits support student_part module_selection enrollment].freeze
+    DEFAULT_PASS_PERCENT = 60
 
     module_function
 
@@ -48,6 +49,14 @@ module Reach
 
     def module_selection
       all["module_selection"]
+    end
+
+    def pass_percent
+      course = Reach::BehaviorPolicy.course(Reach::Guardrails.load).fetch("parameters").fetch("course")
+      given = course.is_a?(Hash) && course["grading"].is_a?(Hash) ? course["grading"]["pass_percent"] : nil
+      given.is_a?(Numeric) && given >= 0 && given <= 100 ? given : DEFAULT_PASS_PERCENT
+    rescue KeyError, Reach::Error
+      DEFAULT_PASS_PERCENT
     end
 
     def questions(assignment_id)

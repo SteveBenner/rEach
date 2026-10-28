@@ -49,7 +49,13 @@ module Reach
       record ? Array(record["modules"]).map(&:to_s) : []
     end
 
+    def document_cutout?(cutout_id)
+      cutout_id.to_s.match?(/\A[a-z0-9_]+\.doc\z/)
+    end
+
     def allows?(cutout_id)
+      return true if document_cutout?(cutout_id)
+
       record = current
       return true unless record
 

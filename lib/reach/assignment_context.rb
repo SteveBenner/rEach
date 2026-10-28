@@ -4,7 +4,9 @@ module Reach
   module AssignmentContext
     PHASE_OF = {
       "M-NEXT-START" => "start", "M-NEXT-PLAN" => "plan", "M-NEXT-PART" => "part", "M-NEXT-BUILD" => "build",
-      "M-NEXT-SUBMIT" => "submit", "M-NEXT-WAIT-GRADE" => "wait", "M-NEXT-REVIEW" => "review", "M-NEXT-DONE" => "done"
+      "M-NEXT-SUBMIT" => "submit", "M-NEXT-WAIT-GRADE" => "wait", "M-NEXT-REVIEW" => "review", "M-NEXT-DONE" => "done",
+      "M-NEXT-DOC-START" => "doc-start", "M-NEXT-DOC-WORK" => "doc-work", "M-NEXT-DOC-SUBMIT" => "doc-submit",
+      "M-NEXT-DOC-WAIT" => "doc-wait", "M-NEXT-DOC-REVIEW" => "doc-review", "M-NEXT-ELSEWHERE" => "doc-elsewhere"
     }.freeze
     MAX_PATH = 200
     MAX_TITLE = 120
@@ -16,7 +18,9 @@ module Reach
       "phases" => {
         "start" => %w[RESUME LEAN], "plan" => %w[RESUME PLAN1ST], "part" => %w[RESUME],
         "build" => %w[RESUME PLAN1ST FLOW CODEFILE QUALIFY CHECKPOINT], "submit" => %w[QUALIFY VERIFY],
-        "wait" => %w[RESUME], "review" => %w[FLOW TOZERO CHECKPOINT], "done" => []
+        "wait" => %w[RESUME], "review" => %w[FLOW TOZERO CHECKPOINT], "done" => [],
+        "doc-start" => %w[RESUMEDOC], "doc-work" => %w[RESUMEDOC FLOWDOC], "doc-submit" => %w[FLOWDOC],
+        "doc-wait" => %w[RESUMEDOC], "doc-review" => %w[FLOWDOC RESUMEDOC], "doc-elsewhere" => []
       }
     }.freeze
 

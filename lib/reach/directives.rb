@@ -11,7 +11,8 @@ module Reach
     OPCODE_PATTERN = /\A[A-Z][A-Z0-9]{2,9}\z/
     ALIAS_PATTERN = /\A[A-Z]\z/
     TIERS = %w[public private].freeze
-    SLICES = %w[all backend panel verification].freeze
+    SLICES = %w[all code document backend panel verification].freeze
+    CODE_SLICES = %w[backend panel verification].freeze
     REQUIRED = %w[id opcode alias tier rule when enforce].freeze
     PUBLIC_ALIASES = ("A".."M").to_a.freeze
     PRIVATE_ALIASES = ("N".."Z").to_a.freeze
@@ -56,8 +57,18 @@ module Reach
     def applies_to_slice?(row, slice)
       return false unless Array(row["spaces"] || ["slice"]).include?("slice")
 
+      slice_matches?(row, slice)
+    end
+
+    def slice_matches?(row, slice)
       scope = row["slice"].to_s
-      scope.empty? || scope == "all" || slice.nil? || scope == slice.to_s
+      return true if slice.nil?
+
+      kind = slice.to_s
+      return !(scope == "code" || CODE_SLICES.include?(scope)) if kind == "document"
+      return false if scope == "document"
+
+      scope.empty? || scope == "all" || scope == kind || (scope == "code" && CODE_SLICES.include?(kind))
     end
 
     def table(slice: nil, guardrails: nil)
@@ -93,7 +104,7 @@ module Reach
 
     def course_rows_for(space, guardrails, slice: nil)
       private_rows(guardrails).select do |row|
-        scope_applies?(row, space) && (space != "slice" || row["slice"].to_s.empty? || row["slice"] == "all" || slice.nil? || row["slice"] == slice.to_s)
+        scope_applies?(row, space) && (space != "slice" || slice_matches?(row, slice))
       end
     end
 
@@ -291,9 +302,10 @@ module Reach
           found << "#{name}: unreadable frontmatter (#{unreadable_reason(path)})"
           next
         end
-        REQUIRED.each { |key| found << "#{name}: missing #{key}" if row[key].to_s.empty? }
+        unaliased = row["slice"].to_s == "document"
+        REQUIRED.each { |key| found << "#{name}: missing #{key}" if row[key].to_s.empty? && !(unaliased && key == "alias") }
         found << "#{name}: opcode #{row['opcode'].inspect} is not 3-10 uppercase letters or digits" unless row["opcode"].to_s.match?(OPCODE_PATTERN)
-        found << "#{name}: alias #{row['alias'].inspect} is not one letter A-M" unless PUBLIC_ALIASES.include?(row["alias"].to_s)
+        found << "#{name}: alias #{row['alias'].inspect} is not one letter A-M" unless PUBLIC_ALIASES.include?(row["alias"].to_s) || (unaliased && row["alias"].to_s.empty?)
         found << "#{name}: tier must be public" unless row["tier"] == "public"
         found << "#{name}: slice #{row['slice'].inspect} unknown" unless row["slice"].to_s.empty? || SLICES.include?(row["slice"].to_s)
         found << "#{name}: rule longer than #{RULE_WIDTH} characters" if row["rule"].to_s.length > RULE_WIDTH
@@ -302,7 +314,7 @@ module Reach
         found << "#{name}: opcode #{row['opcode']} repeats #{seen_opcodes[row['opcode']]}" if seen_opcodes[row["opcode"]]
         found << "#{name}: alias #{row['alias']} repeats #{seen_aliases[row['alias']]}" if seen_aliases[row["alias"]]
         seen_opcodes[row["opcode"]] = name
-        seen_aliases[row["alias"]] = name
+        seen_aliases[row["alias"]] = name unless row["alias"].to_s.empty?
       end
       length = table(slice: nil, guardrails: { "directives" => [] }).length
       found << "the public table is #{length} characters, over #{TABLE_LIMIT}" if length > TABLE_LIMIT
