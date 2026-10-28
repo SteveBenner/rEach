@@ -4,7 +4,7 @@ enforce: check:CK-COMMENT
 id: R-NOCOM
 opcode: NOCOM
 rule: write no comments; the plan and README carry the why, the code carries the what
-slice: all
+slice: code
 tier: public
 when:
 - path:**/*.rb

@@ -5,7 +5,7 @@ id: R-PLAN1ST
 opcode: PLAN1ST
 rule: save a slice plan with reach plan save before any edit; read it back at session
   start
-slice: all
+slice: code
 tier: public
 when:
 - task:build

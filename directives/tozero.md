@@ -4,7 +4,7 @@ enforce: gate:write
 id: R-TOZERO
 opcode: TOZERO
 rule: work findings to zero; the attempt ladder bounds retries; never invent findings
-slice: all
+slice: code
 tier: public
 when:
 - task:after-task

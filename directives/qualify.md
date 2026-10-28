@@ -5,7 +5,7 @@ id: R-QUALIFY
 opcode: QUALIFY
 rule: write your own scenarios in qualify/, cover every required name, pass reach
   qualify
-slice: all
+slice: code
 tier: public
 when:
 - task:build

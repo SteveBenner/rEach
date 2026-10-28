@@ -4,7 +4,7 @@ enforce: gate:shell
 id: R-FLOW
 opcode: FLOW
 rule: when writing code, follow the reach-feature or reach-bug flow; never run git
-slice: all
+slice: code
 tier: public
 when:
 - task:build

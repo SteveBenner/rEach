@@ -4,7 +4,7 @@ enforce: none
 id: R-RESUME
 opcode: RESUME
 rule: open with reach plan show and reach status; close by updating the plan's progress
-slice: all
+slice: code
 tier: public
 when:
 - event:SessionStart

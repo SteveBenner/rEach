@@ -5,7 +5,7 @@ id: R-LEAN
 opcode: LEAN
 rule: read only README, contract/, api/, the brief and owned files; no subagents;
   one question
-slice: all
+slice: code
 tier: public
 when:
 - always

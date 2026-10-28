@@ -4,7 +4,7 @@ enforce: ledger
 id: R-VERIFY
 opcode: VERIFY
 rule: done carries the command and its output; a green check is not yet business meaning
-slice: all
+slice: code
 tier: public
 when:
 - task:after-task

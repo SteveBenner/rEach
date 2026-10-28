@@ -4,7 +4,7 @@ enforce: ledger
 id: R-CHECKPOINT
 opcode: CHECKPOINT
 rule: checkpoint after every clean check and before any rewrite; restore, never reconstruct
-slice: all
+slice: code
 tier: public
 when:
 - task:after-task

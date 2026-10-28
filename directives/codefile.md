@@ -5,7 +5,7 @@ id: R-CODEFILE
 opcode: CODEFILE
 rule: 'put code in files, never in chat: owned files for coursework, extracurricular/
   else'
-slice: all
+slice: code
 spaces:
 - slice
 - extracurricular
