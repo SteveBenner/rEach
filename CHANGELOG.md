@@ -5,11 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.64.20] - 2026-10-27
+## [0.64.21] - 2026-10-27
 
 ### Fixed
 
-- `reach_hand_status` and `reach hand status` (`Reach::Hands.status`, `lib/reach/hands.rb`) sent any hand id as a path segment. An empty id, or one with a slash, reached a path the course server has no route for; its bare not-found answer carried no error code, so rEach reported it as its own fault and told the student it had let their instructor know. An id with `?` or `#` was cut down to another path. An id that is not one segment of letters, digits, underscores and dashes (`Reach::Hands::HAND_ID`) is now refused before any request with `M-HAND-ID-UNKNOWN`, which says nothing was asked of the course server, that a request for help still waiting to be sent has no id yet, and lists the open hands (`M-HAND-ID-OPEN`, `M-HAND-ID-NONE`). It is not a fault. Measured through the real MCP dispatch and client, answered in process by the course server's code on a scratch database: before, an empty id and `a/b` each sent a request and recorded a fault; after, neither sends anything or records one, and a well-formed id is sent as before.
+- `reach_hand_status` and `reach hand status` (`Reach::Hands.status`, `lib/reach/hands.rb`) sent any hand id as a path segment. An empty id, or one with a slash, reached a path the course server has no route for; its bare not-found answer carried no error code, so rEach reported it as its own fault and told the student it had let their instructor know. An id with `?` or `#` was cut down to another path. An id that is not one segment of letters, digits, underscores and dashes (`Reach::Hands::HAND_ID`) is now refused before any request with `M-HAND-ID-UNKNOWN`, which says nothing was asked of the course server, that a request for help still waiting to be sent has no id yet, and lists the open hands (`M-HAND-ID-OPEN`, `M-HAND-ID-NONE`). It is not a fault. The background reply check (`Hands.poll_replies`) skips a stored hand whose id is not such a segment, so one odd id cannot stop the replies of the others. Measured through the real MCP dispatch and client, answered in process by the course server's code on a scratch database: before, an empty id and `a/b` each sent a request and recorded a fault; after, neither sends anything or records one, and a well-formed id is sent as before.
 
 ## [0.64.19] - 2026-10-26
 

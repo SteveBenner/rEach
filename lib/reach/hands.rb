@@ -253,6 +253,7 @@ module Reach
         state.each do |hand_id, record|
           record = record.is_a?(Hash) ? record : { "reply" => record, "polled_at" => nil }
           next if record["polled_at"] && (Time.now.utc - Time.parse(record["polled_at"])) < POLL_INTERVAL_S
+          next unless hand_id.is_a?(String) && hand_id.match?(HAND_ID)
 
           begin
             current = status(hand_id)

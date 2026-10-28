@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.64.20
+version: 0.64.21
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -2561,7 +2561,7 @@ interfaces:
       standards: [STD-LATE-WORK, STD-LATE-ASSIGNMENTS]
     - verb: "reach hand status"
       synopsis: "reach hand status ID"
-      purpose: "Print one hand's state and reply as JSON. Since 0.64.20 an id that is not one plain path segment is refused with M-HAND-ID-UNKNOWN before any request."
+      purpose: "Print one hand's state and reply as JSON. Since 0.64.21 an id that is not one plain path segment is refused with M-HAND-ID-UNKNOWN before any request."
       mutates: external
       source: lib/reach/cli.rb CLI.cmd_hand
     - verb: "reach hand list"
@@ -3419,7 +3419,7 @@ interfaces:
           purpose: "Raise a hand with a summary, a request type and optional last step and what the student saw."
           mutates: true
         - name: reach_hand_status
-          purpose: "A hand's state and reply, and a workaround to follow when the course server is already fixing the problem. Since 0.64.20 a hand_id that is not one plain path segment is refused with M-HAND-ID-UNKNOWN before any request, listing the open hands."
+          purpose: "A hand's state and reply, and a workaround to follow when the course server is already fixing the problem. Since 0.64.21 a hand_id that is not one plain path segment is refused with M-HAND-ID-UNKNOWN before any request, listing the open hands."
           mutates: false
         - name: reach_hello
           purpose: "The session-start greeting and context."

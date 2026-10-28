@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.20
+version: 0.64.21
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1246,7 +1246,7 @@ mcp_bridge:
   - name: reach_hand_status
     description: >-
       A hand's state and reply. Since 0.64.0 (STD-HEALTH) also workaround, when the hand is linked to a Teach issue that
-      carries a student workaround (W-API-HAND-STATUS student_workaround, at most 600 characters). Since 0.64.20 a
+      carries a student workaround (W-API-HAND-STATUS student_workaround, at most 600 characters). Since 0.64.21 a
       hand_id that is not one path segment of letters, digits, underscores and dashes (Reach::Hands::HAND_ID; empty, a
       slash, ?, # or a space) is refused with M-HAND-ID-UNKNOWN before any network call, listing the open hands; it is
       not a fault
