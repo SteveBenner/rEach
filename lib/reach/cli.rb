@@ -3166,6 +3166,8 @@ module Reach
                    reclaim_interactive(only, options[:from])
                  end
         json ? puts(JSON.generate(result)) : puts(result["message"])
+        return 3 if result["state"] == "needs_confirmation"
+
         %w[bad_folder needs_enrollment].include?(result["state"]) ? 1 : 0
       rescue Reach::Refused => e
         warn e.message

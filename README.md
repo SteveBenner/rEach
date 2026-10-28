@@ -281,8 +281,10 @@ adds the profile at session start and the matching memories on each prompt. A no
 floods, the spool is capped at `max_spool_bytes` (the oldest unreferenced sources are pruned first), and nothing here is sent to Teach. Ask rEach what it remembers, or run `reach memory list`; `reach memory
 forget <id>` or `reach memory forget --all --yes` erases it from rEach's files. The settings are in `config.yml`
 under `brain`. Since 0.65.0 the memory's own files live in `~/reach-work/.reach-brain/<student key>` (marked with the
-student's ID, so a second student on the same computer account never sees them), not inside the rEach home folder, and
-the first run moves an older one there by itself. `reach reclaim` brings back memory and course folders an earlier
+student's ID, so a second student on the same computer account does not get them), not inside the rEach home folder, and
+the first run moves an older one there by itself. The saved copy of what the student typed (the brain spool under the
+rplugin state folder) is not split by student: it is shared by everyone who uses the same computer account, so a shared
+computer should give each student their own account. `reach reclaim` brings back memory and course folders an earlier
 install left behind, after the student says yes; see Reclaim below.
 
 Once the runtime kit is present, rEach also installs its small SDK kit (rplugin and rBrain, verified against a manifest
