@@ -446,7 +446,7 @@ module Reach
       return merge_existing(rel, from, to) if File.exist?(to) || File.symlink?(to)
 
       FileUtils.mkdir_p(File.dirname(to))
-      tmp = "#{to}.tmp-#{Process.pid}-#{SecureRandom.hex(3)}"
+      tmp = format("%s.tmp-%d-%s", to, Process.pid, SecureRandom.hex(3))
       FileUtils.cp(from, tmp, preserve: true)
       unless File.size(tmp) == File.size(from) && file_sha(tmp) == file_sha(from)
         FileUtils.rm_f(tmp)
@@ -505,7 +505,7 @@ module Reach
       extra = File.readlines(from, chomp: true).reject { |line| line.strip.empty? || have.include?(line) }.uniq
       return :merged if extra.empty?
 
-      tmp = "#{to}.tmp-#{Process.pid}-#{SecureRandom.hex(3)}"
+      tmp = format("%s.tmp-%d-%s", to, Process.pid, SecureRandom.hex(3))
       File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write((have + extra).map { |line| "#{line}\n" }.join) }
       File.rename(tmp, to)
       :merged
@@ -559,7 +559,7 @@ module Reach
       return false if File.exist?(to) || File.symlink?(to)
 
       FileUtils.mkdir_p(File.dirname(to))
-      tmp = File.join(File.dirname(to), ".#{File.basename(to)}.reclaim-#{Process.pid}-#{SecureRandom.hex(3)}")
+      tmp = File.join(File.dirname(to), format(".%s.reclaim-%d-%s", File.basename(to), Process.pid, SecureRandom.hex(3)))
       File.binwrite(tmp, File.binread(from))
       unless File.size(tmp) == File.size(from) && file_sha(tmp) == file_sha(from)
         FileUtils.rm_f(tmp)

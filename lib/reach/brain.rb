@@ -183,7 +183,7 @@ module Reach
           next
         end
         FileUtils.mkdir_p(File.dirname(to))
-        tmp = "#{to}.tmp-#{Process.pid}-#{SecureRandom.hex(3)}"
+        tmp = format("%s.tmp-%d-%s", to, Process.pid, SecureRandom.hex(3))
         FileUtils.cp(from, tmp, preserve: true)
         raise IOError, "size" unless File.size(tmp) == File.size(from) && file_sha256(tmp) == file_sha256(from)
 
