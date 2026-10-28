@@ -81,10 +81,15 @@ module Reach
 
       def list
         FileUtils.mkdir_p(Reach::Paths.receipts_dir)
-        Dir.glob(File.join(Reach::Paths.receipts_dir, "*.json")).map { |path| read_receipt(path) }
-          .compact
-          .sort_by { |receipt| receipt["issued_at"].to_s }
-          .reverse
+        found = Dir.glob(File.join(Reach::Paths.receipts_dir, "*.json")).map { |path| read_receipt(path) }.compact
+        attempts = found.select { |receipt| receipt["kind"] == "ingest" }.to_h { |receipt| [receipt["submission_id"], receipt["attempt"].to_i] }
+        found.sort_by { |receipt| order_key(receipt, attempts) }.reverse
+      end
+
+      def order_key(receipt, attempts)
+        attempt = receipt["kind"] == "ingest" ? receipt["attempt"].to_i : attempts.fetch(receipt["submission_id"], 0)
+        rank = { "ingest" => 0, "grade" => 1 }.fetch(receipt["kind"], 2)
+        [receipt["issued_at"].to_s, attempt, rank, receipt["receipt_id"].to_s]
       end
 
       def show(id)

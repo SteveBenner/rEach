@@ -103,7 +103,7 @@ module Reach
     def document_lines(row)
       receipt = Reach::Receipts.latest_grade_for_assignment(row["assignment"])
       earlier = receipt && Reach::Receipts.earlier_attempt?(receipt)
-      lines = [Reach::Messages.text(earlier ? "M-GRADES-ROW-DOC-EARLIER" : "M-GRADES-ROW-DOC", assignment: row["assignment"], points: number(row["points"]))]
+      lines = [Reach::Messages.text(earlier ? "M-GRADES-ROW-DOC-EARLIER" : "M-GRADES-ROW-DOC", assignment: row["assignment"], points: row["points"].is_a?(Numeric) ? row["points"].round.to_s : number(row["points"]))]
       feedback = receipt && receipt["feedback"]
       lines << Reach::Messages.text("M-GRADES-FEEDBACK", feedback: feedback) if feedback.is_a?(String) && !feedback.strip.empty?
       lines
