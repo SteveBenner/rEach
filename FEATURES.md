@@ -338,7 +338,7 @@ on a student's Windows computer, and what Codex sends in the payload there is un
 Since 0.51.10 a course whose rules are in place but whose named slice is not on this computer gets a message that says
 so and lists the slices (`M-GATE-NOSLICE`, `M-GATE-NOSLICE-NAMED`) instead of "Your course rules haven't arrived yet".
 
-Build ✅ · Deploy 🔵 · Blocker: Human (0.50.3 on test, stable is the operator's; plugin hooks still need `sh` on Windows; 0.64.5 is on branch windows-codex-cmdlets, not pushed).
+Build ✅ · Deploy 🔵 · Blocker: Human (0.50.3 on test, stable is the operator's; plugin hooks still need `sh` on Windows; 0.64.5 reached stable at e279583 with 0.64.6).
 
 ### 2.4 · Check
 
@@ -1973,7 +1973,9 @@ goes through rBrain Context in a child capped at 10 s, with the query in a 0600 
 through rBrain Erase in a child capped at 30 s; a forget that cannot reach the planes is queued (0600) and runs before the
 next admission. `reach doctor` names the route (`R-DOC-BRAIN-PLANES`). Spool mode stays the complete fallback with no kit,
 no SDK, an instructor persona, `brain.planes: false` or `REACH_BRAIN_PLANES_DISABLE=1`. No embedding model is shipped, so
-plane recall is lexical and graph only, and `rcorpus check` reports each finding's embedding as pending.
+plane recall is lexical and graph only, and `rcorpus check` reports each finding's embedding as pending. Since 0.64.23 the daily
+consolidation rebuilds the corpus index when it wrote, because the pinned rBrain `Consolidate` does not, so `rcorpus check` and
+`rplugin doctor reach` report no `index_manifest` finding after it.
 
 Verified 2026-10-06 on Linux in scratch homes: a pinned install downloaded the published r2 asset from GitHub, verified
 it and placed it, and the planes then took a remembered record, recalled it through the child in 0.27 s and erased it on
@@ -1983,7 +1985,7 @@ record into the planes; recall went through the child in 0.25 s and fell back to
 spool and planes, and a queued forget ran before the next admission; with no kit every brain verb matched 0.37.3. Not
 verified: macOS, Windows, Hermes and a real student session.
 
-Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer). · Blocker: -.
+Build ✅ · Deploy 🟢 Live (0.38.1 Latest and stable, 2026-10-06; SDK r2 published; not yet seen on a student's computer; the 0.64.23 index rebuild is on main and test, not stable). · Blocker: -.
 
 ### 2.52 · Audit hardening (2026-10-08 review)
 
@@ -2107,7 +2109,7 @@ Since 0.64.6 the entropy rule judges a quoted value after a leading `${NAME}/` o
 gate or keep the model audit from running. Run against the real 0.64.3 diff and eight probes: the three findings are
 gone, and random values with and without such a prefix are still flagged.
 
-Build ✅ · Deploy 🔵 · Blocker: - (0.64.6 is on branch windows-codex-cmdlets, not pushed)
+Build ✅ · Deploy 🔵 · Blocker: - (0.64.6 reached stable at e279583)
 
 ### 11.8 · Release integrity gate and accepts-aware degrade
 

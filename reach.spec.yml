@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.22
+version: 0.64.23
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1885,6 +1885,8 @@ corpus:
     admission: >-
       Spool admission runs at most once per brain.admit_interval_s; a failure doubles the wait up to
       brain.admit_max_backoff_s. After a successful admit, once a day, Rcorpus::Consolidate runs when defined.
+      Since 0.64.23, when that run reports a positive count, Reach::Corpus rebuilds the corpus index before it records
+      the day, so a consolidation that wrote leaves rcorpus check and rplugin doctor without an index_manifest finding.
     erasure: >-
       The one exception to the append-only spool: Reach::BrainSpool.scrub! rewrites each day file (pending and
       admitted/) without the put and source lines of the forgotten ids, through a mode 0600 temporary file, fsync

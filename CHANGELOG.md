@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.23] - 2026-10-27
+
+### Fixed
+
+- The daily consolidation of the brain planes (`Reach::Corpus#consolidate`, lib/reach/corpus.rb) rebuilds the corpus index when the run reports a positive count, before it records the day. The rBrain library's `Consolidate` writes records without refreshing the derived index (the kit pins rBrain 0.14.0), so every consolidation that wrote left the index behind the log and `rcorpus check` reported `index_manifest` ("index manifest disagrees with the log; run rebuild-index"). On a host that governs rEach with polispec, `rplugin doctor reach` then failed its gate and `polispec promote reach --to stable` stopped. A run that wrote nothing does not rebuild, and a library without `Corpus#rebuild_index` is left as it was. The fix to the library itself is rBrain 0.16.3, which reaches students only with a new SDK kit.
+
+### Changed
+
+- FEATURES.md: the 0.64.5 and 0.64.6 status lines say they reached stable at e279583 instead of naming an unpushed branch.
+
 ## [0.64.22] - 2026-10-27
 
 ### Removed

@@ -255,6 +255,8 @@ module Reach
       return nil if Reach::Brain.read_state["consolidated_on"] == today
 
       report = Rcorpus::Consolidate.new(corpus).run
+      wrote = report.is_a?(Hash) && report.values.any? { |value| value.is_a?(Integer) && value.positive? }
+      corpus.rebuild_index if wrote && corpus.respond_to?(:rebuild_index)
       Reach::Brain.update_state { |fresh| fresh.merge("consolidated_on" => today) }
       counts = {}
       report.each { |key, value| counts[key.to_s] = value if value.is_a?(Integer) } if report.is_a?(Hash)
