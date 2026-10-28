@@ -968,6 +968,17 @@ on Windows, and no Teach sends `student_workaround` yet (Teach phase A).
 
 Build ✅ · Deploy 🔵 · Blocker: Temporal (Teach must send `student_workaround`; students update to 0.64.0 on their own).
 
+Since 0.64.20 `reach_hand_status` and `reach hand status` refuse a hand id that is not one plain path segment (empty,
+or with a slash, `?`, `#` or a space) before any request, with `M-HAND-ID-UNKNOWN`: nothing was asked of the course
+server, a request for help still waiting to be sent has no id yet, and the open hands are listed. Such an id reached a
+path the course server has no route for, its bare not-found answer carried no error code, and rEach reported that as
+its own fault while the student read that rEach had let their instructor know. Verified 2026-10-27 on Linux in a
+scratch home through the real MCP dispatch and client, answered in process by the course server's code on a scratch
+database: before, an empty id and `a/b` each sent a request and recorded a fault; after, neither sends anything or
+records a fault, `abc?x=1` no longer reaches another hand's path, a well-formed id is sent as before, and the CLI
+prints the same refusal with exit 1. Not run in a real Claude Code or Codex session.
+Build ✅ (0.64.20) · Deploy 🔵 (0.64.20 pending).
+
 ### 2.31 · Opening a course folder
 
 `reach work [--harness H] [--slice S | --extracurricular]` opens a slice, or the student's own folder, in the chosen

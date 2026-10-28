@@ -6,6 +6,7 @@ require "securerandom"
 module Reach
   module Hands
     ROUTE = "/api/v1/hands"
+    HAND_ID = /\A[A-Za-z0-9][A-Za-z0-9_-]{0,127}\z/.freeze
     POLL_INTERVAL_S = 60
     SUPPORT_AUTHORS = %w[service-desk teach-issues].freeze
     BUNDLE_LIMIT = 196_608
@@ -211,6 +212,7 @@ module Reach
       end
 
       def status(hand_id)
+        check_hand_id!(hand_id)
         install = Reach::Enroll.current
         return { state: "unknown", reply: nil } unless install
 
@@ -223,6 +225,14 @@ module Reach
         result
       rescue Reach::NetworkError, Reach::Offline
         { state: "unknown", reply: nil }
+      end
+
+      def check_hand_id!(hand_id)
+        return if hand_id.is_a?(String) && hand_id.match?(HAND_ID)
+
+        known = list.map { |hand| hand[:hand_id] }
+        open = known.empty? ? Reach::Messages.text("M-HAND-ID-NONE") : Reach::Messages.text("M-HAND-ID-OPEN", hands: known.join(", "))
+        raise Reach::Refused, Reach::Messages.text("M-HAND-ID-UNKNOWN", hand_id: hand_id.to_s[0, 80], open: open)
       end
 
       def list
