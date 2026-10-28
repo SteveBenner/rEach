@@ -1,5 +1,38 @@
 # FEATURES — rEach
 
+## Document assignments — 0.65.1
+
+An instructor can make an assignment a document assignment (wire revision 2026-10-26a): written work handed in as files instead of code. `reach sync` gives the student a folder with a read-only `INSTRUCTIONS.md` (the title and the task, no due line) and the usual rules files; there is no README, brief, plan, qualification or shape check. The student and the agent write in the folder, and the agent may create and edit only `.md` and `.txt` files; pdf, Word, OpenDocument and image files the student adds are theirs. `reach submit` lists the files, refuses an empty folder, more than 200 files, a name over 255 bytes, names that differ only by case, a file with no extension or a kind the assignment does not accept (naming the file; nothing is sent), asks the student's yes, and sends one body with an idempotency key, waiting up to two minutes. After a timeout it asks Teach by that key before it queues the body once in the outbox. The grade arrives in percent with the instructor's feedback and shows in `reach grades`, `reach status` and `reach next`; a grade for an earlier submission is marked as that. An assignment handed in elsewhere keeps only `INSTRUCTIONS.md`, records no transcript and stays out of late lists, hands and exports. Directives now carry a `slice` scope: ten engineering directives apply to code slices only, and the new `FLOWDOC` and `RESUMEDOC` apply to document slices.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (polispec 0.51.0 is not installed on this host, Teach Phase 2 is not built and deployed, and Sven's typed `override reach` is needed for the CMP-WIRE-LIVE gate). Resubmission after the due time is accepted and Teach marks it late (decision 2026-10-28).
+
+Verified on 2026-10-28 on Linux, only in scratch homes, against an in-process stand-in for Teach (no socket), before and after the rebase onto 0.65.0:
+- Sync provisioned `INSTRUCTIONS.md` with no due line and no README; essay.md and figure.png were submitted on a yes with Thumbs.db, `~$` lock files, .DS_Store, .tmp files and the generated files left out; a `.exe` was refused naming it with nothing sent.
+- The gate allowed an agent write to essay.md and notes.txt and refused AGENTS.md, INSTRUCTIONS.md, `.claude/settings.json`, `materials/` and a binary figure.png.
+- A grade of 82% with feedback showed in `reach grades`, status and next; after a resubmission all three marked it as for the earlier submission.
+- An upload that timed out after the server stored it sent one POST, then asked by idempotency key and did not post again; with the key unknown it queued, and the next sync sent it once.
+- An elsewhere assignment held only the read-only `INSTRUCTIONS.md`, refused writes and submission with the instructor's note, recorded no transcript and was not a late assignment.
+- The directives were compiled with the candidate polispec 0.51.0: `ruby tools/policy.rb check` was ok, `Reach::Directives.problems` was empty, a document slice's rules file lists only FLOWDOC and RESUMEDOC and a code slice lists the ten code directives.
+
+Not verified: any request to the real Teach (its half is unbuilt), `GET /api/v1/submissions?idempotency_key=` against a real server (a new route Teach must add), uploads near 25 MiB and the 36 MiB body limit, Windows and macOS, a real harness session writing to a document folder, `sidecar verify` with an empty student part, the regenerated course matrix proof digests, and the release gate with the installed polispec 0.50.0 (it cannot compile the new directive scopes).
+
+Student-first audit:
+
+1. Learning: partly. The agent may write md and txt, so a student can lean on it for the text itself; FLOWDOC says to help in the student's own words, and an instructor who wants the exam done without help switches the assignment to hand-in elsewhere, which this version names but cannot enforce.
+2. Agency and honesty: yes. The student sees the exact file list and types the yes, and an unaccepted file is named, not dropped.
+3. Wellbeing and safety: yes. No countdown or pressure is added, and resubmission stays open.
+4. Privacy and dignity: partly. The agent's writes are witnessed and the instructor sees which files the agent wrote; files the student adds are sent as they are, and a binary file is never read into the history.
+5. Fairness and access: yes. Any kind the instructor accepts works, and the limits are plain: 25 MiB of files, 200 files.
+6. Friction: yes. Drop files in the folder and ask to submit; the wait of up to two minutes is stated in the ask.
+7. Failure: safe. A timeout is resolved by the idempotency key before any re-upload, an unreachable server queues the body once, and a refused submit sends nothing.
+8. Recovery: partly. Recovery is resubmission until the due time and a later submission as late work; checkpoints keep text files in full but binary files only by digest, so a lost pdf or Word file must come from the student's own copy.
+
+Known limits:
+- Storage: the 50-attempt cap stays, so the worst case is 25 MiB x 50 per student per assignment; retention is Sven's later decision.
+- `STD-WIRE-DRIFT-ALARM` is expected to fire between the Teach and rEach deploys.
+- Agents write only md and txt; an agent cannot produce a Word or pdf file for the student.
+- The route `GET /api/v1/submissions?idempotency_key=K` and the policy key `grading.pass_percent` (default 60, when a low grade sends the student to review) are new in this revision.
+
 ## Reclaim earlier memory and work — 0.65.0
 
 `reach reclaim` (and the `reach_reclaim` tool and `reach-reclaim` skill) finds the older rEach memory and course folders an earlier install left on the computer and brings them back after the student's typed yes. It lists the microbrain folders of the legacy `~/.reach`, of `.reach-home.set-aside-*`, `.reach-home.failed-*` and `.reach-home.pre-*` folders, of other `reach-work*` folders and of `.reach-brain`; it takes only memory that carries the enrolled student's ID and lists, then leaves alone, another student's memory and memory with no owner (the pre-enrollment `local` folder is taken only with `--only brain`). The merge never overwrites (the larger reinforcement counts, the union of pending erases, SHA-256 checks), `reclaimed.jsonl` makes a repeat a no-op, and an old folder is removed only after everything in it is settled. Course folders whose rules files are missing are adopted in place after a checkpoint autosave; `--from FOLDER` copies deliverables and extracurricular files without moving or overwriting and lists files that differ. The consent kind is `reclaim`, `--only brain|work|from` narrows it, and the greeting offers it once (`G-RECLAIM-OFFER`). The microbrain's state moved to `<reach-work>/.reach-brain/<student key>/` with an `owner.json`, migrated silently with a `MOVED.json`, and `reach uninstall` now keeps it unless `--purge-microbrain` is given. Contract: `STD-RECLAIM`, `STD-BRAIN`, `STD-UNINSTALL`, `STD-STORAGE-GATES` in `specs/app.yml`.

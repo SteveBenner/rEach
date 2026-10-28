@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.67.0] - 2026-10-28
+
+### Added
+
+- Document assignments (wire revision 2026-10-26a, `specs/wire.yml` W-DOC-1 to W-DOC-6): a slice of kind `document` provisions a folder with a read-only `INSTRUCTIONS.md` and no README, brief or stamp (`lib/reach/workspace.rb`), a file set shared by submission, checkpoints, status and the next step (`lib/reach/document_files.rb`), a gate that lets the agent write only md and txt files there (`lib/reach/gate.rb`), and a submit flow that lists the files, refuses unaccepted kinds, large names, case-only duplicates and files without an extension, and sends one body with an idempotency key (`lib/reach/submit.rb`).
+- A timed-out document upload (120 second read) asks Teach by idempotency key before it queues the body once in the outbox as a file reference (`lib/reach/submit.rb`, `lib/reach/mcp_bridge.rb`).
+- Document grades in percent with the instructor's feedback in `reach grades`, `reach status`, `reach next` and the receipts, with a grade for an earlier submission marked as such (`lib/reach/receipts.rb`, `lib/reach/grades.rb`, `lib/reach/status.rb`, `lib/reach/next.rb`); the optional policy key `grading.pass_percent` (default 60) decides when a low grade sends the student to review (`lib/reach/policy.rb`).
+- An assignment handed in elsewhere provisions only the read-only instructions, records no transcript, refuses submission with the instructor's note and stays out of late lists, hands and exports.
+- Directives carry a `slice` scope of `code` or `document`: ten engineering directives apply to code slices only, and the new `FLOWDOC` and `RESUMEDOC` (`directives/flowdoc.md`, `directives/resumedoc.md`, `specs/polispec/behavior.yml`, two surface templates) apply to document slices. `lib/reach/directives.rb` filters on each directive's `slice` field.
+- `specs/app.yml` gains `STD-DOCUMENT-ASSIGNMENT` and journey `J15`; `reach.spec.yml` and the wire text are updated.
+
+### Changed
+
+- The 413 text for an oversized submission names the limit in MiB per slice kind (5 MiB for code, 36 MiB for a document body) in `locales/en-US.yml`.
+- The directive `slice` values need polispec 0.51.0 to compile (`ruby tools/policy.rb build`).
+
 ## [0.66.0] - 2026-10-28
 
 ### Added

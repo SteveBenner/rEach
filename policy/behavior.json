@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:9a6d5d4f131e66d4284fe16246af418b51bbcceb5a0f1aed20fbe0daf8fb68ff",
+  "digest": "sha256:8646aeac5d0b81774cdc446445852adc435394cbe0cfc3a34b34e422b902700e",
   "policy": {
     "antifeatures": [
       {
@@ -102,11 +102,15 @@
     },
     "controls": {
       "hold_submissions": {
-        "allowed_tools": [],
+        "allowed_tools": [
+
+        ],
         "text_ref": "AC-CONTROL-HOLD"
       },
       "pause_course_work": {
-        "allowed_tools": [],
+        "allowed_tools": [
+
+        ],
         "text_ref": "AC-CONTROL-PAUSE"
       },
       "test": {
@@ -126,7 +130,7 @@
         "id": "R-CHECKPOINT",
         "opcode": "CHECKPOINT",
         "rule": "checkpoint after every clean check and before any rewrite; restore, never reconstruct",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "task:after-task",
@@ -141,7 +145,7 @@
         "id": "R-CODEFILE",
         "opcode": "CODEFILE",
         "rule": "put code in files, never in chat: owned files for coursework, extracurricular/ else",
-        "slice": "all",
+        "slice": "code",
         "spaces": [
           "slice",
           "extracurricular",
@@ -174,11 +178,25 @@
         "id": "R-FLOW",
         "opcode": "FLOW",
         "rule": "when writing code, follow the reach-feature or reach-bug flow; never run git",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "task:build",
           "task:fix"
+        ],
+        "scope": "everywhere"
+      },
+      {
+        "body": "# FLOWDOC: written work is the student's, and you only help\n\nA document assignment is a folder of ordinary files, not code. There is no\nqualify step, no plan file, no README check and no pattern ledger for it.\n\n- Read `INSTRUCTIONS.md` first. It is rEach's file and you never change it,\n  and you never change `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.claude/`,\n  `.codex/`, `.mcp.json`, `shape/` or `.reach/`.\n- You write only `.md` and `.txt` files in the folder. A `.docx`, `.odt`,\n  `.pdf`, `.png` or `.jpg` is the student's own file: read what you can,\n  suggest changes in words, and never overwrite it. `materials/` is reference\n  material for the student; you never write there and it is never submitted.\n- Every write you make is witnessed and recorded, and your instructors see\n  which files you wrote. Write what the student asks for, from the student's\n  own words and sources; never invent their experience, answers or opinions.\n- Ask the student one question at a time, and offer a recommended default first.\n- `reach submit` sends every allowed file in the folder after the student's\n  yes. It refuses a file type the course does not accept, a name over 255\n  bytes, a name that differs from another only by case, or a file without\n  an extension, and says which file. Relay that in plain words.\n- The student may submit again until the due time; the newest submission\n  is the one that counts, and an earlier grade stays marked as for the\n  earlier attempt until the instructor grades the new one.\n- An assignment handed in elsewhere has only `INSTRUCTIONS.md` in its folder:\n  read it, tell the student where to hand in, and write nothing.\n",
+        "enforce": "gate:write",
+        "id": "R-FLOWDOC",
+        "opcode": "FLOWDOC",
+        "rule": "for written work, write only .md and .txt files in the folder; the rest is the student's",
+        "slice": "document",
+        "tier": "public",
+        "when": [
+          "task:write",
+          "task:submit"
         ],
         "scope": "everywhere"
       },
@@ -189,7 +207,7 @@
         "id": "R-LEAN",
         "opcode": "LEAN",
         "rule": "read only README, contract/, api/, the brief and owned files; no subagents; one question",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "always"
@@ -203,7 +221,7 @@
         "id": "R-NOCOM",
         "opcode": "NOCOM",
         "rule": "write no comments; the plan and README carry the why, the code carries the what",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "path:**/*.rb",
@@ -218,7 +236,7 @@
         "id": "R-PLAN1ST",
         "opcode": "PLAN1ST",
         "rule": "save a slice plan with reach plan save before any edit; read it back at session start",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "task:build",
@@ -247,7 +265,7 @@
         "id": "R-QUALIFY",
         "opcode": "QUALIFY",
         "rule": "write your own scenarios in qualify/, cover every required name, pass reach qualify",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "task:build",
@@ -263,7 +281,21 @@
         "id": "R-RESUME",
         "opcode": "RESUME",
         "rule": "open with reach plan show and reach status; close by updating the plan's progress",
-        "slice": "all",
+        "slice": "code",
+        "tier": "public",
+        "when": [
+          "event:SessionStart",
+          "event:Stop"
+        ],
+        "scope": "everywhere"
+      },
+      {
+        "body": "# RESUMEDOC: written work picks up from the folder and the record\n\nYour memory of earlier sessions is gone. For written work the folder, the\nsaved copies and the receipts are the only account of what exists.\n\nWhen a session on course work opens:\n\n1. `reach status` shows the assignment, its due date, the folder's state,\n   any receipt and any grade.\n2. `reach next` gives the single next step.\n3. `reach checkpoint list` shows the copies rEach keeps by itself. A `.md`\n   or `.txt` file is saved in full; a `.docx`, `.odt`, `.pdf` or image is\n   recorded by its digest only, so remind the student to keep their own\n   copy of those.\n4. Say in three lines where the work stands and what to do next.\n\nWhen a work cycle ends, say what is written, what is left, and whether the\nstudent has submitted. Never claim a grade or feedback that no receipt shows.\n",
+        "enforce": "none",
+        "id": "R-RESUMEDOC",
+        "opcode": "RESUMEDOC",
+        "rule": "for written work, open with reach status and reach next; close with what is saved",
+        "slice": "document",
         "tier": "public",
         "when": [
           "event:SessionStart",
@@ -292,7 +324,7 @@
         "id": "R-TOZERO",
         "opcode": "TOZERO",
         "rule": "work findings to zero; the attempt ladder bounds retries; never invent findings",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "task:after-task"
@@ -306,7 +338,7 @@
         "id": "R-VERIFY",
         "opcode": "VERIFY",
         "rule": "done carries the command and its output; a green check is not yet business meaning",
-        "slice": "all",
+        "slice": "code",
         "tier": "public",
         "when": [
           "task:after-task"
@@ -784,7 +816,29 @@
             "QUALIFY",
             "CHECKPOINT"
           ],
-          "done": [],
+          "doc-elsewhere": [
+
+          ],
+          "doc-review": [
+            "FLOWDOC",
+            "RESUMEDOC"
+          ],
+          "doc-start": [
+            "RESUMEDOC"
+          ],
+          "doc-submit": [
+            "FLOWDOC"
+          ],
+          "doc-wait": [
+            "RESUMEDOC"
+          ],
+          "doc-work": [
+            "RESUMEDOC",
+            "FLOWDOC"
+          ],
+          "done": [
+
+          ],
           "part": [
             "RESUME"
           ],
@@ -823,7 +877,8 @@
         ]
       },
       "course_defaults": {
-        "enrollment": {},
+        "enrollment": {
+        },
         "limits": {
           "corpus_max_bytes": 52428800,
           "import_max_bytes": 20971520,
@@ -844,14 +899,17 @@
           "count": 2,
           "mode": "instructor",
           "opens_at": null,
-          "options": [],
+          "options": [
+
+          ],
           "slices": [
             "backend",
             "panel"
           ]
         },
         "student_part": {
-          "questions": {},
+          "questions": {
+          },
           "required": true
         },
         "support": {
@@ -1134,6 +1192,14 @@
         "mode": "native"
       },
       {
+        "binding": "Reach::Submit.run_document_preconditions",
+        "description": "Native submit guard: run_document_preconditions",
+        "event": "submit.run_document_preconditions",
+        "failure": "deny",
+        "id": "N-SUBMIT-RUN-DOCUMENT-PRECONDITIONS",
+        "mode": "native"
+      },
+      {
         "binding": "Reach::Submit.check_gate!",
         "description": "Native submit guard: check_gate!",
         "event": "submit.check_gate",
@@ -1277,6 +1343,14 @@
         "mode": "native"
       },
       {
+        "binding": "Reach::Gate.write",
+        "description": "for written work, write only .md and .txt files in the folder; the rest is the student's",
+        "event": "directive.apply",
+        "failure": "report",
+        "id": "D-FLOWDOC",
+        "mode": "native"
+      },
+      {
         "binding": "reach directive LEAN",
         "description": "read only README, contract/, api/, the brief and owned files; no subagents; one question",
         "event": "directive.apply",
@@ -1322,6 +1396,14 @@
         "event": "directive.apply",
         "failure": "instruct",
         "id": "D-RESUME",
+        "mode": "advisory"
+      },
+      {
+        "binding": "reach directive RESUMEDOC",
+        "description": "for written work, open with reach status and reach next; close with what is saved",
+        "event": "directive.apply",
+        "failure": "instruct",
+        "id": "D-RESUMEDOC",
         "mode": "advisory"
       },
       {
@@ -1430,6 +1512,28 @@
         "mode": "generated",
         "target": "rules/reach.md",
         "template": "specs/polispec/surfaces/antigravity-rules.md.tpl"
+      },
+      "document-full": {
+        "kind": "rules_file",
+        "mode": "generated",
+        "refs": [
+          "R-FLOWDOC",
+          "R-RESUMEDOC",
+          "WS-POINTER-FULL"
+        ],
+        "target": "specs/polispec/surfaces/generated/document-full.md",
+        "template": "specs/polispec/surfaces/document-full.md.tpl"
+      },
+      "document-stub": {
+        "kind": "stub",
+        "mode": "generated",
+        "refs": [
+          "R-FLOWDOC",
+          "R-RESUMEDOC",
+          "WS-POINTER"
+        ],
+        "target": "specs/polispec/surfaces/generated/document-stub.md",
+        "template": "specs/polispec/surfaces/document-stub.md.tpl"
       },
       "extra-full": {
         "kind": "rules_file",
@@ -1698,11 +1802,33 @@
     "antigravity-rules": {
       "kind": "rules_file",
       "target": "rules/reach.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "defe2f3ddafed8fccec026149afc8300222bf5a3e7d1bccef756a1de81250527",
       "harness": [
         "antigravity"
       ]
+    },
+    "document-full": {
+      "kind": "rules_file",
+      "target": "specs/polispec/surfaces/generated/document-full.md",
+      "refs": [
+        "R-FLOWDOC",
+        "R-RESUMEDOC",
+        "WS-POINTER-FULL"
+      ],
+      "sha256": "461f4903da81df8a1fc1d3589ca98f2349d19862cd92ed8836bceb94fa8b6b50"
+    },
+    "document-stub": {
+      "kind": "stub",
+      "target": "specs/polispec/surfaces/generated/document-stub.md",
+      "refs": [
+        "R-FLOWDOC",
+        "R-RESUMEDOC",
+        "WS-POINTER"
+      ],
+      "sha256": "af87e03ed6dbc10e1694e9dcdf06c20484bcee8554b66c70539ec00bacaa3eac"
     },
     "extra-full": {
       "kind": "rules_file",
@@ -1775,97 +1901,129 @@
     "skill-reach-bug": {
       "kind": "skill",
       "target": "skills/reach-bug/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "dc897e7a4fafa025d660ebb5c723f636356eecf422ce79eca5faa1720364a98c"
     },
     "skill-reach-build": {
       "kind": "skill",
       "target": "skills/reach-build/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "5c33373d321cb94e904d055e2c377cdf07452db037f1525d5b72ff49bacb42c8"
     },
     "skill-reach-checkpoint": {
       "kind": "skill",
       "target": "skills/reach-checkpoint/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "47e548d319ac0a5c5b95f155c9e07b9852ccc969e7fca3087c29518d93839bcd"
     },
     "skill-reach-course": {
       "kind": "skill",
       "target": "skills/reach-course/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "5319aa8ffa2743bf9f42d466a4f8bd6fb0f21ae46c5f2a36f1b79336c4dde485"
     },
     "skill-reach-feature": {
       "kind": "skill",
       "target": "skills/reach-feature/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "9b4577ecb81fc868d3ab013537a2a767ab6034a56f87127457c443108dc63c79"
     },
     "skill-reach-feedback": {
       "kind": "skill",
       "target": "skills/reach-feedback/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "fa89ff1d2a5c14f7d7d5a3f81cdd5d2d2ccfa85b02c5dec18824c7778b0a0dbd"
     },
     "skill-reach-fix": {
       "kind": "skill",
       "target": "skills/reach-fix/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "9e3835944492f23bae76e6fa1b587c86760fb2225958aef3dbb3ef8bbbcf5d63"
     },
     "skill-reach-help": {
       "kind": "skill",
       "target": "skills/reach-help/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "6f290e82906f21db9ddf1d9b55c7cdddb9df2f396d97703d4db4740ffcad82a9"
     },
     "skill-reach-import": {
       "kind": "skill",
       "target": "skills/reach-import/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "1417c476db83c123c55c6f6726856f8d180050f6b024f90e98d744ef5a5d42c9"
     },
     "skill-reach-passes": {
       "kind": "skill",
       "target": "skills/reach-passes/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "3f5865e66bc390a07f3ea7e10b673839659621bb89842e894b1eb618e20ab631"
     },
     "skill-reach-plan-audit": {
       "kind": "skill",
       "target": "skills/reach-plan-audit/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "56b3741d87bda9dae3fc6697ceaba0750dd0e4830a033813428d0b9882378a1c"
     },
     "skill-reach-reclaim": {
       "kind": "skill",
       "target": "skills/reach-reclaim/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "3f01965f7fc7db2de007842c1b8a6c17683f3a8ac1ed6ce26d9ff72f9dbe7279"
     },
     "skill-reach-sidecar": {
       "kind": "skill",
       "target": "skills/reach-sidecar/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "a37e7cfe8ceda3b9a64551fd19025e15f3d1ad9f86f8cc6389bd6cf3ef32f314"
     },
     "skill-reach-storage": {
       "kind": "skill",
       "target": "skills/reach-storage/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "f2fb3b861de84b15c4f15aeb5aeb37de93abc3fc3ebf13ab32410d6a44378ff6"
     },
     "skill-reach-submit": {
       "kind": "skill",
       "target": "skills/reach-submit/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "78927284e80e576e02deab4e99f010b42e52fbbc999baeb4dcecbad9236e4519"
     },
     "skill-reach-uninstall": {
       "kind": "skill",
       "target": "skills/reach-uninstall/SKILL.md",
-      "refs": [],
+      "refs": [
+
+      ],
       "sha256": "329d3f46e887587b48597de6a5dc5028ffcda5516e597395934868a6ac288e9b"
     },
     "workspace-full": {
