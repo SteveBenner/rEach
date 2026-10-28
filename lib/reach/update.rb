@@ -1173,13 +1173,19 @@ module Reach
       ok
     end
 
-    def version_line(remote)
+    def answered_check?(manifest)
+      manifest["failures"].to_i.zero? && !manifest["last_check_at"].to_s.empty? && !manifest["channel_ceiling"].to_s.empty?
+    end
+
+    def version_line(remote, manifest)
       installed = local_version
       newer = remote.select { |version| Gem::Version.correct?(version.to_s) && Gem::Version.correct?(installed) && Gem::Version.new(version.to_s) > Gem::Version.new(installed) }
                     .max_by { |version| Gem::Version.new(version.to_s) }
-      return Reach::Messages.text("M-UPDATE-CURRENT", version: installed) unless newer
+      return Reach::Messages.text("M-UPDATE-AVAILABLE", version: installed, newer: newer) if newer
+      return Reach::Messages.text("M-UPDATE-CURRENT", version: installed) if answered_check?(manifest)
 
-      Reach::Messages.text("M-UPDATE-AVAILABLE", version: installed, newer: newer)
+      never = manifest["failures"].to_i.zero? && manifest["last_check_at"].to_s.empty?
+      Reach::Messages.text(never ? "M-UPDATE-UNCHECKED" : "M-UPDATE-UNKNOWN", version: installed)
     end
 
     def status_lines
@@ -1193,12 +1199,12 @@ module Reach
                  "no (no install at #{dir})"
                end
       remote = Array(manifest["remote_versions"]).map { |entry| entry["version"] }
-      lines = [version_line(remote)]
+      lines = [version_line(remote, manifest)]
       lines << "updates: #{disabled? ? 'disabled' : 'enabled'}#{offline? ? ' (offline)' : ''}"
       lines << "managed install: #{reason}"
       lines << "local version: #{local_version}"
       lines << "source: #{manifest['source']}"
-      lines << "remote versions: #{remote.empty? ? 'none newer' : remote.join(', ')}"
+      lines << "remote versions: #{remote.empty? ? (answered_check?(manifest) ? 'none newer' : 'unknown') : remote.join(', ')}"
       lines << "target: #{manifest['target_version'] || 'none'}"
       lines << "phase: #{manifest['phase']}#{manifest['applying'] == true ? ' (applying)' : ''}"
       lines << "attempts: #{manifest['attempts']}"

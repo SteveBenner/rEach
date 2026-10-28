@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.64.23
+version: 0.64.24
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2073,6 +2073,12 @@ auto_update:
     attached, so an agent's reach update run --apply sees a release published since the last check. The detached run
     Reach spawns at session start passes --scheduled and checks only when due. REACH_OFFLINE=1 and REACH_UPDATE_DISABLE=1
     still stop the check.
+  status_claims: >-
+    Since 0.64.24 reach update status and reach update check claim a check's result only when it answered: failures is
+    0, last_check_at is set and channel_ceiling is recorded (Reach::Update.answered_check?). Otherwise the headline is
+    M-UPDATE-UNKNOWN, or M-UPDATE-UNCHECKED when no check has run, and remote versions reads unknown instead of none
+    newer. A newer version in remote_versions still reads M-UPDATE-AVAILABLE. A successful check that finds nothing
+    newer does not clear last_error, so that line can outlive the failure it names.
   shim_non_downgrade: >-
     Reach::Runtime.ensure_shim! rewrites ~/.reach/bin/root only when the recorded root is missing or its VERSION is not
     newer than the running copy, so a stale harness copy cannot point the shim back at older code.

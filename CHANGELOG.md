@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.24] - 2026-10-27
+
+### Fixed
+
+- `reach update status` and the `reach_update` tool said "rEach X is installed and up to date." when the last update check had failed, had never run, or had finished without learning the newest version, and `reach update check` printed `remote versions: none newer` right after a failure. The headline came only from the stored list of newer versions, which a failed check leaves untouched, so on a connection that kept failing the status stayed confident while the retry backoff stretched to a day. `Reach::Update.answered_check?` now requires failures at 0, a recorded last check and a recorded channel ceiling. Otherwise the headline is the new `M-UPDATE-UNKNOWN` ("its last update check did not find out whether a newer version exists. It will try again on its own.") or, when no check has run, `M-UPDATE-UNCHECKED`, and the remote versions line reads `unknown`. A newer version stored by an earlier check still shows as ready. This extends the rule `STD-CODEX-SANDBOX` already states for the sandbox (a stale last check is never reported as no newer version) to every cause (`lib/reach/update.rb`, `lib/reach/cli.rb`, `locales/en-US.yml`, `STD-AUTO-UPDATE`, `reach.spec.yml` auto_update.status_claims).
+- Known side effect: an update manifest written before the channel ceiling was recorded reads `M-UPDATE-UNKNOWN` until the install's next check, up to an hour after an upgrade. A successful check that finds nothing newer still does not clear `last_error`, so that line can outlive the failure it names.
+
 ## [0.64.23] - 2026-10-27
 
 ### Fixed

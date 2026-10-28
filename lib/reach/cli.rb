@@ -2847,7 +2847,7 @@ module Reach
             versions = Array(result["remote_versions"]).map { |entry| entry["version"] }
             puts "source: #{result['source']}"
             puts "local version: #{result['local_version']}"
-            puts "remote versions: #{versions.empty? ? 'none newer' : versions.join(', ')}"
+            puts "remote versions: #{versions.empty? ? (Reach::Update.answered_check?(result) ? 'none newer' : 'unknown') : versions.join(', ')}"
             puts "last error: #{result['last_error']}" if result["last_error"].to_s != ""
           end
           0

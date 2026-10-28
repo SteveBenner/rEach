@@ -187,7 +187,7 @@ An install at `~/reach-work/.reach-home/plugin` updates itself. rEach looks for 
 when a session starts and once an hour while you work, downloads it in the background, and installs it
 when your next session starts, through the release's own `update/apply.rb`. Progress is kept in
 `~/reach-work/.reach-home/state/update.json`, so an interrupted update picks up where it stopped. `reach update status` shows where
-things stand and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
+things stand, and says so plainly when its last check failed or never ran instead of claiming it is up to date, and `reach --version` prints the installed version; `reach update run --apply` installs now; `REACH_UPDATE_DISABLE=1` turns updates off. A git checkout
 is never updated. A copy added through a marketplace (the Claude app's Cowork, or by hand) is not managed: it follows
 the `stable` branch too, but rEach can refresh it only through the app or the harness's own command, so when a newer
 version is waiting rEach tells the student to update from the app's Plugins page or to ask the assistant to reinstall rEach
