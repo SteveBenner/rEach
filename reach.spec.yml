@@ -1886,7 +1886,8 @@ corpus:
       Spool admission runs at most once per brain.admit_interval_s; a failure doubles the wait up to
       brain.admit_max_backoff_s. After a successful admit, once a day, Rcorpus::Consolidate runs when defined.
       Since 0.64.23, when that run reports a positive count, Reach::Corpus rebuilds the corpus index before it records
-      the day, so a consolidation that wrote leaves rcorpus check and rplugin doctor without an index_manifest finding.
+      the day, so a consolidation that wrote leaves rcorpus check and rplugin doctor without an index_manifest finding;
+      a rebuild that fails is logged as brain.index_rebuild_failed and the day is still recorded.
     erasure: >-
       The one exception to the append-only spool: Reach::BrainSpool.scrub! rewrites each day file (pending and
       admitted/) without the put and source lines of the forgotten ids, through a mode 0600 temporary file, fsync
