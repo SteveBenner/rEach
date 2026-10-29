@@ -30,7 +30,7 @@ runtime:
 harnesses:
   - claude-code (terminal, desktop Code tab, VS Code) and Claude Cowork, from .claude-plugin/
   - codex (CLI, IDE, desktop app), from .codex-plugin/ and .agents/plugins/marketplace.json
-  - antigravity (the Gemini harness), from .antigravity-plugin/plugin.json, mcp_config.json, rules/ and skills/ through reach setup
+  - antigravity (the Gemini harness), from .antigravity-plugin/plugin.json, mcp.json, rules/ and skills/ through reach setup
   - hermes (Nous Research's Hermes Agent CLI), through a dedicated Hermes profile named reach that reach setup creates and reach work launches
 depends_on:
   - dovetail (the pure-Ruby shape checker the shape package carries in the vault, with a dovetail on the PATH as the fallback)
@@ -4691,16 +4691,11 @@ configuration:
       purpose: Agent Plugins 1.0 manifest for Antigravity, kept out of the root so Codex still loads the plugin hooks.
       written_by: release process (rplugin package)
       read_by: Antigravity's plugin loader
-    - path: mcp_config.json
-      format: json
-      purpose: Declares the reach stdio MCP server for Antigravity.
-      written_by: release process (rplugin package)
-      read_by: Antigravity's plugin loader
     - path: mcp.json
       format: json
-      purpose: Declares the reach stdio MCP server that runs exe/reach with the mcp verb.
-      written_by: release process (edited in the repository)
-      read_by: harness plugin loaders
+      purpose: Declares the reach stdio MCP server that runs exe/reach with the mcp verb, with ${PLUGIN_ROOT} for the install folder.
+      written_by: release process (rplugin package)
+      read_by: harness plugin loaders, Antigravity's while its Agent Plugins flag is on
     - path: reach.rplugin.yml
       format: yaml
       purpose: The rplugin manifest. It declares ports, extensions, owned corpus kinds, skills, the agent, specs, hooks file, MCP server, docs, and Ruby compatibility.

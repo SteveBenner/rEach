@@ -526,8 +526,10 @@ harness_integration:
     files:
       .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
       .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add SteveBenner/rEach@stable, codex plugin add reach@reach; Claude Code uses SteveBenner/rEach#stable, STD-AUTO-UPDATE).
-      .antigravity-plugin/plugin.json and mcp_config.json: >-
-        The Agent Plugins 1.0 manifest and the MCP server list, read by Antigravity (agy plugin install). Codex 0.156
+      .antigravity-plugin/plugin.json: >-
+        The Agent Plugins 1.0 manifest, read by Antigravity (agy plugin install), which takes the MCP server from
+        mcp.json while its Agent Plugins flag is on. No mcp_config.json is shipped: Antigravity's native MCP file has no
+        plugin-root variable, so a packaged copy would name the packaging machine's path (rplugin 1.19.8). Codex 0.156
         and newer takes a root plugin.json over .codex-plugin/plugin.json and then loads no plugin hooks
         (openai/codex#47925), so since 0.68.1 the repository has no root plugin.json and since 0.68.3 Antigravity
         reads the manifest from .antigravity-plugin/, which Codex does not read (rplugin 1.19.7). Reach still sets a
