@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.4] - 2026-10-29
+
+### Fixed
+
+- An agent refused to let a student finish an earlier assignment that was still open: the prompt anchor `M-ANCHOR` (`locales/en-US.yml`) kept the conversation on the current step, on "an overdue earlier assignment", or on the instructor's request, and an assignment inside its `rolling_until` window is not overdue, so neither case matched and the agent declined to work on it. Since 0.64.10 Reach allows any released assignment, and PACE says the student chooses. The anchor now says the current assignment is where the work starts, never a limit, and names any released assignment the student chooses, earlier or later, due or not (`STD-LATE-WORK`).
+
 ## [0.68.3] - 2026-10-29
 
 ### Fixed
