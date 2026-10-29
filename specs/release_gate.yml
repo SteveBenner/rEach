@@ -31,6 +31,7 @@ hook:
   command: ruby tools/release_gate/gate.rb <remote name> <remote url>
   stdin: the pre-push lines <local ref> <local sha> <remote ref> <remote sha>
   exit: 0 lets the push go; 1 refuses it; nothing is printed for a push that carries no release
+  encoding: git output and the security audit's output are read as UTF-8 whatever the locale, so a push from a process with no LANG runs every check
   repositories:
     reach:
       remote: github\.com[:/]SteveBenner/rEach(?:\.git)?
@@ -134,7 +135,7 @@ runs:
   body: '{ repo, release_version, commit, tree, trigger, status, findings: [{id, severity, class, title, detail}], override_id, lease_id, duration_s, error }'
   record_everywhere: the course server records every run and alarms release_gate:<repo> on blocked or error until a later passed, warned, overridden or leased run
 version_homes:
-  reach: [VERSION, plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, reach.spec.yml, specs/app.yml]
+  reach: [VERSION, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, reach.spec.yml, specs/app.yml]
   teach: [VERSION, teach.spec.yml, specs/app.yml]
 pins:
   owner: reach

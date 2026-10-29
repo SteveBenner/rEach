@@ -21,7 +21,7 @@ module ReleaseGate
 
     def git(*args)
       out, status = Open3.capture2("git", "-C", repo.root, "-c", "core.quotepath=false", *args, err: File::NULL)
-      status.success? ? out : nil
+      status.success? ? out.force_encoding(Encoding::UTF_8) : nil
     rescue StandardError
       nil
     end
@@ -44,7 +44,7 @@ module ReleaseGate
         end
         out = reader.value
         drain.join
-        waiter.value.success? ? out : nil
+        waiter.value.success? ? out.force_encoding(Encoding::UTF_8) : nil
       end
     rescue StandardError
       nil

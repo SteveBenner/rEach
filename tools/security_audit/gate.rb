@@ -309,7 +309,7 @@ module SecurityAuditGate
       thread.join
       return { error: "audit timed out after #{seconds / 60} minutes" }
     end
-    { out: reader.value.to_s, err: errors.value.to_s, ok: thread.value.success? }
+    { out: reader.value.to_s.force_encoding(Encoding::UTF_8), err: errors.value.to_s.force_encoding(Encoding::UTF_8), ok: thread.value.success? }
   rescue Errno::ENOENT
     { error: "claude binary not found (#{args.first})" }
   rescue StandardError => e

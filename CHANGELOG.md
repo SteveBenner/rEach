@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.1] - 2026-10-28
+
+### Changed
+
+- The root `plugin.json` is gone (packaged with rplugin 1.19.6), so Codex reads rEach's hooks from `.codex-plugin/plugin.json`; `specs/release_gate.yml` no longer lists it as a version home.
+
+### Fixed
+
+- The release gate reads git output and the security audit's output as UTF-8 whatever the locale (`tools/release_gate/checks.rb` `git` and `git_timed`, `tools/security_audit/gate.rb` `run_claude`). Under a locale with no `LANG`, such as a systemd service, VER-HOMES failed with an invalid byte sequence in US-ASCII and SEC-AUDIT reported its output as not JSON, so neither check ran.
+
 ## [0.68.0] - 2026-10-28
 
 ### Added
