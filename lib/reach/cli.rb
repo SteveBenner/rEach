@@ -2461,6 +2461,7 @@ module Reach
         expected = Reach::VERSION
         candidates = {
           "plugin.json" => File.join(root, "plugin.json"),
+          ".antigravity-plugin/plugin.json" => File.join(root, ".antigravity-plugin", "plugin.json"),
           ".claude-plugin/plugin.json" => File.join(root, ".claude-plugin", "plugin.json"),
           ".codex-plugin/plugin.json" => File.join(root, ".codex-plugin", "plugin.json"),
           "reach.rplugin.yml" => File.join(root, "reach.rplugin.yml"),

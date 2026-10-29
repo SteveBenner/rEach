@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "reach": {
+      "command": "ruby",
+      "args": [
+        "/home/sven/github/foss/.rEach-wt/antigravity-manifest/exe/reach",
+        "mcp"
+      ]
+    }
+  }
+}

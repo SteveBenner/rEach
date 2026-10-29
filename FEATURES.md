@@ -2003,17 +2003,23 @@ the assistant's own text never counts (iss_26e0e026).
 
 ### 10.4 · Antigravity
 
-Google's agent app and CLI (replaced Gemini CLI in 2026); reads `plugin.json` (Agent Plugins 1.0) and
-`rules/reach.md` as its always-on pointer to `reach hello`. Antigravity has no documented hook format, so it ships
-none; since 0.9.0 it runs `REACH_HARNESS=antigravity reach submit`, so Teach notes its submissions as unwitnessed
-(2.14). `agy` is not installed on the development machine, so `reach setup --harness antigravity` and the
-plugin-directory link are untested.
+Google's agent app and CLI (replaced Gemini CLI in 2026); reads `.antigravity-plugin/plugin.json` (Agent Plugins 1.0),
+`mcp_config.json` and `rules/reach.md` as its always-on pointer to `reach hello`. Antigravity has no documented hook
+format, so it ships none; since 0.9.0 it runs `REACH_HARNESS=antigravity reach submit`, so Teach notes its submissions
+as unwitnessed (2.14).
+0.68.1 removed the root `plugin.json` so Codex would read rEach's hooks, which left Antigravity with no manifest:
+`agy plugin validate` (agy 1.4.7) found no plugin.json and no components. Since 0.68.3 (packaged with rplugin 1.19.7)
+the manifest lives in `.antigravity-plugin/`, which Codex does not read, and `rules/reach.md` declares
+`trigger: always_on`, which Antigravity requires of a rule. `agy plugin validate` on the 0.68.3 tree finds the
+manifest, 18 skills, one agent, the MCP server and the rule with no errors; its warnings that `AGENTS.md` and
+`hooks/hooks.json` are not loaded and that `design-taste-frontend` is large were there before. `reach setup --harness
+antigravity` and the plugin-directory link have not been run.
 Since 0.23.1 (`STD-NOHOOK-ENROLL`) a locked Antigravity session is told to walk the student through `reach enroll`
 in a terminal window at once, because rEach cannot ask for enrollment details in an app without hooks; a student
 reported being sent to their instructor instead (2026-10-03). Exercised with `reach hello` in a scratch home on
 Linux only.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (no session has been run; `agy` not installed here).
+Build ✅ · Deploy 🔵 · Blocker: Human (the manifest validates with `agy` 1.4.7; no Antigravity session has been run).
 
 ### 10.5 · Hermes
 

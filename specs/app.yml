@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.68.2
+version: 0.68.3
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -30,7 +30,7 @@ runtime:
 harnesses:
   - claude-code (terminal, desktop Code tab, VS Code) and Claude Cowork, from .claude-plugin/
   - codex (CLI, IDE, desktop app), from .codex-plugin/ and .agents/plugins/marketplace.json
-  - antigravity (the Gemini harness), from plugin.json, rules/ and skills/ through reach setup
+  - antigravity (the Gemini harness), from .antigravity-plugin/plugin.json, mcp_config.json, rules/ and skills/ through reach setup
   - hermes (Nous Research's Hermes Agent CLI), through a dedicated Hermes profile named reach that reach setup creates and reach work launches
 depends_on:
   - dovetail (the pure-Ruby shape checker the shape package carries in the vault, with a dovetail on the PATH as the fallback)
@@ -4686,11 +4686,16 @@ configuration:
       purpose: Plugin manifest setting that names the default agent as reach:reach.
       written_by: release process (edited in the repository)
       read_by: the Claude Code plugin loader
-    - path: plugin.json
+    - path: .antigravity-plugin/plugin.json
       format: json
-      purpose: Plugin manifest for the harness plugin installers.
-      written_by: release process (edited in the repository)
-      read_by: harness plugin loaders
+      purpose: Agent Plugins 1.0 manifest for Antigravity, kept out of the root so Codex still loads the plugin hooks.
+      written_by: release process (rplugin package)
+      read_by: Antigravity's plugin loader
+    - path: mcp_config.json
+      format: json
+      purpose: Declares the reach stdio MCP server for Antigravity.
+      written_by: release process (rplugin package)
+      read_by: Antigravity's plugin loader
     - path: mcp.json
       format: json
       purpose: Declares the reach stdio MCP server that runs exe/reach with the mcp verb.

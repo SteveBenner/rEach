@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.68.2
+version: 0.68.3
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -526,12 +526,14 @@ harness_integration:
     files:
       .claude-plugin/plugin.json and .claude-plugin/marketplace.json: Claude Code and Cowork (/plugin install reach --marketplace <link>, or Customize > Plugins > Add marketplace).
       .codex-plugin/plugin.json and .agents/plugins/marketplace.json: Codex (codex plugin marketplace add SteveBenner/rEach@stable, codex plugin add reach@reach; Claude Code uses SteveBenner/rEach#stable, STD-AUTO-UPDATE).
-      plugin.json: >-
-        The Agent Plugins 1.0 manifest, read by Antigravity. Codex 0.156 and newer takes a root plugin.json over
-        .codex-plugin/plugin.json and then loads no plugin hooks (openai/codex#47925), so since 0.16.16 Reach sets it
-        aside as plugin.json.agent-plugins in Codex's own cached copy of rEach ($CODEX_HOME/plugins/cache/*/reach/*/,
-        only where .codex-plugin/plugin.json is present) after reach setup and every update, and when Codex starts
-        reach mcp. The repository and the install folder keep it, so Antigravity is unaffected.
+      .antigravity-plugin/plugin.json and mcp_config.json: >-
+        The Agent Plugins 1.0 manifest and the MCP server list, read by Antigravity (agy plugin install). Codex 0.156
+        and newer takes a root plugin.json over .codex-plugin/plugin.json and then loads no plugin hooks
+        (openai/codex#47925), so since 0.68.1 the repository has no root plugin.json and since 0.68.3 Antigravity
+        reads the manifest from .antigravity-plugin/, which Codex does not read (rplugin 1.19.7). Reach still sets a
+        root plugin.json from an older copy aside as plugin.json.agent-plugins in Codex's own cached copy of rEach
+        ($CODEX_HOME/plugins/cache/*/reach/*/, only where .codex-plugin/plugin.json is present) after reach setup and
+        every update, and when Codex starts reach mcp.
       skills/: Every harness.
       agents/reach.md and settings.json: The rEach persona as Claude's main session agent.
       rules/reach.md: Antigravity's always-on pointer to reach hello and the persona.
@@ -3028,7 +3030,7 @@ doctor_checks:
   checks: Teach's advertised wire_contract_sha256 equals the digest of this Reach's specs/wire.yml
   fix: Update rEach; if it is current, tell the instructors their server and rEach disagree
 - id: R-DOC-VERSION
-  checks: VERSION matches every plugin manifest (plugin.json, .claude-plugin, .codex-plugin, reach.rplugin.yml, reach.rstack_component.yml)
+  checks: VERSION matches every plugin manifest (plugin.json from an older copy, .antigravity-plugin, .claude-plugin, .codex-plugin, reach.rplugin.yml, reach.rstack_component.yml)
   fix: A packaging fault; reinstall rEach
 - id: R-DOC-PERSONA
   checks: The reach-assistant skill and the rEach agent carry the same persona, quoting the first-run greeting

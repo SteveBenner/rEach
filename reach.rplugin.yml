@@ -1,7 +1,7 @@
 schema: rplugin/v1
 id: reach
 name: Reach
-version: 0.68.2
+version: 0.68.3
 rplugin: ">= 1.6.5"
 description: "rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules, checks work, submits it and shows receipts."
 ports:
@@ -59,7 +59,7 @@ native:
   author: { name: PatḗrasAI }
 compatibility:
   ruby: ">= 2.6.10, < 4.1"
-  harnesses: { claude-code: supported, codex: supported, hermes: unsupported }
+  harnesses: { claude-code: supported, codex: supported, antigravity: skills-only, hermes: unsupported }
 repository:
   remote: "git@github.com:SteveBenner/rEach.git"
   store_path: reach

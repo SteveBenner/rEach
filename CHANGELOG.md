@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.3] - 2026-10-29
+
+### Fixed
+
+- Antigravity found no rEach plugin: 0.68.1 removed the root `plugin.json` it reads, so `agy plugin validate` reported no manifest and no components. Packaged with rplugin 1.19.7, rEach now ships the Agent Plugins manifest as `.antigravity-plugin/plugin.json` and its MCP server in `mcp_config.json`, where Codex does not look, so Codex still loads rEach's hooks. `rules/reach.md` declares `trigger: always_on`, which Antigravity requires of a rule, and `reach.rplugin.yml` marks Antigravity `skills-only`, since it runs no rEach hooks. `reach doctor`'s version check and the release gate's version homes include the new manifest.
+
 ## [0.68.2] - 2026-10-28
 
 ### Fixed

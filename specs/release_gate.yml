@@ -135,7 +135,7 @@ runs:
   body: '{ repo, release_version, commit, tree, trigger, status, findings: [{id, severity, class, title, detail}], override_id, lease_id, duration_s, error }'
   record_everywhere: the course server records every run and alarms release_gate:<repo> on blocked or error until a later passed, warned, overridden or leased run
 version_homes:
-  reach: [VERSION, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, reach.spec.yml, specs/app.yml]
+  reach: [VERSION, .antigravity-plugin/plugin.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, .codex-plugin/plugin.json, reach.rplugin.yml, reach.spec.yml, specs/app.yml]
   teach: [VERSION, teach.spec.yml, specs/app.yml]
 pins:
   owner: reach
