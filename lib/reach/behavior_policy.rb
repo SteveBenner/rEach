@@ -51,6 +51,8 @@ module Reach
     end
 
     def bundle
+      return @bundle if @bundle && replaced?
+
       stat = File.stat(path)
       key = [stat.size, stat.mtime.to_r, stat.ctime.to_r, stat.ino]
       return @bundle if @key == key && @bundle
@@ -63,6 +65,19 @@ module Reach
       @bundle
     rescue SystemCallError, JSON::ParserError, KeyError, TypeError, ArgumentError => e
       raise Invalid, "rEach policy could not be read: #{e.message}"
+    end
+
+    def replaced?
+      File.read(File.join(Reach::Runtime.root, "VERSION")).strip != Reach::VERSION
+    rescue SystemCallError
+      true
+    end
+
+    def preload
+      bundle
+      true
+    rescue Invalid
+      false
     end
 
     def validate_bundle!(candidate)

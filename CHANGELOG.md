@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.2] - 2026-10-28
+
+### Fixed
+
+- After an update replaced the plugin folder an open chat's tool bridge was started from, every rEach tool refused with "A test is open until , so everything except the test is locked right now", with no end time and no test open, so the student could neither work nor raise a hand. The old bridge read the new version's `policy/behavior.json` through the replacement root (STD-RUNTIME-ROOT-REPLACED), its own code rejected it (since 0.67.0 the assignment context lists the `doc-*` phases), and `Reach::Controls.tool_allowed?` turned the invalid policy into the test lockdown. `Reach::BehaviorPolicy` now keeps the policy a process loaded while the VERSION at the runtime root differs from the code it runs, the MCP bridge loads it when it starts (`BehaviorPolicy.preload` in `Reach::MCPBridge.serve`), and the same keep covers a managed in-place swap.
+- `Reach::Controls.tool_allowed?` lets a bridge tool through when no test lock is in force before it consults the policy, as it did before 0.47.0. An unreadable or invalid policy now refuses governed writes with M-POLICY-INVALID instead of reporting a test, and `reach_raise_hand`, `reach_doctor` and `reach_update` stay available. During a test an invalid policy still refuses every bridge tool, and the refusal names the lock's end.
+
 ## [0.68.1] - 2026-10-28
 
 ### Changed

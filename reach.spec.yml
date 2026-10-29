@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.68.1
+version: 0.68.2
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -380,8 +380,9 @@ library:
     role: >-
       Since 0.37.0 (STD-CONTROLS). fetch! keeps the course's pause, hold and test controls in state/controls.json with the
       server's time offset; check_prompt!, check_tool! and check_submit! refuse with M-CONTROL-PAUSED, M-CONTROL-TEST-LOCKED
-      and M-CONTROL-HOLD; tool_allowed? applies controls.test.allowed_tools to the tool bridge; context_blocks frames the
-      active controls for the session and the prompt. Switch: config.yml agent_control.controls
+      and M-CONTROL-HOLD; tool_allowed? applies controls.test.allowed_tools to the tool bridge, and since 0.68.2 consults
+      the policy only while a test lock is in force; context_blocks frames the active controls for the session and the
+      prompt. Switch: config.yml agent_control.controls
   - name: Reach::ExamMode
     role: >-
       Since 0.37.0 (STD-TEST-MODE). The student's test (the student's word is test): fetch! and open! read the offered test and
@@ -2592,7 +2593,9 @@ student_messages:
     and keeps them in memory, because an update, a harness refreshing its plugin copy or a relocation can move or
     remove the plugin folder a running bridge was started from. Any other process that finds no file under its own
     locales/ reads the one in the managed install (Reach::Messages.locale_file). The bridge's fault replies never
-    raise: with no catalogue at all they answer "reach: internal error" and the bridge keeps serving.
+    raise: with no catalogue at all they answer "reach: internal error" and the bridge keeps serving. Since 0.68.2 the
+    bridge loads the behavior policy when it starts too (Reach::BehaviorPolicy.preload) and keeps it while the VERSION
+    at the runtime root differs from its own code (STD-RUNTIME-ROOT-REPLACED).
 failure_reason_catalogue:
   purpose: Turns the suite's failure categories into the plain reasons students and agents see.
   categories:

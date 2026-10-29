@@ -212,7 +212,9 @@ module Reach
 
     def tool_allowed?(name)
       return true unless enabled?
-      rule = Reach::BehaviorPolicy.decision("control.mcp", "locked" => !test_lock.nil?, "allowed" => allowed_tools.include?(name.to_s))
+      return true unless test_lock
+
+      rule = Reach::BehaviorPolicy.decision("control.mcp", "locked" => true, "allowed" => allowed_tools.include?(name.to_s))
       return true unless rule
 
       Reach::Debug.emit("control", "check" => "mcp", "outcome" => "block", "control_kind" => "test", "message_id" => "M-CONTROL-TEST-LOCKED")

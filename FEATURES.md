@@ -1454,7 +1454,10 @@ instructors set, in code and by the course server's time: a pause blocks prompts
 workspace root and spares the extracurricular folder and `reach support`; a hold blocks `reach submit` only; while a test is
 open only the tools the document lists (`reach_test`, `reach_support`, `reach_status`) work, in the hooks and in the tool
 bridge. A server without the controls answers 404 and rEach asks again no sooner than six hours later, and a 503 clears
-the held controls. No environment variable or config key lifts a control in force.
+the held controls. No environment variable or config key lifts a control in force. Since 0.68.2 the tool bridge consults
+the policy only while a test lock is in force, and keeps the policy it loaded at start when an update replaces its
+folder, so an invalid or newer policy no longer reads as an open test with no end time (0.68.2 is on main only, not yet
+on test or stable).
 
 Not verified in this registry entry: a control against a live course server and a real harness session.
 

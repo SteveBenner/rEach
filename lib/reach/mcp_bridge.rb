@@ -522,6 +522,7 @@ module Reach
         output.binmode if output.respond_to?(:binmode)
         Reach::Messages.preload
         Reach::Greetings.preload
+        Reach::BehaviorPolicy.preload
         begin
           Reach::Update.on_session_start(Reach::Session.fallback_session_id)
         rescue StandardError
