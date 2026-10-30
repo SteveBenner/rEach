@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.5] - 2026-10-29
+
+### Fixed
+
+- An agent at the course root told a student "rEach has set this session to A3" and refused to finish A2, still open until its `rolling_until` time. The assignment context line `M-CTX-WHERE` (`locales/en-US.yml`) named the current assignment with no word that the student may choose another, and the `reach-course` skill (`specs/polispec/surfaces/skills/reach-course.md`, generated into `skills/reach-course/SKILL.md`) said "Stay on the current step". The context line now says the assignment it names is where the work starts, never a limit, and the skill says to work on any released assignment the student chooses, earlier or later, due or not, and to bring the conversation back to the step of the chosen assignment (PACE, FOCUS, `STD-LATE-WORK`).
+
 ## [0.68.4] - 2026-10-29
 
 ### Fixed
