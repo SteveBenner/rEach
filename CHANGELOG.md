@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.6] - 2026-11-03
+
+### Changed
+
+- Wire revision 2026-11-03a (`specs/wire.yml`, W-QUAL-3, W-QUAL-4): while an instructor has switched screen checks off on Teach (Teach 0.121.0, `teach qualifications screen-checks off`), Teach runs no pass for a panel slice's qualification and answers it done with one passed row, "Screen checks are switched off by your instructor", with empty stub and hidden runs; every workspace package then carries `qualify.local` false for a panel slice, so `reach qualify` skips the local browser run while coverage of the graded names still applies. A submission naming such a qualification is graded by an instructor, never by the grading sandbox. rEach's own code is unchanged: 0.68.5 already passes that answer and already skips the local run when `qualify.local` is false.
+
 ## [0.68.5] - 2026-10-29
 
 ### Fixed

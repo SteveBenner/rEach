@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-10-26a
+revision: 2026-11-03a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -2644,6 +2644,11 @@ qualification:
       stubs/<owned path> laid over instead (a path with no stub is removed). hidden: the graded run of W-RUN-1 exactly
       as grading runs it, including the panel shape check that fails every row with reason shape_violation. The run
       directory of the agent and stub passes never holds the course's feature files or module step files.
+      Since revision 2026-11-03a, while an instructor has switched screen checks off on Teach, Teach runs none of the
+      three passes for a panel slice: it finishes the qualification done with agent [{name: "Screen checks are
+      switched off by your instructor", result: passed}], stub [] and hidden [], and records it as waived. While they
+      are off every workspace package carries qualify.local false for a panel slice, so Reach skips local_pass and
+      local_stub (W-QUAL-2); coverage still applies.
   W-QUAL-4:
     name: verdict
     rule: >-
@@ -2652,7 +2657,8 @@ qualification:
       graded name failed (QF-VACUOUS otherwise), and every hidden row passed (QF-HIDDEN, shown with the scenario name
       and the plain reason only). An agent row that did not pass is QF-REMOTE-FAIL. A qualification whose remote step
       could not run (REACH_OFFLINE=1, Teach unreachable, 503, or still pending after W-SAFE-10) is pending_remote: not
-      passed and not a failed attempt.
+      passed and not a failed attempt. Since revision 2026-11-03a a waived panel qualification (W-QUAL-3) passes, and a
+      submission that names it is graded by an instructor (state awaiting_grade), never by the grading sandbox.
   W-QUAL-5:
     name: record
     rule: >-

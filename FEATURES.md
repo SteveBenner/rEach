@@ -1,5 +1,13 @@
 # FEATURES — rEach
 
+## Screen checks switched off by the instructor — 0.68.6
+
+Wire revision 2026-11-03a lets an instructor switch the screen (panel slice) checks off on the course server while the screen check does not work. While they are off, `reach qualify` on a screen skips the local browser run, still checks that the student wrote a scenario for every graded name, and the course server answers with one passed row, "Screen checks are switched off by your instructor". `reach submit` then hands the screen in, and an instructor grades it by hand. rEach's code is unchanged: 0.68.5 already handles both answers, and 0.68.6 carries only the wire text, so its contract matches the course server's.
+
+Verified on 2026-11-03: rEach's `Reach::Qualify.judge_remote` passed the answer Teach 0.121.0 gave a waived screen on a scratch database, with no finding; `reach qualify` runs local_pass and local_stub only when `qualify.local` is true.
+
+Build ✅ · Deploy 🔵 · Blocker: Human (the operator promotes rEach 0.68.6 and Teach 0.121.0 to stable and runs `teach qualifications screen-checks off`).
+
 ## Public-repository exposure in the release gate — 0.68.0
 
 The release gate now knows whether the repository it guards is public. It checks a machine-local list of public and private remote patterns first, then asks GitHub (cached for an hour), and treats anything it cannot tell as public. On a public repository:
