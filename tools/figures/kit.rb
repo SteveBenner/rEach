@@ -48,7 +48,15 @@ module Figures
     loop: "M4 12a8 8 0 0 1 13.7-5.6L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.7 5.6L4 15.5M4 20v-4.5h4.5",
     board: "M4 5h16v11H4zM9 20h6M12 16v4M7.5 12l3-3 2.5 2 3.5-3.5",
     brain: "M9.5 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 5.5 1V5.5A2.5 2.5 0 0 0 9.5 4ZM14.5 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-5.5 1",
-    seal: "M12 3l2.2 2 3-.3.7 2.9 2.6 1.5-1.200 2.7 1.200 2.7-2.6 1.5-.7 2.9-3-.3L12 21l-2.2-2-3 .3-.7-2.9-2.6-1.5L4.7 12 3.5 9.3l2.6-1.500.7-2.9 3 .3L12 3ZM9 12l2 2 4-4.2"
+    seal: "M12 3l2.2 2 3-.3.7 2.9 2.6 1.5-1.200 2.7 1.200 2.7-2.6 1.5-.7 2.9-3-.3L12 21l-2.2-2-3 .3-.7-2.9-2.6-1.5L4.7 12 3.5 9.3l2.6-1.500.7-2.9 3 .3L12 3ZM9 12l2 2 4-4.2",
+    chat: "M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4v-4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1ZM8 10h8M8 13.5h5",
+    bell: "M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16ZM10 20.5a2 2 0 0 0 4 0",
+    clock: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM12 7.5V12l3 2",
+    download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
+    bug: "M9 7.5V6a3 3 0 0 1 6 0v1.5M7 10a5 5 0 0 1 10 0v4a5 5 0 0 1-10 0v-4ZM12 10v9M3.5 12H7M17 12h3.5M4.5 7.5 7.5 9M19.5 7.5 16.5 9M4.5 18l3-2M19.5 18l-3-2",
+    live: "M12 12h.01M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8",
+    signin: "M10 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M14 8l4 4-4 4M18 12H9",
+    sliders: "M5 6h9M18 6h1M5 12h3M12 12h7M5 18h11M20 18h-1M16 4v4M10 10v4M18 16v4"
   }.freeze
 
   class Canvas
@@ -206,9 +214,9 @@ module Figures
     end
 
     def card(x, y, width, height, tone: :reach, title: nil, body: [], icon: nil, tag: nil, title_size: 21, body_size: 16, pad: 22, accent: true, solid: false)
-      rect(x, y + 6, width, height, rx: 18, fill: "#000000", fo: @theme[:shadow] * 0.5, extra: %(filter="url(#soft)"))
+      rect(x, y + 6, width, height, rx: 18, fill: "#000000", fo: @theme[:shadow] * 0.4, extra: %(filter="url(#soft)"))
       rect(x, y, width, height, rx: 18, fill: :panel)
-      rect(x, y, width, height, rx: 18, fill: tone, fo: solid ? @theme[:tint] * 1.6 : @theme[:tint] * 0.55, stroke: tone, sw: 1.5, so: 0.6)
+      rect(x, y, width, height, rx: 18, fill: tone, fo: solid ? @theme[:tint] * 1.6 : @theme[:tint] * 0.55, stroke: tone, sw: 1.4, so: 0.5)
       rect(x + 1.5, y + 22, 4, [height - 44, 12].max, rx: 2, fill: tone, fo: 0.9) if accent
       tx = x + pad
       ty = y + pad + title_size * 0.82
@@ -334,6 +342,22 @@ module Figures
       rect(x + 34, y - 15, lw, 30, rx: 15, fill: :bg1)
       rect(x + 34, y - 15, lw, 30, rx: 15, fill: tone, fo: @theme[:tint], stroke: tone, sw: 1.2, so: 0.7)
       text(x + 34 + lw / 2.0, y + 5, label.upcase, size: 13, weight: 700, fill: tone, anchor: "middle", spacing: 1.6)
+    end
+
+    def section(x, y, label, tone: :faint, width: nil)
+      text(x, y, label.upcase, size: 14, weight: 700, fill: tone, spacing: 2.2)
+      line(x + tw(label, 14, weight: 700) + label.length * 2.2 + 18, y - 5, x + width, y - 5, stroke: :line, sw: 1) if width
+      self
+    end
+
+    def row(x, y, width, height, tone:, icon:, title:, body:, tag: nil, chars: 86)
+      rect(x, y, width, height, rx: 16, fill: :panel)
+      rect(x, y, width, height, rx: 16, fill: tone, fo: @theme[:tint] * 0.5, stroke: tone, sw: 1.3, so: 0.45)
+      badge(x + 38, y + height / 2.0, 22, icon, tone)
+      text(x + 76, y + 36, title, size: 20, weight: 650)
+      pill(x + width - 18, y + 14, tag, tone: tone, mono: true, size: 12, weight: 500, anchor: "end") if tag
+      para(x + 76, y + 62, body, chars, size: 15, fill: :soft, lh: 20)
+      self
     end
 
     def header(no, title, subtitle, wordmark: true)

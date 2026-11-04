@@ -11,37 +11,41 @@ module Figures
 
   PERMISSIONS = [
     ["Enrollment secrets", "passkey, student ID, password",
-     [[:full, "types them, once"], [:deny, "never sees them"], [:part, "captures them at the prompt"], [:part, "checks them, keeps a hash"], [:full, "issue the passkey"]]],
-    ["Owned slice files", "the student's assignment code",
+     [[:full, "types them"], [:deny, "never sees them"], [:part, "captures them at the prompt"], [:part, "checks them, keeps a hash"], [:full, "issue the passkey"]]],
+    ["Owned slice files", "the student's assignment work",
      [[:full, "directs the work"], [:part, "writes, inside the fence"], [:part, "gates, checks, seals"], [:part, "receives on submit"], [:full, "review and grade"]]],
     ["Other course files", "read-only material, other slices",
      [[:part, "may read"], [:part, "may read, never write"], [:full, "enforces read-only"], [:full, "delivers them sealed"], [:full, "author them"]]],
-    ["Keys and vault", "install key, unsealed materials",
+    ["rEach's home", "install key, vault, state",
      [[:none, "no need to touch"], [:deny, "refused"], [:full, "the only user"], [:none, "never gets the key"], [:none, "no access"]]],
-    ["Course rules", "guardrails and directives",
-     [[:part, "can read them"], [:part, "must follow them"], [:part, "verifies, enforces"], [:full, "signs and delivers"], [:full, "author them"]]],
+    ["Course rules", "guardrails, directives, controls",
+     [[:part, "can read them"], [:part, "must follow them"], [:part, "verifies, enforces"], [:full, "signs and delivers"], [:full, "author and set them"]]],
     ["Hidden checks", "what grading looks for",
      [[:none, "sees results only"], [:deny, "never sees them"], [:none, "sees results only"], [:full, "holds and runs them"], [:full, "author them"]]],
-    ["The conversation", "prompts, replies, reasoning",
-     [[:full, "theirs"], [:full, "takes part"], [:part, "records assignment work"], [:part, "keeps assignment work"], [:part, "read assignment work"]]],
+    ["Assignment conversation", "signed in, in a course folder",
+     [[:full, "theirs"], [:full, "takes part"], [:part, "records it, de-identified"], [:part, "keeps it under a pseudonym"], [:part, "read it; reveals are logged"]]],
+    ["Other conversation", "before sign-in, extracurricular",
+     [[:full, "theirs alone"], [:full, "takes part"], [:none, "records none of it"], [:none, "never receives it"], [:none, "never see it"]]],
     ["Decision to submit", "what goes in, and when",
      [[:full, "says yes or no"], [:part, "relays the question"], [:part, "asks, enforces the yes"], [:part, "issues the receipt"], [:part, "set the due time"]]],
+    ["Live sessions", "help from the instructors' side",
+     [[:full, "says yes to each step"], [:part, "relays, sends on a yes"], [:part, "runs fixed actions only"], [:part, "carries the session"], [:part, "ask, through their assistant"]]],
     ["Private memory", "what rEach learns of the student",
      [[:full, "sees, exports, erases"], [:part, "records findings"], [:full, "keeps it on the computer"], [:none, "never receives it"], [:none, "never receive it"]]],
     ["The grade", "points on record",
      [[:part, "reads it"], [:none, "no part in it"], [:part, "shows it"], [:full, "holds the points"], [:full, "record it"]]]
   ].freeze
 
-  figure("06-permissions",
-         title: "rEach and Teach: who may do what",
-         desc: "A matrix of ten assets against five parties: student, AI agent, rEach, Teach and instructors. Each cell says whether that party owns or decides, has a limited role, has no access or is refused.") do |f|
-    f.header("06", "Who may do what", "Ten things worth protecting, five parties, and one answer in every cell.")
+  figure("06-permissions", height: 1330,
+                           title: "rEach and Teach: who may do what",
+                           desc: "A matrix of twelve protected things against five parties: student, AI agent, rEach, Teach and instructors. Each cell says whether that party owns or decides, has a limited role, has no access or is refused.") do |f|
+    f.header("06", "Who may do what", "Twelve things worth protecting, five parties, and one answer in every cell.")
 
     left = 80
     label_w = 400
     col_w = 272
     top = 246
-    row_h = 74
+    row_h = 68
     table_h = 76 + PERMISSIONS.length * row_h
 
     tx = left + label_w + 3 * col_w
@@ -53,17 +57,17 @@ module Figures
       f.badge(x + 40, top + 38, 22, ico, tone)
       f.text(x + 70, top + 46, name, size: 21, weight: 650)
     end
-    f.text(left, top + 46, "What is protected", size: 15, weight: 700, fill: :faint, spacing: 1.2)
+    f.text(left, top + 46, "WHAT IS PROTECTED", size: 14, weight: 700, fill: :faint, spacing: 1.8)
 
     PERMISSIONS.each_with_index do |(name, sub, cells), r|
       y = top + 76 + r * row_h
       f.line(left, y, left + label_w + 5 * col_w, y, stroke: :line, sw: 1)
-      f.text(left, y + 32, name, size: 19, weight: 650)
-      f.text(left, y + 54, sub, size: 14, fill: :soft)
+      f.text(left, y + 30, name, size: 19, weight: 650)
+      f.text(left, y + 52, sub, size: 14, fill: :soft)
       cells.each_with_index do |(kind, word), i|
         x = left + label_w + i * col_w
-        f.level(x + 34, y + 37, kind)
-        f.text(x + 56, y + 42, word, size: 15, fill: kind == :none ? :faint : :ink)
+        f.level(x + 34, y + 34, kind)
+        f.text(x + 56, y + 39, word, size: 15, fill: kind == :none ? :faint : :ink)
       end
     end
 

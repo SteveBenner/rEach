@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.7] - 2026-11-03
+
+### Added
+
+- Two figures in `docs/architecture.md`, drawn by `tools/figures/figures/11_help.rb` and `12_storage.rb`: 11, reaching the instructors (hands, fault reports, feedback notes and live sessions out; replies, announcements and course controls back), and 12, what rEach keeps on the computer (the `~/reach-work` tree, the application data copy, the rplugin state, Downloads, the background jobs and the commands that erase each copy). `tools/figures/kit.rb` gains the icons and the `row` and `section` primitives they use.
+
+### Fixed
+
+- The ten architecture figures still showed rEach 0.26: `~/.reach` as rEach's home, no security validation pass, no password sign-in, the old privacy lists, seven lifecycle stages, seven guardrail layers and the old attempt ladder. Each is redrawn from the current `README.md`, `PRIVACY.md`, `reach.spec.yml`, `specs/wire.yml` and `specs/security-validation.yml`: figure 3 is now validation, enrollment and sign-in; figure 4 has eight stages with the plan, late work, partial and document work and the ladder's notice, hand and stop; figure 5 has nine layers including sign-in, course controls and the `guided-learner` reply policy; figure 6 adds the other conversation and live sessions; figure 7 follows the current privacy policy; figure 8 shows the `~/reach-work/.reach-home` layout, the pinned kits, self-updates from `stable` and the daily stable smoke; figure 9 adds the record; the poster follows. Card borders and shadows are lighter. The 4K PNGs move to the `figures-2` release; `figures-1` keeps the 0.26 set. Figure 8 no longer prints the fixture server's address.
+
 ## [0.68.6] - 2026-11-03
 
 ### Changed

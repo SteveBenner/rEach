@@ -1,6 +1,6 @@
 # Figures
 
-`build.rb` draws the system figures in `docs/assets/figures/`: ten figures, each in a light and a dark variant, from one description per figure. It uses only the Ruby standard library. It is not part of the plugin and never runs on a student's computer.
+`build.rb` draws the system figures in `docs/assets/figures/`: twelve figures, each in a light and a dark variant, from one description per figure. It uses only the Ruby standard library. It is not part of the plugin and never runs on a student's computer.
 
     ruby tools/figures/build.rb [--png] [--only SLUG] [--out DIR] [--png-width PX] [--chrome PATH]
 
@@ -19,11 +19,11 @@ It exits 0 when every file was written and 1 when a PNG could not be rendered.
 
 | Path | Holds |
 | --- | --- |
-| `kit.rb` | the two palettes, the icons and the drawing primitives (cards, pills, arrows, boundaries, the frosted Teach block) |
+| `kit.rb` | the two palettes, the icons and the drawing primitives (cards, rows, pills, section labels, arrows, boundaries, the frosted Teach block) |
 | `figures/NN_name.rb` | one figure each; `01_system.rb` also holds the shared legend, the Teach zones and the system body the poster reuses |
 | `build.rb` | the command |
 
-The SVGs are committed. The PNGs are build output: `docs/assets/figures/png/` is ignored by git, and the published copies are the assets of the `figures-1` release on GitHub, so no clone or install carries them.
+The SVGs are committed. The PNGs are build output: `docs/assets/figures/png/` is ignored by git, and the published copies are the assets of the `figures-2` release on GitHub (`figures-1` holds the 0.26 set), so no clone or install carries them.
 
 ## Changing a figure
 
@@ -31,4 +31,4 @@ Edit its file under `figures/`, run `ruby tools/figures/build.rb`, and commit th
 
 ## What the figures may show of Teach
 
-Teach is private. A figure draws it as the frosted block (`Canvas#frost`) and names only outcomes that this repository already publishes in `README.md`, `PRIVACY.md` or `specs/wire.yml`: that it checks the roster, seals and signs packages, runs hidden checks, signs receipts and answers hands. A figure never names a Teach class, table, file, setting or internal flow.
+Teach is private. A figure draws it as the frosted block (`Canvas#frost`) and names only outcomes that this repository already publishes in `README.md`, `PRIVACY.md` or `specs/wire.yml`: that it checks the roster, seals and signs packages, runs hidden checks, signs receipts, keeps assignment conversations under a pseudonym, carries live sessions and answers hands. A figure never names a Teach class, table, file, setting or internal flow.

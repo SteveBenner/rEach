@@ -140,7 +140,7 @@ A student never configures anything: a release of rEach carries its course serve
 
 1. Set `teach.url` in `config.yml` to the course server's address and tag a release.
 2. Give students the repository link; they paste it into their AI agent and ask it to install rEach ([`INSTALL.md`](../INSTALL.md)).
-3. Share the class-wide course passkey. Each student enrolls once, on their own computer ([figure 3](architecture.md#3-the-enrollment-handshake)).
+3. Share the class-wide course passkey. Each student enrolls once, on their own computer ([figure 3](architecture.md#3-validation-enrollment-and-sign-in)).
 
 Running the course server itself is outside this repository.
 

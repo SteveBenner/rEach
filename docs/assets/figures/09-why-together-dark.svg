@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1200" width="1920" height="1200" role="img" aria-labelledby="t d">
 <title id="t">rEach alone and rEach with Teach</title>
-<desc id="d">A side-by-side comparison across six capabilities: identity, rules, checks, evidence, proof and help. Alone, rEach is a careful assistant with nobody to answer to. With Teach, each capability closes into a loop the agent cannot grade itself in.</desc>
+<desc id="d">A side-by-side comparison across seven capabilities: identity, rules, checks, evidence, record, proof and help. Alone, rEach is a careful assistant with nobody to answer to. With Teach, each capability closes into a loop the agent cannot grade itself in.</desc>
 <defs>
 <radialGradient id="bg" cx="960" cy="504" r="1190" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1a2331"/><stop offset=".5" stop-color="#0e131c"/><stop offset="1" stop-color="#07090d"/></radialGradient>
 <linearGradient id="warmcool" gradientUnits="userSpaceOnUse" x1="1640" y1="0" x2="1840" y2="0"><stop offset="0" stop-color="#f7a928"/><stop offset=".45" stop-color="#fb7185"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
@@ -41,74 +41,89 @@
 <path transform="translate(1093.0 281.0) scale(1.0833)" d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1ZM12 15v2" fill="none" stroke="#d5dce6" stroke-width="1.57" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="1142" y="294" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" font-weight="650" fill="#f3f5f8" text-anchor="start">rEach with Teach</text>
 <text x="1142" y="320" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#b3bdca" text-anchor="start">every promise has someone on the other side to check it</text>
-<text x="80" y="392" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f5f8" text-anchor="start">Identity</text>
-<line x1="80" y1="410" x2="250" y2="410" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
-<rect x="322" y="350" width="676" height="96" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
-<circle cx="356" cy="398" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
-<path transform="translate(348.85 390.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="388" y="392" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Anyone can install it. Nobody knows who is doing the work.</text>
-<rect x="1082" y="350" width="736" height="96" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
-<circle cx="1116" cy="398" r="13" fill="#34d399"/>
-<path transform="translate(1107.88 389.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="1148" y="392" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">The roster confirms the student, and the enrollment is tied to their computer.</text>
-<path d="M1004 398L1076 398" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
-<text x="80" y="508" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f5f8" text-anchor="start">Rules</text>
-<line x1="80" y1="526" x2="250" y2="526" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
-<rect x="322" y="466" width="676" height="96" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
-<circle cx="356" cy="514" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
-<path transform="translate(348.85 506.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="388" y="508" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Rules are local files that the machine&#39;s owner can edit.</text>
-<rect x="1082" y="466" width="736" height="96" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
-<circle cx="1116" cy="514" r="13" fill="#34d399"/>
-<path transform="translate(1107.88 505.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="1148" y="508" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">Rules arrive signed by the instructors. Unsigned or stale rules stop the work.</text>
-<path d="M1004 514L1076 514" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
-<text x="80" y="624" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f5f8" text-anchor="start">Checks</text>
-<line x1="80" y1="642" x2="250" y2="642" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
-<rect x="322" y="582" width="676" height="96" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
-<circle cx="356" cy="630" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
-<path transform="translate(348.85 622.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="388" y="624" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">An agent can only pass the checks it can see, and can tune to them.</text>
-<rect x="1082" y="582" width="736" height="96" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
-<circle cx="1116" cy="630" r="13" fill="#34d399"/>
-<path transform="translate(1107.88 621.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="1148" y="624" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">Hidden checks run on the server, where the agent can neither read nor tune to them.</text>
-<path d="M1004 630L1076 630" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
-<text x="80" y="740" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f5f8" text-anchor="start">Evidence</text>
-<line x1="80" y1="758" x2="250" y2="758" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
-<rect x="322" y="698" width="676" height="96" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
-<circle cx="356" cy="746" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
-<path transform="translate(348.85 738.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="388" y="740" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Seals and ledgers are written, and nobody ever reads them.</text>
-<rect x="1082" y="698" width="736" height="96" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
-<circle cx="1116" cy="746" r="13" fill="#34d399"/>
-<path transform="translate(1107.88 737.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="1148" y="740" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">The server reads the seal and the witness ledger when it weighs where work came</text>
-<text x="1148" y="763" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">from.</text>
-<path d="M1004 746L1076 746" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
-<text x="80" y="856" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f5f8" text-anchor="start">Proof</text>
-<line x1="80" y1="874" x2="250" y2="874" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
-<rect x="322" y="814" width="676" height="96" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
-<circle cx="356" cy="862" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
-<path transform="translate(348.85 854.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="388" y="856" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">&quot;Submitted&quot; is only a claim on the student&#39;s own computer.</text>
-<rect x="1082" y="814" width="736" height="96" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
-<circle cx="1116" cy="862" r="13" fill="#34d399"/>
-<path transform="translate(1107.88 853.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="1148" y="856" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">A signed receipt proves what arrived and when. The due time is enforced on the</text>
-<text x="1148" y="879" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">server.</text>
-<path d="M1004 862L1076 862" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
-<text x="80" y="972" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f5f8" text-anchor="start">Help</text>
-<line x1="80" y1="990" x2="250" y2="990" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
-<rect x="322" y="930" width="676" height="96" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
-<circle cx="356" cy="978" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
-<path transform="translate(348.85 970.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="388" y="972" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">A stuck student stays stuck, and no one finds out.</text>
-<rect x="1082" y="930" width="736" height="96" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
-<circle cx="1116" cy="978" r="13" fill="#34d399"/>
-<path transform="translate(1107.88 969.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="1148" y="972" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">After three failed tries a hand goes up to the instructors, who can answer.</text>
-<path d="M1004 978L1076 978" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="386" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Identity</text>
+<line x1="80" y1="402" x2="250" y2="402" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="346" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="389" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 381.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="395" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Anyone can install it. Nobody knows who is doing the work.</text>
+<rect x="1082" y="346" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="389" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 380.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="384" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">The roster confirms the student, the enrollment is tied to their computer and</text>
+<text x="1148" y="406" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">a password signs them in.</text>
+<path d="M1004 389L1076 389" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="486" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Rules</text>
+<line x1="80" y1="502" x2="250" y2="502" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="446" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="489" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 481.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="495" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Rules are local files that the machine&#39;s owner can edit.</text>
+<rect x="1082" y="446" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="489" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 480.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="495" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">Rules arrive signed by the instructors. Unsigned or stale rules stop the work.</text>
+<path d="M1004 489L1076 489" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="586" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Checks</text>
+<line x1="80" y1="602" x2="250" y2="602" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="546" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="589" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 581.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="595" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">An agent can only pass the checks it can see, and can tune to them.</text>
+<rect x="1082" y="546" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="589" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 580.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="584" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">Hidden checks run on the server, where the agent can neither read nor tune to</text>
+<text x="1148" y="606" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">them.</text>
+<path d="M1004 589L1076 589" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="686" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Evidence</text>
+<line x1="80" y1="702" x2="250" y2="702" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="646" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="689" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 681.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="695" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Seals and ledgers are written, and nobody ever reads them.</text>
+<rect x="1082" y="646" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="689" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 680.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="684" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">The server reads the seal and the witness ledger when it weighs where work</text>
+<text x="1148" y="706" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">came from.</text>
+<path d="M1004 689L1076 689" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="786" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Record</text>
+<line x1="80" y1="802" x2="250" y2="802" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="746" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="789" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 781.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="795" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">Nobody sees how the work was actually done.</text>
+<rect x="1082" y="746" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="789" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 780.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="784" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">De-identified assignment conversations reach the instructors, who can read how</text>
+<text x="1148" y="806" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">the work was made.</text>
+<path d="M1004 789L1076 789" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="886" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Proof</text>
+<line x1="80" y1="902" x2="250" y2="902" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="846" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="889" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 881.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="895" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">&quot;Submitted&quot; is only a claim on the student&#39;s own computer.</text>
+<rect x="1082" y="846" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="889" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 880.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="884" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">A signed receipt proves what arrived and when. The due time is kept on the</text>
+<text x="1148" y="906" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">server.</text>
+<path d="M1004 889L1076 889" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
+<text x="80" y="986" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="650" fill="#f3f5f8" text-anchor="start">Help</text>
+<line x1="80" y1="1002" x2="250" y2="1002" stroke="#2e3949" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="322" y="946" width="676" height="86" rx="14" fill="#121925" stroke="#2e3949" stroke-width="1.2" />
+<circle cx="356" cy="989" r="13" fill="#f87171" fill-opacity="0.16" stroke="#f87171" stroke-width="2"/>
+<path transform="translate(348.85 981.85) scale(0.5958)" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#f87171" stroke-width="4.03" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="388" y="995" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#b3bdca" text-anchor="start">A stuck student stays stuck, and no one finds out.</text>
+<rect x="1082" y="946" width="736" height="86" rx="14" fill="#0f151f" fill-opacity="0.62" stroke="#d5dce6" stroke-width="1.2" stroke-opacity="0.45" />
+<circle cx="1116" cy="989" r="13" fill="#34d399"/>
+<path transform="translate(1107.88 980.88) scale(0.6771)" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0b0f16" stroke-width="3.84" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1148" y="984" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">Hands, fault reports and notes reach the instructors, who answer, live if</text>
+<text x="1148" y="1006" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#f3f5f8" text-anchor="start">needed.</text>
+<path d="M1004 989L1076 989" fill="none" stroke="#d5dce6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-teach)"/>
 <line x1="80" y1="1116" x2="1840" y2="1116" stroke="#2e3949" stroke-width="1" stroke-linecap="round"/>
 <circle cx="87" cy="1149" r="7" fill="#f7a928"/>
 <text x="104" y="1155" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#b3bdca" text-anchor="start">Student</text>

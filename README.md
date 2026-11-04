@@ -113,9 +113,10 @@ hidden checks, signed receipts and instructors who answer.
   <img src="docs/assets/figures/01-system-at-a-glance-light.svg" alt="A student steers their own AI agent. rEach wraps the agent on the student's computer and talks over a signed wire to Teach, the private course server the instructors run." width="100%">
 </picture>
 
-[`docs/architecture.md`](docs/architecture.md) has ten figures: trust boundaries, the enrollment handshake, the work
-lifecycle, the guardrail layers, who may do what, the privacy map, the deployment topology, why the two belong
-together, and a poster. Teach is private, so each one shows what it guarantees and never how.
+[`docs/architecture.md`](docs/architecture.md) has twelve figures: trust boundaries, validation, enrollment and
+sign-in, the work lifecycle, the guardrail layers, who may do what, the privacy map, the deployment topology, why the
+two belong together, a poster, reaching the instructors and what rEach keeps on the computer. Teach is private, so
+each one shows what it guarantees and never how.
 [`docs/deploy-and-test.md`](docs/deploy-and-test.md) (in a clone only) has worked examples for running and testing
 rEach without a course server.
 
