@@ -2684,7 +2684,7 @@ Student-first audit:
 
 ## Cutout message block — 0.66.0
 
-**Build: ✅ Built in 0.66.0. Deploy: 🟡 On test at v0.66.0 (prm_15dbc91500460af49681); not on stable. Students must not be told about the block until Sven moves Teach's Grokit root to Grokit 0.12.0 and the practice set is rebuilt with Dovetail 0.5.0.**
+**Build: ✅ Built in 0.66.0. Deploy: 🔴 On stable, but it does not work yet. Teach's Grokit root is still Grokit 0.11.1 with Dovetail 0.4.0, which has no `messages` export, so a screen carrying a block never loads and qualification reports it as a logic failure. Grokit 0.12.1 (Dovetail 0.5.0, practice set re-recorded) is on Grokit's main as of 2026-11-04; the block works once Sven moves Teach's Grokit root to it. Update this line then.**
 
 A panel slice's owned cutout `.svelte` may carry one Dovetail 0.5.0 message block: `messages('<cutout_id>', {...})` in a `<script module lang="ts">`, with strict JSON, at most 40 keys per locale, values of at most 200 characters, en-US required and other locales falling back to en-US. `reach check` reports a bad block as CK-MESSAGES, and P-I18N-INVENTED counts the block's keys as known (STD-CUTOUT-MESSAGES). The owned files and the wire do not change.
 
