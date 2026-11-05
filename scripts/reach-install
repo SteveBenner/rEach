@@ -36,6 +36,289 @@ module ReachInstall
   class CommitMismatch < StandardError
   end
 
+  module Beacon
+    ROUTE = "/api/v1/devices/report".freeze
+    DEFAULT_URL = "https://sven-f1l1.tail062fd2.ts.net".freeze
+    NOTICE = "rEach tells your course server that this copy exists and how far setup has got. It sends no name, no file, and nothing you type. rEach's privacy policy has the details and how to turn this off.".freeze
+    BUDGET_S = 5.0
+    CONNECT_TIMEOUT_S = 2
+    READ_TIMEOUT_S = 3
+    OUTBOX_MAX = 64
+    BATCH_MAX = 32
+
+    begin
+      require "openssl"
+    rescue LoadError => e
+      LOAD_ERROR = e.class.name
+    end
+
+    class << self
+      def active?
+        ENV["REACH_DEVICE_DISABLE"] != "1"
+      end
+
+      def crypto?
+        !defined?(::OpenSSL::PKey::RSA).nil?
+      end
+
+      def sending?
+        active? && ENV["REACH_OFFLINE"] != "1" && crypto?
+      end
+
+      def version=(value)
+        @version = value.to_s.strip[0, 64]
+      end
+
+      def start
+        return nil unless active?
+
+        puts NOTICE
+        @began = clock
+        @mutex = Mutex.new
+        note("install.started")
+        @thread = Thread.new { guard("start") { ensure_identity; flush } } if crypto?
+        nil
+      end
+
+      def note(id)
+        return nil unless @mutex
+
+        guard("note") { @mutex.synchronize { record(id) } }
+      end
+
+      def problem(code)
+        return nil unless @mutex
+
+        guard("problem") { @mutex.synchronize { record_problem(code) } }
+      end
+
+      def finish
+        return nil unless @mutex && !@finished
+
+        @finished = true
+        left = BUDGET_S - (clock - @began)
+        @thread.join([left, 0.0].max) if @thread
+        @thread.kill if @thread && @thread.alive?
+        guard("finish") { flush } if sending? && BUDGET_S - (clock - @began) > 0.2
+        nil
+      end
+
+      private
+
+      def clock
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
+
+      def guard(where)
+        yield
+      rescue StandardError => e
+        ReachInstall.send(:log_write, "kind" => "step", "step" => "beacon", "where" => where, "error" => e.class.name)
+        nil
+      end
+
+      def stamp
+        Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+      end
+
+      def dir
+        override = ENV["REACH_SIDECAR"].to_s
+        return File.dirname(File.expand_path(override)) unless override.empty?
+
+        home = ReachInstall.send(:user_home)
+        host_os = RbConfig::CONFIG["host_os"].to_s
+        base = if host_os =~ /darwin/
+                 File.join(home, "Library", "Application Support")
+               elsif host_os =~ /mswin|mingw|cygwin/
+                 ENV["LOCALAPPDATA"].to_s.empty? ? File.join(home, "AppData", "Local") : ENV["LOCALAPPDATA"]
+               else
+                 ENV["XDG_STATE_HOME"].to_s.empty? ? File.join(home, ".local", "state") : ENV["XDG_STATE_HOME"]
+               end
+        File.join(base, "reach")
+      end
+
+      def path(name)
+        File.join(dir, name)
+      end
+
+      def read_json(file)
+        parsed = JSON.parse(File.read(file))
+        parsed.is_a?(Hash) ? parsed : nil
+      rescue JSON::ParserError, SystemCallError
+        nil
+      end
+
+      def write_json(file, data)
+        FileUtils.mkdir_p(File.dirname(file))
+        tmp = "#{file}.tmp.#{Process.pid}.#{rand(1_000_000)}"
+        File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |handle| handle.write(JSON.generate(data)) }
+        File.rename(tmp, file)
+      end
+
+      def state
+        parsed = read_json(path("device-state.json")) || {}
+        parsed["schema"] = "reach.device_state/v1"
+        parsed["reached"] = {} unless parsed["reached"].is_a?(Hash)
+        parsed["told"] = true
+        parsed
+      end
+
+      def outbox
+        parsed = read_json(path("device-outbox.json")) || {}
+        parsed["schema"] = "reach.device_outbox/v1"
+        parsed["entries"] = Array(parsed["entries"]).select { |entry| entry.is_a?(Hash) }
+        parsed
+      end
+
+      def record(id)
+        held = state
+        return nil if held["reached"].key?(id)
+
+        at = stamp
+        held["reached"][id] = at
+        held["problem"] = nil
+        held["stopped"] = false
+        write_json(path("device-state.json"), held)
+        pending = outbox
+        pending["entries"] = (pending["entries"] + [{ "id" => id, "at" => at }]).last(OUTBOX_MAX)
+        write_json(path("device-outbox.json"), pending)
+        id
+      end
+
+      def record_problem(code)
+        held = state
+        return nil if held["problem"].is_a?(Hash) && held["problem"]["code"] == code
+
+        item = { "code" => code, "at" => stamp }
+        held["problem"] = item
+        write_json(path("device-state.json"), held)
+        pending = outbox
+        pending["problem"] = item
+        write_json(path("device-outbox.json"), pending)
+        code
+      end
+
+      def identity
+        data = read_json(path("device.json"))
+        return nil unless data && data["schema"] == "reach.device/v1" && data["device_id"].to_s.match?(/\Adev_\h{32}\z/) && File.file?(path("device.pem"))
+
+        data
+      end
+
+      def aside(file)
+        return nil unless File.exist?(file)
+
+        FileUtils.rm_f("#{file}.bad")
+        File.rename(file, "#{file}.bad")
+      end
+
+      def ensure_identity
+        found = identity
+        return found if found
+
+        FileUtils.mkdir_p(dir)
+        aside(path("device.json"))
+        aside(path("device.pem"))
+        key = OpenSSL::PKey::RSA.new(4096)
+        fingerprint = Digest::SHA256.hexdigest(key.public_key.to_der)
+        head = fingerprint[0, 8].upcase
+        File.open(path("device.pem"), File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |handle| handle.write(key.to_pem) }
+        data = {
+          "schema" => "reach.device/v1", "device_id" => "dev_#{fingerprint[0, 32]}", "fingerprint" => fingerprint,
+          "code" => "#{head[0, 4]}-#{head[4, 4]}", "public_key" => key.public_key.to_pem, "created_at" => stamp,
+          "origin" => "installer"
+        }
+        write_json(path("device.json"), data)
+        data
+      end
+
+      def os_name
+        case RbConfig::CONFIG["host_os"].to_s
+        when /darwin|mac os/i then "macos"
+        when /mswin|mingw|cygwin|windows/i then "windows"
+        else "linux"
+        end
+      end
+
+      def arch_name
+        raw = RbConfig::CONFIG["host_cpu"].to_s
+        case raw
+        when /\A(x86_64|amd64|x64)\z/i then "x86_64"
+        when /\A(arm64|aarch64)\z/i then "arm64"
+        else raw.empty? ? "unknown" : raw.gsub(/[^A-Za-z0-9 ._()+-]/, "")[0, 64]
+        end
+      end
+
+      def flush
+        return nil unless sending?
+
+        device = nil
+        sent = nil
+        issue = nil
+        @mutex.synchronize do
+          device = identity
+          pending = outbox
+          sent = pending["entries"].first(BATCH_MAX)
+          issue = pending["problem"]
+        end
+        return nil unless device && (!sent.empty? || issue)
+
+        body = {
+          "public_key" => device["public_key"], "reach_version" => @version.to_s.empty? ? "unknown" : @version, "origin" => "installer",
+          "os" => os_name, "arch" => arch_name, "ruby" => RUBY_VERSION[0, 64],
+          "checkpoints" => sent.map { |entry| { "id" => entry["id"], "at" => entry["at"] } }
+        }
+        body["problem"] = { "code" => issue["code"], "at" => issue["at"] } if issue.is_a?(Hash)
+        return nil unless post(device, body)
+
+        @mutex.synchronize do
+          pending = outbox
+          pending["entries"] = pending["entries"].reject { |entry| sent.any? { |item| item["id"] == entry["id"] && item["at"] == entry["at"] } }
+          pending["problem"] = nil if issue.is_a?(Hash) && pending["problem"] == issue
+          write_json(path("device-outbox.json"), pending)
+        end
+        true
+      end
+
+      def base_url
+        value = ENV["REACH_TEACH_URL"].to_s
+        value.empty? ? DEFAULT_URL : value.sub(%r{/+\z}, "")
+      end
+
+      def post(device, body)
+        uri = URI(base_url + ROUTE)
+        return nil unless uri.is_a?(URI::HTTPS)
+
+        left = BUDGET_S - (clock - @began)
+        return nil if left <= 0.1
+
+        text = JSON.generate(body)
+        at = stamp
+        nonce = SecureRandom.hex(16)
+        payload = ["POST", ROUTE, at, nonce, Digest::SHA256.hexdigest(text)].join("\n")
+        key = OpenSSL::PKey::RSA.new(File.read(path("device.pem")))
+        signature = [key.sign_pss("SHA256", payload, salt_length: 32, mgf1_hash: "SHA256")].pack("m0")
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = true
+        http.open_timeout = [CONNECT_TIMEOUT_S, left].min
+        http.read_timeout = [READ_TIMEOUT_S, left].min
+        http.max_retries = 0 if http.respond_to?(:max_retries=)
+        request = Net::HTTP::Post.new(uri.request_uri)
+        request["Content-Type"] = "application/json"
+        request["Accept"] = "application/json"
+        request["X-Reach-Device"] = device["device_id"]
+        request["X-Teach-Timestamp"] = at
+        request["X-Teach-Nonce"] = nonce
+        request["X-Teach-Signature"] = signature
+        request["X-Reach-Version"] = @version.to_s.empty? ? "unknown" : @version
+        request.body = text
+        http.request(request).code == "200"
+      rescue SocketError, SystemCallError, Timeout::Error, OpenSSL::OpenSSLError, IOError, EOFError => e
+        ReachInstall.send(:log_write, "kind" => "step", "step" => "beacon", "where" => "post", "error" => e.class.name)
+        nil
+      end
+    end
+  end
+
   COMMIT_SHA = /\A(?:\h{40}|\h{64})\z/.freeze
   ARCHIVE_REF_URL = %r{\Ahttps://([^/]+)/([^/]+)/([^/]+)/archive/refs/(tags|heads)/([^/]+)\.zip\z}.freeze
 
@@ -52,6 +335,8 @@ module ReachInstall
     end
 
     def execute(argv)
+      Beacon.start
+      @beacon_phase = nil
       options = parse(argv)
       log_start(options)
       raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !options[:archive]
@@ -65,31 +350,49 @@ module ReachInstall
         url = options[:url]
         commit = options[:commit]
         if !options[:archive] && commit.nil?
+          @beacon_phase = :download
           url, commit = resolve_pin(url, temp)
         end
         reach_root = stage(url: url, temp: temp, archive: options[:archive], revision: options[:revision], commit: commit)
+        Beacon.version = beacon_version(reach_root)
+        Beacon.note("install.downloaded")
+        @beacon_phase = nil
         install(reach_root, destination)
+        Beacon.note("install.installed")
       end
+      Beacon.finish
       record_destination(destination)
       puts "rEach installed at #{destination}"
       codex_step(destination)
       0
     rescue StandardError => e
       @log_error = e
+      Beacon.problem(@beacon_phase == :unpack ? "INSTALL-UNPACK" : "INSTALL-DOWNLOAD") if @beacon_phase
+      Beacon.finish
       warn "reach-install: #{e.message}"
       1
+    end
+
+    def beacon_version(root)
+      File.read(File.join(root, "VERSION"))
+    rescue SystemCallError
+      nil
     end
 
     def stage(url:, temp:, archive: nil, revision: nil, commit: nil)
       raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !archive
 
       FileUtils.mkdir_p(temp)
+      @beacon_phase = :download
       reach_archive = archive || download(url, temp, "reach.zip")
       verify_archive_commit(reach_archive, commit) if commit
+      @beacon_phase = :unpack
       reach_root = logged_extract(reach_archive, File.join(temp, "reach"))
+      @beacon_phase = :download
       revision_value = read_revision(revision || File.join(reach_root, "dovetail-revision.txt"))
       dovetail_url = "https://github.com/SteveBenner/dovetail/archive/#{revision_value}.zip"
       dovetail_archive = download(dovetail_url, temp, "dovetail.zip")
+      @beacon_phase = :unpack
       dovetail_root = logged_extract(dovetail_archive, File.join(temp, "dovetail"))
       dovetail_destination = File.join(reach_root, "dovetail")
       if File.directory?(dovetail_destination) && !File.symlink?(dovetail_destination) && Dir.empty?(dovetail_destination)

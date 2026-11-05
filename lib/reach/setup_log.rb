@@ -484,6 +484,7 @@ module Reach
 
     def note_message(id, fields = {})
       return nil if Thread.current[:reach_setup_busy]
+      Reach::Device.note_problem(id) if FAILURE_IDS.include?(id.to_s)
       return nil unless active?
 
       list = (Thread.current[:reach_setup_messages] ||= [])

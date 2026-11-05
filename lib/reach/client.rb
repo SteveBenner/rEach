@@ -51,7 +51,7 @@ module Reach
   module TokenBucket
     CAPACITY = 20.0
     RATE_PER_SECOND = 20.0 / 60.0
-    BUCKETS = { "live" => { "capacity" => 30.0, "rate" => 30.0 / 60.0 } }.freeze
+    BUCKETS = { "live" => { "capacity" => 30.0, "rate" => 30.0 / 60.0 }, "device" => { "capacity" => 6.0, "rate" => 6.0 / 60.0 } }.freeze
 
     module_function
 
@@ -243,8 +243,16 @@ module Reach
       )
     end
 
-    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, bucket: nil, quiet: false, link: true, attempt_id: nil)
+    def self.for_device(device, bucket: "device", connect_timeout: 3, read_timeout: 8, max_retries: 0, quiet: true)
+      new(
+        base_url: Reach::Runtime.default_teach_url, install_id: nil, install_private_key: Reach::Device.private_key, device_id: device.fetch("device_id"),
+        bucket: bucket, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries, quiet: quiet, link: false
+      )
+    end
+
+    def initialize(base_url:, install_id:, install_private_key:, quick: false, connect_timeout: nil, read_timeout: nil, max_retries: nil, bucket: nil, quiet: false, link: true, attempt_id: nil, device_id: nil)
       @attempt_id = attempt_id
+      @device_id = device_id
       @track_link = link
       @base_url = base_url.to_s.sub(%r{/+\z}, "")
       refuse_insecure_url!(@base_url)
@@ -492,7 +500,9 @@ module Reach
       signature = Reach::Crypto.sign_request(
         @install_private_key, method: method, target: target, timestamp: timestamp, nonce: nonce, body: body.to_s
       )
-      if @attempt_id
+      if @device_id
+        req["X-Reach-Device"] = @device_id.to_s
+      elsif @attempt_id
         req["X-Reach-Attempt"] = @attempt_id.to_s
       else
         req["X-Teach-Install"] = @install_id.to_s

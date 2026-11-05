@@ -110,6 +110,7 @@ module Reach
         unless Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness) && validation["phase"] == "passed"
           flow = without_digest(flow).merge("state" => "awaiting_validation", "username" => nil, "student_id" => nil)
           write_flow(flow)
+          Reach::Device.note("validation.started")
         end
       end
 
@@ -124,6 +125,7 @@ module Reach
         end
         if Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness) && validation["phase"] == "passed"
           Reach::Validation.enrollment_key!(course_code: flow["code"], teach_url: teach_url, harness: harness)
+          Reach::Device.note("validation.passed")
           next_flow = flow.merge("state" => "awaiting_username", "updated_at" => iso(now))
           write_flow(next_flow)
           Reach::EnrollOutbox.begin!(course_code: flow["code"], teach_url: teach_url, harness: harness)
@@ -186,6 +188,7 @@ module Reach
         "updated_at" => iso(Time.now.utc)
       )
       write_flow(next_flow)
+      Reach::Device.note("validation.started")
       begin
         Reach::Validation.locked { Reach::Validation.start(course_code: parsed["code"], harness: harness) }
       rescue StandardError => e
@@ -211,6 +214,7 @@ module Reach
 
       validation = Reach::Validation.read
       Reach::Validation.enrollment_key!(course_code: flow["code"], teach_url: teach_url, harness: validation["harness"])
+      Reach::Device.note("validation.passed")
       next_flow = flow.merge("state" => "awaiting_username", "updated_at" => iso(Time.now.utc))
       write_flow(next_flow)
       Reach::EnrollOutbox.begin!(course_code: flow["code"], teach_url: teach_url, harness: validation["harness"])

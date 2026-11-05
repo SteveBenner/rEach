@@ -77,6 +77,11 @@ module Reach
       DEFAULT_SETTINGS.dup
     end
 
+    def background_interval
+      configured = settings["background_interval_s"]
+      Reach::Device.fast_cadence? ? [Reach::Device::FAST_INTERVAL_S, configured].min : configured
+    end
+
     def positive(value, default)
       number = Integer(value)
       number.positive? ? number : default
@@ -164,6 +169,8 @@ module Reach
         Reach::Update.background_kick
       end
 
+      Reach::Device.tick(source)
+
       install = Reach::Enroll.current
       return { "skipped" => "not_enrolled" } unless install.is_a?(Hash)
       return { "skipped" => "revoked" } if install["revoked"]
@@ -241,7 +248,7 @@ module Reach
       summary = Reach::Sync.run(wait_s: 0)
       at = now
       if summary.is_a?(Hash) && summary["state"] == "revoked"
-        uninstall!
+        ensure!
         return { "result" => "revoked", "source" => source }
       end
       if summary.is_a?(Hash) && summary["state"] == "offline"
@@ -345,7 +352,7 @@ module Reach
       end
       if %w[revoked not_enrolled].include?(error.code)
         Reach::Enroll.mark_revoked!(error.details)
-        uninstall!
+        ensure!
         return { "result" => "revoked" }
       end
       nil
@@ -409,7 +416,7 @@ module Reach
       return nil if Reach::Paths.persona_id
       return nil if disabled?
 
-      wanted = !enrolled_install.nil? && settings["background"]
+      wanted = settings["background"] && (!enrolled_install.nil? || Reach::Device.job_wanted?)
       wanted ? install! : uninstall!
     rescue StandardError => e
       Reach::Debug.fault(e, "subscribe:ensure")
@@ -468,7 +475,7 @@ module Reach
       ].join("\n")
     end
 
-    def timer_unit(interval = settings["background_interval_s"])
+    def timer_unit(interval = background_interval)
       [
         "[Unit]",
         "Description=rEach course update timer",
@@ -489,7 +496,7 @@ module Reach
       value.to_s.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;")
     end
 
-    def plist_content(command = tick_command, interval = settings["background_interval_s"])
+    def plist_content(command = tick_command, interval = background_interval)
       arguments = command.map { |part| "    <string>#{xml_escape(part)}</string>" }.join("\n")
       [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -543,7 +550,7 @@ module Reach
       File.join(Reach::Paths.root, "bin", "reach-subscribe-task.xml")
     end
 
-    def task_xml(interval = settings["background_interval_s"], windowless: windowed_ruby, launcher: vbs_path)
+    def task_xml(interval = background_interval, windowless: windowed_ruby, launcher: vbs_path)
       minutes = [interval / 60, 1].max
       if windowless
         command = windowless
@@ -607,7 +614,7 @@ module Reach
     end
 
     def job_plan
-      interval = settings["background_interval_s"]
+      interval = background_interval
       case platform
       when "windows"
         windowless = windowed_ruby

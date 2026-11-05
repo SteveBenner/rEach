@@ -92,6 +92,7 @@ module Reach
     end
 
     def push_step!(step, username: nil, student_id: nil)
+      Reach::Device.note("enroll.#{step}")
       return nil unless File.file?(key_file)
 
       entry = { "kind" => "step", "step" => step, "at" => iso }
@@ -181,6 +182,7 @@ module Reach
       return :stop if id.empty?
 
       advance(head) { |held| held.merge("attempt_id" => id) }
+      Reach::Device.link_attempt(id)
       :next
     rescue Reach::RemoteRefused => e
       refused(e, head, wipe: true)

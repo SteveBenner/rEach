@@ -72,6 +72,7 @@ module Reach
       load_script!
       flags = script_flags(options[:toggles])
       plan = JSON.parse(JSON.generate(ReachUninstall.plan(flags)))
+      plan["device"] = device_record
       unless plan["installed"]
         say(options, "installed" => false, "text" => Reach::Messages.text("M-UNINSTALL-NOT-INSTALLED"))
         return 0
@@ -103,6 +104,12 @@ module Reach
         "keep_workspace_files" => toggles.include?("--keep-workspace-files"),
         "purge_microbrain" => toggles.include?("--purge-microbrain")
       }
+    end
+
+    def device_record
+      path = Reach::Device.dir
+      files = Reach::Device::FILES.map { |name| File.join(path, name) }.select { |file| File.exist?(file) }
+      { "exists" => !files.empty?, "path" => path }
     end
 
     def tilde(path)
@@ -189,7 +196,7 @@ module Reach
     end
 
     def mirror_text(plan, flags)
-      records = %w[checkpoint_mirror sidecar].map do |key|
+      records = %w[checkpoint_mirror sidecar device].map do |key|
         entry = plan[key].is_a?(Hash) ? plan[key] : {}
         entry["exists"] && !entry["path"].to_s.empty? ? tilde(entry["path"]) : nil
       end.compact
@@ -334,6 +341,7 @@ module Reach
       toggles = options[:toggles]
       messages = context[:messages]
       via = confirmation[:via]
+      Reach::Device.uninstalling!
       teach = case via
               when :terminal then { "state" => "not_told", "reason" => "skipped" }
               when :flag then { "state" => "skipped", "reason" => "not_enrolled" }
@@ -354,6 +362,7 @@ module Reach
       ensure
         FileUtils.remove_entry(dir) if dir && File.exist?(dir)
       end
+      Reach::Device.purge! if status.zero? && context[:flags]["purge_checkpoint_mirror"]
       finish(options, context, teach, messages, stdout, status)
     end
 

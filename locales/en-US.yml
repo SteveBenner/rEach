@@ -19,6 +19,8 @@ messages:
   M-UPDATE-RUN: "version {version} is available and this copy of rEach does not update itself. When you finish your current answer, start the update with the reach_update tool (action run) or with reach update run --apply, then give the student the reply it returns, word for word."
   M-UPDATE-DONE: "rEach is up to date (version {version}). Start a new session when it suits you to load everything."
   M-SUBSCRIBE-UPDATES: "rEach picked up new course updates since your last message: {updates}. Tell the student in plain words if it helps their work."
+  M-DEVICE-NOTICE: "rEach tells your course server that this copy exists, how far its setup has got, which version it runs, and which kind of computer and AI app it runs on. It sends no name, no file, and nothing you type. If something goes wrong, your instructor can use this to run rEach's read-only checks on this computer. You get a notice and you can end it, and anything that changes something still waits for your yes. rEach's privacy policy says how to turn this off."
+  M-DEVICE-CODE: "This copy of rEach is installation {code}. If something is not working, give that code to your instructor."
   M-ANNOUNCE-NOTICE: "{title}\n{body}"
   M-ANNOUNCE-LINE: "{sent}: {title}\n{body}"
   M-ANNOUNCE-LINE-EXPIRED: "{sent}: {title} (shown until {until})\n{body}"

@@ -4,6 +4,13 @@ module Reach
       def summary
         lines = []
         lines << header_line
+        code = Reach::Device.code_line
+        unless install
+          lines << code if code
+          return lines.join("\n")
+        end
+
+        lines << code if code
         lines << Reach::Relocation.folder_line
         lines << assignment_line
         late_assignment_lines.each { |line| lines << line }

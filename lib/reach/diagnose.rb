@@ -22,6 +22,7 @@ module Reach
     def report(network: true)
       {
         "reach" => Reach::VERSION,
+        "installation" => Reach::Device.code_line,
         "runtime" => Reach::CryptoProbe.facts,
         "kit" => kit,
         "environment" => environment,

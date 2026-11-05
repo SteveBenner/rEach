@@ -43,7 +43,10 @@ module Reach
       File.rename(temp, file)
     end
 
+    DEVICE_CHECKPOINTS = { "enroll.code" => "enroll.code", "setup.signin" => "signin.done" }.freeze
+
     def mark(id, at: Time.now.utc)
+      Reach::Device.note(DEVICE_CHECKPOINTS[id.to_s], at: at) if DEVICE_CHECKPOINTS.key?(id.to_s)
       return nil unless enabled?
 
       id = id.to_s
@@ -59,6 +62,8 @@ module Reach
     end
 
     def enrolled!(student_id)
+      Reach::Device.note("enroll.done")
+      Reach::Device.link_install
       return nil unless enabled?
 
       data = read
@@ -73,6 +78,7 @@ module Reach
     end
 
     def assignment_started(workspace, at: Time.now.utc)
+      Reach::Device.note("assignment.first", at: at)
       return nil if workspace.nil?
 
       assignment = Reach::Workspace.metadata(workspace)["assignment"].to_s

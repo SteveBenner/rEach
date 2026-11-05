@@ -15,6 +15,11 @@ module Reach
       ruby_problem = check_ruby
       return [ruby_problem, 1] if ruby_problem
 
+      if Reach::Device.enabled?
+        Reach::Device.ensure_identity!("setup")
+        Reach::Device.note("setup.started")
+      end
+
       Reach::Paths.ensure_home!
       Reach::Runtime.ensure_shim!
       Reach::Runtime.bake_teach_url!
@@ -26,6 +31,7 @@ module Reach
       results = candidates.map { |id| run_harness(id, resolved_source) }
       results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, Antigravity, or Hermes, then run setup again." } if results.empty?
       ok = results.any? { |entry| entry[:ok] }
+      note_device_outcome(results, ok)
       relocation = relocate_after_install
       Reach::Paths.ensure_workspace_dirs! if ok
       exit_code = ok ? 0 : 1
@@ -50,6 +56,15 @@ module Reach
         output = text_output(results, next_greeting, relocation, host_steps)
         output = "#{output}\n\n#{runtime_note[:text]}" if runtime_note[:text]
         [output, exit_code]
+      end
+    end
+
+    def note_device_outcome(results, ok)
+      if ok
+        Reach::Device.note("setup.done")
+        Reach::Device.set_harness(results.find { |entry| entry[:ok] }[:id])
+      else
+        Reach::Device.note_problem("SETUP-FAILED")
       end
     end
 
@@ -411,6 +426,11 @@ module Reach
         lines << ""
         lines << "Host steps for the student, after the lines above:"
         host_steps.each { |step| lines << step }
+      end
+      if Reach::Device.enabled?
+        lines << ""
+        lines << Reach::Messages.text("M-DEVICE-NOTICE")
+        Reach::Device.mark_told!
       end
       lines.join("\n")
     end

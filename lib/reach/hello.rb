@@ -146,10 +146,11 @@ module Reach
     end
 
     def run_background(session, cwd)
+      Reach::Device.note("session.first")
+      Reach::Subscribe.ensure!
       return nil if Reach::EnrollmentLock.state["locked"]
 
       maybe_refresh_status
-      Reach::Subscribe.ensure!
       workspace = find_workspace(cwd)
       Reach::Locks.refill!
       safe_late_retry

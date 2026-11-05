@@ -248,6 +248,7 @@ module Reach
           end
         end
 
+        Reach::Device.note("materials.done") unless offline
         Reach::Debug.sync(summary, began)
         Reach::Debug.flush
         summary
