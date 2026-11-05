@@ -18,6 +18,7 @@ module Reach
     PASSED = "Security validation pass complete. Teach received the made-up submission, and rEach verified its receipt. You can continue to enroll.".freeze
     OWNED = %w[answers.json README.md].freeze
     HARNESSES = %w[claude-code codex antigravity hermes].freeze
+    CLAUDE_CODE_LABELS = %w[claude-desktop claude-cowork claude-agent-sdk].freeze
     MAX_INPUT = 128 * 1024
 
     module_function
@@ -102,7 +103,7 @@ end
     def harness(value = nil)
       label = value.to_s.empty? ? Reach::HarnessIdentity.detect["label"] : value.to_s
       label = "codex" if label.to_s.start_with?("codex-")
-      label = "claude-code" if label.to_s.start_with?("claude-code-")
+      label = "claude-code" if label.to_s.start_with?("claude-code-") || CLAUDE_CODE_LABELS.include?(label)
       raise Reach::Refused, blocked("harness_label:#{harness_cause(label)}") unless HARNESSES.include?(label)
 
       label

@@ -141,6 +141,8 @@ The provided harness agent fills the practice answer shapes with fabricated data
 
 Since 0.68.8 a course code Teach refuses as unknown or expired gets the enrollment code messages, with Teach's hint, instead of the impersonation warning; the pass stays blocked until a correct code starts a new one. Build: ✅ on main. Deploy: 🔵 pending the operator's promotion to stable and students updating. Verified 2026-11-04 through `Reach::Validation.start` and `failure` with a stubbed Teach reply: all six refusal cases carried the warning before, and only the unrelated refusal after. A real rEach client against a live Teach was not driven.
 
+Since 0.68.9 the pass opens in Claude Desktop, Claude Cowork, and the Claude Agent SDK, whose detected labels were refused before any request, and course code hints are shown only when they have the shape of a course id. Build: ✅ on main. Deploy: 🔵 pending Teach 0.121.3 on stable first, then the operator's promotion of rEach to stable and students updating. Verified 2026-11-05 through `reach enroll` with a stubbed Teach reply: those labels sent no request and printed the warning before, and open the pass as `claude-code` after. None of these apps was driven for real.
+
 Student-first audit:
 
 - Learning: yes; fabrication is confined to practice work and supplies no real assignment answers.

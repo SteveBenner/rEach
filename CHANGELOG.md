@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.9] - 2026-11-05
+
+### Fixed
+
+- The security validation pass opens in Claude Desktop, Claude Cowork, and the Claude Agent SDK. `Reach::Validation.harness` refused the labels it detected there before sending anything, so `reach enroll` without `--harness` printed the connection warning with no cause and no request reached Teach. These labels now count as `claude-code`. Enrollment from these apps also needs Teach 0.121.3, which accepts them at the enrollment boundary.
+- Course code refusals show Teach's `did_you_mean` and `course_only` hints only when they have the shape of a course id, so a server's reply cannot place other text in what the agent relays.
+
 ## [0.68.8] - 2026-11-04
 
 ### Fixed

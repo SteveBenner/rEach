@@ -17,6 +17,7 @@ driver:
   cli: reach validate
   mcp: reach_validate
   harnesses: [claude-code, codex, antigravity, hermes]
+  claude_code_labels: [claude-desktop, claude-cowork, claude-agent-sdk]
   student_action: None beyond the host's normal tool approvals; never ask the student for practice answers.
   phases: [handoff, plan, build, checked, qualified, received, passed, consumed]
   restart: Creates a fresh session; retains old practice files for diagnostics.
@@ -97,8 +98,9 @@ failure:
     course_code, harness_label, input, state) names its cause, says nothing
     was sent to Teach and states the input limits; it still blocks the pass.
     Teach's course_code_unknown and course_code_expired use the enrollment
-    course code messages, with any did_you_mean or course_only hint and no
-    impersonation warning; they also block the pass.
+    course code messages, with any did_you_mean or course_only hint that has
+    the shape of a course id and no impersonation warning; they also block the
+    pass.
     Every other failure uses the text above with its cause appended.
   kill_switches: [REACH_VALIDATION_DISABLE=1, a matching switch on the course server]
   safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.
