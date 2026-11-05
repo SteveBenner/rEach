@@ -106,7 +106,13 @@ failure:
     course code messages, with any did_you_mean or course_only hint that has
     the shape of a course id and no impersonation warning; they also block the
     pass.
-    Every other failure uses the text above with its cause appended.
+    Any other refusal from Teach says in rEach's own words what Teach refused,
+    names its cause as teach:CODE, and never relays the server's message text;
+    it blocks the pass and tells the student to contact the instructor, without
+    the impersonation warning. Every other failure, including connection,
+    certificate, reply, and receipt failures, uses the text above with its cause
+    appended. Apart from the course code messages, no failure text omits its
+    cause.
   kill_switches: [REACH_VALIDATION_DISABLE=1, a matching switch on the course server]
   safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.
 trust_limit: A successful practice receipt does not prove that a local executable or computer is uncompromised.

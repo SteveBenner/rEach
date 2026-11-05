@@ -656,7 +656,7 @@ module Reach
         1
       rescue Reach::NetworkError => e
         Reach::Debug.note(e)
-        warn Reach::Validation::BLOCKED
+        warn Reach::Validation.failure_text(e)
         1
       end
 
@@ -697,8 +697,8 @@ module Reach
           begin
             puts JSON.pretty_generate(Reach::Validation.locked { Reach::Validation.start(course_code: parsed["code"], harness: options[:harness]) })
           rescue StandardError => e
-            Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
-            warn Reach::Validation::BLOCKED
+            Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name, "cause" => Reach::Validation.cause_of(e))
+            warn Reach::Validation.failure_text(e)
             return 1
           end
           return 2

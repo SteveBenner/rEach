@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.14] - 2026-11-05
+
+### Fixed
+
+- Every security validation failure names its cause. `lib/reach/enroll_flow.rb` and `reach enroll` in `lib/reach/cli.rb` printed the connection warning with no cause, so a local refusal, a server refusal, and a real connection failure looked the same. `reach validate status` with the kill switch on now says `disabled`.
+- A Teach refusal during the pass no longer shows the impersonation warning. `Reach::Validation.failure_text` says in rEach's own words what Teach refused and gives the cause as `teach:CODE`, and never relays the server's message text. Connection, certificate, reply, and receipt failures keep the warning.
+- A course passkey refused when the pass starts returns enrollment to asking for the passkey. The message told the student to type it again, but the flow ignored what they typed.
+- The enrollment context tells the agent to relay the text a failed step returned, with its cause, instead of a fixed warning.
+
 ## [0.68.13] - 2026-11-05
 
 ### Fixed

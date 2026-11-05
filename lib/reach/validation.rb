@@ -30,24 +30,43 @@ module Reach
 LOCAL_CAUSES = %w[busy course_code harness_label input state].freeze
 COURSE_CODE_REFUSALS = %w[course_code_unknown course_code_expired].freeze
 INPUT_LIMITS = "plan text 10-400 characters; answers, answers.json and README.md up to 128 KB each".freeze
+TEACH_REFUSALS = {
+  "invalid_request" => "Teach couldn't accept this practice step.",
+  "unauthenticated" => "Teach couldn't match this step to the pass it started.",
+  "forbidden" => "Teach says this pass has expired or has already been used.",
+  "not_found" => "Teach no longer has this pass.",
+  "conflict" => "This pass no longer matches what Teach has on record.",
+  "not_qualified" => "Teach hasn't qualified the practice work yet."
+}.freeze
+TEACH_REFUSAL_DEFAULT = "Teach refused this step.".freeze
 
-# The cause a refusal carries, or nil when it is not a blocked() refusal.
 def cause_of(error)
+  return "teach:#{error.code.to_s.downcase.gsub(/[^a-z0-9_]/, '')[0, 48]}" if error.is_a?(Reach::RemoteRefused)
+  return "network:#{network_cause(error)}" if error.is_a?(Reach::NetworkError)
+
   error.message.to_s[/\(cause: ([^)]*)\)\z/, 1]
 end
 
-# What the agent is told when a step fails. Only connection, server-reply
-# and address failures keep the impersonation warning; a step refused on
-# this computer says so, names its cause, and sent nothing to Teach.
+def course_code_refusal?(error)
+  error.is_a?(Reach::RemoteRefused) && COURSE_CODE_REFUSALS.include?(error.code)
+end
+
+def teach_refusal_text(error, cause)
+  reason = TEACH_REFUSALS.fetch(error.code.to_s, TEACH_REFUSAL_DEFAULT)
+  "#{reason} The security validation pass stays blocked. Please wait and contact your instructor through the contact details you already have before continuing to enroll. (cause: #{cause})"
+end
+
 def failure_text(error)
   cause = cause_of(error)
   if cause && LOCAL_CAUSES.include?(cause.split(":").first)
     hint = cause == "input" ? " Limits: #{INPUT_LIMITS}." : ""
     "This practice step was refused on this computer (cause: #{cause}). Nothing was sent to Teach. Correct the step and run it again.#{hint}"
+  elsif course_code_refusal?(error)
+    Reach::EnrollFlow.refusal_text(error)
+  elsif error.is_a?(Reach::RemoteRefused)
+    teach_refusal_text(error, cause)
   elsif cause
     blocked(cause)
-  elsif error.is_a?(Reach::RemoteRefused) && COURSE_CODE_REFUSALS.include?(error.code)
-    Reach::EnrollFlow.refusal_text(error)
   elsif error.is_a?(Reach::Refused) && error.message.to_s.start_with?("reach:")
     error.message.to_s
   else
@@ -182,7 +201,7 @@ end
     end
 
     def status
-      return { "phase" => "blocked", "text" => BLOCKED } if ENV["REACH_VALIDATION_DISABLE"] == "1"
+      return { "phase" => "blocked", "text" => blocked("disabled"), "cause" => "disabled" } if ENV["REACH_VALIDATION_DISABLE"] == "1"
       state = read
       return { "phase" => "required", "text" => ANNOUNCE, "next" => "Run reach validate --course-code COURSE_CODE --harness YOUR_HARNESS before asking for identity or a password." } unless fresh?(state)
       verify_receipt!(state, state["receipt"]) if state["phase"] == "passed"

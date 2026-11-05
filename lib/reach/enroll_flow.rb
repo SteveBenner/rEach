@@ -118,8 +118,8 @@ module Reach
         unless Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness)
           begin
             Reach::Validation.locked { Reach::Validation.start(course_code: flow["code"], harness: harness) }
-          rescue StandardError
-            return block(Reach::Validation::BLOCKED)
+          rescue StandardError => e
+            return validation_start_failed(flow, e)
           end
         end
         if Reach::Validation.fresh?(validation, course_code: flow["code"], harness: harness) && validation["phase"] == "passed"
@@ -141,7 +141,8 @@ module Reach
                 when "awaiting_password_again" then step_password_again(flow, text, now, harness)
                 else step_code(flow, text, harness)
                 end
-      return validation_context if read_flow && read_flow["state"] == "awaiting_validation" && message != Reach::Validation::BLOCKED
+      return message if message.is_a?(Hash)
+      return validation_context if read_flow && read_flow["state"] == "awaiting_validation"
 
       block(message)
     end
@@ -165,9 +166,9 @@ module Reach
         body = Reach::Enroll.preview(parsed["code"], url)
       rescue Reach::RemoteRefused => e
         return refusal_text(e)
-      rescue Reach::NetworkError
+      rescue Reach::NetworkError => e
         write_flow(flow.merge("pending_code" => parsed["code"], "updated_at" => iso(Time.now.utc)))
-        return Reach::Validation::BLOCKED
+        return Reach::Validation.failure_text(e)
       rescue Reach::Error => e
         return Reach::Messages.text("M-ENR-FAILED", reason: reason_text(e))
       end
@@ -188,15 +189,20 @@ module Reach
       begin
         Reach::Validation.locked { Reach::Validation.start(course_code: parsed["code"], harness: harness) }
       rescue StandardError => e
-        Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name)
-        return Reach::Validation::BLOCKED
+        return validation_start_failed(next_flow, e)
       end
       Reach::Progress.mark("enroll.code")
       Reach::Validation::ANNOUNCE
     end
 
+    def validation_start_failed(flow, error)
+      Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => error.class.name, "cause" => Reach::Validation.cause_of(error))
+      write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"]))) if Reach::Validation.course_code_refusal?(error)
+      block(Reach::Validation.failure_text(error))
+    end
+
     def validation_context
-      { "action" => "context", "message" => "#{Reach::Validation::ANNOUNCE}\nRun the security validation pass now using the student's current harness. Call reach validate status (or reach_validate), follow every returned next step with fabricated data only, and relay the final text verbatim. Do not ask for identity or a password until phase passed. If any step cannot complete, relay this message and stop enrollment: #{Reach::Validation::BLOCKED}" }
+      { "action" => "context", "message" => "#{Reach::Validation::ANNOUNCE}\nRun the security validation pass now using the student's current harness. Call reach validate status (or reach_validate), follow every returned next step with fabricated data only, and relay the final text verbatim. Do not ask for identity or a password until phase passed. If any step cannot complete, relay the text it returned, with its cause, and stop enrollment." }
     end
 
     def validation_completed!
