@@ -139,6 +139,8 @@ Build: ✅ on main (0.61.0, not promoted); the in-process scratch walkthrough ra
 
 The provided harness agent fills the practice answer shapes with fabricated data, plans and builds the practice artifacts, runs native local checks and checkpoint, asks Teach to qualify and receive the sealed package, fetches its signed receipt, and relays the verified result. Both enrollment boundaries require the fresh course, key, harness, version, challenge, and receipt binding. Failures tell the student to wait and contact the instructor through independently known details; a connection problem or impersonation is possible. This smoke uses a practice data assignment; it does not run a student's application, browser scenarios, protected scenarios, or grading.
 
+Since 0.68.8 a course code Teach refuses as unknown or expired gets the enrollment code messages, with Teach's hint, instead of the impersonation warning; the pass stays blocked until a correct code starts a new one. Build: ✅ on main. Deploy: 🔵 pending the operator's promotion to stable and students updating. Verified 2026-11-04 through `Reach::Validation.start` and `failure` with a stubbed Teach reply: all six refusal cases carried the warning before, and only the unrelated refusal after. A real rEach client against a live Teach was not driven.
+
 Student-first audit:
 
 - Learning: yes; fabrication is confined to practice work and supplies no real assignment answers.

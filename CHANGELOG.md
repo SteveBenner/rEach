@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.8] - 2026-11-04
+
+### Fixed
+
+- A wrong or expired course code in `reach validate` no longer warns that rEach or Teach may be impersonated. Teach's `course_code_unknown` and `course_code_expired` on `POST /api/v1/validation` fell through to the blocked text with `cause: error:reach_remoterefused` and lost Teach's hint; `Reach::Validation.failure_text` now gives the enrollment messages, including `did_you_mean` and `course_only`. Every other refusal keeps the blocked text. `agents/reach.md` and `specs/security-validation.yml` say so.
+
 ## [0.68.7] - 2026-11-03
 
 ### Added

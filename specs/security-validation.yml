@@ -96,6 +96,9 @@ failure:
     A step refused on this computer before any request (causes busy,
     course_code, harness_label, input, state) names its cause, says nothing
     was sent to Teach and states the input limits; it still blocks the pass.
+    Teach's course_code_unknown and course_code_expired use the enrollment
+    course code messages, with any did_you_mean or course_only hint and no
+    impersonation warning; they also block the pass.
     Every other failure uses the text above with its cause appended.
   kill_switches: [REACH_VALIDATION_DISABLE=1, a matching switch on the course server]
   safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.

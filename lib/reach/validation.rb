@@ -27,6 +27,7 @@ module Reach
     end
 
 LOCAL_CAUSES = %w[busy course_code harness_label input state].freeze
+COURSE_CODE_REFUSALS = %w[course_code_unknown course_code_expired].freeze
 INPUT_LIMITS = "plan text 10-400 characters; answers, answers.json and README.md up to 128 KB each".freeze
 
 # The cause a refusal carries, or nil when it is not a blocked() refusal.
@@ -44,6 +45,8 @@ def failure_text(error)
     "This practice step was refused on this computer (cause: #{cause}). Nothing was sent to Teach. Correct the step and run it again.#{hint}"
   elsif cause
     blocked(cause)
+  elsif error.is_a?(Reach::RemoteRefused) && COURSE_CODE_REFUSALS.include?(error.code)
+    Reach::EnrollFlow.refusal_text(error)
   elsif error.is_a?(Reach::Refused) && error.message.to_s.start_with?("reach:")
     error.message.to_s
   else
