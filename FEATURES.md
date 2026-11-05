@@ -448,7 +448,7 @@ had been a PowerShell parse error that left Windows Codex students with no gates
 form through powershell.exe and pwsh.exe.
 Since 0.68.13 `pwd` passes at the course root with the other read-only commands, where it was refused as `M-SHELL-BLOCKED`
 and sent an assistant reporting a fault. Run against `Gate.check_root_segment!` only: `pwd` and `pwd -P` pass, and
-`pwd > out.txt`, `git status`, `rm`, and `curl` stay refused. Deploy: 🔵 on test once promoted, stable is the operator's.
+`pwd > out.txt`, `git status`, `rm`, and `curl` stay refused. Deploy: 🔵 on test since v0.68.13, stable is the operator's.
 Since 0.64.5 the Codex shell gate judges a command as PowerShell on a Windows host, and on any host when every segment
 starts with a modeled Verb-Noun cmdlet, so a Windows Codex student's `Get-Content`, `Get-ChildItem` and `Select-String`
 reads are no longer refused as `M-SHELL-UNMODELED`, and `Select-Object -First N` or `-Last N` passes as `head` or `tail`
@@ -757,7 +757,7 @@ Build ✅ · Deploy 🔵 · Blocker: -
 
 Since 0.12.0 `reach part` lists the questions only the student can answer, `reach part record` takes their typed words verbatim, and `reach submit` refuses until all are answered and sends `part.json`. Since 2026-10-03 the prompt hook keeps only the latest long enough prompt in `~/.reach/state/part/pending.json`, `reach part record` takes it and deletes it, and the answer carries no session or seq; Teach stores answers as sent and checks nothing against a conversation. In the 0.12.0 smoke, submit was refused without the part and four answers were recorded. Re-verified 2026-10-01: a two-word answer was refused as too short, and in live sessions Haiku and Sonnet coached the own part on process only, without candidate answers.
 
-Since 0.68.13 an answer under the smallest question minimum is reported as too short (`M-PART-TOO-SHORT`, with the word count and the minimum) instead of as no answer. The prompt hook used to drop it without a trace, so a student who had answered was told none was found. It now keeps the word count, time, student id, space kind, and cutout id in `~/.reach/state/part/short.json` (0600), never the text. Build: ✅ on main. Deploy: 🔵 on test once promoted, then the operator's promotion to stable and students updating. Verified 2026-11-05 by driving `Reach::Part` directly on a scratch home with the policy, login, and ledger stubbed: short at the root and in a slice, a longer minimum, a long answer followed by a short message (recorded), a bare yes (no note), and an old, foreign, damaged, or other-assignment note (ignored). Not run in a live harness.
+Since 0.68.13 an answer under the smallest question minimum is reported as too short (`M-PART-TOO-SHORT`, with the word count and the minimum) instead of as no answer. The prompt hook used to drop it without a trace, so a student who had answered was told none was found. It now keeps the word count, time, student id, space kind, and cutout id in `~/.reach/state/part/short.json` (0600), never the text. Build: ✅ on main. Deploy: 🔵 on test since v0.68.13, then the operator's promotion to stable and students updating. Verified 2026-11-05 by driving `Reach::Part` directly on a scratch home with the policy, login, and ledger stubbed: short at the root and in a slice, a longer minimum, a long answer followed by a short message (recorded), a bare yes (no note), and an old, foreign, damaged, or other-assignment note (ignored). Not run in a live harness.
 
 Build ✅ · Deploy 🔵 · Blocker: -
 
