@@ -1749,6 +1749,56 @@ subscription:
   cli: >-
     reach subscribe status [--format text|json], tick --source session|background, install, uninstall (and ensure, the
     detached entry). subscribe is an unlocked command. reach doctor prints R-DOC-SUBSCRIBE, informational only.
+device:
+  standard: STD-DEVICE
+  since: 0.69.0
+  wire: W-AUTH-10, W-API-DEVICE-REPORT, W-DEVICE-ID, W-DEVICE-1 to W-DEVICE-5, W-SAFE-17
+  summary: >-
+    An identity for this computer account, above enrollment, so a copy of rEach is visible on Teach from the moment it
+    installs and an instructor can reach it before any enrollment and at any point after. It does not replace an
+    install, and it proves nothing about a student.
+  module: Reach::Device (lib/reach/device.rb), with a small copy of its first steps in scripts/reach-install
+  state: >-
+    In the folder that holds the seal (Reach::Sidecar.path): device.json, device.pem (0600), device-outbox.json,
+    device-state.json and device-drain.lock. A persona has no device. A corrupt device.json is renamed with a .bad
+    suffix and a new identity is made.
+  settings: >-
+    config.yml device: {enabled: true, live_without_yes: true}. REACH_DEVICE_DISABLE=1 and device.enabled false stop
+    everything. REACH_OFFLINE=1 and a Codex sandbox that blocks the network stop the sending and keep the outbox.
+  hooks: >-
+    Device.note and Device.note_problem are the only calls a hook makes. Each writes one small file and spawns one
+    detached drain at most once per checkpoint, never creates a key, never calls the network and never raises.
+  drain: >-
+    One drain at a time under device-drain.lock. It creates the identity when missing, backfills once for a copy that
+    had no installer run, and sends one report through Client.for_device (connect 3 s, read 8 s, no retries, bucket
+    device of 6 a minute). A 200 removes what was sent and stores next_s, stop and live, and live starts the live
+    runner. A 404 or disabled true waits one hour. Any other failure sets retry_at to a random wait up to the smaller of
+    one hour and 60 seconds doubled per failure, which a new checkpoint does not shorten. The next_at check has a
+    30-second margin so a job at the same pace does not skip every other run. A device request never changes link.json.
+  checkpoints: >-
+    Installer: install.started, install.downloaded, install.installed. Reach::Setup: setup.started, setup.done. Hello:
+    session.first. The two prompt hooks: prompt.first. Reach::EnrollFlow: validation.started, validation.passed.
+    Reach::Progress.mark: enroll.code, signin.done. EnrollOutbox.push_step!: enroll.username, enroll.student_id,
+    enroll.confirmed, enroll.password_chosen. Progress.enrolled!: enroll.done with the install link. Reach::Sync:
+    materials.done. Progress.assignment_started: assignment.first. Reach::Uninstall: uninstall.done. A failure id from
+    Reach::SetupLog::FAILURE_IDS is sent as the problem, and the installer and setup send INSTALL-DOWNLOAD,
+    INSTALL-UNPACK and SETUP-FAILED.
+  job: >-
+    Reach::Subscribe.ensure! installs the user-level job when the install is enrolled or Device.job_wanted? is true, the
+    latter until stop or 30 days with no new checkpoint. Device.fast_cadence? gives 300 seconds or the configured
+    interval if that is shorter, for the first 72 hours of a device with no install. Subscribe.tick calls Device.tick
+    before it looks at enrollment.
+  commands: >-
+    reach device prints the installation code and the local stage, and works before enrollment. reach status and reach
+    doctor name the code. reach uninstall sends uninstall.done, stops the job, and keeps the identity unless
+    --purge-checkpoint-mirror is given.
+  check_sessions: >-
+    See STD-LIVE-CHECKS and W-LIVE-11. Reach::Live uses the install when enrolled and the device otherwise, chosen per
+    poll so a student who enrolls during a session moves to the install key. reach live and reach status work before
+    enrollment, and reach_live is an unlocked tool. On an enrollment-locked prompt Live.enroll_prompt runs before
+    EnrollFlow, and a captured answer never reaches EnrollFlow. reach live yes and reach live no answer from a terminal
+    and refuse without a terminal or under a harness. READ_ONLY_ACTIONS are doctor, status, update_check and
+    sandbox_probe.
 client_safety:
   applies_to: Every call from Reach to Teach.
   version_header: Since 0.21.0 every signed request carries X-Reach-Version (W-AUTH-7, STD-VERSION-REPORT), set in Reach::Client#sign! beside the X-Teach-* headers.

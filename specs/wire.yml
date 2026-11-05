@@ -1662,7 +1662,7 @@ routes:
       reach_version: string
       origin: {type: string, enum: [installer, setup, session, background]}
       os: {type: string, enum: [macos, windows, linux]}
-      os_release: {type: string, required: false, note: "the version number only, at most 64 bytes"}
+      os_release: {type: string, required: false, note: "as X-Reach-Env names it, for example Ubuntu 24.04, at most 64 bytes"}
       arch: {type: string, required: false, note: "at most 64 bytes"}
       ruby: {type: string, required: false, note: "at most 64 bytes"}
       harness: {type: string, required: false, note: "as X-Reach-Env names it, at most 64 bytes"}
