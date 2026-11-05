@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.18] - 2026-11-05
+
+### Fixed
+
+- The learner reply check also flags a terminal handoff that names the command first, after a colon, or in the next sentence. Coverage of a handoff written in other words stays advisory, as `GL-NOTERM` states.
+- `M-ENR-PASSWORD-TERMINAL` promises only what the terminal does: the password stays hidden as the student types and stays out of the chat.
+
 ## [0.68.17] - 2026-11-05
 
 ### Fixed

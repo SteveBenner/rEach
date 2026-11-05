@@ -15,7 +15,9 @@ module Reach
     DETECTOR_IDS = %w[GL-CODE GL-NOTERM GL-DETAIL].freeze
     OPCODES = { "GL-CODE" => "GLCODE", "GL-NOTERM" => "GLTERM", "GL-DETAIL" => "GLDETAIL", "GL-SCOPE" => "GLSCOPE", "GL-PLAIN" => "GLPLAIN", "GL-OPEN" => "GLOPEN" }.freeze
     REACH_COMMAND_HANDOFF = /\b(?:run|execute|type|paste|enter)\s+(?:the\s+)?`?reach\s+[a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*)?/i.freeze
-    TERMINAL_HANDOFF = /\b(?:terminal|powershell|command prompt|command line)\b[^.!?;\n]*?\b(?:(?:run|execute)\s+[`"']?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-]|(?:paste|type|enter)\s+(?:[`"']|[\w~\/\\$-]+\s+-))/i.freeze
+    TERMINAL_HANDOFF = /\b(?:terminal|powershell|command prompt|command line)\b(?:[^\n]*?\b(?:run|execute)\s+[`"']?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-]|[^.!?;\n]*?\b(?:paste|type|enter)\s+(?:[`"']|[\w~\/\\$-]+\s+-))/i.freeze
+    TERMINAL_RUN_TRAILING = /\b(?:run|execute)\s+[`"']?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-][^.!?;\n]*?\b(?:in|into)\s+(?:your\s+|the\s+|a\s+)?(?:terminal|powershell|command prompt|command line)\b/i.freeze
+    TERMINAL_COLON = /\b(?:run|execute|paste|type|enter)\b[^.!?;\n]*?\b(?:terminal|powershell|command prompt|command line)\b[^.!?;\n]*?:\s*[`"']?[\w~\/\\$&-]/i.freeze
     BARE_REACH = "(?<![\\w-])reach".freeze
     FALLBACK_MARK = "\u2063".freeze
     FALLBACK_FENCE = /```[^\n]*\n\s*#{FALLBACK_MARK}\s*```/.freeze
@@ -138,7 +140,7 @@ module Reach
       Timeout.timeout(0.05) do
         text = text.gsub(fallback, FALLBACK_MARK).gsub(FALLBACK_FENCE, FALLBACK_MARK)
         found = DETECTOR_IDS.select { |id| detectors.fetch(id).any? { |pattern| pattern.match?(text) } }
-        found << "GL-NOTERM" if !found.include?("GL-NOTERM") && (REACH_COMMAND_HANDOFF.match?(text) || TERMINAL_HANDOFF.match?(text))
+        found << "GL-NOTERM" if !found.include?("GL-NOTERM") && [REACH_COMMAND_HANDOFF, TERMINAL_HANDOFF, TERMINAL_RUN_TRAILING, TERMINAL_COLON].any? { |pattern| pattern.match?(text) }
         found
       end
     rescue Timeout::Error
