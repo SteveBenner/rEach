@@ -634,6 +634,8 @@ module Reach
           state = read_state
           state["reached"] = {}
           state["problem"] = nil
+          state["linked_install"] = nil
+          state["linked_attempt"] = nil
           write_state(state)
         end
         nil
