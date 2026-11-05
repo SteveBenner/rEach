@@ -494,7 +494,7 @@ module Reach
       }
     ].freeze
 
-    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_update reach_setup reach_transcripts].freeze
+    UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_update reach_setup reach_transcripts reach_live].freeze
     READ_ONLY_TOOLS = %w[
       reach_status reach_receipts reach_shape_check reach_check reach_hand_status reach_profile_show reach_enroll
       reach_directive reach_reference reach_passes_packet reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements reach_feedback_list

@@ -179,6 +179,7 @@ module Reach
     end
 
     def prompt(event: {}, harness: nil, claimed: false)
+      Reach::Device.note("prompt.first")
       event = {} unless event.is_a?(Hash)
       if !claimed && Reach::Instructor.attempt?(event["prompt"])
         attempt = Reach::EnrollFlow.instructor_decision(event, event["prompt"], Reach::EnrollmentLock.state, harness, "prompt")
@@ -317,6 +318,7 @@ module Reach
       end
       context << framed("notice.consent", safely { Reach::Consent.relay!(session) }) unless observed
       context.concat(Array(framed("notice.live", safely { Reach::Live.prompt_notices(session) })))
+      context << framed("notice.live", safely { Reach::Device.pending_notice })
       context.concat(Array(safely { Reach::Controls.context_blocks("notice.control") }))
       context.concat(Array(safely { Reach::ExamMode.context_blocks("notice.test") }))
       if space

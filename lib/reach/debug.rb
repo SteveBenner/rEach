@@ -154,10 +154,21 @@ module Reach
       status = Reach::Sync.cached_status
       requested = status.is_a?(Hash) ? status["debug"] : nil
       return "remote" if requested.is_a?(Hash) && requested["requested"] == true && future?(requested["until"])
+      return "remote" if device_stream_until
 
       nil
     rescue StandardError
       nil
+    end
+
+    def device_stream_until
+      return nil unless Reach::Enroll.current.nil?
+
+      current = Reach::Live.session
+      return nil unless Reach::Live.open?(current) && current["checks_only"] != true && Reach::Device.identity
+      return nil unless future?(current["expires_at"])
+
+      current["expires_at"]
     end
 
     def until_value
@@ -167,7 +178,7 @@ module Reach
         switch && switch["until"]
       when "remote"
         status = Reach::Sync.cached_status
-        status && status["debug"].is_a?(Hash) ? status["debug"]["until"] : nil
+        status && status["debug"].is_a?(Hash) && status["debug"]["requested"] == true ? status["debug"]["until"] : device_stream_until
       end
     rescue StandardError
       nil
@@ -965,8 +976,9 @@ module Reach
       rescue StandardError
         nil
       end
-      return stopped(empty, "not_enrolled") unless install
-      return stopped(empty, "revoked") if install["revoked"]
+      device = install.nil? && device_stream_until ? Reach::Device.identity : nil
+      return stopped(empty, "not_enrolled") unless install || device
+      return stopped(empty, "revoked") if install && install["revoked"]
       return stopped(empty, "offline") if ENV["REACH_OFFLINE"] == "1"
 
       result = empty
@@ -978,7 +990,7 @@ module Reach
 
         Thread.current[:reach_debug_busy] = true
         begin
-          result = run_flush(install, quick)
+          result = run_flush(install || device, quick)
         ensure
           Thread.current[:reach_debug_busy] = false
           handle.flock(File::LOCK_UN)
@@ -996,7 +1008,7 @@ module Reach
         return stopped(summary, "backoff") if backoff > Time.now.to_f
       end
 
-      client = Reach::Client.for_install(install, quick: quick)
+      client = install.key?("install_id") ? Reach::Client.for_install(install, quick: quick) : Reach::Client.for_device(install, bucket: "live", quiet: true)
       limit = quick ? QUICK_MAX_BATCHES : FULL_MAX_BATCHES
       pending_batches.each do |batch|
         if summary["batches"] >= limit

@@ -194,6 +194,21 @@ module Reach
       record.merge("subject" => pending["subject"], "replay" => pending["replay"] || {})
     end
 
+    def record_terminal!(kind:, subject:, message_id:, answer:, text:)
+      now = Time.now.utc
+      target = digest(subject)
+      record = {
+        "kind" => kind.to_s, "subject_digest" => target, "message_id" => message_id.to_s, "answer" => answer,
+        "session_id" => "terminal", "seq" => nil, "digest" => Reach::Crypto.digest_hex(text.to_s),
+        "asked_at" => iso(now), "answered_at" => iso(now), "used_at" => nil, "student_id" => Reach::Login.enrolled_id
+      }
+      FileUtils.mkdir_p(dir)
+      File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
+      pending = Reach::Login.read_json(pending_path)
+      FileUtils.rm_f(pending_path) if pending.is_a?(Hash) && pending["subject_digest"] == target
+      record.merge("subject" => subject, "replay" => {})
+    end
+
     TRANSCRIPT_TAIL_BYTES = 2_000_000
 
     def question_shown?(path, question, session_id: nil, asked_at: nil)

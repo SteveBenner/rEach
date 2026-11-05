@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "subscribe", "relocate", "codex", "harness", "transcripts", "uninstall"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "subscribe", "relocate", "codex", "harness", "transcripts", "uninstall", "live", "status", "device"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -408,6 +408,8 @@ module Reach
           cmd_issues(args)
         when "live"
           cmd_live(args)
+        when "device"
+          cmd_device(args)
         when "codex"
           cmd_codex(args)
         when "harness"
@@ -518,7 +520,8 @@ module Reach
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
-            live [status | request [--hand ID] | wait | note TEXT | say TEXT | end]   a live session with your instructors; rEach asks you before anything is run or sent
+            live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | yes | no]   a live session with your instructors; rEach asks you before anything is run or sent, and yes or no answers its question from a terminal
+            device   prints this copy's installation code and how far it has got
             storage [status | measure | compact] [--format text|json]   how much space rEach's memory uses on this computer, and compacting the saved course memory (asks the student first)
             import export PATH --mode brain|copy [--format text|json]   bring a downloaded ChatGPT, Claude or Gemini export (folder or ZIP) into rEach, asking the student first (brain: a catalog and findings; copy: the same plus a full copy on this computer)
             import pick [--folder]               open the operating system's own picker for the export's ZIP (or its folder) and print the chosen path
@@ -696,6 +699,7 @@ module Reach
         begin
           Reach::Validation.enrollment_key!(course_code: parsed["code"], teach_url: teach_url, harness: options[:harness] || "cli")
         rescue Reach::Error
+          Reach::Device.note("validation.started")
           puts Reach::Validation::ANNOUNCE
           begin
             puts JSON.pretty_generate(Reach::Validation.locked { Reach::Validation.start(course_code: parsed["code"], harness: options[:harness]) })
@@ -1289,6 +1293,7 @@ module Reach
           end
           raise Reach::GateBlocked.new("M-PERSONA-LOCKED", text)
         end
+        Reach::Device.note("prompt.first")
         flow_state = enroll_flow_state
         Reach::SetupLog.record("enroll_prompt", "prompt" => event["prompt"], "state" => flow_state, "harness" => harness_id)
         toggled = gate_debug_toggle(event, flow_state)
@@ -1300,6 +1305,15 @@ module Reach
           end
           raise Reach::GateBlocked.new("M-DEBUG-RELAY", reply)
         end
+        live = Reach::Live.enroll_prompt(event)
+        if live && live["consumed"]
+          if hermes
+            puts JSON.generate("context" => live["text"])
+            return 0
+          end
+          raise Reach::GateBlocked.new("M-LIVE-CHECKS-ANSWERED", live["text"])
+        end
+        live_text = live && live["text"]
         wrong_folder = hermes ? nil : Reach::Gate.codex_wrong_folder_text(event, harness_id)
         raise Reach::GateBlocked.new("M-CODEX-WRONG-FOLDER", wrong_folder) if wrong_folder
 
@@ -1313,7 +1327,7 @@ module Reach
         decision, signed_in, satisfied = enroll_login(event, harness_id) if decision.nil? && !hermes
         if decision.nil?
           setup = hermes || signed_in ? nil : codex_setup_answer(event)
-          notice = [Reach::EnrollFlow.consume_notice(harness_id), signed_in, setup].compact.join("\n\n")
+          notice = [Reach::EnrollFlow.consume_notice(harness_id), signed_in, setup, live_text].compact.join("\n\n")
           notice = nil if notice.empty?
           if Reach::Instructor.mode?
             session = Reach::Session.resolve_session_id(event)
@@ -1342,6 +1356,7 @@ module Reach
         end
 
         message = decision["message"]
+        message = "#{message}\n\n#{live_text}" if live_text
         if decision["action"] == "context"
           if hermes
             puts JSON.generate("context" => message)
@@ -3465,10 +3480,26 @@ module Reach
         when "end"
           puts Reach::Live.end!["message"]
           0
+        when "yes", "no"
+          Reach::Live.terminal_answer!(sub)
         else
-          warn "usage: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end]"
+          warn "usage: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | yes | no]"
           1
         end
+      end
+
+      def cmd_device(args)
+        unless args.empty?
+          warn "usage: reach device"
+          return 1
+        end
+
+        line = Reach::Device.code_line
+        stage = Reach::Device.local_stage
+        puts line if line
+        puts "stage: #{stage}" if stage
+        puts "device: not created yet" unless line || stage
+        0
       end
 
       def cmd_support(args)

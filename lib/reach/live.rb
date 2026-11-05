@@ -24,6 +24,7 @@ module Reach
       "resend" => [%w[issues flush], %w[debug flush]]
     }.freeze
     ACTIONS = (COMMANDS.keys + %w[cache_repair codex_configure sandbox_probe]).freeze
+    READ_ONLY_ACTIONS = %w[doctor status update_check sandbox_probe].freeze
     ACTION_TEXT = {
       "doctor" => "run rEach's self-check (reach doctor)",
       "status" => "look at rEach's status (reach status)",
@@ -125,6 +126,14 @@ module Reach
       nil
     end
 
+    def device_principal
+      Reach::Device.enabled? ? Reach::Device.identity : nil
+    end
+
+    def identity
+      install || device_principal
+    end
+
     def now
       Time.now.utc
     end
@@ -176,12 +185,14 @@ module Reach
       File.exist?(runner_lock_file) && !Reach::Locks.free?(runner_lock_file)
     end
 
-    def client
-      Reach::Client.for_install(install, bucket: "live", quiet: true)
+    def client(who = identity)
+      return Reach::Client.for_install(who, bucket: "live", quiet: true) if who.key?("install_id")
+
+      Reach::Client.for_device(who, bucket: "live", quiet: true)
     end
 
     def spawn_runner
-      return nil unless enabled? && install
+      return nil unless enabled? && identity
       return nil if runner_alive?
 
       Reach::Storage.spawn_detached(%w[live run --background])
@@ -197,13 +208,13 @@ module Reach
       nil
     end
 
-    def off!
+    def off!(install_only: false)
       raise Reach::Refused, Reach::Messages.text("M-LIVE-OFF") unless enabled?
-      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install
+      raise Reach::Refused, Reach::Messages.text("M-GATE-NOENROLL") unless install_only ? install : identity
     end
 
     def ask!(hand_id: nil)
-      off!
+      off!(install_only: true)
       current = session
       return { "state" => current["state"], "message" => status_text(current) } if live?(current)
 
@@ -222,7 +233,7 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-LIVE-DIAG-NEEDS-UNLOCK") unless Reach::Instructor.active?
 
       started = install.nil? ? Reach::Persona.start!(kind: "dummy", username: nil, course_id: course) : nil
-      off!
+      off!(install_only: true)
       current = session
       return { "state" => current["state"], "message" => status_text(current) } if live?(current)
       raise Reach::Refused, Reach::Messages.text("M-LIVE-ASK-BUSY") unless consent_free?(KIND)
@@ -258,7 +269,7 @@ module Reach
     end
 
     def follow_up!(observed)
-      return nil unless enabled? && install
+      return nil unless enabled? && identity
 
       subject = observed["subject"].is_a?(Hash) ? observed["subject"] : {}
       target = subject["live"].to_s
@@ -447,11 +458,15 @@ module Reach
         "message" => state["pending"] && current.nil? ? Reach::Messages.text("M-LIVE-SENDING") : status_text(current),
         "unread" => unread(state).length
       }
+      ran = Array(state["checks_ran"])
+      view["message"] = "#{view['message']}\n#{Reach::Messages.text('M-LIVE-CHECKS-RAN', names: ran.join(', '))}" if current && current["checks_only"] == true && !ran.empty?
       if current
         view["session_id"] = current["id"]
         view["co_debug"] = current["co_debug"] == true
         view["diagnosis"] = diagnosis?(current)
         view["connected"] = current["connected"] == true
+        view["checks_only"] = current["checks_only"] == true
+        view["checks_ran"] = ran
         view["minutes_left"] = (left_s(current).to_i / 60.0).ceil if current["state"] == "open"
       end
       view
@@ -557,7 +572,7 @@ module Reach
     end
 
     def watch!
-      return 0 unless wake? && install && live?
+      return 0 unless wake? && identity && live?
 
       token = SecureRandom.hex(8)
       update { |state| state["watch"] = token }
@@ -596,7 +611,7 @@ module Reach
     end
 
     def blocked_prompt(event)
-      return nil unless blocked? && install
+      return nil unless blocked? && identity
 
       text = event.is_a?(Hash) && event["prompt"].is_a?(String) ? event["prompt"] : ""
       entry = {
@@ -612,7 +627,7 @@ module Reach
         update { |state| state["pending"] = { "type" => "end", "id" => current["id"], "queued_at" => stamp } }
         spawn_runner
         lines << Reach::Messages.text("M-LIVE-ENDING")
-      elsif text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
+      elsif install && text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
         lines << ask!["question"]
       end
       lines.concat(prompt_notices(nil, direct: true))
@@ -622,8 +637,104 @@ module Reach
       nil
     end
 
+    def enroll_prompt(event)
+      return nil unless blocked? && identity
+
+      text = event.is_a?(Hash) && event["prompt"].is_a?(String) ? event["prompt"] : ""
+      entry = {
+        "session_id" => Reach::Session.resolve_session_id(event), "gate" => "blocked", "text" => text, "seq" => nil,
+        "digest" => Digest::SHA256.hexdigest(text), "transcript_path" => event["transcript_path"]
+      }
+      lines = []
+      consumed = false
+      observed = Reach::Consent.observe_blocked(entry, kinds: KINDS)
+      if observed
+        consumed = true
+        lines << Reach::Consent.follow_up!(observed)
+      elsif text.match?(BLOCKED_END) && live?
+        current = session
+        update { |state| state["pending"] = { "type" => "end", "id" => current["id"], "queued_at" => stamp } }
+        spawn_runner
+        consumed = true
+        lines << Reach::Messages.text("M-LIVE-ENDING")
+      elsif install && text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
+        lines << ask!["question"]
+      end
+      lines.concat(prompt_notices(nil, direct: true))
+      lines << Reach::Device.pending_notice
+      lines = lines.compact.map(&:to_s).reject(&:empty?)
+      lines.empty? ? nil : { "text" => lines.join("\n\n"), "consumed" => consumed }
+    rescue StandardError => e
+      Reach::Debug.fault(e, "live:enroll_prompt")
+      nil
+    end
+
+    def terminal_session?
+      $stdin.tty? && $stdout.tty? && Reach::Session.detect_harness == "unknown" && !Reach::Sandbox.active?
+    end
+
+    def terminal_question
+      return nil unless enabled? && identity
+
+      state = read_state
+      current = state["session"].is_a?(Hash) ? state["session"] : nil
+      return nil unless current
+
+      id = current["id"]
+      if current["state"] == "offered"
+        return { kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-OFFER-ASK", text: Reach::Messages.text("M-LIVE-OFFER-ASK") }
+      end
+      return nil unless current["state"] == "open"
+
+      if current["checks_only"] == true && current["yes_requested"] == true
+        return { kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-CHECKS-YES-ASK", text: Reach::Messages.text("M-LIVE-CHECKS-YES-ASK") }
+      end
+      entry = waiting_action(state)
+      return nil unless entry
+
+      what = ACTION_TEXT.fetch(entry["name"], "run something this rEach does not know")
+      {
+        kind: ACTION_KIND, subject: { "live" => id, "action" => entry["id"] }, message_id: "M-LIVE-ACTION-ASK",
+        text: Reach::Messages.text("M-LIVE-ACTION-ASK", what: what), fields: { what: what }
+      }
+    end
+
+    def terminal_answer!(_word = nil)
+      unless terminal_session?
+        puts Reach::Messages.text("M-LIVE-TERM-NOT-TERMINAL")
+        return 1
+      end
+      asked = terminal_question
+      if asked.nil?
+        puts Reach::Messages.text("M-LIVE-TERM-NOTHING")
+        return 0
+      end
+
+      puts asked[:text]
+      print Reach::Messages.text("M-LIVE-TERM-ASK-PROMPT")
+      $stdout.flush
+      line = $stdin.gets.to_s.strip
+      answer = if Reach::Login.yes?(line)
+                 "yes"
+               elsif Reach::Login.no?(line)
+                 "no"
+               end
+      if answer.nil?
+        puts Reach::Messages.text("M-LIVE-TERM-NOTHING-RECORDED")
+        return 1
+      end
+
+      observed = Reach::Consent.record_terminal!(kind: asked[:kind], subject: asked[:subject], message_id: asked[:message_id], answer: answer, text: line)
+      follow_up!(observed)
+      puts Reach::Messages.text("M-LIVE-TERM-DONE", answer: answer)
+      0
+    rescue StandardError => e
+      Reach::Debug.fault(e, "live:terminal_answer")
+      1
+    end
+
     def prompt_notices(_session_id = nil, repeat_action: true, direct: false)
-      return [] unless enabled? && install
+      return [] unless enabled? && identity
 
       state = read_state
       current = state["session"].is_a?(Hash) ? state["session"] : nil
@@ -641,7 +752,8 @@ module Reach
         lines << state["refusal"].to_s
         changes["refusal"] = nil
       end
-      if current
+      quiet = !current.nil? && current["checks_only"] == true && %w[open closed].include?(current["state"]) && Reach::ExamMode.active?
+      if current && !quiet
         id = current["id"]
         case current["state"]
         when "offered"
@@ -656,8 +768,25 @@ module Reach
             opened = current["co_debug"] == true ? "M-LIVE-OPEN-AGENT-CODEBUG" : "M-LIVE-OPEN-AGENT"
             opened = "M-LIVE-DIAG-OPEN-AGENT" if diagnosis?(current)
             student = diagnosis?(current) ? "M-LIVE-DIAG-OPEN-STUDENT" : "M-LIVE-OPEN-STUDENT"
-            lines << Reach::Messages.text(direct ? student : opened, minutes: minutes)
+            if current["checks_only"] == true
+              opened = "M-LIVE-CHECKS-OPEN-AGENT"
+              student = "M-LIVE-CHECKS-OPEN-STUDENT"
+            end
+            lines << Reach::Messages.text(direct ? student : opened, minutes: minutes, command: Reach::Runtime.terminal_command("live", "end"))
             changes["told_open"] = id
+          end
+          ran = Array(state["checks_ran"])
+          if current["checks_only"] == true && ran.length > told["ran"].to_i
+            lines << Reach::Messages.text("M-LIVE-CHECKS-RAN", names: ran.join(", "))
+            changes["told_ran"] = ran.length
+          end
+          if current["checks_only"] == true && current["yes_requested"] == true && state["yes_asked"] != id && consent_free?(KIND)
+            question = Reach::Consent.ask!(kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-CHECKS-YES-ASK")
+            asking = direct ? question : Reach::Messages.text("M-LIVE-OFFER-AGENT", question: question)
+            lines << "#{asking}\n\n#{Reach::Messages.text('M-LIVE-CHECKS-YES-TERMINAL', command: Reach::Runtime.terminal_command('live', 'yes'))}"
+            changes["yes_asked"] = id
+          elsif current["yes_requested"] != true && state["yes_asked"]
+            changes["yes_cleared"] = true
           end
           waiting = unread(state)
           newest = waiting.empty? ? 0 : waiting.last["seq"].to_i
@@ -679,6 +808,8 @@ module Reach
         when "closed"
           if told["closed"] != id && (told["open"] == id || state["offer_asked"] == id || %w[student diagnosis].include?(current["started_by"]))
             lines << Reach::Messages.text("M-LIVE-CLOSED", reason: END_TEXT[current["end_reason"].to_s] || "it ended")
+            ran = Array(state["checks_ran"])
+            lines << Reach::Messages.text("M-LIVE-CHECKS-RAN", names: ran.join(", ")) if current["checks_only"] == true && !ran.empty?
             changes["told_closed"] = id
           end
         end
@@ -691,6 +822,9 @@ module Reach
           fresh["told"]["unread"] = changes["told_unread"] if changes["told_unread"]
           fresh["told"]["closed"] = changes["told_closed"] if changes["told_closed"]
           fresh["told"]["action"] = changes["told_action"] if changes["told_action"]
+          fresh["told"]["ran"] = changes["told_ran"] if changes["told_ran"]
+          fresh["yes_asked"] = changes["yes_asked"] if changes["yes_asked"]
+          fresh.delete("yes_asked") if changes["yes_cleared"]
           fresh["read"] = [fresh["read"].to_i, changes["read"]].max if changes["read"]
         end
       end
@@ -709,6 +843,7 @@ module Reach
         nil
       end
       return update { |state| state["pending"] = nil } if queued.nil? || now - queued > PENDING_MAX_S
+      return update { |state| state["pending"] = nil } if pending["type"] == "request" && install.nil?
 
       response = if pending["type"] == "request" && pending["diagnosis"] == true
                    code = (Reach::Instructor.stored || {})["code"].to_s
@@ -741,6 +876,7 @@ module Reach
       fresh_session = current && (previous.nil? || previous["id"] != current["id"])
       append_inbox(current["id"], messages) if current
       fresh_messages = messages.select { |message| message["seq"].to_i > before["after"].to_i && message["kind"] != "system" }
+      checks_fresh = current && current["state"] == "open" && current["checks_only"] == true
       notify_student(fresh_messages) if current && current["state"] == "open" && !fresh_session && !fresh_messages.empty?
       update do |state|
         if current.nil?
@@ -753,6 +889,9 @@ module Reach
             state["told"]["unread"] = 0
             state["actions"] = []
             state["outgoing"] = nil
+            state["checks_ran"] = []
+            state["told"]["ran"] = 0
+            state.delete("yes_asked")
           end
           state["session"] = current
           state["after"] = [state["after"].to_i, body["next_after"].to_i].max
@@ -760,8 +899,7 @@ module Reach
           asked = messages.select { |message| message["kind"] == "action" && !known.include?(message["id"]) }
           state["actions"] = Array(state["actions"]) + asked.map do |message|
             name = message["name"].to_s
-            known_status = current["diagnosis"] == true && state["diagnosis_consent"].is_a?(Hash) ? "approved" : "waiting"
-            { "id" => message["id"], "name" => name, "at" => stamp, "status" => ACTIONS.include?(name) ? known_status : "unknown" }
+            { "id" => message["id"], "name" => name, "at" => stamp, "status" => action_status(name, current, state) }
           end
           if current["state"] == "closed"
             state["actions"] = []
@@ -770,7 +908,32 @@ module Reach
           end
         end
       end
+      notify_checks(current) if checks_fresh
       nil
+    end
+
+    def action_status(name, current, state)
+      return "unknown" unless ACTIONS.include?(name)
+
+      checks = current["checks_only"] == true
+      return "test_open" if checks && Reach::ExamMode.active?
+      return "needs_yes" if checks && !READ_ONLY_ACTIONS.include?(name)
+      return "off" if checks && !Reach::Device.live_without_yes?
+      return "approved" if READ_ONLY_ACTIONS.include?(name)
+
+      current["diagnosis"] == true && state["diagnosis_consent"].is_a?(Hash) ? "approved" : "waiting"
+    end
+
+    def notify_checks(current)
+      return nil unless notify? && !Reach::ExamMode.active?
+      return nil if read_state["checks_notified"] == current["id"]
+
+      update { |state| state["checks_notified"] = current["id"] }
+      Reach::Desktop.notify(Reach::Messages.text("M-LIVE-CHECKS-NOTIFY"))
+    end
+
+    def note_check_ran(name)
+      update { |state| state["checks_ran"] = (Array(state["checks_ran"]) + [name]).uniq }
     end
 
     def stale?(value)
@@ -780,17 +943,26 @@ module Reach
     end
 
     def settle_actions(api, session_id)
-      Array(read_state["actions"]).each do |entry|
+      state = read_state
+      checks = state["session"].is_a?(Hash) && state["session"]["checks_only"] == true
+      Array(state["actions"]).each do |entry|
         verdict = case entry["status"]
-                  when "approved" then :run
+                  when "approved" then checks && Reach::ExamMode.active? ? [false, Reach::Messages.text("M-LIVE-CHECKS-TEST-OPEN")] : :run
                   when "declined" then [false, Reach::Messages.text("M-LIVE-RESULT-NO")]
                   when "unknown" then [false, Reach::Messages.text("M-LIVE-RESULT-UNKNOWN")]
+                  when "test_open" then [false, Reach::Messages.text("M-LIVE-CHECKS-TEST-OPEN")]
+                  when "needs_yes" then [false, Reach::Messages.text("M-LIVE-CHECKS-NEEDS-YES")]
+                  when "off" then [false, Reach::Messages.text("M-LIVE-CHECKS-OFF")]
                   else stale?(entry["at"]) ? [false, Reach::Messages.text("M-LIVE-RESULT-SILENT")] : nil
                   end
         next if verdict.nil?
 
         update { |state| state["actions"] = Array(state["actions"]).reject { |row| row["id"] == entry["id"] } }
         ok, text = verdict == :run ? run_action(entry["name"]) : verdict
+        if verdict == :run
+          text = Reach::SetupLog.scrub_homes(text.to_s) if checks
+          note_check_ran(entry["name"])
+        end
         answer_action(api, session_id, entry["id"], ok, text)
       end
     end
@@ -879,7 +1051,7 @@ module Reach
     def debug_on!(session_id)
       return nil if read_state["debug_for"] == session_id
 
-      Reach::Sync.refresh_status(quick: false)
+      Reach::Sync.refresh_status(quick: false) if install
       Reach::Debug.reset!
       update { |state| state["debug_for"] = session_id }
     rescue Reach::Error
@@ -890,7 +1062,7 @@ module Reach
       return nil if read_state["debug_for"].nil?
 
       Reach::Debug.flush(quick: false)
-      Reach::Sync.refresh_status(quick: false)
+      Reach::Sync.refresh_status(quick: false) if install
       Reach::Debug.reset!
       update { |state| state["debug_for"] = nil }
     rescue Reach::Error
@@ -898,7 +1070,7 @@ module Reach
     end
 
     def run!
-      return 0 unless enabled? && install
+      return 0 unless enabled? && identity
 
       FileUtils.mkdir_p(dir)
       Reach::Locks.exclusive(runner_lock_file, wait_s: 1.0) { run_loop }
@@ -906,12 +1078,15 @@ module Reach
     end
 
     def run_loop
-      api = client
       began = clock
       failures = 0
       flushed = 0.0
       while clock - began < MAX_RUN_S
         body = nil
+        who = identity
+        break if who.nil?
+
+        api = client(who)
         begin
           send_pending(api)
           response = api.get("/api/v1/live", query: { "after" => read_state["after"].to_i })
@@ -946,7 +1121,7 @@ module Reach
         break if current.nil? && read_state["pending"].nil?
         break if current && current["state"] == "closed"
 
-        if current && current["state"] == "open"
+        if current && current["state"] == "open" && current["checks_only"] != true
           debug_on!(current["id"])
           if clock - flushed >= DEBUG_FLUSH_S
             Reach::Debug.flush(quick: false)
