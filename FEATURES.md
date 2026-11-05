@@ -1071,7 +1071,9 @@ a plugin hook an update added or changed, without a question and whichever route
 `hooks/codex.json` is exactly what the release ships, the session and prompt hooks already hold trust, and the recorded
 answer is neither no nor withdrawn. An approval removed after rEach recorded it stays removed, a partial approval is left
 alone, a disabled hook stays disabled, and course-folder hooks still need the `hook-trust-1` yes. `README.md` and
-`PRIVACY.md` say so, and `reach codex off` stops it. `reach codex status`, `reach_setup status`, and `reach doctor` report
+`PRIVACY.md` say so, and `reach codex off` stops it. Two older paths are unchanged and now disclosed too: a student holding
+the `hook-trust-1` yes gets a missing approval back from the regular reapply until `reach codex off`, and `reach setup` or a
+harness move to Codex approves the plugin hooks whatever the recorded answer. `reach codex status`, `reach_setup status`, and `reach doctor` report
 `hooks_trusted` and `hooks not approved`. Verified 2026-11-05 on Linux with Codex CLI 0.166.0 in a scratch home: app-server
 `hooks/list` showed the Stop hook `untrusted` beside two `trusted` hooks, and all three `trusted` after `heal!`, with Codex
 still accepting the file and one backup kept. Driven with hook state files: the silent-plugin states answer `terminal`; one

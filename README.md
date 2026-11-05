@@ -416,10 +416,14 @@ runs after setup), in a chat when the agent calls the `reach_setup` tool, or dur
 status`, `reach codex probe` and `reach doctor` show where it stands, and `reach codex off` stops rEach putting the
 settings back. `codex.setup: false` in `config.yml` or `REACH_CODEX_SETUP=0` turns it off.
 
-Installing for Codex approves rEach's plugin hooks with no separate question. When an update adds or changes one, rEach
-approves the new version too, without asking, once it has confirmed the hook file is exactly what this release ships
-and that the plugin's session and prompt hooks already hold approval. It leaves a hook alone after the student answers
-no, after `reach codex off`, and when an approval it recorded has since been removed.
+Installing for Codex, `reach setup`, and a harness move to Codex approve rEach's three plugin hooks with no separate
+question, whatever the student answered before. The Stop hook checks each assistant reply against rEach's rules for
+talking with students and can send it back for one rewrite. When an update adds or changes a plugin hook, rEach approves
+the new version too, without asking, once it has confirmed the hook file is exactly what this release ships and that the
+plugin's session and prompt hooks already hold approval. It does not after the student answers no or runs `reach codex
+off`. A student who said yes gets a missing approval back until they run `reach codex off`. For anyone else an approval
+rEach recorded and the student removed stays removed; an install from before 0.68.19 has no such record, so a Stop
+approval removed by hand is approved once.
 
 rEach also checks its own health on this computer: whether Codex's sandbox blocks it, and whether Codex runs and trusts
 rEach's hooks. Each session's context names a check that fails, with the steps for the student and, where rEach can fix

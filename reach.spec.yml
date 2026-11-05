@@ -3759,7 +3759,9 @@ codex_hook_trust:
     needs no hook. It never writes an enabled field, so a hook the student disabled stays disabled, and never writes
     course-folder or project trust. Codex's own review of a changed hook is therefore skipped for rEach's plugin hooks:
     prior approval of the plugin stands for later versions of its hooks until the student says no or runs reach codex
-    off. README.md and PRIVACY.md say so. Known limits: SHIPPED_PLUGIN_HOOKS repeats hooks/codex.json, so a release that
+    off. Two older paths are outside this rule: with hook-trust-1 the regular reapply writes every plugin handler back
+    until reach codex off, and trust_plugin_hooks!, from reach setup or a harness move to Codex, writes them whatever the
+    recorded answer. README.md and PRIVACY.md state all of this. Known limits: SHIPPED_PLUGIN_HOOKS repeats hooks/codex.json, so a release that
     changes the file without the table stops re-approving and the student is asked instead; an install from before
     0.68.19 has no plugin_trust_keys, so a Stop approval the student removed by hand reads as the gap this closes and is
     approved once; and how Codex's own hooks screen records a removal was not observed.
