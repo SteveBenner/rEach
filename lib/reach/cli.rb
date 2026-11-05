@@ -152,6 +152,7 @@ module Reach
           code = Reach::Client.with_deadline(hook_budget(argv)) { dispatch_hook(argv) }
         rescue Reach::GateBlocked => e
           Reach::Debug.note(e)
+          Reach::Consent.shown_in_block!(e.message) if argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && !cowork_prompt_hook?(argv)
           if argv.first == "gate" && %w[enroll prompt].include?(argv[1]) && hook_harness_flag(argv) == "codex"
             buffer.string = "#{JSON.generate("decision" => "block", "reason" => e.message)}\n"
             code = 0

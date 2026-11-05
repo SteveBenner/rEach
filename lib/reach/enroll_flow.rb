@@ -19,6 +19,9 @@ module Reach
       "restamp" => "M-ENR-RESTAMP"
     }.freeze
 
+    YES_NO_STATES = %w[awaiting_confirm awaiting_move].freeze
+    BEFORE_YES_NO_STATES = %w[awaiting_student_id].freeze
+
     module_function
 
     def evaluate(event:, harness:)
@@ -586,6 +589,16 @@ module Reach
 
     def fresh_flow
       { "schema" => SCHEMA, "state" => "awaiting_code", "refusals" => [], "locked_until" => nil, "updated_at" => iso(Time.now.utc) }
+    end
+
+    def yes_no_step?
+      flow = read_flow
+      !flow.nil? && YES_NO_STATES.include?(flow["state"])
+    end
+
+    def before_yes_no_step?
+      flow = read_flow
+      !flow.nil? && (YES_NO_STATES + BEFORE_YES_NO_STATES).include?(flow["state"])
     end
 
     def read_flow

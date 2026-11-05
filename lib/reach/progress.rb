@@ -8,6 +8,7 @@ module Reach
     ROUTE = "/api/v1/progress".freeze
     PRE_ENROLL = %w[enroll.code enroll.identity].freeze
     ASSIGNMENT_PATTERN = /\A[A-Za-z0-9_-]{1,32}\z/.freeze
+    NOT_ASSIGNMENTS = %w[security-validation].freeze
     MAX_BATCH = 64
     TIME_FMT = "%Y-%m-%dT%H:%M:%SZ".freeze
 
@@ -78,15 +79,20 @@ module Reach
     end
 
     def assignment_started(workspace, at: Time.now.utc)
-      Reach::Device.note("assignment.first", at: at)
       return nil if workspace.nil?
 
       assignment = Reach::Workspace.metadata(workspace)["assignment"].to_s
       return nil unless ASSIGNMENT_PATTERN.match?(assignment)
 
+      Reach::Device.note("assignment.first", at: at) unless NOT_ASSIGNMENTS.include?(assignment)
       mark("#{assignment}.started", at: at)
     rescue StandardError
       nil
+    end
+
+    def assignment_started_key?(key)
+      name = key.to_s
+      name.end_with?(".started") && !NOT_ASSIGNMENTS.include?(name.delete_suffix(".started"))
     end
 
     def backfill_started(student_id)

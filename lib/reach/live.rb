@@ -353,7 +353,7 @@ module Reach
       Array(state["actions"]).find { |entry| %w[waiting asked].include?(entry["status"]) }
     end
 
-    def action_question(state = read_state)
+    def action_question(state = read_state, session_id: nil)
       current = state["session"]
       return nil unless current.is_a?(Hash) && current["state"] == "open"
 
@@ -368,7 +368,7 @@ module Reach
         return nil
       end
 
-      question = Reach::Consent.ask!(kind: ACTION_KIND, subject: subject, message_id: "M-LIVE-ACTION-ASK", fields: { what: ACTION_TEXT.fetch(entry["name"]) })
+      question = Reach::Consent.ask!(kind: ACTION_KIND, subject: subject, message_id: "M-LIVE-ACTION-ASK", fields: { what: ACTION_TEXT.fetch(entry["name"]) }, session_id: session_id)
       update do |fresh|
         Array(fresh["actions"]).each { |row| row["status"] = "asked" if row["id"] == entry["id"] && row["status"] == "waiting" }
       end
@@ -630,7 +630,7 @@ module Reach
       elsif install && text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
         lines << ask!["question"]
       end
-      lines.concat(prompt_notices(nil, direct: true))
+      lines.concat(prompt_notices(entry["session_id"], direct: true))
       lines = lines.compact.map(&:to_s).reject(&:empty?)
       lines.empty? ? nil : lines.join("\n\n")
     rescue StandardError
@@ -647,7 +647,7 @@ module Reach
       }
       lines = []
       consumed = false
-      observed = Reach::Consent.observe_blocked(entry, kinds: KINDS)
+      observed = Reach::EnrollFlow.yes_no_step? ? nil : Reach::Consent.observe_blocked(entry, kinds: KINDS)
       if observed
         consumed = true
         lines << Reach::Consent.follow_up!(observed)
@@ -660,7 +660,7 @@ module Reach
       elsif install && text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
         lines << ask!["question"]
       end
-      lines.concat(prompt_notices(nil, direct: true))
+      lines.concat(prompt_notices(entry["session_id"], direct: true, ask: !Reach::EnrollFlow.before_yes_no_step?))
       lines << Reach::Device.pending_notice
       lines = lines.compact.map(&:to_s).reject(&:empty?)
       lines.empty? ? nil : { "text" => lines.join("\n\n"), "consumed" => consumed }
@@ -733,9 +733,10 @@ module Reach
       1
     end
 
-    def prompt_notices(_session_id = nil, repeat_action: true, direct: false)
+    def prompt_notices(session_id = nil, repeat_action: true, direct: false, ask: true)
       return [] unless enabled? && identity
 
+      asking = direct ? session_id : nil
       state = read_state
       current = state["session"].is_a?(Hash) ? state["session"] : nil
       unless runner_alive?
@@ -757,8 +758,8 @@ module Reach
         id = current["id"]
         case current["state"]
         when "offered"
-          if state["offer_asked"] != id && state["pending"].nil? && consent_free?(KIND)
-            question = Reach::Consent.ask!(kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-OFFER-ASK")
+          if state["offer_asked"] != id && state["pending"].nil? && ask && consent_free?(KIND)
+            question = Reach::Consent.ask!(kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-OFFER-ASK", session_id: asking)
             lines << (direct ? question : Reach::Messages.text("M-LIVE-OFFER-AGENT", question: question))
             changes["offer_asked"] = id
           end
@@ -780,8 +781,8 @@ module Reach
             lines << Reach::Messages.text("M-LIVE-CHECKS-RAN", names: ran.join(", "))
             changes["told_ran"] = ran.length
           end
-          if current["checks_only"] == true && current["yes_requested"] == true && state["yes_asked"] != id && consent_free?(KIND)
-            question = Reach::Consent.ask!(kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-CHECKS-YES-ASK")
+          if current["checks_only"] == true && current["yes_requested"] == true && state["yes_asked"] != id && ask && consent_free?(KIND)
+            question = Reach::Consent.ask!(kind: KIND, subject: { "live" => id }, message_id: "M-LIVE-CHECKS-YES-ASK", session_id: asking)
             asking = direct ? question : Reach::Messages.text("M-LIVE-OFFER-AGENT", question: question)
             lines << "#{asking}\n\n#{Reach::Messages.text('M-LIVE-CHECKS-YES-TERMINAL', command: Reach::Runtime.terminal_command('live', 'yes'))}"
             changes["yes_asked"] = id
@@ -800,7 +801,7 @@ module Reach
             changes["told_unread"] = newest
           end
           asked = waiting_action(state)
-          question = asked && (asked["status"] == "waiting" || consent_pending.nil?) ? action_question(state) : nil
+          question = ask && asked && (asked["status"] == "waiting" || consent_pending.nil?) ? action_question(state, session_id: asking) : nil
           if question && (repeat_action || told["action"] != asked["id"])
             lines << (direct ? question : Reach::Messages.text("M-LIVE-ASK-AGENT", question: question))
             changes["told_action"] = asked["id"]

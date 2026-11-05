@@ -153,6 +153,23 @@ module Reach
       nil
     end
 
+    def shown_in_block!(message)
+      FileUtils.mkdir_p(dir)
+      Reach::Locks.exclusive("#{pending_path}.lock") do
+        pending = Reach::Login.read_json(pending_path)
+        next unless pending.is_a?(Hash)
+
+        wanted = squash(pending["question"])
+        next if wanted.empty? || !squash(message).include?(wanted)
+
+        Reach::Login.write_json(pending_path, pending.merge("shown_in_block" => true))
+      end
+      nil
+    rescue StandardError => e
+      Reach::Debug.fault(e, "consent:shown_in_block")
+      nil
+    end
+
     def capture(entry, kinds: nil)
       pending = Reach::Login.read_json(pending_path)
       return nil unless pending.is_a?(Hash) && pending["student_id"] == Reach::Login.enrolled_id
@@ -162,7 +179,8 @@ module Reach
 
       now = Time.now.utc
       return nil if now - Time.iso8601(pending["asked_at"]) > WINDOW_S
-      return nil unless question_shown?(entry["transcript_path"], pending["question"], session_id: answering, asked_at: pending["asked_at"])
+      shown = entry["gate"] == "blocked" && pending["shown_in_block"] == true
+      return nil unless shown || question_shown?(entry["transcript_path"], pending["question"], session_id: answering, asked_at: pending["asked_at"])
 
       text = entry["text"]
       answer = if yes?(text)

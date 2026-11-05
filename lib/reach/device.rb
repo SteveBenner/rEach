@@ -15,7 +15,7 @@ module Reach
     ROUTE = "/api/v1/devices/report"
     LADDER = %w[
       install.started install.downloaded install.installed setup.started setup.done session.first prompt.first
-      validation.started validation.passed enroll.code enroll.username enroll.student_id enroll.confirmed
+      enroll.code validation.started validation.passed enroll.username enroll.student_id enroll.confirmed
       enroll.password_chosen enroll.done signin.done materials.done assignment.first
     ].freeze
     UNINSTALLED = "uninstall.done"
@@ -518,7 +518,7 @@ module Reach
       progress = Reach::Progress.read["reached"]
       signin = parse_time(progress["setup.signin"])
       add_reached(state, outbox, "signin.done", signin) if signin
-      started = progress.select { |key, _| key.to_s.end_with?(".started") }.values.map { |value| parse_time(value) }.compact.min
+      started = progress.select { |key, _| Reach::Progress.assignment_started_key?(key) }.values.map { |value| parse_time(value) }.compact.min
       add_reached(state, outbox, "assignment.first", started) if started
       cache = Reach::Paths.status_cache_file
       add_reached(state, outbox, "materials.done", File.mtime(cache).utc) if File.file?(cache)
