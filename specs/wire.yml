@@ -2467,8 +2467,8 @@ devices:
     since: 2026-11-05a
     rule: >-
       A checkpoint is a fixed id, sent with the time it was first reached, in this order: install.started,
-      install.downloaded, install.installed, setup.started, setup.done, session.first, prompt.first, validation.started,
-      validation.passed, enroll.code, enroll.username, enroll.student_id, enroll.confirmed, enroll.password_chosen,
+      install.downloaded, install.installed, setup.started, setup.done, session.first, prompt.first, enroll.code,
+      validation.started, validation.passed, enroll.username, enroll.student_id, enroll.confirmed, enroll.password_chosen,
       enroll.done, signin.done, materials.done, assignment.first. The stage is the furthest one Teach holds. enroll.done
       and everything after it count only for a device with an install link (W-DEVICE-3), so no copy can claim to be
       enrolled by saying so. uninstall.done is outside the order: it retires the device, and an install.started later
@@ -3004,7 +3004,13 @@ alignment:
       2026-11-05a reach live yes and reach live no answer a live_session or live_action question from a terminal, for a
       student whose hooks do not run: both standard input and output must be a terminal, the process must not be running
       under a harness, Reach prints the question itself and reads the answer typed there, and the record carries session_id
-      "terminal", seq null and the W-CONV-4 digest of the typed line.
+      "terminal", seq null and the W-CONV-4 digest of the typed line. Since revision 2026-11-05a a live_session or
+      live_action question Reach itself put in the reason of a prompt it blocked is proven shown as well, because the
+      harness shows that reason to the student directly and neither the transcript nor any reply can hold it: Reach
+      sets shown_in_block on the pending question when the reason it hands the harness holds the exact question, and
+      only a later blocked prompt from the session that was asked can answer it. While the enrollment flow is waiting
+      for its own yes or no, a yes-word answers enrollment and never a pending question, and at the step before that
+      Reach asks no such question, so the two are never on screen together.
   W-ID-1:
     name: login
     rule: >-
