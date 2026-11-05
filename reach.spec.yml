@@ -3764,7 +3764,9 @@ codex_hook_trust:
     recorded answer. README.md and PRIVACY.md state all of this. Known limits: SHIPPED_PLUGIN_HOOKS repeats hooks/codex.json, so a release that
     changes the file without the table stops re-approving and the student is asked instead; an install from before
     0.68.19 has no plugin_trust_keys, so a Stop approval the student removed by hand reads as the gap this closes and is
-    approved once; and how Codex's own hooks screen records a removal was not observed.
+    approved once; and Codex 0.166's /hooks screen offers trust, trust all and a toggle and no removal, read from the
+    binary's strings and the app-server schema rather than driven, so a removal means a hand edit: a deleted approval
+    reads untrusted and stays deleted, and a stale trusted_hash reads modified and is approved again.
   detection: >-
     HookLiveness.course_hooks_untrusted? (Codex only, false while the sign-in is pending, unknown never counts) is true
     when a handler of the current folder's hooks.json is modified or untrusted. require_hooks! then refuses with

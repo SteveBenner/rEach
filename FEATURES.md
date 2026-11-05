@@ -1079,11 +1079,13 @@ harness move to Codex approves the plugin hooks whatever the recorded answer. `r
 still accepting the file and one backup kept. Driven with hook state files: the silent-plugin states answer `terminal`; one
 50-minute turn, 14 quiet minutes, a hook that ran a minute ago, and other harnesses still answer `asked`; no, withdrawn, no
 prior trust, a removed or partial approval, a changed hook file, a heal in the last 6 hours, and the sandbox write nothing.
-Not run in a live student chat, and how Codex's own hooks screen records a removal was not observed. Known limits: a
+Not run in a live student chat. Codex 0.166's `/hooks` screen offers trust, trust all, and a toggle and no removal, read
+from the binary's strings and the app-server schema rather than driven, so a removal means a hand edit: a deleted approval
+reads untrusted and stays deleted, and a stale `trusted_hash` reads modified and is approved again. Known limits: a
 subagent's tool hooks under their own turn id, more than 15 minutes into a turn, also read as silent, so that student gets
 the hand-off though a yes could have been captured; an install from before 0.68.19 has no record of what rEach approved, so
 a Stop approval the student removed by hand is approved once.
-Build ✅ (0.68.19) · Deploy 🔵 (0.68.19 on test once promoted, stable is the operator's).
+Build ✅ (0.68.19) · Deploy 🔵 (on test since v0.68.19, stable is the operator's).
 Since 0.35.16 (`STD-CODEX-PROMPT-JSON-BLOCK`) `gate enroll` and `gate prompt` with `--harness codex` block by printing
 `{"decision":"block","reason":...}` on standard output and exiting 0, not by exiting 2. Codex on Windows runs hooks
 in the session's PowerShell (`-Command`), which turns a native exit 2 into 1, and Codex treats exit 1 as a hook

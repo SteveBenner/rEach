@@ -422,8 +422,9 @@ talking with students and can send it back for one rewrite. When an update adds 
 the new version too, without asking, once it has confirmed the hook file is exactly what this release ships and that the
 plugin's session and prompt hooks already hold approval. It does not after the student answers no or runs `reach codex
 off`. A student who said yes gets a missing approval back until they run `reach codex off`. For anyone else an approval
-rEach recorded and the student removed stays removed; an install from before 0.68.19 has no such record, so a Stop
-approval removed by hand is approved once.
+rEach recorded and the student deleted from the file stays deleted; an install from before 0.68.19 has no such record, so
+a Stop approval deleted by hand is approved once. Codex's hooks screen has no removal of its own, and its toggle writes
+a field rEach leaves alone.
 
 rEach also checks its own health on this computer: whether Codex's sandbox blocks it, and whether Codex runs and trusts
 rEach's hooks. Each session's context names a check that fails, with the steps for the student and, where rEach can fix
