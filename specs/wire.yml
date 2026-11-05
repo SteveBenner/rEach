@@ -2453,6 +2453,9 @@ live:
       An instructor asks for more by setting yes_requested. Reach then asks the W-LIVE-2 question with subject
       {"live": the session id}. A yes through W-API-LIVE-CONSENT sets checks_only false and co_debug true, and W-LIVE-5,
       W-LIVE-6 and W-LIVE-7 then apply in full. A no sets yes_requested false and leaves the check session as it was.
+      Teach refuses a yes while yes_requested is false with 409 details.reason not_asked. While checks_only is true
+      Teach serves no debug record through the session, and refuses each action with 409 details.reason wellbeing while
+      the session's student has an open wellbeing hand.
       A Reach older than this revision that polls with its install sees an open session and asks about each action.
 devices:
   W-DEVICE-ID:
@@ -2496,8 +2499,10 @@ devices:
       install link gives it its student and course and, while a session of the device is not closed, gives that session
       the same student and install. A later valid link replaces an earlier one of the same kind. Unenrolling a student
       from a course erases the device rows linked to that course and the debug records sent under them and closes any
-      session open on them; the copy's next report starts an unlinked row. Teach opens no session on a device whose
-      install is revoked or whose student has no active roster entry.
+      session open on them; the copy's next report starts an unlinked row. A student's own withdrawal and an instructor's
+      revoke of an install do the same to the rows linked to that install. A replaced install changes no row, because
+      its computer may be enrolling again. Teach opens no session on a device whose install is revoked or whose student
+      has no active roster entry.
   W-DEVICE-4:
     name: pace
     since: 2026-11-05a
@@ -2515,8 +2520,8 @@ devices:
       A report carries only the fields of W-API-DEVICE-REPORT. It never carries a name, an email address, a student id, a
       course code, a login name, a host name, a path, typed text, a prompt, a reply, code or a file. Teach uses the
       sender's address only in memory to limit requests, and does not store it with the device. Teach keeps a device with
-      no install link only until it has been silent for 30 days with no session open, and removes its debug records and
-      closed sessions with it. reach_version is 1 to 64 letters, digits, dots, plus signs, or hyphens. REACH_DEVICE_DISABLE=1 or
+      no install link, a revoked install or a student with no active roster entry only until it has been silent for 30
+      days with no session open, and removes its debug records and closed sessions with it. reach_version is 1 to 64 letters, digits, dots, plus signs, or hyphens. REACH_DEVICE_DISABLE=1 or
       device.enabled false in config.yml stops all of it. Reach reads device.enabled and device.live_without_yes from the
       config.yml in its home folder, which an update keeps, and from the plugin's own config.yml, and false in either
       counts. The installer reads both for device.enabled. The installer says what is sent before its first report, setup says
