@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - rEach prefers steps inside the app and allows a terminal only as a fallback for its own `enroll`, `login`, `codex configure`, and `harness move` commands, when rEach says the app cannot finish the step. The messages `M-AGENT-TALK`, `M-ENR-NOHOOK-STUDENT`, `M-ENR-AGENT-NOHOOK-CONTEXT`, `M-ENR-AGENT-NOHOOK-GUIDE`, `M-ENR-AGENT-GUIDE`, `M-ENR-AGENT-CODEX-REPAIRED`, `M-LOGIN-NOHOOK-GUIDE`, `M-ENROLL-NO-HOOK`, `M-ENR-PASSWORD-TERMINAL`, `M-CODEX-SETUP-TERMINAL`, `M-CODEX-SETUP-SIGN-IN`, `M-HARNESS-MOVE-CODEX-NEXT`, and `M-HARNESS-MOVE-TERMINAL`, the persona, and the generated rules and skill follow. The agent runs the security validation pass itself when the terminal command first stops at the validation message.
 - `GL-NOTERM` comes from Polispec 0.55.6: the detector for opening a terminal and pasting into it is gone, and `Reach::GuidedLearner` removes rEach's own fallback commands from a reply before the remaining detectors run. rEach itself still flags a reply that sends a student to a terminal for any other command, along with any other reach verb and development tools such as npm.
-- A fallback command passes only with the flags rEach itself writes (`--window`, and `--harness`, `--to`, or `--from` naming a supported app). Any other flag, such as `--teach-url`, leaves the whole reply flagged.
+- A fallback command passes only with the flags rEach itself writes (`--window`, and `--harness`, `--to`, or `--from` naming a supported app). Any other flag leaves the whole reply flagged.
 - `policy/guided-learner.json` is compiled from Polispec 0.55.6. A student's install needs no Polispec.
 
 ### Fixed
