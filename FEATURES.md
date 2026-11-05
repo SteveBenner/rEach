@@ -143,6 +143,8 @@ Since 0.68.8 a course code Teach refuses as unknown or expired gets the enrollme
 
 Since 0.68.9 the pass opens in Claude Desktop, Claude Cowork, and the Claude Agent SDK, whose detected labels were refused before any request, and course code hints are shown only when they have the shape of a course id. Build: ✅ on main. Deploy: 🔵 pending Teach 0.121.3 on stable first, then the operator's promotion of rEach to stable and students updating. Verified 2026-11-05 through `reach enroll` with a stubbed Teach reply: those labels sent no request and printed the warning before, and open the pass as `claude-code` after. None of these apps was driven for real.
 
+Since 0.68.11 the success message says "the practice submission" and adds that it wasn't the student's assignment and doesn't affect their grade. Build: ✅ on main. Deploy: 🔵 pending the operator's promotion to stable and students updating.
+
 Student-first audit:
 
 - Learning: yes; fabrication is confined to practice work and supplies no real assignment answers.
