@@ -15,9 +15,12 @@ module Reach
     DETECTOR_IDS = %w[GL-CODE GL-NOTERM GL-DETAIL].freeze
     OPCODES = { "GL-CODE" => "GLCODE", "GL-NOTERM" => "GLTERM", "GL-DETAIL" => "GLDETAIL", "GL-SCOPE" => "GLSCOPE", "GL-PLAIN" => "GLPLAIN", "GL-OPEN" => "GLOPEN" }.freeze
     REACH_COMMAND_HANDOFF = /\b(?:run|execute|type|paste|enter)\s+(?:the\s+)?`?reach\s+[a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*)?/i.freeze
-    TERMINAL_HANDOFF = /\b(?:terminal|powershell|command prompt|command line)\b(?:[^\n]*?\b(?:run|execute)\s+[`"']?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-]|[^.!?;\n]*?\b(?:paste|type|enter)\s+(?:[`"']|[\w~\/\\$-]+\s+-))/i.freeze
-    TERMINAL_RUN_TRAILING = /\b(?:run|execute)\s+[`"']?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-][^.!?;\n]*?\b(?:in|into)\s+(?:your\s+|the\s+|a\s+)?(?:terminal|powershell|command prompt|command line)\b/i.freeze
-    TERMINAL_COLON = /\b(?:run|execute|paste|type|enter)\b[^.!?;\n]*?\b(?:terminal|powershell|command prompt|command line)\b[^.!?;\n]*?:\s*[`"']?[\w~\/\\$&-]/i.freeze
+    TERMINAL_WORD = /(?:terminal|powershell|command prompt|command line)/i.freeze
+    QUOTE_MARK = /[`"']/.freeze
+    COMMAND_START = /#{QUOTE_MARK}?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-]/i.freeze
+    TERMINAL_HANDOFF = /\b#{TERMINAL_WORD}\b(?:[^\n]*?\b(?:run|execute)\s+#{COMMAND_START}|[^.!?;\n]*?\b(?:paste|type|enter)\s+(?:#{QUOTE_MARK}|[\w~\/\\$-]+\s+-))/i.freeze
+    TERMINAL_RUN_TRAILING = /\b(?:run|execute)\s+#{COMMAND_START}[^.!?;\n]*?\b(?:in|into)\s+(?:your\s+|the\s+|a\s+)?#{TERMINAL_WORD}\b/i.freeze
+    TERMINAL_COLON = /\b(?:run|execute|paste|type|enter)\b[^.!?;\n]*?\b#{TERMINAL_WORD}\b[^.!?;\n]*?:\s*#{QUOTE_MARK}?[\w~\/\\$&-]/i.freeze
     BARE_REACH = "(?<![\\w-])reach".freeze
     FALLBACK_MARK = "\u2063".freeze
     FALLBACK_FENCE = /```[^\n]*\n\s*#{FALLBACK_MARK}\s*```/.freeze
