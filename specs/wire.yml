@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-03a
+revision: 2026-11-05a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -187,6 +187,19 @@ request_authentication:
       does not verify are both 401 unauthenticated. X-Reach-Version and X-Reach-Env travel as on
       any signed request. The provisional key becomes the install key when the enrollment completes, so one keypair
       signs the attempt's steps and, later, the install's requests.
+  W-AUTH-10:
+    name: device requests
+    since: 2026-11-05a
+    rule: >-
+      Since protocol 1 revision 2026-11-05a a request a device (W-DEVICE-ID) makes is signed exactly as W-AUTH-1 to
+      W-AUTH-5 describe, with two differences: the X-Teach-Install header is absent and X-Reach-Device carries the
+      device_id in its place, and the private key is the device key. On W-API-DEVICE-REPORT Teach reads the public key
+      from the body and answers 401 unauthenticated unless that key's device_id equals the header. On every other route
+      Teach uses the public key it stored for that device_id, and an unknown device is 401 unauthenticated. The same
+      timestamp and nonce rules apply, with nonces recorded per device. X-Reach-Version and X-Reach-Env travel as on any
+      signed request. A device signature proves only that the same key is speaking. It proves no student, no course and
+      no enrollment, and Teach accepts it only on W-API-DEVICE-REPORT, on the routes W-LIVE-11 names, and on W-API-DEBUG
+      while W-LIVE-11 allows the debug stream.
   instructor_requests: >-
     Instructor API requests use the same scheme with X-Teach-Instructor in place of X-Teach-Install. Reach never sends
     them; the rule is recorded so both flows share one verifier.
@@ -1315,7 +1328,7 @@ routes:
   - id: W-API-DEBUG
     method: POST
     path: /api/v1/debug
-    auth: install
+    auth: "install, or device (W-AUTH-10) while W-LIVE-11 allows the debug stream"
     request:
       session_id: {type: string, maxLength: 128, note: "the harness session id, or \"cli\" for a terminal command"}
       harness: {type: string, enum: [claude-code, codex, hermes, unknown]}
@@ -1586,7 +1599,7 @@ routes:
   - id: W-API-LIVE-POLL
     method: GET
     path: /api/v1/live
-    auth: install
+    auth: "install, or device (W-AUTH-10) since 2026-11-05a"
     query: {after: "integer, default 0: the seq of the last message Reach holds"}
     response_200:
       session: "W-LIVE-SESSION, or null when the install has no session that is live or closed within the last 10 minutes"
@@ -1599,7 +1612,7 @@ routes:
   - id: W-API-LIVE-CONSENT
     method: POST
     path: /api/v1/live/:id/consent
-    auth: install
+    auth: "install, or device (W-AUTH-10) since 2026-11-05a"
     request:
       answer: {enum: ["yes", "no"]}
       consent: W-CONSENT-1 record carrying the same answer (W-LIVE-2)
@@ -1610,11 +1623,13 @@ routes:
       409 conflict: "details.reason not_offered: the session is not waiting for the student's answer; live_capacity as W-API-LIVE"
     notes: >-
       Since revision 2026-10-03f. The student's answer to an instructor's offer. Yes opens the session; no closes it
-      with end_reason declined_by_student. A repeated yes on an open session answers the session.
+      with end_reason declined_by_student. A repeated yes on an open session answers the session. Since revision
+      2026-11-05a a yes on an open check session sets checks_only false and co_debug true, and a no leaves it a check
+      session (W-LIVE-11).
   - id: W-API-LIVE-MESSAGE
     method: POST
     path: /api/v1/live/:id/messages
-    auth: install
+    auth: "install, or device (W-AUTH-10) since 2026-11-05a"
     idempotency_key: required
     request:
       kind: {enum: [note, agent, action_result]}
@@ -1632,11 +1647,44 @@ routes:
   - id: W-API-LIVE-END
     method: POST
     path: /api/v1/live/:id/end
-    auth: install
+    auth: "install, or device (W-AUTH-10) since 2026-11-05a"
     response_200: {session: W-LIVE-SESSION}
     notes: >-
       Since revision 2026-10-03f. The student ends the session, or withdraws a request, at any time and without a
       reason. Ending a closed session answers it unchanged.
+  - id: W-API-DEVICE-REPORT
+    method: POST
+    path: /api/v1/devices/report
+    auth: "device (W-AUTH-10)"
+    since: 2026-11-05a
+    request:
+      public_key: {type: string, note: "PEM of the device key, at most 4096 bytes"}
+      reach_version: string
+      origin: {type: string, enum: [installer, setup, session, background]}
+      os: {type: string, enum: [macos, windows, linux]}
+      os_release: {type: string, required: false, note: "the version number only, at most 64 bytes"}
+      arch: {type: string, required: false, note: "at most 64 bytes"}
+      ruby: {type: string, required: false, note: "at most 64 bytes"}
+      harness: {type: string, required: false, note: "as X-Reach-Env names it, at most 64 bytes"}
+      checkpoints: {type: array, note: "at most 32 of {id: a W-DEVICE-1 id, at: W-CONV-3 timestamp}"}
+      problem: {type: object, required: false, note: "null, or W-DEVICE-2 {code, at}"}
+      links: {type: array, required: false, note: "at most 2 W-DEVICE-3 proofs"}
+    response_200:
+      device_id: string
+      code: "the W-DEVICE-ID short code"
+      stage: "the furthest checkpoint id Teach holds for this device"
+      live: "true while this device, or the install it links, has a session that is not closed"
+      next_s: "the wait Teach asks for before the next report with nothing new to say (W-DEVICE-4)"
+      stop: "true when an instructor retired this device or the copy reported uninstall.done"
+      disabled: "true only when installation reports are switched off on this Teach; every other field but next_s is then absent"
+    errors:
+      400 invalid_request: "a body that is not an object, a missing public_key, reach_version, origin or os, a value over its length, or more entries than the limits above"
+      401 unauthenticated: "the signature does not verify, or the key's device_id differs from X-Reach-Device"
+      429 rate_limited: "too many reports from this device or this address, or Teach holds as many unlinked devices as it will keep"
+    notes: >-
+      Since revision 2026-11-05a. The first report from a key creates the device. Teach ignores a field or a checkpoint
+      id it does not know, so either side can be newer. A Teach older than this revision answers 404, and Reach treats
+      that as disabled.
   - id: W-API-HEALTH
     method: GET
     path: /api/v1/health
@@ -2252,13 +2300,16 @@ live:
       instructor, and it opens only when both have agreed: the student by a captured yes (W-LIVE-2), an instructor in
       Teach. Its states are requested (the student asked, an instructor has not answered), offered (an instructor
       asked, the student has not answered), open and closed. An install has at most one session that is not closed,
-      and a Teach has at most three open at once.
+      and a Teach has at most three open at once. Since revision 2026-11-05a a session can also connect one device
+      (W-DEVICE-ID) that holds no install, a device has at most one session that is not closed, and a check session
+      (W-LIVE-11) opens on the instructor's decision alone and can do only what W-LIVE-11 names.
   W-LIVE-SESSION:
     shape: >-
-      {id: "live_" + 20 hex, state, started_by: "student | instructor | diagnosis", hand_id: "string or null", requested_at,
+      {id: "live_" + 20 hex, state, started_by: "student | instructor | diagnosis | checks", hand_id: "string or null", requested_at,
       opened_at, expires_at, closed_at, end_reason: "null, or one of ended_by_student, ended_by_instructor,
       declined_by_student, declined_by_instructor, expired, unanswered, superseded", co_debug: boolean, diagnosis: "boolean, since 2026-10-04c: true when started_by is diagnosis (W-LIVE-10)",
-      student_attached: boolean, instructor_attached: boolean, connected: boolean}; every time is a W-CONV-3
+      student_attached: boolean, instructor_attached: boolean, connected: boolean, checks_only: "boolean, since
+      2026-11-05a (W-LIVE-11)", yes_requested: "boolean, since 2026-11-05a (W-LIVE-11)"}; every time is a W-CONV-3
       timestamp or null.
   W-LIVE-MESSAGE:
     shape: >-
@@ -2275,7 +2326,8 @@ live:
       prompt, a reply, code or a file; Reach asks the student before it runs any action (W-LIVE-5) and before the
       agent sends anything (W-LIVE-7). Since revision 2026-10-17b the question also says that the student's assistant
       and the instructor's assistant may write to each other (co-debug, W-LIVE-7). An offer is never accepted by the
-      agent or by Reach on the student's behalf.
+      agent or by Reach on the student's behalf. Since revision 2026-11-05a a check session (W-LIVE-11) opens without
+      this record, and everything beyond what W-LIVE-11 names still needs it.
   W-LIVE-3:
     name: time
     rule: >-
@@ -2306,14 +2358,19 @@ live:
       Reach runs it with no model and no shell, within 60 seconds, and answers with one action_result holding the
       command's output, cut to 16384 bytes. On a no, on no answer within 30 minutes and for a name outside this list
       it runs nothing and answers ok false with a fixed text saying which. At most 30 actions in a session and 6 in
-      a minute.
+      a minute. Since revision 2026-11-05a Reach runs the read-only checks doctor, status, update_check and sandbox_probe
+      without that question in every open session, and asks as above for sync, update, cache_repair, resend and
+      codex_configure. A Reach older than this revision still asks about every action. sandbox_probe counts as read-only
+      because its only writes are one test file inside the sandbox, which it removes, and the record of its own result.
   W-LIVE-6:
     name: debug stream
     rule: >-
       While a session is open, status.debug answers requested true until the session's end (W-API-STATUS), so Reach
       records debug events (W-DBG-EVENT) under reason remote and sends them as W-API-DEBUG batches about every 10
       seconds instead of only at the end of a turn. Nothing outside W-DBG-EVENT is sent because a session is open.
-      When the session closes the request ends with it.
+      When the session closes the request ends with it. Since revision 2026-11-05a a session whose checks_only is true
+      does not request the debug stream, and a device that holds no install sends W-API-DEBUG under W-AUTH-10 once the
+      student's yes has made checks_only false.
   W-LIVE-7:
     name: notes and co-debug
     rule: >-
@@ -2334,7 +2391,7 @@ live:
   W-LIVE-8:
     name: Reach's side
     rule: >-
-      Everything a session does on Reach's side runs in one detached process per install, never inside a hook or a
+      Everything a session does on Reach's side runs in one detached process per install or device, never inside a hook or a
       tool call: it sends the request or the answer to an offer, polls W-API-LIVE-POLL at the pace Teach names
       (never faster than every 2 seconds), runs the actions and sends the notes and agent messages the student said
       yes to, and sends the debug stream. It uses its own request
@@ -2342,7 +2399,8 @@ live:
       the next is not before a random wait between zero and the smaller of 60 seconds and 2 seconds doubled per
       failure; after 5 failures in a row it stops, and the next prompt hook or reach live starts it again while the
       session is still open. Reach learns of an offer from status.live and from one W-API-LIVE-POLL that the prompt
-      hook starts detached at most once a minute. REACH_LIVE_DISABLE=1, or live.enabled false in config.yml, switches
+      hook starts detached at most once a minute, and since revision 2026-11-05a from the live field of
+      W-API-DEVICE-REPORT. REACH_LIVE_DISABLE=1, or live.enabled false in config.yml, switches
       all of it off; a Teach with live sessions switched off answers disabled true and Reach stops asking for an
       hour.
   W-LIVE-9:
@@ -2369,6 +2427,91 @@ live:
       action of the fixed table when it is asked for and sends the agent's messages and notes without asking again.
       Every other rule of a live session holds: the fixed action table, the limits, debug mode for its length,
       W-LIVE-9, and the right of either side to end it.
+  W-LIVE-11:
+    name: a check session
+    since: 2026-11-05a
+    rule: >-
+      A check session is a live session an instructor opens on one device (W-DEVICE-ID), whether or not that computer is
+      enrolled. It opens at once with no yes from the student: started_by checks, checks_only true, co_debug false, and
+      the student_id and install_id the device links (W-DEVICE-3), or none. Teach refuses to open one when live sessions
+      are off, when the device is retired, when three sessions are open, and when a linked student has an open wellbeing
+      hand. W-LIVE-3, W-LIVE-4 and W-LIVE-9 hold. A device may call W-API-LIVE-POLL, W-API-LIVE-CONSENT, W-API-LIVE-MESSAGE
+      and W-API-LIVE-END under W-AUTH-10. W-API-LIVE stays for installs.
+      While checks_only is true Reach runs only doctor, status, update_check and sandbox_probe, with no question, and
+      removes the user's home folder from what they print. Teach refuses every other action with 409 details.reason
+      needs_yes, requests no debug stream and refuses an agent message with co_debug_off. An instructor's note is shown
+      to the student as in W-LIVE-7. A check session never reads a prompt, a reply, code or a file.
+      Reach tells the student at once: one desktop notice when the session is first seen, and at the next prompt a line
+      saying who opened it, what it can do, which checks have run, and how to end it. reach live status shows the same.
+      While a test is open on the computer Reach runs no check, shows no notice and answers each action ok false with a
+      fixed text saying so. With device.live_without_yes false in config.yml Reach runs no check without a yes and
+      answers each action ok false with a fixed text saying the student has turned this off.
+      An instructor asks for more by setting yes_requested. Reach then asks the W-LIVE-2 question with subject
+      {"live": the session id}. A yes through W-API-LIVE-CONSENT sets checks_only false and co_debug true, and W-LIVE-5,
+      W-LIVE-6 and W-LIVE-7 then apply in full. A no sets yes_requested false and leaves the check session as it was.
+      A Reach older than this revision that polls with its install sees an open session and asks about each action.
+devices:
+  W-DEVICE-ID:
+    name: the device
+    since: 2026-11-05a
+    rule: >-
+      The first time any part of Reach needs it on a computer that has none, Reach generates an RSA key, the device key,
+      and keeps it beside the seal, outside the course folder. The fingerprint is the lowercase hex SHA-256 of the DER
+      SubjectPublicKeyInfo of that key. The device_id is "dev_" and the first 32 characters of the fingerprint. The code
+      a person reads is the first 8 characters in upper case with a hyphen after the fourth. The fingerprint names a key.
+      It is built from no machine id, login name, host name or path, and it does not change. A new enrollment, a
+      reinstall and an update keep it, and removing the file makes a new device. The device key signs only W-AUTH-10
+      requests and W-DEVICE-3 proofs, and install keys are unchanged.
+  W-DEVICE-1:
+    name: checkpoints
+    since: 2026-11-05a
+    rule: >-
+      A checkpoint is a fixed id, sent with the time it was first reached, in this order: install.started,
+      install.downloaded, install.installed, setup.started, setup.done, session.first, prompt.first, validation.started,
+      validation.passed, enroll.code, enroll.username, enroll.student_id, enroll.confirmed, enroll.password_chosen,
+      enroll.done, signin.done, materials.done, assignment.first. The stage is the furthest one Teach holds. enroll.done
+      and everything after it count only for a device with an install link (W-DEVICE-3), so no copy can claim to be
+      enrolled by saying so. uninstall.done is outside the order: it retires the device, and an install.started later
+      than it starts the record afresh at that stage. Checkpoints are the copy's own
+      report, shown to instructors as such, and they decide no gate, grade or access.
+  W-DEVICE-2:
+    name: a problem
+    since: 2026-11-05a
+    rule: >-
+      A report may name one problem, {code, at}. The code matches ^[A-Z][A-Z0-9-]{1,47}$ and is a failure id from Reach's
+      message catalogue or one of INSTALL-DOWNLOAD, INSTALL-UNPACK and SETUP-FAILED. It carries no parameters and no
+      typed text. Teach drops any other value. A checkpoint further along than the stage, reached after at, clears it.
+  W-DEVICE-3:
+    name: links
+    since: 2026-11-05a
+    rule: >-
+      A link is {kind: "attempt" | "install", id, at, signature}. The signature is the W-AUTH-2 PSS signature, base64,
+      over "reach-device-link\n<kind>\n<id>\n<device_id>\n<at>", made with the enrollment attempt's provisional key or
+      the install's key. Teach verifies it against the public key it holds for that attempt or that install, and a link
+      that does not verify, or names a revoked install, changes nothing. An attempt link gives the device its course. An
+      install link gives it its student and course and, while a session of the device is not closed, gives that session
+      the same student and install. A later valid link replaces an earlier one of the same kind. Unenrolling a student
+      erases the device records that name that student.
+  W-DEVICE-4:
+    name: pace
+    since: 2026-11-05a
+    rule: >-
+      Reach reports when a new checkpoint or problem exists, and otherwise once next_s has passed. Teach answers next_s
+      300 for a device with no install link, 900 with one, and 86400 for a retired device. The user-level job of
+      W-SAFE-14 now also runs on a computer that is not enrolled, every 5 minutes for the first 72 hours of a device with
+      no install link and every 15 minutes otherwise. Reach removes the job from a computer that is not enrolled after
+      30 days with no new checkpoint, and on stop. A new local checkpoint resumes reporting and, when it is further along
+      than the stage, Teach clears the retirement. See W-SAFE-17 for the limits.
+  W-DEVICE-5:
+    name: what a report never carries
+    since: 2026-11-05a
+    rule: >-
+      A report carries only the fields of W-API-DEVICE-REPORT. It never carries a name, an email address, a student id, a
+      course code, a login name, a host name, a path, typed text, a prompt, a reply, code or a file. Teach uses the
+      sender's address only in memory to limit requests, and does not store it with the device. Teach keeps a device with
+      no link only until it has been silent for 30 days and has no live session on record. REACH_DEVICE_DISABLE=1 or
+      device.enabled false in config.yml stops all of it. The installer says what is sent before its first report, setup says
+      so in what it prints, and a copy that had neither says so once at its next prompt.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'
@@ -2472,6 +2615,7 @@ reach_client_safety:
   W-SAFE-14: {name: subscription, rule: "since 2026-10-03e: Reach checks W-API-REVISION in normal mode with one attempt and no retries, through the shared token bucket and circuit breaker, from its MCP server about every 60 s (plus up to 15 s of jitter) while a harness session runs and from a user-level operating system job (a systemd user timer, a launchd LaunchAgent or a Task Scheduler task for the current user) about every 900 s, and never more than once per 50 s across every Reach process on the machine; a 304 or an unchanged revision only records the check; a changed part runs one reach sync in that detached process, at most one at a time, and stores the new parts only after the sync completes; a 404 waits six hours; a failure backs off exponentially from 60 s to one hour; REACH_OFFLINE=1 or REACH_SUBSCRIBE=0 stops every check, and a revoked install removes the operating system job"}
   W-SAFE-15: {name: live sessions, rule: "since 2026-10-03f: W-LIVE-8; only the detached session process and reach live end call the W-API-LIVE routes, never a hook; their own bucket of 30 requests per minute; Teach allows 90"}
   W-SAFE-16: {name: announcements and holdings, rule: "since 2026-10-04g: only reach sync calls W-API-ANNOUNCEMENTS and W-API-HOLDINGS, once each per sync, through the shared token bucket and circuit breaker; W-API-HOLDINGS is skipped when the holdings equal the last report; W-API-ANNOUNCEMENT-RECEIPTS is sent by reach sync and by one detached process the prompt hook starts after it shows an announcement, at most 50 receipts per request and one request per run; the prompt hook itself makes no network call and shows at most three announcements per prompt; a 404 parks all three routes for six hours; a 503 or a network failure keeps the receipts pending; Teach allows 120 announcement requests and 30 holdings reports per install per hour; config.yml announcements.show false stops the display and leaves the queue readable"}
+  W-SAFE-17: {name: device reports, rule: "since 2026-11-05a: only a detached process and the user-level job call W-API-DEVICE-REPORT, and never a hook; the installer sends its own at most 5 seconds in all and keeps what it could not send for the next run; connect 3 s, read 8 s, no retry within a run, at most 6 reports a minute from a bucket of their own; after a failure the next is not before a random wait up to the smaller of one hour and 60 seconds doubled per failure; 404 or disabled true stops asking for one hour; nothing is sent under REACH_OFFLINE=1, inside a Codex sandbox that blocks the network, or under REACH_DEVICE_DISABLE=1"}
 transcripts:
   W-TRN-0:
     name: capture bounds
@@ -2856,7 +3000,11 @@ alignment:
       Since Reach 0.47.3 (security audit F04) an answer counts only when the question is proven shown: it appears in
       the harness transcript the hook names (Claude Code, Codex), or in an assistant reply Reach spooled for the same
       session after asked_at (Hermes and any harness without a transcript path). Missing evidence or an empty
-      question never counts. Local kinds added since: profile_share (F05) and transcripts_forget (F06).
+      question never counts. Local kinds added since: profile_share (F05) and transcripts_forget (F06). Since revision
+      2026-11-05a reach live yes and reach live no answer a live_session or live_action question from a terminal, for a
+      student whose hooks do not run: both standard input and output must be a terminal, the process must not be running
+      under a harness, Reach prints the question itself and reads the answer typed there, and the record carries session_id
+      "terminal", seq null and the W-CONV-4 digest of the typed line.
   W-ID-1:
     name: login
     rule: >-
