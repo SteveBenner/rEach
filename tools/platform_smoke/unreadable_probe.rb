@@ -86,11 +86,11 @@ use.call(:real)
 expect("a readable probe after an unreadable one locks nothing", Reach::EnrollmentLock.reason_for_state.nil? && !File.file?(unreadable_file))
 
 begin
-  Reach::Validation.harness("claude-desktop")
+  Reach::Validation.harness("deepseek")
   expect("an unsupported harness is refused", false)
 rescue Reach::Refused => e
   expect("the refusal keeps its text", e.message.start_with?(Reach::Validation::BLOCKED))
-  expect("the refusal names its cause", e.message.end_with?("(cause: harness_label:claude-desktop)"), e.message[-60..])
+  expect("the refusal names its cause", e.message.end_with?("(cause: harness_label:deepseek)"), e.message[-60..])
 end
 
 puts "unreadable probe: grace, lock after grace, readable mismatch and validation cause all held"
