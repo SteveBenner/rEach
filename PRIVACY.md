@@ -22,7 +22,7 @@ An installation report holds only these things:
 - When a step fails, the fixed name of that failure from rEach's own list of messages, such as `M-ENR-FAILED`. Never its text, anything you typed, or any folder or file name.
 - Once you give a course passkey or finish enrolling, a signature proving that this code belongs to that enrollment. Before then your instructors see only the code. After you enroll they see it beside your name.
 
-Your course server does not keep your internet address with these reports. It uses the address only to limit how many requests it accepts. It deletes a code that was never linked to a course after 30 days of silence, unless a check session was run on it, and it erases the records that name you when you are unenrolled.
+Your course server does not keep your internet address with these reports. It uses the address only to limit how many requests it accepts. It deletes a code that was never linked to a student after 30 days of silence, along with any check sessions and debug records under it, unless a session is open on it. When you are unenrolled from a course, it erases the code's record for that course and its debug records and ends any session open on it.
 
 rEach sends a report when something new happens, and otherwise from a small background job. That job now also runs on a computer that has not enrolled: every 5 minutes for the first 3 days, then about every 10. On a computer that has not enrolled, the job also keeps rEach up to date, and it removes itself 30 days after the last new step.
 
@@ -37,7 +37,7 @@ For up to an hour, and longer only if an instructor renews it, a check session c
 - Check whether a newer rEach exists.
 - Test whether Codex's sandbox lets rEach reach your course server and its folder. This writes one test file inside the sandbox, removes it, and keeps the result.
 
-rEach takes your user folder's name out of what these print. A check session sees no prompt, no reply, no code and no file, gives nobody a shell, and changes nothing about your work or your grades.
+rEach takes your user folder's name out of what these print, and it runs them from its own folder, so they do not name the folder you were working in. Other locations they print, such as where Ruby or rEach is installed, stay as they are. A check session sees no prompt, no reply, no code and no file, gives nobody a shell, and changes nothing about your work or your grades.
 
 You get a desktop notice when a session starts, if your computer can show one. rEach tells you again at your next message, with what ran so far. To end a session, type `end live session` in your chat or run `reach live end`. While you have a test open, rEach runs no check and shows no notice.
 
@@ -45,10 +45,12 @@ Anything more needs your yes. If your instructors want to see rEach's debug reco
 
 To turn this off:
 
-- `device.live_without_yes: false` in rEach's `config.yml` makes rEach run no check without your yes. Reports continue.
-- `REACH_DEVICE_DISABLE=1`, or `device.enabled: false` in `config.yml`, stops the reports and the code. An instructor can then reach this copy only through an ordinary live session, which asks you first, and only once you are enrolled.
+Both settings below go in the `config.yml` in rEach's home folder (`~/reach-work/.reach-home/config.yml`, or `~/.reach/config.yml` on an older install). Create the file if it is not there. Updates keep it.
+
+- `device.live_without_yes: false` makes rEach run no check without your yes. Reports continue.
+- `REACH_DEVICE_DISABLE=1`, or `device.enabled: false`, stops the reports and the code, and rEach then runs no check without your yes. Installing rEach again respects the setting too. An instructor can then reach this copy only through an ordinary live session, which asks you first, and only once you are enrolled.
 - `REACH_LIVE_DISABLE=1` stops every live session.
-- `reach uninstall --purge-checkpoint-mirror` removes the key and the code along with rEach. A plain `reach uninstall` sends one last report that rEach was removed and keeps them, so a later install counts as the same copy.
+- `reach uninstall --purge-checkpoint-mirror` removes the key and the code along with rEach. A plain `reach uninstall` sends one last report that rEach was removed and keeps them, so a later install counts as the same copy. With `--no-teach` it sends no last report.
 
 ## What rEach sends to your course server
 

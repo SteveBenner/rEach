@@ -21,7 +21,7 @@
       "interface": {
         "displayName": "rEach",
         "shortDescription": "Install rEach, the academic assistant for Teach-run courses",
-        "longDescription": "rEach is the academic assistant for students in a course run on Teach. It gets to know the student, keeps the course rules, checks their work and submits it to their instructors' course server. This listing installs rEach on the student's computer from its public GitHub repository and sets it up for the Codex app. It needs the Codex app with Full access, because the install downloads rEach and writes to the student's home folder. Students need a course passkey from their instructor to enroll.",
+        "longDescription": "rEach is the academic assistant for students in a course run on Teach. It gets to know the student, keeps the course rules, checks their work and submits it to their instructors' course server. This listing installs rEach on the student's computer from its public GitHub repository and sets it up for the Codex app. It needs the Codex app with Full access, because the install downloads rEach and writes to the student's home folder. Students need a course passkey from their instructor to enroll. From installation, before enrollment, rEach reports its setup progress to one course server, whose instructors can run its read-only checks without asking first. See PRIVACY.md.",
         "developerName": "PatḗrasAI",
         "category": "Education",
         "capabilities": [

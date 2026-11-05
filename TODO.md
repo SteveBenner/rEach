@@ -6,7 +6,6 @@
 - [ ] See a check session once in a real harness, where the notice and the yes question are what the student reads. The prompts entered through the real hook, but no real app showed them.
 - [ ] Windows without Ruby reports nothing until the PowerShell step has fetched Ruby.
 - [ ] The offer an older copy still needs stays until no copy older than 0.69.0 reports. Remove it then.
-- [ ] The plugin directory's listing text does not mention these reports. Whether it should is the instructor's decision.
 
 ## Pattern warnings block submit on contract-required labels (found 2026-10-22)
 

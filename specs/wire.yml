@@ -2445,7 +2445,11 @@ live:
       saying who opened it, what it can do, which checks have run, and how to end it. reach live status shows the same.
       While a test is open on the computer Reach runs no check, shows no notice and answers each action ok false with a
       fixed text saying so. With device.live_without_yes false in config.yml Reach runs no check without a yes and
-      answers each action ok false with a fixed text saying the student has turned this off.
+      answers each action ok false with a fixed text saying the student has turned this off. In every open session,
+      not only a check session, those four run with no question, from Reach's own folder so that their output names no
+      working folder, with the user's home folder removed, and never while a test is open. With the device layer off,
+      or device.live_without_yes false, an ordinary session asks the student before each of them and a check session
+      runs none.
       An instructor asks for more by setting yes_requested. Reach then asks the W-LIVE-2 question with subject
       {"live": the session id}. A yes through W-API-LIVE-CONSENT sets checks_only false and co_debug true, and W-LIVE-5,
       W-LIVE-6 and W-LIVE-7 then apply in full. A no sets yes_requested false and leaves the check session as it was.
@@ -2491,7 +2495,9 @@ devices:
       that does not verify, or names a revoked install, changes nothing. An attempt link gives the device its course. An
       install link gives it its student and course and, while a session of the device is not closed, gives that session
       the same student and install. A later valid link replaces an earlier one of the same kind. Unenrolling a student
-      erases the device records that name that student.
+      from a course erases the device rows linked to that course and the debug records sent under them and closes any
+      session open on them; the copy's next report starts an unlinked row. Teach opens no session on a device whose
+      install is revoked or whose student has no active roster entry.
   W-DEVICE-4:
     name: pace
     since: 2026-11-05a
@@ -2509,8 +2515,11 @@ devices:
       A report carries only the fields of W-API-DEVICE-REPORT. It never carries a name, an email address, a student id, a
       course code, a login name, a host name, a path, typed text, a prompt, a reply, code or a file. Teach uses the
       sender's address only in memory to limit requests, and does not store it with the device. Teach keeps a device with
-      no link only until it has been silent for 30 days and has no live session on record. REACH_DEVICE_DISABLE=1 or
-      device.enabled false in config.yml stops all of it. The installer says what is sent before its first report, setup says
+      no install link only until it has been silent for 30 days with no session open, and removes its debug records and
+      closed sessions with it. reach_version is 1 to 64 letters, digits, dots, plus signs, or hyphens. REACH_DEVICE_DISABLE=1 or
+      device.enabled false in config.yml stops all of it. Reach reads device.enabled and device.live_without_yes from the
+      config.yml in its home folder, which an update keeps, and from the plugin's own config.yml, and false in either
+      counts. The installer reads both for device.enabled. The installer says what is sent before its first report, setup says
       so in what it prints, and a copy that had neither says so once at its next prompt.
 errors:
   W-ERR-1:

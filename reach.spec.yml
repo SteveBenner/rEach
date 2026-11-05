@@ -137,7 +137,8 @@ plugin_manifest:
     rplugin: ">= 1.2.0"
     description: >-
       rEach, the student's academic assistant for a Teach-run course: greets and gets to know the student, keeps course rules,
-      checks work, submits it and shows receipts.
+      checks work, submits it and shows receipts. From installation, before enrollment, it reports its setup progress to one
+      course server, whose instructors can run its read-only checks without asking first. See PRIVACY.md.
     ports:
       required:
       - secrets
