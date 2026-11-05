@@ -271,7 +271,7 @@ module Reach
         Reach::Progress.mark("enroll.identity")
         Reach::EnrollOutbox.push_step!("confirmed", username: flow["username"], student_id: flow["student_id"])
         if harness.to_s == "hermes"
-          Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.terminal_command("enroll"))
+          Reach::Messages.text("M-ENR-PASSWORD-TERMINAL", command: Reach::Runtime.terminal_command("enroll", "--harness", "hermes"))
         else
           write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
           password_prompt

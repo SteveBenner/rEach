@@ -1450,8 +1450,8 @@ module Reach
       early = preflight
       return early if early
       return answer("already", true, "M-CODEX-SETUP-ALREADY") if satisfied?(mode) && trust_current?
-      return answer("terminal", false, "M-CODEX-SETUP-TERMINAL", command: "reach codex configure") if mcp && hooks_off?
-      return answer("terminal", false, "M-CODEX-SETUP-SIGN-IN", command: "reach codex configure") if mcp && Reach::Login.enrolled_id.nil?
+      return answer("terminal", false, "M-CODEX-SETUP-TERMINAL", command: Reach::Runtime.terminal_command("codex", "configure")) if mcp && hooks_off?
+      return answer("terminal", false, "M-CODEX-SETUP-SIGN-IN", command: Reach::Runtime.terminal_command("codex", "configure")) if mcp && Reach::Login.enrolled_id.nil?
 
       subject = { "codex" => mode, "config" => config_digest }
       asked = Reach::Consent.ask!(kind: KIND, subject: subject, message_id: "M-CODEX-SETUP-ASK", fields: { changes: changes_text(mode) })

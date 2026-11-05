@@ -1,5 +1,11 @@
 # FEATURES — rEach
 
+## Terminal as a fallback for a student — 0.68.16
+
+rEach now prefers steps inside the app. When rEach says the app cannot finish enrollment, sign-in, or Codex setup in the chat, the agent walks the student through rEach's own terminal command, one step at a time: the messages `M-ENR-NOHOOK-STUDENT`, `M-ENR-AGENT-NOHOOK-CONTEXT`, `M-ENR-AGENT-NOHOOK-GUIDE`, `M-ENR-AGENT-GUIDE`, `M-ENR-AGENT-CODEX-REPAIRED`, `M-LOGIN-NOHOOK-GUIDE`, `M-ENROLL-NO-HOOK`, `M-ENR-PASSWORD-TERMINAL`, `M-CODEX-SETUP-TERMINAL`, `M-CODEX-SETUP-SIGN-IN`, `M-HARNESS-MOVE-CODEX-NEXT`, and `M-HARNESS-MOVE-TERMINAL` say so again. Passkeys and passwords never go in chat. The terminal enrollment command now carries `--harness`, so it validates on a plain terminal, and `enroll --window` forwards it. `Reach::GuidedLearner.violations` lets rEach's own enroll, login, codex configure, and harness move commands through and still flags any other command in a terminal handoff, any other reach verb, and development tools. The history below that says students get no terminal handoffs is left as it was.
+
+Build: ✅ on main. Deploy: ⚪ not on test or stable. Its `guided-learner` policy is compiled from Polispec 0.55.6. Not exercised in a live Antigravity, Claude, Codex, Windows, or Teach session.
+
 ## Screen checks switched off by the instructor — 0.68.6
 
 Wire revision 2026-11-03a lets an instructor switch the screen (panel slice) checks off on the course server while the screen check does not work. While they are off, `reach qualify` on a screen skips the local browser run, still checks that the student wrote a scenario for every graded name, and the course server answers with one passed row, "Screen checks are switched off by your instructor". `reach submit` then hands the screen in, and an instructor grades it by hand. rEach's code is unchanged: 0.68.5 already handles both answers, and 0.68.6 carries only the wire text, so its contract matches the course server's.

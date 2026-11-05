@@ -165,7 +165,7 @@ makes does not update itself the way the installed one does (see Updates). For C
 `codex plugin marketplace add SteveBenner/rEach@stable` then `codex plugin add reach@reach`, followed by trusting the hooks.
 
 Antigravity runs no hooks, so rEach cannot ask for enrollment details in its chat: a locked Antigravity session has the
-agent walk the student through `reach enroll` in a terminal window instead (`STD-NOHOOK-ENROLL`).
+agent walk the student through `reach enroll` in a terminal window instead, as the fallback (`STD-NOHOOK-ENROLL`).
 
 A student who later changes AI app on the same computer runs `reach harness move --to <app>`, or asks rEach in a chat,
 and stays enrolled; rEach stays in the old app too (`STD-HARNESS-MOVE`).
@@ -606,7 +606,7 @@ rEach's public engineering rules and runtime policy parameters live in `specs/po
 
 `reach policy --json` reports policy authorities, digests, coverage modes, and drift without private directive bodies. `reach doctor` checks the generated directive views, native enforcement bindings, and pinned instructor-control baseline. Existing shell, ownership, qualification, submission, privacy, and support behavior remains in rEach's native code; advisory instructions are labeled honestly.
 
-Learner replies also follow the optional Polispec `guided-learner` catalog package, enabled in rEach through compiled `policy/guided-learner.json`. Its six rules keep code, terminal tasks, and implementation details out of the conversation; keep coaching within released assignment knowledge; use everyday language; and preserve truthful information about privacy, recording, consent, grades, submission, and help. The agent performs technical work. If setup cannot continue in the app, it directs the student to their instructor, without asking for passwords in an untrusted chat.
+Learner replies also follow the optional Polispec `guided-learner` catalog package, enabled in rEach through compiled `policy/guided-learner.json`. Its six rules keep code and implementation details out of the conversation, put the app first, and allow a terminal only as a fallback for rEach's own commands; keep coaching within released assignment knowledge; use everyday language; and preserve truthful information about privacy, recording, consent, grades, submission, and help. The agent performs technical work. If rEach says setup cannot continue in the app, the agent walks the student through the one terminal command rEach names, and then offers help from their instructor, without asking for passwords in an untrusted chat.
 
 `reach hook coverage` reports the available presentation controls. Claude Code's documented MessageDisplay hook can replace assistant text on screen after a bounded whole-message check; the host displays the original if that hook fails or times out, and transcripts, verbose mode, and tool output are outside that protection. Claude Code and Codex Stop hooks request a bounded correction after a reply has been produced. Other harnesses retain policy guidance unless a native response control is verified. Explicit-pattern detection does not prove that every reply stays within assignment scope or uses suitable language.
 

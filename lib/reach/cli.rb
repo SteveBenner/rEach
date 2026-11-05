@@ -622,8 +622,8 @@ module Reach
         raise Reach::GuidedLearner::Invalid, "hook event could not be read: #{e.message}"
       end
 
-      def open_terminal_window(verb)
-        ok, reason = Reach::Desktop.terminal([Reach::Runtime.ruby_path, Reach::Runtime.shim_path, verb])
+      def open_terminal_window(verb, *extra)
+        ok, reason = Reach::Desktop.terminal([Reach::Runtime.ruby_path, Reach::Runtime.shim_path, verb, *extra])
         return 0 if ok
 
         warn "reach: #{reason}"
@@ -632,7 +632,10 @@ module Reach
 
       def cmd_enroll(args)
         window, args = parse_bare_flag(args, "window")
-        return open_terminal_window("enroll") if window
+        if window
+          window_options, = parse_flags(args, [:harness])
+          return open_terminal_window("enroll", *(window_options[:harness] ? ["--harness", window_options[:harness]] : []))
+        end
 
         password_stdin, args = parse_bare_flag(args, "password-stdin")
         options, remaining = parse_flags(args, [:teach_url, :course_passkey, :course_code, :username, :student_id, :harness])

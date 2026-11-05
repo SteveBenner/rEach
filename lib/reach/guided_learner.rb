@@ -14,7 +14,13 @@ module Reach
     IDS = %w[GL-CODE GL-NOTERM GL-DETAIL GL-SCOPE GL-PLAIN GL-OPEN].freeze
     DETECTOR_IDS = %w[GL-CODE GL-NOTERM GL-DETAIL].freeze
     OPCODES = { "GL-CODE" => "GLCODE", "GL-NOTERM" => "GLTERM", "GL-DETAIL" => "GLDETAIL", "GL-SCOPE" => "GLSCOPE", "GL-PLAIN" => "GLPLAIN", "GL-OPEN" => "GLOPEN" }.freeze
-    REACH_COMMAND_HANDOFF = /(?:\A|[.!?\n])\s*(?:[-*]\s*)?(?:please\s+)?(?:you\s+(?:should|must|need to)\s+)?(?:run|execute)\s+(?:the\s+)?`?reach\s+[a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*)?/i.freeze
+    REACH_COMMAND_HANDOFF = /\b(?:run|execute|type|paste|enter)\s+(?:the\s+)?`?reach\s+[a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*)?/i.freeze
+    TERMINAL_HANDOFF = /\b(?:terminal|powershell|command prompt|command line)\b[^.!?;\n]*?\b(?:(?:run|execute)\s+[`"']?(?!(?:the|this|it|that|your|these|them|any)\b)[\w~\/\\$&-]|(?:paste|type|enter)\s+(?:[`"']|[\w~\/\\$-]+\s+-))/i.freeze
+    BARE_REACH = "(?<![\\w-])reach".freeze
+    FALLBACK_MARK = "\u2063".freeze
+    FALLBACK_FENCE = /```[^\n]*\n\s*#{FALLBACK_MARK}\s*```/.freeze
+    FALLBACK_FLAG = "(?:[ \\t]+\"?--window\"?|[ \\t]+\"?--(?:harness|to|from)\"?[ \\t]+\"?(?:claude-code|codex|antigravity|hermes)\"?)".freeze
+    FALLBACK_TAIL = "[ \\t]+\"?(?:enroll|login|codex\"?[ \\t]+\"?configure|harness\"?[ \\t]+\"?move)\"?#{FALLBACK_FLAG}*(?![ \\t]+\"?[\\w-]*[\\d-])`?".freeze
     STATE_TTL = 600
 
     module_function
@@ -114,13 +120,25 @@ module Reach
       @compiled
     end
 
+    def fallback_command
+      fallback_regexp([BARE_REACH, Regexp.escape(Reach::Runtime.terminal_command), Regexp.escape(Reach::Runtime.hook_command)].uniq)
+    rescue StandardError
+      fallback_regexp([BARE_REACH])
+    end
+
+    def fallback_regexp(prefixes)
+      Regexp.new("`?(?:#{prefixes.join("|")})#{FALLBACK_TAIL}", Regexp::IGNORECASE)
+    end
+
     def violations(text)
       return ["GL-CODE"] unless text.is_a?(String) && text.valid_encoding? && text.bytesize <= presentation.fetch("max_text_bytes")
 
       detectors = compiled_detectors
+      fallback = fallback_command
       Timeout.timeout(0.05) do
+        text = text.gsub(fallback, FALLBACK_MARK).gsub(FALLBACK_FENCE, FALLBACK_MARK)
         found = DETECTOR_IDS.select { |id| detectors.fetch(id).any? { |pattern| pattern.match?(text) } }
-        found << "GL-NOTERM" if !found.include?("GL-NOTERM") && REACH_COMMAND_HANDOFF.match?(text)
+        found << "GL-NOTERM" if !found.include?("GL-NOTERM") && (REACH_COMMAND_HANDOFF.match?(text) || TERMINAL_HANDOFF.match?(text))
         found
       end
     rescue Timeout::Error

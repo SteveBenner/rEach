@@ -133,7 +133,7 @@ module Reach
     def codex_step(target)
       return nil unless target == "codex" && Reach::CodexSetup.enabled? && !Reach::CodexSetup.satisfied?
 
-      Reach::Messages.text("M-HARNESS-MOVE-CODEX-NEXT", command: "reach codex configure")
+      Reach::Messages.text("M-HARNESS-MOVE-CODEX-NEXT", command: Reach::Runtime.terminal_command("codex", "configure"))
     rescue StandardError
       nil
     end

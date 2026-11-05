@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.68.14
+version: 0.68.16
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -3814,8 +3814,8 @@ learner_presentation:
   artifact: policy/guided-learner.json
   source_authority: Polispec release; compiled into rEach, no runtime dependency
   policy_ids: [GL-CODE, GL-NOTERM, GL-DETAIL, GL-SCOPE, GL-PLAIN, GL-OPEN]
-  student_terminal_handoffs: prohibited, including setup
-  recovery: Available in-app action or instructor help; never collect credentials in an untrusted chat
+  student_terminal_handoffs: preferred in the app; allowed only as a fallback for rEach's own enroll, login, codex configure, and harness move commands when rEach says the app cannot finish the step
+  recovery: Available in-app action, then rEach's terminal fallback, then instructor help; never collect credentials in an untrusted chat
   guidance: Canonical policy context at session and prompt boundaries
   display: Claude Code MessageDisplay replacement; whole-message buffering; explicit-pattern review
   correction: Claude Code and Codex Stop; bounded rewrite request; after-display only

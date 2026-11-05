@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v1",
-  "digest": "sha256:bb1c9e27df78da7c229ab7a0476e0f2b9d5874fac8c580d42b12c4a2d88dabad",
+  "digest": "sha256:6fe72f02dec9ee32fa400113e739b62140b0a6d2f77022953db483dc03766f26",
   "policy": {
     "authority": {
       "authentication": "release",
@@ -20,11 +20,11 @@
         ]
       },
       {
-        "body": "Do not ask or instruct learners to use a terminal, PowerShell, a command prompt, configuration files, or infrastructure repair, including during setup. The agent may use its own tools to do technical work. If setup needs help, offer an in-app action or help from the instructor.",
-        "enforce": "Explicit terminal handoffs are detected at supported display boundaries; semantic coverage is advisory.",
+        "body": "Prefer steps inside the app, including during setup, and use the agent's own tools for technical work. When the application says the app cannot finish a step, walk the learner through the application's own terminal command, one step at a time. Do not ask learners to run any other command, edit configuration files, or repair infrastructure. If that does not work, offer help from the instructor.",
+        "enforce": "Explicit handoffs of development tools are detected at supported display boundaries; semantic coverage is advisory.",
         "id": "GL-NOTERM",
         "opcode": "GLTERM",
-        "rule": "Do not hand terminal work to learners.",
+        "rule": "Prefer in-app steps; a terminal is only a fallback for the application's own commands.",
         "tier": "public",
         "when": [
           "always"
@@ -88,11 +88,6 @@
             "flags": "i",
             "id": "GL-CODE",
             "pattern": "(?:^|\\n)\\s*(?:\\$\\s+|>\\s+)?(?:git\\s+(?:diff|status)|ruby\\s+|python\\s+|npm\\s+|bundle\\s+|cargo\\s+|sudo\\s+)[^\\n]*"
-          },
-          {
-            "flags": "i",
-            "id": "GL-NOTERM",
-            "pattern": "(?:^|[.!?]\\s+)\\s*(?:(?:please\\s+)?(?:open|launch|start|use|switch to|go to)|you\\s+(?:should|must|need to)\\s+(?:open|launch|start|use|switch to|go to))\\s+(?:your\\s+|the\\s+|a\\s+)?(?:terminal(?:\\s+app)?|powershell|command prompt|command line)\\b|(?:^|[.!?]\\s+)\\s*(?:(?:please\\s+)?(?:copy|paste)|you\\s+(?:should|must|need to)\\s+(?:copy|paste))\\s+(?:this|the command|it)\\s+(?:into|in)\\s+(?:powershell|a?\\s*terminal|command prompt)\\b"
           },
           {
             "flags": "i",
@@ -179,6 +174,6 @@
         "learner-presentation"
       ]
     },
-    "version": 1
+    "version": 2
   }
 }

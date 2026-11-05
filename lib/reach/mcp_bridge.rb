@@ -747,7 +747,9 @@ module Reach
         unlocked = UNLOCKED_TOOLS.include?(name) || name == "reach_validate" || (name == "reach_submit" && arguments["archive"] == true)
         lock = unlocked ? nil : Reach::EnrollmentLock.state
         if lock && lock["locked"]
-          raise Reach::Refused, Reach::Messages.text(%w[reach_enroll reach_enrol].include?(name) ? enroll_refusal_id : lock["message_id"])
+          id = %w[reach_enroll reach_enrol].include?(name) ? enroll_refusal_id : lock["message_id"]
+          fields = id == "M-ENROLL-NO-HOOK" ? { command: Reach::Runtime.terminal_command("enroll", "--harness", "codex") } : {}
+          raise Reach::Refused, Reach::Messages.text(id, **fields)
         end
 
         case name
