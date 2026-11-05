@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.19] - 2026-11-05
+
+### Fixed
+
+- `reach_setup configure` no longer asks a Codex student for a yes nothing can capture. A typed yes reaches rEach only through the plugin's prompt hook, and `CodexSetup.hooks_off?` (`lib/reach/codex_setup.rb`) looked only at `hooks_stale?`, which the course folder's tool hooks keep fresh, so a student whose plugin hooks were silent was asked again and again. It now also reads `prompt_turns_unseen?` and `signin_hook_dead?`, still only after the plugin's hook has been quiet for 15 minutes, and answers `M-CODEX-SETUP-TERMINAL`.
+- A hook an update adds or changes no longer stays silently unapproved. `CodexSetup.heal!`, which runs at `reach mcp` and at each background tick and needs no hook, re-approves such a hook without a question when the cached `hooks/codex.json` is exactly what the release ships (`CodexHookTrust.SHIPPED_PLUGIN_HOOKS`), the session and prompt hooks already hold trust, and the recorded answer is neither no nor withdrawn. An approval removed after rEach recorded it (`plugin_trust_keys`) stays removed, a partial approval is left alone, and `enabled = false` stays. It keeps a backup, is held to one try in 6 hours by `healed_at`, and emits `codex_setup.retrusted`. Course-folder hooks still need the `hook-trust-1` yes. This reaches the Stop hook added on 2026-10-20, which stayed unapproved for anyone whose trust came from an install. `README.md`, `PRIVACY.md`, and the `reach setup` line say so, and `reach codex off` stops it.
+- `reach codex status`, `reach_setup status`, and `reach doctor` report hook approval. `CodexSetup.status` carries `hooks_trusted`, and the Codex line says `hooks not approved`, where before it said only `settings ok` while `reach_setup configure` kept asking.
+- `reach setup` and `README.md` say rEach has three Codex hooks, not two.
+
 ## [0.68.18] - 2026-11-05
 
 ### Fixed

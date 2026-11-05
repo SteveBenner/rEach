@@ -1064,6 +1064,24 @@ MCP server: `reach_hello` answered with a null greeting and `M-LOGIN-NEEDED-NO-H
 Not run against a live Codex that sends a subagent's tool hooks under a turn id of its own, which would raise the
 health line wrongly; the refusal is left off for that reason.
 Build ✅ (0.64.19) · Deploy 🔵 (0.64.19 pending).
+Since 0.68.19 `reach_setup configure` reads the same signal. A yes reaches rEach only through the plugin's prompt hook, so
+when that hook has been quiet for 15 minutes and `hooks_stale?`, `prompt_turns_unseen?`, or `signin_hook_dead?` holds, it
+answers `M-CODEX-SETUP-TERMINAL` instead of asking. `CodexSetup.heal!`, at `reach mcp` and each background tick, re-approves
+a plugin hook an update added or changed, without a question and whichever route delivered it, when the cached
+`hooks/codex.json` is exactly what the release ships, the session and prompt hooks already hold trust, and the recorded
+answer is neither no nor withdrawn. An approval removed after rEach recorded it stays removed, a partial approval is left
+alone, a disabled hook stays disabled, and course-folder hooks still need the `hook-trust-1` yes. `README.md` and
+`PRIVACY.md` say so, and `reach codex off` stops it. `reach codex status`, `reach_setup status`, and `reach doctor` report
+`hooks_trusted` and `hooks not approved`. Verified 2026-11-05 on Linux with Codex CLI 0.166.0 in a scratch home: app-server
+`hooks/list` showed the Stop hook `untrusted` beside two `trusted` hooks, and all three `trusted` after `heal!`, with Codex
+still accepting the file and one backup kept. Driven with hook state files: the silent-plugin states answer `terminal`; one
+50-minute turn, 14 quiet minutes, a hook that ran a minute ago, and other harnesses still answer `asked`; no, withdrawn, no
+prior trust, a removed or partial approval, a changed hook file, a heal in the last 6 hours, and the sandbox write nothing.
+Not run in a live student chat, and how Codex's own hooks screen records a removal was not observed. Known limits: a
+subagent's tool hooks under their own turn id, more than 15 minutes into a turn, also read as silent, so that student gets
+the hand-off though a yes could have been captured; an install from before 0.68.19 has no record of what rEach approved, so
+a Stop approval the student removed by hand is approved once.
+Build ✅ (0.68.19) · Deploy 🔵 (0.68.19 on test once promoted, stable is the operator's).
 Since 0.35.16 (`STD-CODEX-PROMPT-JSON-BLOCK`) `gate enroll` and `gate prompt` with `--harness codex` block by printing
 `{"decision":"block","reason":...}` on standard output and exiting 0, not by exiting 2. Codex on Windows runs hooks
 in the session's PowerShell (`-Command`), which turns a native exit 2 into 1, and Codex treats exit 1 as a hook
@@ -1973,7 +1991,7 @@ Ruby or shim (for example, a kit left behind by a home move) and refreshes Codex
 with codex 0.160.0 `app-server hooks/list` (modified, then trusted after the repair); the Windows quoted-command
 form is not yet run on Windows.
 
-Since 0.35.6 (`STD-CODEX-HOOK-TRUST`) the plugin's two Codex hooks carry the course session and prompt work, so
+Since 0.35.6 (`STD-CODEX-HOOK-TRUST`) the plugin's session and prompt Codex hooks carry the course session and prompt work, so
 sign-in, prompt recording and the course prompt rules no longer depend on a course folder's hooks, which Codex never
 ran because it trusts each hook by the hash of its command. The course folder's `.codex/hooks.json` keeps only the
 tool and stop hooks, and under the student's Codex-settings consent rEach records Codex's trust for them and marks each

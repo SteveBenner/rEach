@@ -152,7 +152,7 @@ commands, and it is the only install that updates itself (see Updates). Or insta
 | Harness | Command |
 | --- | --- |
 | Claude Code, the Claude app's Code tab, Codex, Antigravity, Hermes | run the one install command in `INSTALL.md` with `--harness <claude-code or codex or antigravity or hermes>`, or install the public GitHub archive to `~/reach-work/.reach-home/plugin` and run `exe/reach setup` from the path the installer prints |
-| Codex | after the install command, trust rEach's two hooks (`/hooks`, or Settings > Hooks in the app) |
+| Codex | after the install command, trust rEach's three hooks (`/hooks`, or Settings > Hooks in the app) |
 | Hermes | open course folders with `~/reach-work/.reach-home/bin/reach work --harness hermes` (setup prints the exact command) |
 | Claude app (Cowork) | Customize › Plugins › Add › Add marketplace, paste the link, add rEach; Cowork's sandbox cannot run the install command, so this is its only route |
 | rplugin | `rplugin install ~/.rplugins/reach` |
@@ -415,6 +415,11 @@ something it does not read. The student answers on a terminal (`reach codex conf
 runs after setup), in a chat when the agent calls the `reach_setup` tool, or during a live session. `reach codex
 status`, `reach codex probe` and `reach doctor` show where it stands, and `reach codex off` stops rEach putting the
 settings back. `codex.setup: false` in `config.yml` or `REACH_CODEX_SETUP=0` turns it off.
+
+Installing for Codex approves rEach's plugin hooks with no separate question. When an update adds or changes one, rEach
+approves the new version too, without asking, once it has confirmed the hook file is exactly what this release ships
+and that the plugin's session and prompt hooks already hold approval. It leaves a hook alone after the student answers
+no, after `reach codex off`, and when an approval it recorded has since been removed.
 
 rEach also checks its own health on this computer: whether Codex's sandbox blocks it, and whether Codex runs and trusts
 rEach's hooks. Each session's context names a check that fails, with the steps for the student and, where rEach can fix

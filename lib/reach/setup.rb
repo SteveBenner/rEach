@@ -184,10 +184,10 @@ module Reach
       Reach::CodexCache.repair
       settings = "rEach will also ask to change two Codex settings so its commands can use the internet and its folder inside Codex; after that change, start a new chat in Codex."
       if %i[trusted already].include?(Reach::CodexSetup.trust_plugin_hooks!)
-        return { id: "codex", ok: true, message: "Codex: rEach installed and its two hooks approved in Codex. Start a new Codex session. #{settings}" }
+        return { id: "codex", ok: true, message: "Codex: rEach installed and its three hooks approved in Codex. rEach keeps them approved when an update adds or changes one; reach codex off stops that. Start a new Codex session. #{settings}" }
       end
 
-      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's two hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks). #{settings}" }
+      { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's three hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks). #{settings}" }
     end
 
     def run_antigravity(_source)

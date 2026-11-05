@@ -23,6 +23,7 @@ module Reach
     WORKSPACE_WRITE = "workspace-write".freeze
     TRUSTED = "trusted".freeze
     TRUST_SCOPE = "hook-trust-1".freeze
+    DECLINED_ANSWERS = %w[no withdrawn].freeze
     BACKUP_INFIX = ".reach-backup-".freeze
     UNINSTALL_BACKUP_INFIX = ".reach-uninstall-backup-".freeze
 
@@ -1135,11 +1136,48 @@ module Reach
       wanted = plugin_hook_plan
       return nil if wanted.empty?
 
-      outcome = locked { write_trust(wanted, []) }
+      outcome = locked do
+        result = write_trust(wanted, [])
+        note_plugin_trust(wanted, result)
+        result
+      end
       outcome == :busy ? nil : outcome
     rescue StandardError => e
       Reach::Debug.fault(e, "codex_setup:plugin_trust")
       nil
+    end
+
+    def note_plugin_trust(wanted, result)
+      return unless %i[trusted already].include?(result)
+
+      update_state { |fresh| fresh.merge("plugin_trust_keys" => Array(fresh["plugin_trust_keys"]) | wanted.map(&:first)) }
+    end
+
+    def plugin_retrust_plan(state)
+      content = plugin_hook_content
+      return [] unless content && CodexHookTrust.plugin_shipped?(content)
+
+      answers = CodexHookTrust.plugin_status(content)
+      return [] unless CodexHookTrust.install_approved?(answers)
+
+      noted = Array(state["plugin_trust_keys"])
+      CodexHookTrust.plugin_keys(content).select do |key, _digest|
+        answers[key] == "modified" || (answers[key] == "untrusted" && !noted.include?(key))
+      end
+    end
+
+    def retrust_plugin_hooks(state)
+      wanted = plugin_retrust_plan(state)
+      return nil if wanted.empty?
+
+      outcome = locked do
+        result = write_trust(wanted, [])
+        note_plugin_trust(wanted, result)
+        update_state { |fresh| fresh.merge("healed_at" => now_s) }
+        emit("retrusted", "handlers" => wanted.length, "outcome" => result.to_s)
+        result
+      end
+      outcome == :busy ? nil : outcome
     end
 
     def project_trusted?(folder)
@@ -1219,8 +1257,9 @@ module Reach
       found = facts
       state = read_state
       cli = codex_cli
+      present = !cli.nil? || File.directory?(codex_home)
       {
-        "codex_present" => !cli.nil? || File.directory?(codex_home),
+        "codex_present" => present,
         "codex_cli" => !cli.nil?,
         "config_path" => config_path,
         "config_exists" => File.file?(config_path),
@@ -1230,6 +1269,7 @@ module Reach
         "trusted" => found["trusted"],
         "mode_wanted" => mode_wanted,
         "satisfied" => satisfied?(mode_wanted, found) ? true : false,
+        "hooks_trusted" => present ? trust_current? : nil,
         "consent" => state["consent"],
         "applied_at" => state["applied_at"],
         "backup" => state["backup"],
@@ -1439,8 +1479,10 @@ module Reach
 
     def hooks_off?
       label = Reach::HookLiveness.harness.to_s
-      !label.empty? && Reach::HookLiveness.family_of(label) == "codex" && Reach::HookLiveness.hooks_stale? &&
-        Reach::HookLiveness.enroll_hook_quiet?(Reach::HookLiveness::HOOKS_QUIET_S)
+      return false if label.empty? || Reach::HookLiveness.family_of(label) != "codex"
+      return false unless Reach::HookLiveness.enroll_hook_quiet?(Reach::HookLiveness::HOOKS_QUIET_S)
+
+      Reach::HookLiveness.hooks_stale? || Reach::HookLiveness.prompt_turns_unseen? || Reach::HookLiveness.signin_hook_dead?
     rescue StandardError
       false
     end
@@ -1602,10 +1644,13 @@ module Reach
 
       state = read_state
       consent = state["consent"].is_a?(Hash) ? state["consent"] : {}
-      return nil unless consent["answer"] == "yes"
+      return nil if DECLINED_ANSWERS.include?(consent["answer"])
       return nil unless codex_present?
       return nil if Reach::Sandbox.active?
       return nil if recent?(state["healed_at"], HEAL_GAP_S)
+
+      retrust_plugin_hooks(state) unless trust_consent?(state)
+      return nil unless consent["answer"] == "yes"
 
       mode = MODES.include?(state["mode"]) ? state["mode"] : mode_wanted
       return nil if satisfied?(mode) && (trust_current? || !trust_consent?(state))
@@ -1802,7 +1847,8 @@ module Reach
                 else
                   "not tested"
                 end
-      "codex: #{codex}; sandbox #{sandbox}"
+      hooks = enabled? && found["hooks_trusted"] == false ? "; hooks not approved" : ""
+      "codex: #{codex}#{hooks}; sandbox #{sandbox}"
     end
 
     def doctor_problems(found = status)

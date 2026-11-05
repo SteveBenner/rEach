@@ -1034,7 +1034,7 @@ module Reach
         case arguments["action"].to_s
         when "", "status"
           info = Reach::CodexSetup.status
-          { "text" => Reach::CodexSetup.doctor_line(info), "satisfied" => info["satisfied"], "mode_wanted" => info["mode_wanted"], "probe" => info["probe"] }
+          { "text" => Reach::CodexSetup.doctor_line(info), "satisfied" => info["satisfied"], "hooks_trusted" => info["hooks_trusted"], "mode_wanted" => info["mode_wanted"], "probe" => info["probe"] }
         when "probe"
           found = Reach::CodexSetup.probe!
           { "text" => found["text"], "network" => found["network"], "home_writable" => found["home_writable"], "available" => found["available"] }

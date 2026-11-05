@@ -28,7 +28,14 @@ module Reach
     PREFIX = "sha256:".freeze
     PLUGIN_ID = "reach@reach".freeze
     PLUGIN_HOOKS = "hooks/codex.json".freeze
+    PLUGIN_INSTALL_EVENTS = %w[SessionStart UserPromptSubmit].freeze
+    SHIPPED_PLUGIN_HOOKS = {
+      "SessionStart" => ["hello", 10],
+      "UserPromptSubmit" => ["gate enroll --harness codex", 60],
+      "Stop" => ["hook response --harness codex", 10]
+    }.freeze
     BAD = %w[modified untrusted].freeze
+    HELD = %w[trusted modified].freeze
 
     module_function
 
@@ -181,6 +188,22 @@ module Reach
 
     def stale?(answers)
       answers.values.any? { |answer| BAD.include?(answer) }
+    end
+
+    def shipped_plugin_content
+      events = SHIPPED_PLUGIN_HOOKS.to_h do |event, (verb, seconds)|
+        handler = { "type" => "command", "command" => "ruby \"${PLUGIN_ROOT}/exe/reach\" #{verb}", "timeout" => seconds }
+        [event, [{ "hooks" => [handler] }]]
+      end
+      { "hooks" => events }
+    end
+
+    def plugin_shipped?(content)
+      parsed(content) == shipped_plugin_content
+    end
+
+    def install_approved?(answers)
+      PLUGIN_INSTALL_EVENTS.all? { |event| HELD.include?(answers[plugin_key(event, 0, 0)]) }
     end
   end
 end

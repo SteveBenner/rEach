@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.68.18
+version: 0.68.19
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -670,7 +670,7 @@ harness_integration:
     limits_stated_honestly: >-
       Codex now has PreToolUse hooks; file writes arrive as apply_patch with the patch text, and reach gate write reads
       the patch's file headers. Codex runs a project's .codex/hooks.json and the plugin's hooks only after the student
-      trusts them (the plugin's two hooks reach the trust review only once Reach has set the cached root plugin.json
+      trusts them (the plugin's hooks reach the trust review only once Reach has set the cached root plugin.json
       aside, see packaging.files); until then enforcement is the read-only file permissions plus the submit-time check, and reach watch
       stays the shape-check backstop.
   antigravity:
@@ -1368,7 +1368,7 @@ mcp_bridge:
   - name: reach_setup
     description: >-
       Since 0.31.0 (STD-CODEX-SETUP), sets Codex up so rEach's commands work in its sandbox: action status (the default)
-      answers text, satisfied, mode_wanted and the last probe; probe runs the sandboxed probe and answers text,
+      answers text, satisfied, hooks_trusted (since 0.68.19), mode_wanted and the last probe; probe runs the sandboxed probe and answers text,
       network, home_writable and available; configure (optional mode workspace or full) answers rEach's own question
       with relay_verbatim true, or the outcome text; works before enrollment
   - name: reach_announcements
@@ -3634,7 +3634,7 @@ codex_setup:
     only the new file is rejected. A second apply on a set-up file writes nothing (M-CODEX-SETUP-ALREADY).
   state: >-
     <root>/state/codex_setup.json (0600, temporary file and rename): consent {answer yes, no or withdrawn, at, via
-    terminal, chat or live, scope hook-trust-1 on a yes recorded since the hook-trust change}, mode, applied_at, backup, config_sha256, healed_at and the last probe {at, available,
+    terminal, chat or live, scope hook-trust-1 on a yes recorded since the hook-trust change}, mode, applied_at, backup, config_sha256, healed_at, plugin_trust_keys (since 0.68.19) and the last probe {at, available,
     network, home_writable, reason, codex_version}. <root>/state/codex_setup.lock through Reach::Locks with a 5 second
     wait; a busy lock answers M-CODEX-SETUP-BUSY.
   consent: >-
@@ -3642,7 +3642,9 @@ codex_setup:
     configure and a reach codex configure without a terminal ask through Reach::Consent (kind codex_setup, subject the
     mode and the SHA-256 of the current file, kept on the computer); the prompt hook captures the typed answer and its
     follow-up applies on a yes or records the no (M-CODEX-SETUP-DECLINED). In the MCP server on Codex, while
-    HookLiveness.hooks_stale? holds, no yes can be captured, so it answers M-CODEX-SETUP-TERMINAL and asks nothing. Before enrollment
+    the plugin's prompt hook has been quiet for 15 minutes and HookLiveness.hooks_stale?, prompt_turns_unseen? or
+    signin_hook_dead? holds (since 0.68.19 the last two as well, because the course folder's tool hooks keep
+    hooks_stale? false), no yes can be captured, so it answers M-CODEX-SETUP-TERMINAL and asks nothing. Before enrollment
     the MCP tool answers M-CODEX-SETUP-SIGN-IN and asks nothing, because a chat yes is captured only for a signed-in
     student; the terminal command works before enrollment. A withdrawal with no backup on disk answers
     M-CODEX-SETUP-OFF-DONE-NEW, and the outcome text sent to Teach from a live action names the backup by file name only.
@@ -3652,7 +3654,9 @@ codex_setup:
     CodexSetup.heal! reapplies when setup and heal are on, the recorded answer is yes, Codex is present, the file is
     not set up, the process is not sandboxed and the last reapply is over 6 hours old, with the same editor, backup,
     validation and lock; it records healed_at, emits one debug event and never raises. Called from reach mcp after the
-    plugin cache repair and from the background subscription tick, nowhere else and never from a hook.
+    plugin cache repair and from the background subscription tick, nowhere else and never from a hook. Since 0.68.19 the
+    same call, under the same 6-hour gap and the same Codex and sandbox checks, runs the plugin re-trust
+    (STD-CODEX-HOOK-TRUST plugin_retrust) before it looks at the recorded yes.
   probe: >-
     CodexSetup.probe! runs codex sandbox [-c sandbox_mode="<the settings file's own top-level value, when it is one
     of read-only, workspace-write or danger-full-access>"] -- <ruby> <exe/reach> codex probe-child from the reach-work
@@ -3672,7 +3676,7 @@ codex_setup:
     blocked. reach doctor --report carries a codex section (CodexSetup.status) and never runs the probe.
   observability: >-
     One debug event per apply, decline, withdrawal, reapply, refusal and probe through the generic brain event
-    (event codex_setup.applied, already, declined, withdrawn, healed, refused or probed) with mode, via, reason, the
+    (event codex_setup.applied, already, declined, withdrawn, healed, retrusted, refused or probed) with mode, via, reason, the
     backup's file name and the probe's booleans; unexpected errors go through Reach::Debug.fault (codex_setup:<step>).
   measured: >-
     Codex 0.160.0 on Linux, 2026-10-03: a chat's sandbox follows the user-level config (codex debug prompt-input shows
@@ -3706,7 +3710,8 @@ codex_hook_trust:
     covering matchers on every event, async, statusMessage, additionalContextLimit, SessionEnd timeout clamping and
     non-ASCII command text; hooks/list then reported every course handler trusted after CodexSetup recorded the keys.
   split: >-
-    The plugin's two hooks stay as they are (hooks/codex.json and every manifest hook unchanged byte for byte). On Codex
+    The plugin's SessionStart and UserPromptSubmit hooks stay as they are (those handlers in hooks/codex.json and in every
+    manifest unchanged byte for byte; a Stop hook joined them on 2026-10-20). On Codex
     (an event with turn_id), when the sign-in is satisfied and the event's cwd is in a course folder, the plugin's gate
     enroll runs Reach::Gate.prompt (claimed, so the sign-in is not claimed twice) and merges its context and link and
     issue notices into its own UserPromptSubmit answer; reach hello, on a Codex SessionStart in a course folder, runs
@@ -3723,7 +3728,7 @@ codex_hook_trust:
     folders' project trust, only when the recorded consent is a yes that carries scope hook-trust-1, which the
     terminal, chat (the plugin hook's captured answer) and live-action paths record when the student answers the
     question that names hook approval. A yes recorded earlier covers only the sandbox settings: those keep healing,
-    no trust is written, reach_setup configure and reach codex configure ask the new question instead of answering
+    no course-folder trust is written, reach_setup configure and reach codex configure ask the new question instead of answering
     already set up while trust is stale, and M-HOOKS-UNTRUSTED still points the agent at reach_setup configure. Trust
     is written in the same
     write as the sandbox settings (apply, reapply) and, when the scoped yes stands, right after Harness.configure_codex
@@ -3738,13 +3743,34 @@ codex_hook_trust:
     refusals as the reach-work folder's own trust. CodexHookTrust.status answers untrusted for every handler of a
     folder that is not trusted, so heal and the already-set-up answers treat it as stale trust. On Windows, hook keys
     and project paths are matched ignoring case and with / and \ alike, and an existing entry's spelling is reused.
+  plugin_retrust: >-
+    Since 0.68.19. reach setup writes the plugin's hook trust at install with no question, and a hook an update adds or
+    changes then reads untrusted or modified, so Codex skips it without a word. CodexSetup.heal! runs
+    retrust_plugin_hooks when the recorded answer is neither no nor withdrawn and carries no hook-trust-1, which the
+    regular reapply already covers. It writes only when the cached hooks/codex.json equals
+    CodexHookTrust.SHIPPED_PLUGIN_HOOKS exactly, so a file anything else changed is never approved, and only when the
+    SessionStart and UserPromptSubmit handlers both read trusted or modified, which an install or a full review records
+    together, so a student who removed one or approved only part of the plugin is left alone. It then records each
+    handler that reads modified, and each that reads untrusted and is not listed in plugin_trust_keys in
+    codex_setup.json, which this path and trust_plugin_hooks! fill, so an approval removed after rEach recorded it stays
+    removed. The write uses write_trust (same backup, atomic write, codex features list check and refusals), stamps
+    healed_at and emits codex_setup.retrusted. It reaches a hook whichever route delivered it (the update apply, the
+    cached plugin refresh or Codex's own marketplace upgrade), since heal! runs at reach mcp and the background tick and
+    needs no hook. It never writes an enabled field, so a hook the student disabled stays disabled, and never writes
+    course-folder or project trust. Codex's own review of a changed hook is therefore skipped for rEach's plugin hooks:
+    prior approval of the plugin stands for later versions of its hooks until the student says no or runs reach codex
+    off. README.md and PRIVACY.md say so. Known limits: SHIPPED_PLUGIN_HOOKS repeats hooks/codex.json, so a release that
+    changes the file without the table stops re-approving and the student is asked instead; an install from before
+    0.68.19 has no plugin_trust_keys, so a Stop approval the student removed by hand reads as the gap this closes and is
+    approved once; and how Codex's own hooks screen records a removal was not observed.
   detection: >-
     HookLiveness.course_hooks_untrusted? (Codex only, false while the sign-in is pending, unknown never counts) is true
     when a handler of the current folder's hooks.json is modified or untrusted. require_hooks! then refuses with
     M-HOOKS-UNTRUSTED, the health check codex_hooks_untrusted fires (STD-HEALTH), and reach_next, the sign-in texts and
     M-HOOKS-REQUIRED give way to M-HOOKS-UNTRUSTED where they would have been chosen. The remedy is codex_configure,
-    which asks the student's consent as before. CodexSetup.ask_chat and configure_terminal no longer answer already
-    set up while trust is stale. While the sign-in is pending the hooks_not_running and
+    which asks the student's consent as before, or answers M-CODEX-SETUP-TERMINAL when no yes can be captured. CodexSetup.ask_chat and configure_terminal no longer answer already
+    set up while trust is stale. CodexSetup.status carries hooks_trusted (trust_current?, null without Codex) beside
+    satisfied, which still reads settings only, and doctor_line adds hooks not approved when it is false. While the sign-in is pending the hooks_not_running and
     codex_hooks_untrusted detections are withheld from the agent; signin_hook_not_running is not.
   hook_ruby: >-
     Since 0.35.9. Every command rEach writes into a course folder (.codex/hooks.json and .claude/settings.json hook
