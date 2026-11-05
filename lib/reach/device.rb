@@ -87,16 +87,19 @@ module Reach
 
     def enabled?
       boundary("device:enabled") do
-        section = Reach::Runtime.load_config["device"]
-        ENV["REACH_DEVICE_DISABLE"] != "1" && Reach::Paths.persona_id.nil? && !(section.is_a?(Hash) && section["enabled"] == false)
+        ENV["REACH_DEVICE_DISABLE"] != "1" && Reach::Paths.persona_id.nil? && !switched_off?("enabled")
       end == true
     end
 
+    def switched_off?(key)
+      [Reach::Update.install_config, Reach::Runtime.load_config].any? do |config|
+        section = config["device"]
+        section.is_a?(Hash) && section[key] == false
+      end
+    end
+
     def live_without_yes?
-      boundary("device:live_without_yes") do
-        section = Reach::Runtime.load_config["device"]
-        !(section.is_a?(Hash) && section["live_without_yes"] == false)
-      end != false
+      boundary("device:live_without_yes") { !switched_off?("live_without_yes") } != false
     end
 
     def offline?
@@ -606,19 +609,21 @@ module Reach
       end
     end
 
-    def uninstalling!
+    def uninstalling!(tell: true)
       guarded("device:uninstalling") do
         next nil unless enabled?
 
         device = identity
         next nil unless device
 
-        edit do
-          outbox = read_outbox
-          outbox["entries"] = (outbox["entries"] + [{ "id" => UNINSTALLED, "at" => iso }]).last(OUTBOX_MAX)
-          write_outbox(outbox)
+        if tell
+          edit do
+            outbox = read_outbox
+            outbox["entries"] = (outbox["entries"] + [{ "id" => UNINSTALLED, "at" => iso }]).last(OUTBOX_MAX)
+            write_outbox(outbox)
+          end
         end
-        unless offline?
+        unless offline? || !tell
           begin
             Timeout.timeout(SEND_TIMEOUT_S) { deliver(device, read_state, read_outbox, [], "session") }
           rescue Timeout::Error => e

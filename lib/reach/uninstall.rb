@@ -341,7 +341,7 @@ module Reach
       toggles = options[:toggles]
       messages = context[:messages]
       via = confirmation[:via]
-      Reach::Device.uninstalling!
+      Reach::Device.uninstalling!(tell: teach_enabled?(toggles))
       teach = case via
               when :terminal then { "state" => "not_told", "reason" => "skipped" }
               when :flag then { "state" => "skipped", "reason" => "not_enrolled" }

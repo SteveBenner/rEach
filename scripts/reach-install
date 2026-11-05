@@ -39,7 +39,7 @@ module ReachInstall
   module Beacon
     ROUTE = "/api/v1/devices/report".freeze
     DEFAULT_URL = "https://sven-f1l1.tail062fd2.ts.net".freeze
-    NOTICE = "rEach tells your course server that this copy exists and how far setup has got. It sends no name, no file, and nothing you type. rEach's privacy policy has the details and how to turn this off.".freeze
+    NOTICE = "rEach tells your course server that this copy exists and how far setup has got. It sends no name, no file, and nothing you type. An instructor can also run rEach's read-only checks on this computer without asking first. You get a notice and you can end the session. rEach's privacy policy has the details and how to turn this off.".freeze
     BUDGET_S = 5.0
     CONNECT_TIMEOUT_S = 2
     READ_TIMEOUT_S = 3
@@ -54,7 +54,7 @@ module ReachInstall
 
     class << self
       def active?
-        ENV["REACH_DEVICE_DISABLE"] != "1"
+        ENV["REACH_DEVICE_DISABLE"] != "1" && !ReachInstall.send(:device_switched_off?)
       end
 
       def crypto?
@@ -685,6 +685,17 @@ module ReachInstall
       value.positive? ? value : LOG_THRESHOLD
     rescue StandardError
       LOG_THRESHOLD
+    end
+
+    def device_switched_off?
+      folder = @log_destination || default_destination
+      [File.join(folder, "config.yml"), File.join(File.dirname(folder), "config.yml")].any? do |path|
+        data = File.file?(path) ? YAML.safe_load(File.read(path)) : nil
+        section = data.is_a?(Hash) ? data["device"] : nil
+        section.is_a?(Hash) && section["enabled"] == false
+      end
+    rescue StandardError
+      false
     end
 
     def log_streak(success, error)

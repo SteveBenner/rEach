@@ -463,7 +463,7 @@ module Reach
         "unread" => unread(state).length
       }
       ran = Array(state["checks_ran"])
-      view["message"] = "#{view['message']}\n#{Reach::Messages.text('M-LIVE-CHECKS-RAN', names: ran.join(', '))}" if current && current["checks_only"] == true && !ran.empty?
+      view["message"] = "#{view['message']}\n#{Reach::Messages.text('M-LIVE-CHECKS-RAN', names: ran.join(', '))}" if current && !ran.empty?
       if current
         view["session_id"] = current["id"]
         view["co_debug"] = current["co_debug"] == true
@@ -781,7 +781,7 @@ module Reach
             changes["told_open"] = id
           end
           ran = Array(state["checks_ran"])
-          if current["checks_only"] == true && ran.length > told["ran"].to_i
+          if ran.length > told["ran"].to_i
             lines << Reach::Messages.text("M-LIVE-CHECKS-RAN", names: ran.join(", "))
             changes["told_ran"] = ran.length
           end
@@ -814,7 +814,7 @@ module Reach
           if told["closed"] != id && (told["open"] == id || state["offer_asked"] == id || %w[student diagnosis].include?(current["started_by"]))
             lines << Reach::Messages.text("M-LIVE-CLOSED", reason: END_TEXT[current["end_reason"].to_s] || "it ended")
             ran = Array(state["checks_ran"])
-            lines << Reach::Messages.text("M-LIVE-CHECKS-RAN", names: ran.join(", ")) if current["checks_only"] == true && !ran.empty?
+            lines << Reach::Messages.text("M-LIVE-CHECKS-RAN", names: ran.join(", ")) unless ran.empty?
             changes["told_closed"] = id
           end
         end
@@ -921,12 +921,17 @@ module Reach
       return "unknown" unless ACTIONS.include?(name)
 
       checks = current["checks_only"] == true
-      return "test_open" if checks && Reach::ExamMode.active?
-      return "needs_yes" if checks && !READ_ONLY_ACTIONS.include?(name)
-      return "off" if checks && !Reach::Device.live_without_yes?
-      return "approved" if READ_ONLY_ACTIONS.include?(name)
+      read_only = READ_ONLY_ACTIONS.include?(name)
+      return "test_open" if Reach::ExamMode.active? && (checks || read_only)
+      return "needs_yes" if checks && !read_only
+      return "off" if checks && !unasked_checks?
+      return "approved" if read_only && unasked_checks?
 
       current["diagnosis"] == true && state["diagnosis_consent"].is_a?(Hash) ? "approved" : "waiting"
+    end
+
+    def unasked_checks?
+      Reach::Device.enabled? && Reach::Device.live_without_yes?
     end
 
     def notify_checks(current)
@@ -952,7 +957,7 @@ module Reach
       checks = state["session"].is_a?(Hash) && state["session"]["checks_only"] == true
       Array(state["actions"]).each do |entry|
         verdict = case entry["status"]
-                  when "approved" then checks && Reach::ExamMode.active? ? [false, Reach::Messages.text("M-LIVE-CHECKS-TEST-OPEN")] : :run
+                  when "approved" then Reach::ExamMode.active? && (checks || READ_ONLY_ACTIONS.include?(entry["name"])) ? [false, Reach::Messages.text("M-LIVE-CHECKS-TEST-OPEN")] : :run
                   when "declined" then [false, Reach::Messages.text("M-LIVE-RESULT-NO")]
                   when "unknown" then [false, Reach::Messages.text("M-LIVE-RESULT-UNKNOWN")]
                   when "test_open" then [false, Reach::Messages.text("M-LIVE-CHECKS-TEST-OPEN")]
@@ -965,8 +970,8 @@ module Reach
         update { |state| state["actions"] = Array(state["actions"]).reject { |row| row["id"] == entry["id"] } }
         ok, text = verdict == :run ? run_action(entry["name"]) : verdict
         if verdict == :run
-          text = Reach::SetupLog.scrub_homes(text.to_s) if checks
-          note_check_ran(entry["name"])
+          text = Reach::SetupLog.scrub_homes(text.to_s) if checks || READ_ONLY_ACTIONS.include?(entry["name"])
+          note_check_ran(entry["name"]) if READ_ONLY_ACTIONS.include?(entry["name"])
         end
         answer_action(api, session_id, entry["id"], ok, text)
       end
@@ -988,11 +993,17 @@ module Reach
       end
     end
 
-    def capture(args)
+    def neutral_dir
+      [Reach::Paths.root, Reach::Paths.user_home].find { |path| File.directory?(path) }
+    end
+
+    def capture(args, chdir: nil)
       FileUtils.mkdir_p(dir)
       exe = File.expand_path("../../exe/reach", __dir__)
       out_file = File.join(dir, "action.#{Process.pid}.out")
-      pid = Process.spawn(RbConfig.ruby, exe, *args, in: File::NULL, out: out_file, err: %i[child out])
+      options = { in: File::NULL, out: out_file, err: %i[child out] }
+      options[:chdir] = chdir if chdir
+      pid = Process.spawn(RbConfig.ruby, exe, *args, options)
       deadline = clock + ACTION_TIMEOUT_S
       status = nil
       while clock < deadline
@@ -1034,7 +1045,7 @@ module Reach
       end
 
       parts = COMMANDS.fetch(name).map do |args|
-        ok, text = capture(args)
+        ok, text = READ_ONLY_ACTIONS.include?(name) ? capture(args, chdir: neutral_dir) : capture(args)
         [ok, "$ reach #{args.join(' ')}\n#{text.to_s.strip}"]
       end
       [parts.all? { |ok, _text| ok }, parts.map { |_ok, text| text }.join("\n\n")]

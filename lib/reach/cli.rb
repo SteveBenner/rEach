@@ -521,7 +521,7 @@ module Reach
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
-            live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | yes | no]   a live session with your instructors; rEach asks you before anything is run or sent, and yes or no answers its question from a terminal
+            live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | yes | no]   a live session with your instructors; rEach runs its read-only checks without asking, asks you before anything else is run or sent, and yes or no answers its question from a terminal
             device   prints this copy's installation code and how far it has got
             storage [status | measure | compact] [--format text|json]   how much space rEach's memory uses on this computer, and compacting the saved course memory (asks the student first)
             import export PATH --mode brain|copy [--format text|json]   bring a downloaded ChatGPT, Claude or Gemini export (folder or ZIP) into rEach, asking the student first (brain: a catalog and findings; copy: the same plus a full copy on this computer)
