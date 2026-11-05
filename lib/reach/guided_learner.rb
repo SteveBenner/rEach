@@ -20,7 +20,7 @@ module Reach
     FALLBACK_MARK = "\u2063".freeze
     FALLBACK_FENCE = /```[^\n]*\n\s*#{FALLBACK_MARK}\s*```/.freeze
     FALLBACK_FLAG = "(?:[ \\t]+\"?--window\"?|[ \\t]+\"?--(?:harness|to|from)\"?[ \\t]+\"?(?:claude-code|codex|antigravity|hermes)\"?)".freeze
-    FALLBACK_TAIL = "[ \\t]+\"?(?:enroll|login|codex\"?[ \\t]+\"?configure|harness\"?[ \\t]+\"?move)\"?#{FALLBACK_FLAG}*(?![ \\t]+\"?[\\w-]*[\\d-])`?".freeze
+    FALLBACK_TAIL = "[ \\t]+\"?(?:enroll|login|codex\"?[ \\t]+\"?configure|harness\"?[ \\t]+\"?move)\"?#{FALLBACK_FLAG}*(?>`?)(?![ \\t]*[;|&<>$]|[ \\t]+\"?[\\w-]*[\\d-])".freeze
     STATE_TTL = 600
 
     module_function

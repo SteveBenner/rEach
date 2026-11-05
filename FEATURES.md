@@ -1,6 +1,6 @@
 # FEATURES — rEach
 
-## Terminal as a fallback for a student — 0.68.16
+## Terminal as a fallback for a student — 0.68.17
 
 rEach now prefers steps inside the app. When rEach says the app cannot finish enrollment, sign-in, or Codex setup in the chat, the agent walks the student through rEach's own terminal command, one step at a time: the messages `M-ENR-NOHOOK-STUDENT`, `M-ENR-AGENT-NOHOOK-CONTEXT`, `M-ENR-AGENT-NOHOOK-GUIDE`, `M-ENR-AGENT-GUIDE`, `M-ENR-AGENT-CODEX-REPAIRED`, `M-LOGIN-NOHOOK-GUIDE`, `M-ENROLL-NO-HOOK`, `M-ENR-PASSWORD-TERMINAL`, `M-CODEX-SETUP-TERMINAL`, `M-CODEX-SETUP-SIGN-IN`, `M-HARNESS-MOVE-CODEX-NEXT`, and `M-HARNESS-MOVE-TERMINAL` say so again. Passkeys and passwords never go in chat. The terminal enrollment command now carries `--harness`, so it validates on a plain terminal, and `enroll --window` forwards it. `Reach::GuidedLearner.violations` lets rEach's own enroll, login, codex configure, and harness move commands through and still flags any other command in a terminal handoff, any other reach verb, and development tools. The history below that says students get no terminal handoffs is left as it was.
 
