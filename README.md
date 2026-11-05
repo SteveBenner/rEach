@@ -170,6 +170,12 @@ agent walk the student through `reach enroll` in a terminal window instead, as t
 A student who later changes AI app on the same computer runs `reach harness move --to <app>`, or asks rEach in a chat,
 and stays enrolled; rEach stays in the old app too (`STD-HARNESS-MOVE`).
 
+From the moment it installs, rEach tells the course server built into it that this copy exists and how far setup has
+got, before anyone enrolls. It sends no name, no file, and nothing you type, and instructors can run read-only checks on
+this copy without asking first; you are told when they do and you can end it. `PRIVACY.md` lists what is sent, and
+`REACH_DEVICE_DISABLE=1` or `device.enabled: false` in `config.yml` turns it off (`STD-DEVICE`, `STD-LIVE-CHECKS`).
+`reach device` prints this computer's code, such as `A1B2-C3D4`, to give an instructor who is helping you.
+
 ### Uninstall
 
 Ask your AI agent to remove rEach, or run `reach uninstall` yourself in a terminal. rEach lists what it will remove and what

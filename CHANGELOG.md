@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.69.0] - 2026-11-05
+
+### Added
+
+- A copy of rEach now reports to its course server from the moment it installs, before anyone enrolls, and the label instructors see moves through installing, setup, and enrollment. A student who got stuck before a valid course code used to be invisible, and nobody could reach their computer to find out why. The fingerprint is the SHA-256 of a device key's public half and nothing else, reports hold fixed checkpoint ids and short system facts, and `PRIVACY.md` lists them. `STD-DEVICE`, wire revision 2026-11-05a.
+- Check sessions. An instructor can open a live session on a copy's identity, before any enrollment and at any point after, and `doctor`, `status`, `update_check`, and `sandbox_probe` run at once. The student gets a desktop notice and a line at their next prompt naming each check, and can end it. Anything that changes something, the debug stream, and assistant messages still wait for a yes. `STD-LIVE-CHECKS`, `W-LIVE-11`.
+- `reach device` prints this computer's installation code. `reach status` and `reach doctor` name it, and `reach status`, `reach live`, and the `reach_live` tool now work before enrollment.
+- `reach live yes` and `reach live no` answer a live-session question from a real terminal, for a student whose app cannot show it. They refuse without a terminal and under a harness.
+- `REACH_DEVICE_DISABLE=1`, `device.enabled`, and `device.live_without_yes` turn this off.
+
+### Changed
+
+- The four read-only checks no longer ask a question in any open live session, for any student, on the instructor's written decision of 2026-11-05. It removes a consent step enrolled students had, so that an enrolled student whose hooks died can still be helped.
+- The background job now also runs on a computer with no enrollment, every 5 minutes for the first 72 hours and then at its ordinary pace, until the course server says stop or 30 days pass with no new checkpoint. A copy that has not enrolled therefore also keeps itself updated.
+- `PRIVACY.md`, `TERMS.md`, `INSTALL.md`, and `UNINSTALL.md` say all of this, including that instructors can open a check session without asking first.
+
 ## [0.68.19] - 2026-11-05
 
 ### Fixed
