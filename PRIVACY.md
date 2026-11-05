@@ -33,11 +33,11 @@ rEach sends a report when something new happens, and otherwise from a small back
 For up to an hour, and longer only if an instructor renews it, a check session can do these four things and nothing else:
 
 - Run rEach's self-check (`reach doctor --report`).
-- Show rEach's status (`reach status`). Once you are enrolled, this names you and your current assignment, which your instructors already know.
+- Show rEach's status (`reach status`). Once you are enrolled, this names you, your group, your course, your assignments and their due dates, and your modules. It also shows whether you are signed in, where your work folder is, each slice's name and state, its check result and tries used, how many checkpoints it has, any document grade, the names of work files that are missing, how many receipts and open hands you have, how many entries were recorded for your instructors, and your next step. It shows nothing from inside your files.
 - Check whether a newer rEach exists.
 - Test whether Codex's sandbox lets rEach reach your course server and its folder. This writes one test file inside the sandbox, removes it, and keeps the result.
 
-rEach takes your user folder's name out of what these print, and it runs them from its own folders, so they do not name the folder you were working in. Other locations they print, such as where Ruby or rEach is installed, stay as they are. A check session sees no prompt, no reply, no code and no file, gives nobody a shell, and changes nothing about your work or your grades.
+rEach takes your user folder's name out of what these print, and it runs them from its own folders, so they do not name the folder you were working in. Other locations they print, such as where Ruby or rEach is installed, stay as they are. A check session sees no prompt, no reply, no code, and nothing inside your files, gives nobody a shell, and changes nothing about your work or your grades.
 
 You get a desktop notice when a session starts, if your computer can show one. rEach tells you again at your next message, with what ran so far. To end a session, type `end live session` in your chat or run `reach live end`. While you have a test open, rEach runs no check and shows no notice.
 
@@ -45,12 +45,21 @@ Anything more needs your yes. If your instructors want to see rEach's debug reco
 
 To turn this off:
 
-Both settings below go in the `config.yml` in rEach's home folder (`~/reach-work/.reach-home/config.yml`, or `~/.reach/config.yml` on an older install). Create the file if it is not there. Updates keep it.
+The settings below go in the `config.yml` in rEach's home folder (`~/reach-work/.reach-home/config.yml`, or `~/.reach/config.yml` on an older install). Create the file if it is not there. Updates keep it. Each setting goes under its own heading, like this:
+
+```yaml
+device:
+  enabled: false
+live:
+  enabled: false
+```
 
 - `device.live_without_yes: false` makes rEach run no check without your yes. Reports continue.
-- `REACH_DEVICE_DISABLE=1`, or `device.enabled: false`, stops the reports and the code, and rEach then runs no check without your yes. Installing rEach again respects the setting too. An instructor can then reach this copy only through an ordinary live session, which asks you first, and only once you are enrolled.
-- `REACH_LIVE_DISABLE=1` stops every live session.
+- `device.enabled: false` stops the reports and the code, and rEach then runs no check without your yes. Installing rEach again respects the setting too. An instructor can then reach this copy only through an ordinary live session, which asks you first, and only once you are enrolled.
+- `live.enabled: false` stops every live session.
 - `reach uninstall --purge-checkpoint-mirror` removes the key and the code along with rEach. A plain `reach uninstall` sends one last report that rEach was removed and keeps them, so a later install counts as the same copy. With `--no-teach` it sends no last report.
+
+The environment variables `REACH_DEVICE_DISABLE=1` and `REACH_LIVE_DISABLE=1` do the same as `device.enabled: false` and `live.enabled: false`, but only for a program started with them set, such as the installer or an AI app opened from that terminal. rEach's background job does not see them, so it goes on reporting and can still pick up a check session. For a lasting off switch, use the settings above.
 
 ## What rEach sends to your course server
 

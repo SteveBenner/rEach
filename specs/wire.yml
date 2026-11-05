@@ -2400,9 +2400,9 @@ live:
       failure; after 5 failures in a row it stops, and the next prompt hook or reach live starts it again while the
       session is still open. Reach learns of an offer from status.live and from one W-API-LIVE-POLL that the prompt
       hook starts detached at most once a minute, and since revision 2026-11-05a from the live field of
-      W-API-DEVICE-REPORT. REACH_LIVE_DISABLE=1, or live.enabled false in config.yml, switches
-      all of it off; a Teach with live sessions switched off answers disabled true and Reach stops asking for an
-      hour.
+      W-API-DEVICE-REPORT. live.enabled false, in the config.yml in Reach's home folder or the plugin's own, switches
+      all of it off. REACH_LIVE_DISABLE=1 does so only in a process that has it set, which the user-level job does not.
+      A Teach with live sessions switched off answers disabled true and Reach stops asking for an hour.
   W-LIVE-9:
     name: what a session never does
     rule: >-
@@ -2521,8 +2521,9 @@ devices:
       course code, a login name, a host name, a path, typed text, a prompt, a reply, code or a file. Teach uses the
       sender's address only in memory to limit requests, and does not store it with the device. Teach keeps a device with
       no install link, a revoked install or a student with no active roster entry only until it has been silent for 30
-      days with no session open, and removes its debug records and closed sessions with it. reach_version is 1 to 64 letters, digits, dots, plus signs, or hyphens. REACH_DEVICE_DISABLE=1 or
-      device.enabled false in config.yml stops all of it. Reach reads device.enabled and device.live_without_yes from the
+      days with no session open, and removes its debug records and closed sessions with it. reach_version is 1 to 64 letters, digits, dots, plus signs, or hyphens.
+      device.enabled false in config.yml stops all of it. REACH_DEVICE_DISABLE=1 does so only in a process that has it
+      set, which the user-level job does not. Reach reads device.enabled and device.live_without_yes from the
       config.yml in its home folder, which an update keeps, and from the plugin's own config.yml, and false in either
       counts. The installer reads both for device.enabled. The installer says what is sent before its first report, setup says
       so in what it prints, and a copy that had neither says so once at its next prompt.

@@ -173,7 +173,7 @@ and stays enrolled; rEach stays in the old app too (`STD-HARNESS-MOVE`).
 From the moment it installs, rEach tells the course server built into it that this copy exists and how far setup has
 got, before anyone enrolls. It sends no name, no file, and nothing you type, and instructors can run read-only checks on
 this copy without asking first; you are told when they do and you can end it. `PRIVACY.md` lists what is sent, and
-`REACH_DEVICE_DISABLE=1` or `device.enabled: false` in the `config.yml` in rEach's home folder turns it off (`STD-DEVICE`, `STD-LIVE-CHECKS`).
+`device.enabled: false` in the `config.yml` in rEach's home folder turns it off. `REACH_DEVICE_DISABLE=1` does so only for a program started with it set, and the background job does not see it (`STD-DEVICE`, `STD-LIVE-CHECKS`).
 `reach device` prints this computer's code, such as `A1B2-C3D4`, to give an instructor who is helping you.
 
 ### Uninstall

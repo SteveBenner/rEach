@@ -1764,8 +1764,8 @@ device:
     device-state.json and device-drain.lock. A persona has no device. A corrupt device.json is renamed with a .bad
     suffix and a new identity is made.
   settings: >-
-    config.yml device: {enabled: true, live_without_yes: true}. REACH_DEVICE_DISABLE=1 and device.enabled false stop
-    everything. REACH_OFFLINE=1 and a Codex sandbox that blocks the network stop the sending and keep the outbox.
+    config.yml device: {enabled: true, live_without_yes: true}. device.enabled false stops everything.
+    REACH_DEVICE_DISABLE=1 does so only in a process that has it set, which the user-level job does not. REACH_OFFLINE=1 and a Codex sandbox that blocks the network stop the sending and keep the outbox.
   hooks: >-
     Device.note and Device.note_problem are the only calls a hook makes. Each writes one small file and spawns one
     detached drain at most once per checkpoint, never creates a key, never calls the network and never raises.
@@ -2489,7 +2489,7 @@ live_sessions:
     or M-LIVE-READ (call wait again) while the session is requested, offered or open and M-LIVE-WAIT-OVER once it
     is not. The loop pauses for a question for the student (M-LIVE-ASK-AGENT ends the turn) and when the student
     asks for something else. The Stop-hook wake stays as the backstop on Claude Code.
-  switches: REACH_LIVE_DISABLE=1, config.yml live.enabled false; live.wake, live.notify and live.blocked false turn off the watcher, the desktop notification and the blocked-prompt path.
+  switches: config.yml live.enabled false, in the home folder's file or the plugin's own; REACH_LIVE_DISABLE=1 only in a process that has it set, which the user-level job does not; live.wake, live.notify and live.blocked false turn off the watcher, the desktop notification and the blocked-prompt path.
 announcements:
   standard: STD-ANNOUNCEMENTS, STD-DUE-CHANGE, STD-HOLDINGS (specs/app.yml)
   since: 0.30.0

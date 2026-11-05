@@ -335,10 +335,10 @@ module ReachInstall
     end
 
     def execute(argv)
-      Beacon.start
       @beacon_phase = nil
       options = parse(argv)
       log_start(options)
+      Beacon.start
       raise "REACH_INSTALL_KILL_SWITCH=1 prevents archive downloads" if ENV["REACH_INSTALL_KILL_SWITCH"] == "1" && !options[:archive]
 
       destination = File.expand_path(options[:destination])

@@ -103,8 +103,13 @@ module Reach
       {}
     end
 
+    def home_config
+      section = Reach::Update.install_config["live"]
+      section.is_a?(Hash) ? section : {}
+    end
+
     def enabled?
-      ENV["REACH_LIVE_DISABLE"].to_s != "1" && config["enabled"] != false
+      ENV["REACH_LIVE_DISABLE"].to_s != "1" && config["enabled"] != false && home_config["enabled"] != false
     end
 
     def wake?
