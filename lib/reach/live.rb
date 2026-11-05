@@ -303,8 +303,12 @@ module Reach
         return Reach::Messages.text("M-LIVE-DIAG-REQUESTED")
       end
 
+      current = session
+      checks = !current.nil? && current["id"] == target && current["checks_only"] == true
       update { |state| state["pending"] = { "type" => "consent", "id" => target, "answer" => answer, "consent" => record, "queued_at" => stamp } }
       spawn_runner
+      return Reach::Messages.text(answer == "yes" ? "M-LIVE-CHECKS-YES-THANKS" : "M-LIVE-CHECKS-NO-THANKS") if checks
+
       Reach::Messages.text(answer == "yes" ? "M-LIVE-ACCEPTED" : "M-LIVE-DECLINED")
     end
 

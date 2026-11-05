@@ -3,7 +3,7 @@
 ## Installation reports and check sessions (0.69.0, wire revision 2026-11-05a)
 
 - [ ] Run the installer's first report, a detached drain, the background job, and a check session on a real macOS and a real Windows install, and on Ruby 2.6.10 with LibreSSL. Only Linux with Ruby 3.3 and 4.0 ran.
-- [ ] See a check session once in a real harness, where the notice and the yes question are what the student reads.
+- [ ] See a check session once in a real harness, where the notice and the yes question are what the student reads. The prompts entered through the real hook, but no real app showed them.
 - [ ] Windows without Ruby reports nothing until the PowerShell step has fetched Ruby.
 - [ ] The offer an older copy still needs stays until no copy older than 0.69.0 reports. Remove it then.
 - [ ] The plugin directory's listing text does not mention these reports. Whether it should is the instructor's decision.

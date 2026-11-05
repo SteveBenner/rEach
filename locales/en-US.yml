@@ -539,6 +539,8 @@ messages:
   M-LIVE-CHECKS-TEST-OPEN: "The student has a test open on this computer, so rEach ran nothing and showed no notice."
   M-LIVE-CHECKS-OFF: "The student has turned off checks without a yes, so rEach ran nothing."
   M-LIVE-CHECKS-ANSWERED: "Thanks. rEach has your answer."
+  M-LIVE-CHECKS-YES-THANKS: "Thanks. For the rest of this session your instructors also see what rEach records in debug mode, and rEach will ask you before each change. To end it, type end live session."
+  M-LIVE-CHECKS-NO-THANKS: "Thanks. Nothing more is shared. The check session stays open until it ends and can still run read-only checks. To end it, type end live session."
   M-LIVE-TERM-NOT-TERMINAL: "Type this yourself in a terminal window. rEach takes this answer only from a person at a terminal."
   M-LIVE-TERM-NOTHING: "rEach has no question waiting for you."
   M-LIVE-TERM-NOTHING-RECORDED: "That was not a yes or a no, so rEach recorded nothing. Run the command again to answer."

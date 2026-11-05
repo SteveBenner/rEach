@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The background job now also runs on a computer with no enrollment, every 5 minutes for the first 72 hours and then at its ordinary pace, until the course server says stop or 30 days pass with no new checkpoint. A copy that has not enrolled therefore also keeps itself updated.
 - `PRIVACY.md`, `TERMS.md`, `INSTALL.md`, and `UNINSTALL.md` say all of this, including that instructors can open a check session without asking first.
 
+### Fixed
+
+- A student can now answer a live-session question that rEach shows on a prompt it blocked, by typing yes or no in the chat. An answer counted only if the assistant had repeated the question, and a blocked prompt never reaches the assistant, so a locked-out student's yes could not be captured and an unenrolled student's was read as a bad passkey. `W-CONSENT-1`.
+
 ## [0.68.19] - 2026-11-05
 
 ### Fixed
