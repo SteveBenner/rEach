@@ -16,11 +16,11 @@ From the moment rEach is installed, before you enroll or do anything else, it te
 
 An installation report holds only these things:
 
-- A code for this copy of rEach, such as `A1B2-C3D4`, and the longer fingerprint it comes from. Both are made from a security key rEach creates on your computer, and from nothing else: not your name, your account name, your computer's name or anything about your files. The key stays in the `reach` folder that holds `seal.json`, so this computer keeps its code when you update or reinstall rEach.
-- The rEach version, your operating system and its version, whether your processor is Intel/AMD or ARM, the Ruby version, and which AI app rEach is running in.
+- A code for this copy of rEach, such as `A1B2-C3D4`, and the longer fingerprint it comes from. Both are made from a security key rEach creates on your computer, and from nothing else: not your name, your account name, your computer's name or anything about your files. The key stays in the `reach` folder that holds `seal.json`, so this computer keeps its code when you update or reinstall rEach. The report carries the public half of that key, which lets your course server check that the report came from this copy.
+- The rEach version, your operating system and its version, whether your processor is Intel/AMD or ARM, the Ruby version, which AI app rEach is running in and how sure rEach is of that, and whether the report came from the installer or from rEach itself.
 - Each step this copy has passed, with the time: downloaded, installed, set up, first opened, first message, security check, each enrollment step, enrolled, signed in, course materials installed, first assignment started, and removed. Only the step and its time, never anything you typed.
 - When a step fails, the fixed name of that failure from rEach's own list of messages, such as `M-ENR-FAILED`. Never its text, anything you typed, or any folder or file name.
-- Once you give a course passkey or finish enrolling, a signature proving that this code belongs to that enrollment. Before then your instructors see only the code. After you enroll they see it beside your name.
+- Once you give a course passkey or finish enrolling, that enrollment's id and a signature proving that this code belongs to it. Before then your instructors see only the code. After you enroll they see it beside your name.
 
 Your course server does not keep your internet address with these reports. It uses the address only to limit how many requests it accepts. It deletes a code that was never linked to a student after 30 days of silence, along with any check sessions and debug records under it, unless a session is open on it. When you are unenrolled from a course, it erases the code's record for that course and its debug records and ends any session open on it.
 
@@ -37,11 +37,11 @@ For up to an hour, and longer only if an instructor renews it, a check session c
 - Check whether a newer rEach exists.
 - Test whether Codex's sandbox lets rEach reach your course server and its folder. This writes one test file inside the sandbox, removes it, and keeps the result.
 
-rEach takes your user folder's name out of what these print, and it runs them from its own folder, so they do not name the folder you were working in. Other locations they print, such as where Ruby or rEach is installed, stay as they are. A check session sees no prompt, no reply, no code and no file, gives nobody a shell, and changes nothing about your work or your grades.
+rEach takes your user folder's name out of what these print, and it runs them from its own folders, so they do not name the folder you were working in. Other locations they print, such as where Ruby or rEach is installed, stay as they are. A check session sees no prompt, no reply, no code and no file, gives nobody a shell, and changes nothing about your work or your grades.
 
 You get a desktop notice when a session starts, if your computer can show one. rEach tells you again at your next message, with what ran so far. To end a session, type `end live session` in your chat or run `reach live end`. While you have a test open, rEach runs no check and shows no notice.
 
-Anything more needs your yes. If your instructors want to see rEach's debug records, or want their assistant and yours to write to each other, they ask, and it happens only if you type yes, either in your chat or in a terminal with `reach live yes`. Your assistant cannot answer for you. rEach also asks you before each action that changes something, and before sending anything your assistant writes.
+Anything more needs your yes. If your instructors want to see rEach's debug records, or want their assistant and yours to write to each other, they ask, and it happens only if you type yes, either in your chat or in a terminal with `reach live yes`. In chat, rEach counts only what you type, never your assistant's reply. In a terminal, `reach live yes` refuses to run when rEach can tell that an AI app is running it. rEach also asks you before each action that changes something, and before sending anything your assistant writes.
 
 To turn this off:
 

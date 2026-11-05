@@ -1040,7 +1040,8 @@ module Reach
         return [result["ok"] == true, [result["text"], Reach::CodexSetup.doctor_line].join("\n")]
       end
       if name == "sandbox_probe"
-        result = Reach::CodexSetup.probe!
+        folder = neutral_dir
+        result = folder ? Dir.chdir(folder) { Reach::CodexSetup.probe! } : Reach::CodexSetup.probe!
         return [result["available"] == true, result["text"]]
       end
 

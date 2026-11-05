@@ -644,8 +644,9 @@ module Reach
 
     def purge!
       boundary("device:purge") do
-        FILES.each { |name| FileUtils.rm_f(File.join(dir, name)) }
+        (FILES + FILES.map { |name| "#{name}.bad" }).each { |name| FileUtils.rm_f(File.join(dir, name)) }
         FileUtils.rm_f(edit_lock)
+        FileUtils.rm_f(lock_file)
         nil
       end
     end
