@@ -61,6 +61,9 @@ module Reach
 
         entry = latest_prompt(assignment)
         unless entry
+          short = latest_short(assignment)
+          raise Reach::Refused, Reach::Messages.text("M-PART-TOO-SHORT", words: short["words"].to_i, min: question["min_words"].to_i) if short
+
           quiet = Reach::HookLiveness.prompt_hook_quiet?(WINDOW_S)
           raise Reach::Refused, Reach::Messages.text(quiet ? "M-PART-NO-HOOK" : "M-PART-NO-ANSWER")
         end
@@ -70,6 +73,7 @@ module Reach
         state["answers"][question["id"]] = answer
         write_state(assignment, meta["course"], state)
         FileUtils.rm_f(pending_path)
+        FileUtils.rm_f(short_path)
         Reach::Ledger.append(
           workspace, "part",
           "question_id" => question["id"], "digest" => answer["digest"], "seq" => answer["seq"], "session_id" => answer["session_id"]
@@ -135,27 +139,36 @@ module Reach
         return nil if Reach::Consent.yes?(text) || Reach::Consent.no?(text)
 
         words = word_count(text)
-        return nil if words < smallest_min_words
-
         meta = space["kind"] == "slice" ? Reach::Workspace.metadata(space["path"]) : {}
+        stamp = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if words < smallest_min_words
+          write_private(short_path, "words" => words, "at" => stamp, "space" => space["kind"], "cutout_id" => meta["cutout_id"], "student_id" => student_id)
+          return nil
+        end
+
         record = {
           "text" => text, "words" => words, "digest" => (recorded && recorded["digest"]) || Digest::SHA256.hexdigest(text),
           "session_id" => recorded && recorded["session_id"], "seq" => recorded && recorded["seq"],
-          "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "space" => space["kind"],
+          "at" => stamp, "space" => space["kind"],
           "cutout_id" => meta["cutout_id"], "slice" => meta["slice"], "student_id" => student_id
         }
-        path = pending_path
+        write_private(pending_path, record)
+        record
+      end
+
+      def write_private(path, record)
         FileUtils.mkdir_p(File.dirname(path))
         tmp = "#{path}.tmp.#{Process.pid}.#{rand(1_000_000)}"
         File.open(tmp, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(JSON.generate(record)) }
         File.rename(tmp, path)
-        record
-      rescue StandardError
-        nil
       end
 
       def pending_path
         File.join(Reach::Paths.state_dir, "part", "pending.json")
+      end
+
+      def short_path
+        File.join(Reach::Paths.state_dir, "part", "short.json")
       end
 
       def word_count(text)
@@ -231,13 +244,25 @@ module Reach
           nil
         end
         return nil unless entry.is_a?(Hash) && entry["text"].is_a?(String) && entry["at"].is_a?(String)
-        return nil unless entry["student_id"].nil? || entry["student_id"] == student_id
-        return nil if Time.now.utc - Time.parse(entry["at"]).utc > WINDOW_S
-        return entry if entry["space"] == "root"
 
-        entry["space"] == "slice" && current_cutouts(assignment_id).include?(entry["cutout_id"]) ? entry : nil
+        current_entry?(entry, assignment_id) ? entry : nil
       rescue ArgumentError
         nil
+      end
+
+      def latest_short(assignment_id)
+        entry = JSON.parse(File.read(short_path))
+        entry.is_a?(Hash) && entry["at"].is_a?(String) && current_entry?(entry, assignment_id) ? entry : nil
+      rescue SystemCallError, JSON::ParserError, ArgumentError
+        nil
+      end
+
+      def current_entry?(entry, assignment_id)
+        return false unless entry["student_id"].nil? || entry["student_id"] == student_id
+        return false if Time.now.utc - Time.parse(entry["at"]).utc > WINDOW_S
+        return true if entry["space"] == "root"
+
+        entry["space"] == "slice" && current_cutouts(assignment_id).include?(entry["cutout_id"])
       end
 
       def current_cutouts(assignment_id)

@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.13] - 2026-11-05
+
+### Fixed
+
+- `reach part record` says an answer is too short instead of saying it found none. The prompt hook dropped a typed answer under the smallest question minimum without a trace, so the student was told `M-PART-NO-ANSWER` and asked to answer again with no reason given. `Reach::Part.observe_prompt` (`lib/reach/part.rb`) now keeps the word count and time of such a prompt, never its text, in `~/.reach/state/part/short.json` (0600), and `record!` answers `M-PART-TOO-SHORT` when nothing longer is pending. A longer answer followed by a short message is still recorded, a bare yes or no still leaves no trace, and the note is ignored after 30 minutes, for another student, or from another assignment's slice. `observe_prompt` no longer swallows its own errors; `Reach::Gate.learn_prompt`, its only caller in the product, already guards it.
+- `pwd` is no longer refused at the course root with `M-SHELL-BLOCKED`. `Reach::Gate::READONLY_SINGLE` (`lib/reach/gate.rb`) now lists it with the other read-only commands, so an assistant checking where it is does not stop and report a fault. A redirect such as `pwd > out.txt` is still refused.
+
 ## [0.68.12] - 2026-11-05
 
 ### Changed

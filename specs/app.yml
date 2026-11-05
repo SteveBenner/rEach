@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.68.12
+version: 0.68.13
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -1622,6 +1622,7 @@ data:
       notable_columns:
         - {name: answers, note: "text, word count, session, and sequence of the recorded prompt"}
         - {name: pending.json, note: "the answer awaiting the student's confirmation within 30 minutes"}
+        - {name: short.json, note: "word count and time of the latest prompt too short to be an answer, never its text"}
       standards: [STD-TRANSCRIPT, STD-QUALIFY-BEFORE-SUBMIT]
     - name: feedback store
       store: S7

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.68.12
+version: 0.68.13
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -263,6 +263,10 @@ layout:
       The latest gate-allowed prompt typed in a slice or the workspace root that is long enough to answer an own-part
       question and is not a consent yes or no (0600); reach part record takes it and deletes it. No other prompt text
       is kept outside the microbrain
+  - path: "~/.reach/state/part/short.json"
+    content: >-
+      The word count and time of the latest gate-allowed prompt too short to answer any own-part question (0600), never
+      its text, so reach part record can say the answer is too short; a recorded answer deletes it
   - path: "~/reach-work/.reach-brain/<student key>/"
     content: >-
       The microbrain's own state (since 0.16.15; at ~/.reach/brain/ before 0.65.0, and still there for the legacy home and an
@@ -1148,7 +1152,7 @@ course_alignment:
     reach sync and reach transfer status poll at most every 60 s while it is pending; reach status and the session
     greeting show the answer.
   own_part:
-    - Each assignment's questions only the student can answer come from the course policy (W-PART-1). reach part lists them; reach part record <id> takes the student's latest typed prompt (at most 30 minutes old, at least min_words words, never a bare yes or no; M-PART-NO-ANSWER when there is none, M-PART-NO-HOOK since 0.28.1 when the prompt hook has not run for 30 minutes) verbatim, and stores it with its digest and no session or sequence number. The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the root that has at least the smallest min_words of any question and is not a consent yes or no, in ~/.reach/state/part/pending.json (0600); reach part record takes it, then deletes the file.
+    - Each assignment's questions only the student can answer come from the course policy (W-PART-1). reach part lists them; reach part record <id> takes the student's latest typed prompt (at most 30 minutes old, at least min_words words, never a bare yes or no; M-PART-NO-ANSWER when there is none, M-PART-TOO-SHORT since 0.68.13 when the latest typed prompt is under the smallest min_words, M-PART-NO-HOOK since 0.28.1 when the prompt hook has not run for 30 minutes) verbatim, and stores it with its digest and no session or sequence number. The prompt hook keeps only the latest gate-allowed prompt typed in a slice or the root that has at least the smallest min_words of any question and is not a consent yes or no, in ~/.reach/state/part/pending.json (0600); reach part record takes it, then deletes the file. For a shorter prompt it keeps only the word count and time, in ~/.reach/state/part/short.json (0600).
     - reach submit refuses with M-SUBMIT-NO-PART until every question is answered, and sends part.json. Teach stores the answers as sent and runs no check against any conversation.
   sandbox:
     - The read gate (Claude Code Read, Glob, Grep, NotebookRead, LS; Hermes read and search tools; Codex view_image) and the shell gate refuse any path outside the student's workspace root (M-GATE-OUTSIDE), since 0.47.3 a read of the extracurricular folder from a slice or the course root (M-GATE-EXTRACURRICULAR-READ), and web fetch and search in slices and the root (M-GATE-NOWEB; Codex web_search disabled there). The third refusal in a session reports outside_access. A shell tool call that names a workdir (Codex exec_command) is judged in the space of that workdir, not of the chat's folder, and a shell-routed patch has its relative paths resolved against it; a workdir outside every course space is refused (M-GATE-OUTSIDE). reach work, run where no terminal is attached, does not start the harness and exits 0. Since 0.51.10, when the chat's folder is the course root or the folder asked for, it tells the agent to keep working from that chat by full path and --slice and not to send the student to another folder, project or chat (M-WORK-HERE); otherwise in Codex it tells the student to open the course project, the one with reach-work as its folder (M-WORK-CODEX-PROJECT), because a Codex project is one folder and the app cannot open a slice's folder inside it; elsewhere it prints the folder to open as a new chat (M-WORK-NO-TERMINAL).
@@ -2254,7 +2258,9 @@ transcripts:
     the smallest min_words of any policy question and is not a consent yes or no, in ~/.reach/state/part/pending.json
     (0600), with the session_id, seq and digest of its recorded entry, or null when it was not recorded. reach part
     record takes it (at most 30 minutes old, at least that question's min_words) and deletes the pending file
-    (W-PART-2); Teach checks the answer against the recorded entry (W-PART-3).
+    (W-PART-2); Teach checks the answer against the recorded entry (W-PART-3). With nothing pending, a prompt under the
+    smallest min_words in those 30 minutes makes it refuse with M-PART-TOO-SHORT instead of M-PART-NO-ANSWER, from a
+    word count and time kept in ~/.reach/state/part/short.json (0600), never the text.
   ladder: >-
     Only the time of the student's last slice prompt is kept, in ~/.reach/state/ladder/<slice>.prompt.json; hand bundles
     carry student_last_request null (W-QUAL-6, W-PKG-6).

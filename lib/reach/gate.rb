@@ -8,7 +8,7 @@ require "securerandom"
 
 module Reach
   module Gate
-    READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff].freeze
+    READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff pwd].freeze
     STRICT_WRITE = %w[cp mv rm rmdir mkdir touch tee truncate chmod chown chgrp ln unlink shred install rsync dd patch tar zip unzip gzip gunzip bzip2 xz 7z cpio vi vim nvim nano emacs ed ex split del erase ri rd ren rni move mi copy cpi ni sc ac md].freeze
     PACKAGE_WRITE = %w[npm npx bundle gem].freeze
     WRITE_SINGLE = (STRICT_WRITE + PACKAGE_WRITE).freeze
