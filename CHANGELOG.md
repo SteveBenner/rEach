@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.1] - 2026-11-06
+
+### Fixed
+
+- `Reach::Device.drain!` (`lib/reach/device.rb`) creates the folder that holds the seal before it takes `device-drain.lock`. On a copy with no such folder the drain failed with `Errno::ENOENT` before it reached the step that creates the identity, so every later background run failed the same way and the copy never reported. `device.enabled: false`, `REACH_DEVICE_DISABLE=1`, and `REACH_OFFLINE=1` still create nothing.
+
+### Changed
+
+- `FEATURES.md`: the screen-checks section states build and deploy status only, not the live course server's state.
+
 ## [0.70.0] - 2026-11-05
 
 ### Added

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.70.0
+version: 0.70.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1780,7 +1780,8 @@ device:
     Device.note and Device.note_problem are the only calls a hook makes. Each writes one small file and spawns one
     detached drain at most once per checkpoint, never creates a key, never calls the network and never raises.
   drain: >-
-    One drain at a time under device-drain.lock. It creates the identity when missing, backfills once for a copy that
+    One drain at a time under device-drain.lock, whose folder it creates first when missing (since 0.70.1; the off
+    switches and REACH_OFFLINE=1 stop it before that). It creates the identity when missing, backfills once for a copy that
     had no installer run, and sends one report through Client.for_device (connect 3 s, read 8 s, no retries, bucket
     device of 6 a minute). A 200 removes what was sent and stores next_s, stop and live, and live starts the live
     runner. A 404 or disabled true waits one hour. Any other failure sets retry_at to a random wait up to the smaller of

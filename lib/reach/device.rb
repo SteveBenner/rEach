@@ -359,6 +359,7 @@ module Reach
       boundary("device:drain") do
         next nil unless enabled? && !offline?
 
+        FileUtils.mkdir_p(dir)
         Reach::Locks.exclusive(lock_file, wait_s: 0.0) { drain_locked(origin || "session") }
         nil
       end

@@ -1,5 +1,11 @@
 # FEATURES — rEach
 
+## Device reports from a copy with no seal folder — 0.70.1
+
+A copy of rEach with no folder for its seal now creates that folder when a background run or detached drain first reaches it, then makes its identity and reports, as `STD-DEVICE` promises. Before, the drain failed at opening `device-drain.lock` with `Errno::ENOENT`, before the step that creates the identity, and every later run failed the same way. The off switches and `REACH_OFFLINE=1` still create nothing, because they are checked first. Where the location cannot be written, the drain records the fault and nothing reaches the caller, as before. Verified on 2026-11-06 on Linux in scratch homes: the old code reproduced the fault; a real detached drain against an unroutable server created the folder and identity, recorded `device:report` and backed off, with no `device:drain` fault; a stubbed 200 reply emptied the outbox and set the next report time with no fault; `REACH_DEVICE_DISABLE=1` and `REACH_OFFLINE=1` left no folder; an unwritable parent recorded `Errno::EACCES` and returned normally. Not exercised: Windows, where the fault was reported, a real course server, and macOS. Why the reporting copies had no folder is not established. Wiring: none. It adds no service, events, or metrics.
+
+Build: ✅ on main. Deploy: 🔵 not on test or stable.
+
 ## Retired server addresses — 0.70.0
 
 A copy of rEach that stored a Teach address which `config.yml` now lists under `teach.legacy_urls` uses the configured `teach.url` instead, with no question to the student and no new enrollment. The mapping is `Reach::TeachUrl.canonical`; `Reach::Enroll.current`, the enrollment outbox and the validation session checks apply it, and a read never writes, so `install.yml` is rewritten only when `Reach::Enroll.update!` saves a real change, with every other key kept. An address that is not listed is left alone, as are `REACH_TEACH_URL` overrides, and `REACH_TEACH_URL_MIGRATE_DISABLE=1` turns the mapping off. In this release `teach.url` is the address the list names, so the mapping changes nothing for any install. Verified on 2026-11-05 on Linux with scratch homes and a scratch copy of the checkout, with no network call: with the shipped `config.yml` `canonical` returned its input; with `teach.url` set to a stand-in address a listed address was mapped, an unlisted one was not, `Enroll.current` returned the mapped address while `install.yml` stayed byte-identical (also when read-only), and one `Enroll.update!` with a real change wrote the mapped address and kept every other key. Against two local stand-in servers, `reach sync` from an install enrolled on the listed address reached only the configured server, also with `install.yml` read-only, and reached only the stored server with the kill switch set. A validation session started on the listed address sent its next request to the configured server with no local refusal; the stand-in held no session for it, so finishing a pass across the change was not shown. Not exercised: a live Teach, Windows, macOS, and an update of a real older install.
@@ -41,7 +47,7 @@ Wire revision 2026-11-03a lets an instructor switch the screen (panel slice) che
 
 Verified on 2026-11-03: rEach's `Reach::Qualify.judge_remote` passed the answer Teach 0.121.0 gave a waived screen on a scratch database, with no finding; `reach qualify` runs local_pass and local_stub only when `qualify.local` is true.
 
-Build ✅ · Deploy ✅ rEach 0.68.6 is on test and stable, and Teach 0.121.0 reached stable on 2026-11-04. The switch was set off on the live course server on 2026-11-04 and read back off that day; it has not been read again since. Switch it back on with `teach qualifications screen-checks on` once the screen check works. The suspected cause of the failing check, Grokit 0.11.x recordings against a Dovetail 0.5.0 messages block, was addressed by Grokit 0.12.x, but no screen has been checked against it yet.
+Build ✅ · Deploy ✅ rEach 0.68.6 is on test and stable, and Teach 0.121.0 reached stable on 2026-11-04.
 
 ## Public-repository exposure in the release gate — 0.68.0
 
