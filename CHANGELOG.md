@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.69.0] - 2026-11-05
+
+### Changed
+
+- rEach can no longer be installed by adding its GitHub link as a plugin marketplace in Claude Code, Codex or Antigravity. `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json` and `.antigravity-plugin/plugin.json` are no longer in the repository (`.gitignore` lists them, and `reach.rplugin.yml` sets `native.link_install: false`, which needs rplugin 1.20.0; the manifest now requires `rplugin: ">= 1.20.0"`).
+- `reach setup` and every managed update write those three files into the install folder (`Reach::PluginManifests`, `lib/reach/plugin_manifests.rb`, derived from `.claude-plugin/plugin.json` and `VERSION`, byte for byte what `rplugin package` renders) and register that folder, never the repository link, with Claude Code and Codex (`lib/reach/setup.rb`, `lib/reach/harness_source.rb`, `update/apply.rb`). `update/apply.rb` records `plugin_manifests` in the update manifest and skips registration when the files cannot be written; it removes and re-adds a Claude Code marketplace of another source.
+- `Reach::HarnessSource.ensure_stable!` is now `ensure_local!`: a managed install whose Claude Code or Codex marketplace is still the repository, at any ref, is moved to the install folder once per harness (state key `local:<harness>` in `state/harness-source.json`). `pin`, `stable_spec`, `STABLE_REF` and `UNPINNED_REFS` are gone.
+- `Reach::Update.refresh_claude_cache` and `refresh_codex_cache` no longer fall back to adding the repository link when the marketplace refresh fails; the failure is recorded and the student gets the existing reinstall-with-the-installer message.
+- The missing-command messages of `reach setup` for Claude and Codex name no marketplace. `INSTALL.md`, `README.md`, `reach.spec.yml`, `specs/app.yml` (new `STD-LOCAL-REGISTER`), and figure 08 drop the marketplace routes. Claude Cowork is sent to the Claude app's Code tab, which sets up Claude Code and runs the same install; `STD-COWORK-CODE-TAB` is unchanged.
+- `specs/release_gate.yml` no longer lists the two generated manifests among the files that carry the version.
+
+### Known limits
+
+- A copy a harness installed straight from the repository link before this release cannot refresh itself once the link carries no marketplace file. Only a managed install is moved to the install folder.
+- Moving a marketplace registered from GitHub to the local folder is exercised against the real `claude` and `codex` only from one local folder to another; the GitHub-to-local conflict text of Claude Code was not reproduced offline.
+
 ## [0.68.22] - 2026-11-05
 
 ### Fixed

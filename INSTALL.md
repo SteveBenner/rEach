@@ -44,7 +44,7 @@ Already installed? rEach updates itself. To update now, run `reach update run --
 
 ## Claude Cowork
 
-Your shell runs in a sandbox, not on the student's computer, so do not clone anything. Tell the student: open Customize › Plugins › Add › Add marketplace, paste this repository's link, add rEach, then start a new task. Stop here.
+Your shell runs in a sandbox, not on the student's computer, so do not clone anything. Tell the student: open the Code tab in the Claude app, which sets up Claude Code by itself, paste this repository's link there and ask Claude Code to install rEach, then start a new task in that tab. Stop here.
 
 ## Using Gemini?
 
