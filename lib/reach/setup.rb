@@ -26,9 +26,15 @@ module Reach
 
       resolved_source = source || Reach::Runtime.root
       Reach::Update.record_channel(resolved_source)
+      root = Reach::HarnessSource.local_source(resolved_source)
+      begin
+        Reach::PluginManifests.write!(root)
+      rescue SystemCallError => e
+        return ["reach: rEach could not write its plugin files under #{root}: #{e.message}", 1]
+      end
       candidates = harness.to_s == "auto" ? detected_harnesses : [harness.to_s]
 
-      results = candidates.map { |id| run_harness(id, resolved_source) }
+      results = candidates.map { |id| run_harness(id, root) }
       results << { id: "auto", ok: false, message: "reach: no supported harness was found. Install Codex, Claude Code, Antigravity, or Hermes, then run setup again." } if results.empty?
       ok = results.any? { |entry| entry[:ok] }
       note_device_outcome(results, ok)
@@ -156,10 +162,10 @@ module Reach
 
     def run_claude(source)
       unless on_path?("claude")
-        return { id: "claude-code", ok: false, message: "Claude app: open Customize › Plugins › Add › Add marketplace, paste this repository's link, then add rEach." }
+        return { id: "claude-code", ok: false, message: "Claude: rEach could not find the claude command. In the Claude app, work in the Code tab, which sets up Claude Code by itself. In a terminal, install Claude Code, then run reach setup again." }
       end
 
-      added = Reach::HarnessSource.claude_add(Reach::HarnessSource.pin(source, "claude-code"))
+      added = Reach::HarnessSource.claude_add(source)
       unless added == "ok"
         update_out, update_err, update_status = capture(["claude", "plugin", "marketplace", "update", "reach"])
         unless update_status
@@ -177,10 +183,9 @@ module Reach
 
     def run_codex(source)
       unless on_path?("codex")
-        return { id: "codex", ok: false, message: "Codex app: add this repository as a plugin marketplace, then add rEach from the Plugins directory." }
+        return { id: "codex", ok: false, message: "Codex: rEach could not find the codex command. Open a new terminal or restart the Codex app, then run reach setup again." }
       end
 
-      source = Reach::HarnessSource.pin(source, "codex")
       add_out, add_err, add_status = capture(["codex", "plugin", "marketplace", "add", source])
       if !add_status && "#{add_out}#{add_err}".include?(Reach::HarnessSource::CONFLICT)
         replaced = Reach::HarnessSource.replace_codex_source(source)
@@ -205,8 +210,7 @@ module Reach
       { id: "codex", ok: true, message: "Codex: rEach installed. Start a new Codex session and trust rEach's three hooks when Codex asks (in Codex in a Terminal, type /hooks; in the desktop app, open Settings and go to Hooks). #{settings}" }
     end
 
-    def run_antigravity(_source)
-      root = Reach::Runtime.root
+    def run_antigravity(root)
       if on_path?("agy")
         _out, err, status = capture(["agy", "plugin", "install", root])
         return { id: "antigravity", ok: false, message: "Antigravity: plugin install failed: #{err}" } unless status

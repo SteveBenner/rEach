@@ -10,8 +10,6 @@ module Reach
     CLAUDE_CONFLICT = "doesn't match its extraKnownMarketplaces entry".freeze
     MARKETPLACE = "reach".freeze
     PLUGIN = "reach@reach".freeze
-    STABLE_REF = "stable".freeze
-    UNPINNED_REFS = [nil, "", "main"].freeze
     HARNESSES = %w[claude-code codex].freeze
     CODEX_NAMES = %w[codex codex.exe].freeze
     CLAUDE_NAMES = %w[claude claude.exe].freeze
@@ -39,17 +37,8 @@ module Reach
       candidate.casecmp?(name)
     end
 
-    def stable_spec(harness)
-      name = slug
-      return nil unless name
-
-      harness.to_s == "codex" ? "#{name}@#{STABLE_REF}" : "#{name}##{STABLE_REF}"
-    end
-
-    def pin(source, harness)
-      return source unless repository_source?(source)
-
-      stable_spec(harness) || source
+    def local_source(source)
+      File.directory?(source.to_s) ? source : Reach::Runtime.root
     end
 
     def codex_bin
@@ -309,7 +298,7 @@ module Reach
     def pending_entry(harness)
       entry = harness == "codex" ? codex_entry : claude_entry
       return nil unless entry && entry["kind"] == "git"
-      return nil unless repository_source?(entry["location"]) && UNPINNED_REFS.include?(entry["ref"])
+      return nil unless repository_source?(entry["location"])
 
       entry
     end
@@ -337,7 +326,7 @@ module Reach
     end
 
     def due?(harness)
-      return false if load_state.key?(harness)
+      return false if load_state.key?("local:#{harness}")
       return false unless cli_present?(harness)
 
       !pending_entry(harness).nil?
@@ -353,8 +342,9 @@ module Reach
       false
     end
 
-    def ensure_stable!
+    def ensure_local!
       return {} if Reach::Sandbox.blocked?
+      return {} unless Reach::Update.managed?
 
       FileUtils.mkdir_p(Reach::Paths.root_state_dir)
       File.open("#{state_file}.lock", File::RDWR | File::CREAT, 0o600) do |handle|
@@ -363,7 +353,7 @@ module Reach
         begin
           results = {}
           HARNESSES.each do |harness|
-            results[harness] = repoint_to_stable(harness) if due?(harness)
+            results[harness] = repoint_to_local(harness) if due?(harness)
           end
           results
         ensure
@@ -374,35 +364,48 @@ module Reach
       {}
     end
 
-    def repoint_to_stable(harness)
+    def repoint_to_local(harness)
       entry = pending_entry(harness)
-      spec = stable_spec(harness)
+      folder = Reach::Paths.managed_install_dir
+      key = "local:#{harness}"
       from = entry["ref"].to_s.empty? ? entry["location"] : "#{entry['location']}@#{entry['ref']}"
       state = load_state
-      state[harness] = { "at" => Time.now.utc.iso8601, "from" => from, "to" => spec, "result" => "started" }
+      state[key] = { "at" => Time.now.utc.iso8601, "from" => from, "to" => folder, "result" => "started" }
       save_state(state)
       result = begin
-        harness == "codex" ? repoint_codex_to_stable(spec) : repoint_claude_to_stable(spec)
+        written = write_manifests(folder)
+        if written
+          harness == "codex" ? repoint_codex_to_local(folder) : repoint_claude_to_local(folder)
+        else
+          "failed: plugin files not written"
+        end
       rescue StandardError => e
         "failed: #{e.message}"
       end
       state = load_state
-      state[harness]["result"] = result
+      state[key]["result"] = result
       save_state(state)
-      Reach::Update.log("harness_source", "harness" => harness, "from" => from, "to" => spec, "result" => result)
+      Reach::Update.log("harness_source", "harness" => harness, "from" => from, "to" => folder, "result" => result)
       result
     end
 
-    def repoint_claude_to_stable(spec)
-      result = claude_add(spec)
+    def write_manifests(folder)
+      Reach::PluginManifests.write!(folder)
+      Reach::PluginManifests::FILES.all? { |relative| File.file?(File.join(folder, relative)) }
+    rescue SystemCallError
+      false
+    end
+
+    def repoint_claude_to_local(folder)
+      result = claude_add(folder)
       return result unless result == "ok"
 
       _out, err, ok = capture(claude_command("plugin", "update", PLUGIN, "--scope", "user"))
       ok ? "ok" : "failed: #{first_line(err)}"
     end
 
-    def repoint_codex_to_stable(spec)
-      result = codex(spec)
+    def repoint_codex_to_local(folder)
+      result = codex(folder)
       return result unless result == "ok"
 
       _out, err, ok = capture(codex_command("plugin", "add", PLUGIN))

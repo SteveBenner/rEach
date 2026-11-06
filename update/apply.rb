@@ -13,6 +13,7 @@ require "yaml"
 HARNESS_TIMEOUT_S = 120
 
 require_relative "../lib/reach/paths"
+require_relative "../lib/reach/plugin_manifests"
 
 options = { resume: false }
 OptionParser.new do |parser|
@@ -193,6 +194,16 @@ def repoint_claude(source)
   return "absent" unless path
 
   ok, output = run_step_output([path, "plugin", "marketplace", "add", source])
+  return "ok" if ok
+  return "failed: #{first_output_line(output)}" unless output.include?("doesn't match its extraKnownMarketplaces entry") || output.include?("already added from a different source")
+
+  ok, output = run_step_output([path, "plugin", "marketplace", "remove", "reach"])
+  return "failed: #{first_output_line(output)}" unless ok
+
+  ok, output = run_step_output([path, "plugin", "marketplace", "add", source])
+  return "failed: #{first_output_line(output)}" unless ok
+
+  ok, output = run_step_output([path, "plugin", "install", "reach@reach", "--scope", "user"])
   ok ? "ok" : "failed: #{first_output_line(output)}"
 end
 
@@ -283,16 +294,31 @@ rescue StandardError
   nil
 end
 
+manifests_note = begin
+  Reach::PluginManifests.write!(destination)
+  missing = Reach::PluginManifests::FILES.reject { |relative| File.file?(File.join(destination, relative)) }
+  missing.empty? ? "ok" : "failed: plugin files missing after write (#{missing.join(', ')})"
+rescue SystemCallError => e
+  "failed: #{e.message}"
+end
+manifest["plugin_manifests"] = manifests_note
+warn "apply: plugin files not written (#{manifests_note})" unless manifests_note == "ok"
 results = manifest["harness_results"]
 results = {} unless results.is_a?(Hash)
 sources = {}
-sources["claude-code"] = repoint_claude(destination)
-sources["codex"] = repoint_codex(destination)
-manifest["harness_sources"] = sources
-results["claude-code"] = refresh_harness("claude", [%w[plugin marketplace update reach], %w[plugin update reach@reach --scope user]])
-codex_path = on_path("codex")
-run_step([codex_path, "plugin", "marketplace", "upgrade", "reach"]) if codex_path
-results["codex"] = refresh_harness("codex", [%w[plugin add reach@reach]])
+if manifests_note == "ok"
+  sources["claude-code"] = repoint_claude(destination)
+  sources["codex"] = repoint_codex(destination)
+  manifest["harness_sources"] = sources
+  results["claude-code"] = refresh_harness("claude", [%w[plugin marketplace update reach], %w[plugin update reach@reach --scope user]])
+  codex_path = on_path("codex")
+  run_step([codex_path, "plugin", "marketplace", "upgrade", "reach"]) if codex_path
+  results["codex"] = refresh_harness("codex", [%w[plugin add reach@reach]])
+else
+  sources["claude-code"] = "failed: plugin files not written"
+  sources["codex"] = "failed: plugin files not written"
+  manifest["harness_sources"] = sources
+end
 Dir.glob(File.join(Reach::Paths.codex_home, "plugins", "cache", "*", "reach", "*", "plugin.json")).each do |cached|
   next unless File.file?(File.join(File.dirname(cached), ".codex-plugin", "plugin.json"))
 

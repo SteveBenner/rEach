@@ -11,3 +11,6 @@ docs/assets/figures/png/
 .rproject/
 TOKENS.jsonl
 TMP_AGENT_FILE_LOCKS.yml
+/.claude-plugin/marketplace.json
+/.agents/plugins/marketplace.json
+/.antigravity-plugin/

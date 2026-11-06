@@ -1076,7 +1076,7 @@ module Reach
       end
       stage(manifest) if managed && %w[detected downloaded].include?(manifest["phase"])
       apply(manifest) if apply && managed && manifest["phase"] == "staged"
-      Reach::HarnessSource.ensure_stable! unless disabled?
+      Reach::HarnessSource.ensure_local! unless disabled?
       cache = apply_cache_install(manifest) if apply && !managed
       outcome = { "phase" => manifest["phase"], "target" => manifest["target_version"], "local" => manifest["local_version"] || local_version }
       outcome["cache"] = cache if cache
@@ -1147,14 +1147,10 @@ module Reach
     def refresh_codex_cache(steps)
       return false unless Reach::HarnessSource.codex_bin
 
-      source = Reach::HarnessSource.pin(Reach::HarnessSource.slug.to_s, "codex")
       _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.codex_command("plugin", "marketplace", "upgrade", Reach::HarnessSource::MARKETPLACE))
       steps["marketplace upgrade"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
-      unless ok
-        result = Reach::HarnessSource.codex(source)
-        steps["marketplace add"] = result
-        return false unless result == "ok"
-      end
+      return false unless ok
+
       _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.codex_command("plugin", "add", Reach::HarnessSource::PLUGIN))
       steps["plugin add"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
       return false unless ok
@@ -1169,11 +1165,8 @@ module Reach
 
       _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.claude_command("plugin", "marketplace", "update", Reach::HarnessSource::MARKETPLACE))
       steps["marketplace update"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
-      unless ok
-        result = Reach::HarnessSource.claude_add(Reach::HarnessSource.pin(Reach::HarnessSource.slug.to_s, "claude-code"))
-        steps["marketplace add"] = result
-        return false unless result == "ok"
-      end
+      return false unless ok
+
       _out, err, ok = Reach::HarnessSource.capture(Reach::HarnessSource.claude_command("plugin", "install", Reach::HarnessSource::PLUGIN, "--scope", "user"))
       steps["plugin install"] = ok ? "ok" : Reach::HarnessSource.first_line(err)
       return false unless ok

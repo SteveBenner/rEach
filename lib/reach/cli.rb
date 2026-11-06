@@ -2905,7 +2905,7 @@ module Reach
           end
           (result["cache"] && result["cache"]["ok"] != true) || result["app_only"] ? 1 : 0
         when "source"
-          results = Reach::HarnessSource.ensure_stable!
+          results = Reach::HarnessSource.ensure_local!
           if json
             puts JSON.pretty_generate(results)
           else
