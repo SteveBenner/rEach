@@ -37,8 +37,12 @@ module Reach
       headers.last
     end
 
+    def report_disabled?
+      ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
+    end
+
     def headers
-      return [nil, nil] if ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
+      return [nil, nil] if report_disabled?
 
       found = Reach::HarnessIdentity.detect
       label = found["label"].to_s

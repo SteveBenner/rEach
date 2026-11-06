@@ -264,9 +264,9 @@ module ReachInstall
 
         body = {
           "public_key" => device["public_key"], "reach_version" => @version.to_s.empty? ? "unknown" : @version, "origin" => "installer",
-          "os" => os_name, "arch" => arch_name, "ruby" => RUBY_VERSION[0, 64],
           "checkpoints" => sent.map { |entry| { "id" => entry["id"], "at" => entry["at"] } }
         }
+        body.merge!("os" => os_name, "arch" => arch_name, "ruby" => RUBY_VERSION[0, 64]) unless ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
         body["problem"] = { "code" => issue["code"], "at" => issue["at"] } if issue.is_a?(Hash)
         return nil unless post(device, body)
 

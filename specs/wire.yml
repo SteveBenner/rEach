@@ -1661,7 +1661,7 @@ routes:
       public_key: {type: string, note: "PEM of the device key, at most 4096 bytes"}
       reach_version: string
       origin: {type: string, enum: [installer, setup, session, background]}
-      os: {type: string, enum: [macos, windows, linux]}
+      os: {type: string, required: false, enum: [macos, windows, linux], note: "left out, with os_release, arch, ruby and harness, by a process with REACH_ENV_REPORT_DISABLE=1; Teach then holds none of them"}
       os_release: {type: string, required: false, note: "as X-Reach-Env names it, for example Ubuntu 24.04, at most 64 bytes"}
       arch: {type: string, required: false, note: "at most 64 bytes"}
       ruby: {type: string, required: false, note: "at most 64 bytes"}
@@ -2440,14 +2440,14 @@ live:
       While checks_only is true Reach runs only doctor, status, update_check and sandbox_probe, with no question, and
       removes the user's home folder from what they print. Teach refuses every other action with 409 details.reason
       needs_yes, requests no debug stream and refuses an agent message with co_debug_off. An instructor's note is shown
-      to the student as in W-LIVE-7. A check session never reads a prompt, a reply, code or a file.
+      to the student as in W-LIVE-7. A check session never shows a prompt, a reply, code or the contents of a file.
       Reach tells the student at once: one desktop notice when the session is first seen, and at the next prompt a line
       saying who opened it, what it can do, which checks have run, and how to end it. reach live status shows the same.
       While a test is open on the computer Reach runs no check, shows no notice and answers each action ok false with a
       fixed text saying so. With device.live_without_yes false in config.yml Reach runs no check without a yes and
       answers each action ok false with a fixed text saying the student has turned this off. In every open session,
-      not only a check session, those four run with no question, from Reach's own folder so that their output names no
-      working folder, with the user's home folder removed, and never while a test is open. With the device layer off,
+      not only a check session, those four run with no question, from Reach's own folder so that the self-check names no
+      working folder and the status check names only the work folder, with the user's home folder removed, and never while a test is open. With the device layer off,
       or device.live_without_yes false, an ordinary session asks the student before each of them and a check session
       runs none.
       An instructor asks for more by setting yes_requested. Reach then asks the W-LIVE-2 question with subject

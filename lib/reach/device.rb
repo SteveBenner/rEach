@@ -382,14 +382,16 @@ module Reach
     end
 
     def report_body(device, state, sent, problem, links, origin)
-      fields = Reach::Environment.static_fields
       body = {
         "public_key" => device["public_key"], "reach_version" => Reach::VERSION, "origin" => origin,
-        "os" => fields["os"], "os_release" => fields["os_release"], "arch" => fields["arch"], "ruby" => fields["ruby"],
         "checkpoints" => sent.map { |entry| { "id" => entry["id"], "at" => entry["at"] } }
       }
-      harness = harness_name(state)
-      body["harness"] = harness if harness
+      unless Reach::Environment.report_disabled?
+        fields = Reach::Environment.static_fields
+        body.merge!("os" => fields["os"], "os_release" => fields["os_release"], "arch" => fields["arch"], "ruby" => fields["ruby"])
+        harness = harness_name(state)
+        body["harness"] = harness if harness
+      end
       body["problem"] = { "code" => problem["code"], "at" => problem["at"] } if problem.is_a?(Hash)
       body["links"] = links unless links.empty?
       body

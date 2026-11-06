@@ -17,10 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `live.enabled: false` in the home folder's `config.yml` now stops live sessions. It used to count only in the plugin's own file, which an update replaces. `REACH_LIVE_DISABLE=1` still works only for a program started with it set.
 - A copy whose own enrollment record is revoked takes no check session. By then the course server has erased the link it would refuse on, so a check could otherwise show a former student's name and work state. The copy keeps reporting as a code with no name until it is removed or turned off.
 - An install link naming a different student closes the copy's open session (`superseded`), so one student's yes never carries over to another on a shared computer. `W-DEVICE-3`.
+- `REACH_ENV_REPORT_DISABLE=1` also takes the operating system, processor, Ruby version, and AI app out of an installation report from that process, the installer included.
 
 ### Changed
 
-- The four read-only checks no longer ask a question in any open live session, for any student, on the instructor's written decision of 2026-11-05. It removes a consent step enrolled students had, so that an enrolled student whose hooks died can still be helped. In every session they run from rEach's own folder so their output names no working folder, with the home folder removed, never while a test is open, and the student sees which ones ran. The questions, help text, student guide, and plugin listing say so.
+- The four read-only checks no longer ask a question in any open live session, for any student, on the instructor's written decision of 2026-11-05. It removes a consent step enrolled students had, so that an enrolled student whose hooks died can still be helped. In every session they run from rEach's own folder so the self-check names no working folder and the status check names only the work folder, with the home folder removed, never while a test is open, and the student sees which ones ran. The questions, help text, student guide, and plugin listing say so.
 - The background job now also runs on a computer with no enrollment, every 5 minutes for the first 72 hours and then at its ordinary pace, until the course server says stop or 30 days pass with no new checkpoint. A copy that has not enrolled therefore also keeps itself updated.
 - `PRIVACY.md`, `TERMS.md`, `INSTALL.md`, and `UNINSTALL.md` say all of this, including that instructors can open a check session without asking first.
 
