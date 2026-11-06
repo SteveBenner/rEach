@@ -446,7 +446,7 @@ module Reach
       def no_terminal_text(harness_id, workspace_path)
         app = Reach::HarnessMove.display(harness_id)
         here = Reach::Workspace.space_for(Reach::Paths.cwd)
-        if here && (here["kind"] == "root" || Reach::Paths.realish(here["path"]) == Reach::Paths.realish(workspace_path))
+        if here && (%w[root slice].include?(here["kind"]) || Reach::Paths.realish(here["path"]) == Reach::Paths.realish(workspace_path))
           return Reach::Messages.text("M-WORK-HERE", app: app, folder: workspace_path, name: File.basename(workspace_path))
         end
         return Reach::Messages.text("M-WORK-CODEX-PROJECT", folder: Reach::Paths.workspace_root) if harness_id.to_s == "codex"

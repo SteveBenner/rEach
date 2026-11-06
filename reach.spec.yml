@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.70.2
+version: 0.70.3
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2226,7 +2226,9 @@ workspace_layout:
   spaces:
     slice: >-
       ~/reach-work/deliverables/<course>/<assignment>/<cutout>-<slice>/, provisioned by reach sync from the workspace
-      package (slice_workspace). The only place assignment code is written: the slice's owned files.
+      package (slice_workspace). The only place assignment code is written: the slice's owned files. Since 0.70.3 a
+      session in one slice reaches the student's other slices: a write or a shell command after cd is judged by the
+      slice it lands in (its owned files, ladder, and module check), so moving to another module needs no new session.
     extracurricular: ~/reach-work/extracurricular/ (extracurricular, below).
     root: >-
       ~/reach-work itself, deliverables/ and any directory between deliverables/ and a slice. Rules files and harness

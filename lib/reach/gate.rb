@@ -432,7 +432,7 @@ module Reach
       Reach::Controls.check_tool!("write", space)
       kind = space && space["kind"]
 
-      return write_from_root(path: path, patch: patch) if kind == "root"
+      return write_from_root(path: path, patch: patch) if kind == "root" || other_slice_target?(space, path, patch)
 
       if kind == "extracurricular"
         root = space["path"]
@@ -484,6 +484,17 @@ module Reach
       raise
     ensure
       Thread.current[:reach_gate_subject] = nil
+    end
+
+    def other_slice_target?(space, path, patch)
+      return false unless space && space["kind"] == "slice"
+
+      base = File.realpath(Reach::Paths.cwd)
+      raw = patch ? patch_targets(patch) : [path.to_s]
+      raw.any? do |entry|
+        found = target_space(root_target(File.expand_path(entry, base)))
+        found && found["kind"] == "slice" && found["path"] != space["path"]
+      end
     end
 
     def write_from_root(path:, patch:)
@@ -659,15 +670,22 @@ module Reach
 
       workspace = space && space["path"]
       owned_test = shell_owned_test(kind, workspace)
+      witnessed = [workspace]
 
       segments.each do |segment, before, after|
         cwd = state[:cwd]
         check_cd_context!(segment, before, after)
         check_outside_segment!(segment, state, event)
-        check_segment!(segment, workspace, owned_test, kind, cwd)
+        other = other_slice_at(kind, workspace, state[:cwd])
+        if other
+          witnessed << other
+          check_segment!(segment, other, shell_owned_test("slice", other), kind, cwd)
+        else
+          check_segment!(segment, workspace, owned_test, kind, cwd)
+        end
       end
 
-      witness_in(workspace, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => mask_command(text)) if kind == "slice"
+      witnessed.uniq.each { |path| witness_in(path, "shell", "command_digest" => Reach::Crypto.digest_hex(text), "head" => mask_command(text)) } if kind == "slice"
       nil
     rescue Reach::GateBlocked => e
       e.subject ||= debug_subject(refusal_subject)
@@ -675,6 +693,13 @@ module Reach
     ensure
       @powershell = false
       Thread.current[:reach_gate_subject] = nil
+    end
+
+    def other_slice_at(kind, workspace, cwd)
+      return nil unless kind == "slice"
+
+      found = Reach::Workspace.space_for(cwd)
+      found && found["kind"] == "slice" && found["path"] != workspace ? found["path"] : nil
     end
 
     def shell_space(event)
@@ -1347,15 +1372,14 @@ module Reach
 
     def focus_workspace(target: nil)
       here = current_workspace_path
-      return here if here
-
       space = current_space
-      return nil unless space && space["kind"] == "root"
+      return nil unless here || (space && space["kind"] == "root")
 
       if target && !target.to_s.empty?
         found = Reach::Workspace.space_for_target(File.expand_path(target.to_s))
         return found["path"] if found && found["kind"] == "slice"
       end
+      return here if here
 
       slices = Reach::Workspace.current_slices
       slices.length == 1 ? slices.first : nil

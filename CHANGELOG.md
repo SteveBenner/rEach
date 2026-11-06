@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.3] - 2026-11-06
+
+### Fixed
+
+- A session opened in one slice's folder can now build the student's other slices. It could save a second module's plan, but `Reach::Gate.write` refused that module's own file with `M-WRITE-OUTSIDE` ("That file belongs to the course and can't be changed"), `Reach::Gate.shell` refused a command after `cd` with `M-SHELL-BLOCKED`, and `reach work` answered `M-WORK-NO-TERMINAL`, which tells the agent to send the student to a new chat. The cause: these paths judged every target against the slice the session opened in, while a session at the course root already reached every slice. A target in another slice now goes through `write_from_root`, a shell segment is judged and witnessed in the slice it lands in, `focus_workspace` prefers a named target's slice, and `no_terminal_text` answers `M-WORK-HERE` from any slice. Each slice keeps its own owned files, ladder, and module check. Measured on 2026-11-06 in scratch homes against the real gate with enrollment stubbed: the five cross-slice cases went from refused to allowed, and twelve cases that must refuse (another slice's course files and `.reach` marker, a module that is not the student's, `rm` after `cd`, a write outside the course, a patch spanning two slices, and others) stayed refused.
+
 ## [0.70.2] - 2026-11-06
 
 ### Fixed
