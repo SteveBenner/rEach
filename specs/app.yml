@@ -2894,10 +2894,10 @@ interfaces:
       standards: [STD-AUTO-UPDATE, STD-APP-COPY-UPDATE, STD-AGENT-UPDATE]
     - verb: "reach update source"
       synopsis: "reach update source [--format json]"
-      purpose: "Make each AI app's plugin source the stable channel again (HarnessSource.ensure_stable!) and print the outcome per app."
+      purpose: "For a managed install, move each AI app's rEach marketplace from the repository link to the install folder (HarnessSource.ensure_local!, once per app) and print the outcome per app."
       mutates: external
       source: lib/reach/cli.rb CLI.cmd_update
-      standards: [STD-AUTO-UPDATE]
+      standards: [STD-AUTO-UPDATE, STD-LOCAL-REGISTER]
     - verb: "reach subscribe status"
       aliases: ["reach subscribe"]
       synopsis: "reach subscribe status [--format text|json]"

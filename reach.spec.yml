@@ -2555,7 +2555,7 @@ student_messages:
   - id: M-UPDATE-RUN
     text: version {version} is available and this copy of rEach does not update itself. When you finish your current answer, start the update with the reach_update tool (action run) or with reach update run --apply, then give the student the reply it returns, word for word.
   - id: M-UPDATE-APP-NOTICE
-    text: rEach has an update (version {version}) that this copy can't install by itself. To get it, open the Plugins page in your app, find rEach there and update it, then start a new chat. If that doesn't work, ask your AI partner to reinstall rEach with its installer, which sets up a copy that updates itself from then on.
+    text: rEach has an update (version {version}) that this copy can't install by itself. To get it, ask your AI partner to reinstall rEach with its installer, which sets up a copy that updates itself from then on, then start a new chat. In the Claude app, ask from the Code tab.
   - id: M-OLD-COPY-NOTICE
     text: An older copy of rEach is still running on your computer, and it can keep the newer copy from saving its files. Quit your app completely, then update rEach from its Plugins page. If that doesn't work, remove rEach and add it again, following the setup handout.
   - id: M-STATE-HELD
