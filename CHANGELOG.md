@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.22] - 2026-11-05
+
+### Fixed
+
+- An enrolled copy sends its reports and takes its check sessions from the server it enrolled on, and an enrollment attempt is named only to the server it is on.
+- The installer counts a `config.yml` that reads as something other than settings as turning reports off, as the rest of rEach does.
+- The privacy policy says that ending a check session does not stop another from opening, and which setting does.
+
 ## [0.68.21] - 2026-11-05
 
 ### Fixed

@@ -54,12 +54,12 @@ live:
   enabled: false
 ```
 
-- `device.live_without_yes: false` makes rEach run no check without your yes. Reports continue.
+- `device.live_without_yes: false` makes rEach run no check without your yes. Reports continue. Ending one check session does not stop your instructors from opening another, so this is the setting that does.
 - `device.enabled: false` stops the reports and the code, and rEach then runs no check without your yes. Installing rEach again respects the setting too. An instructor can then reach this copy only through an ordinary live session, which asks you first, and only once you are enrolled.
 - `live.enabled: false` stops every live session.
+- `reach uninstall --purge-checkpoint-mirror` removes the key and the code along with rEach. A plain `reach uninstall` sends one last report that rEach was removed and keeps them, so a later install counts as the same copy. With `--no-teach` it sends no last report.
 
 If rEach cannot read this file, for example after a typing mistake, it counts as turning all of this off until you fix it.
-- `reach uninstall --purge-checkpoint-mirror` removes the key and the code along with rEach. A plain `reach uninstall` sends one last report that rEach was removed and keeps them, so a later install counts as the same copy. With `--no-teach` it sends no last report.
 
 The environment variables `REACH_DEVICE_DISABLE=1` and `REACH_LIVE_DISABLE=1` do the same as `device.enabled: false` and `live.enabled: false`, but only for a program started with them set, such as the installer or an AI app opened from that terminal. rEach's background job does not see them, so it goes on reporting and can still pick up a check session. For a lasting off switch, use the settings above.
 

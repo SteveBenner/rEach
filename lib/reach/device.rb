@@ -249,6 +249,11 @@ module Reach
       data
     end
 
+    def attempt_on_this_server?
+      data = Reach::EnrollOutbox.read
+      data.is_a?(Hash) && data["teach_url"].to_s.sub(%r{/+\z}, "") == Reach::Client.device_base_url.to_s.sub(%r{/+\z}, "")
+    end
+
     def enrolled_install
       install = Reach::Enroll.current
       install.is_a?(Hash) && install["install_id"] && !install["revoked"] ? install : nil
@@ -407,7 +412,7 @@ module Reach
         links << proof if proof
       end
       attempt = Reach::EnrollOutbox.attempt
-      if attempt && !attempt.id.to_s.empty? && state["linked_attempt"] != attempt.id.to_s
+      if attempt && !attempt.id.to_s.empty? && state["linked_attempt"] != attempt.id.to_s && attempt_on_this_server?
         proof = attempt_proof(attempt.id, attempt.key, device)
         links << proof if proof
       end

@@ -1,6 +1,6 @@
 # FEATURES — rEach
 
-## Installation reports and check sessions — 0.68.21
+## Installation reports and check sessions — 0.68.22
 
 Until now a course server heard from a copy of rEach only after a valid course code, so a student who got stuck while installing, setting up, or enrolling was invisible, and nobody could reach their computer to find out why. From the moment it installs, a copy now has its own identity on the computer and reports to the course server built into it, before anyone does anything. Instructors see every copy with a label for how far it has got, such as New installation, Set up, or Security pass, and the label moves as the student goes through setup and enrollment. When something sticks, an instructor can open a live session on that copy, before any enrollment and at any point after. (`STD-DEVICE`, `STD-LIVE-CHECKS`, wire revision 2026-11-05a: `W-AUTH-10`, `W-API-DEVICE-REPORT`, `W-DEVICE-ID`, `W-DEVICE-1` to `W-DEVICE-5`, `W-LIVE-11`, `W-SAFE-17`.)
 

@@ -691,6 +691,8 @@ module ReachInstall
       folder = @log_destination || default_destination
       [File.join(folder, "config.yml"), File.join(File.dirname(folder), "config.yml")].any? do |path|
         data = File.file?(path) ? YAML.safe_load(File.read(path)) : nil
+        next true unless data.nil? || data.is_a?(Hash)
+
         section = data.is_a?(Hash) ? data["device"] : nil
         section.is_a?(Hash) && section["enabled"] == false
       end

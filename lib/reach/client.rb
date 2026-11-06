@@ -243,9 +243,17 @@ module Reach
       )
     end
 
+    def self.device_base_url
+      install = Reach::Enroll.current
+      url = install.is_a?(Hash) && !install["revoked"] ? install["teach_url"].to_s : ""
+      url.empty? ? Reach::Runtime.default_teach_url : url
+    rescue Reach::Refused
+      Reach::Runtime.default_teach_url
+    end
+
     def self.for_device(device, bucket: "device", connect_timeout: 3, read_timeout: 8, max_retries: 0, quiet: true)
       new(
-        base_url: Reach::Runtime.default_teach_url, install_id: nil, install_private_key: Reach::Device.private_key, device_id: device.fetch("device_id"),
+        base_url: device_base_url, install_id: nil, install_private_key: Reach::Device.private_key, device_id: device.fetch("device_id"),
         bucket: bucket, connect_timeout: connect_timeout, read_timeout: read_timeout, max_retries: max_retries, quiet: quiet, link: false
       )
     end
