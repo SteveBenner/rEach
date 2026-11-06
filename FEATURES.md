@@ -4,7 +4,7 @@
 
 A copy of rEach with no folder for its seal now creates that folder when a background run or detached drain first reaches it, then makes its identity and reports, as `STD-DEVICE` promises. Before, the drain failed at opening `device-drain.lock` with `Errno::ENOENT`, before the step that creates the identity, and every later run failed the same way. The off switches and `REACH_OFFLINE=1` still create nothing, because they are checked first. Where the location cannot be written, the drain records the fault and nothing reaches the caller, as before. Verified on 2026-11-06 on Linux in scratch homes: the old code reproduced the fault; a real detached drain against an unroutable server created the folder and identity, recorded `device:report` and backed off, with no `device:drain` fault; a stubbed 200 reply emptied the outbox and set the next report time with no fault; `REACH_DEVICE_DISABLE=1` and `REACH_OFFLINE=1` left no folder; an unwritable parent recorded `Errno::EACCES` and returned normally. Not exercised: Windows, where the fault was reported, a real course server, and macOS. Why the reporting copies had no folder is not established. Wiring: none. It adds no service, events, or metrics.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🟡 on test as v0.70.1, not on stable.
 
 ## Retired server addresses — 0.70.0
 
