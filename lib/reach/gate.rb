@@ -529,6 +529,7 @@ module Reach
       slices.each do |workspace|
         check_ladder!(workspace)
         check_time_and_module!(workspace)
+        Reach::Checkpoint.autosave(workspace, via: "pre_write")
       end
       nil
     end
