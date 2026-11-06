@@ -92,6 +92,8 @@ module Reach
     end
 
     def switched_off?(key)
+      return true if Reach::Update.install_config_broken?
+
       [Reach::Update.install_config, Reach::Runtime.load_config].any? do |config|
         section = config["device"]
         section.is_a?(Hash) && section[key] == false

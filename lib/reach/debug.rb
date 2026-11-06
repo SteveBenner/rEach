@@ -165,7 +165,7 @@ module Reach
       return nil unless Reach::Enroll.current.nil?
 
       current = Reach::Live.session
-      return nil unless Reach::Live.open?(current) && current["checks_only"] != true && Reach::Device.identity
+      return nil unless Reach::Live.open?(current) && current["checks_only"] == false && Reach::Live.agreed?(current["id"]) && Reach::Device.identity
       return nil unless future?(current["expires_at"])
 
       current["expires_at"]

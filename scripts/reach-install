@@ -694,8 +694,8 @@ module ReachInstall
         section = data.is_a?(Hash) ? data["device"] : nil
         section.is_a?(Hash) && section["enabled"] == false
       end
-    rescue StandardError
-      false
+    rescue Psych::Exception, SystemCallError
+      true
     end
 
     def log_streak(success, error)

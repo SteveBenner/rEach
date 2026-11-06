@@ -109,7 +109,11 @@ module Reach
     end
 
     def enabled?
-      ENV["REACH_LIVE_DISABLE"].to_s != "1" && config["enabled"] != false && home_config["enabled"] != false
+      ENV["REACH_LIVE_DISABLE"].to_s != "1" && config["enabled"] != false && home_config["enabled"] != false && !Reach::Update.install_config_broken?
+    end
+
+    def agreed?(id)
+      !id.to_s.empty? && read_state["agreed_session"] == id.to_s
     end
 
     def wake?
@@ -317,7 +321,10 @@ module Reach
 
       current = session
       checks = !current.nil? && current["id"] == target && current["checks_only"] == true
-      update { |state| state["pending"] = { "type" => "consent", "id" => target, "answer" => answer, "consent" => record, "queued_at" => stamp } }
+      update do |state|
+        state["pending"] = { "type" => "consent", "id" => target, "answer" => answer, "consent" => record, "queued_at" => stamp }
+        state["agreed_session"] = target if answer == "yes"
+      end
       spawn_runner
       return Reach::Messages.text(answer == "yes" ? "M-LIVE-CHECKS-YES-THANKS" : "M-LIVE-CHECKS-NO-THANKS") if checks
 

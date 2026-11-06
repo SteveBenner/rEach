@@ -213,6 +213,16 @@ module Reach
       {}
     end
 
+    def install_config_broken?
+      path = install_config_file
+      return false unless File.file?(path)
+
+      parsed = YAML.safe_load(File.read(path))
+      !parsed.nil? && !parsed.is_a?(Hash)
+    rescue Psych::Exception, SystemCallError
+      true
+    end
+
     def channel
       requested = ENV["REACH_UPDATE_CHANNEL"].to_s.strip.downcase
       if requested.empty?
