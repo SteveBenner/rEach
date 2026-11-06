@@ -4,7 +4,7 @@
 
 The background device report has 20 seconds. Running out of time is now handled as a transport failure instead of an unknown one: it stays in the fault stream with its cause, opens no issue on rEach or Teach, and no longer skips the check that keeps the background job installed. What made the report overrun is not established.
 
-Verified on 2026-11-06: the real `Reach::Device.tick` in a fake home, before and after, with only the limit shortened and the drain's work held open. Before: one `Timeout::Error` fault classed `repeating`, no `ensure!`. After: one `Reach::NetworkError` fault with cause `Timeout::Error` classed `ignore`, one `ensure!`. Teach's `IssueRules.ignored_fault?` answers false and then true for the same two faults. Not exercised: a real computer going to sleep during a report.
+Verified on 2026-11-06: the real `Reach::Device.tick` in a fake home, before and after, with only the limit shortened and the drain's work held open. Before: one `Timeout::Error` fault classed `repeating`, no `ensure!`. After: one `Reach::NetworkError` fault with cause `Timeout::Error` classed `ignore`, one `ensure!`. The course server's issue rules file the first of those faults and ignore the second. Not exercised: a real computer going to sleep during a report.
 
 Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty n/a (students never saw this fault). Wellbeing and safety n/a (no student-facing change). Privacy and dignity yes (the fault carries the same fields as before and no student work).
 
