@@ -1,6 +1,6 @@
 # FEATURES — rEach
 
-## Installation reports and check sessions — 0.69.0
+## Installation reports and check sessions — 0.68.20
 
 Until now a course server heard from a copy of rEach only after a valid course code, so a student who got stuck while installing, setting up, or enrolling was invisible, and nobody could reach their computer to find out why. From the moment it installs, a copy now has its own identity on the computer and reports to the course server built into it, before anyone does anything. Instructors see every copy with a label for how far it has got, such as New installation, Set up, or Security pass, and the label moves as the student goes through setup and enrollment. When something sticks, an instructor can open a live session on that copy, before any enrollment and at any point after. (`STD-DEVICE`, `STD-LIVE-CHECKS`, wire revision 2026-11-05a: `W-AUTH-10`, `W-API-DEVICE-REPORT`, `W-DEVICE-ID`, `W-DEVICE-1` to `W-DEVICE-5`, `W-LIVE-11`, `W-SAFE-17`.)
 
@@ -1377,7 +1377,7 @@ on Windows or macOS.
 
 Build ✅ · Deploy 🟢 Live (released 2026-10-03 as v0.23.0, GitHub Latest; Teach 0.31.0 serves the routes). No session has run against the live Teach yet.
 
-Since 0.69.0 (`STD-LIVE-CHECKS`, `W-LIVE-11`) an instructor can open a session on a copy's own identity, before any enrollment and at any point after, and the four read-only checks need no question in any open session, for any student. See "Installation reports and check sessions" at the top of this file.
+Since 0.68.20 (`STD-LIVE-CHECKS`, `W-LIVE-11`) an instructor can open a session on a copy's own identity, before any enrollment and at any point after, and the four read-only checks need no question in any open session, for any student. See "Installation reports and check sessions" at the top of this file.
 
 ### 2.42 · Progress checkpoints
 

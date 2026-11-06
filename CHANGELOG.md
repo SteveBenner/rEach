@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.69.0] - 2026-11-05
+## [0.68.20] - 2026-11-05
 
 ### Added
 
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `device.enabled` and `device.live_without_yes` turn this off. rEach reads the settings from the `config.yml` in its home folder, which an update keeps, and from the plugin's own file. With either setting, an ordinary live session asks before each read-only check and a check session runs none. The installer honours `device.enabled` too, in the folder `--destination` names, and `reach uninstall --no-teach` sends no last report. `REACH_DEVICE_DISABLE=1` does the same only for a program started with it set, because the background job does not see it.
 - `live.enabled: false` in the home folder's `config.yml` now stops live sessions. It used to count only in the plugin's own file, which an update replaces. `REACH_LIVE_DISABLE=1` still works only for a program started with it set.
 - A copy whose own enrollment record is revoked takes no check session. By then the course server has erased the link it would refuse on, so a check could otherwise show a former student's name and work state. The copy keeps reporting as a code with no name until it is removed or turned off.
+- An install link naming a different student closes the copy's open session (`superseded`), so one student's yes never carries over to another on a shared computer. `W-DEVICE-3`.
 
 ### Changed
 

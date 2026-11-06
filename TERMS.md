@@ -9,7 +9,7 @@ These terms cover rEach, the academic assistant for students in a course run on 
 - rEach is for students enrolled in a course whose instructors run Teach. You need a course passkey from your instructor to enroll.
 - Use rEach only for your own enrollment, on your own computer. Your course's academic integrity rules apply to all work you do with it.
 - Your instructors decide your course's rules, assignments, deadlines and grades. rEach follows the rules they set and does not change them.
-- From the moment it is installed, before you enroll, rEach reports to the course server built into it, and that course's instructors can run read-only checks on this copy of rEach without asking you first. You are told when they do and you can end it. The [Privacy Policy](PRIVACY.md) lists what is sent and how to turn this off. If you are not a student in a course that uses rEach, remove it with `reach uninstall`.
+- From the moment it is installed, before you enroll, rEach reports to the course server built into it, and that course's instructors can run read-only checks on this copy of rEach without asking you first. You are told when they do and you can end it. The [Privacy Policy](PRIVACY.md) lists what is sent and how to turn this off. If you are not a student in a course that uses rEach, remove it with `reach uninstall --no-teach --purge-checkpoint-mirror`, which sends no last report and also deletes this copy's code.
 
 ## Your work
 

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.69.0
+version: 0.68.20
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1752,7 +1752,7 @@ subscription:
     detached entry). subscribe is an unlocked command. reach doctor prints R-DOC-SUBSCRIBE, informational only.
 device:
   standard: STD-DEVICE
-  since: 0.69.0
+  since: 0.68.20
   wire: W-AUTH-10, W-API-DEVICE-REPORT, W-DEVICE-ID, W-DEVICE-1 to W-DEVICE-5, W-SAFE-17
   summary: >-
     An identity for this computer account, above enrollment, so a copy of rEach is visible on Teach from the moment it

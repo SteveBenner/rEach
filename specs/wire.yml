@@ -2499,7 +2499,8 @@ devices:
       the install's key. Teach verifies it against the public key it holds for that attempt or that install, and a link
       that does not verify, or names a revoked install, changes nothing. An attempt link gives the device its course. An
       install link gives it its student and course and, while a session of the device is not closed, gives that session
-      the same student and install. A later valid link replaces an earlier one of the same kind. Unenrolling a student
+      the same student and install. An install link naming a different student closes that session instead, with
+      end_reason superseded, because that student has agreed to nothing. A later valid link replaces an earlier one of the same kind. Unenrolling a student
       from a course erases the device rows linked to that course and the debug records sent under them and closes any
       session open on them; the copy's next report starts an unlinked row. A student's own withdrawal and an instructor's
       revoke of an install do the same to the rows linked to that install. A replaced install changes no row, because
