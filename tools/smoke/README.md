@@ -380,8 +380,11 @@ The process exits 0 when nothing failed or errored.
 ## Assignment one transport smoke
 
 `ruby tools/smoke/assignment_one.rb` is a separate, deterministic run that invokes no
-model. It starts a real Teach in an isolated home, installs rEach from a local
-GitHub-shaped ZIP, enrolls, syncs the G1 context A1 backend workspace, writes an
+model. It starts a real Teach in an isolated home behind a TLS front on 127.0.0.1 with a
+throwaway certificate that only the smoke's rEach commands trust (rEach refuses a plain HTTP
+Teach address), installs rEach from a local GitHub-shaped ZIP, passes the security validation
+pass with invented answers, enrolls, syncs the G1 context A1 backend workspace, signs in
+through the prompt hook, saves the plan and records its audit, writes an
 implementation, checks that submit is refused before any qualification, writes the
 agent's scenarios from `tools/smoke/qualify/`, qualifies locally and on Teach (with
 Teach's grader running), submits, and follows the ingest and grade receipts.

@@ -5,6 +5,7 @@ require "csv"
 require "fileutils"
 require "json"
 require "open3"
+require "openssl"
 require "optparse"
 require "socket"
 require "time"
@@ -29,6 +30,7 @@ module AssignmentOne
   WRONG_STUDENT_ID = "1999999"
   STUDENT_PASSWORD = "smoke-password-1"
   README_SOURCE = File.join(__dir__, "assignment_one_readme.md")
+  GRADER_IMAGES = %w[teach-grader:ruby-4.0.7 teach-grader:ruby-2.6.10].freeze
   COMMAND_TIMEOUT_S = 180
   GRADER_TIMEOUT_S = Integer(ENV.fetch("SMOKE_GRADER_TIMEOUT", "900"))
   HOST_SESSION_KEYS = %w[CLAUDE_CODE_SESSION_ID CLAUDE_CODE_ENTRYPOINT CLAUDECODE CODEX_THREAD_ID CODEX_SESSION_ID CODEX_SANDBOX CODEX_DESKTOP_APP REACH_HARNESS].freeze
@@ -60,6 +62,8 @@ module AssignmentOne
       @teach_pid = nil
       @grader_pid = nil
       @last = nil
+      @front_ended = 0
+      @front_notes = []
     end
 
     attr_reader :run_dir, :results
@@ -74,6 +78,7 @@ module AssignmentOne
         execute
       ensure
         stop_process(@grader_pid)
+        stop_tls_front
         stop_process(@teach_pid)
         drop_scratch_database
         write_summary
@@ -103,6 +108,7 @@ module AssignmentOne
       step("reference-locked-before-enroll", "reference") { reference_locked_before_enroll }
       step("setup-codex", "install") { setup_codex }
       step("doctor", "install") { doctor }
+      return skip_rest("the security validation pass did not complete") unless step("security-validation", "handshake") { security_validation }
       return skip_rest("enrollment did not complete") unless step("enroll-handshake", "handshake") { enroll }
 
       step("enroll-wrong-student-id-refused", "handshake") { wrong_student_id_refused }
@@ -119,6 +125,7 @@ module AssignmentOne
       step("guarded-write-owned", "local") { guarded_write_owned }
       step("edit-outside-owned-blocked", "local") { edit_outside_blocked }
       step("plan-save", "local") { plan_save }
+      step("plan-audit-recorded", "local") { plan_audit_recorded }
       step("implementation-written", "local") { write_implementation }
       step("readme-incomplete-flagged", "local") { readme_incomplete_flagged }
       step("readme-filled", "local") { fill_readme }
@@ -219,7 +226,9 @@ module AssignmentOne
       [@reach_home, @reach_home_b, @workspace_root, @student_home, @teach_home, @codex_home, @private_dir, @reference_dir, @logs].each { |dir| FileUtils.mkdir_p(dir) }
       File.chmod(0o700, @private_dir)
       @port = free_port
-      @teach_url = "http://127.0.0.1:#{@port}"
+      @tls_port = free_port
+      @cert_file = File.join(@run_dir, "teach-front.pem")
+      @teach_url = "https://127.0.0.1:#{@tls_port}"
     end
 
     def create_scratch_database
@@ -256,6 +265,8 @@ module AssignmentOne
         "TEACH_DOVETAIL" => File.join(@dovetail, "exe", "dovetail"),
         "TEACH_BUILD_CACHE" => File.join(@run_dir, "build_cache"),
         "TEACH_SANDBOX_RUNNER" => File.join(@teach_dir, "bin", "teach-sandbox-runner"),
+        "TEACH_GRADER_IMAGE" => GRADER_IMAGES.first,
+        "TEACH_GRADER_IMAGE_RUBY26" => GRADER_IMAGES.last,
         "TEACH_HANDS_DISABLE" => "0",
         "TEACH_MCP_DISABLE" => "1",
         "TEACH_COURSE_TIMEZONE" => "America/Los_Angeles",
@@ -272,7 +283,9 @@ module AssignmentOne
         "REACH_TEACH_URL" => @teach_url,
         "REACH_DOWNLOADS_DIR" => downloads_dir,
         "HOME" => @student_home,
-        "CODEX_HOME" => @codex_home
+        "CODEX_HOME" => @codex_home,
+        "PATH" => teach_env.fetch("PATH"),
+        "SSL_CERT_FILE" => @cert_file
       }.merge(HOST_SESSION_KEYS.to_h { |key| [key, nil] }).merge("CLAUDE_CODE_SESSION_ID" => LOGIN_SESSION)
     end
 
@@ -427,7 +440,10 @@ module AssignmentOne
       @teach_pid = Process.spawn(teach_env, "bundle", "exec", "ruby", "bin/teach", "serve", chdir: @teach_dir, out: log, err: log, pgroup: true)
       File.write(File.join(@run_dir, "teach.pid"), "#{@teach_pid}\n")
       80.times do
-        return "teach serving at #{@teach_url} pid #{@teach_pid}" if healthy?
+        if healthy?
+          start_tls_front
+          return "teach serving at #{@teach_url} through a TLS front for plain port #{@port}, pid #{@teach_pid}"
+        end
 
         if Process.wait(@teach_pid, Process::WNOHANG)
           @teach_pid = nil
@@ -445,6 +461,89 @@ module AssignmentOne
       true
     rescue StandardError
       false
+    end
+
+    def tls_material
+      key = OpenSSL::PKey::RSA.new(2048)
+      name = OpenSSL::X509::Name.parse("/CN=127.0.0.1")
+      cert = OpenSSL::X509::Certificate.new
+      cert.version = 2
+      cert.serial = 1
+      cert.subject = name
+      cert.issuer = name
+      cert.public_key = key.public_key
+      cert.not_before = Time.now - 60
+      cert.not_after = Time.now + 86_400
+      factory = OpenSSL::X509::ExtensionFactory.new(cert, cert)
+      cert.add_extension(factory.create_extension("subjectAltName", "IP:127.0.0.1"))
+      cert.add_extension(factory.create_extension("basicConstraints", "CA:FALSE", true))
+      cert.add_extension(factory.create_extension("keyUsage", "digitalSignature,keyEncipherment", true))
+      cert.add_extension(factory.create_extension("extendedKeyUsage", "serverAuth"))
+      cert.sign(key, OpenSSL::Digest.new("SHA256"))
+      File.write(@cert_file, cert.to_pem)
+      [cert, key]
+    end
+
+    def start_tls_front
+      cert, key = tls_material
+      context = OpenSSL::SSL::SSLContext.new
+      context.cert = cert
+      context.key = key
+      @tls_server = OpenSSL::SSL::SSLServer.new(TCPServer.new("127.0.0.1", @tls_port), context)
+      @tls_thread = Thread.new do
+        loop do
+          client = begin
+            @tls_server.accept
+          rescue OpenSSL::SSL::SSLError, EOFError, Errno::ECONNRESET, Errno::EPIPE => e
+            note_front(e)
+            next
+          rescue IOError, Errno::EBADF
+            break
+          end
+          Thread.new(client) { |connection| relay(connection) }
+        end
+      end
+    end
+
+    def relay(connection)
+      upstream = TCPSocket.new("127.0.0.1", @port)
+      forward = Thread.new { pipe(connection, upstream) { upstream.close_write } }
+      pipe(upstream, connection) { connection.close }
+      forward.join(5)
+    ensure
+      quietly { upstream&.close }
+      quietly { connection.close }
+    end
+
+    def pipe(source, sink)
+      while (chunk = source.readpartial(16_384))
+        sink.write(chunk)
+      end
+    rescue EOFError
+      @front_ended += 1
+    rescue IOError, SystemCallError, OpenSSL::SSL::SSLError => e
+      note_front(e)
+    ensure
+      quietly { yield }
+    end
+
+    def quietly
+      yield
+    rescue IOError, SystemCallError, OpenSSL::SSL::SSLError => e
+      note_front(e)
+    end
+
+    def note_front(error)
+      @front_notes << "#{error.class}: #{error.message}"
+    end
+
+    def stop_tls_front
+      return unless @tls_server
+
+      quietly { @tls_server.close }
+      @tls_thread&.join(5)
+      @tls_server = nil
+      File.write(File.join(@logs, "tls-front.log"), "closed streams: #{@front_ended}\n#{@front_notes.uniq.join("\n")}\n")
     end
 
     def stop_process(pid)
@@ -549,6 +648,46 @@ module AssignmentOne
 
     def enroll_args(student_id)
       ["enroll", "--course-code", @code, "--username", STUDENT_USERNAME, "--student-id", student_id, "--password-stdin", "--teach-url", @teach_url]
+    end
+
+    def security_validation
+      out, status = reach(*enroll_args(STUDENT_ID), stdin: "#{STUDENT_PASSWORD}\n")
+      @last[:expected] = "exit 2 with the validation pass started"
+      @last[:actual] = "exit #{status.exitstatus}"
+      raise Fail, "enroll before the validation pass exited #{status.exitstatus}, want 2: #{out.lines.last(6).join}" unless status.exitstatus == 2
+
+      state = validation_state
+      answers = {}
+      state.fetch("questions").each do |question|
+        answers[question.fetch("id")] = validation_answer(question)
+        reach!("validate", "answer", "--question", question.fetch("id"), "--text", answers.fetch(question.fetch("id")))
+      end
+      reach!("validate", "plan", "--text", "Save invented answers in answers.json and explain this synthetic practice in README.md.")
+      reach!("validate", "artifact", "--question", "answers.json", "--text", JSON.generate(answers))
+      reach!("validate", "artifact", "--question", "README.md", "--text", validation_readme(state))
+      %w[check qualify submit finish].each { |action| reach!("validate", action) }
+      final = validation_state
+      @last[:actual] = "phase #{final["phase"].inspect}"
+      raise Fail, "the security validation pass ended in phase #{final["phase"].inspect}" unless final["phase"] == "passed"
+
+      "passed with #{answers.length} invented answers"
+    end
+
+    def validation_state
+      out = reach!("validate", "status")
+      JSON.parse(out[out.index("{")..])
+    end
+
+    def validation_answer(question)
+      text = "In this invented cafe, a fictional manager checks made up sales and stock information before deciding what to prepare. The manager reviews the result and keeps responsibility for the decision. No real student or business is represented."
+      text += " All values and feedback in this case are synthetic." while text.split(/\s+/).count { |token| token.match?(/[[:alnum:]]/) } < question.fetch("min_words")
+      text
+    end
+
+    def validation_readme(state)
+      state.fetch("readme_sections").map do |section|
+        "## #{section}\n\nThis synthetic cafe smoke checks the delivered contract and expected behavior with invented evidence. The fictional manager reviews the decision, the information flow, the boundaries, and the expected outcome. This is developer test machinery, not a student's work.\n"
+      end.join("\n")
     end
 
     def enroll
@@ -702,6 +841,18 @@ module AssignmentOne
       out.strip
     end
 
+    def plan_audit_recorded
+      packet = JSON.parse(reach!("plan", "audit", "packet", chdir: @workspace))
+      raise Fail, "the plan audit packet is empty" if packet.empty?
+
+      reach!("plan", "audit", "record", "--verdict", "pass", "--reason", "The saved plan calls the profile port for the value and names every released scenario.", "--auditor", "separate_pass", chdir: @workspace)
+      shown = JSON.parse(reach!("plan", "audit", "show", "--format", "json", chdir: @workspace))
+      @last[:actual] = shown["verdict"].inspect
+      raise Fail, "the plan audit verdict did not read back as a pass: #{shown.inspect[0, 200]}" unless shown["verdict"] == "pass"
+
+      "audit recorded for plan #{shown["plan_digest"].to_s[0, 12]}"
+    end
+
     def write_implementation
       stub = File.read(owned_path)
       raise Fail, "could not read the class layout from the delivered stub" unless stub.match?(/^\s*(module|class)\s/)
@@ -783,9 +934,30 @@ module AssignmentOne
 
     LOGIN_SESSION = "smoke-login-session"
 
-    def hook_prompt(text)
-      event = JSON.generate("hook_event_name" => "UserPromptSubmit", "session_id" => LOGIN_SESSION, "cwd" => @workspace, "prompt" => text)
-      reach("gate", "prompt", "--harness", "claude-code", chdir: @workspace, stdin: event)
+    def hook_prompt(text, transcript: nil)
+      payload = { "hook_event_name" => "UserPromptSubmit", "session_id" => LOGIN_SESSION, "cwd" => @workspace, "prompt" => text }
+      payload["transcript_path"] = transcript if transcript
+      reach("gate", "prompt", "--harness", "claude-code", chdir: @workspace, stdin: JSON.generate(payload))
+    end
+
+    def question_transcript
+      pending = JSON.parse(File.read(File.join(@reach_home, "state", "consent", "pending.json")))
+      path = File.join(@run_dir, "conversation.jsonl")
+      reply = { "type" => "assistant", "message" => { "role" => "assistant", "content" => [{ "type" => "text", "text" => pending.fetch("question") }] } }
+      File.open(path, "a") { |file| file.puts(JSON.generate(reply)) }
+      path
+    end
+
+    def hook_blocked?(out, status)
+      return true unless status.success?
+
+      start = out.index("{")
+      return false unless start
+
+      JSON.parse(out[start..])["decision"] == "block"
+    rescue JSON::ParserError => e
+      @last[:actual] = "unparsable hook output: #{e.message}"
+      false
     end
 
     def login_sign_in
@@ -795,19 +967,19 @@ module AssignmentOne
       raise Fail, "an owned write was allowed before sign-in" if status.success?
 
       out, status = hook_prompt("hi there")
-      raise Fail, "first prompt was not asked for an id: #{out}" if status.success? || !out.include?("student ID")
+      raise Fail, "first prompt was not asked for an id: #{out}" unless hook_blocked?(out, status) && out.include?("student ID")
       out, status = hook_prompt("I am someone else")
-      raise Fail, "a wrong id was not refused: #{out}" if status.success? || !out.include?("doesn't match")
+      raise Fail, "a wrong id was not refused: #{out}" unless hook_blocked?(out, status) && out.include?("doesn't match")
       out, status = hook_prompt("my id is #{STUDENT_ID}")
-      raise Fail, "the id was not confirmed by name: #{out}" if status.success? || !out.include?("Synthetic Student One")
+      raise Fail, "the id was not confirmed by name: #{out}" unless hook_blocked?(out, status) && out.include?("Synthetic Student One")
       out, status = hook_prompt("Yes!")
-      raise Fail, "yes did not ask for the password: #{out}" if status.success? || !out.include?("password")
+      raise Fail, "yes did not ask for the password: #{out}" unless hook_blocked?(out, status) && out.include?("password")
       out, status = reach("gate", "write", chdir: @workspace, stdin: write_event)
       raise Fail, "an owned write was allowed before the password" if status.success?
       out, status = hook_prompt("not-my-password")
-      raise Fail, "a wrong password was not refused: #{out}" if status.success? || !out.include?("isn't your rEach password")
+      raise Fail, "a wrong password was not refused: #{out}" unless hook_blocked?(out, status) && out.include?("isn't your rEach password")
       out, status = hook_prompt(STUDENT_PASSWORD)
-      raise Fail, "the password did not sign in: #{out}" if status.success? || !out.include?("signed in")
+      raise Fail, "the password did not sign in: #{out}" unless hook_blocked?(out, status) && out.include?("signed in")
 
       login = reach!("login", "status", chdir: @workspace)
       raise Fail, "login status does not show an active sign-in: #{login}" unless login.include?("yes")
@@ -831,7 +1003,7 @@ module AssignmentOne
       questions.each_with_index do |question, index|
         answer = "For question #{index + 1}, I chose a small neighborhood cafe where the owner decides each week which drinks to keep, based on margins and what regulars actually order."
         out, status = hook_prompt(answer)
-        raise Fail, "the answer prompt was blocked: #{out}" unless status.success?
+        raise Fail, "the answer prompt was blocked: #{out}" if hook_blocked?(out, status)
         reach!("part", "record", question["id"], chdir: @workspace)
       end
       after = JSON.parse(reach!("part", "--format", "json", chdir: @workspace))
@@ -879,7 +1051,7 @@ module AssignmentOne
     end
 
     def start_grader
-      raise Skip, "Docker images teach-grader:ruby-4.0 and teach-grader:ruby-2.6.10 are not both present; nothing qualifies or is graded" unless docker_images_present?
+      raise Skip, "Docker images #{GRADER_IMAGES.join(" and ")} are not both present; nothing qualifies or is graded" unless docker_images_present?
 
       log = File.open(File.join(@logs, "teach-grader.log"), "w")
       @grader_pid = Process.spawn(teach_env, "bundle", "exec", "ruby", "bin/teach", "grader", chdir: @teach_dir, out: log, err: log, pgroup: true)
@@ -908,7 +1080,8 @@ module AssignmentOne
       raise Fail, "submit did not ask the student first: #{out.lines.last(4).join}" unless out.include?("Ready to submit")
       raise Fail, "submit sent work before the student said yes" unless teach_json("submissions", "list", "--assignment", ASSIGNMENT).empty?
 
-      hook_prompt("Yes")
+      yes_out, yes_status = hook_prompt("Yes", transcript: question_transcript)
+      raise Fail, "the submit yes was blocked: #{yes_out}" if hook_blocked?(yes_out, yes_status)
       out, status = reach("submit", "--slice", slice_id, chdir: @workspace, timeout: 300)
       @last[:actual] = "exit #{status.exitstatus}"
       raise Fail, "submit exited #{status.exitstatus}: #{out.lines.last(8).join}" unless status.success?
@@ -953,13 +1126,13 @@ module AssignmentOne
       @last[:actual] = actual.join(",")
       raise Fail, "teach issued no ingest receipt" if expected.empty?
       raise Fail, "reach stored ingest receipts #{actual.inspect}, teach issued #{expected.inspect}" unless expected.sort == actual.sort
-      raise Fail, "ingest receipt carries no signature" unless teach_receipts.first["signature"]
+      raise Fail, "an ingest receipt carries no signature" unless teach_receipts.all? { |receipt| receipt["signature"] }
 
-      "signed ingest receipt #{expected.first} for submission #{@submission["id"]}"
+      "#{expected.length} signed ingest receipt(s) #{expected.join(", ")} for submission #{@submission["id"]}"
     end
 
     def docker_images_present?
-      %w[teach-grader:ruby-4.0 teach-grader:ruby-2.6.10].all? do |image|
+      GRADER_IMAGES.all? do |image|
         _out, status = Open3.capture2e("docker", "image", "inspect", image)
         status.success?
       end
@@ -968,7 +1141,7 @@ module AssignmentOne
     end
 
     def run_grader
-      raise Skip, "Docker images teach-grader:ruby-4.0 and teach-grader:ruby-2.6.10 are not both present; not graded, not passed" unless docker_images_present?
+      raise Skip, "Docker images #{GRADER_IMAGES.join(" and ")} are not both present; not graded, not passed" unless docker_images_present?
 
       log_path = File.join(@logs, "teach-grader.log")
       raise Skip, "the grader is not running" unless @grader_pid
@@ -1019,7 +1192,7 @@ module AssignmentOne
       @last[:expected] = "nonzero exit, connect-to-course message, no plaintext"
       @last[:actual] = "exit #{status.exitstatus}: #{out.strip[0, 160]}"
       raise Fail, "reference list before enroll exited 0" if status.success?
-      raise Fail, "reference list before enroll printed no enroll hint: #{out}" unless out.include?("reach enroll")
+      raise Fail, "reference list before enroll printed no enroll hint: #{out}" unless out.include?("locked until you enroll")
       raise Fail, "reference list before enroll leaked a path" if out.include?("syllabus.md")
 
       "refused before enroll: #{out.strip[0, 120]}"

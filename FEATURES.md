@@ -1,5 +1,15 @@
 # FEATURES — rEach
 
+## The assignment-one smoke runs to the end again — 0.70.4
+
+The deterministic student-path smoke (`tools/smoke/assignment_one.rb`) had stopped at enrollment since 0.61.0, so nothing after it was being exercised: sign-in through the prompt hook, the guarded writes, the plan audit, qualification on Teach's Docker grader, the submit yes, the ingest receipt, and the grade receipt. It is repaired and runs the whole path against Teach's committed HEAD with no model: 44 steps pass, none fail, and the grader scores the synthetic part 1.0. It skips the two manual steps and the Codex setup when `codex` is not on the path. This is developer test machinery and changes nothing a student installs or sees. The scratch Teach sits behind a TLS front with a throwaway certificate that only the smoke's commands trust, because rEach refuses a plain HTTP Teach address; the run points rEach at no real server and writes only under its run folder. Verified on 2026-11-06 on Linux, three full runs after the repairs, one of them from a shell with no `bundle` on its path. Not exercised: macOS, Windows, a real harness, and the public ZIP install (`--public`).
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty n/a (no student-facing text). Wellbeing and safety n/a (no student-facing change). Privacy and dignity yes (the run uses invented students and answers, and its certificate and database are deleted or confined to the run folder). Fairness and access n/a. Friction n/a. Failure yes (a regression in sign-in, qualification, or submit now fails a named step instead of hiding behind an earlier stop). Recovery n/a.
+
+Wiring: none. It adds no service, events, or metrics.
+
+Build: ✅ on main. Deploy: 🔵 not on test or stable.
+
 ## Moving to another module without a new session — 0.70.3
 
 A session opened in one slice's folder can now build the student's other slices, as a session at the course root already could. Before, it could save the second module's plan and then hit a refusal saying the student's own file belonged to the course, and `reach work` told the agent to send the student to a new chat, though `M-PICK-SLICE` and `M-WORK-HERE` say a student never needs one. A write in another slice is judged by that slice, a shell command after `cd` is judged and witnessed in the slice it lands in, and each slice keeps its own owned files, ladder, and module check. Verified on 2026-11-06 on Linux in scratch homes against the real gate, with enrollment stubbed and no network: the old code refused all five cross-slice cases and gave the new-chat answer; the new code allows them and answers `M-WORK-HERE`. Twelve cases that must refuse stayed refused, including another slice's course files, a module that is not the student's, and a write outside the course. Not exercised: a real course server, a real harness, Windows, and macOS. Claude Code may still ask the student to approve a write outside the folder the session opened in; that prompt was not tested. Transcript lines from such a session stay labeled with the slice it opened in. Wiring: none. It adds no service, events, or metrics.

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.4] - 2026-11-06
+
+### Fixed
+
+- `tools/smoke/assignment_one.rb` runs to the end again. Since 0.61.0 it stopped at enrollment, and since the prompt hook moved to JSON blocks it failed sign-in and everything after. Measured on 2026-11-06 against Teach's committed HEAD: the run on 0.70.3 passed 10 steps, failed 2 (`reference-locked-before-enroll` and `enroll-handshake`) and never reached anything after enrollment; the repaired run passes 44 steps with none failing, including a Docker-graded score of 1.0 and a verified grade receipt, and skips only the two manual steps and `setup-codex` where `codex` is not on `PATH`. Repairs: a TLS front for the scratch Teach with a throwaway certificate trusted only through `SSL_CERT_FILE` (`Reach::Validation` refuses a plain HTTP address); the security validation pass before `reach enroll`; sign-in assertions that read the hook's `decision: block` reply instead of a nonzero exit; the plan audit that `reach qualify` now requires; a transcript holding the asked question for the submit yes; the current grader image names (`teach-grader:ruby-4.0.7`); the current locked-before-enroll message; `PATH` for the rEach commands taken from the Ruby 4 bin so qualification finds `bundle`; and every ingest receipt checked for a signature. No product code changed.
+
 ## [0.70.3] - 2026-11-06
 
 ### Fixed

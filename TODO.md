@@ -12,11 +12,11 @@
 
 The same failures and skips occur on 0.53.21, so they predate partial work.
 
-- [ ] `tools/smoke/assignment_one.rb` expects a nonzero exit from the Claude Code login hook; the hook now blocks with exit 0, so the login, guarded-write, unqualified-submit and qualify-scenario steps fail.
-- [ ] Its grader image names no longer match the images the grader uses, so the grader never starts and every grading step skips.
-- [ ] `hook_prompt("Yes")` sends no `transcript_path`, and rEach accepts a hook yes only when the asked question is in the transcript's assistant text, so the full-submit yes can never be taken; the harness should write a transcript holding the pending question.
-- [ ] Qualification needs `bundle` on the PATH of the rEach commands it runs.
-- [ ] `ingest-receipt-ids` assumes one ingest receipt; a partial submission before the full one adds a second.
+- [x] `tools/smoke/assignment_one.rb` expects a nonzero exit from the Claude Code login hook; the hook now blocks with exit 0, so the login, guarded-write, unqualified-submit and qualify-scenario steps fail.
+- [x] Its grader image names no longer match the images the grader uses, so the grader never starts and every grading step skips.
+- [x] `hook_prompt("Yes")` sends no `transcript_path`, and rEach accepts a hook yes only when the asked question is in the transcript's assistant text, so the full-submit yes can never be taken; the harness should write a transcript holding the pending question.
+- [x] Qualification needs `bundle` on the PATH of the rEach commands it runs.
+- [x] `ingest-receipt-ids` assumes one ingest receipt; a partial submission before the full one adds a second.
 
 ## Audit 2026-10-08 (0.46.0, main b1b85d5)
 
