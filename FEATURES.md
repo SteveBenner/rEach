@@ -10,7 +10,7 @@ Build: ✅ in the 0.70.0 release. Deploy: ⬜ not on test, not on stable.
 
 Adding rEach's GitHub link as a plugin marketplace in Claude Code, Codex or Antigravity installs nothing: the repository carries no `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json` or `.antigravity-plugin/plugin.json`. `reach setup` and every managed update write the three files into the install folder from `.claude-plugin/plugin.json` and `VERSION` and register that folder with Claude Code and Codex; a managed install still registered from the link is moved to the folder once. Claude Cowork has no marketplace route and is sent to the Claude app's Code tab. Verified on 2026-11-05 on Linux with scratch homes: the generator's output equals the three removed files byte for byte and equals what rplugin 1.20.0's `rplugin package` renders; `reach setup` with stand-in `claude` and `codex` commands registered only the local folder; `update/apply.rb` wrote the files first and, with the folder read-only, recorded `plugin_manifests` as failed and registered nothing; the real `claude` 2.1.318 and `codex` re-pointed a `reach` marketplace from one local folder to another (Claude directly, Codex by remove and add); `reach doctor` reports no version finding. Not exercised: moving a marketplace registered from GitHub to the local folder, in either CLI (Claude Code's conflict text for it was not reproduced offline); an update of a real older install; Windows and macOS; Antigravity (`agy plugin install` ran only as a stand-in); `rplugin install` of rEach with rplugin 1.20.0. A copy a harness installed straight from the link before 0.69.0 cannot refresh itself. Wiring: none. It adds no service, events, or metrics.
 
-Build: ✅ on main. Deploy: 🟡 on test as v0.69.1, not on stable. `reach.rplugin.yml` declares `native.link_install`, so a developer's `rplugin check` needs rplugin 1.20.0 or newer.
+Build: ✅ on main. Deploy: ✅ on test and stable as v0.69.1. `reach.rplugin.yml` declares `native.link_install`, so a developer's `rplugin check` needs rplugin 1.20.0 or newer.
 
 ## Installation reports and check sessions — 0.68.22
 
@@ -41,7 +41,7 @@ Wire revision 2026-11-03a lets an instructor switch the screen (panel slice) che
 
 Verified on 2026-11-03: rEach's `Reach::Qualify.judge_remote` passed the answer Teach 0.121.0 gave a waived screen on a scratch database, with no finding; `reach qualify` runs local_pass and local_stub only when `qualify.local` is true.
 
-Build ✅ · Deploy 🔵 · Blocker: Human (the operator promotes rEach 0.68.6 and Teach 0.121.0 to stable and runs `teach qualifications screen-checks off`).
+Build ✅ · Deploy ✅ rEach 0.68.6 is on test and stable, and Teach 0.121.0 reached stable on 2026-11-04. The switch was set off on the live course server on 2026-11-04 and read back off that day; it has not been read again since. Switch it back on with `teach qualifications screen-checks on` once the screen check works. The suspected cause of the failing check, Grokit 0.11.x recordings against a Dovetail 0.5.0 messages block, was addressed by Grokit 0.12.x, but no screen has been checked against it yet.
 
 ## Public-repository exposure in the release gate — 0.68.0
 
