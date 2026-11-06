@@ -175,11 +175,19 @@ module Reach
       return nil unless File.file?(path)
 
       data = YAML.safe_load(File.read(path))
-      return data if data.is_a?(Hash)
+      return mapped_address(data) if data.is_a?(Hash)
 
       unreadable!(path)
     rescue Psych::Exception
       unreadable!(path)
+    end
+
+    def mapped_address(data)
+      stored = data["teach_url"]
+      return data unless stored.is_a?(String)
+
+      canonical = Reach::TeachUrl.canonical(stored)
+      canonical == stored ? data : data.merge("teach_url" => canonical)
     end
 
     def unreadable!(path)

@@ -11,7 +11,7 @@ module Reach
       override = ENV["REACH_TEACH_URL"]
       return url if override && !override.empty?
 
-      configured = Reach::Runtime.configured_teach_url
+      configured = configured_address
       return url if configured.nil? || normalize(configured).empty?
 
       legacy = legacy_list
@@ -30,12 +30,20 @@ module Reach
     end
 
     def legacy_list
+      return @legacy_list if defined?(@legacy_list) && @legacy_list_root == Reach::Runtime.root
+
+      @legacy_list_root = Reach::Runtime.root
       config = Reach::Runtime.load_config
       teach = config["teach"] if config.is_a?(Hash)
       list = teach["legacy_urls"] if teach.is_a?(Hash)
-      return [] unless list.is_a?(Array)
+      @legacy_list = list.is_a?(Array) ? list.map { |entry| normalize(entry) }.reject(&:empty?) : []
+    end
 
-      list.map { |entry| normalize(entry) }.reject(&:empty?)
+    def configured_address
+      return @configured_address if defined?(@configured_address) && @configured_address_root == Reach::Runtime.root
+
+      @configured_address_root = Reach::Runtime.root
+      @configured_address = Reach::Runtime.configured_teach_url
     end
 
     def normalize(url)

@@ -38,7 +38,10 @@ module Reach
 
     def read
       data = Reach::Login.read_json(file)
-      data.is_a?(Hash) && data["schema"] == SCHEMA && data["entries"].is_a?(Array) ? data : nil
+      return nil unless data.is_a?(Hash) && data["schema"] == SCHEMA && data["entries"].is_a?(Array)
+
+      stored = data["teach_url"]
+      stored.is_a?(String) ? data.merge("teach_url" => Reach::TeachUrl.canonical(stored)) : data
     end
 
     def write(data)

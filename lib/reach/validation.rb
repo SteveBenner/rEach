@@ -132,15 +132,21 @@ end
       Reach::Crypto.load_private_key(File.read(File.join(directory, state.fetch("local_id"), "key.pem")))
     end
 
-    def client(state)
-      raise Reach::Refused, blocked("teach_url") unless state["teach_url"] == configured_url
+    def stored_address(state)
+      stored = state["teach_url"]
+      stored.is_a?(String) ? Reach::TeachUrl.canonical(stored.sub(%r{/+\z}, "")) : stored
+    end
 
-      Reach::Client.for_attempt(state["teach_url"], state.fetch("session_id"), key(state), connect_timeout: 5, read_timeout: 15, max_retries: 1)
+    def client(state)
+      stored = stored_address(state)
+      raise Reach::Refused, blocked("teach_url") unless stored == configured_url
+
+      Reach::Client.for_attempt(stored, state.fetch("session_id"), key(state), connect_timeout: 5, read_timeout: 15, max_retries: 1)
     end
 
     def fresh?(state, course_code: nil, harness: nil)
       state.is_a?(Hash) && state["schema"] == SCHEMA && state["reach_version"] == Reach::VERSION &&
-        state["teach_url"] == configured_url && Time.iso8601(state.fetch("expires_at")) > Time.now.utc &&
+        stored_address(state) == configured_url && Time.iso8601(state.fetch("expires_at")) > Time.now.utc &&
         (!course_code || state["course_digest"] == Reach::Crypto.digest_hex(course_code)) &&
         (!harness || state["harness"] == harness)
     rescue StandardError
@@ -381,7 +387,7 @@ end
                 self.harness(harness)
               end
       parsed = Reach::Identity.parse_course_code(course_code)
-      raise Reach::Refused, blocked("state") unless parsed && teach_url.to_s.sub(%r{/+\z}, "") == configured_url && fresh?(state, course_code: parsed["code"], harness: label) && state["phase"] == "passed"
+      raise Reach::Refused, blocked("state") unless parsed && Reach::TeachUrl.canonical(teach_url.to_s.sub(%r{/+\z}, "")) == configured_url && fresh?(state, course_code: parsed["code"], harness: label) && state["phase"] == "passed"
 
       verify_receipt!(state, state["receipt"])
       [key(state), state["receipt"]["receipt_id"], state["session_id"]]
