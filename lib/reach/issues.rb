@@ -297,7 +297,7 @@ module Reach
           current.delete("pending")
           state["issues"][key] = current.merge(
             "raised_at" => stamp, "raised_version" => raised_version(pending), "hand_ref" => pending["hand_ref"],
-            "told" => pending["silent"] == true, "silent" => pending["silent"] == true
+            "told" => pending["silent"] == true, "silent" => pending["silent"] == true, "sent_at" => nil
           )
           write_state(state)
         end
@@ -455,7 +455,7 @@ module Reach
       text = nil
       locked do
         state = read_state
-        reported = state["issues"].select { |_key, entry| entry["hand_ref"] && entry["told"] != true }
+        reported = state["issues"].select { |_key, entry| entry["sent_at"] && entry["told"] != true }
         fixed = state["issues"].select { |_key, entry| fixed_here?(entry) && entry["told_fixed"] != true }
         next if reported.empty? && fixed.empty?
 

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.70.1
+version: 0.70.2
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2433,8 +2433,9 @@ issue_reports:
     the outbox (kind hand, issue <signature>, attempts, next_at) and are retried from the Stop hook, reach sync and
     reach issues flush with full-jitter backoff (60 s doubling, 6 h cap); a manual flush ignores the wait.
   told: >-
-    M-ISSUE-REPORTED once after an issue is due and M-ISSUE-FIXED once when the hand status names a fix_version the
-    install has reached, as a systemMessage on Claude Code and Codex hooks, in the prompt context on Hermes and on
+    M-ISSUE-REPORTED once after the report has reached Teach (since 0.70.2; a report that never arrives is never
+    announced, and W-ISSUE-6 still says after an issue is due until the next wire revision corrects it) and
+    M-ISSUE-FIXED once when the hand status names a fix_version the install has reached, as a systemMessage on Claude Code and Codex hooks, in the prompt context on Hermes and on
     stderr from a terminal command. Never for a seal, ledger or integrity fault.
   commands: reach issues [list] (persona or debug mode only), reach issues flush [--background].
   doctor: R-DOC-ISSUES while an issue report waits in the outbox.

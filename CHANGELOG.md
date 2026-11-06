@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.2] - 2026-11-06
+
+### Fixed
+
+- `Reach::Issues.notice!` (`lib/reach/issues.rb`) shows `M-ISSUE-REPORTED` only once a report has reached Teach. It keyed on `hand_ref`, which is set when a report enters the outbox, so a student could read that their instructors had been told while nothing had been sent, including when Teach then refused the report. `build_pending` also clears `sent_at`, so a report raised again on a newer version waits for its own delivery instead of counting the earlier send. Measured on scratch homes with the client stubbed: the old code announced a report that was only queued, and a re-raised one; the new code stays silent while queued, after a failed send, and after a refusal, and announces once after delivery. `specs/wire.yml` W-ISSUE-6 still says the next hook context after an issue is due; the next wire revision corrects it, so Teach needs no re-pin for this release.
+
 ## [0.70.1] - 2026-11-06
 
 ### Fixed

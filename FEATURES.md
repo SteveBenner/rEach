@@ -1,16 +1,24 @@
 # FEATURES — rEach
 
+## The issue notice waits until the report has arrived — 0.70.2
+
+rEach now tells a student it reported a technical problem only after the course server has the report. Before, the notice came as soon as the report was written to the outbox, so a student could read that their instructors had been told while nothing had been sent, including when the course server then refused the report. A report raised again on a newer version waits for its own delivery too. A report that never arrives is never announced, and one still waiting shows in `reach doctor` (`R-DOC-ISSUES`). `M-ISSUE-FIXED` and the silence around seal, ledger, and integrity faults do not change. `W-ISSUE-6` in `specs/wire.yml` still says the next hook context after an issue is due; the next wire revision corrects it, and nothing in the course server depends on that timing. Verified on 2026-11-06 on Linux in scratch homes, with the client and the hand seal stubbed and no network: the old code announced a report that was only queued, and a re-raised one; the new code stayed silent while queued, after a failed send, and after a refusal, announced once after delivery, stayed silent for a delivered ledger fault, and still announced a fix once. Not exercised: a real course server, a real harness, Windows, and macOS. Wiring: none. It adds no service, events, or metrics.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (the student is told only what has happened). Wellbeing and safety yes (no new alarm or pressure). Privacy and dignity n/a (no data changes). Fairness and access yes (the same rule for every student; a student offline hears when the report arrives). Friction yes (no new step or message). Failure yes (no work is at stake; a report that cannot be sent stays quiet to the student, and a waiting one shows in `reach doctor`). Recovery n/a (nothing to undo).
+
+Build: ✅ on main. Deploy: 🔵 not on test or stable.
+
 ## Device reports from a copy with no seal folder — 0.70.1
 
 A copy of rEach with no folder for its seal now creates that folder when a background run or detached drain first reaches it, then makes its identity and reports, as `STD-DEVICE` promises. Before, the drain failed at opening `device-drain.lock` with `Errno::ENOENT`, before the step that creates the identity, and every later run failed the same way. The off switches and `REACH_OFFLINE=1` still create nothing, because they are checked first. Where the location cannot be written, the drain records the fault and nothing reaches the caller, as before. Verified on 2026-11-06 on Linux in scratch homes: the old code reproduced the fault; a real detached drain against an unroutable server created the folder and identity, recorded `device:report` and backed off, with no `device:drain` fault; a stubbed 200 reply emptied the outbox and set the next report time with no fault; `REACH_DEVICE_DISABLE=1` and `REACH_OFFLINE=1` left no folder; an unwritable parent recorded `Errno::EACCES` and returned normally. Not exercised: Windows, where the fault was reported, a real course server, and macOS. Why the reporting copies had no folder is not established. Wiring: none. It adds no service, events, or metrics.
 
-Build: ✅ on main. Deploy: 🟡 on test as v0.70.1, not on stable.
+Build: ✅ on main. Deploy: ✅ on test and stable as v0.70.1.
 
 ## Retired server addresses — 0.70.0
 
 A copy of rEach that stored a Teach address which `config.yml` now lists under `teach.legacy_urls` uses the configured `teach.url` instead, with no question to the student and no new enrollment. The mapping is `Reach::TeachUrl.canonical`; `Reach::Enroll.current`, the enrollment outbox and the validation session checks apply it, and a read never writes, so `install.yml` is rewritten only when `Reach::Enroll.update!` saves a real change, with every other key kept. An address that is not listed is left alone, as are `REACH_TEACH_URL` overrides, and `REACH_TEACH_URL_MIGRATE_DISABLE=1` turns the mapping off. In this release `teach.url` is the address the list names, so the mapping changes nothing for any install. Verified on 2026-11-05 on Linux with scratch homes and a scratch copy of the checkout, with no network call: with the shipped `config.yml` `canonical` returned its input; with `teach.url` set to a stand-in address a listed address was mapped, an unlisted one was not, `Enroll.current` returned the mapped address while `install.yml` stayed byte-identical (also when read-only), and one `Enroll.update!` with a real change wrote the mapped address and kept every other key. Against two local stand-in servers, `reach sync` from an install enrolled on the listed address reached only the configured server, also with `install.yml` read-only, and reached only the stored server with the kill switch set. A validation session started on the listed address sent its next request to the configured server with no local refusal; the stand-in held no session for it, so finishing a pass across the change was not shown. Not exercised: a live Teach, Windows, macOS, and an update of a real older install.
 
-Build: ✅ on main. Deploy: 🟡 on test as v0.70.0, not on stable.
+Build: ✅ on main. Deploy: ✅ on stable through v0.70.1.
 
 ## Not installable from a harness marketplace — 0.69.1
 
