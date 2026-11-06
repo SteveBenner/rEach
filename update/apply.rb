@@ -189,6 +189,26 @@ rescue StandardError
   nil
 end
 
+def claude_registered_source
+  file = File.join(Reach::Paths.claude_config_dir, "plugins", "known_marketplaces.json")
+  data = JSON.parse(File.read(file))
+  entry = data.is_a?(Hash) ? data["reach"] : nil
+  source = entry.is_a?(Hash) ? entry["source"] : nil
+  return nil unless source.is_a?(Hash)
+
+  case source["source"]
+  when "github", "git"
+    base = (source["repo"] || source["url"]).to_s
+    return nil if base.empty?
+
+    source["ref"].to_s.empty? ? base : "#{base}##{source['ref']}"
+  when "directory", "file"
+    source["path"].to_s.empty? ? nil : source["path"].to_s
+  end
+rescue SystemCallError, JSON::ParserError
+  nil
+end
+
 def repoint_claude(source)
   path = on_path("claude")
   return "absent" unless path
@@ -197,11 +217,20 @@ def repoint_claude(source)
   return "ok" if ok
   return "failed: #{first_output_line(output)}" unless output.include?("doesn't match its extraKnownMarketplaces entry") || output.include?("already added from a different source")
 
+  old_source = claude_registered_source
   ok, output = run_step_output([path, "plugin", "marketplace", "remove", "reach"])
   return "failed: #{first_output_line(output)}" unless ok
 
   ok, output = run_step_output([path, "plugin", "marketplace", "add", source])
-  return "failed: #{first_output_line(output)}" unless ok
+  unless ok
+    reason = first_output_line(output)
+    if old_source
+      restored, = run_step_output([path, "plugin", "marketplace", "add", old_source])
+      run_step_output([path, "plugin", "install", "reach@reach", "--scope", "user"]) if restored
+      return "failed: #{reason} (previous source #{restored ? 'restored' : 'could not be restored'})"
+    end
+    return "failed: #{reason}"
+  end
 
   ok, output = run_step_output([path, "plugin", "install", "reach@reach", "--scope", "user"])
   ok ? "ok" : "failed: #{first_output_line(output)}"

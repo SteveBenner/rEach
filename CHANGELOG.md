@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.69.1] - 2026-11-05
+
+### Changed
+
+- `M-OLD-COPY-NOTICE` (`locales/en-US.yml`, `reach.spec.yml`) no longer sends the student to the app's Plugins page; it says to quit and reopen the app and, if the notice returns, to ask the AI partner to reinstall rEach with the installer. The spec text that described the Plugins page as an update route (`reach.spec.yml` `update`, `specs/app.yml` update standard) says reinstall with the installer.
+
+### Fixed
+
+- `update/apply.rb` `repoint_claude` records the Claude Code marketplace source before it removes the `reach` marketplace and, when adding the install folder then fails, adds the previous source back and reinstalls the plugin, as `repoint_codex` already did. The failure line says whether the previous source was restored. Before this a failed re-add left Claude Code with no `reach` marketplace.
+
 ## [0.69.0] - 2026-11-05
 
 ### Changed

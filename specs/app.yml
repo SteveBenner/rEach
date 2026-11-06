@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.69.0
+version: 0.69.1
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -4814,7 +4814,7 @@ security:
       controls:
         - Students follow the stable branch, which moves only when the operator promotes a tested version, and main is never a student source.
         - The updater refuses a release whose commit it cannot verify, stages in the background, installs at the next session start, and records every phase so an interrupted update resumes.
-        - A copy that cannot refresh itself tells the student to update from the app's Plugins page.
+        - A copy that cannot refresh itself tells the student to reinstall rEach with the installer.
         - REACH_UPDATE_DISABLE=1 turns automatic update off.
       standards: [STD-AUTO-UPDATE, STD-APP-COPY-UPDATE, STD-AGENT-UPDATE, STD-STABLE-CADENCE, STD-NO-TOP-BIN]
     - id: TB5

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.69.0
+version: 0.69.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2158,9 +2158,8 @@ auto_update:
       claude: the same folders), because the desktop apps start with a minimal PATH. A copy neither managed nor
       refreshable through a CLI it can find (a cache copy with no CLI, or a copy outside every recognised cache
       other than a git checkout) checks hourly too, and when a newer version is pending the prompt hook tells the
-      agent once per chat (M-UPDATE-APP-NOTICE) to give the student the plain-words choice of updating from the app's
-      Plugins page or having the assistant reinstall rEach with the installer, which makes the self-updating managed
-      copy. A cache refresh skipped for want of a CLI writes a cache_skipped event to the update log and the debug
+      agent once per chat (M-UPDATE-APP-NOTICE) to tell the student that having the assistant reinstall rEach with the
+      installer, which makes the self-updating managed copy, is the way to the newer version. A cache refresh skipped for want of a CLI writes a cache_skipped event to the update log and the debug
       stream with the reason and the folders tried.
     old_copy: >-
       Since 0.52.16 (STD-STATE-FILE-HELD) Reach::OldCopy compares Reach::VERSION with the VERSION files of the managed
@@ -2557,7 +2556,7 @@ student_messages:
   - id: M-UPDATE-APP-NOTICE
     text: rEach has an update (version {version}) that this copy can't install by itself. To get it, ask your AI partner to reinstall rEach with its installer, which sets up a copy that updates itself from then on, then start a new chat. In the Claude app, ask from the Code tab.
   - id: M-OLD-COPY-NOTICE
-    text: An older copy of rEach is still running on your computer, and it can keep the newer copy from saving its files. Quit your app completely, then update rEach from its Plugins page. If that doesn't work, remove rEach and add it again, following the setup handout.
+    text: An older copy of rEach is still running on your computer, and it can keep the newer copy from saving its files. Quit your app completely and open it again. If this notice comes back, ask your AI partner to reinstall rEach with its installer, following the setup handout.
   - id: M-STATE-HELD
     text: rEach couldn't save a file just now because another program on your computer is using it. Nothing is lost. Wait a few seconds, then try again.
   - id: M-UPDATE-DONE
