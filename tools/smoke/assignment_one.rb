@@ -228,7 +228,7 @@ module AssignmentOne
       @port = free_port
       @tls_port = free_port
       @cert_file = File.join(@run_dir, "teach-front.pem")
-      @teach_url = "https://127.0.0.1:#{@tls_port}"
+      @teach_url = format("https://127.0.0.1:%d", @tls_port)
     end
 
     def create_scratch_database
