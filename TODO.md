@@ -148,7 +148,7 @@ Five read-and-reproduce reviews (client, work, data, agent, install). Repros liv
 ## Before a class uses it
 
 - [ ] A live Codex session on macOS with 0.16.16: confirm both rEach hooks appear under `/hooks` (or Settings > Hooks), trust them, and see the greeting. The scratch `hooks/list` check passed; drop the cache repair once openai/codex#47925 is fixed.
-- [ ] Antigravity: `reach setup --harness antigravity`, `agy plugin install` and the plugin-directory link are untested; `agy` is now installed here, so they can be run.
+- [ ] Antigravity: `reach setup --harness antigravity`, `agy plugin install` and the plugin-directory link are untested.
 - [ ] Confirm whether Claude applies the plugin's `settings.json` `"agent": "reach:reach"` for an installed plugin; a `--plugin-dir` session did not report it (the greeting works without it).
 - [ ] Windows: hook-command quoting and the Antigravity copy fallback are untested.
 
