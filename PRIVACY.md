@@ -22,7 +22,7 @@ An installation report holds only these things:
 - When a step fails, the fixed name of that failure from rEach's own list of messages, such as `M-ENR-FAILED`. Never its text, anything you typed, or any folder or file name.
 - Once you give a course passkey or finish enrolling, that enrollment's id and a signature proving that this code belongs to it. Before then your instructors see only the code. After you enroll they see it beside your name.
 
-Your course server does not keep your internet address with these reports. It uses the address only to limit how many requests it accepts. It deletes a code that was never linked to a student, or whose enrollment has ended, after 30 days of silence, along with any check sessions and debug records under it, unless a session is open on it. When you are unenrolled from a course, it erases the code's record for that course and its debug records and ends any session open on it. Withdrawing this computer yourself, or an instructor revoking it, does the same.
+Your course server does not keep your internet address with these reports. It uses the address only to limit how many requests it accepts. It deletes a code that was never linked to a student, or whose enrollment has ended, after 30 days of silence, along with any check sessions and debug records under it, unless a session is open on it. When you are unenrolled from a course, it erases the code's record for that course and its debug records and ends any session open on it. Withdrawing this computer yourself, or an instructor revoking it, does the same. After that, this copy keeps reporting as a code with no name until you remove rEach or turn the reports off, and that code is deleted after 30 days of silence. A copy whose enrollment has ended takes no check session.
 
 rEach sends a report when something new happens, and otherwise from a small background job. That job now also runs on a computer that has not enrolled: every 5 minutes for the first 3 days, then about every 10. On a computer that has not enrolled, the job also keeps rEach up to date, and it removes itself 30 days after the last new step.
 
@@ -32,7 +32,7 @@ rEach sends a report when something new happens, and otherwise from a small back
 
 For up to an hour, and longer only if an instructor renews it, a check session can do these four things and nothing else:
 
-- Run rEach's self-check (`reach doctor --report`).
+- Run rEach's self-check (`reach doctor --report`). This shows this copy's code, the versions and locations of rEach, Ruby, and its runtime, your rEach home folder, whether it can write there, which of rEach's environment settings are set (their names, not their values), your AI app, and how Codex's sandbox and rEach's packages are set up.
 - Show rEach's status (`reach status`). Once you are enrolled, this names you, your group, your course, your assignments and their due dates, and your modules. It also shows whether you are signed in, where your work folder is, each slice's name and state, its check result and tries used, how many checkpoints it has, any document grade, the names of work files that are missing, how many receipts and open hands you have, how many entries were recorded for your instructors, and your next step. It shows nothing from inside your files.
 - Check whether a newer rEach exists.
 - Test whether Codex's sandbox lets rEach reach your course server and its folder. This writes one test file inside the sandbox, removes it, and keeps the result.

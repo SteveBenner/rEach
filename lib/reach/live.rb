@@ -135,8 +135,15 @@ module Reach
       Reach::Device.enabled? ? Reach::Device.identity : nil
     end
 
+    def former_enrollment?
+      Reach::Enroll.revoked?
+    rescue StandardError => e
+      Reach::Debug.fault(e, "live:former_enrollment")
+      false
+    end
+
     def identity
-      install || device_principal
+      install || (former_enrollment? ? nil : device_principal)
     end
 
     def now

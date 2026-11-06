@@ -2454,8 +2454,10 @@ live:
       {"live": the session id}. A yes through W-API-LIVE-CONSENT sets checks_only false and co_debug true, and W-LIVE-5,
       W-LIVE-6 and W-LIVE-7 then apply in full. A no sets yes_requested false and leaves the check session as it was.
       Teach refuses a yes while yes_requested is false with 409 details.reason not_asked. While checks_only is true
-      Teach serves no debug record through the session, and refuses each action with 409 details.reason wellbeing while
-      the session's student has an open wellbeing hand.
+      Teach serves no debug record through the session. While the session's student has an open wellbeing hand, Teach
+      refuses with 409 details.reason wellbeing an ask for a yes, a yes, the four read-only checks in any session, and
+      every action in a check session. Reach takes no session under its device identity while its own
+      install record is revoked, because Teach has by then erased the link it would refuse on.
       A Reach older than this revision that polls with its install sees an open session and asks about each action.
 devices:
   W-DEVICE-ID:

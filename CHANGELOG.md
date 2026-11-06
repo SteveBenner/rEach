@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reach live yes` and `reach live no` answer a live-session question from a real terminal, for a student whose app cannot show it. They refuse without a terminal and under a harness.
 - `device.enabled` and `device.live_without_yes` turn this off. rEach reads the settings from the `config.yml` in its home folder, which an update keeps, and from the plugin's own file. With either setting, an ordinary live session asks before each read-only check and a check session runs none. The installer honours `device.enabled` too, in the folder `--destination` names, and `reach uninstall --no-teach` sends no last report. `REACH_DEVICE_DISABLE=1` does the same only for a program started with it set, because the background job does not see it.
 - `live.enabled: false` in the home folder's `config.yml` now stops live sessions. It used to count only in the plugin's own file, which an update replaces. `REACH_LIVE_DISABLE=1` still works only for a program started with it set.
+- A copy whose own enrollment record is revoked takes no check session. By then the course server has erased the link it would refuse on, so a check could otherwise show a former student's name and work state. The copy keeps reporting as a code with no name until it is removed or turned off.
 
 ### Changed
 
