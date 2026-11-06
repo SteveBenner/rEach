@@ -6,7 +6,7 @@ A session opened in one slice's folder can now build the student's other slices,
 
 Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (a false "belongs to the course" refusal of the student's own file is gone). Wellbeing and safety n/a (no new alarm or pressure). Privacy and dignity n/a (no data changes). Fairness and access yes (a session behaves the same wherever it opened). Friction yes (the forced new session is removed; a possible Claude Code approval prompt remains untested). Failure yes (a cross-slice write takes the same pre-write checkpoint as any other, and so now does a write from the course root). Recovery n/a (nothing to undo).
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🟡 on test as v0.70.3, not on stable.
 
 ## The issue notice waits until the report has arrived — 0.70.2
 
@@ -14,7 +14,7 @@ rEach now tells a student it reported a technical problem only after the course 
 
 Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (the student is told only what has happened). Wellbeing and safety yes (no new alarm or pressure). Privacy and dignity n/a (no data changes). Fairness and access yes (the same rule for every student; a student offline hears when the report arrives). Friction yes (no new step or message). Failure yes (no work is at stake; a report that cannot be sent stays quiet to the student, and a waiting one shows in `reach doctor`). Recovery n/a (nothing to undo).
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🟡 on test in v0.70.3, not on stable.
 
 ## Device reports from a copy with no seal folder — 0.70.1
 
