@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.5] - 2026-11-06
+
+### Fixed
+
+- A background device report that overruns its 20-second limit no longer opens an issue. `Reach::Device.tick` wrapped the drain in `Timeout.timeout`, and the resulting `Timeout::Error` was not one of the transport failures rEach and Teach leave unfiled. The overrun is now a `Reach::NetworkError` with cause `Timeout::Error`, which stays in the fault stream. The same tick now still runs `Reach::Subscribe.ensure!`, which the old failure skipped. What made the drain overrun is not established; a computer sleeping through the limit is the likely cause and is not proven.
+
 ## [0.70.4] - 2026-11-06
 
 ### Fixed

@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## A device report that runs out of time opens no issue — 0.70.5
+
+The background device report has 20 seconds. Running out of time is now handled as a transport failure instead of an unknown one: it stays in the fault stream with its cause, opens no issue on rEach or Teach, and no longer skips the check that keeps the background job installed. What made the report overrun is not established.
+
+Verified on 2026-11-06: the real `Reach::Device.tick` in a fake home, before and after, with only the limit shortened and the drain's work held open. Before: one `Timeout::Error` fault classed `repeating`, no `ensure!`. After: one `Reach::NetworkError` fault with cause `Timeout::Error` classed `ignore`, one `ensure!`. Teach's `IssueRules.ignored_fault?` answers false and then true for the same two faults. Not exercised: a real computer going to sleep during a report.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty n/a (students never saw this fault). Wellbeing and safety n/a (no student-facing change). Privacy and dignity yes (the fault carries the same fields as before and no student work).
+
+Wiring: none. It adds no service, events, or metrics.
+
+Build: ✅ on main. Deploy: 🔵 not on test or stable.
+
 ## The assignment-one smoke runs to the end again — 0.70.4
 
 The deterministic student-path smoke (`tools/smoke/assignment_one.rb`) had stopped at enrollment since 0.61.0, so nothing after it was being exercised: sign-in through the prompt hook, the guarded writes, the plan audit, qualification on Teach's Docker grader, the submit yes, the ingest receipt, and the grade receipt. It is repaired and runs the whole path against Teach's committed HEAD with no model: 44 steps pass, none fail, and the grader scores the synthetic part 1.0. It skips the two manual steps and the Codex setup when `codex` is not on the path. This is developer test machinery and changes nothing a student installs or sees. The scratch Teach sits behind a TLS front with a throwaway certificate that only the smoke's commands trust, because rEach refuses a plain HTTP Teach address; the run points rEach at no real server and writes only under its run folder. Verified on 2026-11-06 on Linux, three full runs after the repairs, one of them from a shell with no `bundle` on its path. Not exercised: macOS, Windows, a real harness, and the public ZIP install (`--public`).

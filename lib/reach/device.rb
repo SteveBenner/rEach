@@ -570,10 +570,20 @@ module Reach
       boundary("device:tick") do
         next nil unless enabled?
 
-        Timeout.timeout(DRAIN_TIMEOUT_S) { drain!(origin: source.to_s == "background" ? "background" : "session") }
+        drain_in_time(source.to_s == "background" ? "background" : "session")
         Reach::Subscribe.ensure! if source.to_s == "background"
         nil
       end
+    end
+
+    def drain_in_time(origin)
+      Timeout.timeout(DRAIN_TIMEOUT_S) { drain!(origin: origin) }
+    rescue Timeout::Error => e
+      overrun = Reach::NetworkError.new(Reach::Messages.text("M-TEACH-DEADLINE"))
+      overrun.cause_name = e.class.name
+      overrun.set_backtrace(e.backtrace)
+      Reach::Debug.fault(overrun, "device:tick")
+      nil
     end
 
     def pending_notice
