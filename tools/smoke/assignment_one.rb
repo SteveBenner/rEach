@@ -944,7 +944,7 @@ module AssignmentOne
       pending = JSON.parse(File.read(File.join(@reach_home, "state", "consent", "pending.json")))
       path = File.join(@run_dir, "conversation.jsonl")
       reply = { "type" => "assistant", "message" => { "role" => "assistant", "content" => [{ "type" => "text", "text" => pending.fetch("question") }] } }
-      File.open(path, "a") { |file| file.puts(JSON.generate(reply)) }
+      File.open(path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.syswrite("#{JSON.generate(reply)}\n") }
       path
     end
 
