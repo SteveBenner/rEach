@@ -45,10 +45,10 @@
 <text x="126" y="654" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">INSTALL.md; this copy updates itself</text>
 <circle cx="110" cy="698" r="4" fill="#0369a1"/>
 <text x="126" y="704" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="650" fill="#111823" text-anchor="start">Claude Code</text>
-<text x="126" y="726" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">the command, or its marketplace</text>
+<text x="126" y="726" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">the command</text>
 <circle cx="110" cy="770" r="4" fill="#0369a1"/>
 <text x="126" y="776" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="650" fill="#111823" text-anchor="start">Claude app</text>
-<text x="126" y="798" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">Code tab: the command; Cowork: a link</text>
+<text x="126" y="798" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">Code tab: the command</text>
 <circle cx="110" cy="842" r="4" fill="#0369a1"/>
 <text x="126" y="848" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="650" fill="#111823" text-anchor="start">Codex</text>
 <text x="126" y="870" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#465264" text-anchor="start">the command, then trust the hooks</text>

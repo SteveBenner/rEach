@@ -3,8 +3,8 @@
 module Figures
   INSTALL_PATHS = [
     ["One install command", "INSTALL.md; this copy updates itself"],
-    ["Claude Code", "the command, or its marketplace"],
-    ["Claude app", "Code tab: the command; Cowork: a link"],
+    ["Claude Code", "the command"],
+    ["Claude app", "Code tab: the command"],
     ["Codex", "the command, then trust the hooks"],
     ["Antigravity", "the command; it runs no hooks"],
     ["Hermes", "the command; its own reach profile"],
