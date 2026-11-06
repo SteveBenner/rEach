@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.69.1
+version: 0.70.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1546,6 +1546,9 @@ cli:
       that file. A network failure prints M-ENR-CLI-OFFLINE, which names the URL and the cause, and exits 1.
       Since 0.21.13 enrollment requests leave the Teach connection state alone (STD-TEACH-LINK), so that message is
       the only line a failed terminal enroll prints.
+      Since 0.70.0 a stored teach_url that config.yml teach.legacy_urls lists reads as the configured teach.url
+      (Reach::TeachUrl.canonical, STD-TEACH-URL-MOVE); a read never writes, and REACH_TEACH_URL_MIGRATE_DISABLE=1 keeps
+      the stored address.
       Since 0.18.1 the student-facing name is course passkey: --course-passkey, with --course-code kept as an unlisted
       alias. Since 0.16.0, with --course-code (or with no arguments on a terminal, asking for the three values one per line)
       it previews the course code, enrolls with shape v2 (W-API-ENROLL), verifies and stores the enrollment stamp and

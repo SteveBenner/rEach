@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.0] - 2026-11-05
+
+### Added
+
+- `Reach::TeachUrl` (`lib/reach/teach_url.rb`) maps a stored Teach address that `config.yml` lists under `teach.legacy_urls` to the configured `teach.url`. Slashes at the end and the case of the scheme and host are ignored when comparing. An address that is not listed is never changed, so an operator's own server and a course on another server stay where they are. `REACH_TEACH_URL` set in the environment, or `REACH_TEACH_URL_MIGRATE_DISABLE=1`, keeps the stored address.
+- `Reach::Enroll.current`, the enrollment outbox read and the validation session checks (`lib/reach/enroll.rb`, `lib/reach/enroll_outbox.rb`, `lib/reach/validation.rb`) use that mapping, so an enrollment or a validation in progress carries on against the configured address instead of refusing with `blocked("teach_url")`. A read never writes: the mapped address is returned in memory and reaches `install.yml` only when `Reach::Enroll.update!` writes a real change, which then keeps every other key as it was.
+- `config.yml` gains `teach.legacy_urls`, listing the address that `teach.url` still names. `teach.url` is unchanged, so with this release nothing is mapped and every install keeps the address it has.
+
 ## [0.69.1] - 2026-11-05
 
 ### Changed
