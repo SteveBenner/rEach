@@ -168,7 +168,7 @@ Since 0.68.9 the pass opens in Claude Desktop, Claude Cowork, and the Claude Age
 
 Since 0.68.12 the success message says "the practice submission" and adds that it wasn't the student's assignment and doesn't affect their grade. Build: ✅ on main. Deploy: ✅ on stable since 2026-11-05 (0.68.12).
 
-Since 0.68.14 every failure of the pass names its cause, and a Teach refusal says in rEach's own words what was refused, as `teach:CODE`, without the impersonation warning and without relaying the server's text. A course passkey refused when the pass starts returns enrollment to asking for it. Build: ✅ on main. Deploy: 🔵 pending the operator's promotion to stable and students updating. Verified 2026-11-05 through `failure_text`, `EnrollFlow.step`, and `reach enroll` with a stubbed Teach reply, across seven refusal codes, network, certificate, reply, and unexpected errors, including a hostile server message. A real student session was not driven.
+Since 0.68.14 every failure of the pass names its cause, and a Teach refusal says in rEach's own words what was refused, as `teach:CODE`, without the impersonation warning and without relaying the server's text. A course passkey refused when the pass starts returns enrollment to asking for it. Build: ✅ on main. Deploy: ✅ on stable since 2026-11-05 (0.68.19); students get it when they update. Verified 2026-11-05 through `failure_text`, `EnrollFlow.step`, and `reach enroll` with a stubbed Teach reply, across seven refusal codes, network, certificate, reply, and unexpected errors, including a hostile server message. A real student session was not driven.
 
 Student-first audit:
 
