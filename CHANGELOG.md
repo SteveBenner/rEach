@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.21] - 2026-11-05
+
+### Fixed
+
+- An unenrolled copy starts the debug stream only on this computer's own record of the student's yes, not on the course server's word.
+- A home `config.yml` rEach cannot read counts as turning reports and live sessions off, in the installer too.
+- The privacy policy names the self-check's one exception to "nothing outside your course folders".
+
 ## [0.68.20] - 2026-11-05
 
 ### Added

@@ -57,6 +57,8 @@ live:
 - `device.live_without_yes: false` makes rEach run no check without your yes. Reports continue.
 - `device.enabled: false` stops the reports and the code, and rEach then runs no check without your yes. Installing rEach again respects the setting too. An instructor can then reach this copy only through an ordinary live session, which asks you first, and only once you are enrolled.
 - `live.enabled: false` stops every live session.
+
+If rEach cannot read this file, for example after a typing mistake, it counts as turning all of this off until you fix it.
 - `reach uninstall --purge-checkpoint-mirror` removes the key and the code along with rEach. A plain `reach uninstall` sends one last report that rEach was removed and keeps them, so a later install counts as the same copy. With `--no-teach` it sends no last report.
 
 The environment variables `REACH_DEVICE_DISABLE=1` and `REACH_LIVE_DISABLE=1` do the same as `device.enabled: false` and `live.enabled: false`, but only for a program started with them set, such as the installer or an AI app opened from that terminal. rEach's background job does not see them, so it goes on reporting and can still pick up a check session. For a lasting off switch, use the settings above.
@@ -92,7 +94,7 @@ rEach also asks your course server whether anything changed (new course material
 ## What rEach does not send
 
 - Conversations outside signed-in assignment work. Nothing said before you sign in, in your extracurricular folder or outside your course folder is recorded or sent.
-- Other files on your computer, or anything outside your course folders.
+- Other files on your computer, or anything outside your course folders. The one exception is what a check session's self-check shows about where rEach, Ruby, and its runtime are installed, as listed under Check sessions.
 - The files in your extracurricular folder.
 
 ## What stays on your computer

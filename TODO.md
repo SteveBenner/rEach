@@ -5,7 +5,7 @@
 - [ ] Run the installer's first report, a detached drain, the background job, and a check session on a real macOS and a real Windows install, and on Ruby 2.6.10 with LibreSSL. Only Linux with Ruby 3.3 and 4.0 ran.
 - [ ] See a check session once in a real harness, where the notice and the yes question are what the student reads. The prompts entered through the real hook, but no real app showed them.
 - [ ] Windows without Ruby reports nothing until the PowerShell step has fetched Ruby.
-- [ ] `reach live yes` at a terminal cannot tell an agent from a person on a harness rEach does not detect (Antigravity has no detection), or when an agent clears the harness variables and allocates a terminal. Find a stronger sign that a person is there.
+- [ ] `reach live yes` at a terminal cannot always tell an agent from a person. Find a stronger sign that a person is there.
 - [ ] The offer an older copy still needs stays until no copy older than 0.68.20 reports. Remove it then.
 
 ## Pattern warnings block submit on contract-required labels (found 2026-10-22)
