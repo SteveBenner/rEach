@@ -10,7 +10,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events or metrics, and the restart is one more bounded request in a hook that already makes two.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🔵 on test since v0.70.6, stable is the operator's.
 
 ## A device report that runs out of time opens no issue — 0.70.5
 
