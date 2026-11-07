@@ -3256,7 +3256,8 @@ checkpoints:
     n and the files now, or between two saves, with added and removed line counts and at most 200 lines of change. The
     seal mark is removed before comparing and from the output, so a re-stamp shows no change. A file that cannot be
     shown as lines (a binary, or a document file kept by digest only) is reported as changed. It needs no git and
-    changes nothing.
+    changes nothing. Its output goes to the AI partner, so in an assignment session those lines enter the recorded
+    conversation, including text the student later removed; PRIVACY.md states this.
   rules: >-
     An identical state is refused (M-CHECKPOINT-SAME) unless the entry that holds it is a hidden autosave or a milestone
     save and the new save is a named one, so a student's save right after the agent's write still gets its name; restore saves the
