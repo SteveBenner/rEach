@@ -377,6 +377,8 @@ module Reach
           cmd_part(args)
         when "next"
           cmd_next(args)
+        when "progress"
+          cmd_progress(args)
         when "support"
           cmd_support(args)
         when "hook"
@@ -503,6 +505,7 @@ module Reach
             plan save|show|note|audit            the slice plan and its second-pass audit
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
+            progress [--format text|json]        where you stand: what is done, what is left, what comes next
             support                              help if you are having a hard time
             directive <OPCODE>... | --list       the full text of one or more directives
             reference list|show <path>|search <words>|links|ingest [--force]   the course reference material
@@ -3434,6 +3437,20 @@ module Reach
           puts JSON.generate(step)
         else
           puts step["text"]
+        end
+        0
+      end
+
+      def cmd_progress(args)
+        options, _remaining = parse_flags(args, [:format])
+        result = Reach::Standing.answer
+        rejected = Reach::Submit.rejected_notices
+        if (options[:format] || "text") == "json"
+          puts JSON.generate(result.merge("submit_notices" => rejected))
+        else
+          puts result["summary"]
+          result["notices"].each { |text| puts text }
+          rejected.each { |text| puts text }
         end
         0
       end

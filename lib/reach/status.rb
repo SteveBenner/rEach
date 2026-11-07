@@ -280,6 +280,8 @@ module Reach
       rescue StandardError
         "Course rules: unknown   Connection: unknown"
       end
+
+      public :assignment_label, :elsewhere_suffix, :late_assignment_lines
     end
   end
 end

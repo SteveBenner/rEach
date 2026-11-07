@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.70.6
+version: 0.70.7
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -194,6 +194,8 @@ plugin_manifest:
         path: skills/reach-bug/SKILL.md
       - id: reach-checkpoint
         path: skills/reach-checkpoint/SKILL.md
+      - id: reach-progress
+        path: skills/reach-progress/SKILL.md
       - id: reach-storage
         path: skills/reach-storage/SKILL.md
       - id: reach-import
@@ -1249,7 +1251,7 @@ mcp_bridge:
     reach_raise_hand), so Codex still reviews those (instructor decision 2026-10-13), false for the rest;
     readOnlyHint true for the tools that only read (READ_ONLY_TOOLS: reach_status, reach_receipts, reach_shape_check,
     reach_check, reach_hand_status, reach_profile_show, reach_enroll, reach_directive, reach_reference, reach_recall,
-    reach_next, reach_grade, reach_extra_credit_list, reach_feedback_list, reach_announcements); destructiveHint true only
+    reach_next, reach_progress, reach_grade, reach_extra_credit_list, reach_feedback_list, reach_announcements); destructiveHint true only
     for the tools that can delete the student's data (DESTRUCTIVE_TOOLS: reach_profile_forget, reach_memory_forget,
     reach_transcripts, reach_storage), false for the rest, whose consequential actions rEach already puts behind the
     student's own captured yes or a checkpoint. Codex (0.160.0 to 0.162.1, codex-rs mcp_tool_call.rs
@@ -1351,6 +1353,11 @@ mcp_bridge:
     description: Show the student's modules or options, or choose them; returns Reach's lock-in question until the student's captured yes
   - name: reach_next
     description: The deterministic next step for the student, in business terms; since 0.34.9 (STD-SIGNIN-HOOK-SILENT) it says M-NEXT-LOGIN-NO-HOOK instead of asking for the student ID when Codex is not running rEach's sign-in hook
+  - name: reach_progress
+    description: >-
+      Since 0.70.7 (STD-STANDING) where the student stands, in plain words rEach writes itself, from local state and the
+      cached status: summary, next, stale, age_minutes and notices. It sends nothing. Not in the test control's
+      allowed_tools, so a proctored test stays on reach_test, reach_support and reach_status
   - name: reach_reclaim
     description: Find older rEach memory and course folders on this computer and bring them back; since 0.65.0 (STD-RECLAIM) it returns rEach's own question, listing what it found, until the student's captured yes, then acts once; optional only (brain, work or from) and from (a reach-work folder to copy from)
   - name: reach_remember
@@ -1565,6 +1572,9 @@ cli:
   - name: status
     synopsis: reach status
     purpose: Enrollment, slices, package versions, each slice's qualification (checks), receipts, open hands
+  - name: progress
+    synopsis: reach progress [--format text|json]
+    purpose: Where the student stands, in plain words rEach writes itself; reads local state and the cached status and sends nothing (STD-STANDING)
   - name: work
     synopsis: reach work [--harness ...] [--slice ... | --extracurricular]
     purpose: >-
@@ -3370,6 +3380,10 @@ persona:
       hand in class: when stuck or wanting a person, the answer shows up in the chat) and sending feedback (like a
       suggestion box, for things that can wait) with the eight kinds, and that a note can go named or anonymous and is
       shown before it is sent.
+    progress_tip: >-
+      Since 0.70.7 G-PROGRESS-TIP is added once to the session greeting of an enrolled student, never to the first-run,
+      resume or sign-in greetings, and waits a session when G-MEMORY-NOTICE, G-RECLAIM-OFFER or G-REACH-OUT is shown. The
+      flag is state/standing-tip.json. It tells the student they can ask where they stand any time (STD-STANDING).
     code_in_files: >-
       The persona puts code in files, never in chat: coursework in the slice's owned files, anything else in the
       student's extracurricular folder, and offers reach work --extracurricular when the student wants to build

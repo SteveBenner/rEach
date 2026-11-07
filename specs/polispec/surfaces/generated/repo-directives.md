@@ -12,7 +12,7 @@ reach is a plugin built on rplugin, the SDK for agent-harness plugins.
 
 What reach does, the credentials it needs and its settings in `config.yml` are described in `README.md`.
 
-Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug` (with `skills/reach-build` and `skills/reach-fix` routing to them), `skills/reach-checkpoint`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.
+Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug` (with `skills/reach-build` and `skills/reach-fix` routing to them), `skills/reach-checkpoint`, `skills/reach-progress`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.
 
 `specs/polispec/behavior.yml` owns the public engineering directives, the runtime policy parameters and every generated surface. `policy/behavior.json` is compiled data, and `directives/*.md` and the surfaces under `specs/polispec/surfaces/generated/` are generated views. Edit the source, run `ruby tools/policy.rb build` with Polispec available, then `ruby tools/policy.rb check`. Do not hand-edit the views. Course directives remain Teach-owned and arrive in the existing authenticated guardrails package as `course_policy.json` beside the legacy `directives.yml`; private bodies stay in protected retrieval.
 

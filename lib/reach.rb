@@ -167,6 +167,7 @@ require_relative "reach/setup"
 require_relative "reach/harness_move"
 require_relative "reach/mcp_bridge"
 require_relative "reach/status"
+require_relative "reach/standing"
 require_relative "reach/cli"
 
 module Plugin

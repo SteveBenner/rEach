@@ -323,6 +323,9 @@ module Reach
       elsif greeting_text && safe_reach_out_due?(greeting_id)
         greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-REACH-OUT")}"
         Reach::Feedback.reach_out_shown!
+      elsif greeting_text && safe_standing_tip_due?(greeting_id)
+        greeting_text = "#{greeting_text}\n\n#{Reach::Greetings.text("G-PROGRESS-TIP")}"
+        Reach::Standing.tip_shown!
       end
       Reach::CourseCorpus.ingest_if_changed(admit: false) unless local
       context = build_context(harness_id, format, greeting_id, greeting_text, updating, workspace: workspace, local: local, mcp: mcp, session: offer_session, source: source, event: event, cwd: cwd)
@@ -381,6 +384,15 @@ module Reach
       return false unless %w[complete skipped partial].include?(Reach::Profile.load["status"])
 
       Reach::Feedback.reach_out_due?
+    rescue StandardError
+      false
+    end
+
+    def safe_standing_tip_due?(greeting_id)
+      return false if greeting_id.nil? || INTERVIEW_GREETINGS.include?(greeting_id) || greeting_id == "G-LOGIN"
+      return false unless safe_enrol_current
+
+      Reach::Standing.tip_due?
     rescue StandardError
       false
     end

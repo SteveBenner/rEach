@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.7] - 2026-11-06
+
+### Added
+
+- A student can ask where they stand and get one plain answer. `reach progress`, the read-only `reach_progress` tool and the new `reach-progress` skill (`lib/reach/standing.rb`, STD-STANDING) answer "where am I", "how am I doing" and "what's left" with what is done for each assignment, tries left after a failed try, requests waiting on the instructors, the last save, how old the course details are and the one next step. rEach writes the words, so the answer reads the same in every harness and model. It reads local state and the cached course status and sends nothing.
+- A one-time greeting line, `G-PROGRESS-TIP`, tells an enrolled student they can ask this any time.
+
+### Changed
+
+- The `reach_check` tool description says it checks code and sends a progress question to `reach_progress`, so "check my progress" no longer reads as a request to run the code rules.
+
 ## [0.70.6] - 2026-11-06
 
 ### Fixed

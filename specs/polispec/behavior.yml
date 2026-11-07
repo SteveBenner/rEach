@@ -710,7 +710,7 @@ directives:
 
     What reach does, the credentials it needs and its settings in `config.yml` are described in `README.md`.
 
-    Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug` (with `skills/reach-build` and `skills/reach-fix` routing to them), `skills/reach-checkpoint`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.
+    Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug` (with `skills/reach-build` and `skills/reach-fix` routing to them), `skills/reach-checkpoint`, `skills/reach-progress`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.
 
     `specs/polispec/behavior.yml` owns the public engineering directives, the runtime policy parameters and every generated surface. `policy/behavior.json` is compiled data, and `directives/*.md` and the surfaces under `specs/polispec/surfaces/generated/` are generated views. Edit the source, run `ruby tools/policy.rb build` with Polispec available, then `ruby tools/policy.rb check`. Do not hand-edit the views. Course directives remain Teach-owned and arrive in the existing authenticated guardrails package as `course_policy.json` beside the legacy `directives.yml`; private bodies stay in protected retrieval.
 
@@ -1499,7 +1499,7 @@ messages:
 
       ## Course work
 
-      In a course workspace, follow AGENTS.md and its directive table, and the reach-course, reach-feature, reach-bug, reach-checkpoint, reach-submit and reach-help skills.
+      In a course workspace, follow AGENTS.md and its directive table, and the reach-course, reach-feature, reach-bug, reach-checkpoint, reach-progress, reach-submit and reach-help skills.
 
       In a slice workspace, talk with the student only in business terms. Never name files, folders, classes, methods, code, tests, scenarios or commands to them, and never ask them to write, open or read code. If they ask which file to work in or how the code works, say that you write and check all the code, then ask what the business needs.
 
@@ -1817,6 +1817,11 @@ surfaces:
     kind: skill
     target: skills/reach-checkpoint/SKILL.md
     template: specs/polispec/surfaces/skills/reach-checkpoint.md
+    mode: generated
+  skill-reach-progress:
+    kind: skill
+    target: skills/reach-progress/SKILL.md
+    template: specs/polispec/surfaces/skills/reach-progress.md
     mode: generated
   skill-reach-course:
     kind: skill

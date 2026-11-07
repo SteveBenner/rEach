@@ -158,7 +158,7 @@ module Reach
       },
       {
         "name" => "reach_check",
-        "description" => "Check the slice's code against the course and engineering rules; returns findings with ids, files, lines and fixes",
+        "description" => "Check the slice's code against the course and engineering rules; returns findings with ids, files, lines and fixes. It checks code, not how far along the student is: for that, use reach_progress",
         "inputSchema" => {
           "type" => "object",
           "properties" => { "changed" => { "type" => "string" }, "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" } }
@@ -338,6 +338,11 @@ module Reach
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
+        "name" => "reach_progress",
+        "description" => "Where the student stands in the course, in plain words: what is done for each assignment, what is left, what they are waiting on, and the one next step. Use it when the student asks where they are, how they are doing, what is left, or to check their progress. summary is ready to give to the student; stale true means the course details may be out of date, so call reach_sync and ask again; notices are about missing work (see the reach-checkpoint skill). It sends nothing",
+        "inputSchema" => { "type" => "object", "properties" => {} }
+      },
+      {
         "name" => "reach_import",
         "description" => "Bring a downloaded ChatGPT, Claude or Gemini export into rEach. action pick opens the operating system's file picker (folder true for a folder) and returns the chosen path; export (path, mode brain or copy) asks the student through Reach first and starts the background import only on their yes, so relay Reach's question word for word; status, cancel and list show or stop the import; next returns the next queued conversation to learn from and done (conversation_id, optional part) marks it worked; search (query) and show (conversation_id, optional part) read the imported conversations. An export import runs in the background and a large one takes a long while, which rEach cannot predict: before starting it, tell the student that and that closing the app pauses it until rEach next opens, when it carries on where it left off",
         "inputSchema" => {
@@ -497,7 +502,7 @@ module Reach
     UNLOCKED_TOOLS = %w[reach_hello reach_support reach_debug reach_doctor reach_update reach_setup reach_transcripts reach_live].freeze
     READ_ONLY_TOOLS = %w[
       reach_status reach_receipts reach_shape_check reach_check reach_hand_status reach_profile_show reach_enroll
-      reach_directive reach_reference reach_passes_packet reach_recall reach_next reach_grade reach_extra_credit_list reach_announcements reach_feedback_list
+      reach_directive reach_reference reach_passes_packet reach_recall reach_next reach_progress reach_grade reach_extra_credit_list reach_announcements reach_feedback_list
     ].freeze
     DESTRUCTIVE_TOOLS = %w[reach_profile_forget reach_memory_forget reach_transcripts reach_storage].freeze
     REVIEWED_TOOLS = %w[reach_submit reach_qualify reach_raise_hand].freeze
@@ -878,6 +883,8 @@ module Reach
         when "reach_next"
           step = Reach::Next.compute(mcp: true)
           step.merge("relay_verbatim" => true)
+        when "reach_progress"
+          with_submit_notices(Reach::Standing.answer)
         when "reach_announcements"
           { "announcements" => Reach::Announcements.list }
         when "reach_test"

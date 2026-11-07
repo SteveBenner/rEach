@@ -211,6 +211,8 @@ module Reach
       rescue ArgumentError
         false
       end
+
+      public :assignment_slices, :document_slice?, :module_of, :module_title, :submitted_after?
     end
   end
 end
