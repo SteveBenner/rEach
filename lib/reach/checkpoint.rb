@@ -6,6 +6,16 @@ require "securerandom"
 module Reach
   module Checkpoint
     AUTOSAVE_VIAS = %w[write pre_write check provision restored reclaim].freeze
+    MILESTONE_VIA = "milestone".freeze
+    VIA_LABELS = {
+      "write" => "M-CHECKPOINT-VIA-WRITE", "pre_write" => "M-CHECKPOINT-VIA-PRE-WRITE", "check" => "M-CHECKPOINT-VIA-CHECK",
+      "provision" => "M-CHECKPOINT-VIA-PROVISION", "restored" => "M-CHECKPOINT-VIA-RESTORED", "reclaim" => "M-CHECKPOINT-VIA-RECLAIM",
+      "automatic" => "M-CHECKPOINT-VIA-AUTOMATIC"
+    }.freeze
+    SEAL_MARKS = /[⁠​‌]/.freeze
+    COMPARE_MAX_LINES = 200
+    COMPARE_MAX_WIDTH = 200
+    COMPARE_MAX_CELLS = 1_000_000
     NOTICE_FILE = "checkpoint-notice.json".freeze
     MIRROR_STATE_FILE = "checkpoint-mirror.json".freeze
     SALT_FILE = "checkpoint-salt.json".freeze
@@ -211,6 +221,31 @@ module Reach
       all_entries(workspace).count { |entry| hidden?(entry) }
     end
 
+    def label(entry)
+      note = entry["note"].to_s
+      return note unless note.empty?
+
+      id = VIA_LABELS[entry["via"].to_s]
+      Reach::Messages.text(id || "M-CHECKPOINT-NO-NOTE")
+    end
+
+    def rows(workspace, all: false)
+      previous = nil
+      list(workspace, all: all).map do |entry|
+        changed = changed_count(entry, previous)
+        previous = entry
+        changes = changed.zero? ? Reach::Messages.text("M-CHECKPOINT-NO-CHANGES") : Reach::Messages.text("M-CHECKPOINT-CHANGES", count: changed)
+        {
+          "n" => entry["n"], "when" => Reach::Messages.course_time(entry["at"]), "label" => label(entry), "changes" => changes,
+          "automatic" => entry["automatic"] == true, "milestone" => milestone?(entry)
+        }
+      end
+    end
+
+    def row_text(row)
+      Reach::Messages.text("M-CHECKPOINT-ROW", n: row["n"], time: row["when"], label: row["label"], changes: row["changes"])
+    end
+
     def latest(workspace)
       all_entries(workspace).last
     end
@@ -249,7 +284,7 @@ module Reach
       digests = current_digests(workspace)
       kept = extras ? extra_digests(workspace) : nil
       previous = latest(workspace)
-      if previous && previous["digests"] == digests && (kept.nil? || previous["extras"] == kept) && !force && (automatic || !hidden?(previous))
+      if previous && previous["digests"] == digests && (kept.nil? || previous["extras"] == kept) && !force && (automatic || !(hidden?(previous) || milestone?(previous)))
         return { "saved" => false, "n" => previous["n"], "message" => Reach::Messages.text("M-CHECKPOINT-SAME", n: previous["n"]) }
       end
 
@@ -257,7 +292,7 @@ module Reach
       primary = dir(workspace)
       meta = write_entry(primary, workspace, n, digests, note, automatic, via, kept)
       mirror_entry(workspace, primary, meta)
-      unless AUTOSAVE_VIAS.include?(via)
+      unless AUTOSAVE_VIAS.include?(via) || via == MILESTONE_VIA
         Reach::Ledger.append(workspace, "checkpoint", "checkpoint" => n, "note_digest" => Reach::Crypto.digest_hex(note.to_s), "automatic" => automatic)
       end
       { "saved" => true, "n" => n, "message" => Reach::Messages.text("M-CHECKPOINT-SAVED", n: n) }
@@ -270,6 +305,24 @@ module Reach
 
       save(workspace, automatic: true, via: via, stamp: false)
     rescue StandardError
+      nil
+    end
+
+    def milestone?(entry)
+      entry["via"].to_s == MILESTONE_VIA
+    end
+
+    def milestone(workspace, key)
+      return nil unless autosave? && workspace && File.directory?(workspace)
+      return nil if Array(Reach::Workspace.owned_files(workspace)).empty? || !missing(workspace).empty?
+
+      note = Reach::Messages.text("M-CHECKPOINT-MILESTONE-#{key}")
+      digests = current_digests(workspace)
+      return nil if all_entries(workspace).any? { |entry| milestone?(entry) && entry["note"] == note && entry["digests"] == digests }
+
+      save(workspace, note: note, automatic: true, via: MILESTONE_VIA, stamp: false, force: true)
+    rescue StandardError => e
+      Reach::Debug.fault(e, "checkpoint:milestone")
       nil
     end
 
@@ -396,6 +449,129 @@ module Reach
       { "restored" => true, "n" => entry["n"], "message" => Reach::Messages.text("M-CHECKPOINT-RESTORED", n: entry["n"]) }
     end
 
+    def compare(workspace, first, second = nil)
+      left = show(workspace, first)
+      raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNKNOWN", n: first) unless left
+
+      right = second.nil? ? nil : show(workspace, second)
+      raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNKNOWN", n: second) if second && !right
+
+      now = right ? nil : current_digests(workspace)
+      names = (left["digests"].keys + (right ? right["digests"].keys : now.keys)).uniq.sort
+      budget = COMPARE_MAX_LINES
+      truncated = false
+      files = names.map do |relative|
+        row = compare_file(workspace, left, right, relative)
+        next nil unless row
+
+        lines = Array(row["lines"])
+        if lines.length > budget
+          truncated = true
+          lines = lines.first(budget)
+        end
+        budget -= lines.length
+        row.merge("lines" => lines)
+      end.compact
+      result = { "from" => left["n"], "to" => right ? right["n"] : "now", "files" => files, "truncated" => truncated }
+      result.merge("text" => compare_text(result))
+    end
+
+    def compare_side(workspace, entry, relative)
+      if entry.nil?
+        full = File.join(workspace, relative)
+        return File.file?(full) ? File.binread(full) : nil
+      end
+      return nil if entry["digests"][relative].nil?
+      return :opaque if Reach::DocumentFiles.document?(workspace) && !Reach::DocumentFiles.text_file?(relative)
+
+      entry_content(workspace, entry, relative)
+    end
+
+    def compare_lines(content)
+      content.dup.force_encoding(Encoding::UTF_8).scrub.lines.map { |line| line.chomp.gsub(SEAL_MARKS, "") }
+    end
+
+    def compare_file(workspace, left, right, relative)
+      before = compare_side(workspace, left, relative)
+      after = compare_side(workspace, right, relative)
+      return nil if before.nil? && after.nil?
+      return { "file" => relative, "state" => "new", "lines" => [] } if before.nil?
+      return { "file" => relative, "state" => "gone", "lines" => [] } if after.nil?
+      return nil if before == after
+
+      if before == :opaque || after == :opaque || before.include?("\0") || after.include?("\0")
+        return nil if left["digests"][relative] == (right ? right["digests"][relative] : current_digests(workspace)[relative])
+
+        return { "file" => relative, "state" => "binary", "lines" => [] }
+      end
+      diff = line_diff(compare_lines(before), compare_lines(after))
+      return nil if diff["added"].zero? && diff["removed"].zero?
+
+      { "file" => relative, "state" => "changed", "added" => diff["added"], "removed" => diff["removed"], "lines" => diff["lines"] }
+    end
+
+    def line_diff(before, after)
+      head = 0
+      head += 1 while head < before.length && head < after.length && before[head] == after[head]
+      tail = 0
+      tail += 1 while tail < before.length - head && tail < after.length - head && before[-1 - tail] == after[-1 - tail]
+      left = before[head...(before.length - tail)]
+      right = after[head...(after.length - tail)]
+      if left.length * right.length > COMPARE_MAX_CELLS
+        common = (left & right).sum { |line| [left.count(line), right.count(line)].min }
+        return { "added" => right.length - common, "removed" => left.length - common, "lines" => [] }
+      end
+
+      table = Array.new(left.length + 1) { Array.new(right.length + 1, 0) }
+      (left.length - 1).downto(0) do |i|
+        (right.length - 1).downto(0) do |j|
+          table[i][j] = left[i] == right[j] ? table[i + 1][j + 1] + 1 : [table[i + 1][j], table[i][j + 1]].max
+        end
+      end
+      lines = []
+      added = 0
+      removed = 0
+      i = 0
+      j = 0
+      while i < left.length || j < right.length
+        if i < left.length && j < right.length && left[i] == right[j]
+          i += 1
+          j += 1
+        elsif j < right.length && (i == left.length || table[i][j + 1] >= table[i + 1][j])
+          lines << "+ #{right[j][0, COMPARE_MAX_WIDTH]}"
+          added += 1
+          j += 1
+        else
+          lines << "- #{left[i][0, COMPARE_MAX_WIDTH]}"
+          removed += 1
+          i += 1
+        end
+      end
+      { "added" => added, "removed" => removed, "lines" => lines }
+    end
+
+    def compare_text(result)
+      from = result["from"]
+      to = result["to"]
+      if result["files"].empty?
+        return to == "now" ? Reach::Messages.text("M-CHECKPOINT-COMPARE-SAME-NOW", from: from) : Reach::Messages.text("M-CHECKPOINT-COMPARE-SAME-SAVES", from: from, to: to)
+      end
+
+      out = [to == "now" ? Reach::Messages.text("M-CHECKPOINT-COMPARE-NOW", from: from) : Reach::Messages.text("M-CHECKPOINT-COMPARE-SAVES", from: from, to: to)]
+      result["files"].each do |row|
+        file = row["file"]
+        out << case row["state"]
+               when "new" then Reach::Messages.text("M-CHECKPOINT-COMPARE-NEW", file: file)
+               when "gone" then Reach::Messages.text("M-CHECKPOINT-COMPARE-GONE", file: file, from: from)
+               when "binary" then Reach::Messages.text("M-CHECKPOINT-COMPARE-BINARY", file: file)
+               else Reach::Messages.text("M-CHECKPOINT-COMPARE-FILE", file: file, added: row["added"], removed: row["removed"])
+               end
+        out.concat(row["lines"].map { |line| "  #{line}" })
+      end
+      out << Reach::Messages.text("M-CHECKPOINT-COMPARE-MORE") if result["truncated"]
+      out.join("\n")
+    end
+
     def blob_content(workspace, entry, digest)
       raise Reach::Error, Reach::Messages.text("M-CHECKPOINT-UNREADABLE", n: entry["n"]) unless blob_digest?(digest)
 
@@ -458,6 +634,8 @@ module Reach
     end
 
     def deliberate?(entry)
+      return false if milestone?(entry)
+
       !hidden?(entry) || entry["via"].to_s == "restored"
     end
 

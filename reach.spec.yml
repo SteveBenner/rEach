@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.70.7
+version: 0.70.8
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1323,7 +1323,7 @@ mcp_bridge:
   - name: reach_check
     description: Run reach check on the current slice (optionally one changed path) and return the findings
   - name: reach_checkpoint
-    description: save, list (all true includes the automatic saves), show or restore a checkpoint of the current slice, recover missing work (since 0.53.26), dismiss a work folder removed on purpose, or forget the saved copies; recover, dismiss and forget act after the student's yes through Reach::Consent (since 0.53.34, recover and dismiss since 0.53.38)
+    description: save, list (rows with a plain label, all true includes the automatic saves), compare (since 0.70.8, what changed since save n or between n and other), show or restore a checkpoint of the current slice, recover missing work (since 0.53.26), dismiss a work folder removed on purpose, or forget the saved copies; recover, dismiss and forget act after the student's yes through Reach::Consent (since 0.53.34, recover and dismiss since 0.53.38)
   - name: reach_plan
     description: >-
       save, note or show the slice plan; since 0.54.0 also audit_packet, audit_record (verdict, reasons, findings, auditor) and audit_show (STD-PLAN-AUDIT). Since 0.51.10 reach_check, reach_checkpoint, reach_plan, reach_shape_check and
@@ -1356,7 +1356,7 @@ mcp_bridge:
   - name: reach_progress
     description: >-
       Since 0.70.7 (STD-STANDING) where the student stands, in plain words rEach writes itself, from local state and the
-      cached status: summary, next, stale, age_minutes and notices. It sends nothing. Not in the test control's
+      cached status: summary, next, stale, age_minutes and notices. It only reads; a failure to read a section goes to the fault stream. Not in the test control's
       allowed_tools, so a proctored test stays on reach_test, reach_support and reach_status
   - name: reach_reclaim
     description: Find older rEach memory and course folders on this computer and bring them back; since 0.65.0 (STD-RECLAIM) it returns rEach's own question, listing what it found, until the student's captured yes, then acts once; optional only (brain, work or from) and from (a reach-work folder to copy from)
@@ -1574,7 +1574,7 @@ cli:
     purpose: Enrollment, slices, package versions, each slice's qualification (checks), receipts, open hands
   - name: progress
     synopsis: reach progress [--format text|json]
-    purpose: Where the student stands, in plain words rEach writes itself; reads local state and the cached status and sends nothing (STD-STANDING)
+    purpose: Where the student stands, in plain words rEach writes itself; reads local state and the cached status (STD-STANDING)
   - name: work
     synopsis: reach work [--harness ...] [--slice ... | --extracurricular]
     purpose: >-
@@ -1632,7 +1632,7 @@ cli:
       fuse boundaries and Dovetail panel rules; each finding carries a rule id, file, line, message, fix and its
       invisible or visible class. The PostToolUse hooks call it with --changed; submit runs it first.
   - name: checkpoint
-    synopsis: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]
+    synopsis: reach checkpoint save [--note <text>] | list [--all] | compare <n> [<other>] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]
     purpose: Snapshots of the slice's owned files, saved by name and on every write (checkpoints); recover brings back missing files or a missing work folder; no git in the workspace
   - name: plan
     synopsis: reach plan save --behaviour ... [--input ...] [--output ...] [--steps a|b] ... | note --progress ... [--next ...] | show | audit packet|record --verdict pass|fail [--reason ...] [--finding ...] [--auditor subagent|separate_pass]|show
@@ -3244,9 +3244,22 @@ checkpoints:
     nothing; an autosave appends no ledger event and never raises into a hook. config.yml checkpoints.autosave false
     or REACH_AUTOSAVE=0 turns it off. In a document slice the entries hold md and txt files as blobs and every other
     student file by sha256 digest only; a restore writes only the text files and never blanks a binary one.
+  milestones: >-
+    Since 0.70.8 (STD-CHECKPOINT-MILESTONES) rEach names a visible save itself (automatic, via milestone) when reach plan
+    save succeeds, when a qualification passes, and when a submission gets its ingest receipt in the same call; a
+    queued submission that is delivered later makes none, because the files may have moved on. Unlike a named save it
+    appends no ledger event and is not deliberate, so it never ends the search for missing work. It is skipped while
+    work is missing, is written once per milestone per state, follows the autosave switches, and a failure goes to the
+    fault stream and never reaches qualify or submit.
+  compare: >-
+    Since 0.70.8 reach checkpoint compare n [other] (reach_checkpoint action compare) reports what differs between save
+    n and the files now, or between two saves, with added and removed line counts and at most 200 lines of change. The
+    seal mark is removed before comparing and from the output, so a re-stamp shows no change. A file that cannot be
+    shown as lines (a binary, or a document file kept by digest only) is reported as changed. It needs no git and
+    changes nothing.
   rules: >-
-    An identical state is refused (M-CHECKPOINT-SAME) unless the entry that holds it is a hidden autosave and the new
-    save is a named one, so a student's save right after the agent's write still gets its name; restore saves the
+    An identical state is refused (M-CHECKPOINT-SAME) unless the entry that holds it is a hidden autosave or a milestone
+    save and the new save is a named one, so a student's save right after the agent's write still gets its name; restore saves the
     state it replaces first as a visible entry, even when a hidden autosave already holds it, and writes every file
     through a temporary file renamed into place (STD-STATE-FILE-REPLACE); the autosave on write
     runs before the recording bounds are judged, so it does not depend on the transcript being recorded; every named

@@ -501,7 +501,7 @@ module Reach
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
-            checkpoint save|list [--all]|show|restore|recover|dismiss|forget    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back, forget deletes the copies after a yes
+            checkpoint save|list [--all]|compare <n> [<other>]|show|restore|recover|dismiss|forget    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back, forget deletes the copies after a yes
             plan save|show|note|audit            the slice plan and its second-pass audit
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
@@ -3249,21 +3249,21 @@ module Reach
           puts result["message"]
           0
         when "list"
-          entries = Reach::Checkpoint.list(workspace_path, all: all)
-          if entries.empty?
+          rows = Reach::Checkpoint.rows(workspace_path, all: all)
+          if rows.empty?
             puts Reach::Messages.text("M-CHECKPOINT-NONE")
           else
-            previous = nil
-            entries.each do |entry|
-              changed = Reach::Checkpoint.changed_count(entry, previous)
-              note = entry["note"].to_s.empty? ? (entry["automatic"] ? "(automatic)" : "") : entry["note"]
-              shown_at = Reach::Messages.respond_to?(:course_time) ? Reach::Messages.course_time(entry["at"]) : entry["at"]
-              puts "#{entry['n']}  #{shown_at}  #{note}  #{changed} file(s) changed"
-              previous = entry
-            end
+            rows.each { |row| puts Reach::Checkpoint.row_text(row) }
           end
           hidden = all ? 0 : Reach::Checkpoint.hidden_count(workspace_path)
           puts Reach::Messages.text("M-CHECKPOINT-LIST-HIDDEN", n: hidden) if hidden.positive?
+          0
+        when "compare"
+          if remaining.first.to_s.empty?
+            warn "usage: reach checkpoint compare <n> [<other>]"
+            return 1
+          end
+          puts Reach::Checkpoint.compare(workspace_path, remaining[0], remaining[1])["text"]
           0
         when "show"
           entry = Reach::Checkpoint.show(workspace_path, remaining.first)
@@ -3279,7 +3279,7 @@ module Reach
           puts result["message"]
           0
         else
-          warn "usage: reach checkpoint save [--note <text>] | list [--all] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]"
+          warn "usage: reach checkpoint save [--note <text>] | list [--all] | compare <n> [<other>] | show <n> | restore <n> | recover [--slice <name>] | dismiss --slice <name> | forget [--slice <name>]"
           1
         end
       end
@@ -3304,6 +3304,7 @@ module Reach
             index += 1
           end
           Reach::Plan.save(workspace_path, fields)
+          Reach::Checkpoint.milestone(workspace_path, "PLAN") if sub == "save"
           puts Reach::Messages.text("M-PLAN-SAVED")
           puts Reach::Messages.text("M-PLAN-AUDIT-NEXT") if sub == "save"
           0

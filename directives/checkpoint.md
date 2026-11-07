@@ -19,6 +19,7 @@ note. You never manage files yourself; you call the command:
 ```
 reach checkpoint save --note "<what works now, in one line>"
 reach checkpoint list
+reach checkpoint compare <n> [<other>]
 reach checkpoint restore <n>
 ```
 

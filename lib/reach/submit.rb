@@ -69,6 +69,7 @@ module Reach
         begin
           answer = document ? upload_document(install, body, idempotency_key) : client(install).post_json(ROUTE, body, idempotency_key: idempotency_key).json
           result = handle_response(answer || {})
+          Reach::Checkpoint.milestone(workspace, "HANDED-IN") if result["state"] == "ingested"
           result = result.merge("archive" => Reach::Archive.write!(workspace, meta)) if result["state"] == "ingested"
           result = result.merge("text" => student_text(result)) if result["state"] == "ingested"
           result = result.merge("text" => rejection_text(result["rejection"], workspace)) if result["state"] == "rejected"

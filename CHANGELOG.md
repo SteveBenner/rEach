@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.8] - 2026-11-06
+
+### Added
+
+- `reach checkpoint compare <n> [<other>]` and the `compare` action of `reach_checkpoint` say what differs between a save and the files now, or between two saves: which files changed, how many lines were added and removed, and at most 200 lines of the change. It needs no git and changes nothing. The seal mark is removed before comparing and from the output, so a re-stamp shows no change, and a file that cannot be shown as lines is reported as changed. The agent explains the result in business terms (STD-CHECKPOINT-MILESTONES).
+- rEach names a visible save itself when `reach plan save` succeeds (Plan agreed), when a qualification passes (Checks passing), and when a submission gets its receipt in the same call (Handed in). These saves append no ledger event and never end the search for missing work. They are skipped while work is missing, are written once per milestone per state, and follow `REACH_AUTOSAVE=0` and `checkpoints.autosave`. A failure goes to the fault stream and never reaches qualify or submit. A queued submission delivered later makes no save, because the files may have moved on.
+
+### Changed
+
+- `reach checkpoint list` labels every row in plain words, so a save with no note says how it came to be. The `list` action of `reach_checkpoint` returns these rows instead of whole entries; `show` still returns the whole entry.
+
+### Fixed
+
+- The 0.70.7 text said `reach progress` sends nothing. It sends no answer or work, but a failure to read a section goes to the fault stream, like any fault. The student guide, the tool description, the skill, and the specs now say so.
+
 ## [0.70.7] - 2026-11-06
 
 ### Added

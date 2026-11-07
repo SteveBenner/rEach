@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:050d758f123840cf12e6757c2dd9f4b6a8a1d65c6a019ca0db364806ba071ecc",
+  "digest": "sha256:0aa3166712c677302ee87d12bd10e4e867184b47333d6b8562f89a106f5c5fa2",
   "policy": {
     "antifeatures": [
       {
@@ -125,7 +125,7 @@
     "directives": [
       {
         "alias": "H",
-        "body": "# CHECKPOINT: save what works, before you risk it\n\nA checkpoint is a snapshot of the slice's owned files kept by Reach, with a\nnote. You never manage files yourself; you call the command:\n\n```\nreach checkpoint save --note \"<what works now, in one line>\"\nreach checkpoint list\nreach checkpoint restore <n>\n```\n\nSave:\n\n- after `reach check` comes back clean and the code does something new;\n- before any change that touches more than one method, before a rewrite of\n  any kind, and before a fix you are not sure about;\n- when the student says \"save\", \"checkpoint\" or \"keep this\".\n\nRestore:\n\n- when a change made things worse and the way back is not one obvious edit;\n- when the student says \"undo\", \"go back\" or \"the earlier version\";\n- never reconstruct an earlier version from memory; restore it.\n\nSay in one sentence what a restore will replace, and wait for the\nstudent's yes before restoring. A restore keeps an automatic checkpoint of\nthe current state first, so nothing is lost either way.\n\nReach refuses a save whose files equal the last checkpoint, so saving too\noften costs nothing.\n",
+        "body": "# CHECKPOINT: save what works, before you risk it\n\nA checkpoint is a snapshot of the slice's owned files kept by Reach, with a\nnote. You never manage files yourself; you call the command:\n\n```\nreach checkpoint save --note \"<what works now, in one line>\"\nreach checkpoint list\nreach checkpoint compare <n> [<other>]\nreach checkpoint restore <n>\n```\n\nSave:\n\n- after `reach check` comes back clean and the code does something new;\n- before any change that touches more than one method, before a rewrite of\n  any kind, and before a fix you are not sure about;\n- when the student says \"save\", \"checkpoint\" or \"keep this\".\n\nRestore:\n\n- when a change made things worse and the way back is not one obvious edit;\n- when the student says \"undo\", \"go back\" or \"the earlier version\";\n- never reconstruct an earlier version from memory; restore it.\n\nSay in one sentence what a restore will replace, and wait for the\nstudent's yes before restoring. A restore keeps an automatic checkpoint of\nthe current state first, so nothing is lost either way.\n\nReach refuses a save whose files equal the last checkpoint, so saving too\noften costs nothing.\n",
         "enforce": "ledger",
         "id": "R-CHECKPOINT",
         "opcode": "CHECKPOINT",
@@ -1926,7 +1926,7 @@
       "refs": [
 
       ],
-      "sha256": "47e548d319ac0a5c5b95f155c9e07b9852ccc969e7fca3087c29518d93839bcd"
+      "sha256": "26e7d145896f086ab6e4c399c53103ce1efb8672c87ab29ae6f9946ff2efa567"
     },
     "skill-reach-course": {
       "kind": "skill",
@@ -1998,7 +1998,7 @@
       "refs": [
 
       ],
-      "sha256": "b114de4413a65a7f373ccaa990d163e085512a58c4734580c46eca42186add80"
+      "sha256": "95d08b7ed1ebe8400432eb47560ecf891c37c09e11e6abf691717d9f6709c78b"
     },
     "skill-reach-reclaim": {
       "kind": "skill",
@@ -2059,7 +2059,7 @@
         "R-VERIFY",
         "WS-POINTER-FULL"
       ],
-      "sha256": "d890be0c3f36c4da6411f0799891616bac970daca617f4a2065236c5083014eb"
+      "sha256": "047f0ee2cd934cdf5ab44c651fdf7adc7825e2084e5afa376941068ad0e8f6a3"
     },
     "workspace-stub": {
       "kind": "stub",

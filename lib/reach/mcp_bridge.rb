@@ -177,13 +177,14 @@ module Reach
       },
       {
         "name" => "reach_checkpoint",
-        "description" => "Save, list, show or restore a snapshot of the slice's files; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing; dismiss stops rEach reporting a work folder the student removed on purpose; forget deletes the saved copies of one slice or of everything and saves a receipt. recover, dismiss and forget each ask the student through Reach on the first call, so relay the question word for word; after the student's yes the same call acts once",
+        "description" => "Save, list, compare, show or restore a snapshot of the slice's files; compare says what changed since save n or between n and other, so explain it to the student in business terms; rEach also saves one on every write (list all true shows them); recover brings back files or a work folder that went missing; dismiss stops rEach reporting a work folder the student removed on purpose; forget deletes the saved copies of one slice or of everything and saves a receipt. recover, dismiss and forget each ask the student through Reach on the first call, so relay the question word for word; after the student's yes the same call acts once",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[save list show restore recover dismiss forget] },
+            "action" => { "type" => "string", "enum" => %w[save list compare show restore recover dismiss forget] },
             "note" => { "type" => "string" },
             "n" => { "type" => "integer" },
+            "other" => { "type" => "integer", "description" => "With compare, the second save; leave it out to compare with the files now" },
             "all" => { "type" => "boolean", "description" => "With list, include the automatic saves" },
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
           },
@@ -339,7 +340,7 @@ module Reach
       },
       {
         "name" => "reach_progress",
-        "description" => "Where the student stands in the course, in plain words: what is done for each assignment, what is left, what they are waiting on, and the one next step. Use it when the student asks where they are, how they are doing, what is left, or to check their progress. summary is ready to give to the student; stale true means the course details may be out of date, so call reach_sync and ask again; notices are about missing work (see the reach-checkpoint skill). It sends nothing",
+        "description" => "Where the student stands in the course, in plain words: what is done for each assignment, what is left, what they are waiting on, and the one next step. Use it when the student asks where they are, how they are doing, what is left, or to check their progress. summary is ready to give to the student; stale true means the course details may be out of date, so call reach_sync and ask again; notices are about missing work (see the reach-checkpoint skill). It only reads",
         "inputSchema" => { "type" => "object", "properties" => {} }
       },
       {
@@ -1222,7 +1223,8 @@ module Reach
       def checkpoint_tool(workspace, arguments)
         case arguments.fetch("action")
         when "save" then Reach::Checkpoint.save(workspace, note: arguments["note"])
-        when "list" then Reach::Checkpoint.list(workspace, all: arguments["all"] == true)
+        when "list" then Reach::Checkpoint.rows(workspace, all: arguments["all"] == true)
+        when "compare" then Reach::Checkpoint.compare(workspace, arguments.fetch("n"), arguments["other"])
         when "show" then Reach::Checkpoint.show(workspace, arguments.fetch("n"))
         when "restore" then Reach::Checkpoint.restore(workspace, arguments.fetch("n"))
         else raise Reach::Error, "reach: unknown checkpoint action"
@@ -1233,6 +1235,7 @@ module Reach
         case arguments.fetch("action")
         when "save", "note"
           saved = Reach::Plan.save(workspace, arguments["fields"] || {})
+          Reach::Checkpoint.milestone(workspace, "PLAN") if arguments["action"] == "save"
           arguments["action"] == "save" ? saved.merge("next" => Reach::Messages.text("M-PLAN-AUDIT-NEXT")) : saved
         when "show"
           Reach::Plan.load(workspace) || {}
