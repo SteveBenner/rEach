@@ -2285,9 +2285,20 @@ module Reach
 
       def check_harness_detected
         detected = Reach::Harness.detect
-        detected.nil? || detected.empty? ? ["R-DOC-HARNESS: no supported harness version was found - update the harness or install one"] : []
+        return [] unless detected.nil? || detected.empty?
+        return [] if harness_app_known?
+
+        ["R-DOC-HARNESS: no supported harness version was found - update the harness or install one"]
       rescue StandardError
         ["R-DOC-HARNESS: harness version could not be checked - update the harness or install one"]
+      end
+
+      def harness_app_known?
+        return true if Reach::HarnessIdentity.usable_label?(Reach::HarnessIdentity.detect["label"])
+
+        stored = Reach::Fingerprint.stored
+        descriptive = stored.is_a?(Hash) ? stored["descriptive"] : nil
+        Reach::HarnessIdentity.usable_label?(descriptive.is_a?(Hash) ? descriptive["harness"] : nil)
       end
 
       def check_enroll

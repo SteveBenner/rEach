@@ -19,6 +19,7 @@ module Reach
       "restamp" => "M-ENR-RESTAMP"
     }.freeze
 
+    VALIDATION_REDOS = 1
     YES_NO_STATES = %w[awaiting_confirm awaiting_move].freeze
     BEFORE_YES_NO_STATES = %w[awaiting_student_id].freeze
 
@@ -207,8 +208,28 @@ module Reach
       block(Reach::Validation.failure_text(error))
     end
 
-    def validation_context
-      { "action" => "context", "message" => "#{Reach::Validation::ANNOUNCE}\nRun the security validation pass now using the student's current harness. Call reach validate status (or reach_validate), follow every returned next step with fabricated data only, and relay the final text verbatim. Do not ask for identity or a password until phase passed. If any step cannot complete, relay the text it returned, with its cause, and stop enrollment." }
+    def redo_validation(flow, now, harness, error)
+      redos = flow["validation_redos"].to_i
+      if redos >= VALIDATION_REDOS
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(error))
+      end
+
+      begin
+        Reach::Validation.locked { Reach::Validation.start(course_code: flow["code"], harness: harness, restart: true) }
+      rescue StandardError => e
+        write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
+        return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: Reach::Validation.failure_text(e))
+      end
+
+      write_flow(flow.merge("state" => "awaiting_validation", "username" => nil, "student_id" => nil, "validation_redos" => redos + 1, "updated_at" => iso(now)))
+      Reach::EnrollOutbox.clear!
+      Reach::Device.note("validation.started")
+      validation_context(Reach::Messages.text("M-ENR-VALIDATION-AGAIN"))
+    end
+
+    def validation_context(lead = nil)
+      { "action" => "context", "message" => "#{lead}#{lead ? "\n" : ""}#{Reach::Validation::ANNOUNCE}\nRun the security validation pass now using the student's current harness. Call reach validate status (or reach_validate), follow every returned next step with fabricated data only, and relay the final text verbatim. Do not ask for identity or a password until phase passed. If any step cannot complete, relay the text it returned, with its cause, and stop enrollment." }
     end
 
     def validation_completed!
@@ -406,6 +427,7 @@ module Reach
           write_flow(fresh_flow.merge("refusals" => Array(flow["refusals"])))
           return Reach::Messages.text("M-ENR-MOVE-DENIED", reason: denial_reason(e))
         end
+        return redo_validation(flow, now, harness, e) if e.code == "forbidden"
 
         write_flow(flow.merge("state" => "awaiting_password", "updated_at" => iso(now)))
         return Reach::Messages.text("M-ENR-PASSWORD-RETRY-FAILED", reason: reason_text(e))

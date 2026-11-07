@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Doctor knows a harness app, and a refused enrollment pass restarts once — 0.70.6
+
+`reach doctor` stops reporting that no supported harness was found on a computer that uses only a harness app (the Claude desktop app has no command-line tool). It checks the running session's harness and the harness in the stored fingerprint, other than terminal and unknown. A chat enrollment that Teach refuses with 403 `forbidden` at the password step now starts one new security validation pass, tells the student why in plain words, and asks for the username again. A second refusal falls back to the earlier text. Why Teach refuses a pass rEach holds as passed is not established.
+
+Verified on 2026-11-06: the doctor check in a fake home with no harness command on the PATH, with no fingerprint (finding), with a `claude-desktop` fingerprint (none) and with a `terminal` one (finding); the real `EnrollFlow.step` in a fake home with only the registration POST and the validation start replaced, first refusal (one restart with `restart: true` and the same course code, flow in `awaiting_validation`, username, student ID and digest dropped, `validation_redos` 1) and second refusal (no restart, flow in `awaiting_password`, the earlier text). Not exercised: the Claude desktop app itself, a real Teach refusal, the agent running the new pass end to end, macOS, Windows.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (the student is told a new check is running and why they are asked again; nothing is hidden or retried silently). Wellbeing and safety yes (a student stuck at enrollment on a refused pass gets a way forward before the deadline instead of a wait-and-contact text; the second refusal still names the instructor). Privacy and dignity yes (the password digest is dropped on the restart, no new data leaves the computer, and the new pass uses fabricated answers).
+
+Wiring: none. It adds no service, events or metrics, and the restart is one more bounded request in a hook that already makes two.
+
+Build: ✅ on main. Deploy: 🔵 not on test or stable.
+
 ## A device report that runs out of time opens no issue — 0.70.5
 
 The background device report has 20 seconds. Running out of time is now handled as a transport failure instead of an unknown one: it stays in the fault stream with its cause, opens no issue on rEach or Teach, and no longer skips the check that keeps the background job installed. What made the report overrun is not established.

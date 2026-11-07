@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.6] - 2026-11-06
+
+### Fixed
+
+- `reach doctor` no longer reports `R-DOC-HARNESS` ("no supported harness version was found") on a computer that uses only a harness app, such as the Claude desktop app, which has no `claude` command on the PATH. `check_harness_detected` (`lib/reach/cli.rb`) now also passes when the running session's harness is known or when the stored fingerprint records a harness other than `terminal` or `unknown`. A computer with neither a command nor a known app still gets the finding (STD-DOCTOR-HARNESS-APP, `reach.spec.yml` R-DOC-HARNESS).
+- A student whose enrollment was refused with 403 `forbidden` at the password step was stuck: rEach kept the validation pass Teach had refused, so retrying and "start over" sent the same pass again. `Reach::EnrollFlow.redo_validation` (`lib/reach/enroll_flow.rb`) now starts one fresh pass (`restart: true`), drops the username, student ID, password digest and outbox, and says why with the new `M-ENR-VALIDATION-AGAIN`. A second refusal, or a new pass that cannot start, ends as before with `M-ENR-PASSWORD-RETRY-FAILED`. Why Teach refuses a pass that rEach holds as passed is not established; this fixes an expired or already-used pass and not a refusal that repeats. The terminal enrollment path is unchanged (STD-ENROLL-REDO-VALIDATION).
+
 ## [0.70.5] - 2026-11-06
 
 ### Fixed
