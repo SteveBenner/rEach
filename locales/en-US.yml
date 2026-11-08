@@ -76,6 +76,7 @@ messages:
   M-ENR-PASSWORD-REMINDER: "Keep the password you chose written down somewhere safe."
   M-ENR-RESTART: "No problem, let's start over. Please type the course passkey your instructor gave you."
   M-ENR-VALIDATION-AGAIN: "Teach did not accept the security check rEach ran a moment ago, so rEach is running a new one. Nothing was saved. When it passes, you will be asked for your username again."
+  M-ENR-VALIDATION-AGAIN-TERMINAL: "Teach did not accept the security check rEach ran a moment ago, so rEach started a new one. Nothing was saved. When it passes, run reach enroll again."
   M-ENR-RESET-BY-INSTRUCTOR: "Only your instructor can reset your rEach password. Ask them to press Reset password in Teach; rEach will then ask you for a new one."
   M-ENR-REFUSED: "Your course server couldn't match that username and student ID to the class list for {course_id}. Please type your username again, carefully. If it still doesn't work, ask your instructor to check the class list."
   M-INSTRUCTOR-UNLOCKED: "Instructor unlock accepted. rEach no longer blocks your prompts on this computer. To undo it, run reach instructor lock in a terminal."

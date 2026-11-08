@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## A refused terminal enrollment restarts its pass once — 0.70.11
+
+A student who enrolls with `reach enroll` in a terminal, as Hermes and Antigravity students do, and is refused by Teach with a 403 at the registration step no longer retries the same refused security check forever. rEach starts one new check, tells the student that Teach did not accept the earlier one and that nothing was saved, and asks them to run `reach enroll` again when the new check passes. If the new check is refused as well, or Teach cannot be reached to start it, the student sees the same messages as before and keeps the check they had. Chat enrollment already did this since 0.70.6.
+
+Verified on 2026-11-07: the real `reach enroll` command code (`cmd_enroll`, `enroll_with_identity`) and the real `Reach::Validation.start` and state file in a fake home with every override set; only Teach's validation reply, its course preview and its refusal at registration were replaced. First refusal on a passed pass: one new pass, marked redone, exit 2, the new message, the announcement and the new pass printed. Second refusal on that pass: no new pass, the old refusal text, exit 1. After `reach validate --restart`: the next refusal restarts once more. Teach unreachable on the restart: exit 1, the connection text, the old passed pass kept. Run without `--harness`: the new pass uses the harness stored with the old one. Host files were unchanged after the runs. Not exercised: a real Teach refusal (why Teach refuses a pass rEach holds as passed is not established, so a repeating refusal still ends in the old text), Hermes or Antigravity, macOS and Windows.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (the student is told why a new check runs and that nothing was saved). Wellbeing and safety yes (a dead end ends in one clear step; no password or answer is stored or sent again). Privacy and dignity yes (the new check uses made-up answers, as every check does). Fairness and access yes (the same text in every terminal harness; macOS and Windows not exercised). Friction yes (one extra check, once, then the old messages). Failure yes (a restart that cannot start keeps the old pass and says so). Recovery yes (`reach validate --restart` still starts a clean check by hand).
+
+Wiring: none. It adds no service, events or metrics, and one bounded request to Teach's validation route, as chat enrollment already makes.
+
+Build: 🔵 in progress on main. Deploy: 🔵 not on test or stable.
+
 ## Codex course folders carry the sign-in step — 0.70.10
 
 A student who installed rEach from the zip and uses Codex can now sign in even when Codex does not load rEach as a plugin. Each course folder's Codex hooks now include rEach's session start and its sign-in step, not only the plugin. When both run, only one acts, so a prompt is never judged twice. Students whose plugin already works see no change. The two new course hooks are approved with the rest under the student's existing yes to rEach approving its hooks.

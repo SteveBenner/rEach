@@ -153,7 +153,7 @@ end
       false
     end
 
-    def start(course_code:, harness: nil, restart: false)
+    def start(course_code:, harness: nil, restart: false, redone: false)
       raise Reach::Refused, blocked("disabled") if ENV["REACH_VALIDATION_DISABLE"] == "1"
       label = self.harness(harness)
       parsed = Reach::Identity.parse_course_code(course_code)
@@ -181,6 +181,7 @@ end
 
       state = reply.merge("local_id" => local, "teach_url" => configured_url, "course_digest" => Reach::Crypto.digest_hex(code),
                           "harness" => label, "reach_version" => Reach::VERSION, "phase" => "handoff")
+      state["redone"] = true if redone
       raise Reach::VerificationFailed, blocked("reply") unless fresh?(state)
       raise Reach::VerificationFailed, blocked("course") unless state["course_id"].is_a?(String) && state["course_id"].match?(/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\z/)
       questions = state["questions"]

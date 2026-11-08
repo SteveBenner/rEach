@@ -766,12 +766,37 @@ module Reach
             warn Reach::Messages.text("M-ENR-MOVE-DENIED", reason: Reach::EnrollFlow.denial_reason(e))
             return 1
           end
+          return redo_validation_in_terminal(parsed["code"], options[:harness], e) if e.code == "forbidden"
+
           warn(e.code == "enrollment_refused" ? Reach::Messages.text("M-ENR-REFUSED", course_id: course["id"]) : Reach::EnrollFlow.refusal_text(e))
           return 1
         end
         Reach::Progress.enrolled!(install["student_id"])
         Reach::EnrollFlow.finish("terminal")
         finish_enroll(install)
+      end
+
+      def redo_validation_in_terminal(code, harness, error)
+        held = Reach::Validation.read
+        held = {} unless held.is_a?(Hash)
+        if held["redone"]
+          warn Reach::EnrollFlow.refusal_text(error)
+          return 1
+        end
+        begin
+          result = Reach::Validation.locked do
+            Reach::Validation.start(course_code: code, harness: harness || held["harness"], restart: true, redone: true)
+          end
+        rescue StandardError => e
+          Reach::Debug.emit("gate", "check" => "security_validation", "outcome" => "blocked", "error_class" => e.class.name, "cause" => Reach::Validation.cause_of(e))
+          warn Reach::Validation.failure_text(e)
+          return 1
+        end
+        Reach::Device.note("validation.started")
+        puts Reach::Messages.text("M-ENR-VALIDATION-AGAIN-TERMINAL")
+        puts Reach::Validation::ANNOUNCE
+        puts JSON.pretty_generate(result)
+        2
       end
 
       def read_hidden

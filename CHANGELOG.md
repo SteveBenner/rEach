@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.11] - 2026-11-07
+
+### Fixed
+
+- A student who enrolls from the terminal (`reach enroll`, the path Hermes and Antigravity use) and is refused with 403 `forbidden` at the registration step was stuck the same way chat enrollment was before 0.70.6: rEach kept the validation pass Teach had refused, so every retry sent it again. `redo_validation_in_terminal` (`lib/reach/cli.rb`) now starts one fresh pass (`Reach::Validation.start(restart: true, redone: true)`), says why with the new `M-ENR-VALIDATION-AGAIN-TERMINAL`, prints the new pass and exits 2 so the student runs `reach enroll` again once it passes. The new pass is marked `redone` in its state file, so a second refusal, or a restart that cannot reach Teach, ends as before with the old pass kept, and `reach validate --restart` starts an unmarked pass (STD-ENROLL-REDO-VALIDATION).
+
 ## [0.70.10] - 2026-11-07
 
 ### Fixed
