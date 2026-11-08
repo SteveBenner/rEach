@@ -42,7 +42,11 @@ module Reach
     def boundary(where)
       yield
     rescue StandardError => e
-      Reach::Debug.fault(e, where)
+      if Reach::Sandbox.write_refused?(e)
+        Reach::Debug.error(e, where)
+      else
+        Reach::Debug.fault(e, where)
+      end
       nil
     end
 

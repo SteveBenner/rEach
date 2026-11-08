@@ -24,12 +24,15 @@ module Reach
       active? && (network_blocked? || !home_writable?)
     end
 
+    def write_refused?(error)
+      active? && [error, error.cause].any? { |candidate| WRITE_ERRORS.any? { |klass| candidate.is_a?(klass) } }
+    end
+
     def blocking_error?(error)
       return false unless active?
       return true if error.is_a?(Reach::NetworkError) && error.cause_name == "codex_sandbox"
 
-      write_error = [error, error.cause].any? { |candidate| WRITE_ERRORS.any? { |klass| candidate.is_a?(klass) } }
-      write_error && !home_writable?
+      write_refused?(error) && !home_writable?
     end
 
     def agent_text

@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The device report stays quiet in the Codex sandbox — 0.70.9
+
+When the Codex sandbox does not let a command write rEach's device state folder, the device report now skips that step without filing a fault. Before, each such Mac opened the same blocker issue on the course server although the student had done nothing wrong and could do nothing about it. A step skipped this way is recorded the next time something runs where the folder is writable. The same write failing outside the sandbox is still reported.
+
+Verified on 2026-11-07: the real `Reach::Device.note` in a fake home with the sandbox flag set, before and after. Before: one `Errno::EPERM` fault at `device:note`, and one `Errno::EACCES` fault when the folder refused the write for real. After: no fault in either case and a debug-log record, and the same two writes with no sandbox flag still fault. Not exercised: a real Codex sandbox on macOS, a Windows computer, and whether the skipped milestone is later recorded by a hook that runs outside the sandbox.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (nothing is hidden from the student, who never saw this fault; the debug record keeps it for anyone who looks). Wellbeing and safety n/a (no student-facing change). Privacy and dignity yes (no new data is read, sent or stored).
+
+Wiring: none. It adds no service, events or metrics.
+
+Build: ✅ on main. Deploy: 🔵 not on test or stable.
+
 ## Saves a student can read and compare — 0.70.8
 
 `reach checkpoint list` labels every row in plain words. `reach checkpoint compare <n> [<other>]` and the `compare` action of `reach_checkpoint` say what differs between a save and the files now, or between two saves, with no git on the student's computer; the agent explains it in business terms and names no file or code. rEach also names a visible save itself at Plan agreed, Checks passing, and Handed in. Those saves add no ledger event, never end the search for missing work, are skipped while work is missing, and a failure in them goes to the fault stream and never reaches qualify or submit. `recover` still restores the newest save that holds the missing files, and that can be one of these saves. `REACH_AUTOSAVE=0` and `checkpoints.autosave` turn them off.

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.9] - 2026-11-07
+
+### Fixed
+
+- A device report step whose write the Codex sandbox refuses no longer files a fault. On macOS the device state lives under `~/Library/Application Support/reach`, which a command run by the Codex agent may not write, so `Reach::Device.note` raised `Errno::EPERM` and every such install filed the same blocker (desk issue `iss_1c3c711d04e4a8e13123`, `Errno::EPERM in device:note`, rEach 0.70.3, three installs). `Device.boundary` (`lib/reach/device.rb`) now records a refusal that `Reach::Sandbox.write_refused?` recognizes (`lib/reach/sandbox.rb`: the sandbox is active and the error or its cause is `EPERM`, `EACCES` or `EROFS`) with `Reach::Debug.error`, which writes only in debug mode, and answers nil. The same write outside the sandbox, and any other error, are still faults. The step is skipped, not retried: a milestone reached inside the sandbox is recorded the next time something runs where the state folder is writable. `Sandbox.blocking_error?` is unchanged and shares the new predicate (STD-DEVICE-SANDBOX).
+
 ## [0.70.8] - 2026-11-06
 
 ### Added
