@@ -311,6 +311,8 @@ module Reach
 
         {
           "hooks" => {
+            "SessionStart" => [hook_entry(nil, hook_line("hello"), 10)],
+            "UserPromptSubmit" => [hook_entry(nil, hook_line("gate", "enroll", "--harness", "codex"), 60)],
             "PreToolUse" => [
               hook_entry("apply_patch|Write|Edit", hook_line("gate", "write", "--harness", "codex"), 10),
               hook_entry("Bash|shell|exec_command", hook_line("gate", "shell", "--harness", "codex"), 10),

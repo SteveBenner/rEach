@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.10] - 2026-11-07
+
+### Fixed
+
+- A zip install on Codex can sign in when Codex does not load the install as a plugin. The sign-in ran only from the plugin's prompt hook (`hooks/codex.json`), so when the course folder's hooks ran and the plugin's did not, rEach kept saying Codex was not running its sign-in step while `reach codex status` reported every hook approved. Every course folder's `.codex/hooks.json` (`Reach::Harness.codex_hooks_content`, root, slice and extracurricular) now also carries SessionStart `reach hello` and UserPromptSubmit `reach gate enroll --harness codex`, the plugin's own two commands through the course folder's Ruby and shim. The new events sit beside the old ones, so every existing course handler keeps its Codex key and hash, and its trust. rEach approves the two new handlers with the rest when the student's hook-approval yes stands. The plugin's hooks are unchanged (STD-CODEX-HOOK-TRUST).
+- A Codex `gate enroll` now claims its turn (`Reach::Gate.once!` keyed on the session and turn id) before doing any work, and a Codex `reach hello` claims its session start (keyed on the session id and start source, `Hello.duplicate_codex_start?`). When the plugin and the course folder both run, at the same moment or one after the other, exactly one does the work, and the other answers nothing or `{}`. Before, a second run of `gate enroll` on the same prompt advanced the sign-in flow again and judged the same text twice. The plugin's Stop `hook response` gets no course twin, because the course folder's `hook stop` already runs the same reply review on Codex.
+- A plugin copy that Codex still caches from an earlier release does not claim, so until Codex refreshes it, a student whose plugin and course hooks both run may see the session greeting twice.
+
 ## [0.70.9] - 2026-11-07
 
 ### Fixed

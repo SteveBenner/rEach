@@ -24,6 +24,7 @@ module Reach
         Reach::HarnessIdentity.hook!(Reach::Session.resolve_session_id(event), Reach::Fingerprint.harness_label(harness || resolve_harness(nil)))
         source = event["source"] if source.nil?
         cwd = event["cwd"] if event["cwd"]
+        return "{}" if duplicate_codex_start?(harness, event)
       end
 
       observe_home_env
@@ -53,6 +54,13 @@ module Reach
       emit(format, context, banner, greeting_id, greeting_text, course && course["notice"])
     rescue StandardError
       emit(format, MINIMAL_CONTEXT, nil, nil, nil)
+    end
+
+    def duplicate_codex_start?(harness, event)
+      return false unless event.is_a?(Hash) && event["hook_event_name"] == "SessionStart" && !event["session_id"].to_s.empty?
+      return false unless resolve_harness(harness == "antigravity" ? nil : harness) == "codex"
+
+      !Reach::Gate.once!(event, "hello")
     end
 
     def course_session(harness_id, format, event, source, cwd)

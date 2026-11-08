@@ -987,9 +987,9 @@ module Reach
       end
 
       def duplicate_codex_hook?(sub, options, event)
-        return false unless %w[prompt session].include?(sub.to_s) && options[:harness].to_s == "codex"
+        return false unless %w[prompt session enroll].include?(sub.to_s) && options[:harness].to_s == "codex"
         return false unless event.is_a?(Hash) && !event["session_id"].to_s.empty?
-        return false if sub.to_s == "prompt" && event["turn_id"].to_s.empty?
+        return false if %w[prompt enroll].include?(sub.to_s) && event["turn_id"].to_s.empty?
 
         !Reach::Gate.once!(event, sub.to_s)
       rescue StandardError
@@ -997,8 +997,8 @@ module Reach
       end
 
       def gate_dispatch(sub, options, event)
-        return gate_enroll(options[:harness], event) if sub == "enroll"
         return 0 if duplicate_codex_hook?(sub, options, event)
+        return gate_enroll(options[:harness], event) if sub == "enroll"
 
         hermes = hermes_hook?(options[:harness], event)
         if hermes

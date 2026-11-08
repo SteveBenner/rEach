@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Codex course folders carry the sign-in step — 0.70.10
+
+A student who installed rEach from the zip and uses Codex can now sign in even when Codex does not load rEach as a plugin. Each course folder's Codex hooks now include rEach's session start and its sign-in step, not only the plugin. When both run, only one acts, so a prompt is never judged twice. Students whose plugin already works see no change. The two new course hooks are approved with the rest under the student's existing yes to rEach approving its hooks.
+
+Verified on 2026-11-07: the real `reach gate enroll --harness codex` and `reach hello` hook commands, run on the shipped 0.70.9 and on this change in a fake home with Codex hook payloads. Before: a second run of the same prompt advanced the sign-in flow again, and a second session start greeted again. After: the second run answers nothing (or `{}` for the greeting), two copies started at the same moment act exactly once in three rounds, a new turn or a new start source still runs, and Claude Code runs are unchanged. The course hooks' trust keys for root, slice and extracurricular folders keep every existing handler's key and hash and add only `session_start:0:0` and `user_prompt_submit:0:0`. Not exercised: the real Codex app, macOS, Windows, a real sign-in against Teach, and rEach's trust write for the two new handlers in a real Codex `config.toml`.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (the student can sign in when the setup said everything was approved, instead of being told to restart into the same block). Wellbeing and safety yes (a stuck sign-in ends; the password is still captured only by rEach's own hook, never the AI). Privacy and dignity yes (no new data is read, sent or stored).
+
+Wiring: none. It adds no service, events or metrics.
+
+Build: ✅ on main. Deploy: ⏳ not yet on test or stable.
+
 ## The device report stays quiet in the Codex sandbox — 0.70.9
 
 When the Codex sandbox does not let a command write rEach's device state folder, the device report now skips that step without filing a fault. Before, each such Mac opened the same blocker issue on the course server although the student had done nothing wrong and could do nothing about it. A step skipped this way is recorded the next time something runs where the folder is writable. The same write failing outside the sandbox is still reported.
