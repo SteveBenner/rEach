@@ -10,7 +10,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events or metrics.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🔵 on test since v0.70.9, stable is the operator's.
 
 ## Saves a student can read and compare — 0.70.8
 
@@ -22,7 +22,7 @@ Student-first audit: learning yes (a student can see what changed and have it ex
 
 Wiring: none. It adds no service or metric, and its only event is the existing fault stream.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🔵 on test since v0.70.9, stable is the operator's.
 
 ## A student can ask where they stand — 0.70.7
 
@@ -34,7 +34,7 @@ Student-first audit: learning yes (it shows where the student is and does none o
 
 Wiring: none. It adds no service or metric, and its only event is the existing fault stream.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🔵 on test since v0.70.9, stable is the operator's.
 
 ## Doctor knows a harness app, and a refused enrollment pass restarts once — 0.70.6
 
