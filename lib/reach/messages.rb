@@ -54,7 +54,8 @@ module Reach
         options = options.is_a?(Hash) ? Array(options["options"]) : []
         match = options.find { |option| option.is_a?(Hash) && option["id"] == module_id && !option["title"].to_s.empty? }
         match ? match["title"].to_s : module_id.tr("_", " ").capitalize
-      rescue StandardError
+      rescue StandardError => e
+        Reach::Debug.fault(e, "messages:module_title")
         module_id.tr("_", " ").capitalize
       end
 
