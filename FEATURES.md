@@ -10,7 +10,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none.
 
-Build: 🔵 in progress on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🔵 on test since 2026-11-08 (v0.70.12); ⏳ not yet on stable.
 
 ## A refused terminal enrollment restarts its pass once — 0.70.11
 
@@ -22,7 +22,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events or metrics, and one bounded request to Teach's validation route, as chat enrollment already makes.
 
-Build: 🔵 in progress on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: 🔵 on test since 2026-11-08 (v0.70.12); ⏳ not yet on stable.
 
 ## Codex course folders carry the sign-in step — 0.70.10
 
