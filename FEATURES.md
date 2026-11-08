@@ -10,7 +10,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events or metrics.
 
-Build: ✅ on main. Deploy: ⏳ not yet on test or stable.
+Build: ✅ on main. Deploy: ✅ on test since 2026-11-08 (v0.70.10); ⏳ not yet on stable.
 
 ## The device report stays quiet in the Codex sandbox — 0.70.9
 
