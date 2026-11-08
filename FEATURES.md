@@ -10,7 +10,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events or metrics.
 
-Build: ✅ on main. Deploy: 🔵 on test since v0.70.9, stable is the operator's.
+Build: ✅ on main. Deploy: ✅ on stable since 2026-11-07 (v0.70.9).
 
 ## Saves a student can read and compare — 0.70.8
 
@@ -22,7 +22,7 @@ Student-first audit: learning yes (a student can see what changed and have it ex
 
 Wiring: none. It adds no service or metric, and its only event is the existing fault stream.
 
-Build: ✅ on main. Deploy: 🔵 on test since v0.70.9, stable is the operator's.
+Build: ✅ on main. Deploy: ✅ on stable since 2026-11-07 (v0.70.9).
 
 ## A student can ask where they stand — 0.70.7
 
@@ -34,7 +34,7 @@ Student-first audit: learning yes (it shows where the student is and does none o
 
 Wiring: none. It adds no service or metric, and its only event is the existing fault stream.
 
-Build: ✅ on main. Deploy: 🔵 on test since v0.70.9, stable is the operator's.
+Build: ✅ on main. Deploy: ✅ on stable since 2026-11-07 (v0.70.9).
 
 ## Doctor knows a harness app, and a refused enrollment pass restarts once — 0.70.6
 
@@ -46,7 +46,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events or metrics, and the restart is one more bounded request in a hook that already makes two.
 
-Build: ✅ on main. Deploy: 🔵 on test since v0.70.6, stable is the operator's.
+Build: ✅ on main. Deploy: ✅ on stable since 2026-11-07 (v0.70.9).
 
 ## A device report that runs out of time opens no issue — 0.70.5
 
@@ -58,7 +58,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events, or metrics.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: ✅ on stable since 2026-11-07 (v0.70.9).
 
 ## The assignment-one smoke runs to the end again — 0.70.4
 
@@ -68,7 +68,7 @@ Student-first audit: learning n/a (no course content or coaching changes). Agenc
 
 Wiring: none. It adds no service, events, or metrics.
 
-Build: ✅ on main. Deploy: 🔵 not on test or stable.
+Build: ✅ on main. Deploy: ✅ on stable since 2026-11-07 (v0.70.9).
 
 ## Moving to another module without a new session — 0.70.3
 
