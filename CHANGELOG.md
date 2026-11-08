@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.13] - 2026-11-08
+
+### Fixed
+
+- **A panel preview opened but loaded none of its choices: the examples and the requesting modules answered HTTP 500 `port_not_faked`, while the same display passed reach qualify.** `lib/reach/kit/preview_server.rb` started Grokit without naming a business, so Grokit used its default, the café, whose fixtures other than `business.yml` the kit does not carry, and it never installed the slice's practice recording (`GROKIT_REPLAY`), which qualify's Cucumber support installs before each scenario. The server now sets `GROKIT_BUSINESS=practice` before Grokit loads and installs the recording with `Grokit::Practice::Replay` when `GROKIT_REPLAY` names a file in the run directory (STD-PREVIEW). Measured on 2026-11-08 by running the real preview server over HTTP on a copy of a `records.a3s2` kit built from Grokit 0.12.7: before, `records.examples`, `records.roles` and `records.filter_protected` each answered 500 `port_not_faked`; after, all three answered 200 with the practice data (two examples, ten requesters, and `filtered_fields` `customer.email,customer.phone` for Finance), and a repeated call kept its answer. Without a recording, a call whose behaviour the kit does not ship still answers an empty 200, because Grokit raises a `LoadError` for the missing file.
+
 ## [0.70.12] - 2026-11-07
 
 ### Fixed

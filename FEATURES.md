@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## A panel preview shows the practice data — 0.70.13
+
+A student previewing a panel part saw the display open with no choices to pick from. The preview asked the course's practice app for its examples and options, and every request failed, because the preview ran the app as a business whose data the student's kit does not carry and never loaded the recorded practice answers. The preview now runs as the practice business and loads the practice recording, the same data reach qualify checks against, so the examples, the options and their results appear.
+
+Verified on 2026-11-08: the real preview server, run over HTTP on a copy of a `records.a3s2` kit built from Grokit 0.12.7. Before: the examples, the requesters and the filter call each answered 500 `port_not_faked`. After: all three answered 200 with the practice data the qualify scenarios expect, and a repeated call kept its answer. Not exercised: a student's real kit, the browser view, macOS, Windows, and other modules' panels. Without a recording, a call whose behaviour the kit does not ship still answers an empty 200.
+
+Student-first audit: learning yes (the student can see and check the display they built against the practice data). Agency and honesty yes (the preview no longer shows an error the student cannot fix). Wellbeing and safety yes (a dead end is removed; nothing is graded or sent). Privacy and dignity yes (the preview reads only the kit's own practice data and sends nothing).
+
+Wiring: none.
+
+Build: ✅ on main. Deploy: ⏳ not yet on test.
+
 ## The submit question names the part in the student's words — 0.70.12
 
 A student could not submit a backend part. rEach's question read "Ready to submit your backend work for assurance.a3s2?", the guided-learner filter blocks the word "backend", so the student saw "I couldn't finish that explanation. Please ask your instructor for help" in place of the question, and when the agent reworded it the student's yes was not recorded and rEach asked the same question again. The question and the other messages that name a part (partial submit, receipt, grade, late notice, rejected-later notice, next step, 24-hour reminder) now say "logic" for a backend part and "Assurance A3 step 2" for the cutout. A panel part keeps its name.

@@ -27,11 +27,18 @@ Dir.glob(File.join(run_dir, "modules", "*", "lib")).sort.each do |dir|
 end
 
 ENV["GROKIT_ROOT"] ||= run_dir
+ENV["GROKIT_BUSINESS"] = "practice"
 
 begin
   require "grokit"
   require "grokit/api"
   Grokit.load_modules
+  replay = ENV["GROKIT_REPLAY"].to_s
+  recording = replay.empty? ? nil : File.expand_path(replay, run_dir)
+  if recording && File.file?(recording)
+    require "grokit/practice/replay"
+    Grokit::Practice::Replay.install!(recording)
+  end
   begin
     require "rackup/handler/webrick"
   rescue LoadError
