@@ -35,7 +35,7 @@ begin
   Grokit.load_modules
   replay = ENV["GROKIT_REPLAY"].to_s
   recording = replay.empty? ? nil : File.expand_path(replay, run_dir)
-  if recording && File.file?(recording)
+  if recording && recording.start_with?(File.join(File.expand_path(run_dir), "")) && File.file?(recording)
     require "grokit/practice/replay"
     Grokit::Practice::Replay.install!(recording)
   end
