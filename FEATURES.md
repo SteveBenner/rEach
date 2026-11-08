@@ -10,7 +10,7 @@ Student-first audit: learning yes (the student can see and check the display the
 
 Wiring: none.
 
-Build: ✅ on main. Deploy: ⏳ not yet on test.
+Build: ✅ on main. Deploy: 🔵 on test since 2026-11-08 (v0.70.13); ⏳ not yet on stable.
 
 ## The submit question names the part in the student's words — 0.70.12
 
