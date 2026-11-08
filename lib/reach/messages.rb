@@ -8,11 +8,21 @@ module Reach
 
     LOCALES_DIR = File.expand_path("../../locales", __dir__)
 
+    PART_MESSAGES = %w[
+      M-SUBMIT-ASK M-SUBMIT-PARTIAL-ASK M-SUBMIT-RECEIVED M-SUBMIT-PARTIAL-RECEIVED M-GRADED M-DEADLINE-24H
+      M-SUBMIT-REJECTED-LATER M-SUBMIT-REJECTED-LATER-DISAGREE M-NEXT-SUBMIT M-NEXT-WAIT-GRADE M-LATE-NOTICE
+    ].freeze
+
+    SLICE_NAMES = { "backend" => "logic" }.freeze
+
+    CUTOUT_ID = /\A([a-z][a-z0-9_]*)\.a(\d+)(?:s(\d+))?\z/.freeze
+
     class << self
       def text(id, locale: DEFAULT_LOCALE, **fields)
         template = catalogue(locale).fetch("messages", {})[id.to_s]
         raise Reach::Error, "reach: unknown message id #{id.inspect}" unless template
 
+        fields = learner_part_fields(fields) if PART_MESSAGES.include?(id.to_s)
         rendered = interpolate(template, fields)
         begin
           Reach::SetupLog.note_message(id, fields)
@@ -20,6 +30,32 @@ module Reach
           nil
         end
         rendered
+      end
+
+      def learner_part_fields(fields)
+        fields = fields.dup
+        fields[:slice] = SLICE_NAMES.fetch(fields[:slice].to_s, fields[:slice]) if fields.key?(:slice)
+        fields[:cutout] = learner_cutout(fields[:cutout]) if fields.key?(:cutout)
+        fields
+      end
+
+      def learner_cutout(cutout_id)
+        match = CUTOUT_ID.match(cutout_id.to_s)
+        return cutout_id unless match
+
+        module_id, assignment, step = match.captures
+        title = learner_module_title(module_id)
+        label = "#{title} A#{assignment}"
+        step ? "#{label} step #{step}" : label
+      end
+
+      def learner_module_title(module_id)
+        options = Reach::Policy.module_selection
+        options = options.is_a?(Hash) ? Array(options["options"]) : []
+        match = options.find { |option| option.is_a?(Hash) && option["id"] == module_id && !option["title"].to_s.empty? }
+        match ? match["title"].to_s : module_id.tr("_", " ").capitalize
+      rescue StandardError
+        module_id.tr("_", " ").capitalize
       end
 
       def failure_reason(category, locale: DEFAULT_LOCALE)

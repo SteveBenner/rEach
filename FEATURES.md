@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The submit question names the part in the student's words — 0.70.12
+
+A student could not submit a backend part. rEach's question read "Ready to submit your backend work for assurance.a3s2?", the guided-learner filter blocks the word "backend", so the student saw "I couldn't finish that explanation. Please ask your instructor for help" in place of the question, and when the agent reworded it the student's yes was not recorded and rEach asked the same question again. The question and the other messages that name a part (partial submit, receipt, grade, late notice, rejected-later notice, next step, 24-hour reminder) now say "logic" for a backend part and "Assurance A3 step 2" for the cutout. A panel part keeps its name.
+
+Verified on 2026-11-07: the real message catalogue and the real guided-learner filter in a fake home with every override set. The rendered submit question, the partial question, the receipt, the grade line, the next-step line and the late notice each come back with no violation; before the change the submit question returned GL-DETAIL. The real `Submit.ask_fields`, `Consent.ask!` and `Consent.capture` recorded a typed "yes please submit it" against that question from a transcript that repeats it. Not exercised: a real Claude Code or Codex chat, the student's own machine, and the live module titles (the fake home had none, so the module name came from the cutout id). The checkpoint and packet messages still print the work-folder name, which contains "backend".
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty yes (the student can read the question and say yes or no). Wellbeing and safety yes (no more dead end that sends them to the instructor over a software fault). Privacy and dignity n/a. Fairness and access yes (every backend part, every course). Friction yes (one yes submits). Failure yes (a value that is not an internal name is shown as it was). Recovery yes (the same question can still be answered).
+
+Wiring: none.
+
+Build: 🔵 in progress on main. Deploy: 🔵 not on test or stable.
+
 ## A refused terminal enrollment restarts its pass once — 0.70.11
 
 A student who enrolls with `reach enroll` in a terminal, as Hermes and Antigravity students do, and is refused by Teach with a 403 at the registration step no longer retries the same refused security check forever. rEach starts one new check, tells the student that Teach did not accept the earlier one and that nothing was saved, and asks them to run `reach enroll` again when the new check passes. If the new check is refused as well, or Teach cannot be reached to start it, the student sees the same messages as before and keeps the check they had. Chat enrollment already did this since 0.70.6.

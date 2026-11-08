@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.12] - 2026-11-07
+
+### Fixed
+
+- A student could not submit a backend part: the submit question named the part as "backend" and the part by its internal id (for example `assurance.a3s2`), the guided-learner display filter (GL-DETAIL) blocks the word "backend", so the student saw "I couldn't finish that explanation" in place of the question, and the reworded question no longer matched what `Reach::Consent.question_shown?` looks for, so the student's yes was not recorded and rEach asked again. `Reach::Messages.text` (`lib/reach/messages.rb`) now writes `backend` as `logic` and a cutout id as the module, assignment and step (`Assurance A3 step 2`) before it fills `{slice}` and `{cutout}` in `M-SUBMIT-ASK`, `M-SUBMIT-PARTIAL-ASK`, `M-SUBMIT-RECEIVED`, `M-SUBMIT-PARTIAL-RECEIVED`, `M-GRADED`, `M-DEADLINE-24H`, `M-SUBMIT-REJECTED-LATER`, `M-SUBMIT-REJECTED-LATER-DISAGREE`, `M-NEXT-SUBMIT`, `M-NEXT-WAIT-GRADE` and `M-LATE-NOTICE`. A panel part keeps its name, and a value that is not an internal name is left as it was. The work-folder names in the checkpoint and packet messages still show `backend` (STD-SUBMIT-APPROVAL).
+
 ## [0.70.11] - 2026-11-07
 
 ### Fixed
