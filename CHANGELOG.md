@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.15] - 2026-11-09
+
+### Fixed
+
+- **The Windows Downloads check could delete a real redirect if it failed to read the registry.** It treated any failed read as "no value set", so its restore step removed the value. It now reads the whole key, treats a missing value as unset only when that read succeeded, and fails without changing anything when it cannot read the value.
+
 ## [0.70.14] - 2026-11-09
 
 ### Changed

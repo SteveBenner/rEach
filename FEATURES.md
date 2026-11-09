@@ -1,8 +1,8 @@
 # FEATURES — rEach
 
-## Windows platform checks — 0.70.14
+## Windows platform checks — 0.70.14, 0.70.15
 
-The platform check gains four Windows-only steps: CRLF lock digests, a live request that asks only once, a stray HOME, and a redirected Downloads folder. The release gate's facts contract also drops the unread `flapping` key.
+The platform check gains four Windows-only steps: CRLF lock digests, a live request that asks only once, a stray HOME, and a redirected Downloads folder. The release gate's facts contract also drops the unread `flapping` key. Since 0.70.15 the Downloads step fails without changing anything when it cannot read the registry, where it used to delete a real redirect on restore; checked off Windows with stubbed `reg.exe` output.
 
 Verified on 2026-11-09 on Linux: the check reports the same steps as before, in a normal session and under `env -i`. Three step bodies pass when called directly with `windows?` stubbed, and the Downloads one ran with a stand-in for the registry calls. Stray HOME's failure path fires off Windows, but its pass path does not. Not exercised: any step on Windows, `reg.exe`, and the registry profile lookup.
 
@@ -1081,7 +1081,7 @@ UserPromptSubmit hook command lines the way Claude Code and Codex do (through Gi
 main. Its first runs found and fixed two real defects: the directive frontmatter on macOS's built-in Ruby (0.16.6)
 and the runtime Chrome check on Windows (0.16.7). Run 36932174987 passed 11 of 11 on Linux x64 (Ruby 2.6.10), macOS
 arm64 and Intel (system Ruby 2.6.10), Windows x64 and Windows 11 arm64 (Ruby 4.0.7). The Windows 10 and Windows 11
-x64 legs run on self-hosted VMs on SVEN-F1L1 (`tools/platform_smoke/windows-runner/bootstrap.ps1` and
+x64 legs run on self-hosted VMs (`tools/platform_smoke/windows-runner/bootstrap.ps1` and
 `register.ps1`); they are off until the repository variable `REACH_VM_RUNNERS` is `on`.
 
 Since 0.20.5 every leg opens real `teach.package/v1` envelopes, which no leg did before (fake_teach listed no packages

@@ -1009,12 +1009,14 @@ RUBY
     end
 
     def read_downloads_registry
-      code, out, _err = spawn_capture(["reg.exe", "query", SHELL_FOLDERS_KEY, "/v", DOWNLOADS_FOLDER_ID], timeout: 30)
-      return nil unless code == 0
+      code, out, err = spawn_capture(["reg.exe", "query", SHELL_FOLDERS_KEY], timeout: 30)
+      return [:unreadable, "reg query exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
 
       line = out.lines.find { |entry| entry.include?(DOWNLOADS_FOLDER_ID) }
-      match = line && line.match(/\A\s*\S+\s+(REG_\w+)\s+(.*?)\s*\z/)
-      match ? [match[1], match[2]] : nil
+      return [:unset] if line.nil?
+
+      match = line.match(/\A\s*\S+\s+(REG_\w+)\s+(.*?)\s*\z/)
+      match ? [:set, match[1], match[2]] : [:unreadable, "reg query printed a Downloads line this step cannot parse: #{line.strip}"]
     end
 
     def write_downloads_registry(type, data)
@@ -1028,7 +1030,8 @@ RUBY
     end
 
     def restore_downloads_registry(original)
-      original ? write_downloads_registry(*original) : delete_downloads_registry
+      state, type, data = original
+      state == :set ? write_downloads_registry(type, data) : delete_downloads_registry
     end
 
     def downloads_redirect_step
@@ -1038,6 +1041,8 @@ RUBY
       FileUtils.mkdir_p(extracurricular)
       File.write(File.join(extracurricular, "smoke.txt"), "platform smoke\n")
       original = read_downloads_registry
+      return [:fail, "the registry Downloads value could not be read, so nothing was changed: #{original[1]}"] if original.first == :unreadable
+
       problem = write_downloads_registry("REG_EXPAND_SZ", target.tr("/", "\\"))
       return [:fail, "could not redirect Downloads in the registry: #{problem}"] if problem
 
