@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.14] - 2026-11-09
+
+### Changed
+
+- **The platform check now has four Windows-only steps.** On a Windows runner, `tools/platform_smoke/run.rb` checks that a lock file checked out with CRLF line ends matches its LF digest, that `reach live request` does not ask again once answered, that a stray HOME with no REACH_HOME still resolves to the Windows user folder, and that a submission archive lands in a Downloads folder redirected through the User Shell Folders registry key. The Downloads step changes that registry value for the runner's user and restores it afterwards. Linux and macOS runs are unchanged. These steps have not yet run on Windows; their first run is on the release runners.
+- **The release gate's facts contract no longer lists `flapping`.** Nothing read it.
+
 ## [0.70.13] - 2026-11-08
 
 ### Fixed

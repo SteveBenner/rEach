@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Windows platform checks — 0.70.14
+
+The platform check gains four Windows-only steps: CRLF lock digests, a live request that asks only once, a stray HOME, and a redirected Downloads folder. The release gate's facts contract also drops the unread `flapping` key.
+
+Verified on 2026-11-09 on Linux: the check reports the same steps as before, in a normal session and under `env -i`. Three step bodies pass when called directly with `windows?` stubbed, and the Downloads one ran with a stand-in for the registry calls. Stray HOME's failure path fires off Windows, but its pass path does not. Not exercised: any step on Windows, `reg.exe`, and the registry profile lookup.
+
+Student-first audit: no behavior a student sees changes.
+
+Wiring: none.
+
+Build: ✅ on main. Deploy: not yet on test.
+
 ## A panel preview shows the practice data — 0.70.13
 
 A student previewing a panel part saw the display open with no choices to pick from. The preview asked the course's practice app for its examples and options, and every request failed, because the preview ran the app as a business whose data the student's kit does not carry and never loaded the recorded practice answers. The preview now runs as the practice business and loads the practice recording, the same data reach qualify checks against, so the examples, the options and their results appear.

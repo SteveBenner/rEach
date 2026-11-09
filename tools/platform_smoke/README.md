@@ -32,6 +32,10 @@ The scratch workspace root is `<scratch>/work` (`REACH_WORKSPACE_ROOT`), so prov
 | runtime | `reach runtime install` and `status` show the pinned runtime and its Ruby 4.0.7; on a platform with no kit the unsupported message is the pass |
 | kit_gems | with a kit installed, `Reach::Suite.install_gems` on a run directory whose `Gemfile.lock` is the profile lock with one extra PLATFORMS entry (so it matches no profile by digest) answers with the kit's prebuilt profile, never a `bundle install`; then the kit Ruby loads nokogiri, ffi, cuprite and cucumber from that profile with a plain PATH (System32 and the kit bin on Windows, /usr/bin and /bin elsewhere), which is what a student's computer has |
 | doctor | runs after runtime so it sees the runtime Chrome; every finding code `reach doctor` prints is in `EXPECTED_DOCTOR_FINDINGS`; with the packages stored, `R-DOC-GUARD` is no longer expected |
+| crlf_lock_checkout | Windows only. A profile lock with CRLF line ends gives the same digest as with LF, and strips to the same text without its platforms |
+| live_request_fake_teach | Windows only. `reach live request` asks once, and after a yes the next ask reports `sending` instead of asking again. The second ask runs in process while the probe holds the live runner lock, because the fixture has no live endpoint |
+| stray_home | Windows only. With a stray HOME and no REACH_HOME or REACH_WORKSPACE_ROOT, the user folder is the Windows profile and the rEach folder sits inside it |
+| downloads_redirect | Windows only. With Downloads redirected through the User Shell Folders registry key, `reach submit archive --extracurricular` puts its ZIP there. The step changes the real value for the runner's user and restores it, or deletes it if it was unset; a failed restore fails the step |
 
 Plugin hook commands run through `sh -c` on Linux and macOS and through Git for Windows' `bash.exe` (found next to `git.exe`, never WSL's) on Windows; codex_course_hook runs the course folder's command through the shells Codex uses.
 
