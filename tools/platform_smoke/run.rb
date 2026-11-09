@@ -44,6 +44,10 @@ module PlatformSmoke
     "R-DOC-BRAIN-PLANES" => /\Aplanes: spool mode \(no runtime kit\)\z/
   }.freeze
 
+  SHELL_FOLDERS_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders'.freeze
+  DOWNLOADS_FOLDER_ID = "{374DE290-123F-4565-9164-39C4925E467B}".freeze
+  LIVE_QUESTION = "Would you like to ask your instructors for a live session?".freeze
+
   SYSTEMD_SKIP = "skipped capability: systemd user manager unavailable".freeze
   SUBSCRIBE_UNINSTALLED = /\Abackground job not installed/.freeze
 
@@ -224,6 +228,12 @@ module PlatformSmoke
       step("codex_course_hook") { codex_course_hook_step }
       step("status") { status_step }
       step("doctor") { doctor_step }
+      return unless windows?
+
+      step("crlf_lock_checkout") { crlf_lock_checkout_step }
+      step("live_request_fake_teach") { live_request_fake_teach_step }
+      step("stray_home") { stray_home_step }
+      step("downloads_redirect") { downloads_redirect_step }
     end
 
     def install_step
@@ -556,6 +566,54 @@ rescue Exception => e
 end
 RUBY
 
+    CRLF_LOCK_SCRIPT = <<'RUBY'.freeze
+lib, lock_file = ARGV
+require "json"
+require "digest"
+$LOAD_PATH.unshift(lib)
+require "reach"
+lf = File.binread(lock_file).gsub("\r\n".b, "\n".b)
+crlf = lf.gsub("\n".b, "\r\n".b)
+want = Digest::SHA256.hexdigest(lf)
+puts JSON.generate(
+  "crlf_differs" => crlf != lf,
+  "raw_digests_differ" => Digest::SHA256.hexdigest(crlf) != want,
+  "lf_matches" => Reach::RuntimeKit.lock_digests(lf).include?(want),
+  "crlf_matches" => Reach::RuntimeKit.lock_digests(crlf).include?(want),
+  "platforms_stripped_equal" => Reach::Suite.lock_without_platforms(crlf) == Reach::Suite.lock_without_platforms(lf)
+)
+RUBY
+
+    LIVE_ANSWER_SCRIPT = <<'RUBY'.freeze
+lib = ARGV[0]
+require "json"
+require "fileutils"
+$LOAD_PATH.unshift(lib)
+require "reach"
+pending = Reach::Login.read_json(Reach::Consent.pending_path)
+abort "no live question is pending" unless pending.is_a?(Hash) && pending["kind"] == Reach::Live::KIND
+FileUtils.mkdir_p(Reach::Live.dir)
+Reach::Locks.exclusive(Reach::Live.runner_lock_file, wait_s: 1.0) do
+  observed = Reach::Consent.record_terminal!(kind: pending["kind"], subject: pending["subject"], message_id: pending["message_id"], answer: "yes", text: "yes")
+  thanks = Reach::Live.follow_up!(observed)
+  again = Reach::Live.ask!
+  puts JSON.generate("thanks" => thanks, "state" => again["state"], "question" => again["question"], "message" => again["message"])
+end
+RUBY
+
+    STRAY_HOME_SCRIPT = <<'RUBY'.freeze
+lib = ARGV[0]
+require "json"
+$LOAD_PATH.unshift(lib)
+require "reach"
+puts JSON.generate(
+  "windows" => Reach::Paths.windows_host?,
+  "user_home" => Reach::Paths.user_home,
+  "source" => Reach::Paths.user_home_source,
+  "root" => Reach::Paths.root
+)
+RUBY
+
     def package_known_answer_step
       code, out, err = spawn_capture(
         [RbConfig.ruby, "-e", KNOWN_ANSWER_SCRIPT, File.join(@install, "lib"), KNOWN_ANSWER_DIR],
@@ -858,6 +916,147 @@ RUBY
       return [:fail, "output does not name #{STUDENT_NAME}: #{tail(out, err)}"] unless combined.include?(STUDENT_NAME)
 
       [:pass, "names #{STUDENT_NAME}, no fingerprint_mismatch"]
+    end
+
+    def crlf_lock_checkout_step
+      lock = File.join(ROOT, "runtime", "locks", "capybara-cuprite-1", "Gemfile.lock")
+      return [:fail, "profile lock missing at #{lock}"] unless File.file?(lock)
+
+      code, out, err = spawn_capture([RbConfig.ruby, "-e", CRLF_LOCK_SCRIPT, File.join(@install, "lib"), lock], chdir: @scratch)
+      return [:fail, "crlf lock probe exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      report = JSON.parse(out.lines.last.to_s)
+      %w[crlf_differs raw_digests_differ lf_matches crlf_matches platforms_stripped_equal].each do |key|
+        return [:fail, "#{key} is #{report[key].inspect}, expected true: #{out.strip}"] unless report[key] == true
+      end
+
+      [:pass, "a lock checked out with CRLF line ends matches the profile digest of the LF lock and strips to the same platforms-free text"]
+    rescue JSON::ParserError
+      [:fail, "crlf lock probe printed no JSON: #{tail(out.to_s, err.to_s)}"]
+    end
+
+    def live_request_fake_teach_step
+      code, out, err = reach("live", "request")
+      return [:fail, "first live request exit #{code.inspect}: #{tail(out, err)}"] unless code == 0
+      return [:fail, "first live request did not ask the question: #{tail(out, err)}"] unless out.include?(LIVE_QUESTION)
+
+      code, out, err = spawn_capture([RbConfig.ruby, "-e", LIVE_ANSWER_SCRIPT, File.join(@install, "lib")], chdir: @scratch)
+      return [:fail, "answering the live question exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      report = JSON.parse(out.lines.last.to_s)
+      return [:fail, "a live request asked again after it was answered: #{tail(out, err)}"] if report["question"] || report["message"].to_s.include?(LIVE_QUESTION)
+      return [:fail, "after the answer the live request state is #{report['state'].inspect}, expected \"sending\""] unless report["state"] == "sending"
+
+      settled = wait_for_live_runner ? "" : "; a background live runner was still running when the step ended"
+      [:pass, "reach live request asked once, and after the yes it reported sending instead of asking again#{settled}"]
+    rescue JSON::ParserError
+      [:fail, "live answer probe printed no JSON: #{tail(out.to_s, err.to_s)}"]
+    end
+
+    def wait_for_live_runner
+      path = File.join(state_dir, "live", "runner.lock")
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 30
+      loop do
+        return true unless File.file?(path)
+
+        free = File.open(path, File::RDWR) do |file|
+          locked = file.flock(File::LOCK_EX | File::LOCK_NB)
+          file.flock(File::LOCK_UN) if locked
+          locked ? true : false
+        end
+        return true if free
+        return false if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+
+        sleep 1
+      end
+    rescue SystemCallError
+      true
+    end
+
+    def same_folder?(left, right)
+      normal = ->(path) { path.to_s.tr("\\", "/").chomp("/").downcase }
+      normal.call(left) == normal.call(right)
+    end
+
+    def within_folder?(path, folder)
+      normal = ->(text) { text.to_s.tr("\\", "/").chomp("/").downcase }
+      inner = normal.call(path)
+      outer = normal.call(folder)
+      inner == outer || inner.start_with?("#{outer}/")
+    end
+
+    def stray_home_step
+      stray = File.join(@scratch, "stray-home")
+      FileUtils.mkdir_p(stray)
+      code, out, err = spawn_capture(
+        [RbConfig.ruby, "-e", STRAY_HOME_SCRIPT, File.join(@install, "lib")],
+        chdir: @scratch, extra_env: { "HOME" => stray, "REACH_HOME" => nil, "REACH_WORKSPACE_ROOT" => nil }
+      )
+      return [:fail, "stray home probe exited #{code.inspect}: #{tail(out, err)}"] unless code == 0
+
+      report = JSON.parse(out.lines.last.to_s)
+      profile = ENV["USERPROFILE"].to_s
+      return [:fail, "USERPROFILE is not set on this runner"] if profile.empty?
+      return [:fail, "the user folder followed the stray HOME (via #{report['source']})"] if same_folder?(report["user_home"], stray)
+      return [:fail, "the user folder came from #{report['source'].inspect}, not the Windows profile"] if report["source"] == "tilde"
+      return [:fail, "the user folder is not the Windows profile (found by #{report['source']})"] unless same_folder?(report["user_home"], profile) || File.basename(report["user_home"].to_s).casecmp(File.basename(profile)).zero?
+      return [:fail, "the rEach folder is under the stray HOME"] if within_folder?(report["root"], stray)
+      return [:fail, "the rEach folder is not under the user folder"] unless within_folder?(report["root"], report["user_home"])
+
+      [:pass, "with a stray HOME and no REACH_HOME the user folder is the Windows profile (found by #{report['source']}) and the rEach folder sits inside it"]
+    rescue JSON::ParserError
+      [:fail, "stray home probe printed no JSON: #{tail(out.to_s, err.to_s)}"]
+    end
+
+    def read_downloads_registry
+      code, out, _err = spawn_capture(["reg.exe", "query", SHELL_FOLDERS_KEY, "/v", DOWNLOADS_FOLDER_ID], timeout: 30)
+      return nil unless code == 0
+
+      line = out.lines.find { |entry| entry.include?(DOWNLOADS_FOLDER_ID) }
+      match = line && line.match(/\A\s*\S+\s+(REG_\w+)\s+(.*?)\s*\z/)
+      match ? [match[1], match[2]] : nil
+    end
+
+    def write_downloads_registry(type, data)
+      code, out, err = spawn_capture(["reg.exe", "add", SHELL_FOLDERS_KEY, "/v", DOWNLOADS_FOLDER_ID, "/t", type, "/d", data, "/f"], timeout: 30)
+      code == 0 ? nil : "reg add exit #{code.inspect}: #{tail(out, err)}"
+    end
+
+    def delete_downloads_registry
+      code, out, err = spawn_capture(["reg.exe", "delete", SHELL_FOLDERS_KEY, "/v", DOWNLOADS_FOLDER_ID, "/f"], timeout: 30)
+      code == 0 ? nil : "reg delete exit #{code.inspect}: #{tail(out, err)}"
+    end
+
+    def restore_downloads_registry(original)
+      original ? write_downloads_registry(*original) : delete_downloads_registry
+    end
+
+    def downloads_redirect_step
+      target = File.join(@scratch, "redirected downloads")
+      FileUtils.mkdir_p(target)
+      extracurricular = File.join(@env["REACH_WORKSPACE_ROOT"], "extracurricular")
+      FileUtils.mkdir_p(extracurricular)
+      File.write(File.join(extracurricular, "smoke.txt"), "platform smoke\n")
+      original = read_downloads_registry
+      problem = write_downloads_registry("REG_EXPAND_SZ", target.tr("/", "\\"))
+      return [:fail, "could not redirect Downloads in the registry: #{problem}"] if problem
+
+      result = begin
+        code, out, err = reach("submit", "archive", "--extracurricular")
+        zips = Dir.glob(File.join(target, "*.zip"))
+        if code != 0
+          [:fail, "submit archive exit #{code.inspect}: #{tail(out, err)}"]
+        elsif zips.empty?
+          [:fail, "no ZIP landed in the redirected Downloads folder: #{tail(out, err)}"]
+        else
+          [:pass, "the archive ZIP #{File.basename(zips.first)} landed in the Downloads folder set through the User Shell Folders registry key"]
+        end
+      ensure
+        restored = restore_downloads_registry(original)
+      end
+      return [:fail, "the registry Downloads value was not restored: #{restored}"] if restored
+
+      result
     end
 
     def systemd_user_available?
