@@ -15,9 +15,9 @@ Build ✅ · Deploy ⚪
 
 rEach no longer carries the package it kept for OpenAI's plugin directory (`directory/`, the "reach-installer" listing, and `tools/directory/build.rb`), and its privacy policy and terms no longer claim to cover such a listing. rEach is offered through no directory or marketplace; students install it only through `INSTALL.md`. The two plugin manifests that `reach setup` and every managed update write into the install folder are unchanged.
 
-Verified on 2026-11-10: a search of the tracked tree outside the changelog and this file finds no reference to the removed paths; the seven version declarations agree at 0.70.19 and both plugin manifests and the four YAML specs parse. Kept on purpose: `PRIVACY.md` and `specs/app.yml` still describe a copy added through a harness's plugin directory with no installer run, which stays true for copies installed before 0.69.0. Not verified: the release gate, `rplugin check`, `reach policy`, and whether a listing was ever submitted or published in OpenAI's portal, which only the operator can withdraw. On main only; not on test or stable.
+Verified on 2026-11-10: a search of the tracked tree outside the changelog and this file finds no reference to the removed paths; the seven version declarations agree at 0.70.19 and both plugin manifests and the four YAML specs parse. Kept on purpose: `PRIVACY.md` and `specs/app.yml` still describe a copy added through a harness's plugin directory with no installer run, which stays true for copies installed before 0.69.0. Not verified: `rplugin check` and `reach policy`. On main only; not on test or stable.
 
-Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty: the policy no longer names a listing that does not exist. Wiring: removes the package's only outward tie, the OpenAI submission portal; adds none.
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty: the policy no longer names a listing that does not exist. Wiring: removes the package's only outward tie, to OpenAI's plugin directory; adds none.
 
 Build: ✅ on main. Deploy: not yet on test.
 
