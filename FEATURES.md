@@ -10,7 +10,7 @@ Student-first audit: a student with Git Bash stops being blocked on every prompt
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ · Blocker: Human (main only; test and stable are the operator's)
+Build ✅ · Deploy 🔵 · Blocker: Human (on test since 2026-11-10, promotion prm_209699305e85ad3fca14 at ef8c9885; stable is the operator's)
 
 ## Windows platform checks — 0.70.14, 0.70.15
 
