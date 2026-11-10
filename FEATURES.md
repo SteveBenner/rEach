@@ -2,7 +2,7 @@
 
 ## Claude hooks on Windows with Git Bash — 0.70.16
 
-Every Claude Code hook rEach writes to a course folder on Windows now carries `"shell": "powershell"`. Claude Code runs a command hook through Git Bash when Git for Windows is installed, so the `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE` form failed with `syntax error near unexpected token '&'` and blocked every prompt for a student who has Git Bash (student 1030633). `hello` rewrites an existing Windows course folder whose Claude hooks lack the field, and the Windows platform check fails a leg that finds one.
+Every Claude Code hook rEach writes to a course folder on Windows now carries `"shell": "powershell"`. Claude Code runs a command hook through Git Bash when Git for Windows is installed, so the `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE` form failed with `syntax error near unexpected token '&'` and blocked every prompt for a student who has Git Bash. `hello` rewrites an existing Windows course folder whose Claude hooks lack the field, and the Windows platform check fails a leg that finds one.
 
 Verified on 2026-11-09 on Linux: the generated settings carry the field on all eleven hooks with `windows?` stubbed on and none with it off, and the stale check flags a wrapped hook without the field. Not exercised: Windows, Git Bash, a real Claude Code reading the field, and which Claude Code version first honours it (the documentation names none).
 
