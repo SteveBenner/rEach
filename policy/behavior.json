@@ -2038,7 +2038,7 @@
       "refs": [
 
       ],
-      "sha256": "329d3f46e887587b48597de6a5dc5028ffcda5516e597395934868a6ac288e9b"
+      "sha256": "a02ffac2aa1dd36e2df61899294c83a0572608ef01494253154ab7a7374f17ef"
     },
     "workspace-full": {
       "kind": "rules_file",
