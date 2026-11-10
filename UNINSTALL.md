@@ -74,6 +74,10 @@ When it finishes, the student closes every window of that app and opens a new on
 
 Your shell runs in a sandbox, not on the student's computer, so do not remove anything yourself. Tell the student: open Customize › Plugins, find rEach and remove it. Stop here.
 
+## Reinstalling instead
+
+When the student wants a fresh copy rather than no rEach, run `reach reinstall --harness <claude-code | codex | antigravity | hermes>` instead (skill `reach-reinstall`). It asks the same question, removes rEach the same way and keeps the same things, then installs the current stable release from GitHub and runs rEach's setup, all in the one command. The student's typed yes and the second run work as above. Continue with `INSTALL.md` from the step after the install command, read from the repository at that moment. If it says the new copy could not be installed, give the student `install rEach from ZIP from github.com/SteveBenner/rEach` to paste into a new chat.
+
 ## After it is done
 
 The student can install rEach again later by following `INSTALL.md`. They enroll in their course again; their instructor keeps their enrollment, submissions and grades, and no instructor step is needed to enroll again.

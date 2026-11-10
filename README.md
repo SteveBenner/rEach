@@ -192,6 +192,14 @@ a later install finds it again, unless you ask for it to go (`--purge-microbrain
 When `reach` will not start, [`UNINSTALL.md`](UNINSTALL.md) has a standalone script that does the same without telling the
 course server. `STD-UNINSTALL` in `specs/app.yml` is the contract.
 
+### Reinstall
+
+Ask your AI agent to reinstall rEach, or run `reach reinstall --harness claude-code` (or `codex`, `antigravity`, `hermes`)
+yourself in a terminal. It does what `reach uninstall` does, with the same question and the same defaults, and then installs
+the current stable release from GitHub and runs rEach's setup, in one command. rEach fetches its installer before it
+removes anything, so a failed download changes nothing. You enroll again afterwards. If the install fails after the removal,
+paste `install rEach from ZIP from github.com/SteveBenner/rEach` into a new chat. `STD-REINSTALL` in `specs/app.yml` is the contract.
+
 ### Updates
 
 An install at `~/reach-work/.reach-home/plugin` updates itself. rEach looks for the version the `stable` branch points at

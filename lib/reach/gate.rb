@@ -1013,6 +1013,8 @@ module Reach
     end
 
     UNINSTALL_PLAIN_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --delete-hermes-profile --keep-workspace-files --purge-microbrain --no-teach --yes].freeze
+    REINSTALL_PLAIN_FLAGS = %w[--no-receipts-copy --purge-checkpoint-mirror --purge-microbrain --no-teach --yes].freeze
+    REINSTALL_HARNESSES = %w[claude-code codex antigravity hermes].freeze
 
     def uninstall_command?(text)
       tokens = Shellwords.split(text.to_s)
@@ -1020,14 +1022,22 @@ module Reach
       return false if index.nil?
 
       rest = tokens[(index + 1)..-1].to_a
-      return false unless rest.first == "uninstall"
+      return false unless %w[uninstall reinstall].include?(rest.first)
 
+      reinstall = rest.first == "reinstall"
+      plain = reinstall ? REINSTALL_PLAIN_FLAGS : UNINSTALL_PLAIN_FLAGS
+      harness_seen = false
       flags = rest.drop(1)
       until flags.empty?
         flag = flags.shift
-        if flag == "--format"
+        if flag == "--format" && !reinstall
           return false unless %w[text json].include?(flags.shift)
-        elsif !UNINSTALL_PLAIN_FLAGS.include?(flag)
+        elsif flag == "--harness" && reinstall
+          return false if harness_seen
+          return false unless REINSTALL_HARNESSES.include?(flags.shift)
+
+          harness_seen = true
+        elsif !plain.include?(flag)
           return false
         end
       end

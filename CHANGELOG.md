@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.18] - 2026-11-10
+
+### Added
+
+- **`reach reinstall`, and a `reach-reinstall` skill, remove rEach and install it again from GitHub in one command.** `reach reinstall [--harness claude-code|codex|antigravity|hermes] [--no-receipts-copy] [--purge-checkpoint-mirror] [--purge-microbrain] [--no-teach]` asks the student the uninstall question (`M-REINSTALL-ASK`), takes the same typed yes under the same consent kind (`install_withdraw`, so Teach's request is unchanged), removes rEach through `scripts/reach-uninstall` exactly as `reach uninstall` does, then writes the installer into the new home's bootstrap folder, runs it and runs `reach setup --harness <app>`, and prints setup's output for the agent to continue with `INSTALL.md`. The uninstall deletes the copy of rEach that is running the command, so the installer is fetched from the `stable` branch (`Reach::Download.get_small`) and every message and path is rendered before anything is removed; a failed fetch removes nothing (`M-REINSTALL-PREFLIGHT`), and a failure after the removal prints `M-REINSTALL-FAILED` with the prompt `install rEach from ZIP from github.com/SteveBenner/rEach`. A yes recorded for the uninstall question is not used by the reinstall question, or the other way round. `--delete-hermes-profile` and `--keep-workspace-files` are refused. `REACH_REINSTALL_KILL_SWITCH=1` refuses the command. `Reach::Gate` lets it through the locked and unenrolled shell gate like `reach uninstall`. `STD-REINSTALL`, `O20`, `UNINSTALL.md` and the README describe it.
+
 ## [0.70.17] - 2026-11-10
 
 ### Added

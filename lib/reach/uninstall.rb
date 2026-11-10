@@ -22,7 +22,16 @@ module Reach
     OUTBOX_NAMES = { "submissions" => ["submission", "submissions"], "hands" => ["hand raise", "hand raises"], "issues" => ["issue report", "issue reports"], "other" => ["other item", "other items"] }.freeze
     HANDOVER_TIMEOUT_S = 900
     TEACH_TIMEOUT_S = 25
-    SENTINELS = { kept: "\u0001KEPT\u0001", teach: "\u0001TEACH\u0001", receipts: "\u0001RECEIPTS\u0001", left: "\u0001LEFT\u0001", folder: "\u0001FOLDER\u0001", items: "\u0001ITEMS\u0001" }.freeze
+    INSTALLER_URL = "https://raw.githubusercontent.com/SteveBenner/rEach/stable/scripts/reach-install".freeze
+    REINSTALL_TOGGLES = %w[--no-receipts-copy --purge-checkpoint-mirror --purge-microbrain --no-teach --yes].freeze
+    REINSTALL_REFUSED = %w[--delete-hermes-profile --keep-workspace-files].freeze
+    REINSTALL_HARNESSES = %w[claude-code codex antigravity hermes].freeze
+    INSTALLER_MAX_BYTES = 2_097_152
+    REINSTALL_STEP_TIMEOUT_S = 900
+    USAGE_REINSTALL = "usage: reach reinstall [--harness claude-code|codex|antigravity|hermes] [--no-receipts-copy] [--purge-checkpoint-mirror] [--purge-microbrain] [--no-teach]".freeze
+    ASK_PROMPT = "Type yes to remove rEach: ".freeze
+    REINSTALL_ASK_PROMPT = "Type yes to remove and reinstall rEach: ".freeze
+    SENTINELS = { detail: "\u0001DETAIL\u0001", kept: "\u0001KEPT\u0001", teach: "\u0001TEACH\u0001", receipts: "\u0001RECEIPTS\u0001", left: "\u0001LEFT\u0001", folder: "\u0001FOLDER\u0001", items: "\u0001ITEMS\u0001" }.freeze
 
     module_function
 
@@ -151,7 +160,7 @@ module Reach
       false
     end
 
-    def build_context(options, plan, flags)
+    def build_context(options, plan, flags, ask_id: "M-UNINSTALL-ASK", ask_prompt: ASK_PROMPT, extra_fields: {})
       install = enrolled_install
       consent_case = install && !locked? ? :consent : :flag
       teach_planned = consent_case == :consent && teach_enabled?(options[:toggles]) && ENV["REACH_OFFLINE"] != "1"
@@ -161,6 +170,7 @@ module Reach
       {
         plan: plan, flags: flags, install: install, consent_case: consent_case, teach_planned: teach_planned,
         kept_text: sentence_list(kept), kept_paths: kept,
+        ask_id: ask_id, ask_prompt: ask_prompt,
         fields: {
           homes: homes.join(" and "),
           harnesses: found.empty? ? "your AI apps" : sentence_list(found),
@@ -170,7 +180,7 @@ module Reach
           mirror: mirror_text(plan, flags),
           microbrain: microbrain_text(plan, flags),
           teach: teach_planned ? Reach::Messages.text("M-UNINSTALL-TEACH") : ""
-        },
+        }.merge(extra_fields),
         messages: render_messages
       }
     end
@@ -242,8 +252,8 @@ module Reach
       yes_flag = toggles.include?("--yes")
 
       if terminal?
-        puts Reach::Messages.text("M-UNINSTALL-ASK", **context[:fields])
-        print "Type yes to remove rEach: "
+        puts Reach::Messages.text(context[:ask_id], **context[:fields])
+        print context[:ask_prompt]
         $stdout.flush
         answer = $stdin.gets.to_s.strip.downcase
         unless %w[yes y].include?(answer)
@@ -266,19 +276,19 @@ module Reach
           return { exit: 4 }
         end
         consent = Reach::Consent.take!(kind: KIND, subject: subject)
-        return { consent: consent, via: :consent } if consent
+        return { consent: consent, via: :consent } if consent && consent["message_id"].to_s == context[:ask_id]
 
         unless Reach::Workspace.space_for(Reach::Paths.cwd)
           puts messages[:no_session]
           return { exit: 3 }
         end
-        puts Reach::Consent.ask!(kind: KIND, subject: subject, message_id: "M-UNINSTALL-ASK", fields: context[:fields])
+        puts Reach::Consent.ask!(kind: KIND, subject: subject, message_id: context[:ask_id], fields: context[:fields])
         return { exit: 3 }
       end
 
       return { consent: nil, via: :flag } if yes_flag
 
-      puts Reach::Messages.text("M-UNINSTALL-ASK", **context[:fields])
+      puts Reach::Messages.text(context[:ask_id], **context[:fields])
       puts AGENT_ASK_HINT
       { exit: 3 }
     end
@@ -338,8 +348,12 @@ module Reach
     end
 
     def prepare_and_hand_over(options, context, confirmation)
+      handed = hand_over(options, context, confirmation)
+      finish(options, context, handed[:teach], context[:messages], handed[:stdout], handed[:status])
+    end
+
+    def hand_over(options, context, confirmation)
       toggles = options[:toggles]
-      messages = context[:messages]
       via = confirmation[:via]
       Reach::Device.uninstalling!(tell: teach_enabled?(toggles))
       teach = case via
@@ -363,7 +377,7 @@ module Reach
         FileUtils.remove_entry(dir) if dir && File.exist?(dir)
       end
       Reach::Device.purge! if status.zero? && context[:flags]["purge_checkpoint_mirror"]
-      finish(options, context, teach, messages, stdout, status)
+      { teach: teach, stdout: stdout, status: status, result: parse_result(stdout) }
     end
 
     def quiet!
@@ -465,6 +479,186 @@ module Reach
         puts text
       end
       status
+    end
+
+    def parse_reinstall(args)
+      options = { toggles: [], format: "text", harness: nil }
+      list = args.dup
+      until list.empty?
+        token = list.shift
+        if token == "--harness"
+          value = list.shift
+          return nil unless REINSTALL_HARNESSES.include?(value)
+
+          options[:harness] = value
+        elsif REINSTALL_REFUSED.include?(token)
+          return { refused: token }
+        elsif REINSTALL_TOGGLES.include?(token)
+          options[:toggles] << token unless options[:toggles].include?(token)
+        else
+          return nil
+        end
+      end
+      options
+    end
+
+    def detect_harness
+      label = Reach::Fingerprint.harness_label("").to_s
+      if label.start_with?("codex") then "codex"
+      elsif label.start_with?("claude-code") then "claude-code"
+      elsif label.include?("antigravity") then "antigravity"
+      elsif label == "hermes" then "hermes"
+      end
+    end
+
+    def fetch_installer
+      return [nil, "you are working offline"] if ENV["REACH_OFFLINE"] == "1"
+
+      body = Reach::Download.get_small(INSTALLER_URL, max_bytes: INSTALLER_MAX_BYTES).to_s
+      return [nil, "unexpected answer"] if body.empty? || !body.include?("ReachInstall") || body.start_with?("<")
+
+      [body, nil]
+    rescue Reach::Offline, Reach::NetworkError
+      [nil, "no connection"]
+    rescue StandardError
+      [nil, "unexpected answer"]
+    end
+
+    def bootstrap_dir
+      home = ENV["REACH_HOME"].to_s
+      return File.join(Reach::Paths.root, "bootstrap") unless home.empty?
+
+      File.join(Reach::Paths.workspace_base, Reach::Paths::NEW_HOME_NAME, "bootstrap")
+    end
+
+    def reinstall(args)
+      options = parse_reinstall(args)
+      if options.nil?
+        warn USAGE_REINSTALL
+        return 2
+      end
+      if options[:refused]
+        warn Reach::Messages.text("M-REINSTALL-REFUSED-FLAG", flag: options[:refused])
+        return 2
+      end
+      if %w[REACH_REINSTALL_KILL_SWITCH REACH_UNINSTALL_KILL_SWITCH REACH_INSTALL_KILL_SWITCH].any? { |name| ENV[name] == "1" }
+        warn Reach::Messages.text("M-REINSTALL-SWITCHED-OFF")
+        return 2
+      end
+      harness = options[:harness] || detect_harness
+      unless harness
+        warn Reach::Messages.text("M-REINSTALL-NEEDS-HARNESS")
+        return 2
+      end
+
+      load_script!
+      flags = script_flags(options[:toggles])
+      plan = JSON.parse(JSON.generate(ReachUninstall.plan(flags)))
+      plan["device"] = device_record
+      unless plan["installed"]
+        puts Reach::Messages.text("M-REINSTALL-NOT-INSTALLED")
+        return 0
+      end
+
+      installer, reason = fetch_installer
+      unless installer
+        warn Reach::Messages.text("M-REINSTALL-PREFLIGHT", reason: reason)
+        return 1
+      end
+
+      context = build_context(options, plan, flags, ask_id: "M-REINSTALL-ASK", ask_prompt: REINSTALL_ASK_PROMPT,
+                                                    extra_fields: { app: HARNESS_NAMES.fetch(harness, harness) })
+      context[:messages][:done] = Reach::Messages.text("M-REINSTALL-DONE", kept: SENTINELS[:kept], teach: SENTINELS[:teach], receipts: SENTINELS[:receipts], left: SENTINELS[:left])
+      failed_template = Reach::Messages.text("M-REINSTALL-FAILED", detail: SENTINELS[:detail], teach: SENTINELS[:teach])
+      plan_ready = {
+        installer: installer, harness: harness, failed_template: failed_template,
+        bootstrap: bootstrap_dir, ruby: RbConfig.ruby, user_home: Reach::Paths.user_home.to_s,
+        log_setting: ENV["REACH_SETUP_LOG"]
+      }
+      confirmation = confirm(options, context)
+      return confirmation[:exit] if confirmation[:exit]
+
+      Dir.chdir(plan_ready[:user_home])
+      handed = hand_over(options.merge(toggles: options[:toggles] & REINSTALL_TOGGLES), context, confirmation)
+      result = handed[:result]
+      unless handed[:status].zero? && result && result["ok"] == true
+        puts failure_text(result, handed[:status], handed[:teach], context[:messages])
+        return handed[:status].zero? ? 1 : handed[:status]
+      end
+
+      install_again(plan_ready, context, handed[:teach], result)
+    rescue Reach::Error => e
+      warn e.message
+      1
+    end
+
+    def install_again(ready, context, teach, result)
+      messages = context[:messages]
+      failed = lambda do |detail|
+        ready[:failed_template].sub(SENTINELS[:detail]) { detail }.sub(SENTINELS[:teach]) { teach_sentence(teach, messages) }
+      end
+      env = { "REACH_SETUP_LOG" => ready[:log_setting] }
+      script = File.join(ready[:bootstrap], "reach-install")
+      FileUtils.mkdir_p(ready[:bootstrap])
+      File.open("#{script}.part", "wb", 0o600) { |file| file.write(ready[:installer]) }
+      File.rename("#{script}.part", script)
+      output, code = run_step(env, [ready[:ruby], script], ready[:user_home])
+      unless code.zero?
+        detail = output.lines.map(&:strip).find { |line| !line.empty? } || "the installer failed with exit code #{code}"
+        puts failed.call(detail)
+        puts output
+        return 1
+      end
+      destination = begin
+        File.read(File.join(ready[:bootstrap], "last-install.txt")).strip
+      rescue SystemCallError
+        ""
+      end
+      exe = File.join(destination, "exe", "reach")
+      unless !destination.empty? && File.directory?(destination) && File.file?(exe)
+        puts failed.call("the installer did not report where it installed rEach")
+        return 1
+      end
+      setup_output, setup_code = run_step(env, [ready[:ruby], exe, "setup", "--harness", ready[:harness]], ready[:user_home])
+      unless setup_code.zero?
+        puts failed.call("setup failed with exit code #{setup_code}")
+        puts setup_output
+        return setup_code
+      end
+      puts final_text(result, teach, messages, context)
+      puts
+      puts setup_output
+      0
+    rescue SystemCallError, IOError => e
+      puts failed.call(e.message)
+      1
+    end
+
+    def run_step(env, command, chdir)
+      out = +""
+      code = 1
+      windows = RbConfig::CONFIG["host_os"].to_s =~ /mswin|mingw|cygwin/ ? true : false
+      options = { chdir: chdir }
+      options[:pgroup] = true unless windows
+      Open3.popen2e(env, *command, options) do |stdin, merged, waiter|
+        stdin.close
+        reader = Thread.new { out << merged.read.to_s }
+        if waiter.join(REINSTALL_STEP_TIMEOUT_S)
+          reader.join
+          code = waiter.value.exitstatus || 1
+        else
+          begin
+            Process.kill("KILL", windows ? waiter.pid : -waiter.pid)
+          rescue SystemCallError
+            nil
+          end
+          reader.join(2)
+          code = 1
+        end
+      end
+      [out, code]
+    rescue SystemCallError, IOError
+      [out, 1]
     end
   end
 end

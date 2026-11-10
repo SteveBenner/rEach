@@ -11,7 +11,7 @@ module Reach
   module CLI
     STDIN_GRACE_S = 0.5
     HERMES_EVENTS = %w[on_session_start on_session_end on_session_finalize on_session_reset pre_llm_call post_llm_call pre_tool_call post_tool_call pre_verify].freeze
-    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "subscribe", "relocate", "codex", "harness", "transcripts", "uninstall", "live", "status", "device"].freeze
+    UNLOCKED_COMMANDS = [nil, "--help", "-h", "help", "version", "--version", "-V", "enroll", "enrol", "setup", "doctor", "policy", "support", "update", "runtime", "sdk", "hello", "gate", "mcp", "guide", "instructor", "debug", "subscribe", "relocate", "codex", "harness", "transcripts", "uninstall", "reinstall", "live", "status", "device"].freeze
     HERMES_BLOCK_NOTE = "Do not act on this message; tell the student what the rEach message above says.".freeze
     HOOK_BUDGETS_S = {
       "gate-session" => 8, "gate-prompt" => 8, "gate-write" => 8, "gate-shell" => 8, "gate-read" => 8, "gate-enroll" => 55,
@@ -425,6 +425,8 @@ module Reach
           cmd_subscribe(args)
         when "uninstall"
           Reach::Uninstall.run(args)
+        when "reinstall"
+          Reach::Uninstall.reinstall(args)
         when "grade"
           cmd_grade(args)
         when "extra-credit"
@@ -497,6 +499,7 @@ module Reach
             subscribe status [--format text|json] | install | uninstall   the course server update check and its background job
             reclaim [--only brain|work|from] [--from DIR] [--yes]   list and, after your yes, bring back your older memory and course folders found on this computer
             uninstall [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--no-teach]   remove rEach from this computer, never your work
+            reinstall [--harness claude-code|codex|antigravity|hermes] [--no-receipts-copy] [--purge-checkpoint-mirror] [--purge-microbrain] [--no-teach]   remove rEach and install it again from GitHub
             announcements [--format text|json]   the instructors' announcements, newest first
             profile show|save|forget             the student's saved interview answers
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes

@@ -331,6 +331,14 @@ messages:
   M-UNINSTALL-WHY-SKIPPED: "you asked rEach not to tell it"
   M-UNINSTALL-WHY-BUSY: "it was busy or switched this off"
   M-UNINSTALL-WHY-ERROR: "something went wrong while asking"
+  M-REINSTALL-ASK: "This removes rEach from this computer and installs it again from GitHub in the same step. It deletes rEach's own folders ({homes}), turns off its background course check, takes rEach out of {harnesses}, and removes the rEach settings files it added inside your work folders. Your work is not touched: {kept} stay exactly as they are, and any file rEach made read-only becomes editable again.{unsent}{receipts}{mirror}{microbrain}{teach} The new copy is the current stable release, and {app} is set up with it again. Your enrollment on this computer ends with the removal, so rEach asks for your details again after the install. A copy of the installer has already been fetched. Say yes to remove rEach and install it again."
+  M-REINSTALL-PREFLIGHT: "rEach could not fetch its installer from GitHub ({reason}), so nothing was removed and rEach is still installed. Check your internet connection and try again."
+  M-REINSTALL-NEEDS-HARNESS: "rEach cannot tell which AI app this is. Run the command again with --harness claude-code, --harness codex, --harness antigravity, or --harness hermes."
+  M-REINSTALL-NOT-INSTALLED: "rEach is not installed on this computer, so there is nothing to remove. Follow INSTALL.md from the repository to install it."
+  M-REINSTALL-SWITCHED-OFF: "rEach reinstall is switched off on this computer."
+  M-REINSTALL-REFUSED-FLAG: "{flag} cannot be used with reach reinstall, because the setup that follows would undo it. Use reach uninstall and install rEach yourself."
+  M-REINSTALL-DONE: "rEach was removed and installed again. Your work in {kept} was not touched.{teach}{receipts}{left} rEach's setup printed this:"
+  M-REINSTALL-FAILED: "rEach was removed, but the new copy could not be installed ({detail}). Nothing of your work was touched.{teach} Open a new chat in your AI app and paste exactly this: install rEach from ZIP from github.com/SteveBenner/rEach"
   M-CLOUD-FOLDER: "Your reach-work folder is inside {name}, a folder that syncs to the cloud. That is fine, but set it to keep files always on this device: a file the cloud moves off the computer to save space looks missing to you and to rEach."
   M-REACH-WORK-README: |
     # Your course work

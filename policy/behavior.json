@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:0aa3166712c677302ee87d12bd10e4e867184b47333d6b8562f89a106f5c5fa2",
+  "digest": "sha256:51781e3e6ed729b209d2396c18e55c7c4efe4a1e8b617b0387c6ebb85506fc61",
   "policy": {
     "antifeatures": [
       {
@@ -1687,6 +1687,12 @@
         "target": "skills/reach-reclaim/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-reclaim.md"
       },
+      "skill-reach-reinstall": {
+        "kind": "skill",
+        "mode": "generated",
+        "target": "skills/reach-reinstall/SKILL.md",
+        "template": "specs/polispec/surfaces/skills/reach-reinstall.md"
+      },
       "skill-reach-sidecar": {
         "kind": "skill",
         "mode": "generated",
@@ -2007,6 +2013,14 @@
 
       ],
       "sha256": "3f01965f7fc7db2de007842c1b8a6c17683f3a8ac1ed6ce26d9ff72f9dbe7279"
+    },
+    "skill-reach-reinstall": {
+      "kind": "skill",
+      "target": "skills/reach-reinstall/SKILL.md",
+      "refs": [
+
+      ],
+      "sha256": "41aa762614ef5637ec720897e82a383ffcc661be1d1bfd66d4b9589325dd5b81"
     },
     "skill-reach-sidecar": {
       "kind": "skill",
