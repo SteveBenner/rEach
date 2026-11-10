@@ -5,7 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.70.16] - 2026-11-09
+## [0.70.17] - 2026-11-10
+
+### Added
+
+- **`scripts/reach-uninstall hooks`, a hooks-only removal a student runs in their own terminal when an AI app fails on every message because of rEach's hooks.** `reach-uninstall hooks [--yes] [--harness claude-code|codex|hermes|antigravity] [--folder PATH]` takes rEach's hooks, plugin and marketplace entries, tool entry and trust records out of Claude Code, Codex, Hermes and Antigravity and out of every work folder, and leaves rEach's folders, the background job, receipts and the student's work alone. `--harness` accepts `claude`, `chatgpt`, `agy` and `gemini` as names. `UNINSTALL.md` carries the commands for macOS, Linux and Windows PowerShell, and `skills/reach-uninstall/SKILL.md` and its polispec surface copy point an agent to them (STD-UNINSTALL).
+
+### Fixed
+
+- **`apply` left rEach's hooks behind in four cases.** The hook pattern (`OWN_HOOK` in `scripts/reach-uninstall`) did not know the `hello` verb or the `exe/reach-run` and `exe/reach` launchers, so a Codex `hooks.json` holding the `hello` hook was left for the student and plugin hook entries in the user-level settings survived. `apply` also only asked `claude` and `codex` to remove their plugins, so with the command missing, failing or hanging the plugin records, enabled-plugin switch, marketplace source, plugin cache and the user-level Codex `config.toml` entries stayed; it now edits those files itself, with a `.reach-uninstall-backup` copy beside each. A Hermes profile was found only through a file inside rEach's own folder, so once that folder was gone its hooks stayed; the profile config is now also looked for under `$HERMES_HOME`/`~/.hermes`. A rEach folder whose markers were already removed was never visited; folders with a rEach hook file are now found. A partly-rEach Codex `hooks.json` is edited instead of being left whole.
+- **A hung `claude` or `codex` command held the uninstall for 60 seconds per call and left its child process running.** Calls are now bounded to 30 seconds, run in their own process group that is killed on timeout, run from the user folder, and a timeout skips the app's next call.
+- **A Claude or Codex file `apply` edited stayed read-only.** The edited file now keeps its other permissions and gains owner write.
 
 ### Fixed
 

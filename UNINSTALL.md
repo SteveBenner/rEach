@@ -34,7 +34,7 @@ Choices the student can ask for, added to the same command: `--purge-checkpoint-
 
 ### When rEach cannot run, or cannot take a yes
 
-If `reach uninstall` fails to start, says it cannot take the student's yes here, or the student never finished enrolling, use the uninstall script instead. Ask the student the question yourself with your question tool: "This removes rEach from this computer, including its folders, its background check, its entries in your AI apps, and the rEach settings files inside your work folders. Your work in reach-work is not touched. Remove rEach?" Run the commands below from a folder that is not inside `reach-work`. Only after the student's yes, add `--yes`. The script does not tell the course server and cannot edit Codex's own settings file, so it prints those as "left for you".
+If `reach uninstall` fails to start, says it cannot take the student's yes here, or the student never finished enrolling, use the uninstall script instead. If the student's AI app fails on every message and cannot run commands at all, go to "When the AI app itself is stuck or failing because of rEach" below. Ask the student the question yourself with your question tool: "This removes rEach from this computer, including its folders, its background check, its entries in your AI apps, and the rEach settings files inside your work folders. Your work in reach-work is not touched. Remove rEach?" Run the commands below from a folder that is not inside `reach-work`. Only after the student's yes, add `--yes`. The script does not tell the course server and cannot edit Codex's own settings file, so it prints those as "left for you".
 
 - macOS and Linux:
   ```sh
@@ -45,9 +45,30 @@ If `reach uninstall` fails to start, says it cannot take the student's yes here,
   $d = Join-Path $env:TEMP ("reach-uninstall-" + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force $d | Out-Null; curl.exe -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/stable/scripts/reach-uninstall -o "$d\reach-uninstall"; if ($LASTEXITCODE -eq 0) { $r = (Get-Command ruby -ErrorAction SilentlyContinue).Source; if (-not $r) { $r = (Get-ChildItem (Join-Path $env:USERPROFILE 'reach-work\.reach-home\runtime'), (Join-Path $env:USERPROFILE '.reach\runtime') -Recurse -Filter ruby.exe -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }; if ($r) { & $r "$d\reach-uninstall" apply --yes } else { Write-Output 'Ruby was not found on this computer, so the uninstall script cannot run. Tell your instructor.' } }
   ```
 
-Without `--yes`, `apply` prints what it would remove and exits without changing anything; `plan` does the same and never changes anything. The script accepts the same choices as the command above, except `--no-teach`.
+Without `--yes`, `apply` prints what it would remove and exits without changing anything; `plan` does the same and never changes anything. The script accepts the same choices as the command above, except `--no-teach`. Besides the plugin commands of Claude Code and Codex, `apply` edits their settings files itself, so rEach's hooks, plugin entries and trust records go even when those commands fail or hang.
 
 Set `REACH_UNINSTALL_KILL_SWITCH=1` to stop both the command and the script from removing anything.
+
+### When the AI app itself is stuck or failing because of rEach
+
+Some faults in rEach's hooks make an AI app fail on every message, so the app can no longer run a command for the student, and neither of the ways above can start. Then the student runs the script themselves, in a terminal window that is not inside the AI app (Terminal on macOS, a terminal on Linux, PowerShell on Windows). Give the student the command for their computer and the app name; do not run it inside the failing app.
+
+The `hooks` command takes out only what makes an app load rEach: rEach's hooks, its plugin and marketplace entries, its tool entry, and its trust records, in the student's own settings and in every work folder. It leaves the student's own hooks and other plugins in place, leaves rEach and its folders where they are, and does not touch the student's work, the background check or the course server. Before it edits one of the app's own settings files it saves a copy beside it with `.reach-uninstall-backup` on the end. It works when rEach's own folder is already gone, when the app's command-line tool hangs or fails (it then edits the app's files itself), and for rEach files the work folder no longer lists.
+
+Without `--yes` it prints what it would change and asks the student to type yes. Add `--harness` to do one app: `claude-code`, `codex` (the ChatGPT app's Codex), `hermes` or `antigravity`; several can be joined with commas. Add `--folder PATH` for a folder outside `reach-work` that still holds rEach's hooks.
+
+- macOS and Linux, all apps:
+  ```sh
+  d="$(mktemp -d)" && curl -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/stable/scripts/reach-uninstall -o "$d/reach-uninstall" && ruby "$d/reach-uninstall" hooks
+  ```
+  For one app, add `--harness claude-code`, `--harness codex`, `--harness hermes` or `--harness antigravity` after `hooks`.
+- Windows PowerShell, all apps:
+  ```powershell
+  $d = Join-Path $env:TEMP ("reach-uninstall-" + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force $d | Out-Null; curl.exe -fL --retry 3 --connect-timeout 10 https://raw.githubusercontent.com/SteveBenner/rEach/stable/scripts/reach-uninstall -o "$d\reach-uninstall"; if ($LASTEXITCODE -eq 0) { $r = (Get-Command ruby -ErrorAction SilentlyContinue).Source; if (-not $r) { $r = (Get-ChildItem (Join-Path $env:USERPROFILE 'reach-work\.reach-home\runtime'), (Join-Path $env:USERPROFILE '.reach\runtime') -Recurse -Filter ruby.exe -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }; if ($r) { & $r "$d\reach-uninstall" hooks } else { Write-Output 'Ruby was not found on this computer, so the uninstall script cannot run. Tell your instructor.' } }
+  ```
+  For one app, add `--harness claude-code`, `--harness codex`, `--harness hermes` or `--harness antigravity` after `hooks` inside the braces.
+
+When it finishes, the student closes every window of that app and opens a new one. To remove rEach completely afterwards, use the section above with `apply`.
 
 ## Claude Cowork
 

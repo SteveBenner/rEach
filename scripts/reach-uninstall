@@ -18,8 +18,22 @@ module ReachUninstall
 
   PLAN_SCHEMA = "reach.uninstall.plan/v1".freeze
   RESULT_SCHEMA = "reach.uninstall.result/v1".freeze
-  USAGE = "usage: reach-uninstall [plan|apply] [--yes] [--format text|json] [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--prepared FILE] [--skip-teach-note]".freeze
+  USAGE = "usage: reach-uninstall [plan|apply|hooks] [--yes] [--format text|json] [--harness claude-code|codex|hermes|antigravity] [--folder PATH] [--no-receipts-copy] [--purge-checkpoint-mirror] [--delete-hermes-profile] [--keep-workspace-files] [--purge-microbrain] [--prepared FILE] [--skip-teach-note]".freeze
+  HARNESS_IDS = %w[claude-code codex hermes antigravity].freeze
+  HARNESS_NAMES = { "claude-code" => "Claude Code", "codex" => "Codex (ChatGPT)", "hermes" => "Hermes", "antigravity" => "Antigravity" }.freeze
+  HARNESS_ALIASES = {
+    "claude" => "claude-code", "claude-code" => "claude-code", "claudecode" => "claude-code",
+    "codex" => "codex", "chatgpt" => "codex", "openai" => "codex",
+    "hermes" => "hermes",
+    "antigravity" => "antigravity", "agy" => "antigravity", "gemini" => "antigravity"
+  }.freeze
+  PLUGIN_KEY = /\Areach@/i.freeze
+  MARKET_KEY = /\Areach\z/i.freeze
+  TOML_HEADER = /\A\s*\[\[?(.*?)\]\]?\s*(?:#.*)?\z/.freeze
+  TOML_MARKERS = /reach@reach|\[marketplaces\.reach\]|\[mcp_servers\.reach\]/.freeze
+  BACKUP_SUFFIX = ".reach-uninstall-backup".freeze
   COMMAND_TIMEOUT_S = 60
+  CLI_TIMEOUT_S = 30
   MAX_DISCOVERY_ENTRIES = 20_000
   MAX_DISCOVERY_DEPTH = 6
   MAX_JSON_BYTES = 8 * 1024 * 1024
@@ -33,7 +47,7 @@ module ReachUninstall
   COPY_MARKER = ".reach-copy".freeze
   DOWNLOADS_FOLDER_ID = "{374DE290-123F-4565-9164-39C4925E467B}".freeze
   SHELL_FOLDERS_KEY = 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'.freeze
-  OWN_HOOK = %r{[/\\]bin[/\\]reach["']?\s+["']?(?:gate|hook|transcript|check|live)\b}.freeze
+  OWN_HOOK = %r{[/\\](?:bin[/\\]reach|exe[/\\]reach(?:-run)?)["']?\s+["']?(?:gate|hook|transcript|check|live|hello)\b}.freeze
   DENY_PATTERN = %r{\ARead\(.*[/\\](?:vault|keys)[/\\]\*\*\)\z}.freeze
   RULES_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md].freeze
   RULES_PHRASES = [
@@ -202,16 +216,24 @@ module ReachUninstall
   end
 
   def parse_args(argv)
-    options = { command: nil, yes: false, format: "text", prepared: nil, skip_teach_note: false, flags: default_flags }
+    options = { command: nil, yes: false, format: "text", prepared: nil, skip_teach_note: false, harnesses: [], folders: [], flags: default_flags }
     args = argv.dup
     until args.empty?
       arg = args.shift
       case arg
-      when "plan", "apply"
+      when "plan", "apply", "hooks"
         raise UsageError, "unexpected #{arg}" if options[:command]
 
         options[:command] = arg
       when "--yes" then options[:yes] = true
+      when "--harness" then add_harnesses(options, args.shift)
+      when /\A--harness=(.+)\z/ then add_harnesses(options, Regexp.last_match(1))
+      when "--folder"
+        value = args.shift
+        raise UsageError, "--folder needs a folder" if value.to_s.empty?
+
+        options[:folders] << value
+      when /\A--folder=(.+)\z/ then options[:folders] << Regexp.last_match(1)
       when "--no-receipts-copy" then options[:flags][:receipts_copy] = false
       when "--purge-checkpoint-mirror" then options[:flags][:purge_checkpoint_mirror] = true
       when "--delete-hermes-profile" then options[:flags][:delete_hermes_profile] = true
@@ -233,7 +255,21 @@ module ReachUninstall
         raise UsageError, "unknown option #{arg}"
       end
     end
+    if options[:command] != "hooks" && !(options[:harnesses].empty? && options[:folders].empty?)
+      raise UsageError, "--harness and --folder go with the hooks command"
+    end
     options
+  end
+
+  def add_harnesses(options, value)
+    raise UsageError, "--harness needs an app name" if value.to_s.empty?
+
+    value.to_s.split(",").map { |name| name.strip.downcase }.reject(&:empty?).each do |name|
+      id = HARNESS_ALIASES[name]
+      raise UsageError, "unknown app #{name}; choose claude-code, codex, hermes or antigravity" unless id
+
+      options[:harnesses] << id unless options[:harnesses].include?(id)
+    end
   end
 
   def format_value(value)
@@ -251,6 +287,9 @@ module ReachUninstall
       platform: platform_name,
       user_home: home,
       workspace_base: base,
+      claude_config: ENV["CLAUDE_CONFIG_DIR"].to_s,
+      codex_home: ENV["CODEX_HOME"].to_s,
+      hermes_home: ENV["HERMES_HOME"].to_s,
       stamp: Time.now.utc.strftime("%Y%m%d-%H%M%S")
     }
   end
@@ -273,14 +312,26 @@ module ReachUninstall
     nil
   end
 
+  def drain(stream)
+    stream.read.to_s
+  rescue IOError
+    ""
+  end
+
+  def run_dir
+    home = user_home_path
+    File.directory?(home) ? home : Dir.pwd
+  end
+
   def run_command(args, timeout = COMMAND_TIMEOUT_S)
-    Open3.popen3(*args) do |stdin, stdout, stderr, thread|
+    group = windows? ? {} : { pgroup: true }
+    Open3.popen3(*args, chdir: run_dir, **group) do |stdin, stdout, stderr, thread|
       stdin.close
-      out_reader = Thread.new { stdout.read.to_s }
-      err_reader = Thread.new { stderr.read.to_s }
+      out_reader = Thread.new { drain(stdout) }
+      err_reader = Thread.new { drain(stderr) }
       unless thread.join(timeout)
         begin
-          Process.kill("KILL", thread.pid)
+          Process.kill("KILL", windows? ? thread.pid : -thread.pid)
         rescue SystemCallError
           nil
         end
@@ -305,10 +356,10 @@ module ReachUninstall
     path = which(executable)
     return [:skipped, "#{executable} is not on this computer"] unless path
 
-    result = run_command([path] + arguments)
+    result = run_command([path] + arguments, CLI_TIMEOUT_S)
     line = first_line(result)
     return [:done, line] if result[:ok]
-    return [:failed, line.empty? ? "#{executable} did not answer in time" : line] if result[:timeout]
+    return [:failed, "#{executable} did not answer in #{CLI_TIMEOUT_S} seconds", true] if result[:timeout]
     return [:skipped, line] if "#{result[:err]} #{result[:out]}" =~ ABSENT_ANSWER
 
     [:failed, line.empty? ? "#{executable} stopped with an error" : line]
@@ -530,6 +581,22 @@ module ReachUninstall
     command.to_s =~ OWN_HOOK ? true : false
   end
 
+  def render_like(path, object)
+    text = File.binread(path)
+    content = JSON.pretty_generate(object)
+    text.end_with?("\n") ? "#{content}\n" : content
+  end
+
+  def backup_once(path)
+    backup = "#{path}#{BACKUP_SUFFIX}"
+    return if File.exist?(backup)
+
+    mode = File.stat(path).mode & 0o7777
+    File.open(backup, File::WRONLY | File::CREAT | File::EXCL | File::BINARY, mode) { |file| file.write(File.binread(path)) }
+  rescue Errno::EEXIST
+    nil
+  end
+
   def strip_claude_hooks(hooks)
     removed = 0
     result = {}
@@ -636,18 +703,251 @@ module ReachUninstall
     data = read_json(path)
     return nil unless data.is_a?(Hash) && data["hooks"].is_a?(Hash)
 
-    commands = []
-    data["hooks"].each_value do |entries|
-      Array(entries).each do |entry|
-        next unless entry.is_a?(Hash)
+    stripped, removed = strip_claude_hooks(data["hooks"])
+    return nil if removed.zero?
 
-        Array(entry["hooks"]).each { |hook| commands << (hook.is_a?(Hash) ? hook["command"] : nil) }
+    remaining = data.dup
+    if stripped.empty?
+      remaining.delete("hooks")
+    else
+      remaining["hooks"] = stripped
+    end
+    return { rel: rel, path: path, verdict: :delete } if remaining.empty?
+
+    { rel: rel, path: path, verdict: :edit, content: render_like(path, remaining), note: "took rEach's hooks out of" }
+  end
+
+  def claude_dir(ctx)
+    ctx[:claude_config].to_s.empty? ? File.join(ctx[:user_home], ".claude") : expand_home(ctx[:claude_config], ctx[:user_home])
+  end
+
+  def codex_dir(ctx)
+    ctx[:codex_home].to_s.empty? ? File.join(ctx[:user_home], ".codex") : expand_home(ctx[:codex_home], ctx[:user_home])
+  end
+
+  def judge_claude_user_settings(path, rel)
+    data = read_json(path)
+    return nil unless data.is_a?(Hash)
+
+    remaining = data.dup
+    parts = []
+    if data["hooks"].is_a?(Hash)
+      stripped, removed = strip_claude_hooks(data["hooks"])
+      if removed.positive?
+        parts << "#{removed} hook#{removed == 1 ? '' : 's'}"
+        if stripped.empty?
+          remaining.delete("hooks")
+        else
+          remaining["hooks"] = stripped
+        end
       end
     end
-    return nil unless commands.any? { |command| hook_ours?(command) }
-    return { rel: rel, path: path, verdict: :delete } if commands.all? { |command| hook_ours?(command) } && data.keys == ["hooks"]
+    { "enabledPlugins" => PLUGIN_KEY, "extraKnownMarketplaces" => MARKET_KEY }.each do |section, matcher|
+      next unless data[section].is_a?(Hash) && data[section].keys.any? { |key| key.to_s =~ matcher }
 
-    { rel: rel, path: path, verdict: :left, left: { "what" => "rEach's hooks in #{path}", "how" => "remove the rEach hooks from #{path}" } }
+      kept = data[section].reject { |key, _| key.to_s =~ matcher }
+      if kept.empty?
+        remaining.delete(section)
+      else
+        remaining[section] = kept
+      end
+      parts << (section == "enabledPlugins" ? "its plugin switch" : "its plugin source")
+    end
+    return nil if parts.empty?
+
+    { rel: rel, path: path, verdict: :edit, content: render_like(path, remaining), backup: true, note: "took rEach (#{parts.join(', ')}) out of" }
+  end
+
+  def judge_key_removal(path, rel, container, matcher, note)
+    data = read_json(path)
+    return nil unless data.is_a?(Hash)
+
+    nested = container && data[container].is_a?(Hash)
+    holder = nested ? data[container] : data
+    hit = holder.keys.select { |key| key.to_s =~ matcher }
+    return nil if hit.empty?
+
+    trimmed = holder.reject { |key, _| hit.include?(key) }
+    remaining = nested ? data.merge(container => trimmed) : trimmed
+    { rel: rel, path: path, verdict: :edit, content: render_like(path, remaining), backup: true, note: note }
+  end
+
+  def toml_path(text)
+    keys = []
+    rest = text.to_s.strip
+    until rest.empty?
+      match = rest.match(/\A"((?:[^"\\]|\\.)*)"\s*/) || rest.match(/\A'([^']*)'\s*/) || rest.match(/\A([A-Za-z0-9_-]+)\s*/)
+      return nil unless match
+
+      keys << match[1].gsub(/\\(.)/) { Regexp.last_match(1) }
+      rest = match.post_match
+      break if rest.empty?
+      return nil unless rest.start_with?(".")
+
+      rest = rest[1..-1].lstrip
+    end
+    keys.empty? ? nil : keys
+  end
+
+  def toml_owned?(keys, ctx)
+    head, second = keys
+    return true if head == "marketplaces" && second.to_s =~ MARKET_KEY
+    return true if head == "plugins" && second.to_s =~ PLUGIN_KEY
+    return true if head == "mcp_servers" && second == "reach"
+    return false unless head == "hooks" && second == "state" && keys.length == 3
+
+    id = keys[2].tr("\\", "/")
+    return true if id =~ PLUGIN_KEY
+
+    location = id.sub(/:[A-Za-z_]+:\d+:\d+\z/, "")
+    roots = [ctx[:workspace_base]] + Array(ctx[:extra_folders]) + Array(ctx[:homes]).map { |home| home[:path] }
+    roots.compact.any? { |root| within?(location, root) }
+  end
+
+  def judge_codex_user_config(path, rel, ctx)
+    return nil unless File.file?(path) && !File.symlink?(path) && File.size(path) <= MAX_JSON_BYTES
+
+    text = File.binread(path).force_encoding(Encoding::UTF_8).scrub
+    return nil unless text =~ /reach/i
+
+    lines = text.lines
+    if lines.any? { |line| line.include?('"""') || line.include?("'''") }
+      return nil unless text =~ TOML_MARKERS
+
+      return { rel: rel, path: path, verdict: :left, left: { "what" => "rEach's entries in #{path}", "how" => "remove the [marketplaces.reach], [plugins.\"reach@reach\"], [mcp_servers.reach] and [hooks.state.\"reach@reach:...\"] tables from #{path}" } }
+    end
+    kept = []
+    dropping = false
+    removed = 0
+    lines.each do |line|
+      match = line.match(TOML_HEADER)
+      keys = match ? toml_path(match[1]) : nil
+      if keys
+        dropping = toml_owned?(keys, ctx)
+        removed += 1 if dropping
+      end
+      kept << line unless dropping
+    end
+    return nil if removed.zero?
+
+    kept.pop while dropping && !kept.empty? && kept.last.strip.empty?
+    content = kept.join
+    content += "\n" unless content.empty? || content.end_with?("\n")
+    actions = [{ rel: rel, path: path, verdict: :edit, content: content, backup: true, note: "took rEach's plugin, hook and trust entries out of" }]
+    if content =~ TOML_MARKERS
+      actions << { rel: rel, path: path, verdict: :left, left: { "what" => "more rEach entries in #{path}", "how" => "open #{path} and remove anything that still names reach@reach, [marketplaces.reach] or [mcp_servers.reach]" } }
+    end
+    actions
+  end
+
+  def plugin_tree_ours?(dir)
+    return false unless real_dir?(dir)
+
+    candidates = [dir]
+    begin
+      candidates.concat(Dir.children(dir).map { |name| File.join(dir, name) }.select { |child| real_dir?(child) })
+    rescue SystemCallError
+      nil
+    end
+    candidates.any? { |candidate| %w[reach.rplugin.yml exe/reach-run exe/reach].any? { |marker| File.file?(File.join(candidate, marker)) } }
+  end
+
+  def plugin_cache_trees(root, marketplace_dirs)
+    cache = File.join(root, "cache")
+    list = marketplace_dirs.map { |name| File.join(root, name) }
+    list << File.join(cache, "reach")
+    begin
+      Dir.children(cache).sort.each do |market|
+        next if market == "reach"
+
+        candidate = File.join(cache, market, "reach")
+        list << candidate if plugin_tree_ours?(candidate)
+      end
+    rescue SystemCallError
+      nil
+    end
+    list.uniq.select { |path| exists_or_link?(path) }
+  end
+
+  def tree_actions(paths, ctx)
+    paths.map { |path| { rel: display(path, ctx), path: path, verdict: :tree, note: "deleted the rEach plugin copy" } }
+  end
+
+  def claude_user_actions(ctx)
+    dir = claude_dir(ctx)
+    plugins = File.join(dir, "plugins")
+    actions = []
+    actions << judge_claude_user_settings(File.join(dir, "settings.json"), "settings.json")
+    actions << judge_claude_user_settings(File.join(dir, "settings.local.json"), "settings.local.json")
+    actions << judge_key_removal(File.join(plugins, "installed_plugins.json"), "plugins/installed_plugins.json", "plugins", PLUGIN_KEY, "removed rEach from the plugin list in")
+    actions << judge_key_removal(File.join(plugins, "known_marketplaces.json"), "plugins/known_marketplaces.json", "marketplaces", MARKET_KEY, "removed the rEach marketplace from")
+    actions.concat(tree_actions(plugin_cache_trees(plugins, %w[marketplaces/reach]), ctx))
+    actions.compact.map { |action| action.merge(harness: "claude-code") }
+  end
+
+  def codex_user_actions(ctx)
+    dir = codex_dir(ctx)
+    plugins = File.join(dir, "plugins")
+    actions = []
+    actions.concat(Array(judge_codex_user_config(File.join(dir, "config.toml"), "config.toml", ctx)))
+    hooks = judge_codex_hooks(File.join(dir, "hooks.json"), "hooks.json")
+    actions << hooks.merge(backup: true) if hooks && hooks[:verdict] == :edit
+    actions << hooks if hooks && hooks[:verdict] != :edit
+    actions.concat(tree_actions(plugin_cache_trees(plugins, []), ctx))
+    market = File.join(dir, ".tmp", "marketplaces", "reach")
+    actions.concat(tree_actions([market], ctx)) if exists_or_link?(market)
+    actions.compact.map { |action| action.merge(harness: "codex") }
+  end
+
+  def perform_actions(actions, ctx, left)
+    notes = []
+    problems = []
+    actions.each do |action|
+      case action[:verdict]
+      when :edit
+        backup_once(action[:path]) if action[:backup]
+        mode = (File.stat(action[:path]).mode & 0o7777) | 0o200
+        atomic_write(action[:path], action[:content], mode)
+        notes << "#{action[:note]} #{display(action[:path], ctx)}"
+      when :delete
+        remove_file(action[:path])
+        notes << "removed #{display(action[:path], ctx)}"
+      when :tree
+        remove_tree(action[:path])
+        parent = File.dirname(action[:path])
+        Dir.rmdir(parent) if File.basename(parent) == "reach" && real_dir?(parent) && Dir.empty?(parent)
+        notes << "#{action[:note]} #{display(action[:path], ctx)}"
+      when :left
+        left << action[:left]
+      end
+    rescue StandardError => e
+      problems << "#{display(action[:path], ctx)}: #{clean(e.message)[0, 100]}"
+    end
+    [notes, problems]
+  end
+
+  def sentence(items)
+    text = items.join("; ")
+    text.sub(/\A([a-z])/) { Regexp.last_match(1).upcase }
+  end
+
+  def cli_outcome(results)
+    failed = results.find { |status, _| status == :failed }
+    return [:failed, failed[1]] if failed
+    return [:done, ""] if results.any? { |status, _| status == :done }
+
+    [:skipped, results.first[1]]
+  end
+
+  def harness_step(id, results, notes, problems, done_phrase)
+    return step(id, "failed", "Could not finish removing rEach (#{problems.first}).") unless problems.empty?
+
+    status, line = cli_outcome(results)
+    return step(id, "skipped", line.empty? ? "nothing of rEach was found" : line) if notes.empty? && status != :done
+
+    parts = status == :done ? [done_phrase] + notes : notes
+    lead = status == :failed ? "The app's own command did not finish (#{line}), so rEach was taken out of its files directly. " : ""
+    step(id, "done", "#{lead}#{sentence(parts)}.")
   end
 
   def judge_rules_file(path, rel)
@@ -663,19 +963,38 @@ module ReachUninstall
     nil
   end
 
-  def judge_space(path, kind)
+  def scope_wants?(scope, id)
+    wanted = scope.is_a?(Hash) ? scope[:harnesses] : nil
+    wanted.nil? || wanted.empty? || wanted.include?(id)
+  end
+
+  def judge_space(path, kind, scope = nil)
     actions = []
-    add = lambda do |action|
-      actions << action if action
+    add = lambda do |action, harness|
+      actions << action.merge(harness: harness) if action
     end
-    add.call(judge_claude_settings(File.join(path, ".claude", "settings.json"), ".claude/settings.json"))
-    add.call(judge_mcp(File.join(path, ".mcp.json"), ".mcp.json"))
-    add.call(judge_codex_config(File.join(path, ".codex", "config.toml"), ".codex/config.toml"))
-    add.call(judge_codex_hooks(File.join(path, ".codex", "hooks.json"), ".codex/hooks.json"))
-    RULES_FILES.each { |name| add.call(judge_rules_file(File.join(path, name), name)) }
+    if scope_wants?(scope, "claude-code")
+      add.call(judge_claude_settings(File.join(path, ".claude", "settings.json"), ".claude/settings.json"), "claude-code")
+      add.call(judge_mcp(File.join(path, ".mcp.json"), ".mcp.json"), "claude-code")
+    end
+    if scope_wants?(scope, "codex")
+      add.call(judge_codex_config(File.join(path, ".codex", "config.toml"), ".codex/config.toml"), "codex")
+      add.call(judge_codex_hooks(File.join(path, ".codex", "hooks.json"), ".codex/hooks.json"), "codex")
+    end
+    return actions if scope.is_a?(Hash) && scope[:hooks_only]
+
+    RULES_FILES.each { |name| add.call(judge_rules_file(File.join(path, name), name), nil) }
     marker = File.join(path, ".reach-space.json")
     actions << { rel: ".reach-space.json", path: marker, verdict: :delete } if File.file?(marker) && !File.symlink?(marker)
     actions
+  end
+
+  def hooks_only?(ctx)
+    ctx[:scope].is_a?(Hash) && ctx[:scope][:hooks_only] ? true : false
+  end
+
+  def hook_files?(path)
+    [File.join(path, ".claude", "settings.json"), File.join(path, ".codex", "hooks.json")].any? { |file| File.file?(file) && !File.symlink?(file) }
   end
 
   def readonly_targets(space_path)
@@ -696,16 +1015,21 @@ module ReachUninstall
 
   def discover_spaces(ctx)
     base = ctx[:workspace_base]
-    return { spaces: [], truncated: false } unless File.directory?(base)
+    extras = Array(ctx[:extra_folders]).select { |folder| File.directory?(folder) }
+    return { spaces: [], truncated: false } unless File.directory?(base) || !extras.empty?
 
-    seeds = [base]
-    personas = File.join(base, "personas")
-    if real_dir?(personas)
-      Dir.children(personas).sort.each do |name|
-        path = File.join(personas, name)
-        seeds << path if name =~ /\A[0-9a-f]{8}\z/ && real_dir?(path)
+    seeds = extras.dup
+    if File.directory?(base)
+      seeds.unshift(base)
+      personas = File.join(base, "personas")
+      if real_dir?(personas)
+        Dir.children(personas).sort.each do |name|
+          path = File.join(personas, name)
+          seeds << path if name =~ /\A[0-9a-f]{8}\z/ && real_dir?(path)
+        end
       end
     end
+    seeds.uniq!
     visited = {}
     queue = []
     seeds.each do |path|
@@ -726,10 +1050,13 @@ module ReachUninstall
         kind = "extracurricular"
       end
       if kind
-        actions = judge_space(path, kind)
-        locked = kind == "slice" ? locked_count(path) : 0
+        actions = judge_space(path, kind, ctx[:scope])
+        locked = kind == "slice" && !hooks_only?(ctx) ? locked_count(path) : 0
         spaces << { path: path, kind: kind, actions: actions, locked: locked }
         next unless seed
+      elsif hook_files?(path)
+        actions = judge_space(path, "orphan", ctx[:scope])
+        spaces << { path: path, kind: "orphan", actions: actions, locked: 0 } unless actions.empty?
       end
       next if depth >= MAX_DISCOVERY_DEPTH
 
@@ -772,14 +1099,12 @@ module ReachUninstall
   end
 
   def harness_state(ctx, hermes_config)
-    claude_dir = ENV["CLAUDE_CONFIG_DIR"].to_s.empty? ? File.join(ctx[:user_home], ".claude") : expand_home(ENV["CLAUDE_CONFIG_DIR"], ctx[:user_home])
-    codex_dir = ENV["CODEX_HOME"].to_s.empty? ? File.join(ctx[:user_home], ".codex") : expand_home(ENV["CODEX_HOME"], ctx[:user_home])
     claude_found = %w[installed_plugins.json known_marketplaces.json].any? do |name|
-      file = File.join(claude_dir, "plugins", name)
+      file = File.join(claude_dir(ctx), "plugins", name)
       File.file?(file) && File.size(file) <= MAX_JSON_BYTES && File.binread(file).include?("reach")
-    end
-    codex_file = File.join(codex_dir, "config.toml")
-    codex_found = File.file?(codex_file) && File.size(codex_file) <= MAX_JSON_BYTES && (File.binread(codex_file).include?('"reach@reach"') || File.binread(codex_file).include?("[marketplaces.reach]"))
+    end || !claude_user_actions(ctx).empty?
+    codex_file = File.join(codex_dir(ctx), "config.toml")
+    codex_found = (File.file?(codex_file) && File.size(codex_file) <= MAX_JSON_BYTES && (File.binread(codex_file).include?('"reach@reach"') || File.binread(codex_file).include?("[marketplaces.reach]"))) || !codex_user_actions(ctx).empty?
     links = antigravity_targets(ctx).select { |target| exists_or_link?(target) }
     [
       { "id" => "claude-code", "found" => claude_found, "detail" => claude_found ? "the rEach plugin is registered in Claude Code" : (which("claude") ? "Claude Code is installed; no rEach plugin record was seen" : "Claude Code was not found") },
@@ -802,7 +1127,31 @@ module ReachUninstall
       value = data.is_a?(Hash) ? data["config_path"] : nil
       return value if value.is_a?(String) && !value.empty? && File.file?(value)
     end
-    nil
+    hermes_fallbacks(ctx).find { |file| File.file?(file) && !File.symlink?(file) && File.size(file) <= MAX_JSON_BYTES && hermes_holds_own?(file, ctx) }
+  end
+
+  def hermes_fallbacks(ctx)
+    home = ctx[:hermes_home].to_s.empty? ? File.join(ctx[:user_home], ".hermes") : expand_home(ctx[:hermes_home], ctx[:user_home])
+    [File.join(home, "profiles", "reach", "config.yaml"), File.join(home, "config.yaml")]
+  end
+
+  def hermes_holds_own?(file, ctx)
+    document = YAML.safe_load(File.binread(file).force_encoding(Encoding::UTF_8), permitted_classes: [Date, Time, Symbol], aliases: false)
+    return false unless document.is_a?(Hash)
+
+    shims = hermes_shims(ctx)
+    hooks = document["hooks"].is_a?(Hash) ? document["hooks"] : {}
+    own = hooks.values.any? do |entries|
+      entries.is_a?(Array) && entries.any? { |entry| entry.is_a?(Hash) && hermes_entry_ours?(entry, shims) }
+    end
+    own || (document["mcp_servers"].is_a?(Hash) && document["mcp_servers"].key?("reach"))
+  rescue Psych::Exception, Psych::SyntaxError, SystemCallError
+    false
+  end
+
+  def hermes_entry_ours?(entry, shims)
+    command = entry["command"].to_s.tr("\\", "/")
+    hook_ours?(command) || shims.any? { |shim| command.include?(shim) }
   end
 
   def job_state(ctx)
@@ -1264,16 +1613,16 @@ module ReachUninstall
     ctx[:spaces].each do |space|
       next unless exists_or_link?(space[:path])
 
-      actions = judge_space(space[:path], space[:kind])
+      actions = judge_space(space[:path], space[:kind], ctx[:scope])
       deletions = actions.select { |action| action[:verdict] == :delete }.map { |action| action[:path] }
-      restored += restore_space(space, deletions) if space[:kind] == "slice"
+      restored += restore_space(space, deletions) if space[:kind] == "slice" && !hooks_only?(ctx)
       actions.each do |action|
         case action[:verdict]
         when :delete
           remove_file(action[:path])
           removed += 1
         when :edit
-          mode = File.stat(action[:path]).mode & 0o7777
+          mode = (File.stat(action[:path]).mode & 0o7777) | 0o200
           atomic_write(action[:path], action[:content], mode)
           edited += 1
         when :left
@@ -1306,28 +1655,26 @@ module ReachUninstall
     step("workspaces", "skipped", detail)
   end
 
-  def step_claude
-    results = [
-      cli_call("claude", %w[plugin uninstall reach@reach --scope user]),
-      cli_call("claude", %w[plugin marketplace remove reach])
-    ]
-    summarize_cli("claude", results, "Took the rEach plugin out of Claude Code.")
+  def cli_sequence(executable, commands)
+    results = []
+    commands.each do |arguments|
+      result = cli_call(executable, arguments)
+      results << result
+      break if result[2]
+    end
+    results
   end
 
-  def step_codex_plugin
-    results = [
-      cli_call("codex", %w[plugin remove reach@reach]),
-      cli_call("codex", %w[plugin marketplace remove reach])
-    ]
-    summarize_cli("codex-plugin", results, "Took the rEach plugin out of Codex.")
+  def step_claude(ctx, left)
+    results = cli_sequence("claude", [%w[plugin uninstall reach@reach --scope user], %w[plugin marketplace remove reach]])
+    notes, problems = perform_actions(claude_user_actions(ctx), ctx, left)
+    harness_step("claude", results, notes, problems, "took the rEach plugin out of Claude Code")
   end
 
-  def summarize_cli(id, results, done_text)
-    failed = results.find { |status, _| status == :failed }
-    return step(id, "failed", failed[1]) if failed
-    return step(id, "done", done_text) if results.any? { |status, _| status == :done }
-
-    step(id, "skipped", results.first[1])
+  def step_codex_plugin(ctx, left)
+    results = cli_sequence("codex", [%w[plugin remove reach@reach], %w[plugin marketplace remove reach]])
+    notes, problems = perform_actions(codex_user_actions(ctx), ctx, left)
+    harness_step("codex-plugin", results, notes, problems, "took the rEach plugin out of Codex")
   end
 
   def own_target?(target_text, ctx)
@@ -1335,6 +1682,13 @@ module ReachUninstall
     return true if text.include?(".reach-home") || text.include?("/.reach/") || text.end_with?("/.reach")
 
     ctx[:homes].any? { |home| within?(text, home[:path]) }
+  end
+
+  def own_link?(target, ctx)
+    destination = File.readlink(target)
+    return true if own_target?(destination, ctx)
+
+    plugin_tree_ours?(File.expand_path(destination, File.dirname(target)))
   end
 
   def step_antigravity(ctx, left)
@@ -1357,14 +1711,14 @@ module ReachUninstall
       begin
         stat = File.lstat(target)
         if stat.symlink?
-          if own_target?(File.readlink(target), ctx)
+          if own_link?(target, ctx)
             remove_tree(target)
             changed = true
             notes << "removed the rEach link #{display(target, ctx)}"
           else
             left << { "what" => display(target, ctx), "how" => "delete #{target} if you no longer want rEach in Antigravity" }
           end
-        elsif stat.directory? && File.file?(File.join(target, COPY_MARKER))
+        elsif stat.directory? && (File.file?(File.join(target, COPY_MARKER)) || plugin_tree_ours?(target))
           remove_tree(target)
           changed = true
           notes << "removed the rEach copy #{display(target, ctx)}"
@@ -1451,7 +1805,7 @@ module ReachUninstall
         entries = hooks[event]
         next unless entries.is_a?(Array)
 
-        kept = entries.reject { |entry| entry.is_a?(Hash) && shims.any? { |shim| entry["command"].to_s.tr("\\", "/").include?(shim) } }
+        kept = entries.reject { |entry| entry.is_a?(Hash) && hermes_entry_ours?(entry, shims) }
         next if kept.length == entries.length
 
         changed = true
@@ -1735,8 +2089,8 @@ module ReachUninstall
     steps["receipts-copy"] = step_receipts(ctx)
     steps["job"] = step_job(ctx)
     steps["workspaces"] = guarded("workspaces") { step_workspaces(ctx, left) }
-    steps["claude"] = guarded("claude") { step_claude }
-    steps["codex-plugin"] = guarded("codex-plugin") { step_codex_plugin }
+    steps["claude"] = guarded("claude") { step_claude(ctx, left) }
+    steps["codex-plugin"] = guarded("codex-plugin") { step_codex_plugin(ctx, left) }
     steps["antigravity"] = guarded("antigravity") { step_antigravity(ctx, left) }
     steps["hermes"] = guarded("hermes") { step_hermes(ctx, left) }
     steps["checkpoint-mirror"] = guarded("checkpoint-mirror") { step_mirror(ctx, left) }
@@ -1777,6 +2131,142 @@ module ReachUninstall
     { code: code, ctx: ctx, result: result }
   end
 
+  def inspect_hooks(options)
+    ctx = build_context(options[:flags])
+    ctx[:scope] = { harnesses: options[:harnesses].empty? ? nil : options[:harnesses].dup, hooks_only: true }
+    ctx[:extra_folders] = options[:folders].map { |folder| expand_home(folder, ctx[:user_home]) }
+    ctx[:homes] = home_candidates(ctx)
+    found = discover_spaces(ctx)
+    ctx[:spaces] = found[:spaces]
+    ctx[:truncated] = found[:truncated]
+    ctx[:hermes_config] = scope_wants?(ctx[:scope], "hermes") ? hermes_config_path(ctx) : nil
+    ctx[:targets] = hook_targets(ctx)
+    ctx
+  end
+
+  def hook_targets(ctx)
+    scope = ctx[:scope]
+    targets = []
+    ctx[:spaces].each do |space|
+      space[:actions].each { |action| targets << { harness: action[:harness], path: action[:path], verdict: action[:verdict] } }
+    end
+    targets.concat(claude_user_actions(ctx).map { |action| { harness: "claude-code", path: action[:path], verdict: action[:verdict] } }) if scope_wants?(scope, "claude-code")
+    targets.concat(codex_user_actions(ctx).map { |action| { harness: "codex", path: action[:path], verdict: action[:verdict] } }) if scope_wants?(scope, "codex")
+    if scope_wants?(scope, "antigravity")
+      antigravity_targets(ctx).select { |target| exists_or_link?(target) }.each { |target| targets << { harness: "antigravity", path: target, verdict: :tree } }
+    end
+    targets << { harness: "hermes", path: ctx[:hermes_config], verdict: :edit } if ctx[:hermes_config]
+    targets
+  end
+
+  def target_verb(verdict)
+    case verdict
+    when :delete, :tree then "delete"
+    when :edit then "take rEach's hooks and settings out of"
+    else "needs you to edit"
+    end
+  end
+
+  def plan_hooks_text(ctx)
+    lines = ["rEach's hooks would be removed from these AI apps. Nothing has been changed yet.", ""]
+    HARNESS_IDS.each do |id|
+      next unless scope_wants?(ctx[:scope], id)
+
+      mine = ctx[:targets].select { |target| target[:harness] == id }
+      lines << "#{HARNESS_NAMES[id]}:"
+      if mine.empty?
+        lines << "- nothing of rEach was found"
+      else
+        mine.each { |target| lines << "- #{target_verb(target[:verdict])} #{display(target[:path], ctx)}" }
+      end
+    end
+    lines << ""
+    lines << "rEach itself, your course folders and everything you wrote stay as they are."
+    lines.join("\n")
+  end
+
+  def hooks_result_text(result, ctx)
+    done = result["steps"].select { |entry| entry["status"] == "done" }
+    lines = []
+    if done.empty?
+      lines << "No rEach hooks were found, so nothing was changed."
+    else
+      lines << "rEach's hooks were taken out of your AI apps."
+      done.each { |entry| lines << "- #{entry['detail']}" }
+    end
+    failed = result["steps"].select { |entry| entry["status"] == "failed" }
+    unless failed.empty?
+      lines << ""
+      lines << "Something did not finish:"
+      failed.each { |entry| lines << "- #{entry['detail']}" }
+    end
+    unless result["left"].empty?
+      lines << ""
+      lines << "Left for you:"
+      result["left"].each { |item| lines << "- #{item['what']}: #{item['how']}" }
+    end
+    lines << ""
+    lines << "Close every window of the apps above and open a new one, so they stop looking for rEach's hooks."
+    lines << "rEach itself and your work were not touched. To remove rEach completely, run this script again with: apply"
+    lines.join("\n")
+  end
+
+  def apply_hooks(ctx)
+    scope = ctx[:scope]
+    left = []
+    steps = []
+    steps << guarded("workspaces") { step_workspaces(ctx, left) }
+    steps << guarded("claude") { step_claude(ctx, left) } if scope_wants?(scope, "claude-code")
+    steps << guarded("codex-plugin") { step_codex_plugin(ctx, left) } if scope_wants?(scope, "codex")
+    steps << guarded("antigravity") { step_antigravity(ctx, left) } if scope_wants?(scope, "antigravity")
+    steps << guarded("hermes") { step_hermes(ctx, left) } if scope_wants?(scope, "hermes")
+    failed = steps.any? { |entry| entry["status"] == "failed" }
+    result = { "schema" => RESULT_SCHEMA, "ok" => !failed, "installed" => true, "mode" => "hooks", "steps" => steps, "left" => left.uniq }
+    result["text"] = hooks_result_text(result, ctx)
+    { code: failed ? 1 : 0, result: result }
+  end
+
+  def hooks_main(options)
+    json = options[:format] == "json"
+    ctx = inspect_hooks(options)
+    if ctx[:targets].empty?
+      text = "No rEach hooks were found in #{ctx[:scope][:harnesses] ? ctx[:scope][:harnesses].map { |id| HARNESS_NAMES[id] }.join(', ') : 'your AI apps'}, so nothing was changed."
+      if json
+        emit("schema" => RESULT_SCHEMA, "ok" => true, "mode" => "hooks", "steps" => [], "left" => [], "text" => text)
+      else
+        puts text
+      end
+      return 0
+    end
+    unless options[:yes]
+      if $stdin.tty? && $stdout.tty?
+        puts plan_hooks_text(ctx)
+        $stdout.print "Type yes to remove rEach's hooks: "
+        $stdout.flush
+        answer = $stdin.gets.to_s.strip.downcase
+        unless %w[yes y].include?(answer)
+          puts "Nothing was removed."
+          return 4
+        end
+      else
+        if json
+          emit("schema" => PLAN_SCHEMA, "mode" => "hooks", "needs_confirmation" => true, "targets" => ctx[:targets].map { |target| { "harness" => target[:harness], "path" => target[:path], "verdict" => target[:verdict].to_s } })
+        else
+          puts plan_hooks_text(ctx)
+          puts "needs confirmation: run this again with --yes once the student has agreed."
+        end
+        return 3
+      end
+    end
+    outcome = apply_hooks(ctx)
+    if json
+      emit(outcome[:result])
+    else
+      puts outcome[:result]["text"]
+    end
+    outcome[:code]
+  end
+
   def guarded(id)
     yield
   rescue StandardError => e
@@ -1806,6 +2296,8 @@ module ReachUninstall
       return 2
     end
     command = options[:command] || "plan"
+    return hooks_main(options) if command == "hooks"
+
     if command == "plan"
       ctx = inspect_state(options[:flags])
       if json
