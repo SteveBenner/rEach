@@ -1,5 +1,14 @@
 # TODO
 
+## Follow-ups from 0.70.11 to 0.70.13 (2026-11-08)
+
+- [ ] Run the 0.70.11 terminal redo (`redo_validation_in_terminal`, `Validation.start(restart: true, redone: true)`) against a real Teach 403 `forbidden` at registration, and on Hermes, Antigravity, macOS and Windows. It ran only in a fake home with Teach's reply and the registration refusal replaced.
+- [ ] Find out why Teach refuses a security-validation pass that rEach holds as passed. Both redo paths (chat since 0.70.6, terminal since 0.70.11) work around it once; a refusal that repeats still ends in the old text, and the cause is not established (Teach side, reproduce with a held pass against the registration route).
+- [ ] The messages that take `{slice}` (M-CHECKPOINT-RECOVERED, M-CHECKPOINT-RECOVER-FAILED, and the packet messages) still print the work-folder name "backend" where `Reach::Messages::SLICE_NAMES` says "logic"; 0.70.12 changed only the eleven part-naming messages of the submit question.
+- [ ] Watch the 0.70.12 submit question in a real chat: the fix was shown with the real catalogue, guided-learner filter, `Consent.ask!` and `Consent.capture` in a fake home, not in a harness.
+- [ ] Open the 0.70.13 panel preview in a browser on a kit built from the Grokit that Teach actually serves (older than 0.12.7 until `TEACH_GROKIT_ROOT` moves). It was checked over HTTP on a scratch kit from Grokit 0.12.7.
+- [ ] The panel preview answers an empty 200 for a call whose behaviour the kit lacks (Grokit `LoadError`), so a student sees no choices and no reason. Decide whether the preview should name the missing behaviour instead of hiding it.
+
 ## Installation reports and check sessions (0.68.20, wire revision 2026-11-05a)
 
 - [ ] Run the installer's first report, a detached drain, the background job, and a check session on a real macOS and a real Windows install, and on Ruby 2.6.10 with LibreSSL. Only Linux with Ruby 3.3 and 4.0 ran.
