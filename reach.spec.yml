@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.71.0
+version: 0.72.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -3154,7 +3154,7 @@ doctor_checks:
   checks: skills/design-taste-frontend is the official tasteskill (name, opening line, MIT licence, provenance)
   fix: A packaging fault; reinstall rEach
 - id: R-DOC-SKILLS
-  checks: Since 0.71.0, every directory under skills/ has a skill surface with an invoke block, reach.rplugin.yml lists exactly those skills, every locale message that names a skill is listed as message:ID in that skill's triggers and every message trigger names a message that names the skill, the strings in lib/ that name a skill name an existing one, the Skill gate is wired in each Claude Code folder's settings, and reach gate skill has not failed (the count and last time are shown)
+  checks: Since 0.72.0, every directory under skills/ has a skill surface with an invoke block, reach.rplugin.yml lists exactly those skills, every locale message that names a skill is listed as message:ID in that skill's triggers and every message trigger names a message that names the skill, the strings in lib/ that name a skill name an existing one, the Skill gate is wired in each Claude Code folder's settings, and reach gate skill has not failed (the count and last time are shown)
   fix: A packaging fault; reinstall rEach. A failed gate count stays until the state folder's skill-loads.json is removed
 - id: R-DOC-SEAL
   checks: The sidecar at the platform's state directory (or REACH_SIDECAR) exists and parses after enrollment

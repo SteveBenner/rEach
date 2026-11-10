@@ -1,6 +1,6 @@
 # FEATURES — rEach
 
-## Polispec decides when rEach's skills load — 0.71.0
+## Polispec decides when rEach's skills load — 0.72.0
 
 Each shipped skill now states when it should be loaded, as an `invoke` block on its surface in `specs/polispec/behavior.yml` (polispec 0.58.0). Polispec generates every skill's frontmatter from it and refuses overlapping descriptions at compile. rEach points to a skill once per session when a trigger holds: `reach-course` when a session starts in a slice and `design-taste-frontend` before a `.svelte` write in a panel slice; `reach-feature` is declared for the plan phase, which was not exercised. A Claude Code `PreToolUse` hook on the `Skill` tool (`reach gate skill`), written into each course folder's settings, counts each load and, by `skills.gate` in `config.yml` (`advise` by default, `enforce`, or `off`), advises or refuses a load outside the skill's scope or of text already in the session. On Codex, Hermes and Antigravity the same count is taken from a read of a skill file that the existing read and shell gates see, and never refused there. Where hello pastes the persona body (Codex, Hermes, unknown, text), it no longer tells the agent to load `reach-assistant`. `reach-build` and `reach-fix`, which only routed to `reach-feature` and `reach-bug`, are gone. `reach-feedback` was missing from `reach.rplugin.yml` and the Claude plugin manifest and is now listed. `reach doctor` gains R-DOC-SKILLS and prints the counts.
 
@@ -18,7 +18,7 @@ Student-first audit:
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ · Blocker: release gate (KNOWN-DOCTOR on the course server, and VER-COLLISION with another branch that claims 0.71.0)
+Build ✅ · Deploy ⚪ · Blocker: release gate (KNOWN-DOCTOR on the course server)
 
 ## sh installed on Windows — 0.70.21
 
