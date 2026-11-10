@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-05.
 
-These terms cover rEach, the academic assistant for students in a course run on Teach, and the "rEach" listing in the ChatGPT and Codex plugin directory, which only installs rEach. rEach is published by PatḗrasAI.
+These terms cover rEach, the academic assistant for students in a course run on Teach. rEach is published by PatḗrasAI.
 
 ## Using rEach
 

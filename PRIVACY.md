@@ -1,6 +1,6 @@
 # rEach Privacy Policy
 
-rEach is the academic assistant for students in a course run on Teach. It is published by PatḗrasAI. This policy covers rEach and the "rEach" listing in the ChatGPT and Codex plugin directory, which only installs rEach.
+rEach is the academic assistant for students in a course run on Teach. It is published by PatḗrasAI. This policy covers rEach.
 
 ## Who receives your information
 
@@ -8,7 +8,7 @@ rEach runs on your computer. It sends course information only to your course ser
 
 rEach downloads itself, its updates, its own copy of Ruby and its memory library from its public GitHub repository, so GitHub sees those downloads like any other web request.
 
-rEach comes with the address of one Teach server built in, and it contacts that server from the moment it is installed, before you enroll. This is true for everyone who installs rEach, including someone who found it in a plugin directory and is not in that course. [Installation reports and check sessions](#installation-reports-and-check-sessions) says exactly what it sends then.
+rEach comes with the address of one Teach server built in, and it contacts that server from the moment it is installed, before you enroll. This is true for everyone who installs rEach, including someone who is not in that course. [Installation reports and check sessions](#installation-reports-and-check-sessions) says exactly what it sends then.
 
 ## Installation reports and check sessions
 

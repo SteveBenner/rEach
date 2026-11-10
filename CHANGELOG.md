@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.19] - 2026-11-10
+
+### Removed
+
+- **The OpenAI plugin directory submission package.** `directory/` (`plugin.json`, `SUBMISSION.md`, `skills/install-reach/SKILL.md`, the "reach-installer" listing for ChatGPT and Codex) and `tools/directory/build.rb` are gone, four files in all, because rEach is offered through no plugin directory or marketplace. `PRIVACY.md` and `TERMS.md` no longer say they cover that listing, and the privacy sentence about someone who found rEach in a plugin directory now says only "someone who is not in that course". Nothing in rEach's code, setup, update or hooks read these files, and `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` stay. Recovery: `git show v0.70.18:directory/plugin.json`, or check the four paths out of the 0.70.18 commit dee41777. A listing already submitted in OpenAI's portal is not withdrawn by this change.
+
 ## [0.70.18] - 2026-11-10
 
 ### Added

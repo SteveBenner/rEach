@@ -1,5 +1,15 @@
 # FEATURES — rEach
 
+## No plugin directory submission package — 0.70.19
+
+rEach no longer carries the package it kept for OpenAI's plugin directory (`directory/`, the "reach-installer" listing, and `tools/directory/build.rb`), and its privacy policy and terms no longer claim to cover such a listing. rEach is offered through no directory or marketplace; students install it only through `INSTALL.md`. The two plugin manifests that `reach setup` and every managed update write into the install folder are unchanged.
+
+Verified on 2026-11-10: a search of the tracked tree outside the changelog and this file finds no reference to the removed paths; the seven version declarations agree at 0.70.19 and both plugin manifests and the four YAML specs parse. Kept on purpose: `PRIVACY.md` and `specs/app.yml` still describe a copy added through a harness's plugin directory with no installer run, which stays true for copies installed before 0.69.0. Not verified: the release gate, `rplugin check`, `reach policy`, and whether a listing was ever submitted or published in OpenAI's portal, which only the operator can withdraw. On main only; not on test or stable.
+
+Student-first audit: learning n/a (no course content or coaching changes). Agency and honesty: the policy no longer names a listing that does not exist. Wiring: removes the package's only outward tie, the OpenAI submission portal; adds none.
+
+Build: ✅ on main. Deploy: not yet on test.
+
 ## Reinstall in one command — 0.70.18
 
 `reach reinstall` removes rEach the way `reach uninstall` does and installs the current stable release from GitHub in the same command, so a student who asks an agent to start over answers one question. The installer is fetched before anything is removed, so a failed download changes nothing; after the student's typed yes the command removes rEach, runs the installer and rEach's setup for the named app from the new copy, and prints what setup said. The student's work, receipts and microbrain stay, and the student enrolls again afterwards. The `reach-reinstall` skill tells the agent to relay the question, wait for the typed yes, and continue with `INSTALL.md` read from GitHub at that moment.
