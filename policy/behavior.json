@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:3707d0f64c2f73f2be075ff740880826a9a7bf8520f6453d60653391b27c4a50",
+  "digest": "sha256:daef40e4d9307052efe49a88909ece7e51e9869e795a7580d1a90eac857e10b3",
   "policy": {
     "antifeatures": [
       {
@@ -1625,6 +1625,26 @@
         "target": "AGENTS.md",
         "template": "specs/polispec/surfaces/repo-stub.md.tpl"
       },
+      "skill-design-taste-frontend": {
+        "invoke": {
+          "intents": [
+            "the reach-course or reach-feature skill tells you to load it for a panel slice, before you write any markup"
+          ],
+          "name": "design-taste-frontend",
+          "scope": [
+            "slice:panel"
+          ],
+          "summary": "Frontend design direction for a panel slice in a rEach course: read the brief, infer the direction, and write markup that does not look templated.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "path:**/*.svelte"
+          ]
+        },
+        "kind": "skill",
+        "mode": "generated",
+        "target": "skills/design-taste-frontend/SKILL.md",
+        "template": "specs/polispec/surfaces/skills/design-taste-frontend.md"
+      },
       "skill-reach-bug": {
         "invoke": {
           "excludes": [
@@ -1645,7 +1665,6 @@
           "summary": "The bug flow for one slice: the smallest fix, proven by the same run, without git.",
           "trigger_sentence": "rEach also tells you when to load it.",
           "triggers": [
-            "task:review",
             "message:M-PACKET-NEXT-QUALIFY"
           ]
         },
@@ -2156,6 +2175,14 @@
         "REPO-LINK"
       ],
       "sha256": "8c0461bad3b0f6532e6bedbba5bdda32c9b89f3d9c37bd0d4994d4064c267e0a"
+    },
+    "skill-design-taste-frontend": {
+      "kind": "skill",
+      "target": "skills/design-taste-frontend/SKILL.md",
+      "refs": [
+
+      ],
+      "sha256": "24b67f95e5463f66142f1d98360646ceec930e6e6257d22b50b828b213fe6bb8"
     },
     "skill-reach-bug": {
       "kind": "skill",

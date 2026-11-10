@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "time"
 require "yaml"
 
 module Reach
@@ -12,6 +13,7 @@ module Reach
     DEFAULT_GATE = "advise"
     PLUGIN_PREFIX = "reach:"
     SEEN_KEEP = 20
+    ERROR_WINDOW_S = 7 * 86_400
     SKILL_COUNTS = %w[loads in_scope out_of_scope preloaded loads_with_pointer triggers_emitted].freeze
     HARNESS_COUNTS = %w[loads in_scope out_of_scope preloaded].freeze
     NAME_PATTERN = "(?:reach-[a-z][a-z0-9-]*|design-taste-frontend)"
@@ -505,9 +507,15 @@ module Reach
 
     def error_problems
       errors = counts["gate_errors"]
-      return [] unless errors["count"].to_i.positive?
+      return [] unless errors["count"].to_i.positive? && recent?(errors["last_at"])
 
       ["R-DOC-SKILLS: the skill gate did not run #{errors['count'].to_i} time(s), last at #{errors['last_at']}"]
+    end
+
+    def recent?(stamp)
+      Time.now.utc - Time.parse(stamp.to_s) <= ERROR_WINDOW_S
+    rescue ArgumentError, TypeError
+      true
     end
 
     def problems

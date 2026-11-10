@@ -1835,7 +1835,6 @@ surfaces:
       - when: new behaviour the student wants
         skill: reach-feature
       triggers:
-      - task:review
       - message:M-PACKET-NEXT-QUALIFY
       trigger_sentence: rEach also tells you when to load it.
       scope:
@@ -2079,6 +2078,23 @@ surfaces:
       excludes:
       - when: removing rEach for good
         skill: reach-uninstall
+  skill-design-taste-frontend:
+    kind: skill
+    target: skills/design-taste-frontend/SKILL.md
+    template: specs/polispec/surfaces/skills/design-taste-frontend.md
+    mode: generated
+    invoke:
+      name: design-taste-frontend
+      summary: 'Frontend design direction for a panel slice in a rEach course: read the
+        brief, infer the direction, and write markup that does not look templated.'
+      intents:
+      - the reach-course or reach-feature skill tells you to load it for a panel slice,
+        before you write any markup
+      triggers:
+      - path:**/*.svelte
+      trigger_sentence: rEach also tells you when to load it.
+      scope:
+      - slice:panel
   workspace-stub:
     kind: stub
     target: specs/polispec/surfaces/generated/workspace-stub.md

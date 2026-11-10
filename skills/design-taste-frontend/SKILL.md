@@ -1,6 +1,6 @@
 ---
 name: design-taste-frontend
-description: Anti-slop frontend skill for landing pages, portfolios, and redesigns. The agent reads the brief, infers the right design direction, and ships interfaces that do not look templated. Real design systems when applicable, audit-first on redesigns, strict pre-flight check.
+description: "Frontend design direction for a panel slice in a rEach course: read the brief, infer the direction, and write markup that does not look templated. Use when the reach-course or reach-feature skill tells you to load it for a panel slice, before you write any markup. rEach also tells you when to load it."
 ---
 
 # tasteskill: Anti-Slop Frontend Skill
