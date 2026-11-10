@@ -875,6 +875,11 @@ RUBY
         code, out, err = spawn_capture([*shell, command], stdin: course_shell_payload("Get-Process", work), chdir: work)
         return [:fail, "#{name}: expected exit 0 and a PreToolUse deny on stdout for Get-Process, got exit #{code.inspect}: #{tail(out, err)}\ncommand: #{command}"] unless codex_deny_reason(code, out)
       end
+      claude_path = File.join(work, ".claude", "settings.json")
+      if windows? && File.file?(claude_path)
+        unpinned = JSON.parse(File.read(claude_path)).fetch("hooks").values.flatten.flat_map { |entry| entry["hooks"] }.reject { |hook| hook["shell"] == "powershell" }
+        return [:fail, "#{claude_path} has #{unpinned.length} Claude hook(s) without shell powershell: #{unpinned.first["command"]}"] unless unpinned.empty?
+      end
       [:pass, "the course folder's gate shell ran through #{shells.map { |shell| shell.take(3).map { |part| File.basename(part) }.join(' ') }.join(' and ')}, denied cat $HOME/notes.txt with JSON on stdout, let ls and a Get-Content read through, and refused Get-Process"]
     end
 

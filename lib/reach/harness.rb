@@ -196,26 +196,26 @@ module Reach
 
       def claude_settings_content(space_kind = "slice")
         post_tool_use = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit", hook_line("check", "--format", "agent"), 60) if %w[slice root].include?(space_kind.to_s)
+        post_tool_use << hook_entry("Write|Edit|MultiEdit", hook_line("check", "--format", "agent"), 60, shell: claude_hook_shell) if %w[slice root].include?(space_kind.to_s)
 
         stop_hooks = []
-        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("transcript", "code", "--harness", "claude-code"), 15)
-        stop_hooks << hook_entry(nil, hook_line("hook", "stop", "--harness", "claude-code"), 30)
-        stop_hooks << wake_entry(hook_line("live", "watch", "--harness", "claude-code")) if claude_wake?
+        post_tool_use << hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("transcript", "code", "--harness", "claude-code"), 15, shell: claude_hook_shell)
+        stop_hooks << hook_entry(nil, hook_line("hook", "stop", "--harness", "claude-code"), 30, shell: claude_hook_shell)
+        stop_hooks << wake_entry(hook_line("live", "watch", "--harness", "claude-code"), shell: claude_hook_shell) if claude_wake?
 
         {
           "hooks" => {
-            "SessionStart" => [hook_entry(nil, hook_line("gate", "session", "--harness", "claude-code"), 10)],
-            "MessageDisplay" => [hook_entry(nil, hook_line("hook", "display", "--harness", "claude-code"), 30)],
-            "UserPromptSubmit" => [hook_entry(nil, hook_line("gate", "prompt", "--harness", "claude-code"), 10)],
+            "SessionStart" => [hook_entry(nil, hook_line("gate", "session", "--harness", "claude-code"), 10, shell: claude_hook_shell)],
+            "MessageDisplay" => [hook_entry(nil, hook_line("hook", "display", "--harness", "claude-code"), 30, shell: claude_hook_shell)],
+            "UserPromptSubmit" => [hook_entry(nil, hook_line("gate", "prompt", "--harness", "claude-code"), 10, shell: claude_hook_shell)],
             "PreToolUse" => [
-              hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("gate", "write", "--harness", "claude-code"), 10),
-              hook_entry("Bash|PowerShell", hook_line("gate", "shell", "--harness", "claude-code"), 10),
-              hook_entry(CLAUDE_READ_MATCHER, hook_line("gate", "read", "--harness", "claude-code"), 10)
+              hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("gate", "write", "--harness", "claude-code"), 10, shell: claude_hook_shell),
+              hook_entry("Bash|PowerShell", hook_line("gate", "shell", "--harness", "claude-code"), 10, shell: claude_hook_shell),
+              hook_entry(CLAUDE_READ_MATCHER, hook_line("gate", "read", "--harness", "claude-code"), 10, shell: claude_hook_shell)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks,
-            "SessionEnd" => [hook_entry(nil, hook_line("hook", "stop", "--final", "--harness", "claude-code"), 30)]
+            "SessionEnd" => [hook_entry(nil, hook_line("hook", "stop", "--final", "--harness", "claude-code"), 30, shell: claude_hook_shell)]
           },
           "permissions" => {
             "deny" => [
@@ -225,6 +225,10 @@ module Reach
           },
           "enableAllProjectMcpServers" => true
         }
+      end
+
+      def claude_hook_shell
+        Reach::Runtime.windows? ? "powershell" : nil
       end
 
       def hook_line(*args)
@@ -244,8 +248,10 @@ module Reach
       CLAUDE_PROBE_S = 5
       WAKE_TIMEOUT_S = 900
 
-      def wake_entry(command)
-        { "hooks" => [{ "type" => "command", "command" => command, "timeout" => WAKE_TIMEOUT_S, "async" => true, "asyncRewake" => true }] }
+      def wake_entry(command, shell: nil)
+        hook = { "type" => "command", "command" => command, "timeout" => WAKE_TIMEOUT_S, "async" => true, "asyncRewake" => true }
+        hook["shell"] = shell if shell
+        { "hooks" => [hook] }
       end
 
       def claude_version
@@ -269,8 +275,10 @@ module Reach
         false
       end
 
-      def hook_entry(matcher, command, timeout)
-        entry = { "hooks" => [{ "type" => "command", "command" => command, "timeout" => timeout }] }
+      def hook_entry(matcher, command, timeout, shell: nil)
+        hook = { "type" => "command", "command" => command, "timeout" => timeout }
+        hook["shell"] = shell if shell
+        entry = { "hooks" => [hook] }
         entry["matcher"] = matcher if matcher
         entry
       end

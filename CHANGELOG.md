@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.16] - 2026-11-09
+
+### Fixed
+
+- **A Windows student with Git Bash had every Claude Code prompt blocked with `syntax error near unexpected token '&'`.** Claude Code runs a command hook through Git Bash when Git for Windows is installed and through PowerShell only when it is not, and every hook rEach wrote on Windows was the PowerShell form `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE`. `Harness.hook_entry` and `Harness.wake_entry` (`lib/reach/harness.rb`) now add `"shell": "powershell"` to each Claude hook on Windows, so the form runs in PowerShell either way; macOS, Linux and Codex hooks are unchanged. `Relocation.unwrapped_hooks?` (`lib/reach/relocation.rb`) treats a Windows course folder whose Claude hooks lack the field as stale, so `hello` rewrites it, and the `codex_course_hook` platform step (`tools/platform_smoke/run.rb`) fails a Windows leg when a hook in `.claude/settings.json` lacks it (STD-CLAUDE-WINDOWS-HOOKS). Checked on Linux with `windows?` stubbed; not run on Windows, and the Claude Code version that first honours the field is not documented.
+
 ## [0.70.15] - 2026-11-09
 
 ### Fixed

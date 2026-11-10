@@ -1219,11 +1219,14 @@ module Reach
 
         data = JSON.parse(File.read(path))
         hooks = data.is_a?(Hash) && data["hooks"].is_a?(Hash) ? data["hooks"] : {}
+        shell_pinned = File.basename(path) == "settings.json"
         hooks.each_value.any? do |entries|
           Array(entries).any? do |entry|
             Array(entry.is_a?(Hash) ? entry["hooks"] : nil).any? do |hook|
               command = hook.is_a?(Hash) ? hook["command"] : nil
-              command.is_a?(String) && command.start_with?("\"") && !command_pair(command).nil?
+              next false unless command.is_a?(String) && !command_pair(command).nil?
+
+              command.start_with?("\"") || (shell_pinned && hook["shell"] != "powershell")
             end
           end
         end

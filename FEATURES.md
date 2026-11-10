@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Claude hooks on Windows with Git Bash — 0.70.16
+
+Every Claude Code hook rEach writes to a course folder on Windows now carries `"shell": "powershell"`. Claude Code runs a command hook through Git Bash when Git for Windows is installed, so the `& "<ruby>" "<reach>" ...; exit $LASTEXITCODE` form failed with `syntax error near unexpected token '&'` and blocked every prompt for a student who has Git Bash (student 1030633). `hello` rewrites an existing Windows course folder whose Claude hooks lack the field, and the Windows platform check fails a leg that finds one.
+
+Verified on 2026-11-09 on Linux: the generated settings carry the field on all eleven hooks with `windows?` stubbed on and none with it off, and the stale check flags a wrapped hook without the field. Not exercised: Windows, Git Bash, a real Claude Code reading the field, and which Claude Code version first honours it (the documentation names none).
+
+Student-first audit: a student with Git Bash stops being blocked on every prompt once their course folder's hooks are rewritten, which `hello` does. A student already blocked needs the fix to reach their computer and a `hello` to run; whether the plugin's own hook runs it on a computer where `sh` is missing is unconfirmed.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ · Blocker: Human (main only; test and stable are the operator's)
+
 ## Windows platform checks — 0.70.14, 0.70.15
 
 The platform check gains four Windows-only steps: CRLF lock digests, a live request that asks only once, a stray HOME, and a redirected Downloads folder. The release gate's facts contract also drops the unread `flapping` key. Since 0.70.15 the Downloads step fails without changing anything when it cannot read the registry, where it used to delete a real redirect on restore; checked off Windows with stubbed `reg.exe` output.
