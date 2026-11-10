@@ -34,6 +34,7 @@ module ReachUninstall
   BACKUP_SUFFIX = ".reach-uninstall-backup".freeze
   COMMAND_TIMEOUT_S = 60
   CLI_TIMEOUT_S = 30
+  MAX_CLI_OUTPUT_BYTES = 1024 * 1024
   MAX_DISCOVERY_ENTRIES = 20_000
   MAX_DISCOVERY_DEPTH = 6
   MAX_JSON_BYTES = 8 * 1024 * 1024
@@ -313,7 +314,7 @@ module ReachUninstall
   end
 
   def drain(stream)
-    stream.read.to_s
+    stream.read(MAX_CLI_OUTPUT_BYTES).to_s
   rescue IOError
     ""
   end
@@ -626,9 +627,18 @@ module ReachUninstall
     [result, removed]
   end
 
+  def unparsed_left(path, rel)
+    return nil unless File.file?(path) && !File.symlink?(path) && File.size(path) <= MAX_JSON_BYTES
+    return nil unless File.binread(path).force_encoding(Encoding::UTF_8).scrub =~ OWN_HOOK
+
+    { rel: rel, path: path, verdict: :left, left: { "what" => "rEach's hooks in #{path}, which rEach could not read", "how" => "open #{path} and remove every hook whose command runs reach with gate, hook, transcript, check, live or hello" } }
+  rescue SystemCallError
+    nil
+  end
+
   def judge_claude_settings(path, rel)
     data = read_json(path)
-    return nil unless data.is_a?(Hash)
+    return unparsed_left(path, rel) unless data.is_a?(Hash)
 
     hooks = data["hooks"].is_a?(Hash) ? data["hooks"] : {}
     stripped, removed = strip_claude_hooks(hooks)
@@ -701,7 +711,8 @@ module ReachUninstall
 
   def judge_codex_hooks(path, rel)
     data = read_json(path)
-    return nil unless data.is_a?(Hash) && data["hooks"].is_a?(Hash)
+    return unparsed_left(path, rel) unless data.is_a?(Hash)
+    return nil unless data["hooks"].is_a?(Hash)
 
     stripped, removed = strip_claude_hooks(data["hooks"])
     return nil if removed.zero?
@@ -727,7 +738,7 @@ module ReachUninstall
 
   def judge_claude_user_settings(path, rel)
     data = read_json(path)
-    return nil unless data.is_a?(Hash)
+    return unparsed_left(path, rel) unless data.is_a?(Hash)
 
     remaining = data.dup
     parts = []
@@ -1145,7 +1156,9 @@ module ReachUninstall
       entries.is_a?(Array) && entries.any? { |entry| entry.is_a?(Hash) && hermes_entry_ours?(entry, shims) }
     end
     own || (document["mcp_servers"].is_a?(Hash) && document["mcp_servers"].key?("reach"))
-  rescue Psych::Exception, Psych::SyntaxError, SystemCallError
+  rescue Psych::Exception, Psych::SyntaxError
+    File.binread(file).force_encoding(Encoding::UTF_8).scrub =~ OWN_HOOK ? true : false
+  rescue SystemCallError
     false
   end
 
