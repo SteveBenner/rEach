@@ -1,6 +1,6 @@
 ---
 name: reach-passes
-description: Use at the three points where the student's input becomes a solution - the plan, the scenarios and the code - and whenever reach qualify stops at passes or patterns. Writes several candidate passes through different lenses and lets rEach, not you, choose the one the evidence supports.
+description: Writes several candidate passes through different lenses at the plan, scenarios and code points, and lets rEach choose the one the evidence supports. Use when the reach-feature flow reaches its plan, scenarios or code point; reach qualify stops at passes or patterns. rEach also tells you when to load it.
 ---
 A pass is one complete attempt at one point, written through one lens. You write the candidates; rEach scores each one from evidence only (the checks, the coverage of the graded names, the local runs, the starting copy, the pattern ledger, the port probe and the contract) and installs the best. What you think of a candidate carries no weight, and a candidate is never compared with another, only with the system.
 

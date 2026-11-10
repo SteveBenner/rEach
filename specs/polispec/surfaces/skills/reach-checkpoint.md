@@ -1,7 +1,4 @@
----
-name: reach-checkpoint
-description: Use when the student says save, checkpoint, keep this, undo, go back, the earlier version, asks what changed since an earlier version, or says their work is missing or gone, and before any change that touches more than one method.
----
+{{frontmatter}}
 A checkpoint is a snapshot of the slice's files kept by rEach. You never copy files yourself; you run the command.
 
 rEach also saves the files by itself every time you write one, before every write it allows and after every check, so the history is never more than one edit old. Those automatic saves are hidden from the list unless asked for, and any of them can be restored by its number. rEach also names a save itself when the plan is agreed, when the checks pass, and when the work is handed in; those stay in the list.

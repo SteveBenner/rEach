@@ -363,6 +363,8 @@ messages:
   M-PLAN-TOO-LONG: "The plan's {field} is longer than {limit}. Keep the plan short; the details belong in the code."
   M-PLAN-UNKNOWN-FIELD: "The plan has no field called {field}. The fields are {fields}."
   M-PLAN-NEEDS-BEHAVIOUR: "A plan needs at least the behaviour, in one sentence."
+  M-SKILL-OUT-OF-SCOPE: "The {skill} skill is for {where}, and this session is not there, so it is not needed here. Carry on without it."
+  M-SKILL-PRELOADED: "The {skill} skill's text is already part of this session, so it does not need loading again."
   M-PLAN-AUDIT-NEXT: "Plan saved. Before any code, audit it in a second pass: load the reach-plan-audit skill and run it in a fresh subagent if this app has one, otherwise as a separate pass. reach qualify needs a passing audit of this exact plan."
   M-PLAN-AUDIT-PACKET: "Judge only whether this plan can satisfy every constraint. Fail it for any step that computes what a required API returns, skips a required API, contradicts the behaviour, the operation's input or output, the contract or a constraint, or leaves a graded scenario without a matching plan scenario. Record the verdict with reach plan audit record."
   M-PLAN-AUDIT-HAND-SUMMARY: "The AI partner could not get a plan for {cutout} ({slice}) through the plan audit after {count} tries."

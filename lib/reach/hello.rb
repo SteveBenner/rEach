@@ -766,7 +766,14 @@ module Reach
     def build_context(harness_id, format, _greeting_id, greeting_text, updating = nil, workspace: nil, local: false, mcp: false, session: nil, source: nil, event: nil, cwd: nil)
       entries = []
       entries << ["hello.session", "rEach session context (from reach hello)"]
-      entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
+      pasted = persona_pasted?(harness_id, format)
+      if pasted
+        Reach::Skills.note_persona(session)
+        entries << ["hello.session", "- You are rEach, the student's academic assistant. Your persona text follows at the end of this context, so the reach-assistant skill does not need loading."]
+      else
+        Reach::Skills.note_pointer(session, "reach-assistant")
+        entries << ["hello.session", "- You are rEach, the student's academic assistant. Load the reach-assistant skill for how to greet, interview and save."]
+      end
       entries << ["hello.session", "- #{Reach::Messages.text("M-AGENT-TALK")}"]
       health_lines(mcp).each { |line| entries << ["hello.issues", line] }
       entries << ["hello.session", "- #{Reach::Messages.text("M-AGENT-UPDATE")}"]
@@ -802,12 +809,14 @@ module Reach
       safe_exam_entries.each { |text, fields| entries << ["hello.test", text, fields] }
 
       text = Reach::AgentControl.compose(entries)
-      injected = local && event.is_a?(Hash) && !event["session_id"].to_s.empty? ? safe_inject(event.merge("cwd" => cwd)) : nil
+      injected = local && event.is_a?(Hash) && !event["session_id"].to_s.empty? ? safe_inject(event.merge("cwd" => cwd), harness_id) : nil
       text = "#{text}\n\n#{injected}" if injected
-      if %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"
-        text = "#{text}\n\n#{framed("hello.persona", persona_body)}"
-      end
+      text = "#{text}\n\n#{framed("hello.persona", persona_body)}" if pasted
       text
+    end
+
+    def persona_pasted?(harness_id, format)
+      %w[codex hermes unknown].include?(harness_id) || format.to_s == "text"
     end
 
     def safe_rows_text(workspace, cwd)
@@ -817,8 +826,8 @@ module Reach
       nil
     end
 
-    def safe_inject(event)
-      Reach::Directives.inject("session", event)
+    def safe_inject(event, harness_id = nil)
+      Reach::Directives.inject("session", event, harness: harness_id)
     rescue StandardError
       nil
     end

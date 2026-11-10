@@ -711,7 +711,7 @@ directives:
 
     What reach does, the credentials it needs and its settings in `config.yml` are described in `README.md`.
 
-    Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug` (with `skills/reach-build` and `skills/reach-fix` routing to them), `skills/reach-checkpoint`, `skills/reach-progress`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.
+    Its skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug`, `skills/reach-checkpoint`, `skills/reach-progress`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.
 
     `specs/polispec/behavior.yml` owns the public engineering directives, the runtime policy parameters and every generated surface. `policy/behavior.json` is compiled data, and `directives/*.md` and the surfaces under `specs/polispec/surfaces/generated/` are generated views. Edit the source, run `ruby tools/policy.rb build` with Polispec available, then `ruby tools/policy.rb check`. Do not hand-edit the views. Course directives remain Teach-owned and arrive in the existing authenticated guardrails package as `course_policy.json` beside the legacy `directives.yml`; private bodies stay in protected retrieval.
 
@@ -1797,6 +1797,20 @@ surfaces:
     refs:
     - PERSONA-BODY
     mode: generated
+    invoke:
+      name: reach-assistant
+      summary: 'rEach''s persona: who you are, how you talk with the student, the getting-to-know-you
+        interview and the student''s profile.'
+      intents:
+      - rEach's session context tells you to load it
+      - the session has no rEach session context because reach hello could not run
+      - the student wants to redo the getting-to-know-you interview or see, change or
+        forget their profile
+      triggers:
+      - event:SessionStart
+      trigger_sentence: rEach also tells you when to load it.
+      preloaded:
+      - event:SessionStart
   antigravity-rules:
     kind: rules_file
     target: rules/reach.md
@@ -1809,91 +1823,262 @@ surfaces:
     target: skills/reach-bug/SKILL.md
     template: specs/polispec/surfaces/skills/reach-bug.md
     mode: generated
-  skill-reach-build:
-    kind: skill
-    target: skills/reach-build/SKILL.md
-    template: specs/polispec/surfaces/skills/reach-build.md
-    mode: generated
+    invoke:
+      name: reach-bug
+      summary: 'The bug flow for one slice: the smallest fix, proven by the same run,
+        without git.'
+      intents:
+      - a check or qualification fails
+      - a grade comes back with a failed case
+      - the student says something is broken or gives the wrong answer
+      excludes:
+      - when: new behaviour the student wants
+        skill: reach-feature
+      triggers:
+      - task:review
+      - message:M-PACKET-NEXT-QUALIFY
+      trigger_sentence: rEach also tells you when to load it.
+      scope:
+      - space:slice
   skill-reach-checkpoint:
     kind: skill
     target: skills/reach-checkpoint/SKILL.md
     template: specs/polispec/surfaces/skills/reach-checkpoint.md
     mode: generated
+    invoke:
+      name: reach-checkpoint
+      summary: Save, list, compare, restore and recover snapshots of the slice's files.
+      intents:
+      - the student says save, checkpoint, keep this, undo, go back or the earlier version
+      - the student asks what changed since an earlier version
+      - the student says their work is missing or gone
+      - before any change that touches more than one method
+      excludes:
+      - when: handing the work in
+        skill: reach-submit
+      scope:
+      - space:slice
   skill-reach-progress:
     kind: skill
     target: skills/reach-progress/SKILL.md
     template: specs/polispec/surfaces/skills/reach-progress.md
     mode: generated
+    invoke:
+      name: reach-progress
+      summary: Answers where the student stands from rEach's own progress report.
+      intents:
+      - the student asks where they are, where they stand, how they are doing, how far
+        along they are, what is left or what they have done so far
   skill-reach-course:
     kind: skill
     target: skills/reach-course/SKILL.md
     template: specs/polispec/surfaces/skills/reach-course.md
     mode: generated
+    invoke:
+      name: reach-course
+      summary: 'How to work on a student''s slice under the instructors'' rules: what
+        to read first, the owned files, the directives and the course''s reference files.'
+      intents:
+      - you work in a rEach course workspace, the folder of one slice with the course's
+        AGENTS.md
+      triggers:
+      - event:SessionStart
+      trigger_sentence: rEach also tells you when to load it.
+      scope:
+      - space:slice
   skill-reach-feature:
     kind: skill
     target: skills/reach-feature/SKILL.md
     template: specs/polispec/surfaces/skills/reach-feature.md
     mode: generated
+    invoke:
+      name: reach-feature
+      summary: The feature flow for one slice, end to end, without git.
+      intents:
+      - the student wants new or changed behaviour in their slice
+      - the student wants to build, implement or continue this week's step
+      excludes:
+      - when: something that worked and now fails or gives a wrong answer
+        skill: reach-bug
+      triggers:
+      - task:plan
+      trigger_sentence: rEach also tells you when to load it.
+      scope:
+      - space:slice
   skill-reach-feedback:
     kind: skill
     target: skills/reach-feedback/SKILL.md
     template: specs/polispec/surfaces/skills/reach-feedback.md
     mode: generated
-  skill-reach-fix:
-    kind: skill
-    target: skills/reach-fix/SKILL.md
-    template: specs/polispec/surfaces/skills/reach-fix.md
-    mode: generated
+    invoke:
+      name: reach-feedback
+      summary: Send the instructors a note that can wait, in the student's own words.
+      intents:
+      - 'the student wants to tell their instructors something that can wait: feedback,
+        a suggestion, a compliment, a complaint, I wish, or tell the instructors that'
+      excludes:
+      - when: a student who is blocked or needs a person now
+        skill: reach-help
+      triggers:
+      - message:M-HAND-TYPE-FEEDBACK
+      trigger_sentence: rEach also tells you when to load it.
   skill-reach-help:
     kind: skill
     target: skills/reach-help/SKILL.md
     template: specs/polispec/surfaces/skills/reach-help.md
     mode: generated
+    invoke:
+      name: reach-help
+      summary: Raise a hand to the instructors or ask for a live session with one.
+      intents:
+      - the student is blocked and asks for instructor help, a person or a live session
+      - the student says raise your hand, report this or tell my instructor
+      excludes:
+      - when: a note for the instructors that can wait
+        skill: reach-feedback
   skill-reach-import:
     kind: skill
     target: skills/reach-import/SKILL.md
     template: specs/polispec/surfaces/skills/reach-import.md
     mode: generated
+    invoke:
+      name: reach-import
+      summary: Bring the student's history from another AI app's export (ChatGPT, Claude
+        or Gemini) into rEach and learn from it.
+      intents:
+      - the student wants to bring in their history from another AI app
+      - the student asks how that import is going
+      triggers:
+      - message:M-IMPORT-FINISHED
+      trigger_sentence: rEach also tells you when to load it.
   skill-reach-passes:
     kind: skill
     target: skills/reach-passes/SKILL.md
     template: specs/polispec/surfaces/skills/reach-passes.md
     mode: generated
+    invoke:
+      name: reach-passes
+      summary: Writes several candidate passes through different lenses at the plan, scenarios
+        and code points, and lets rEach choose the one the evidence supports.
+      intents:
+      - the reach-feature flow reaches its plan, scenarios or code point
+      - reach qualify stops at passes or patterns
+      triggers:
+      - message:M-QUALIFY-PASSES
+      trigger_sentence: rEach also tells you when to load it.
+      scope:
+      - space:slice
   skill-reach-plan-audit:
     kind: skill
     target: skills/reach-plan-audit/SKILL.md
     template: specs/polispec/surfaces/skills/reach-plan-audit.md
     mode: generated
+    invoke:
+      name: reach-plan-audit
+      summary: A second, independent pass that checks the saved plan against the assignment's
+        released constraints before any code is written or qualified.
+      intents:
+      - right after every reach plan save
+      - reach qualify stops at plan_audit
+      triggers:
+      - message:M-PLAN-AUDIT-NEXT
+      - message:M-PLAN-AUDIT-NONE
+      - message:M-QUALIFY-PLAN-AUDIT
+      - message:M-QUALIFY-PLAN-ADVISE
+      trigger_sentence: rEach also tells you when to load it.
+      scope:
+      - space:slice
   skill-reach-sidecar:
     kind: skill
     target: skills/reach-sidecar/SKILL.md
     template: specs/polispec/surfaces/skills/reach-sidecar.md
     mode: generated
+    invoke:
+      name: reach-sidecar
+      summary: Bring work done in the offline rEach Sidecar folder into rEach.
+      intents:
+      - the student says they worked in the rEach Sidecar, the offline packet or the reach-sidecar
+        folder, or has a bundle ZIP from it
   skill-reach-storage:
     kind: skill
     target: skills/reach-storage/SKILL.md
     template: specs/polispec/surfaces/skills/reach-storage.md
     mode: generated
+    invoke:
+      name: reach-storage
+      summary: Report and compact the memory rEach keeps on this computer, after the student's
+        yes.
+      intents:
+      - the student asks how much space rEach uses or wants to free space
+      triggers:
+      - message:M-STORAGE-WARN
+      - message:M-STORAGE-DEMAND
+      trigger_sentence: rEach also tells you when to load it.
   skill-reach-reclaim:
     kind: skill
     target: skills/reach-reclaim/SKILL.md
     template: specs/polispec/surfaces/skills/reach-reclaim.md
     mode: generated
+    invoke:
+      name: reach-reclaim
+      summary: Bring back older memory, notes or course folders from an earlier rEach
+        install or another reach-work folder, after the student's yes.
+      intents:
+      - the student asks to bring back, find or recover memory or work from an earlier
+        rEach install, a set-aside folder or another reach-work folder
+      excludes:
+      - when: an earlier version of the slice the student is working on
+        skill: reach-checkpoint
   skill-reach-submit:
     kind: skill
     target: skills/reach-submit/SKILL.md
     template: specs/polispec/surfaces/skills/reach-submit.md
     mode: generated
+    invoke:
+      name: reach-submit
+      summary: Hand in a slice or written work, make a ZIP of the work, and answer whether
+        a submission was received.
+      intents:
+      - the student wants to submit or hand in their work, or submit it again
+      - the student asks whether a submission was received
+      - the student wants a ZIP of their work
+      excludes:
+      - when: keeping progress safe without handing it in
+        skill: reach-checkpoint
+      triggers:
+      - task:submit
+      - message:M-PACKET-NEXT-SUBMIT
+      trigger_sentence: rEach also tells you when to load it.
   skill-reach-uninstall:
     kind: skill
     target: skills/reach-uninstall/SKILL.md
     template: specs/polispec/surfaces/skills/reach-uninstall.md
     mode: generated
+    invoke:
+      name: reach-uninstall
+      summary: Remove rEach with one command the student decides on.
+      intents:
+      - the student asks to uninstall, remove or delete rEach, or to start over without
+        it
+      excludes:
+      - when: a problem with rEach that the student wants fixed, not removed
+        skill: reach-help
+      - when: starting over with a fresh copy of rEach
+        skill: reach-reinstall
   skill-reach-reinstall:
     kind: skill
     target: skills/reach-reinstall/SKILL.md
     template: specs/polispec/surfaces/skills/reach-reinstall.md
     mode: generated
+    invoke:
+      name: reach-reinstall
+      summary: "Reinstall rEach with one command the student decides on: it removes rEach and installs the current stable release."
+      intents:
+      - the student asks to reinstall rEach or to start over with a fresh copy
+      - the student wants rEach repaired by removing it and installing it again
+      excludes:
+      - when: removing rEach for good
+        skill: reach-uninstall
   workspace-stub:
     kind: stub
     target: specs/polispec/surfaces/generated/workspace-stub.md

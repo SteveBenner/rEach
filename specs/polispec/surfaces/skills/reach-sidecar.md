@@ -1,7 +1,4 @@
----
-name: reach-sidecar
-description: Use when the student says they worked in the rEach Sidecar, the offline packet or the reach-sidecar folder before rEach was set up, has a bundle ZIP from it, or asks to bring that work into rEach.
----
+{{frontmatter}}
 The rEach Sidecar is an offline folder the instructor hands out so a student can work on their assignments before rEach is installed. Its work is brought into rEach once, by rEach itself; you never copy its files by hand.
 
 - Ask the student where the unzipped folder is (the one that holds `packet.rb`, usually in Downloads), then call the reach_packet tool with action import and that folder, or run `reach packet import <folder>` in a terminal. Do not read the folder yourself: the shell and read gates refuse a folder outside the course workspace, and the tool does the reading.

@@ -1,7 +1,4 @@
----
-name: reach-reinstall
-description: Use when the student asks to reinstall rEach, to start over with a fresh copy, or to repair rEach by removing it and installing it again.
----
+{{frontmatter}}
 Reinstalling rEach is one command, and the student decides. You never delete rEach's folders, download the installer, or touch the student's work yourself.
 Run `reach reinstall --harness <claude-code | codex | antigravity | hermes>`, naming the app you are running in (Codex: ask to run it outside the sandbox from the start, because it removes things outside the reach-work folder and downloads from GitHub). rEach fetches its installer first, so a failed download removes nothing. It then prints a question that lists what it will remove and what stays. Give it to the student word for word and stop. Never answer it yourself: only the student's own typed yes counts, and `--yes` is refused while rEach is enrolled and working.
 After the student's yes, in their next message, run the same command again. rEach tells the course server, removes itself, installs the current stable release and runs its setup, then prints what setup said. Give the student anything setup says they must do themselves.

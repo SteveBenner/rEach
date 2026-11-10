@@ -1,6 +1,6 @@
 ---
 name: reach-submit
-description: Use when the student wants to submit their slice, submit it again before the due time, or asks whether a submission was received.
+description: "Hand in a slice or written work, make a ZIP of the work, and answer whether a submission was received. Use when the student wants to submit or hand in their work, or submit it again; the student asks whether a submission was received; the student wants a ZIP of their work. rEach also tells you when to load it. Not for keeping progress safe without handing it in: use the reach-checkpoint skill."
 ---
 Offer to submit once `reach qualify` has passed: tell the student they can ask you to submit this part whenever they are ready, that it sends the work to their instructors and saves a ZIP of all their work for the assignment in their Downloads folder, that to receive credit for this coursework they must also upload that ZIP to Blackboard (or the system Reach names), and that they can submit again until the due time (the last one counts).
 Before submitting, run `reach part`: every question must be answered in the student's own words. If one is missing, ask it first.

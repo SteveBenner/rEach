@@ -1,6 +1,6 @@
 ---
 name: reach-reclaim
-description: Use when the student asks to bring back, find or recover their older memory, notes or work from an earlier rEach install, a set-aside folder or another reach-work folder, or when rEach says it found older memory or folders it can bring back.
+description: "Bring back older memory, notes or course folders from an earlier rEach install or another reach-work folder, after the student's yes. Use when the student asks to bring back, find or recover memory or work from an earlier rEach install, a set-aside folder or another reach-work folder. Not for an earlier version of the slice the student is working on: use the reach-checkpoint skill."
 ---
 Bringing things back is one command, and the student decides. You never copy, move or delete rEach's folders or the student's work yourself.
 Run `reach reclaim` (or the `reach_reclaim` tool). rEach lists what it found: memory that carries this student's ID, course folders whose rules files and settings need putting back, and anything left alone because it belongs to someone else or has no owner on record. It ends with a question. Give the whole text to the student word for word and stop. Never answer it yourself: only the student's own typed yes counts.

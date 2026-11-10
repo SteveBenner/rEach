@@ -126,3 +126,5 @@ agent_control:
   test_mode: true
 harness:
   rules_file: auto
+skills:
+  gate: advise

@@ -29,6 +29,7 @@ module Reach
         rescue StandardError
           nil
         end
+        Reach::Skills.note_message(id)
         rendered
       end
 

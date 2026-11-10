@@ -1,7 +1,4 @@
----
-name: reach-bug
-description: Use when a check or qualification fails, a grade comes back with a failed case, or the student says something gives the wrong answer. The bug flow for one slice, without git.
----
+{{frontmatter}}
 The bug flow for one slice: the smallest fix, proven by the same run. Work the steps in order. Never run git or start a repository; overwrite files in place and use `reach checkpoint` as the history.
 
 1. **Name it exactly.** The QF code and scenario name from `reach qualify`, the finding id and file from `reach check --format agent`, the failed case on a grade receipt, or the student's own description of the wrong answer. Quote it word for word in your notes; tell the student about it only in business terms.

@@ -1,7 +1,4 @@
----
-name: reach-feature
-description: Use when the student wants new or changed behaviour in their slice, or to build or continue this week's step. The feature flow for one slice, end to end, without git.
----
+{{frontmatter}}
 The feature flow for one slice. Work the steps in order; do not skip or reorder them. Reach does not do version control yet: never run git or start a repository, change files by overwriting them in place, and use `reach checkpoint` as the history.
 
 1. **Read the slice.** README.md, contract/README.md, api/README.md, the `qualify` part of api/slice-api.json, shape/brief.md, then `reach plan show`, `reach status` and `reach qualify --list`. Read nothing else.

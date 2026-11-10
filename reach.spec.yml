@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.70.22
+version: 0.71.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -180,10 +180,6 @@ plugin_manifest:
         path: skills/reach-help/SKILL.md
       - id: reach-assistant
         path: skills/reach-assistant/SKILL.md
-      - id: reach-build
-        path: skills/reach-build/SKILL.md
-      - id: reach-fix
-        path: skills/reach-fix/SKILL.md
       - id: reach-feature
         path: skills/reach-feature/SKILL.md
       - id: reach-plan-audit
@@ -1673,6 +1669,8 @@ cli:
       advertised contract digest matches Reach's), R-DOC-VERSION (every manifest carries VERSION), R-DOC-PERSONA (the
       skill and agent bodies match and quote the first-run greeting), R-DOC-DIRECTIVES (every public directive file
       parses and fits the table), R-DOC-TASTE (the vendored design-taste-frontend skill is the official one),
+      R-DOC-SKILLS (every skill directory has a skill surface with an invoke block, the skills lists match, every message that
+      names a skill is that skill's trigger, the Skill gate is wired, and the gate has not failed),
       R-DOC-SEAL (the sidecar is readable). R-DOC-SDK and R-DOC-LINKS are gone, since rplugin is optional.
   - name: lock
     synopsis: reach lock
@@ -3155,6 +3153,9 @@ doctor_checks:
 - id: R-DOC-TASTE
   checks: skills/design-taste-frontend is the official tasteskill (name, opening line, MIT licence, provenance)
   fix: A packaging fault; reinstall rEach
+- id: R-DOC-SKILLS
+  checks: Since 0.71.0, every directory under skills/ has a skill surface with an invoke block, reach.rplugin.yml lists exactly those skills, every locale message that names a skill is listed as message:ID in that skill's triggers and every message trigger names a message that names the skill, the strings in lib/ that name a skill name an existing one, the Skill gate is wired in each Claude Code folder's settings, and reach gate skill has not failed (the count and last time are shown)
+  fix: A packaging fault; reinstall rEach. A failed gate count stays until the state folder's skill-loads.json is removed
 - id: R-DOC-SEAL
   checks: The sidecar at the platform's state directory (or REACH_SIDECAR) exists and parses after enrollment
   fix: Run any reach command once; if it persists, reach enroll again

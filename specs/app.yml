@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.70.22
+version: 0.71.0
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -3622,31 +3622,23 @@ interfaces:
     - name: reach-assistant
       purpose: "Persona and greeting: who rEach is, how it talks, and how it starts every session. The body is the same text as agents/reach.md."
       source: skills/reach-assistant/SKILL.md
-      audience: "The student's agent, at the start of every session."
+      audience: "The student's agent, once per session: rEach's session context tells it to load the skill, or pastes the body where a harness cannot load skills."
     - name: reach-course
       purpose: "How to work on a student's slice under the instructors' rules: what to read first, owned files, directives and reference files."
       source: skills/reach-course/SKILL.md
-      audience: "The student's agent, in every course workspace."
+      audience: "The student's agent, in every course slice workspace; rEach points to it at session start."
     - name: reach-submit
       purpose: "Submit a slice: qualify first, answer own-part questions, relay rEach's question, and tell the student about the receipt and the ZIP."
       source: skills/reach-submit/SKILL.md
-      audience: "The student's agent, when the student wants to submit."
+      audience: "The student's agent, when the student wants to submit; rEach points to it when it asks for a submit step."
     - name: reach-help
       purpose: "Raise a hand or ask for a live session with an instructor; rEach raises the hand itself after three failed qualifications."
       source: skills/reach-help/SKILL.md
       audience: "The student's agent, when the student wants instructor help."
-    - name: reach-build
-      purpose: "Route a request to build or continue this week's step to the reach-feature flow."
-      source: skills/reach-build/SKILL.md
-      audience: "The student's agent."
     - name: reach-feature
       purpose: "The feature flow for one slice without git: read, plan with the student, save the plan, audit it, write scenarios, implement, qualify."
       source: skills/reach-feature/SKILL.md
-      audience: "The student's agent, for new or changed behavior."
-    - name: reach-fix
-      purpose: "Route a failing check or a broken-behavior report to the reach-bug flow."
-      source: skills/reach-fix/SKILL.md
-      audience: "The student's agent."
+      audience: "The student's agent, for new or changed behavior in a slice; rEach points to it when the plan phase starts."
     - name: reach-bug
       purpose: "The bug flow for one slice: name the failure exactly, reproduce it, make the smallest fix and prove it with the same run."
       source: skills/reach-bug/SKILL.md
@@ -3654,11 +3646,11 @@ interfaces:
     - name: reach-plan-audit
       purpose: "A second, independent pass that checks the saved plan against the released constraints before any code is written or qualified."
       source: skills/reach-plan-audit/SKILL.md
-      audience: "The student's agent, after every plan save."
+      audience: "The student's agent, after every plan save, when a rEach message says the audit is due."
     - name: reach-passes
       purpose: "Write several candidate passes through different lenses at the plan, scenarios and code points, and let rEach choose by evidence."
       source: skills/reach-passes/SKILL.md
-      audience: "The student's agent, where the student's input becomes a solution."
+      audience: "The student's agent, where rEach says qualification stopped at passes or patterns."
     - name: reach-progress
       purpose: "Answer where the student stands from reach_progress, and offer the next step; never the code rules of reach check."
       source: skills/reach-progress/SKILL.md
@@ -3666,27 +3658,27 @@ interfaces:
     - name: reach-checkpoint
       purpose: "Save, list, restore and recover snapshots of the slice's files; rEach also saves on every write."
       source: skills/reach-checkpoint/SKILL.md
-      audience: "The student's agent, when the student says save, undo or that work is missing."
+      audience: "The student's agent in a slice, when the student says save, undo or that work is missing."
     - name: reach-feedback
       purpose: "Send the instructors a note that can wait; blocked students raise a hand instead."
       source: skills/reach-feedback/SKILL.md
-      audience: "The student's agent."
+      audience: "The student's agent, when the student has a note for the instructors that can wait."
     - name: reach-storage
       purpose: "Report and compact the memory rEach keeps on this computer, asking the student first."
       source: skills/reach-storage/SKILL.md
-      audience: "The student's agent, when rEach says its memory is large."
+      audience: "The student's agent, when the student asks about space or rEach says its memory is large."
     - name: reach-import
       purpose: "Bring history from another AI app's export into rEach and learn from it."
       source: skills/reach-import/SKILL.md
-      audience: "The student's agent, when the student asks to import."
+      audience: "The student's agent, when the student asks to import or rEach says an import finished."
     - name: reach-sidecar
       purpose: "Bring work done in the offline sidecar folder into rEach."
       source: skills/reach-sidecar/SKILL.md
-      audience: "The student's agent."
+      audience: "The student's agent, when the student worked in the offline Sidecar folder."
     - name: reach-reclaim
       purpose: "Bring back older memory and course folders after the student's yes; the agent never copies, moves or deletes them itself."
       source: skills/reach-reclaim/SKILL.md
-      audience: "The student's agent, when the student asks to bring back older memory or work, or rEach says it found some."
+      audience: "The student's agent, when the student asks to bring back older memory or work."
     - name: reach-uninstall
       purpose: "Remove rEach with one command the student decides on; the agent never deletes anything itself."
       source: skills/reach-uninstall/SKILL.md
@@ -3698,7 +3690,7 @@ interfaces:
     - name: design-taste-frontend
       purpose: "Anti-slop frontend direction for landing pages, portfolios and redesigns, shipped for panel work."
       source: skills/design-taste-frontend/SKILL.md
-      audience: "The student's agent, on frontend work."
+      audience: "The student's agent in a panel slice, when the reach-course or reach-feature skill tells it to load the skill before it writes markup."
   hooks:
     - event: "SessionStart"
       command: 'sh "${CLAUDE_PLUGIN_ROOT}/exe/reach-run" hello'
@@ -3796,6 +3788,14 @@ interfaces:
       purpose: "Course folder hook: refuse reads outside the course workspace and of private paths. The same settings file also denies Read of the vault and key folders."
       source: lib/reach/harness.rb Harness.claude_settings_content
       standards: [STD-HOOK-GUARD, STD-VAULT-PRIVATE]
+    - event: "PreToolUse Skill"
+      command: "reach gate skill --harness claude-code"
+      blocking: false
+      timeout_s: 10
+      harnesses: [claude-code]
+      purpose: "Course folder hook: count the load of a rEach skill and, by the skills.gate setting, advise or refuse a load outside the skill's scope or of text already in the session; it fails open with a stderr line and a gate_errors count. The plugin's hooks/hooks.json does not carry it, because rplugin renders that file from hooks/reach.hooks.yml and its match classes are any, write, shell and read, with none for one tool name."
+      source: lib/reach/harness.rb Harness.claude_settings_content
+      standards: [STD-SKILL-INVOKE, STD-HOOK-GUARD]
     - event: "PostToolUse Write|Edit|MultiEdit"
       command: "reach check --format agent"
       blocking: false
@@ -5720,6 +5720,8 @@ known_gaps:
 standards:
   - id: STD-GUIDED-LEARNER
     text: "Learner presentation follows the six canonical policies in the compiled Polispec guided-learner catalog artifact policy/guided-learner.json: no code disclosure, steps inside the app first with a terminal only as a fallback for rEach's own commands, no implementation disclosures, released-assignment scope, plain-language coaching, and truthful essential disclosures. Student installations need no Polispec runtime. Native display replacement and after-display correction have distinct coverage: neither a pattern check nor a Stop retry establishes complete semantic enforcement. Privacy, recording, consent, grading provenance, submission status, crisis support, and access to instructors remain explainable. Existing CODEFILE file locations govern agent work, not instructions to students to open files. Since 0.68.16 agents offer an available in-app path first, then rEach's own terminal command when rEach says the app cannot finish the step, then instructor help."
+  - id: STD-SKILL-INVOKE
+    text: "Since 0.71.0 Polispec decides when rEach's shipped skills are invoked. Each skill surface in specs/polispec/behavior.yml carries an invoke block (name, summary, intents, excludes, triggers, scope, preloaded) and Polispec generates the skill's frontmatter from it, refusing overlapping intents at compile. rEach points to a skill once per session in the directive channel when a trigger holds (reach-course at session start in a slice, reach-feature when the plan phase starts, the design-taste-frontend skill before a .svelte write in a panel slice), and a rEach message that names a skill is listed as a trigger of that skill, which reach doctor checks (R-DOC-SKILLS). A Claude Code PreToolUse hook on the Skill tool runs reach gate skill: a skill outside its scope (design-taste-frontend outside a panel slice) or already pasted into the session (reach-assistant on Codex and Hermes) gets advice by default, or a refusal when skills.gate in config.yml is enforce, and nothing but a count when it is off; advise is the default. A gate that cannot run fails open with one stderr line and a gate_errors count that reach doctor shows. Counts of loads per skill and per harness (loads, in scope, out of scope, preloaded, loads after a pointer, triggers emitted, last time) stay in skill-loads.json in rEach's state folder; they never hold a prompt, path, file content, identifier or word, and are never sent anywhere."
   - id: STD-RUBY-FLOOR
     text: "Every lib/ file parses and runs on Ruby 2.6.10: no endless methods, no pattern matching, no numbered block parameters, no hash/keyword shorthand."
   - id: STD-RUBY-BOOTSTRAP

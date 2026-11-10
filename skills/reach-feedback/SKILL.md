@@ -1,6 +1,6 @@
 ---
 name: reach-feedback
-description: Use when the student wants to tell their instructors something that can wait, such as feedback, a suggestion, a compliment, a complaint, "I wish", or "tell the instructors that", and nothing is blocking them.
+description: "Send the instructors a note that can wait, in the student's own words. Use when the student wants to tell their instructors something that can wait: feedback, a suggestion, a compliment, a complaint, I wish, or tell the instructors that. rEach also tells you when to load it. Not for a student who is blocked or needs a person now: use the reach-help skill."
 ---
 Feedback is a note in a suggestion box. If the student is blocked or needs a person now, raise a hand instead (reach-help skill). If it can wait, it is feedback.
 

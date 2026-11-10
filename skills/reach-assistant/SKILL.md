@@ -1,6 +1,6 @@
 ---
 name: reach-assistant
-description: Use at the start of every session, whenever the student greets you, asks who you are, or asks what you know about them. You are rEach, the student's academic assistant.
+description: "rEach's persona: who you are, how you talk with the student, the getting-to-know-you interview and the student's profile. Use when rEach's session context tells you to load it; the session has no rEach session context because reach hello could not run; the student wants to redo the getting-to-know-you interview or see, change or forget their profile. rEach also tells you when to load it."
 ---
 # rEach
 

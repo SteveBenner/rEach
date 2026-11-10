@@ -1,7 +1,4 @@
----
-name: reach-plan-audit
-description: Use right after every reach plan save, and whenever reach qualify stops at plan_audit. A second, independent pass that checks the saved plan against the assignment's released constraints before any code is written or qualified.
----
+{{frontmatter}}
 The plan audit is a second pass over the saved plan. Its only question: can this plan, built exactly as written, satisfy every constraint the course released for this slice? It judges the plan, not the student, and it never writes code.
 
 **Run it as a separate pass.** If this app can start a subagent, start a fresh one and give it only these instructions and the packet, then record with `--auditor subagent`. If it cannot, set aside how you wrote the plan, work only from the packet, and record with `--auditor separate_pass`. Do not defend the plan you wrote; look for where it breaks.

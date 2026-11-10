@@ -1,6 +1,6 @@
 ---
 name: reach-feature
-description: Use when the student wants new or changed behaviour in their slice, or to build or continue this week's step. The feature flow for one slice, end to end, without git.
+description: "The feature flow for one slice, end to end, without git. Use when the student wants new or changed behaviour in their slice; the student wants to build, implement or continue this week's step. rEach also tells you when to load it. Not for something that worked and now fails or gives a wrong answer: use the reach-bug skill."
 ---
 The feature flow for one slice. Work the steps in order; do not skip or reorder them. Reach does not do version control yet: never run git or start a repository, change files by overwriting them in place, and use `reach checkpoint` as the history.
 

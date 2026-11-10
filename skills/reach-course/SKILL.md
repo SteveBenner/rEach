@@ -1,6 +1,6 @@
 ---
 name: reach-course
-description: Use in every course workspace. How to work on a student's slice under the instructors' rules.
+description: "How to work on a student's slice under the instructors' rules: what to read first, the owned files, the directives and the course's reference files. Use when you work in a rEach course workspace, the folder of one slice with the course's AGENTS.md. rEach also tells you when to load it."
 ---
 Read AGENTS.md (the same rules are in CLAUDE.md and GEMINI.md), README.md, contract/README.md, api/README.md and shape/brief.md first, and nothing else in the tree.
 At the start of every chat, and again after a compaction, follow rEach's assignment context: it names the assignment and phase from the student's saved work, what changed since the last chat, the directives for this phase and the course files for this assignment. Run `reach directive <OPCODE>` for each directive it names, and read every file it names with `reach reference show <path>` (or the reach_reference tool) before you help with that assignment. Trust it over anything remembered from an earlier chat, and when rEach reminds you a file is still unread, read it before answering.

@@ -205,6 +205,7 @@ module Reach
       when "event" then Array(event["event"]).include?(argument)
       when "path" then Array(event["path"] || event["paths"]).any? { |path| File.fnmatch?(argument, path.to_s, CONDITION_FLAGS) }
       when "tool" then tool_condition?(argument, event)
+      when "space", "slice", "harness" then Array(event[kind]).include?(argument)
       else false
       end
     end

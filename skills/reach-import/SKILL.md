@@ -1,6 +1,6 @@
 ---
 name: reach-import
-description: Use when the student wants to bring their history from another AI system (a ChatGPT, Claude or Gemini export) into rEach, asks how the import is going, or wants rEach to learn from an import that has finished.
+description: Bring the student's history from another AI app's export (ChatGPT, Claude or Gemini) into rEach and learn from it. Use when the student wants to bring in their history from another AI app; the student asks how that import is going. rEach also tells you when to load it.
 ---
 Find the export first. Offer to open the computer's own file chooser with `reach import pick` (add `--folder` when the student has the unzipped folder rather than the ZIP); it prints the chosen path. If it says no chooser is available, ask the student to drop the export folder or ZIP into the chat or to type its full path. A path dropped into the chat counts. Never open the export yourself.
 Before importing, explain the two choices in plain words: rEach can keep a short index of each conversation and learn from them over time, or do that and also save a full copy of every conversation on this computer. Without the full copy, deleting the export later loses its full text. Say that either way it takes a long time: reading the export runs in the background for a while, and learning from it spreads over many sessions. Ask which they want.

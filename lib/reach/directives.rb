@@ -168,18 +168,61 @@ module Reach
       Array(Reach::StateFile.read(INJECTED_FILE).dig("sessions", session.to_s, "opcodes"))
     end
 
-    def claim_injected(session, opcodes)
+    def update_session(session)
       Reach::StateFile.update(INJECTED_FILE) do |state|
         sessions = state["sessions"] = state["sessions"].is_a?(Hash) ? state["sessions"] : {}
         entry = sessions[session.to_s] ||= { "opcodes" => [] }
-        fresh = opcodes - entry["opcodes"]
-        entry["opcodes"] = entry["opcodes"] + fresh
+        result = yield(entry)
         entry["at"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         order = (Array(state["order"]) - [session.to_s]) + [session.to_s]
         order.shift.then { |old| sessions.delete(old) } while order.length > INJECTED_KEEP
         state["order"] = order
+        result
+      end
+    end
+
+    def claim_injected(session, opcodes)
+      update_session(session) do |entry|
+        fresh = opcodes - Array(entry["opcodes"])
+        entry["opcodes"] = Array(entry["opcodes"]) + fresh
         fresh
       end
+    end
+
+    def select_bodies(candidates, settings, workspace, reserve)
+      texts = {}
+      bytes = 0
+      fetched = 0
+      limit = settings["max_bytes"].to_i - reserve
+      candidates.each do |row|
+        break if texts.size >= settings["max_bodies"].to_i
+
+        if row["tier"] == "public"
+          body = public_body(row)
+        else
+          break if fetched >= settings["max_private_fetch"].to_i
+
+          fetched += 1
+          body = remote_body(row, workspace)
+          body = Reach::Guardrails.private_body(row["opcode"]) if body.nil?
+        end
+        next if body.to_s.strip.empty?
+        break if bytes + body.bytesize > limit && !texts.empty?
+
+        bytes += body.bytesize
+        texts[row["opcode"]] = body
+      end
+      texts
+    end
+
+    def directive_text(session, texts)
+      return nil if texts.empty?
+
+      fresh = claim_injected(session, texts.keys)
+      selected = texts.select { |opcode, _| fresh.include?(opcode) }
+      return nil if selected.empty?
+
+      selected.map { |opcode, body| "Directive #{opcode}, full text:\n\n#{body.strip}" }.join("\n\n---\n\n")
     end
 
     def inject(kind, event, harness: nil)
@@ -195,36 +238,17 @@ module Reach
       settings = injection_settings
       given = injected_for(session)
       candidates = all_rows(kind_name).select { |row| !given.include?(row["opcode"]) && Reach::BehaviorPolicy.when_matches?(row, facts) }
-      return nil if candidates.empty?
+      skills = Reach::Skills.due(Reach::Skills.facts(facts, space, harness), session)
+      return nil if candidates.empty? && skills.empty?
 
-      texts = {}
-      bytes = 0
-      fetched = 0
-      candidates.each do |row|
-        break if texts.size >= settings["max_bodies"].to_i
+      reserve = skills.map { |invoke| Reach::Skills.pointer_line(invoke).bytesize + 1 }.sum
+      texts = candidates.empty? ? {} : select_bodies(candidates, settings, workspace, reserve)
+      parts = [directive_text(session, texts)]
+      pointers = Reach::Skills.claim_due(skills, session)
+      parts << pointers.join("\n") unless pointers.empty?
+      text = parts.compact.join("\n\n")
+      return nil if text.empty?
 
-        if row["tier"] == "public"
-          body = public_body(row)
-        else
-          break if fetched >= settings["max_private_fetch"].to_i
-
-          fetched += 1
-          body = remote_body(row, workspace)
-          body = Reach::Guardrails.private_body(row["opcode"]) if body.nil?
-        end
-        next if body.to_s.strip.empty?
-        break if bytes + body.bytesize > settings["max_bytes"].to_i && !texts.empty?
-
-        bytes += body.bytesize
-        texts[row["opcode"]] = body
-      end
-      return nil if texts.empty?
-
-      fresh = claim_injected(session, texts.keys)
-      selected = texts.select { |opcode, _| fresh.include?(opcode) }
-      return nil if selected.empty?
-
-      text = selected.map { |opcode, body| "Directive #{opcode}, full text:\n\n#{body.strip}" }.join("\n\n---\n\n")
       Reach::AgentControl.channel("rules.directives") { text }
     rescue StandardError
       nil

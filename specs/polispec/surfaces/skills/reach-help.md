@@ -1,7 +1,4 @@
----
-name: reach-help
-description: Use when the student asks for instructor help or for a live session with an instructor. After three failed qualifications Reach raises the hand itself.
----
+{{frontmatter}}
 Run `reach hand raise --type <type> --summary "<what is blocked, what you tried>"` (or the reach_raise_hand tool with type). Pick the closest type: grade_question (grades), access_issue (accounts, Blackboard and other course systems), extension_request (the student asks for more time), concept_question, assignment_question, deadline_question, submission_question, technical_issue, setup_issue, integrity_question or other; use student_request when none fits better (it is also the default). Feedback is not a hand: a note that can wait goes through the reach-feedback skill instead. Reach refuses a type it does not know. Do not raise one for failed qualifications: Reach raises that hand itself on the third failure, with your code and scenarios in it. Do not raise one for a qualification that stops on your own work either (QF-UNCOVERED, QF-CHECK, QF-LOCAL-FAIL, QF-VACUOUS): write the missing scenarios or fix the slice, as the record's next line says, and qualify again.
 Raise a hand whenever the student asks to report a problem or reach a person, including "raise your hand", "report this", "tell my teacher", "tell my instructor" or "tell" followed by the instructor's name.
 Every hand carries the full rEach version (automatic), the last step that worked (`--last-step`) and what the student saw (`--saw`), in the student's words. Never put a password, passkey or student ID in them.

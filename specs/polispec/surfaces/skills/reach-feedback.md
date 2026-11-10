@@ -1,7 +1,4 @@
----
-name: reach-feedback
-description: Use when the student wants to tell their instructors something that can wait, such as feedback, a suggestion, a compliment, a complaint, "I wish", or "tell the instructors that", and nothing is blocking them.
----
+{{frontmatter}}
 Feedback is a note in a suggestion box. If the student is blocked or needs a person now, raise a hand instead (reach-help skill). If it can wait, it is feedback.
 
 The kinds are: general (how the course is going), praise (something that worked well), suggestion (a way to make the course better), request (asking for something), question (one that can wait), complaint (something frustrating or unfair), problem (something broken, like a typo) and pace (too fast, too slow, too much). Suggest the closest kind from the student's own words and let them change it.

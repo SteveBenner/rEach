@@ -1,6 +1,6 @@
 ---
 name: reach-uninstall
-description: Use when the student asks to uninstall, remove or delete rEach, to clean up or start over without it, or says rEach is broken and they want it gone.
+description: "Remove rEach with one command the student decides on. Use when the student asks to uninstall, remove or delete rEach, or to start over without it. Not for a problem with rEach that the student wants fixed, not removed: use the reach-help skill. Not for starting over with a fresh copy of rEach: use the reach-reinstall skill."
 ---
 Removing rEach is one command, and the student decides. You never delete rEach's folders, edit Codex's or Claude's settings, or touch the student's work yourself.
 Run `reach uninstall` (Codex: ask to run it outside the sandbox from the start, because it removes things outside the reach-work folder). rEach prints a question that lists what it will remove and what stays. Give it to the student word for word and stop. Never answer it yourself: only the student's own typed yes counts, and `--yes` is refused while rEach is enrolled and working.

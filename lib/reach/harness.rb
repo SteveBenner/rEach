@@ -211,7 +211,8 @@ module Reach
             "PreToolUse" => [
               hook_entry("Write|Edit|MultiEdit|NotebookEdit", hook_line("gate", "write", "--harness", "claude-code"), 10, shell: claude_hook_shell),
               hook_entry("Bash|PowerShell", hook_line("gate", "shell", "--harness", "claude-code"), 10, shell: claude_hook_shell),
-              hook_entry(CLAUDE_READ_MATCHER, hook_line("gate", "read", "--harness", "claude-code"), 10, shell: claude_hook_shell)
+              hook_entry(CLAUDE_READ_MATCHER, hook_line("gate", "read", "--harness", "claude-code"), 10, shell: claude_hook_shell),
+              hook_entry("Skill", hook_line("gate", "skill", "--harness", "claude-code"), 10, shell: claude_hook_shell)
             ],
             "PostToolUse" => post_tool_use,
             "Stop" => stop_hooks,

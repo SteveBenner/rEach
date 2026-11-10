@@ -967,6 +967,8 @@ module Reach
       def cmd_gate(args)
         sub = args.shift
         options, _remaining = parse_flags(args, [:harness, :path, :command])
+        return Reach::Skills.gate(harness: options[:harness]) if sub == "skill"
+
         event = read_stdin_json
         @gate_event = event
         hook_kind = { "prompt" => "prompt", "session" => "session", "write" => "work", "shell" => "work", "read" => "work" }.fetch(sub.to_s, "other")
@@ -1091,15 +1093,17 @@ module Reach
             Reach::Gate.write(patch: patch, event: event, harness: options[:harness])
           else
             Reach::Gate.shell(command: command, event: event, harness: options[:harness], dialect: dialect)
+            Reach::Skills.note_reads(event, options[:harness]) unless options[:harness].to_s == "claude-code"
           end
           emit_tool_directives(event, options)
           0
         when "read"
           Reach::Gate.read(event: event, harness: options[:harness])
+          Reach::Skills.note_reads(event, options[:harness]) unless options[:harness].to_s == "claude-code"
           emit_tool_directives(event, options)
           0
         else
-          warn "usage: reach gate session|prompt|enroll|write|shell|read"
+          warn "usage: reach gate session|prompt|enroll|write|shell|read|skill"
           1
         end
       end
@@ -2134,6 +2138,7 @@ module Reach
         problems.concat(check_directives)
         problems.concat(Reach::BehaviorPolicy.problems)
         problems.concat(check_taste)
+        problems.concat(Reach::Skills.problems)
         problems.concat(check_sidecar)
         problems.concat(check_storage)
         codex_status = codex_doctor_status
@@ -2152,6 +2157,7 @@ module Reach
         puts doctor_planes_line
         puts Reach::Checkpoint.doctor_line
         puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"
+        Reach::Skills.report_lines.each { |line| puts line }
         puts codex_line(codex_status)
         limit_lines.reject { |line| line.start_with?("WARNING") }.each { |line| puts line }
         problems.empty? ? 0 : 1

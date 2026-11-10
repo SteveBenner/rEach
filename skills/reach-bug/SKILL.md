@@ -1,6 +1,6 @@
 ---
 name: reach-bug
-description: Use when a check or qualification fails, a grade comes back with a failed case, or the student says something gives the wrong answer. The bug flow for one slice, without git.
+description: "The bug flow for one slice: the smallest fix, proven by the same run, without git. Use when a check or qualification fails; a grade comes back with a failed case; the student says something is broken or gives the wrong answer. rEach also tells you when to load it. Not for new behaviour the student wants: use the reach-feature skill."
 ---
 The bug flow for one slice: the smallest fix, proven by the same run. Work the steps in order. Never run git or start a repository; overwrite files in place and use `reach checkpoint` as the history.
 

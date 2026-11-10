@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## Polispec decides when rEach's skills load — 0.71.0
+
+Each shipped skill now states when it should be loaded, as an `invoke` block on its surface in `specs/polispec/behavior.yml` (polispec 0.58.0). Polispec generates every skill's frontmatter from it and refuses overlapping descriptions at compile. rEach points to a skill once per session when a trigger holds: `reach-course` when a session starts in a slice and `design-taste-frontend` before a `.svelte` write in a panel slice; `reach-feature` is declared for the plan phase, which was not exercised. A Claude Code `PreToolUse` hook on the `Skill` tool (`reach gate skill`), written into each course folder's settings, counts each load and, by `skills.gate` in `config.yml` (`advise` by default, `enforce`, or `off`), advises or refuses a load outside the skill's scope or of text already in the session. On Codex, Hermes and Antigravity the same count is taken from a read of a skill file that the existing read and shell gates see, and never refused there. Where hello pastes the persona body (Codex, Hermes, unknown, text), it no longer tells the agent to load `reach-assistant`. `reach-build` and `reach-fix`, which only routed to `reach-feature` and `reach-bug`, are gone. `reach-feedback` was missing from `reach.rplugin.yml` and the Claude plugin manifest and is now listed. `reach doctor` gains R-DOC-SKILLS and prints the counts.
+
+Verified on 2026-11-10 on Linux in a fake home with every override set and the host files statted before and after: SessionStart in a panel slice pointed to `reach-course` once and not again in the same session; a `.svelte` Write in a panel slice pointed to `design-taste-frontend`; the gate advised, denied under `enforce` and only counted under `off`; an unknown skill printed nothing; malformed and oversize events exited 0 with the stderr line and raised `gate_errors`, which doctor reported; a Codex hello stopped telling the agent to load `reach-assistant`, and a read of its file counted as preloaded; a broken message-to-skill link and a lib string naming a missing skill were each reported by R-DOC-SKILLS. The `design-taste-frontend` runs used a scratch copy of the tree, because that skill's vendored body contains `{{ ... }}` text that polispec 0.58.0 reads as a placeholder, so its surface is not in this tree yet. Not exercised: a real Claude Code firing the hook, Windows, and a real Codex or Hermes. The plugin's own `hooks/hooks.json` does not carry the hook, because rplugin renders that file from `hooks/reach.hooks.yml` and its match classes have none for one tool name, so the gate runs only in course folders.
+
+Student-first audit:
+1. Learning: yes, the pointers send the agent to the flow skills and the gate adds no step for the student; nothing here writes the student's work.
+2. Agency and honesty: yes, nothing about the student's choices changes, and the counts hold no prompt, path, file content, identifier or word and are never sent anywhere (STD-SKILL-INVOKE).
+3. Wellbeing and safety: n/a, no student-facing text or path to a person changes.
+4. Privacy and dignity: yes, the counts stay on the computer in `skill-loads.json` and hold only counts and times.
+5. Fairness and access: yes, every harness is counted the same way and only Claude Code can be advised or refused; the others are never blocked.
+6. Friction: yes, the default is advice to the agent, never a block; an unneeded second load of `reach-assistant` and of the alias skills is gone.
+7. Failure: yes, the gate fails open with one stderr line and a count, so a fault in it never blocks a student's work or loses anything.
+8. Recovery: yes, setting `skills.gate` to `off` stops all advice and refusals, and removing `skill-loads.json` clears the counts and the failure count.
+
+Wiring: none.
+
+Build ⚪ · Deploy ⚪ · Blocker: Human (polispec 0.58.0 is not pinned on the host yet, and polispec must let a template carry `{{ ... }}` before the `design-taste-frontend` surface can land; main only, test and stable are the operator's)
+
 ## sh installed on Windows — 0.70.21
 
 The plugin's Claude Code hooks and MCP server run `sh exe/reach-run`, which a Windows computer without `sh` on its PATH cannot start. `scripts/reach-install` now ends, on Windows only, with a step that does nothing when `sh.exe` is on the PATH or Git for Windows sits beside a `git.exe` on the PATH, and otherwise downloads MinGit 2.56.1 (pinned in `exe/sh-pins`: GitHub release URL, size 39849768, sha256 4a92850b…dafd, the digest GitHub lists for the asset), unpacks it into `<reach home>\sh`, writes a `.complete` marker and appends `<reach home>\sh\usr\bin` to the user PATH through PowerShell. The step is the same for both Windows entry points because `scripts/reach-install.ps1` runs the Ruby installer. A failed step warns in one sentence and the install finishes; running the install again retries it. `REACH_SH_SETUP=0` and `REACH_INSTALL_KILL_SWITCH=1` skip it. No automatic retry from `hello` or update was added.

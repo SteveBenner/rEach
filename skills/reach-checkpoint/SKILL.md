@@ -1,6 +1,6 @@
 ---
 name: reach-checkpoint
-description: Use when the student says save, checkpoint, keep this, undo, go back, the earlier version, asks what changed since an earlier version, or says their work is missing or gone, and before any change that touches more than one method.
+description: "Save, list, compare, restore and recover snapshots of the slice's files. Use when the student says save, checkpoint, keep this, undo, go back or the earlier version; the student asks what changed since an earlier version; the student says their work is missing or gone; before any change that touches more than one method. Not for handing the work in: use the reach-submit skill."
 ---
 A checkpoint is a snapshot of the slice's files kept by rEach. You never copy files yourself; you run the command.
 

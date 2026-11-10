@@ -1,7 +1,4 @@
----
-name: reach-progress
-description: Use when the student asks where they are, where they stand, how they are doing, how far along they are, what is left, what they have done so far, or to check their progress.
----
+{{frontmatter}}
 This is the answer to "where do I stand". It is not `reach check`, which checks code: never run that for a question about progress.
 
 1. Call the `reach_progress` tool, or run `reach progress --format json` where tools are not available. It only reads, and changes nothing.

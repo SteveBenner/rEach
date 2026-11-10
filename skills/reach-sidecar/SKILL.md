@@ -1,6 +1,6 @@
 ---
 name: reach-sidecar
-description: Use when the student says they worked in the rEach Sidecar, the offline packet or the reach-sidecar folder before rEach was set up, has a bundle ZIP from it, or asks to bring that work into rEach.
+description: Bring work done in the offline rEach Sidecar folder into rEach. Use when the student says they worked in the rEach Sidecar, the offline packet or the reach-sidecar folder, or has a bundle ZIP from it.
 ---
 The rEach Sidecar is an offline folder the instructor hands out so a student can work on their assignments before rEach is installed. Its work is brought into rEach once, by rEach itself; you never copy its files by hand.
 

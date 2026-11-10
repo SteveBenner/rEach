@@ -1,6 +1,6 @@
 ---
 name: reach-progress
-description: Use when the student asks where they are, where they stand, how they are doing, how far along they are, what is left, what they have done so far, or to check their progress.
+description: Answers where the student stands from rEach's own progress report. Use when the student asks where they are, where they stand, how they are doing, how far along they are, what is left or what they have done so far.
 ---
 This is the answer to "where do I stand". It is not `reach check`, which checks code: never run that for a question about progress.
 

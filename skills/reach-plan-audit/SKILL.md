@@ -1,6 +1,6 @@
 ---
 name: reach-plan-audit
-description: Use right after every reach plan save, and whenever reach qualify stops at plan_audit. A second, independent pass that checks the saved plan against the assignment's released constraints before any code is written or qualified.
+description: A second, independent pass that checks the saved plan against the assignment's released constraints before any code is written or qualified. Use when right after every reach plan save; reach qualify stops at plan_audit. rEach also tells you when to load it.
 ---
 The plan audit is a second pass over the saved plan. Its only question: can this plan, built exactly as written, satisfy every constraint the course released for this slice? It judges the plan, not the student, and it never writes code.
 

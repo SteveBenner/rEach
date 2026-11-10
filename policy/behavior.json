@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:51781e3e6ed729b209d2396c18e55c7c4efe4a1e8b617b0387c6ebb85506fc61",
+  "digest": "sha256:3707d0f64c2f73f2be075ff740880826a9a7bf8520f6453d60653391b27c4a50",
   "policy": {
     "antifeatures": [
       {
@@ -387,7 +387,7 @@
         ]
       },
       {
-        "body": "# RPLUGIN: what reach is and where its sources live\n\nreach is a plugin built on rplugin, the SDK for agent-harness plugins.\n\nWhat reach does, the credentials it needs and its settings in `config.yml` are described in `README.md`.\n\nIts skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug` (with `skills/reach-build` and `skills/reach-fix` routing to them), `skills/reach-checkpoint`, `skills/reach-progress`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.\n\n`specs/polispec/behavior.yml` owns the public engineering directives, the runtime policy parameters and every generated surface. `policy/behavior.json` is compiled data, and `directives/*.md` and the surfaces under `specs/polispec/surfaces/generated/` are generated views. Edit the source, run `ruby tools/policy.rb build` with Polispec available, then `ruby tools/policy.rb check`. Do not hand-edit the views. Course directives remain Teach-owned and arrive in the existing authenticated guardrails package as `course_policy.json` beside the legacy `directives.yml`; private bodies stay in protected retrieval.\n\nDevelopment policy and persona routing are in `specs/polispec/policy.yml` and `roster.yml`. They take effect through the host's trusted ledger, separately from student runtime policy. Stable moves only when the operator runs `polispec promote reach --to stable`; the agent never runs that operator action.\n",
+        "body": "# RPLUGIN: what reach is and where its sources live\n\nreach is a plugin built on rplugin, the SDK for agent-harness plugins.\n\nWhat reach does, the credentials it needs and its settings in `config.yml` are described in `README.md`.\n\nIts skills are `skills/reach-course`, `skills/reach-feature`, `skills/reach-bug`, `skills/reach-checkpoint`, `skills/reach-progress`, `skills/reach-submit`, `skills/reach-help` and the vendored `skills/design-taste-frontend`; its command, when installed, is `reach` on the user's `PATH`. The full design is `reach.spec.yml` at the repo root.\n\n`specs/polispec/behavior.yml` owns the public engineering directives, the runtime policy parameters and every generated surface. `policy/behavior.json` is compiled data, and `directives/*.md` and the surfaces under `specs/polispec/surfaces/generated/` are generated views. Edit the source, run `ruby tools/policy.rb build` with Polispec available, then `ruby tools/policy.rb check`. Do not hand-edit the views. Course directives remain Teach-owned and arrive in the existing authenticated guardrails package as `course_policy.json` beside the legacy `directives.yml`; private bodies stay in protected retrieval.\n\nDevelopment policy and persona routing are in `specs/polispec/policy.yml` and `roster.yml`. They take effect through the host's trusted ledger, separately from student runtime policy. Stable moves only when the operator runs `polispec promote reach --to stable`; the agent never runs that operator action.\n",
         "enforce": "none",
         "id": "R-RPLUGIN",
         "opcode": "RPLUGIN",
@@ -1565,6 +1565,22 @@
         "template": "specs/polispec/surfaces/persona-agent.md.tpl"
       },
       "persona-skill": {
+        "invoke": {
+          "intents": [
+            "rEach's session context tells you to load it",
+            "the session has no rEach session context because reach hello could not run",
+            "the student wants to redo the getting-to-know-you interview or see, change or forget their profile"
+          ],
+          "name": "reach-assistant",
+          "preloaded": [
+            "event:SessionStart"
+          ],
+          "summary": "rEach's persona: who you are, how you talk with the student, the getting-to-know-you interview and the student's profile.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "event:SessionStart"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "refs": [
@@ -1610,108 +1626,339 @@
         "template": "specs/polispec/surfaces/repo-stub.md.tpl"
       },
       "skill-reach-bug": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-feature",
+              "when": "new behaviour the student wants"
+            }
+          ],
+          "intents": [
+            "a check or qualification fails",
+            "a grade comes back with a failed case",
+            "the student says something is broken or gives the wrong answer"
+          ],
+          "name": "reach-bug",
+          "scope": [
+            "space:slice"
+          ],
+          "summary": "The bug flow for one slice: the smallest fix, proven by the same run, without git.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "task:review",
+            "message:M-PACKET-NEXT-QUALIFY"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-bug/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-bug.md"
       },
-      "skill-reach-build": {
-        "kind": "skill",
-        "mode": "generated",
-        "target": "skills/reach-build/SKILL.md",
-        "template": "specs/polispec/surfaces/skills/reach-build.md"
-      },
       "skill-reach-checkpoint": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-submit",
+              "when": "handing the work in"
+            }
+          ],
+          "intents": [
+            "the student says save, checkpoint, keep this, undo, go back or the earlier version",
+            "the student asks what changed since an earlier version",
+            "the student says their work is missing or gone",
+            "before any change that touches more than one method"
+          ],
+          "name": "reach-checkpoint",
+          "scope": [
+            "space:slice"
+          ],
+          "summary": "Save, list, compare, restore and recover snapshots of the slice's files."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-checkpoint/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-checkpoint.md"
       },
       "skill-reach-course": {
+        "invoke": {
+          "intents": [
+            "you work in a rEach course workspace, the folder of one slice with the course's AGENTS.md"
+          ],
+          "name": "reach-course",
+          "scope": [
+            "space:slice"
+          ],
+          "summary": "How to work on a student's slice under the instructors' rules: what to read first, the owned files, the directives and the course's reference files.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "event:SessionStart"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-course/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-course.md"
       },
       "skill-reach-feature": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-bug",
+              "when": "something that worked and now fails or gives a wrong answer"
+            }
+          ],
+          "intents": [
+            "the student wants new or changed behaviour in their slice",
+            "the student wants to build, implement or continue this week's step"
+          ],
+          "name": "reach-feature",
+          "scope": [
+            "space:slice"
+          ],
+          "summary": "The feature flow for one slice, end to end, without git.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "task:plan"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-feature/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-feature.md"
       },
       "skill-reach-feedback": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-help",
+              "when": "a student who is blocked or needs a person now"
+            }
+          ],
+          "intents": [
+            "the student wants to tell their instructors something that can wait: feedback, a suggestion, a compliment, a complaint, I wish, or tell the instructors that"
+          ],
+          "name": "reach-feedback",
+          "summary": "Send the instructors a note that can wait, in the student's own words.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "message:M-HAND-TYPE-FEEDBACK"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-feedback/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-feedback.md"
       },
-      "skill-reach-fix": {
-        "kind": "skill",
-        "mode": "generated",
-        "target": "skills/reach-fix/SKILL.md",
-        "template": "specs/polispec/surfaces/skills/reach-fix.md"
-      },
       "skill-reach-help": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-feedback",
+              "when": "a note for the instructors that can wait"
+            }
+          ],
+          "intents": [
+            "the student is blocked and asks for instructor help, a person or a live session",
+            "the student says raise your hand, report this or tell my instructor"
+          ],
+          "name": "reach-help",
+          "summary": "Raise a hand to the instructors or ask for a live session with one."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-help/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-help.md"
       },
       "skill-reach-import": {
+        "invoke": {
+          "intents": [
+            "the student wants to bring in their history from another AI app",
+            "the student asks how that import is going"
+          ],
+          "name": "reach-import",
+          "summary": "Bring the student's history from another AI app's export (ChatGPT, Claude or Gemini) into rEach and learn from it.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "message:M-IMPORT-FINISHED"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-import/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-import.md"
       },
       "skill-reach-passes": {
+        "invoke": {
+          "intents": [
+            "the reach-feature flow reaches its plan, scenarios or code point",
+            "reach qualify stops at passes or patterns"
+          ],
+          "name": "reach-passes",
+          "scope": [
+            "space:slice"
+          ],
+          "summary": "Writes several candidate passes through different lenses at the plan, scenarios and code points, and lets rEach choose the one the evidence supports.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "message:M-QUALIFY-PASSES"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-passes/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-passes.md"
       },
       "skill-reach-plan-audit": {
+        "invoke": {
+          "intents": [
+            "right after every reach plan save",
+            "reach qualify stops at plan_audit"
+          ],
+          "name": "reach-plan-audit",
+          "scope": [
+            "space:slice"
+          ],
+          "summary": "A second, independent pass that checks the saved plan against the assignment's released constraints before any code is written or qualified.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "message:M-PLAN-AUDIT-NEXT",
+            "message:M-PLAN-AUDIT-NONE",
+            "message:M-QUALIFY-PLAN-AUDIT",
+            "message:M-QUALIFY-PLAN-ADVISE"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-plan-audit/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-plan-audit.md"
       },
       "skill-reach-progress": {
+        "invoke": {
+          "intents": [
+            "the student asks where they are, where they stand, how they are doing, how far along they are, what is left or what they have done so far"
+          ],
+          "name": "reach-progress",
+          "summary": "Answers where the student stands from rEach's own progress report."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-progress/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-progress.md"
       },
       "skill-reach-reclaim": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-checkpoint",
+              "when": "an earlier version of the slice the student is working on"
+            }
+          ],
+          "intents": [
+            "the student asks to bring back, find or recover memory or work from an earlier rEach install, a set-aside folder or another reach-work folder"
+          ],
+          "name": "reach-reclaim",
+          "summary": "Bring back older memory, notes or course folders from an earlier rEach install or another reach-work folder, after the student's yes."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-reclaim/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-reclaim.md"
       },
       "skill-reach-reinstall": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-uninstall",
+              "when": "removing rEach for good"
+            }
+          ],
+          "intents": [
+            "the student asks to reinstall rEach or to start over with a fresh copy",
+            "the student wants rEach repaired by removing it and installing it again"
+          ],
+          "name": "reach-reinstall",
+          "summary": "Reinstall rEach with one command the student decides on: it removes rEach and installs the current stable release."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-reinstall/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-reinstall.md"
       },
       "skill-reach-sidecar": {
+        "invoke": {
+          "intents": [
+            "the student says they worked in the rEach Sidecar, the offline packet or the reach-sidecar folder, or has a bundle ZIP from it"
+          ],
+          "name": "reach-sidecar",
+          "summary": "Bring work done in the offline rEach Sidecar folder into rEach."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-sidecar/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-sidecar.md"
       },
       "skill-reach-storage": {
+        "invoke": {
+          "intents": [
+            "the student asks how much space rEach uses or wants to free space"
+          ],
+          "name": "reach-storage",
+          "summary": "Report and compact the memory rEach keeps on this computer, after the student's yes.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "message:M-STORAGE-WARN",
+            "message:M-STORAGE-DEMAND"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-storage/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-storage.md"
       },
       "skill-reach-submit": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-checkpoint",
+              "when": "keeping progress safe without handing it in"
+            }
+          ],
+          "intents": [
+            "the student wants to submit or hand in their work, or submit it again",
+            "the student asks whether a submission was received",
+            "the student wants a ZIP of their work"
+          ],
+          "name": "reach-submit",
+          "summary": "Hand in a slice or written work, make a ZIP of the work, and answer whether a submission was received.",
+          "trigger_sentence": "rEach also tells you when to load it.",
+          "triggers": [
+            "task:submit",
+            "message:M-PACKET-NEXT-SUBMIT"
+          ]
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-submit/SKILL.md",
         "template": "specs/polispec/surfaces/skills/reach-submit.md"
       },
       "skill-reach-uninstall": {
+        "invoke": {
+          "excludes": [
+            {
+              "skill": "reach-help",
+              "when": "a problem with rEach that the student wants fixed, not removed"
+            },
+            {
+              "skill": "reach-reinstall",
+              "when": "starting over with a fresh copy of rEach"
+            }
+          ],
+          "intents": [
+            "the student asks to uninstall, remove or delete rEach, or to start over without it"
+          ],
+          "name": "reach-uninstall",
+          "summary": "Remove rEach with one command the student decides on."
+        },
         "kind": "skill",
         "mode": "generated",
         "target": "skills/reach-uninstall/SKILL.md",
@@ -1874,7 +2121,7 @@
       "refs": [
         "PERSONA-BODY"
       ],
-      "sha256": "17aa20f12e72602017a62d50bdffbc9003f24a0a3cc5d9f3f3c6edbdc6097b94"
+      "sha256": "6de1fc0645380ceefc0c6f8417bcefe1dfba870f9a5d3cf430deec150cd85623"
     },
     "repo-directives": {
       "kind": "prose",
@@ -1887,7 +2134,7 @@
         "R-TEACHISSUE",
         "R-CHANGEIT"
       ],
-      "sha256": "12848b6fefb07a541b081908b5cf6e96055f94eaf05c02fec7f29912d5f0aa18"
+      "sha256": "457ddb57e9886612e3a4624df8b4c0afe51ff784b4642abf64be5edb6138d842"
     },
     "repo-stub": {
       "kind": "stub",
@@ -1916,15 +2163,7 @@
       "refs": [
 
       ],
-      "sha256": "dc897e7a4fafa025d660ebb5c723f636356eecf422ce79eca5faa1720364a98c"
-    },
-    "skill-reach-build": {
-      "kind": "skill",
-      "target": "skills/reach-build/SKILL.md",
-      "refs": [
-
-      ],
-      "sha256": "5c33373d321cb94e904d055e2c377cdf07452db037f1525d5b72ff49bacb42c8"
+      "sha256": "e65910aa8c77660b143d406144dd4a033cab1afe34b6960ea2a0513e5846cd9a"
     },
     "skill-reach-checkpoint": {
       "kind": "skill",
@@ -1932,7 +2171,7 @@
       "refs": [
 
       ],
-      "sha256": "26e7d145896f086ab6e4c399c53103ce1efb8672c87ab29ae6f9946ff2efa567"
+      "sha256": "9a1831729abec86f21b9d87ac553b02e10a30895bc52a095152c99702b31655a"
     },
     "skill-reach-course": {
       "kind": "skill",
@@ -1940,7 +2179,7 @@
       "refs": [
 
       ],
-      "sha256": "7a0c1330965496a2caf6ec1da77c11c18d7cbb747c0bf10e9b70abf6a3942a50"
+      "sha256": "96d54ae1b4ba7cf0f8be72ebcfef8a205aa1cf5431d703e43b0ca1025983b955"
     },
     "skill-reach-feature": {
       "kind": "skill",
@@ -1948,7 +2187,7 @@
       "refs": [
 
       ],
-      "sha256": "9b4577ecb81fc868d3ab013537a2a767ab6034a56f87127457c443108dc63c79"
+      "sha256": "2ec67e77257e2808e43fc53e964373e2f8d749157f9ecb161d16e8340fb07986"
     },
     "skill-reach-feedback": {
       "kind": "skill",
@@ -1956,15 +2195,7 @@
       "refs": [
 
       ],
-      "sha256": "fa89ff1d2a5c14f7d7d5a3f81cdd5d2d2ccfa85b02c5dec18824c7778b0a0dbd"
-    },
-    "skill-reach-fix": {
-      "kind": "skill",
-      "target": "skills/reach-fix/SKILL.md",
-      "refs": [
-
-      ],
-      "sha256": "9e3835944492f23bae76e6fa1b587c86760fb2225958aef3dbb3ef8bbbcf5d63"
+      "sha256": "b63cbb4aef8039b3c84bd1f8fc52ac8c5e8840559f942c4239cfb06226a06eb6"
     },
     "skill-reach-help": {
       "kind": "skill",
@@ -1972,7 +2203,7 @@
       "refs": [
 
       ],
-      "sha256": "ce3d8c0e59a34f63b6bfc1a9120a7a39af80afeb3cd778cd0f2271e141878e82"
+      "sha256": "7c269823d6d6f720899ccd6460c5ac8754be276d40178ae2319f14ea41feccbe"
     },
     "skill-reach-import": {
       "kind": "skill",
@@ -1980,7 +2211,7 @@
       "refs": [
 
       ],
-      "sha256": "1417c476db83c123c55c6f6726856f8d180050f6b024f90e98d744ef5a5d42c9"
+      "sha256": "1b00be9341a96ca9d333c7cc74686bb47025bee50c67961775783c997faa0343"
     },
     "skill-reach-passes": {
       "kind": "skill",
@@ -1988,7 +2219,7 @@
       "refs": [
 
       ],
-      "sha256": "3f5865e66bc390a07f3ea7e10b673839659621bb89842e894b1eb618e20ab631"
+      "sha256": "3acbd13b838f9cac24095f296fa946dafda2e887db0dec5bfe1d4ee80ccc9d70"
     },
     "skill-reach-plan-audit": {
       "kind": "skill",
@@ -1996,7 +2227,7 @@
       "refs": [
 
       ],
-      "sha256": "56b3741d87bda9dae3fc6697ceaba0750dd0e4830a033813428d0b9882378a1c"
+      "sha256": "9f2be37364d31082a71a1191a7c59b4b3c16ad92c3f245020e6b3cc10acf9e17"
     },
     "skill-reach-progress": {
       "kind": "skill",
@@ -2004,7 +2235,7 @@
       "refs": [
 
       ],
-      "sha256": "95d08b7ed1ebe8400432eb47560ecf891c37c09e11e6abf691717d9f6709c78b"
+      "sha256": "036f11d6461f1c9773d2769a850fceb4ccc0cd8d90fd6d8e012c17b2d263ec14"
     },
     "skill-reach-reclaim": {
       "kind": "skill",
@@ -2012,7 +2243,7 @@
       "refs": [
 
       ],
-      "sha256": "3f01965f7fc7db2de007842c1b8a6c17683f3a8ac1ed6ce26d9ff72f9dbe7279"
+      "sha256": "c6939ff4298eb1cbb20bad72d4fecd4613e392b04c35db3a0db080ce7529475d"
     },
     "skill-reach-reinstall": {
       "kind": "skill",
@@ -2020,7 +2251,7 @@
       "refs": [
 
       ],
-      "sha256": "41aa762614ef5637ec720897e82a383ffcc661be1d1bfd66d4b9589325dd5b81"
+      "sha256": "85435ec0363d5c1ed75805782d4468a57cf36ae86d81c7914b862d17b5068e42"
     },
     "skill-reach-sidecar": {
       "kind": "skill",
@@ -2028,7 +2259,7 @@
       "refs": [
 
       ],
-      "sha256": "a37e7cfe8ceda3b9a64551fd19025e15f3d1ad9f86f8cc6389bd6cf3ef32f314"
+      "sha256": "d6878d4ca6ca40f7c3de90bffdfe3bd873d7b5b02e414f5bf63d570333e23051"
     },
     "skill-reach-storage": {
       "kind": "skill",
@@ -2036,7 +2267,7 @@
       "refs": [
 
       ],
-      "sha256": "f2fb3b861de84b15c4f15aeb5aeb37de93abc3fc3ebf13ab32410d6a44378ff6"
+      "sha256": "b671c475bfac5f4302e001da2433488d653dbf79a81b25f84557ae20034b0130"
     },
     "skill-reach-submit": {
       "kind": "skill",
@@ -2044,7 +2275,7 @@
       "refs": [
 
       ],
-      "sha256": "78927284e80e576e02deab4e99f010b42e52fbbc999baeb4dcecbad9236e4519"
+      "sha256": "5152235629f195459bf3efff613b42350fb1380e4e635fd725c8829d922c7fb1"
     },
     "skill-reach-uninstall": {
       "kind": "skill",
@@ -2052,7 +2283,7 @@
       "refs": [
 
       ],
-      "sha256": "a02ffac2aa1dd36e2df61899294c83a0572608ef01494253154ab7a7374f17ef"
+      "sha256": "e4016db78e43f389d0e3d6ad846ae0b84650fc83ef081ec7772547c142dfb7fc"
     },
     "workspace-full": {
       "kind": "rules_file",
