@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Enrolling from Codex without a terminal — 0.70.20
+
+A student on Codex for Windows could not enroll: enrollment was refused as non-interactive. No record of the exact text was available, so both likely paths are fixed. An agent that runs the terminal enrollment command itself is now told to open the student a window or walk them through opening one, instead of getting a bare usage line. On Windows inside Codex's sandbox, `--window` no longer claims a window it may not have shown, so the agent walks the student through opening PowerShell. First built as 0.71.2 on the install-tracking branch; shipped here ahead of it.
+
+Verified on 2026-11-10 on Linux in a scratch home: the real `exe/reach enroll --harness codex` and `exe/reach enroll` with no terminal print the new guidance with both commands filled and exit 1; a stray argument answers M-ENROLL-POSITIONAL as before. In a library run with the platform set to Windows and the PowerShell window stubbed, `Reach::Desktop.terminal` starts nothing and answers the new text when `CODEX_SANDBOX=1`, and starts the window once without it. Not exercised: Windows, Codex for Windows, whether Codex there sets the sandbox variables rEach reads, and a real agent following the new text.
+
+Student-first audit: learning n/a. Agency and honesty yes (the agent is no longer told a window opened when it may not have). Wellbeing and safety yes (the text forbids taking the passkey, email, student ID or password in chat). Privacy and dignity yes (no data changes). Fairness and access yes (a Windows Codex student gets a working path). Friction yes (one walkthrough instead of a dead end). Failure yes (an unverified detection falls back to the old behaviour, not a refusal). Recovery n/a.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ · Blocker: Agent (push waits on the release gate)
+
 ## No plugin directory submission package — 0.70.19
 
 rEach no longer carries the package it kept for OpenAI's plugin directory (`directory/`, the "reach-installer" listing, and `tools/directory/build.rb`), and its privacy policy and terms no longer claim to cover such a listing. rEach is offered through no directory or marketplace; students install it only through `INSTALL.md`. The two plugin manifests that `reach setup` and every managed update write into the install folder are unchanged.

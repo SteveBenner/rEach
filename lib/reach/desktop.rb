@@ -72,6 +72,8 @@ module Reach
       when /darwin/
         macos_terminal(argv)
       when /mswin|mingw|cygwin/
+        return [false, Reach::Messages.text("M-WINDOW-SANDBOX")] if Reach::Sandbox.active?
+
         windows_terminal(argv)
       else
         linux_terminal(argv)

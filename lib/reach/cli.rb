@@ -665,6 +665,15 @@ module Reach
           warn Reach::Messages.text("M-ENROLL-POSITIONAL")
           return 1
         end
+        if remaining.empty? && !STDIN.tty?
+          harness_args = options[:harness] ? ["--harness", options[:harness]] : []
+          warn Reach::Messages.text(
+            "M-ENROLL-NEEDS-TERMINAL",
+            window_command: Reach::Runtime.terminal_command("enroll", "--window", *harness_args),
+            command: Reach::Runtime.terminal_command("enroll", *harness_args)
+          )
+          return 1
+        end
         warn "usage: reach enroll | reach enroll --course-passkey P --username U --student-id I --password-stdin"
         1
       rescue Reach::NetworkError => e

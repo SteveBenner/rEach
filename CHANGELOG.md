@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.20] - 2026-11-10
+
+### Fixed
+
+- **A Codex-on-Windows student could not enroll because enrollment was refused as non-interactive.** When Codex is not running rEach's hooks, rEach hands out `reach enroll --harness codex` for a terminal. An agent that ran it itself had no terminal and got only the raw usage line, which named no next step. `cmd_enroll` (`lib/reach/cli.rb`) now answers a run with no terminal and no passkey with `M-ENROLL-NEEDS-TERMINAL`: open the student a window with `reach enroll --window`, or walk them through opening PowerShell, Terminal or a Linux terminal and pasting the command, and never take their passkey, email, student ID or password in chat. Other wrong arguments answer as before.
+- **`--window` could report a window that never reached the student.** On Windows, `Reach::Desktop.terminal` (`lib/reach/desktop.rb`) reported success when PowerShell's `Start-Process` returned, even inside Codex's sandbox, where the window may not appear and cannot reach the course server; the agent then told the student a window was open. Inside the sandbox (`Reach::Sandbox.active?`) it now starts nothing and answers `M-WINDOW-SANDBOX`, so the agent walks the student through opening PowerShell themselves. macOS and Linux are unchanged (STD-NOHOOK-ENROLL). Whether Codex on Windows sets `CODEX_SANDBOX` or `CODEX_SANDBOX_NETWORK_DISABLED` is unverified; if it sets neither, this second fix does not take effect there.
+- Both fixes were first built as 0.71.2 on the unpushed install-tracking branch and are shipped here ahead of it.
+
 ## [0.70.19] - 2026-11-10
 
 ### Removed
