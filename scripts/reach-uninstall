@@ -369,7 +369,7 @@ module ReachUninstall
     return nil unless File.file?(path) && !File.symlink?(path) && File.size(path) <= MAX_JSON_BYTES
 
     JSON.parse(File.binread(path).force_encoding(Encoding::UTF_8))
-  rescue StandardError
+  rescue JSON::ParserError, SystemCallError
     nil
   end
 
@@ -1495,7 +1495,7 @@ module ReachUninstall
     rescue StandardError => e
       begin
         remove_tree(dest) if created
-      rescue StandardError
+      rescue SystemCallError
         nil
       end
       step("receipts-copy", "failed", "Could not copy your receipts (#{clean(e.message)[0, 120]}).")
