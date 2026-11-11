@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.21] - 2026-11-11
+
+### Added
+
+- **On Windows the installer now puts `sh` on the computer when it has none.** The plugin's Claude Code hooks and its MCP server start with `sh exe/reach-run`, so a Windows computer where `sh` could not be found could not run them. After `scripts/reach-install` has installed rEach, it looks for `sh.exe` on the PATH, or Git for Windows beside a `git.exe` on the PATH, and when neither is there it downloads MinGit 2.56.1 from Git for Windows' GitHub release (39.8 MB), checks its size and sha256 against the new `exe/sh-pins`, unpacks it into `reach-work\.reach-home\sh` and adds its `usr\bin` folder to the end of the user's PATH (no administrator rights, nothing installed system-wide, no Git install). A computer that already has `sh` is left alone. If the download or the PATH change fails, the install still finishes and prints one plain sentence; running the install command again tries `sh` once more. `REACH_SH_SETUP=0` skips the step, and `REACH_INSTALL_KILL_SWITCH=1` stops it with the other downloads. The same installer runs from `scripts/reach-install.ps1`, so a Windows computer with no Ruby gets `sh` too.
+
+### Changed
+
+- `scripts/reach-install` unpacks a ZIP that has no single top folder (MinGit) through the same unpacker as rEach's own archive, which still requires one top folder.
+- `INSTALL.md` tells the agent that rEach sets up `sh` on Windows and that it must not install Git for Windows for it.
+
 ## [0.70.20] - 2026-11-10
 
 ### Fixed

@@ -32,6 +32,10 @@ module ReachInstall
   LOG_THRESHOLD = 3
   LOG_FAILURES_KEPT = 10
   LOG_LOCK_WAIT_S = 2.0
+  SH_PINS_FILE = "sh-pins".freeze
+  SH_PIN_KEYS = %w[SH_SOURCE SH_VERSION SH_URL SH_SHA256 SH_SIZE SH_EXE SH_PATH_DIR].freeze
+  SH_PATH_TIMEOUT_S = 30
+  SH_UNREADY = "rEach could not set up sh, the small program rEach's hooks need on Windows. The install itself finished. Run the install command again to try sh once more.".freeze
 
   class CommitMismatch < StandardError
   end
@@ -363,6 +367,7 @@ module ReachInstall
       Beacon.finish
       record_destination(destination)
       puts "rEach installed at #{destination}"
+      shell_step(destination)
       codex_step(destination)
       0
     rescue StandardError => e
@@ -820,6 +825,104 @@ module ReachInstall
       end
     end
 
+    def shell_step(destination)
+      return unless windows_host?
+      return if ENV["REACH_SH_SETUP"] == "0" || ENV["REACH_INSTALL_KILL_SWITCH"] == "1"
+      return if shell_present?
+
+      began = log_clock
+      home = File.dirname(File.expand_path(destination))
+      pins = read_shell_pins(File.join(destination, "exe", SH_PINS_FILE))
+      shell_dir = File.join(home, "sh")
+      fetch_shell(pins, home, shell_dir) unless shell_ready?(pins, shell_dir)
+      add_user_path(File.join(shell_dir, pins["SH_PATH_DIR"]))
+      log_step("shell", began, "installed" => true, "version" => pins["SH_VERSION"])
+      puts "rEach install: sh is in place for rEach's hooks (new windows and apps pick it up)"
+    rescue StandardError => e
+      log_step("shell", began || log_clock, "error" => log_text(e.class.name), "message" => log_text(e.message))
+      warn "rEach install: #{SH_UNREADY}"
+      nil
+    end
+
+    def shell_present?
+      dirs = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |dir| dir.delete('"').strip }.reject(&:empty?)
+      return true if dirs.any? { |dir| File.file?(File.join(dir, "sh.exe")) }
+
+      git = dirs.find { |dir| File.file?(File.join(dir, "git.exe")) }
+      git ? File.file?(File.join(File.dirname(git), "usr", "bin", "sh.exe")) : false
+    end
+
+    def read_shell_pins(path)
+      pins = {}
+      File.read(path).each_line do |line|
+        key, value = line.strip.split("=", 2)
+        pins[key] = value.to_s.strip.gsub(/\A'|'\z/, "") if key && value
+      end
+      missing = SH_PIN_KEYS.reject { |key| pins[key].to_s != "" }
+      raise "exe/sh-pins is missing #{missing.join(', ')}" unless missing.empty?
+      raise "exe/sh-pins names a download that is not on github.com over HTTPS" unless pins["SH_URL"].start_with?("https://github.com/")
+      raise "exe/sh-pins names an invalid checksum" unless pins["SH_SHA256"].match?(/\A\h{64}\z/)
+      raise "exe/sh-pins names an invalid size" unless pins["SH_SIZE"].match?(/\A\d+\z/)
+      raise "exe/sh-pins names an unsafe path" if [pins["SH_EXE"], pins["SH_PATH_DIR"]].any? { |part| unsafe_path?(part) }
+
+      pins
+    end
+
+    def shell_ready?(pins, shell_dir)
+      marker = JSON.parse(File.read(File.join(shell_dir, ".complete")))
+      marker.is_a?(Hash) && marker["sha256"] == pins["SH_SHA256"].downcase && File.file?(File.join(shell_dir, pins["SH_EXE"]))
+    rescue SystemCallError, JSON::ParserError
+      false
+    end
+
+    def fetch_shell(pins, home, shell_dir)
+      stage = File.join(home, ".sh-stage-#{Process.pid}")
+      FileUtils.mkdir_p(stage)
+      archive = download(pins["SH_URL"], stage, "sh.zip")
+      raise "the sh download is not the expected size" unless File.size(archive) == pins["SH_SIZE"].to_i
+      raise "the sh download does not match its checksum" unless Digest::SHA256.file(archive).hexdigest == pins["SH_SHA256"].downcase
+
+      staged = File.join(stage, "sh")
+      logged_extract_into(archive, staged)
+      raise "the sh bundle has no #{pins['SH_EXE']}" unless File.file?(File.join(staged, pins["SH_EXE"]))
+
+      File.write(File.join(staged, ".complete"), JSON.generate("source" => pins["SH_SOURCE"], "version" => pins["SH_VERSION"], "sha256" => pins["SH_SHA256"].downcase))
+      began = log_clock
+      backup = nil
+      if File.exist?(shell_dir) || File.symlink?(shell_dir)
+        backup_dir = File.join(home, ".backup")
+        FileUtils.mkdir_p(backup_dir)
+        backup = File.join(backup_dir, "sh-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}-#{SecureRandom.hex(3)}")
+        FileUtils.mv(shell_dir, backup)
+      end
+      begin
+        FileUtils.mv(staged, shell_dir)
+      rescue StandardError
+        FileUtils.mv(backup, shell_dir) if backup && File.exist?(backup) && !File.exist?(shell_dir)
+        raise
+      end
+      log_step("move", began, "what" => "sh", "backup" => backup ? true : false)
+    ensure
+      FileUtils.rm_rf(stage) if stage
+    end
+
+    def logged_extract_into(archive, destination)
+      began = log_clock
+      extract_archive(archive, destination, rooted: false)
+      log_step("extract", began, "archive" => File.basename(archive), "bytes" => File.size(archive))
+    rescue StandardError => e
+      log_step("extract", began, "archive" => File.basename(archive), "error" => log_text(e.class.name), "message" => log_text(e.message))
+      raise
+    end
+
+    def add_user_path(bin)
+      script = "$bin = $env:REACH_SH_BIN; $user = [Environment]::GetEnvironmentVariable('Path', 'User'); $entries = @(); if ($user) { $entries = @($user -split ';' | Where-Object { $_ }) }; $present = @($entries | Where-Object { $_.TrimEnd('\\') -ieq $bin.TrimEnd('\\') }); if ($present.Count -eq 0) { [Environment]::SetEnvironmentVariable('Path', ((@($entries) + @($bin)) -join ';'), 'User') }"
+      output, status = Timeout.timeout(SH_PATH_TIMEOUT_S) do
+        Open3.capture2e({ "REACH_SH_BIN" => bin.tr("/", "\\") }, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+      end
+      raise "could not add sh to the user PATH: #{log_text(output).strip[0, 200]}" unless status.success?
+    end
+
     def parse(argv)
       options = {
         destination: default_destination,
@@ -966,7 +1069,7 @@ module ReachInstall
       end
     end
 
-    def extract_archive(archive, destination)
+    def extract_archive(archive, destination, rooted: true)
       data = File.binread(archive)
       eocd = data.rindex("PK\x05\x06".b)
       raise "archive is not a valid ZIP file" unless eocd && data.bytesize >= eocd + 22
@@ -979,8 +1082,9 @@ module ReachInstall
       names = entries.map { |entry| entry[:name] }
       raise "archive contains an unsafe path" if names.any? { |name| unsafe_path?(name) }
       roots = names.map { |name| name.split("/", 2).first }.uniq
-      raise "archive must contain one root directory" unless roots.length == 1
+      raise "archive must contain one root directory" if rooted && roots.length != 1
       links = entries.select { |entry| entry[:symlink] }
+      raise "archive contains symbolic links" if !rooted && !links.empty?
       files = entries.reject { |entry| entry[:symlink] || entry[:name].end_with?("/") }.map { |entry| [entry[:name], entry] }.to_h
       links.each { |link| link[:source] = link_source(data, link, files, roots.first) }
       raise "archive is too large when unpacked" if entries.sum { |entry| entry[:size] } > MAX_UNPACKED_BYTES
@@ -988,7 +1092,7 @@ module ReachInstall
       FileUtils.mkdir_p(destination)
       (entries - links).each { |entry| write_entry(data, entry, destination) }
       links.each { |link| write_content(inflate(data, link[:source]), File.join(destination, link[:name]), link[:source][:mode]) }
-      root = File.join(destination, roots.first)
+      root = rooted ? File.join(destination, roots.first) : destination
       raise "archive root was not created" unless Dir.exist?(root)
 
       root

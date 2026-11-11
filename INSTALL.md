@@ -7,6 +7,7 @@ These steps are for the AI agent a student asked to install rEach from this repo
 - Ruby 2.6.10 to 4.0.x and `curl` (built into macOS, Windows 10+ and most Linux); Git and `unzip` are not required.
   - macOS: the built-in /usr/bin/ruby (2.6.10) is fine.
   - Windows: if `ruby -v` fails, do not install RubyInstaller. Use the Windows PowerShell command for a computer without Ruby below: it downloads rEach's own Ruby 4.0.7 into `%USERPROFILE%\reach-work\.reach-home\runtime` and adds it to the user's PATH (no administrator rights).
+  - Windows also needs `sh` for rEach's hooks. The install command sets it up itself when the computer has none (a small pinned download into `%USERPROFILE%\reach-work\.reach-home\sh` and the end of the user's PATH, no administrator rights): do not install Git for Windows or anything else for it. If setup says it could not set up `sh`, run the same install command once more.
   - Linux: the distribution's Ruby, when it is 2.6.10 to 4.0.x.
 - Never install anything system-wide or with sudo.
 - Do not offer or ask about `reach runtime install`. Reach's checking tools (about 250 MB, into `~/reach-work/.reach-home/runtime`, no

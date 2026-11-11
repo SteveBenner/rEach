@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## sh installed on Windows — 0.70.21
+
+The plugin's Claude Code hooks and MCP server run `sh exe/reach-run`, which a Windows computer without `sh` on its PATH cannot start. `scripts/reach-install` now ends, on Windows only, with a step that does nothing when `sh.exe` is on the PATH or Git for Windows sits beside a `git.exe` on the PATH, and otherwise downloads MinGit 2.56.1 (pinned in `exe/sh-pins`: GitHub release URL, size 39849768, sha256 4a92850b…dafd, the digest GitHub lists for the asset), unpacks it into `<reach home>\sh`, writes a `.complete` marker and appends `<reach home>\sh\usr\bin` to the user PATH through PowerShell. The step is the same for both Windows entry points because `scripts/reach-install.ps1` runs the Ruby installer. A failed step warns in one sentence and the install finishes; running the install again retries it. `REACH_SH_SETUP=0` and `REACH_INSTALL_KILL_SWITCH=1` skip it. No automatic retry from `hello` or update was added.
+
+Verified on 2026-11-11 on Linux in a scratch home, with the platform check and the PATH write stubbed: the real MinGit download took 14.6 s, matched its size and checksum, unpacked to `sh\usr\bin\sh.exe` (2449886 bytes) with the marker, left no staging folder, and a second run downloaded nothing; a PATH holding `sh.exe`, or a Git for Windows `cmd\git.exe` with `usr\bin\sh.exe` beside it, skipped the step; a wrong checksum warned, left no `sh` folder and did not raise; `REACH_SH_SETUP=0` was silent; rEach's own archive still unpacks through the single-top-folder path. MinGit's `usr\bin` holds `sh`, `awk`, `tr`, `cut`, `uname`, `sed` and `grep` but no `sleep`, `nohup` or `sha256sum`, which `exe/reach-run` needs only when it must download Ruby itself, and the installer has already provided Ruby by then. Not exercised: Windows, MinGit's `sh.exe` running `exe/reach-run`, the PowerShell PATH write, Claude Code finding the new PATH entry, and the Windows PowerShell installer end to end.
+
+Student-first audit: learning n/a. Agency yes (nothing is installed with administrator rights or system-wide, a student with `sh` gets nothing new, and one variable turns it off). Honesty yes (the warning says what failed and what to do). Wellbeing and safety yes (a pinned, checksummed archive from the Git for Windows release, no script runs from it during install). Privacy and dignity yes (the download carries no student data). Fairness and access yes (a Windows student whose hooks could not start gets a path to working hooks). Friction yes (no Git install, no extra command). Failure yes (any failure leaves the finished install in place). Recovery yes (re-run the install; the previous `sh` folder moves to `.backup`, never deleted).
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪
+
 ## Enrolling from Codex without a terminal — 0.70.20
 
 A student on Codex for Windows could not enroll: enrollment was refused as non-interactive. No record of the exact text was available, so both likely paths are fixed. An agent that runs the terminal enrollment command itself is now told to open the student a window or walk them through opening one, instead of getting a bare usage line. On Windows inside Codex's sandbox, `--window` no longer claims a window it may not have shown, so the agent walks the student through opening PowerShell.
