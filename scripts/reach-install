@@ -40,6 +40,9 @@ module ReachInstall
   class CommitMismatch < StandardError
   end
 
+  class ShellSetupError < StandardError
+  end
+
   module Beacon
     ROUTE = "/api/v1/devices/report".freeze
     DEFAULT_URL = "https://sven-f1l1.tail062fd2.ts.net".freeze
@@ -859,11 +862,11 @@ module ReachInstall
         pins[key] = value.to_s.strip.gsub(/\A'|'\z/, "") if key && value
       end
       missing = SH_PIN_KEYS.reject { |key| pins[key].to_s != "" }
-      raise "exe/sh-pins is missing #{missing.join(', ')}" unless missing.empty?
-      raise "exe/sh-pins names a download that is not on github.com over HTTPS" unless pins["SH_URL"].start_with?("https://github.com/")
-      raise "exe/sh-pins names an invalid checksum" unless pins["SH_SHA256"].match?(/\A\h{64}\z/)
-      raise "exe/sh-pins names an invalid size" unless pins["SH_SIZE"].match?(/\A\d+\z/)
-      raise "exe/sh-pins names an unsafe path" if [pins["SH_EXE"], pins["SH_PATH_DIR"]].any? { |part| unsafe_path?(part) }
+      raise ShellSetupError, "exe/sh-pins is missing #{missing.join(', ')}" unless missing.empty?
+      raise ShellSetupError, "exe/sh-pins names a download that is not on github.com over HTTPS" unless pins["SH_URL"].start_with?("https://github.com/")
+      raise ShellSetupError, "exe/sh-pins names an invalid checksum" unless pins["SH_SHA256"].match?(/\A\h{64}\z/)
+      raise ShellSetupError, "exe/sh-pins names an invalid size" unless pins["SH_SIZE"].match?(/\A\d+\z/)
+      raise ShellSetupError, "exe/sh-pins names an unsafe path" if [pins["SH_EXE"], pins["SH_PATH_DIR"]].any? { |part| unsafe_path?(part) }
 
       pins
     end
@@ -879,12 +882,12 @@ module ReachInstall
       stage = File.join(home, ".sh-stage-#{Process.pid}")
       FileUtils.mkdir_p(stage)
       archive = download(pins["SH_URL"], stage, "sh.zip")
-      raise "the sh download is not the expected size" unless File.size(archive) == pins["SH_SIZE"].to_i
-      raise "the sh download does not match its checksum" unless Digest::SHA256.file(archive).hexdigest == pins["SH_SHA256"].downcase
+      raise ShellSetupError, "the sh download is not the expected size" unless File.size(archive) == pins["SH_SIZE"].to_i
+      raise ShellSetupError, "the sh download does not match its checksum" unless Digest::SHA256.file(archive).hexdigest == pins["SH_SHA256"].downcase
 
       staged = File.join(stage, "sh")
       logged_extract_into(archive, staged)
-      raise "the sh bundle has no #{pins['SH_EXE']}" unless File.file?(File.join(staged, pins["SH_EXE"]))
+      raise ShellSetupError, "the sh bundle has no #{pins['SH_EXE']}" unless File.file?(File.join(staged, pins["SH_EXE"]))
 
       File.write(File.join(staged, ".complete"), JSON.generate("source" => pins["SH_SOURCE"], "version" => pins["SH_VERSION"], "sha256" => pins["SH_SHA256"].downcase))
       began = log_clock
@@ -917,10 +920,18 @@ module ReachInstall
 
     def add_user_path(bin)
       script = "$bin = $env:REACH_SH_BIN; $user = [Environment]::GetEnvironmentVariable('Path', 'User'); $entries = @(); if ($user) { $entries = @($user -split ';' | Where-Object { $_ }) }; $present = @($entries | Where-Object { $_.TrimEnd('\\') -ieq $bin.TrimEnd('\\') }); if ($present.Count -eq 0) { [Environment]::SetEnvironmentVariable('Path', ((@($entries) + @($bin)) -join ';'), 'User') }"
-      output, status = Timeout.timeout(SH_PATH_TIMEOUT_S) do
-        Open3.capture2e({ "REACH_SH_BIN" => bin.tr("/", "\\") }, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+      Open3.popen2e({ "REACH_SH_BIN" => bin.tr("/", "\\") }, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script) do |stdin, output, waiter|
+        stdin.close
+        reader = Thread.new { output.read }
+        reader.report_on_exception = false
+        unless waiter.join(SH_PATH_TIMEOUT_S)
+          Process.kill("KILL", waiter.pid)
+          waiter.join
+          reader.kill
+          raise ShellSetupError, "adding sh to the user PATH took longer than #{SH_PATH_TIMEOUT_S} seconds"
+        end
+        raise ShellSetupError, "could not add sh to the user PATH: #{log_text(reader.value).strip[0, 200]}" unless waiter.value.success?
       end
-      raise "could not add sh to the user PATH: #{log_text(output).strip[0, 200]}" unless status.success?
     end
 
     def parse(argv)
