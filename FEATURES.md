@@ -18,7 +18,7 @@ Student-first audit:
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ · Blocker: release gate (KNOWN-DOCTOR on the course server)
+Build ✅ · Deploy ⚪ not yet released
 
 ## sh installed on Windows — 0.70.21
 
