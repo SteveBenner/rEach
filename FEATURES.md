@@ -10,7 +10,7 @@ Student-first audit: the student is no longer pointed at an install route that i
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ on main, not yet on test
+Build ✅ · Deploy ✅ (on test and stable since 0.72.4)
 
 ## Commits in the extracurricular folder carry the student's name — 0.72.3
 
