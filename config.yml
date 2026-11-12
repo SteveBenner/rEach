@@ -51,6 +51,22 @@ brain:
   course_k: 3
   course_budget_bytes: 600
   course_min_score: 0.2
+recall:
+  enabled: true
+  mode: hybrid
+  resume: true
+  resume_gap_hours: 6
+  recurrence: true
+  cue: true
+  tool: true
+  budget_bytes: 700
+  per_hour: 3
+  max_episodes: 400
+  max_index_bytes: 4194304
+  cue_min_share: 0.25
+  cue_inject_share: 0.45
+  episode_gap_minutes: 45
+  refresh_budget_s: 3
 debug:
   render: auto
   spool_max_bytes: 5242880

@@ -311,9 +311,18 @@ pinned in rEach) and organizes the memory into its own rBrain corpus in `~/reach
 background helper that never slows a hook. Recall then searches that corpus, and forgetting erases from it too.
 `reach sdk status` shows the kit and `reach doctor` the route; without the kit, rEach works exactly as before.
 
+Since 0.74.0 the agent can also recall the student's own earlier sessions from the local transcript copy: when the
+student comes back to an assignment part in a new chat or after six hours, when a qualify step fails again after an
+earlier session got past it, when the student refers back to earlier work, and when the agent searches them itself.
+rEach keeps a derived index of prompt and reply passages (never code, never another student's) in the `recall` folder
+beside the memory, adds at most one short block per prompt, tells the agent to ask the student what they remember
+before filling in the rest, and has the agent say once that it can do this. The settings are in `config.yml` under
+`recall`; the student turns it off with `reach sessions off`, and `reach transcripts forget` deletes the index.
+
 ```
 reach remember --category C --claim TEXT --evidence TEXT [--supersedes ID]   keep one finding (the agent runs this)
 reach memory [list | show ID | forget ID... | forget --all --yes | export]   see, export or erase what it remembers
+reach sessions [search QUERY | list | show ID | off | on | refresh]          recall the student's own earlier sessions
 reach sdk [install [--from DIR] | status [--json]]                           install or show the SDK kit
 reach reclaim [--only brain|work|from] [--from FOLDER]                      bring back older memory and course folders
 ```

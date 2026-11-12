@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.74.0] - 2026-11-12
+
+### Added
+
+- **The assistant recalls the student's own earlier sessions.** Every chat started blank, so a student returning to a part had to explain again where they had left it, and a step that failed again came with no reminder of the earlier fix. `Reach::SessionIndex` (`lib/reach/session_index.rb`) builds a private, incremental index of the student's own prompts and the assistant's replies from the local transcripts and archive (`<brain>/recall/episodes.json`, 0600), without code, reasoning, tool output, subagent lines, other students' entries or the student's id. `Reach::SessionRecall` (`lib/reach/session_recall.rb`) adds at most 700 bytes to the `notice.memory` channel at four moments: resuming a part in a new chat or after six hours, a qualify step failing again after an earlier session passed it, the student referring back, and the assistant's own search. The framing asks the student what they remember before filling in the rest (retrieval practice), never shows code and leaves earlier feelings alone unless the student raises them.
+- **`reach sessions`** (`search`, `list`, `show`, `off`, `on`, `refresh`) and the private MCP tool **`reach_sessions`** (`search`, `list`, `show`, `off`, `on`); their calls stay out of the transcript like the other private tools.
+- **`recall:` settings in `config.yml`**: `mode` hybrid (content for resume and recurrence and for a strong cue, a pointer otherwise), inject or offer; a switch for each moment and the tool; the byte budget, an hourly cap, index limits and the cue thresholds.
+- The first recall in a chat that carries content tells the assistant to say once, in one sentence, that it can recall earlier sessions and how to turn it off.
+
+### Changed
+
+- **`reach transcripts forget` also erases the recall index**, and the retention sweep drops the episodes of transcripts it deletes; a choice to keep recall off survives forget.
+- **`reach hello` refreshes the index** in the background within three seconds; a prompt never builds it.
+- **PRIVACY.md and the README** describe the recall, what it reads and how to stop it. The behaviour policy gains an "Earlier sessions" section, and "what do you know about me" mentions it.
+
 ## [0.73.0] - 2026-11-12
 
 ### Added

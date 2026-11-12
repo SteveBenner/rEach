@@ -135,6 +135,13 @@ module Reach
                            else
                              Reach::Ladder.record(workspace, record)
                            end
+        if record["ladder"]
+          begin
+            Reach::SessionRecall.note_qualify(workspace, record)
+          rescue StandardError => e
+            Reach::Debug.fault(e, "qualify:recall")
+          end
+        end
         write_record(workspace, record) unless local_only
         Reach::Checkpoint.milestone(workspace, "CHECKS") if record["passed"] && !local_only
         Reach::Debug.qualify(record, local_only)

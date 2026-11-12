@@ -167,6 +167,12 @@ module Reach
       Reach::Locks.refill!
       Reach::CourseCorpus.ingest_if_changed(admit: false)
       Reach::Locks.refill!
+      begin
+        Reach::SessionRecall.refresh!
+      rescue StandardError => e
+        Reach::Debug.fault(e, "hello:recall_refresh")
+      end
+      Reach::Locks.refill!
       storage = Reach::Locks.free?(Reach::Paths.storage_lock_file("state")) ? safe_storage_context : nil
       Reach::Locks.refill!
       store_context(session, refreshed_context(workspace, storage))

@@ -192,6 +192,13 @@ module Reach
           expire_file(Reach::Transcript.state_path(session), deleted) if kept == false
         end
       end
+      unless deleted.empty?
+        begin
+          Reach::SessionRecall.prune_missing!
+        rescue StandardError => e
+          Reach::Debug.fault(e, "limits:recall")
+        end
+      end
       { "state" => deleted.empty? ? "nothing expired" : "expired", "deleted" => deleted.length, "bytes" => deleted.sum { |item| item["bytes"] } }
     end
 

@@ -329,6 +329,22 @@ module Reach
         }
       },
       {
+        "name" => "reach_sessions",
+        "description" => "Searches, lists or shows this student's own earlier sessions kept on this computer, or turns recall of earlier sessions off or on at the student's request",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[search list show off on] },
+            "query" => { "type" => "string" },
+            "k" => { "type" => "integer" },
+            "slice" => { "type" => "string" },
+            "limit" => { "type" => "integer" },
+            "id" => { "type" => "string" }
+          },
+          "required" => %w[action]
+        }
+      },
+      {
         "name" => "reach_memory_forget",
         "description" => "Forget remembered findings by id, or everything with all true (only after the student confirms)",
         "inputSchema" => {
@@ -882,6 +898,8 @@ module Reach
           result.merge("message" => Reach::Brain.outcome_message(result))
         when "reach_recall"
           recall_tool(arguments)
+        when "reach_sessions"
+          Reach::SessionRecall.tool(arguments)
         when "reach_memory_forget"
           forget_tool(arguments)
         when "reach_next"

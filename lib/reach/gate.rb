@@ -330,6 +330,7 @@ module Reach
       end
       context << framed("notice.next", safely { Reach::AssignmentContext.prompt_reminder(session, Reach::Session.resolve_harness(harness)) })
       context << framed("notice.memory", safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) })
+      context << framed("notice.memory", safely { Reach::SessionRecall.for_prompt(space: space, session: session, prompt: event["prompt"]) })
       context << framed("notice.subscribe", safely { Reach::Subscribe.prompt_notice })
       context << framed("notice.debug", Reach::Messages.text("M-DEBUG-RELAY", text: toggled)) if toggled
 

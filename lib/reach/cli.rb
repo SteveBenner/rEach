@@ -403,6 +403,8 @@ module Reach
           cmd_remember(args)
         when "memory"
           cmd_memory(args)
+        when "sessions"
+          cmd_sessions(args)
         when "storage"
           cmd_storage(args)
         when "transcripts"
@@ -526,6 +528,7 @@ module Reach
             login out                            sign out on this computer; every chat asks you to sign in again
             remember --category C --claim TEXT --evidence TEXT [--supersedes ID] [--origin import:JOB/CONVERSATION] [--format text|json]   keep one durable thing you learned about the student or their work
             memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]   what rEach remembers, and forgetting it
+            sessions [search QUERY | list [--slice S] [--limit N] | show ID | off | on | refresh] [--format text|json]   what the student did in earlier sessions on this computer, and turning that recall off or on
             issues [list | flush]   technical problems rEach noticed and reported by itself (the list is for instructors and debug mode)
             live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | yes | no]   a live session with your instructors; rEach runs its read-only checks without asking, asks you before anything else is run or sent, and yes or no answers its question from a terminal
             device   prints this copy's installation code and how far it has got
@@ -3097,6 +3100,37 @@ module Reach
           warn "usage: reach memory [list [--category C] [--limit N] | show ID | forget ID... | forget --all --yes | export] [--format text|json]"
           1
         end
+      end
+
+      def cmd_sessions(args)
+        json = args.each_cons(2).any? { |flag, value| flag == "--format" && value == "json" }
+        sub = args.first && !args.first.start_with?("--") ? args.shift : nil
+        options, rest = parse_flags(args, [:slice, :limit, :format])
+        result = case sub
+                 when "search"
+                   rest.empty? ? nil : Reach::SessionRecall.tool("action" => "search", "query" => rest.join(" "))
+                 when "list"
+                   Reach::SessionRecall.tool("action" => "list", "slice" => options[:slice], "limit" => options[:limit])
+                 when "show"
+                   rest.empty? ? nil : Reach::SessionRecall.tool("action" => "show", "id" => rest.first)
+                 when "off"
+                   Reach::SessionRecall.tool("action" => "off")
+                 when "on"
+                   Reach::SessionRecall.tool("action" => "on")
+                 when "refresh"
+                   found = Reach::SessionRecall.refresh!(budget_s: 30)
+                   if found
+                     found.merge("text" => Reach::Messages.text("M-RECALL-REFRESHED", episodes: found["episodes"], files: found["files"]))
+                   else
+                     { "text" => Reach::Messages.text("M-RECALL-UNAVAILABLE") }
+                   end
+                 end
+        unless result
+          warn Reach::Messages.text("M-RECALL-USAGE")
+          return 1
+        end
+        json ? puts(JSON.generate(result)) : puts(result["text"])
+        0
       end
 
       def cmd_storage(args)

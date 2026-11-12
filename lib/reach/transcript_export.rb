@@ -464,7 +464,8 @@ module Reach
         "state" => live.select { |path| path.end_with?(".state.json") },
         "rejected" => live.select { |path| path.end_with?(".rejected.jsonl") },
         "archive" => archive.select { |path| path.end_with?(".jsonl.gz") },
-        "exports" => exports
+        "exports" => exports,
+        "recall" => Reach::SessionRecall.forget_paths
       }
     end
 
