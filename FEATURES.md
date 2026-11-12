@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The agent tells a student the same thing about where they stand on every turn — 0.73.0
+
+Students stuck at the start of an assignment were being given confusing directions: the agent's per-turn guidance was one line that ignored which slice the student was working in, a saved plan counted as plan done however far the work had got, and nothing told the agent what was already finished. Every prompt in a slice now carries a short status built by code from rEach's own record: the stage (material read, plan, plan review, own part, build, qualify, submit, grade), the plan step in hand, what is done and left, the tally across the assignment's slices and the next step from `reach next`. The agent confirms it against what the student says, believes a student who says they did something it does not show, marks plan steps with evidence as the work moves, and tells the student where they stand in one plain sentence only when the stage changed. Slice stage checkpoints (planned, audited, built) are recorded and sent over the existing progress route for the desk to read once Teach accepts them.
+
+Verified on 2026-11-12 on Linux in scratch homes against the real `Reach::Gate.prompt`, with enrollment, the course status and the client stubbed and the slices as folders with `.reach/slice.json`: a prompt in one slice named that slice and never the other; the line and full forms alternated as designed; a stage change added the one-sentence note; the plan review stage and its next step agreed in `enforce` and the stage stayed off the ladder in `advise`; the three stage checkpoints were recorded once and sent in one request; `REACH_TURN_BRIEF=0` and `REACH_PROGRESS=0` did nothing. Not run in a real Claude Code or Codex session, on a document slice end to end, on Windows or on macOS, and no student has used it. The cause was found by reading the code, not from a student's report or log, and the waiting-fix check was denied to agents, so no Teach issue was checked.
+
+Student-first audit: the student sees nothing on a routine turn and one plain business sentence when a stage changes; the status never names files, commands or checks of its own, and a student who says they already did a step is believed rather than sent back through it.
+
+Wiring: the stage checkpoint ids ride the existing progress route and a Teach that does not know them ignores them; Teach accepting and showing them is a separate Teach change, not yet made.
+
+Build ✅ · Deploy ⚪ not committed to a pushed branch, not on test · Teach acceptance of the stage ids not built · stable is the operator's
+
 ## An agent can move into a slice folder after another command — 0.72.9
 
 The shell gate refused any `cd` that came after `&&`, so an agent running `ls && cd <slice>` or `cd <assignment> && cd <slice>` was told rEach could not check the step safely, while `cd <slice>` on its own worked. A `cd` after `&&` is now judged in the folder it reaches when everything later in the command is also joined by `&&`, and it is still refused when a later `;`, `||`, pipe or `&` could run a command in either folder. A session opened at the course root can also `cd` from one slice to another inside one command. Every other limit stays: a write to a file the slice does not own, `.reach` markers, the home folder, `.reach-home` and anything outside the course folder are refused after the move as before.

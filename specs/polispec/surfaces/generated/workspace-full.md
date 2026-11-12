@@ -9,7 +9,7 @@
 [PLAN1ST] save a slice plan with reach plan save before any edit; read it back at session start   d/PLAN1ST   ⚙ ledger   ⚡ [task:build, event:SessionStart]
 [PURE] a behaviour is a pure function of input and ports: no I/O, clock, randomness or globals   d/PURE   ⚙ check:CK-PURE   ⚡ [path:**/*.rb]
 [QUALIFY] write your own scenarios in qualify/, cover every required name, pass reach qualify   d/QUALIFY   ⚙ check:CK-TEST   ⚡ [task:build, task:fix, task:after-task]
-[RESUME] open with reach plan show and reach status; close by updating the plan's progress   d/RESUME   ⚙ none   ⚡ [event:SessionStart, event:Stop]
+[RESUME] open with plan and status, read the turn brief each turn, close with a plan note   d/RESUME   ⚙ none   ⚡ [event:SessionStart, event:UserPromptSubmit, event:Stop]
 [RUBY] plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal, no gems   d/RUBY   ⚙ check:CK-RUBY   ⚡ [path:**/*.rb]
 [TOZERO] work findings to zero; the attempt ladder bounds retries; never invent findings   d/TOZERO   ⚙ gate:write   ⚡ [task:after-task]
 [VERIFY] done carries the command and its output; a green check is not yet business meaning   d/VERIFY   ⚙ ledger   ⚡ [task:after-task]
@@ -358,6 +358,25 @@ reach plan note --progress "<what is done, and the evidence that showed it>" \
 Do not repeat previous weeks' work because the workspace looks quiet; the
 plan and the checkpoints say what exists. Do not claim earlier completion,
 grades or feedback that the record does not show.
+
+Every turn:
+
+rEach adds a turn brief to each prompt in a slice: where the student
+stands, what is done, what is left, the plan step in hand and the tally
+across the assignment. It is built from the record, so trust it over your
+memory.
+
+1. Before you answer, confirm the brief against what the student says:
+   the stage, the plan step, what is done and what is left.
+2. When the student says they already did something the brief does not
+   show, believe them. Run `reach status`, do not repeat the step and do
+   not deny it, and give a different next step.
+3. As the work moves, mark the plan step you are on:
+   `reach plan step <n> doing`, and `reach plan step <n> done --evidence
+   "<what shows it is done>"` when it is. A done step needs evidence.
+4. Tell the student where they stand only when the stage changed or they
+   seem lost, in one plain sentence about the business work. Never name
+   files, commands or checks, and say nothing on a routine turn.
 
 # RUBY: one dialect for every module
 

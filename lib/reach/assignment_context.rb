@@ -3,7 +3,7 @@ require "digest"
 module Reach
   module AssignmentContext
     PHASE_OF = {
-      "M-NEXT-START" => "start", "M-NEXT-PLAN" => "plan", "M-NEXT-PART" => "part", "M-NEXT-BUILD" => "build",
+      "M-NEXT-START" => "start", "M-NEXT-PLAN" => "plan", "M-NEXT-PLAN-AUDIT" => "plan","M-NEXT-PART" => "part", "M-NEXT-BUILD" => "build",
       "M-NEXT-SUBMIT" => "submit", "M-NEXT-WAIT-GRADE" => "wait", "M-NEXT-REVIEW" => "review", "M-NEXT-DONE" => "done",
       "M-NEXT-DOC-START" => "doc-start", "M-NEXT-DOC-WORK" => "doc-work", "M-NEXT-DOC-SUBMIT" => "doc-submit",
       "M-NEXT-DOC-WAIT" => "doc-wait", "M-NEXT-DOC-REVIEW" => "doc-review", "M-NEXT-ELSEWHERE" => "doc-elsewhere"

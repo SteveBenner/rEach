@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.0] - 2026-11-12
+
+### Added
+
+- **A turn brief on every prompt in a slice.** Students who were stuck at the start of an assignment were given confusing directions because the agent's only per-turn guidance was one line, and that line named the first unfinished slice of the assignment whichever folder the student was in. `Reach::TurnBrief` (`lib/reach/turn_brief.rb`) now builds a short status from facts rEach holds (course material read, plan saved, plan reviewed, own part answered, built, qualified, submitted, graded), the plan step in hand, the tally across the assignment's slices and `Reach::Next`'s own next step. It is full on the first prompt of a thread, when the stage or plan step changes, after a 30 minute gap and every fifth prompt, and one line otherwise; after a stage change the agent is told to say in one plain sentence what is finished and what comes next. `REACH_TURN_BRIEF=0` turns it off; the settings are the `turn_brief` parameters of the behaviour policy.
+- **Plan steps have a state.** `reach plan step <n> doing|done|todo [--evidence TEXT]` and the `reach_plan` tool's `step` action mark the step the work is on; a done step needs a line of evidence, only one step is doing at a time, and a step whose text changed reads as todo again. Plans saved before this version load with every step todo.
+- **Slice stage checkpoints.** `Reach::Progress.slice_stages` marks, once per slice, `<assignment>.<cutout_id>.<slice>.planned`, `.audited` and `.built` and sends them in the existing progress request. A Teach that does not know them ignores them; accepting and showing them is a separate Teach change that must reach stable before this version reaches test.
+- **`reach progress` lists the slices.** `slices` in the JSON and a tally line in the summary.
+- `reach next` names the plan review as its own step (`M-NEXT-PLAN-AUDIT`) where the course profile's `qualify.plan_audit` is `enforce`; before, it told the student to build while qualification would refuse the unreviewed plan.
+
+### Changed
+
+- **The anchor line follows the slice.** `Reach::Next.anchor_text` answers for the slice of the folder the prompt came from; the root folder still gets the first unfinished slice.
+- **RESUME carries the per-turn rule.** The agent confirms the brief against what the student says each turn, believes a student who says they did something the brief does not show and checks the real state instead of repeating or denying it, and marks plan steps as the work moves. No new directive was added: every public alias A to M is taken.
+
 ## [0.72.9] - 2026-11-12
 
 ### Fixed

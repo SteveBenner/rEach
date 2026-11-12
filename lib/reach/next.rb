@@ -48,7 +48,7 @@ module Reach
         end
         waiting = nil
         slices.each do |slice|
-          step = slice_step(slice, assignment, workspaces[[slice["cutout_id"], slice["slice"]]])
+          step = step_for(slice, assignment, workspaces[[slice["cutout_id"], slice["slice"]]])
           next unless step
 
           if %w[M-NEXT-WAIT-GRADE M-NEXT-DOC-WAIT].include?(step["id"])
@@ -69,6 +69,9 @@ module Reach
         step = compute(consent: false)
         return nil if %w[M-NEXT-ENROLL M-NEXT-LOGIN M-NEXT-NO-ASSIGNMENT].include?(step["id"])
 
+        own = space_step(space)
+        step = own if own
+
         status = Reach::Sync.cached_status || {}
         current = status["current_assignment"] || {}
         names = module_names(assignment_slices(status, current["id"]))
@@ -77,6 +80,22 @@ module Reach
         label += ", due #{due}" unless due.to_s.empty?
         Reach::Messages.text("M-ANCHOR", step: label, next: step["text"])
       rescue StandardError
+        nil
+      end
+
+      def space_step(space)
+        return nil unless space.is_a?(Hash) && space["kind"].to_s == "slice" && space["path"]
+
+        meta = Reach::Workspace.metadata(space["path"])
+        status = Reach::Sync.cached_status || {}
+        slice = assignment_slices(status, meta["assignment"]).find do |item|
+          item["cutout_id"] == meta["cutout_id"] && item["slice"] == meta["slice"]
+        end
+        return nil unless slice
+
+        step_for(slice, meta["assignment"], space["path"]) || result("M-BRIEF-NEXT-NONE")
+      rescue StandardError => e
+        Reach::Debug.fault(e, "next:space_step")
         nil
       end
 
@@ -176,7 +195,7 @@ module Reach
         false
       end
 
-      def slice_step(slice, assignment, workspace)
+      def step_for(slice, assignment, workspace)
         return document_step(slice, assignment, workspace) if document_slice?(slice)
 
         module_id = module_of(slice["cutout_id"])
@@ -184,6 +203,9 @@ module Reach
         return result("M-NEXT-START", module_id: module_id, assignment_id: assignment, assignment: assignment, module: name) unless workspace
 
         return result("M-NEXT-PLAN", module_id: module_id, assignment_id: assignment, module: name) if Reach::Plan.load(workspace).nil?
+
+        audit = Reach::PlanAudit.current(workspace)
+        return result("M-NEXT-PLAN-AUDIT", module_id: module_id, assignment_id: assignment, module: name) if Reach::PlanAudit.mode == "enforce" && !(audit && audit["verdict"] == "pass")
 
         if Reach::Part.required?(assignment)
           open_question = Reach::Part.missing(assignment).first
@@ -212,7 +234,7 @@ module Reach
         false
       end
 
-      public :assignment_slices, :document_slice?, :module_of, :module_title, :submitted_after?
+      public :step_for, :changed_since?, :assignment_slices, :document_slice?, :module_of, :module_title, :submitted_after?
     end
   end
 end

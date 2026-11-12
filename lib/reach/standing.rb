@@ -8,14 +8,15 @@ module Reach
     class << self
       def answer
         step = next_text
-        return { "summary" => Reach::Messages.text("M-STANDING-NEXT", step: step), "next" => step, "stale" => true, "age_minutes" => nil, "notices" => [] } unless enrolled
+        return { "summary" => Reach::Messages.text("M-STANDING-NEXT", step: step), "next" => step, "slices" => [], "stale" => true, "age_minutes" => nil, "notices" => [] } unless enrolled
 
         age = age_s
-        lines = course_lines + assignment_lines + open_lines + hand_lines + saved_lines + age_lines(age)
+        lines = course_lines + assignment_lines + slices_lines + open_lines + hand_lines + saved_lines + age_lines(age)
         lines << Reach::Messages.text("M-STANDING-NEXT", step: step) unless step.empty?
         {
           "summary" => lines.join("\n"),
           "next" => step,
+          "slices" => slices_rows,
           "stale" => age.nil? || age > STALE_AFTER_S,
           "age_minutes" => age && (age / 60).round,
           "notices" => notices
@@ -214,6 +215,24 @@ module Reach
         grade = Reach::Receipts.list.find { |receipt| Reach::Receipts.document_grade?(receipt) && receipt["cutout_id"] == slice["cutout_id"] }
         lines.concat(Reach::Receipts.grade_lines(grade).map { |line| "  #{line}" }) if grade
         lines
+      end
+
+      def slices_view
+        Reach::TurnBrief.overview
+      rescue StandardError => e
+        dropped(e, "slices", nil)
+      end
+
+      def slices_rows
+        view = slices_view
+        view ? view["rows"] : []
+      end
+
+      def slices_lines
+        view = slices_view
+        return [] unless view
+
+        [Reach::Messages.text("M-STANDING-SLICES", assignment: view["assignment"], **view["tally"].transform_keys(&:to_sym))]
       end
 
       def open_lines

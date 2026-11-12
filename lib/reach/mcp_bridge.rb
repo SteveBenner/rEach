@@ -197,8 +197,11 @@ module Reach
         "inputSchema" => {
           "type" => "object",
           "properties" => {
-            "action" => { "type" => "string", "enum" => %w[save note show audit_packet audit_record audit_show] },
+            "action" => { "type" => "string", "enum" => %w[save note step show audit_packet audit_record audit_show] },
             "fields" => { "type" => "object" },
+            "number" => { "type" => "integer", "description" => "step: the 1-based step number" },
+            "state" => { "type" => "string", "enum" => %w[todo doing done], "description" => "step: the new state" },
+            "evidence" => { "type" => "string", "description" => "step: what shows a done step is done" },
             "verdict" => { "type" => "string", "enum" => %w[pass fail] },
             "reasons" => { "type" => "array", "items" => { "type" => "string" } },
             "findings" => { "type" => "array", "items" => { "type" => "string", "description" => "constraint | plan item | problem" } },
@@ -1237,6 +1240,8 @@ module Reach
           saved = Reach::Plan.save(workspace, arguments["fields"] || {})
           Reach::Checkpoint.milestone(workspace, "PLAN") if arguments["action"] == "save"
           arguments["action"] == "save" ? saved.merge("next" => Reach::Messages.text("M-PLAN-AUDIT-NEXT")) : saved
+        when "step"
+          Reach::Plan.set_step(workspace, arguments["number"], arguments["state"], evidence: arguments["evidence"])
         when "show"
           Reach::Plan.load(workspace) || {}
         when "audit_packet"

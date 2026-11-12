@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.72.9
+version: 0.73.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2453,9 +2453,16 @@ progress_checkpoints:
     lib/reach/progress.rb (Reach::Progress: mark, enrolled!, assignment_started, flush!). Called from
     Reach::EnrollFlow (step_code, step_confirm, register), the reach enroll command, Reach::Login.commit! and
     Reach::Gate.prompt; Reach::Sync.run calls flush! after the outbox retry.
-  checkpoints: enroll.code, enroll.identity, setup.signin, <assignment>.started
+  checkpoints: enroll.code, enroll.identity, setup.signin, <assignment>.started, and since 0.73.0 <assignment>.<cutout_id>.<slice>.planned, .audited and .built (STD-PROGRESS)
   state: state/progress.json {student_id, reached {id => time}, sent [ids]}
   off_switch: REACH_PROGRESS=0
+turn_brief:
+  standard: STD-TURN-BRIEF (specs/app.yml). Since 0.73.0.
+  library: lib/reach/turn_brief.rb (Reach::TurnBrief), Reach::Next.anchor_text and step_for, Reach::Plan.set_step and step_view, Reach::Standing.answer slices.
+  called_from: Reach::Gate.prompt_context, in place of the anchor line, which stays as the fallback.
+  settings: behaviour policy parameters turn_brief {enabled, full_every, gap_minutes, max_full_chars, max_line_chars}
+  state: state/turn-brief.json {sessions {session id => {digest, stage, slice, seen, since}}}, the 32 most recent sessions
+  off_switch: REACH_TURN_BRIEF=0
 issue_reports:
   standard: STD-ISSUES (specs/app.yml); wire W-ISSUE-1 to W-ISSUE-8, revision 2026-10-03c. Since 0.23.0.
   library: >-

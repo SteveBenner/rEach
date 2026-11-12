@@ -3,11 +3,13 @@ alias: I
 enforce: none
 id: R-RESUME
 opcode: RESUME
-rule: open with reach plan show and reach status; close by updating the plan's progress
+rule: open with plan and status, read the turn brief each turn, close with a plan
+  note
 slice: code
 tier: public
 when:
 - event:SessionStart
+- event:UserPromptSubmit
 - event:Stop
 scope: everywhere
 ---
@@ -36,3 +38,22 @@ reach plan note --progress "<what is done, and the evidence that showed it>" \
 Do not repeat previous weeks' work because the workspace looks quiet; the
 plan and the checkpoints say what exists. Do not claim earlier completion,
 grades or feedback that the record does not show.
+
+Every turn:
+
+rEach adds a turn brief to each prompt in a slice: where the student
+stands, what is done, what is left, the plan step in hand and the tally
+across the assignment. It is built from the record, so trust it over your
+memory.
+
+1. Before you answer, confirm the brief against what the student says:
+   the stage, the plan step, what is done and what is left.
+2. When the student says they already did something the brief does not
+   show, believe them. Run `reach status`, do not repeat the step and do
+   not deny it, and give a different next step.
+3. As the work moves, mark the plan step you are on:
+   `reach plan step <n> doing`, and `reach plan step <n> done --evidence
+   "<what shows it is done>"` when it is. A done step needs evidence.
+4. Tell the student where they stand only when the stage changed or they
+   seem lost, in one plain sentence about the business work. Never name
+   files, commands or checks, and say nothing on a routine turn.

@@ -505,7 +505,7 @@ module Reach
             attempts show|continue [--slice ...] the attempt ladder; continue records the student's yes
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
             checkpoint save|list [--all]|compare <n> [<other>]|show|restore|recover|dismiss|forget    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back, forget deletes the copies after a yes
-            plan save|show|note|audit            the slice plan and its second-pass audit
+            plan save|show|note|step|audit       the slice plan, its step states and its second-pass audit
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
             progress [--format text|json]        where you stand: what is done, what is left, what comes next
@@ -3356,6 +3356,14 @@ module Reach
           puts Reach::Messages.text("M-PLAN-SAVED")
           puts Reach::Messages.text("M-PLAN-AUDIT-NEXT") if sub == "save"
           0
+        when "step"
+          number = remaining.shift
+          state = remaining.shift
+          evidence_at = remaining.index("--evidence")
+          evidence = evidence_at ? remaining[evidence_at + 1] : nil
+          Reach::Plan.set_step(workspace_path, number, state, evidence: evidence)
+          puts Reach::Messages.text("M-PLAN-STEP-SAVED", number: number, state: state)
+          0
         when "audit"
           cmd_plan_audit(workspace_path, remaining, options)
         when "show"
@@ -3366,7 +3374,7 @@ module Reach
           end
           0
         else
-          warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | show [--format json] | audit packet|record|show"
+          warn "usage: reach plan save --behaviour <text> [--input ...] [--output ...] [--steps a|b|c] [--edge-cases a|b] [--scenarios a|b] [--evidence ...] | note --progress <text> --next <text> | step <n> doing|done|todo [--evidence <text>] [--slice <name>] | show [--format json] | audit packet|record|show"
           1
         end
       end

@@ -90,6 +90,31 @@ module Reach
       nil
     end
 
+    SLICE_STAGES = { "planned" => "plan", "audited" => "plan_check", "built" => "build" }.freeze
+    MAX_ID_BYTES = 64
+
+    def slice_stages(workspace)
+      return nil if workspace.nil? || !enabled?
+
+      meta = Reach::Workspace.metadata(workspace)
+      assignment = meta["assignment"].to_s
+      cutout = meta["cutout_id"].to_s
+      slice = meta["slice"].to_s
+      return nil unless ASSIGNMENT_PATTERN.match?(assignment) && !NOT_ASSIGNMENTS.include?(assignment)
+      return nil if cutout.empty? || slice.empty? || slice == Reach::DocumentFiles::SLICE
+
+      facts = Reach::TurnBrief.workspace_facts(workspace)
+      SLICE_STAGES.filter_map do |stage, fact|
+        id = "#{assignment}.#{cutout}.#{slice}.#{stage}"
+        next unless facts[fact] && id.bytesize <= MAX_ID_BYTES
+
+        mark(id)
+      end
+    rescue StandardError => e
+      Reach::Debug.fault(e, "progress:slice_stages")
+      nil
+    end
+
     def assignment_started_key?(key)
       name = key.to_s
       name.end_with?(".started") && !NOT_ASSIGNMENTS.include?(name.delete_suffix(".started"))

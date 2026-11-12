@@ -253,6 +253,7 @@ a harness whose hooks have run on this computer and the full text elsewhere,
 ```
 reach check [--changed <path>] [--format text|agent|json]   the one checker the hooks run
 reach plan save|note|show                                    the slice plan, read back each session
+reach plan step <n> doing|done|todo [--evidence <text>]      mark the plan step the work is on; done needs evidence
 reach plan audit packet|record|show                          the second-pass plan audit qualify needs
 reach passes packet|score|pick|status <plan|scenarios|code>   the candidate passes: packet, scored candidates, the pick
 reach checkpoint save|list [--all]|show|restore <n>|recover|dismiss|forget   snapshots of the slice, no git needed

@@ -248,6 +248,7 @@ module Reach
         witness("prompt")
       end
       safely { Reach::Progress.assignment_started(current_workspace_path) }
+      safely { Reach::Progress.slice_stages(current_workspace_path) }
       context = prompt_context(event, harness, decision, entry, toggled: toggled)
       learn_prompt(entry, recorded) if entry
       context
@@ -325,7 +326,7 @@ module Reach
         import_path = space["kind"] == "root" ? safely { focus_workspace } : space["path"]
         imports = import_path ? safely { Reach::Imports.observe(text: event["prompt"], space_path: import_path) } : nil
         context.concat(Array(framed("notice.import", imports)))
-        context << framed("notice.next", safely { Reach::Next.anchor_text(space) })
+        context << framed("notice.next", safely { Reach::TurnBrief.for_prompt(space, session, harness) || Reach::Next.anchor_text(space) })
       end
       context << framed("notice.next", safely { Reach::AssignmentContext.prompt_reminder(session, Reach::Session.resolve_harness(harness)) })
       context << framed("notice.memory", safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) })
