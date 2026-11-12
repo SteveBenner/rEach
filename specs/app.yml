@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.70.21
+version: 0.70.22
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -5979,7 +5979,7 @@ standards:
   - id: STD-QUALIFY-UNCOVERED
     text: "Since 0.20.3, a qualification that stops on QF-UNCOVERED carries next (M-QUALIFY-UNCOVERED in text and JSON): write one scenario under qualify/features per uncovered required name with the slice tag (practice names for replay panels, graded names otherwise), then qualify again; never raise a hand for it. reach-help forbids hands for QF-UNCOVERED, QF-CHECK, QF-LOCAL-FAIL and QF-VACUOUS."
   - id: STD-MODULES-PENDING
-    text: "Since 0.20.2, while a student has no modules, reach next says to choose them (M-NEXT-CHOOSE, or M-NEXT-CHOOSE-OPEN when the choice has no closing time) or to wait for the instructor to assign them (M-NEXT-WAIT-MODULES, in student-choice and instructor modes alike), never that nothing is released. Since 0.35.18 reach next names the slice as well as the module for a ready-to-submit or received slice, and after a submission continues to the next released slice that is not submitted, naming a received-but-ungraded slice only when no slice is left to submit."
+    text: "Since 0.20.2, while a student has no modules, reach next says to choose them (M-NEXT-CHOOSE, or M-NEXT-CHOOSE-OPEN when the choice has no closing time) or to wait for the instructor to assign them (M-NEXT-WAIT-MODULES, in student-choice and instructor modes alike), never that nothing is released. Since 0.35.18 reach next names the slice as well as the module for a ready-to-submit or received slice, and after a submission continues to the next released slice that is not submitted, naming a received-but-ungraded slice only when no slice is left to submit. Since 0.70.22 reach enroll keeps the same rule: when the first sync brings no workspace and that step is M-NEXT-CHOOSE, M-NEXT-CHOOSE-OPEN or M-NEXT-WAIT-MODULES, it prints that step instead of M-ENROLL-PENDING."
   - id: STD-STUDENT-MESSAGES
     text: "Every message shown to a student comes from a catalogue by id, never an inline string: Reach::Messages (locales/en-US.yml) for course messages and Reach::Greetings (locales/greetings.en-US.yml) for rEach's greetings, so both stay translatable and consistent. Student-visible text stays in rEach's catalogue; the frames and the order of authority around what the agent is shown come from agent-control.yml (STD-AGENT-CONTROL)."
   - id: STD-CODEX-SANDBOX

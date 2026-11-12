@@ -876,7 +876,12 @@ module Reach
         summary = Reach::Sync.run
         print_sync_summary(summary)
         if Array(summary["workspaces"]).empty?
-          puts Reach::Messages.text("M-ENROLL-PENDING")
+          step = Reach::Next.compute_step
+          if %w[M-NEXT-CHOOSE-OPEN M-NEXT-CHOOSE M-NEXT-WAIT-MODULES].include?(step["id"])
+            puts step["text"]
+          else
+            puts Reach::Messages.text("M-ENROLL-PENDING")
+          end
         else
           puts Reach::Messages.text("M-ENROLL-READY")
         end

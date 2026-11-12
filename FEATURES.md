@@ -12,6 +12,16 @@ Wiring: none.
 
 Build ✅ · Deploy ⚪
 
+## Module choice after enrolling — 0.70.22
+
+After `reach enroll`, a student with no workspace yet was always told "You are connected, but your instructor has not released any work to you yet", even when the only thing missing was their own choice of modules. `finish_enroll` now asks `Reach::Next.compute_step` and, when the step is M-NEXT-CHOOSE-OPEN, M-NEXT-CHOOSE or M-NEXT-WAIT-MODULES, prints that step's text instead of M-ENROLL-PENDING. Any other step still prints M-ENROLL-PENDING, and M-ENROLL-READY is unchanged.
+
+Run in process on a scratch home with sync, enrollment and login stubbed: a student with an open choice was told to choose 2 modules, one in instructor mode to wait for the instructor, and one with modules but nothing released still saw M-ENROLL-PENDING. Not run against a live enrollment.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪
+
 ## Enrolling from Codex without a terminal — 0.70.20
 
 A student on Codex for Windows could not enroll: enrollment was refused as non-interactive. No record of the exact text was available, so both likely paths are fixed. An agent that runs the terminal enrollment command itself is now told to open the student a window or walk them through opening one, instead of getting a bare usage line. On Windows inside Codex's sandbox, `--window` no longer claims a window it may not have shown, so the agent walks the student through opening PowerShell.

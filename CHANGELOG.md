@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.22] - 2026-11-11
+
+### Fixed
+
+- **Connecting no longer says your instructor has not released work when you only have to choose your modules.** After `reach enroll`, a student whose course asks them to pick modules was told "your instructor has not released any work to you yet", which was wrong: nothing was waiting on the instructor. rEach now prints the module-choice step instead (choose your modules, or wait for your instructor to confirm them), and keeps the old message only for a student who really has nothing released.
+
 ## [0.70.21] - 2026-11-11
 
 ### Added
