@@ -73,7 +73,8 @@ module Reach
       end
       kept.empty? ? data.delete("step_state") : data["step_state"] = kept
       data
-    rescue StandardError
+    rescue StandardError => e
+      Reach::Debug.fault(e, "plan:prune_step_state")
       data
     end
 
@@ -88,7 +89,8 @@ module Reach
           { "number" => index + 1, "state" => "todo", "text" => text, "evidence" => "", "at" => "" }
         end
       end
-    rescue StandardError
+    rescue StandardError => e
+      Reach::Debug.fault(e, "plan:step_state")
       []
     end
 
@@ -122,7 +124,7 @@ module Reach
       data["step_state"] = table
       data["updated_at"] = now
       FileUtils.mkdir_p(File.dirname(path(workspace)))
-      File.write(path(workspace), YAML.dump(data))
+      Reach::StateFile.write_atomic(path(workspace), YAML.dump(data))
       Reach::Ledger.append(workspace, "plan", "action" => "step", "step" => index, "state" => state)
       data
     end
@@ -144,7 +146,8 @@ module Reach
         "last_done_evidence" => finished.empty? ? nil : finished.max_by { |item| item["at"] }["evidence"],
         "items" => items
       }
-    rescue StandardError
+    rescue StandardError => e
+      Reach::Debug.fault(e, "plan:step_view")
       nil
     end
 

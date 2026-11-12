@@ -106,7 +106,12 @@ module Reach
       facts = Reach::TurnBrief.workspace_facts(workspace)
       SLICE_STAGES.filter_map do |stage, fact|
         id = "#{assignment}.#{cutout}.#{slice}.#{stage}"
-        next unless facts[fact] && id.bytesize <= MAX_ID_BYTES
+        next unless facts[fact]
+
+        if id.bytesize > MAX_ID_BYTES
+          Reach::Debug.fault(Reach::Error.new("slice stage id over #{MAX_ID_BYTES} bytes"), "progress:slice_stage_id")
+          next
+        end
 
         mark(id)
       end
