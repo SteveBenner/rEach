@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.7] - 2026-11-11
+
+### Fixed
+
+- An enrolled student in an AI app that runs none of rEach's hooks (a Codex whose prompt hook is dead or untrusted, or an environment where no app can be told) could not remove rEach through the agent: `reach uninstall` and `reach reinstall` asked the chat question (M-UNINSTALL-ASK) and exited 3 on every run, and with `--yes` they answered M-UNINSTALL-NEEDS-CONSENT, but the yes is taken only by the prompt hook, so nothing could ever answer it and nothing said why. `Reach::Uninstall.confirm` in `lib/reach/uninstall.rb` now asks `Reach::Uninstall.hooks_silent?` first (no app told from the environment, the parent process or an earlier hook run; or, with the hook guard on, `Reach::HookLiveness.prompt_hook_dead?` or `course_hooks_untrusted?`) and answers the new M-UNINSTALL-NO-HOOK (`locales/en-US.yml`) with the terminal command, `reach uninstall` or `reach reinstall --harness <app>`, and exit 3, nothing removed. A terminal run is unchanged. `specs/app.yml` (STD-UNINSTALL, STD-HOOK-GUARD) and `reach.spec.yml` state it. Measured on Linux in a scratch home with stubbed enrollment: Codex with no hook run and an environment with no app printed M-UNINSTALL-NO-HOOK on both runs; Claude Code and a Codex with REACH_HOOK_GUARD_DISABLE=1 printed the chat question as before. Not run in a real Codex or Claude session, on Windows or on macOS, and `reach reinstall` was checked only through the shared confirm step.
+
 ## [0.72.6] - 2026-11-11
 
 ### Fixed

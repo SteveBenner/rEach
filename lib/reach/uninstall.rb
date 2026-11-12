@@ -160,7 +160,7 @@ module Reach
       false
     end
 
-    def build_context(options, plan, flags, ask_id: "M-UNINSTALL-ASK", ask_prompt: ASK_PROMPT, extra_fields: {})
+    def build_context(options, plan, flags, ask_id: "M-UNINSTALL-ASK", ask_prompt: ASK_PROMPT, extra_fields: {}, terminal_args: ["uninstall"])
       install = enrolled_install
       consent_case = install && !locked? ? :consent : :flag
       teach_planned = consent_case == :consent && teach_enabled?(options[:toggles]) && ENV["REACH_OFFLINE"] != "1"
@@ -181,7 +181,7 @@ module Reach
           microbrain: microbrain_text(plan, flags),
           teach: teach_planned ? Reach::Messages.text("M-UNINSTALL-TEACH") : ""
         }.merge(extra_fields),
-        messages: render_messages
+        messages: render_messages(Reach::Runtime.terminal_command(*terminal_args))
       }
     end
 
@@ -225,7 +225,7 @@ module Reach
       Reach::Messages.text(id, records: places.join(" and "))
     end
 
-    def render_messages
+    def render_messages(terminal_command)
       why = %w[OFFLINE UNREACHABLE ENDED UNSUPPORTED SKIPPED BUSY ERROR].each_with_object({}) do |code, memo|
         memo[code.downcase] = Reach::Messages.text("M-UNINSTALL-WHY-#{code}")
       end
@@ -233,6 +233,7 @@ module Reach
         declined: Reach::Messages.text("M-UNINSTALL-DECLINED"),
         no_session: Reach::Messages.text("M-UNINSTALL-NO-SESSION"),
         needs_consent: Reach::Messages.text("M-UNINSTALL-NEEDS-CONSENT"),
+        no_hook: Reach::Messages.text("M-UNINSTALL-NO-HOOK", command: terminal_command),
         told: Reach::Messages.text("M-UNINSTALL-TOLD"),
         failed_told: Reach::Messages.text("M-UNINSTALL-FAILED-TOLD"),
         not_told: why.each_with_object({}) { |(code, reason), memo| memo[code] = Reach::Messages.text("M-UNINSTALL-NOT-TOLD", reason: reason) },
@@ -244,6 +245,13 @@ module Reach
 
     def terminal?
       $stdin.tty? && $stdout.tty?
+    end
+
+    def hooks_silent?
+      return true if Reach::HookLiveness.harness.nil?
+      return false unless Reach::HookLiveness.guard_enabled?
+
+      Reach::HookLiveness.prompt_hook_dead? || Reach::HookLiveness.course_hooks_untrusted?
     end
 
     def confirm(options, context)
@@ -265,6 +273,10 @@ module Reach
       end
 
       if context[:consent_case] == :consent
+        if hooks_silent?
+          puts messages[:no_hook]
+          return { exit: 3 }
+        end
         if yes_flag
           warn messages[:needs_consent]
           return { exit: 3 }
@@ -567,7 +579,8 @@ module Reach
       end
 
       context = build_context(options, plan, flags, ask_id: "M-REINSTALL-ASK", ask_prompt: REINSTALL_ASK_PROMPT,
-                                                    extra_fields: { app: HARNESS_NAMES.fetch(harness, harness) })
+                                                    extra_fields: { app: HARNESS_NAMES.fetch(harness, harness) },
+                                                    terminal_args: ["reinstall", "--harness", harness])
       context[:messages][:done] = Reach::Messages.text("M-REINSTALL-DONE", kept: SENTINELS[:kept], teach: SENTINELS[:teach], receipts: SENTINELS[:receipts], left: SENTINELS[:left])
       failed_template = Reach::Messages.text("M-REINSTALL-FAILED", detail: SENTINELS[:detail], teach: SENTINELS[:teach])
       plan_ready = {

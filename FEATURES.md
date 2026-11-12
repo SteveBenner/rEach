@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Removing rEach when the AI app runs no hooks — 0.72.7
+
+A student whose AI app runs none of rEach's hooks was asked "Say yes to remove rEach" on every run of `reach uninstall` or `reach reinstall`, and the yes never counted, because only the prompt hook takes it. The command now says the chat cannot take the yes and gives the terminal command to run outside the AI app, where a typed yes works.
+
+Verified on 2026-11-11 on Linux in a scratch home with stubbed enrollment: `Reach::Uninstall.confirm` printed M-UNINSTALL-NO-HOOK for a Codex with no hook run and for an environment with no app, and the chat question as before for Claude Code and for Codex with the hook guard off. Not exercised: a real Codex or Claude session, Windows, macOS, or reinstall end to end.
+
+Student-first audit: the student who most needs to remove a broken rEach is no longer sent in a circle; they get the one route that works.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ not pushed, not yet on test · stable is the operator's
+
 ## The security validation pass says when Codex's sandbox blocked it — 0.72.6
 
 A student whose Codex ran the validation pass in its sandbox saw a warning that the software might be impersonating rEach or Teach. The pass now answers a sandbox-blocked step with M-SANDBOX-AGENT: the course server is fine, use the reach_ tools (reach_validate among them), and call reach_setup with configure to fix it for good.

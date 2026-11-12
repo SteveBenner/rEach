@@ -322,6 +322,7 @@ messages:
   M-UNINSTALL-DECLINED: "Nothing was removed. rEach is still installed."
   M-UNINSTALL-NO-SESSION: "rEach can only take your yes from a chat inside your reach-work folder. Open the reach-work folder in your AI app and ask again, or type reach uninstall yourself in a terminal."
   M-UNINSTALL-NEEDS-CONSENT: "rEach needs your yes, typed in this chat, before it removes itself. Answer rEach's question, then run the command again."
+  M-UNINSTALL-NO-HOOK: "rEach cannot take your yes in this chat, because your AI app is not running rEach's hooks on this computer, so nothing was removed and rEach is still installed. Open a terminal window outside your AI app, run this, and type yes when it asks: {command}. If that does not start, follow UNINSTALL.md or tell your instructor."
   M-UNINSTALL-NOT-INSTALLED: "rEach is not installed on this computer, so there is nothing to remove."
   M-UNINSTALL-DONE: "rEach is removed from this computer. Your work in {kept} was not touched.{teach}{receipts}{left} Start a new chat in your AI app so it stops looking for rEach."
   M-UNINSTALL-TOLD: " Your course server was told this copy of rEach is gone."
