@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.76.0] - 2026-11-12
+
+### Added
+
+- **Loop watch.** rEach now notices, by code and with no model call, when the agent is going around in circles on a student's request in a slice (`Reach::LoopWatch`, `lib/reach/loop_watch.rb`, STD-LOOP-WATCH). A student prompt whose words overlap an earlier prompt of the same slice by 80 percent or more, or an agent reply (the Stop hook's last message on Claude Code and Codex) that overlaps the previous reply the same way, counts as a loop; a prompt under four words never counts or breaks a loop, and a turn counts one loop at most.
+- **A hand on the third loop.** The third repeat raises a `student_request` hand with originator `agent` through `Reach::Hands.raise_record`, carrying the slice's work as any hand does and the student's request cut to 400 characters; no wire change and no Teach change. The agent is told to say plainly that it seems to be going in circles, that the instructors were asked and will be in touch, and that the student can carry on (`M-LOOP-HAND`, `M-LOOP-HAND-QUEUED`). A slice that already has an open hand gets no second one; a refused hand is never reported as sent and is tried again.
+- **A student alert.** Three further loops after the hand, or the next prompt in the same loop an hour after it, the agent is told to tell the student to contact their instructor directly, that the problem has been reported and that the instructor will be in touch (`M-LOOP-ALERT`, with the course's support contact), once for the loop.
+- **When it ends.** Two substantive prompts in a row that match nothing, a passed qualification and an instructor's reply each reset the count. Nothing is blocked.
+- **`loop_watch` settings** in the behaviour policy (`enabled`, `prompt_repeat`, `reply_repeat`, `similarity`, `min_words`, `history`, `hand_at`, `alert_repeats`, `alert_minutes`, `reset_after_misses`, `excerpt_chars`); `REACH_LOOP_WATCH=0` turns it off. The state file `state/loop-watch/<slice>.json` holds counts, times and word sets, never a prompt or reply as written. PRIVACY.md and gap G27 (a request put in new words is not counted) say what it does and does not see.
+
 ## [0.75.2] - 2026-11-12
 
 ### Changed

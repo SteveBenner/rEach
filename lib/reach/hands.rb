@@ -270,6 +270,7 @@ module Reach
           if current[:reply] && current[:reply] != record["reply"] && record["originator"] != "reach"
             changed << { hand_id: hand_id, state: current[:state], reply: current[:reply], from: reply_from(current[:reply]) }
             Reach::Ladder.reset_for_hand(hand_id)
+            Reach::LoopWatch.reset_for_hand(hand_id)
           end
           remove_open_hand(hand_id) if %w[resolved closed].include?(current[:state].to_s)
         end

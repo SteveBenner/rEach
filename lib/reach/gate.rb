@@ -328,6 +328,7 @@ module Reach
         context.concat(Array(framed("notice.import", imports)))
         context << framed("notice.next", safely { Reach::TurnBrief.for_prompt(space, session, harness) || Reach::Next.anchor_text(space) })
         context << framed("notice.next", safely { Reach::Checklist.prompt_notice(space: space, session: session, prompt: event["prompt"]) })
+        context << framed("notice.next", safely { Reach::LoopWatch.for_prompt(space: space, session: session, prompt: event["prompt"]) })
       end
       context << framed("notice.next", safely { Reach::AssignmentContext.prompt_reminder(session, Reach::Session.resolve_harness(harness)) })
       context << framed("notice.memory", safely { Reach::Brain.prompt_context(session_id: session, prompt: event["prompt"]) })

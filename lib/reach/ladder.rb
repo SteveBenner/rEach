@@ -63,6 +63,7 @@ module Reach
       current = state(workspace)
       if record["passed"]
         reset!(workspace, "pass")
+        Reach::LoopWatch.reset(workspace, "pass")
         return { "failed" => 0, "rung" => "passed", "message_id" => nil, "message" => nil }
       end
 

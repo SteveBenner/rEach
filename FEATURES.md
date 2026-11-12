@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## rEach notices when the agent is going around in circles on a student's request and gets a person to the student — 0.76.0
+
+A student stuck on a request could ask the same thing again and again while the agent answered the same way, with nobody told. rEach now watches for that inside a part, by code and with no model call. A student prompt whose words overlap an earlier prompt of the same part by 80 percent or more, or an agent reply that overlaps the previous one the same way, counts as a loop; a prompt under four words never counts, and a turn counts one loop at most. The third loop (the fourth ask) asks the instructors for help by itself, with the part's work and the student's request, and the agent tells the student in one or two plain sentences that it seems to be going in circles, that the instructors were asked and will be in touch, and that they can carry on. Three loops after that, or the next prompt in the same loop an hour after it, the agent tells the student to contact their instructor directly, that the problem has been reported and that the instructor will be in touch, once for the loop. A passed qualification, an instructor's reply or two unrelated requests in a row end the loop. A part that already has an open request for help gets no second one. Nothing is blocked.
+
+Verified on 2026-11-12 on Linux in a scratch home, against the real `Reach::LoopWatch` with the real behaviour-policy parameters, with enrollment and the hand's network call stubbed: the same sentence asked seven times gave nothing, nothing, nothing, the hand notice, nothing, nothing, the alert and then nothing; a hand 61 minutes old gave the alert on the next prompt in the chain; one unrelated prompt kept the chain and two reset it; a short prompt changed nothing; a reply repeat counted once and not in a turn whose prompt already counted; a refused hand was not reported as sent and was retried, a queued one said so, and an open attempt-ladder hand got no second request; `REACH_LOOP_WATCH=0` and a course-root or extracurricular folder wrote nothing; and the real `Reach::Gate.prompt_context` carried the notice on the fourth ask. The real Stop hook command ran and printed `{}`. Not exercised: a real Claude Code or Codex session, the Stop hook with an enrolled student, a real Teach receiving the request, Windows and macOS. The waiting-fix check (`bin/teach issues ready --repo reach`) was not run, since it is denied to agents, so no Teach issue was named.
+
+Student-first audit:
+1. Learning: yes. A student who is stuck gets help, and the agent still coaches in business terms.
+2. Agency and honesty: partly. The student is told in plain words, at once, that the instructors were asked and again when to contact them. They are told after the request goes, not asked first, as with the attempt ladder's request; Sven asked for it to be automatic.
+3. Wellbeing and safety: yes. A stuck student gets a path to a person and no blame; the wording says the chat is going in circles, not the student.
+4. Privacy and dignity: partly. The request carries the part's files and the student's request cut to 400 characters, identity taken out as for any request, which PRIVACY.md now says. The local state keeps counts, times and each prompt's sorted words, never a prompt as written.
+5. Fairness and access: partly. Gap G27: a request put in new words is not counted, a script without spaces between words matches only the same sentence, and replies are compared on Claude Code and Codex only.
+6. Friction: yes. The student does nothing; the agent gets a notice at two moments at most per loop.
+7. Failure: yes. A failure gives no notice and logs a fault; a refused request is never reported as sent, a queued one is saved and sent later; no work or grade is touched.
+8. Recovery: yes. An instructor's reply, a pass or `REACH_LOOP_WATCH=0` ends it, and deleting the state file resets it.
+
+Wiring: none. The request is an existing `student_request` hand, so no wire change and no Teach change.
+
+Build ✅ · Deploy ⚪ on local main, not pushed, not yet on test · stable is the operator's
+
 ## The setup check tells the student one short line, not how it works — 0.75.2
 
 Before enrollment the agent ran a security validation pass, and the student was told, in a full sentence the agent was also told to announce and explain, about made-up answers, Teach and a receipt. The student now sees "Running initial setup validation steps." when it starts and "Initial setup validation complete. You can continue to enroll." when it passes, and the agent is told to say nothing else about the pass or its steps. The failure text is unchanged: a student whose pass cannot verify Teach still reads the full warning and is told to contact the instructor.

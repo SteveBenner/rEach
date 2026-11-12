@@ -318,6 +318,13 @@ that chat), then saves the items; rEach makes the offer on the first prompt in a
 asks for a checklist, and shows the open items after a new chat or a compaction, in the full turn brief, after a plan step
 is done, and before `reach qualify` and `reach submit`. It reminds and never blocks. `REACH_CHECKLIST=0` turns it off.
 
+Since 0.76.0 rEach notices when the agent is going around in circles on a student's request in a part: a prompt that
+repeats an earlier one in the same part, or a reply that repeats the last one, counts as a loop. On the third loop it asks
+the instructors for help and the agent tells the student so; three loops after that, or an hour after that when the
+request comes up again, the agent tells the student to contact their instructor directly, that the problem has been
+reported and that the instructor will be in touch. It never blocks anything, and the loop ends on a passed qualification,
+an instructor's reply, or two unrelated requests in a row. `REACH_LOOP_WATCH=0` turns it off.
+
 Since 0.74.0 the agent can also recall the student's own earlier sessions from the local transcript copy: when the
 student comes back to an assignment part in a new chat or after six hours, when a qualify step fails again after an
 earlier session got past it, when the student refers back to earlier work, and when the agent searches them itself.

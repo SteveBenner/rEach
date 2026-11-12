@@ -909,6 +909,18 @@ parameters:
     offer: true
     open_listed: 3
     line_chars: 140
+  loop_watch:
+    enabled: true
+    prompt_repeat: true
+    reply_repeat: true
+    similarity: 80
+    min_words: 4
+    history: 12
+    hand_at: 3
+    alert_repeats: 3
+    alert_minutes: 60
+    reset_after_misses: 2
+    excerpt_chars: 400
   attempt_ladder:
     notice_from: 2
     hand_at: 3

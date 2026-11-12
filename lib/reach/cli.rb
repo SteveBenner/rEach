@@ -3701,6 +3701,13 @@ module Reach
         shown = final ? nil : Reach::Debug.turn_message(event, options[:harness])
         Reach::Debug.flush(quick: true)
         Reach::Issues.spawn_flush if Reach::Issues.work?
+        if !final && %w[claude-code codex].include?(options[:harness].to_s)
+          begin
+            Reach::LoopWatch.note_reply(event)
+          rescue StandardError => e
+            Reach::LoopWatch.fault(e, "hook")
+          end
+        end
         review = if !final && %w[claude-code codex].include?(options[:harness].to_s)
           Reach::GuidedLearner.stop_response(event)
         end
@@ -3744,6 +3751,13 @@ module Reach
       def cmd_hook_response(args)
         options, _remaining = parse_flags(args, [:harness])
         event = read_stdin_json_bounded
+        if %w[claude-code codex].include?(options[:harness].to_s)
+          begin
+            Reach::LoopWatch.note_reply(event)
+          rescue StandardError => e
+            Reach::LoopWatch.fault(e, "hook")
+          end
+        end
         review = if %w[claude-code codex].include?(options[:harness].to_s)
           Reach::GuidedLearner.stop_response(event)
         else

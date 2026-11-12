@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.75.2
+version: 0.76.0
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2483,6 +2483,14 @@ checklist:
   settings: behaviour policy parameters checklist {enabled, max_items, offer, open_listed, line_chars}; turn_brief max_full_chars is 1100 since 0.75.0
   state: <slice workspace>/.reach/checklist.yml (reach.checklist/v1, kept by checkpoints), state/checklist-offers.json (ids and times, the 32 most recent chats)
   off_switch: REACH_CHECKLIST=0
+loop_watch:
+  standard: STD-LOOP-WATCH (specs/app.yml). Since 0.76.0.
+  library: lib/reach/loop_watch.rb (Reach::LoopWatch with for_prompt, note_reply, observe_prompt, evaluate, raise_hand, reset, reset_for_hand)
+  called_from: Reach::Gate.prompt_context (for_prompt, on the notice.next channel after the checklist), the Stop hook commands reach hook response and reach hook stop (note_reply), Reach::Hands.poll_replies (reset_for_hand) and Reach::Ladder.record (reset on a pass)
+  hand: a student_request hand with originator agent through Reach::Hands.raise_record, raised only from the prompt gate; no wire change and no Teach change
+  settings: behaviour policy parameters loop_watch {enabled, prompt_repeat, reply_repeat, similarity, min_words, history, hand_at, alert_repeats, alert_minutes, reset_after_misses, excerpt_chars}
+  state: state/loop-watch/<slice>.json {chain, repeats, misses, recent_prompts, last_reply, turn_counted, hand, alerted_at}, word sets and times only, never a prompt or reply as written
+  off_switch: REACH_LOOP_WATCH=0
 session_recall:
   standard: STD-SESSION-RECALL (specs/app.yml). Since 0.74.0.
   library: lib/reach/session_recall.rb (Reach::SessionRecall, moments, delivery, state, ledger, tool) and lib/reach/session_index.rb (Reach::SessionIndex, the index build, prune and BM25 search)

@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:3f06397c76bba086417ab5079bc1e53415aa9d4cf8fdb322a6a41989976dcd5e",
+  "digest": "sha256:59b4cf4228e52aa104068b8ec3472dd9aa1e5401c9f51366c9170e0d47d2584a",
   "policy": {
     "antifeatures": [
       {
@@ -932,6 +932,19 @@
       "directive_table": {
         "rule_width": 88,
         "table_limit": 6000
+      },
+      "loop_watch": {
+        "alert_minutes": 60,
+        "alert_repeats": 3,
+        "enabled": true,
+        "excerpt_chars": 400,
+        "hand_at": 3,
+        "history": 12,
+        "min_words": 4,
+        "prompt_repeat": true,
+        "reply_repeat": true,
+        "reset_after_misses": 2,
+        "similarity": 80
       },
       "turn_brief": {
         "enabled": true,
