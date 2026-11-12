@@ -18,7 +18,7 @@ Student-first audit:
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ committed on local main, not pushed
+Build ✅ · Deploy ⚪ on main, not yet on test
 
 ## Polispec decides when rEach's skills load — 0.72.0
 
