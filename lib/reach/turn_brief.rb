@@ -71,7 +71,7 @@ module Reach
     end
 
     def stage_word(id)
-      Reach::Messages.text("M-BRIEF-STAGE-#{id.to_s.upcase.tr('_', '-')}")
+      Reach::Messages.text(["M-BRIEF-STAGE", id.to_s.upcase.tr("_", "-")].join("-"))
     end
 
     def stage_facts(slice, assignment, workspace, session)
