@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The setup check tells the student one short line, not how it works — 0.75.2
+
+Before enrollment the agent ran a security validation pass, and the student was told, in a full sentence the agent was also told to announce and explain, about made-up answers, Teach and a receipt. The student now sees "Running initial setup validation steps." when it starts and "Initial setup validation complete. You can continue to enroll." when it passes, and the agent is told to say nothing else about the pass or its steps. The failure text is unchanged: a student whose pass cannot verify Teach still reads the full warning and is told to contact the instructor.
+
+Verified on 2026-11-12 on Linux by reading the changed texts and loading the library; the pass itself was not run against a Teach or fake Teach, so what a real agent says between the two lines is not observed. No Windows, macOS or real harness session, and no student has used it. The success text is also in the validation contract (`specs/security-validation.yml`), whose revision stays 2026-10-18a because Teach's copy already differs and no wire field changed.
+
+Student-first audit: agency and honesty is the one to watch. The earlier sentence told the student that nothing of theirs was being submitted and that it would not affect their grade; the new lines do not. Sven chose the shorter wording on 2026-11-12, and the failure text, which carries the safety message, is unchanged.
+
+Wiring: none. No wire change and no Teach change.
+
+Build ✅ · Deploy ⚪ on main once pushed, not yet on test · stable is the operator's
+
 ## The agent reads the course material first and keeps a checklist of what each part requires — 0.75.0
 
 A student could finish a part with a requirement of the assignment never looked at, because the agent worked from the chat and nothing held what the part asks for. Each part now keeps a checklist, stored as `.reach/checklist.yml` beside the plan. The agent has to read the course material tagged for the assignment before it can save one (the save is refused, naming the files, until the chat has read them), then marks items done with a line of evidence as the work covers them. rEach asks for the checklist when the student asks for one and on the first prompt of a chat in a part that has none, asks for a new one when the course material changed after it was written, and shows the open items after a new chat or a compaction, in the full turn brief, after a plan step is done, and before qualify and submit. It reminds and never blocks, and the agent tells the student in one plain sentence that a list exists without showing the file or the command.

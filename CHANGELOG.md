@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.2] - 2026-11-12
+
+### Changed
+
+- **The security validation pass no longer explains itself to the student.** Its start line was a sentence about made-up answers, Teach and receipts, and the agent was told to announce the pass; the student now sees "Running initial setup validation steps." (`Reach::Validation::ANNOUNCE`) and, when it passes, "Initial setup validation complete. You can continue to enroll." (`Reach::Validation::PASSED`, and `success.text` in `specs/security-validation.yml`). The agent rules (`agents/reach.md`, the reach-assistant skill, the behaviour policy, `INSTALL.md`, `Reach::EnrollFlow.validation_context`) tell it to say only the start line and to narrate no step. The failure text keeps its full warning about a connection problem or impersonating software. The terminal window's scripted hint in `M-ENR-AGENT-NOHOOK-GUIDE` now says "a short setup message".
+
 ## [0.75.1] - 2026-11-12
 
 ### Fixed

@@ -13,9 +13,9 @@ module Reach
   module Validation
     ROUTE = "/api/v1/validation".freeze
     SCHEMA = "teach.security-validation/v1".freeze
-    ANNOUNCE = "Before we enroll, I will run a security validation pass using made-up answers to check that your work can reach Teach and that its receipt comes back. This does not submit your assignment or affect your grade.".freeze
+    ANNOUNCE = "Running initial setup validation steps.".freeze
     BLOCKED = "The security validation pass could not verify the connection to Teach. This may be a connection problem, or this software might be someone impersonating rEach or Teach. Please wait and contact your instructor through the contact details you already have before continuing to enroll.".freeze
-    PASSED = "Security validation pass complete. Teach received the practice submission, and rEach verified its receipt. This wasn't your assignment and doesn't affect your grade. You can continue to enroll.".freeze
+    PASSED = "Initial setup validation complete. You can continue to enroll.".freeze
     OWNED = %w[answers.json README.md].freeze
     HARNESSES = %w[claude-code codex antigravity hermes].freeze
     CLAUDE_CODE_LABELS = %w[claude-desktop claude-cowork claude-agent-sdk].freeze

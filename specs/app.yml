@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.75.1
+version: 0.75.2
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -191,7 +191,7 @@ journeys:
     actor: A2
     trigger: "A new install must prove its connection to Teach before it collects any identity or password."
     steps:
-      - "The agent runs `reach validate` or the `reach_validate` tool and announces the text it returns."
+      - "The agent runs `reach validate` or the `reach_validate` tool and says to the student only the one line it returns first (\"Running initial setup validation steps.\"), explaining nothing about the pass or its steps."
       - "The agent follows each next step, filling the practice answers with fabricated data only."
       - "rEach plans and builds the practice artifacts, runs `reach check` and a checkpoint on them in the session's own isolated home, then asks Teach to qualify and receive the sealed practice package."
       - "rEach fetches Teach's signed receipt, verifies it against the bound course, key, harness, version and challenge, and returns the final text."
@@ -5580,7 +5580,7 @@ decisions:
   - id: D27
     title: A security validation pass precedes enrollment
     decision: "Before any identity or password is collected, the agent drives a practice assignment to a verified Teach receipt using only fabricated data."
-    rationale: "The pass confirms the connection to Teach is genuine, and its failure text says a connection problem or an impersonating server is possible."
+    rationale: "The pass confirms the connection to Teach is genuine, and its failure text says a connection problem or an impersonating server is possible. Since 0.75.2 the student sees only a one-line start (\"Running initial setup validation steps.\") and a one-line finish (\"Initial setup validation complete. You can continue to enroll.\"); the failure text keeps its full warning."
     standards: [STD-WIRE-CONTRACT]
     source: specs/security-validation.yml
   - id: D28

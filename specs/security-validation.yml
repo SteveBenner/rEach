@@ -88,9 +88,7 @@ enrollment:
   legacy: From rEach 0.61.0 no enrollment shape bypasses the pass. During the transition Teach still enrolls an older rEach without a receipt, until its minimum accepted rEach version reaches 0.61.0.
 success:
   text: >-
-    Security validation pass complete. Teach received the practice submission,
-    and rEach verified its receipt. This wasn't your assignment and doesn't
-    affect your grade. You can continue to enroll.
+    Initial setup validation complete. You can continue to enroll.
 failure:
   text: >-
     The security validation pass could not verify the connection to Teach.
