@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.1] - 2026-11-12
+
+### Fixed
+
+- **The recall index wording is accurate.** The 0.74.0 entry, FEATURES.md, PRIVACY.md and STD-SESSION-RECALL said the index is built without the student's id. The passages never contain it, but `recall/episodes.json` records the signed-in student's id in its header so that another student's index is discarded. The texts now say both. Wording only; no code changed.
+
 ## [0.75.0] - 2026-11-12
 
 ### Added
@@ -24,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **The assistant recalls the student's own earlier sessions.** Every chat started blank, so a student returning to a part had to explain again where they had left it, and a step that failed again came with no reminder of the earlier fix. `Reach::SessionIndex` (`lib/reach/session_index.rb`) builds a private, incremental index of the student's own prompts and the assistant's replies from the local transcripts and archive (`<brain>/recall/episodes.json`, 0600), without code, reasoning, tool output, subagent lines, other students' entries or the student's id. `Reach::SessionRecall` (`lib/reach/session_recall.rb`) adds at most 700 bytes to the `notice.memory` channel at four moments: resuming a part in a new chat or after six hours, a qualify step failing again after an earlier session passed it, the student referring back, and the assistant's own search. The framing asks the student what they remember before filling in the rest (retrieval practice), never shows code and leaves earlier feelings alone unless the student raises them.
+- **The assistant recalls the student's own earlier sessions.** Every chat started blank, so a student returning to a part had to explain again where they had left it, and a step that failed again came with no reminder of the earlier fix. `Reach::SessionIndex` (`lib/reach/session_index.rb`) builds a private, incremental index of the student's own prompts and the assistant's replies from the local transcripts and archive (`<brain>/recall/episodes.json`, 0600). The passages never contain code, reasoning, tool output, subagent lines, other students' entries or the student's id; the file itself records which student it was built for, so another student's index is discarded. `Reach::SessionRecall` (`lib/reach/session_recall.rb`) adds at most 700 bytes to the `notice.memory` channel at four moments: resuming a part in a new chat or after six hours, a qualify step failing again after an earlier session passed it, the student referring back, and the assistant's own search. The framing asks the student what they remember before filling in the rest (retrieval practice), never shows code and leaves earlier feelings alone unless the student raises them.
 - **`reach sessions`** (`search`, `list`, `show`, `off`, `on`, `refresh`) and the private MCP tool **`reach_sessions`** (`search`, `list`, `show`, `off`, `on`); their calls stay out of the transcript like the other private tools.
 - **`recall:` settings in `config.yml`**: `mode` hybrid (content for resume and recurrence and for a strong cue, a pointer otherwise), inject or offer; a switch for each moment and the tool; the byte budget, an hourly cap, index limits and the cue thresholds.
 - The first recall in a chat that carries content tells the assistant to say once, in one sentence, that it can recall earlier sessions and how to turn it off.
