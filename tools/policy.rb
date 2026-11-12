@@ -20,7 +20,8 @@ resolve = lambda do |compiler|
 end
 
 invoke = lambda do |compiler, *arguments|
-  Open3.capture3(*resolve.call(compiler), "behavior", *arguments)
+  utf8 = { "RUBYOPT" => [ENV.fetch("RUBYOPT", nil),"-Eutf-8:utf-8"].compact.join(" ") }
+  Open3.capture3(utf8, *resolve.call(compiler), "behavior", *arguments)
 end
 
 on_path = lambda do
