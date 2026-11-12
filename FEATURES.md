@@ -10,7 +10,7 @@ Student-first audit: the student is no longer told the course may be impersonate
 
 Wiring: none.
 
-Build ✅ · Deploy ❌ (on main only; not on test or stable)
+Build ✅ · Deploy ✅ on test since 0.72.6 · stable is the operator's
 
 ## The agent never routes rEach through a plugin marketplace or GitHub — 0.72.4
 
