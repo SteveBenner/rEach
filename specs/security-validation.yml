@@ -113,6 +113,11 @@ failure:
     certificate, reply, and receipt failures, uses the text above with its cause
     appended. Apart from the course code messages, no failure text omits its
     cause.
+  sandbox: >-
+    A step that Codex runs in its own sandbox, which blocks the network, says
+    so in plain words (M-SANDBOX-AGENT) and sends the agent to reach_validate
+    instead of the impersonation warning; the pass stays unfinished and
+    enrollment waits for it.
   kill_switches: [REACH_VALIDATION_DISABLE=1, a matching switch on the course server]
   safety: Never bypass TLS or use an alternate server. Use the instructor's independently known contact details.
 trust_limit: A successful practice receipt does not prove that a local executable or computer is uncompromised.

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.5] - 2026-11-12
+
+### Fixed
+
+- A student whose Codex ran the security validation pass inside its sandbox, which blocks the network, was told "The security validation pass could not verify the connection to Teach. This may be a connection problem, or this software might be someone impersonating rEach or Teach ... (cause: network:codex_sandbox)". Cause: `Reach::Validation.failure_text` in `lib/reach/validation.rb` turned the sandbox's offline error into that warning, while the terminal and hook paths already answered it with M-SANDBOX-AGENT. It now checks `Reach::Sandbox.blocking_error?` first and returns M-SANDBOX-AGENT, which names `reach_validate` among the tools Codex runs outside its sandbox (`locales/en-US.yml`). `specs/security-validation.yml` (failure.sandbox) and `specs/app.yml` (STD-CODEX-SANDBOX) state it. Measured on Linux with CODEX_SANDBOX_NETWORK_DISABLED=1 and the error the client raises: the sandbox text comes back, and an offline_flag error still returns the original text. Not run on a student's computer or in a real Codex session.
+
 ## [0.72.4] - 2026-11-12
 
 ### Fixed

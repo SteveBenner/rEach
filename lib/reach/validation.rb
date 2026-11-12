@@ -58,7 +58,9 @@ end
 
 def failure_text(error)
   cause = cause_of(error)
-  if cause && LOCAL_CAUSES.include?(cause.split(":").first)
+  if Reach::Sandbox.blocking_error?(error)
+    Reach::Sandbox.agent_text
+  elsif cause && LOCAL_CAUSES.include?(cause.split(":").first)
     hint = cause == "input" ? " Limits: #{INPUT_LIMITS}." : ""
     "This practice step was refused on this computer (cause: #{cause}). Nothing was sent to Teach. Correct the step and run it again.#{hint}"
   elsif course_code_refusal?(error)
