@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-05a
+revision: 2026-11-12a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -1373,7 +1373,15 @@ routes:
       (enroll.password, enroll.registered, setup.modules, <assignment>.qualified, <assignment>.submitted), sets a
       time more than 300 seconds in the future to its own clock, and answers 200 with accepted 0 while
       TEACH_PROGRESS_DISABLE=1. REACH_PROGRESS=0 stops Reach recording and sending. A Teach older than this
-      revision answers 404 and Reach drops the report.
+      revision answers 404 and Reach drops the report. Since revision 2026-11-12a Reach also reports, for each code
+      slice the student works in, the first time a plan was saved, the plan's audit passed and an owned file changed,
+      as <assignment>.<cutout_id>.<slice>.planned, <assignment>.<cutout_id>.<slice>.audited and
+      <assignment>.<cutout_id>.<slice>.built; the stage is the last segment and the slice the one before it, so a
+      cutout id that contains dots stays whole. Teach records such an id, once per student, only when the student
+      owns that assignment, cutout and slice (W-SUB-6) and the slice is not a document slice; any other id of this
+      shape is ignored like an unknown one. These ids are not part of the progress ladder: they never move a
+      student's progress position or an assignment's started, qualified or submitted checkpoints, and a Teach
+      older than 2026-11-12a ignores them.
   - id: W-API-TRANSCRIPT
     method: POST
     path: /api/v1/transcripts

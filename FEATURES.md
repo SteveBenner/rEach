@@ -8,7 +8,7 @@ Verified on 2026-11-12 on Linux in scratch homes against the real `Reach::Gate.p
 
 Student-first audit: the student sees nothing on a routine turn and one plain business sentence when a stage changes; the status never names files, commands or checks of its own, and a student who says they already did a step is believed rather than sent back through it.
 
-Wiring: the stage checkpoint ids ride the existing progress route and a Teach that does not know them ignores them; Teach accepting and showing them is a separate Teach change, not yet made.
+Wiring: the stage checkpoint ids ride the existing progress route and wire revision 2026-11-12a states them; a Teach that does not know them ignores them. Teach taking them is a Teach change (Teach 0.133.0, written next) that has to reach stable before this version reaches test.
 
 Build ✅ · Deploy ⚪ not committed to a pushed branch, not on test · Teach acceptance of the stage ids not built · stable is the operator's
 
