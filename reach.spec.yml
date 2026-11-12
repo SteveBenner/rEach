@@ -3671,7 +3671,8 @@ home_in_workspace:
     Since 0.72.8 (STD-LOCAL-HOME) a home folder under a cloud-synced folder (iCloud, Mobile Documents, OneDrive, Dropbox,
     Google Drive, CloudStorage, by path, real path or the OneDrive, OneDriveConsumer and OneDriveCommercial roots) is not
     used: user_home is the account's passwd home, else <users root>/<name>, in lib/reach/paths.rb, scripts/reach-install,
-    scripts/reach-uninstall, exe/reach-run and scripts/reach-install.ps1 alike (user_home_source account or users_root).
+    scripts/reach-uninstall and exe/reach-run (user_home_source account or users_root). scripts/reach-install.ps1 follows
+    the same order but matches the path and the OneDrive roots only, with no real-path check.
     A reach-work found under the cloud $HOME is copied in by the stray relocation on macOS and Linux as on Windows.
   resolution: >-
     Reach::Paths.root, memoized for at most 2 seconds: (1) $REACH_HOME set: that directory, legacy logic off; (2)
