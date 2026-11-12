@@ -10,7 +10,7 @@ Student-first audit: a student's work no longer ends up where the cloud can move
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ not pushed, not yet on test · stable is the operator's
+Build ✅ · Deploy ⚪ on main, not yet on test · stable is the operator's
 
 ## Removing rEach when the AI app runs no hooks — 0.72.7
 
