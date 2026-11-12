@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The anchor line follows the slice.** `Reach::Next.anchor_text` answers for the slice of the folder the prompt came from; the root folder still gets the first unfinished slice.
-- **RESUME carries the per-turn rule.** The agent confirms the brief against what the student says each turn, believes a student who says they did something the brief does not show and checks the real state instead of repeating or denying it, and marks plan steps as the work moves. No new directive was added: every public alias A to M is taken.
+- **RESUME carries the per-turn rule.** The agent confirms the brief against what the student says each turn, believes a student who says they did something the brief does not show and checks the real state instead of repeating or denying it, and marks plan steps as the work moves.
 
 ## [0.72.9] - 2026-11-12
 
