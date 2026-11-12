@@ -1,10 +1,10 @@
 # FEATURES — rEach
 
-## The security validation pass says when Codex's sandbox blocked it — 0.72.5
+## The security validation pass says when Codex's sandbox blocked it — 0.72.6
 
 A student whose Codex ran the validation pass in its sandbox saw a warning that the software might be impersonating rEach or Teach. The pass now answers a sandbox-blocked step with M-SANDBOX-AGENT: the course server is fine, use the reach_ tools (reach_validate among them), and call reach_setup with configure to fix it for good.
 
-Verified on 2026-11-12 on Linux: `Reach::Validation.failure_text` with CODEX_SANDBOX_NETWORK_DISABLED=1 and the error Reach::Client raises returned the sandbox text; an offline_flag error returned the original text. Not exercised: a real Codex session on a student's computer, or reach_validate running through the bridge in a sandboxed parent.
+Verified on 2026-11-11 on Linux: `Reach::Validation.failure_text` with CODEX_SANDBOX_NETWORK_DISABLED=1 and the error Reach::Client raises returned the sandbox text; an offline_flag error returned the original text. Not exercised: a real Codex session on a student's computer, or reach_validate running through the bridge in a sandboxed parent.
 
 Student-first audit: the student is no longer told the course may be impersonated when only their app's sandbox is the cause.
 
