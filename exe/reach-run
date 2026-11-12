@@ -67,13 +67,78 @@ same_or_nested() {
   return 1
 }
 
+under() {
+  ua=$(lower "$1")/
+  ub=$(lower "$2")/
+  case $ua in "$ub"*) return 0 ;; esac
+  return 1
+}
+
+cloud_named() {
+  cn=$(lower "$1")
+  case $cn in
+    *icloud* | *"mobile documents"* | *onedrive* | *dropbox* | *"google drive"* | *cloudstorage*) return 0 ;;
+  esac
+  return 1
+}
+
+cloud_path() {
+  [ -n "$1" ] || return 1
+  cloud_named "$1" && return 0
+  cp_real=$(cd "$1" 2>/dev/null && pwd -P) || cp_real=$1
+  cloud_named "$cp_real" && return 0
+  for cp_var in "${OneDrive:-}" "${OneDriveConsumer:-}" "${OneDriveCommercial:-}"; do
+    [ -n "$cp_var" ] || continue
+    cp_root=$(win_dir "$cp_var") || continue
+    under "$cp_real" "$cp_root" && return 0
+  done
+  return 1
+}
+
+device_home() {
+  dh_user=$(id -un 2>/dev/null)
+  dh_names=$dh_user
+  for dh_src in "${HOME:-}" "${USERPROFILE:-}"; do
+    dh_n=$(printf '%s' "$dh_src" | tr '\\' '/' | awk -F/ '{ for (i = 1; i < NF; i++) if (tolower($i) == "users" || tolower($i) == "home") { print $(i + 1); exit } }')
+    [ -n "$dh_n" ] && dh_names="$dh_names $dh_n"
+  done
+  dh_passwd=
+  if [ -n "$dh_user" ] && command -v getent >/dev/null 2>&1; then
+    dh_passwd=$(getent passwd "$dh_user" 2>/dev/null | cut -d: -f6)
+  fi
+  if [ -z "$dh_passwd" ] && [ -n "$dh_user" ] && command -v dscl >/dev/null 2>&1; then
+    dh_passwd=$(dscl . -read "/Users/$dh_user" NFSHomeDirectory 2>/dev/null | awk '{ print $2 }')
+  fi
+  case $(uname -s 2>/dev/null) in
+    Darwin) dh_root=/Users ;;
+    *) dh_root=/home ;;
+  esac
+  set -- "$dh_passwd"
+  for dh_n in $dh_names; do set -- "$@" "$dh_root/$dh_n"; done
+  for dh_cand in "$@"; do
+    [ -n "$dh_cand" ] && [ -d "$dh_cand" ] || continue
+    cloud_path "$dh_cand" && continue
+    printf '%s' "$dh_cand"
+    return 0
+  done
+  return 1
+}
+
+stray_capable() {
+  is_windows || [ -n "${DISPLACED:-}" ]
+}
+
 stray_root() {
   want_enrolled=${1:-}
   for raw in "${HOME:-}" "${USERPROFILE:-}"; do
     [ -n "$raw" ] || continue
     sb=$(win_dir "$raw") || continue
     [ -n "$sb" ] || continue
-    same_or_nested "$sb" "$user_home" && continue
+    if [ -n "${DISPLACED:-}" ]; then
+      under "$user_home" "$sb" && continue
+    else
+      same_or_nested "$sb" "$user_home" && continue
+    fi
     sh_home=$sb/reach-work/.reach-home
     if [ -d "$sh_home" ] && [ -r "$sh_home" ]; then
       if [ -n "$want_enrolled" ]; then
@@ -102,8 +167,11 @@ stray_root() {
 
 resolve_home() {
   user_home=$HOME
+  DISPLACED=
   if is_windows; then
     found=$(windows_profile) && [ -n "$found" ] && user_home=$found
+  elif cloud_path "$user_home"; then
+    found=$(device_home) && [ -n "$found" ] && user_home=$found && DISPLACED=1
   fi
   if [ -n "${REACH_HOME:-}" ]; then
     HOME_ANCHOR=$(dirname "$REACH_HOME")
@@ -122,10 +190,10 @@ resolve_home() {
     REACH_HOME=$user_home/.reach
   elif [ -f "$new_home/install.yml" ] || [ -d "$new_home/plugin" ] || [ -d "$new_home/keys" ]; then
     REACH_HOME=$new_home
-    if [ ! -f "$new_home/keys/install.pem" ] && [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && stray=$(stray_root enrolled) && [ -n "$stray" ]; then
+    if [ ! -f "$new_home/keys/install.pem" ] && [ -z "${REACH_WORKSPACE_ROOT:-}" ] && stray_capable && stray=$(stray_root enrolled) && [ -n "$stray" ]; then
       REACH_HOME=$stray
     fi
-  elif [ -z "${REACH_WORKSPACE_ROOT:-}" ] && is_windows && { stray=$(stray_root enrolled) && [ -n "$stray" ] || stray=$(stray_root) && [ -n "$stray" ]; }; then
+  elif [ -z "${REACH_WORKSPACE_ROOT:-}" ] && stray_capable && { stray=$(stray_root enrolled) && [ -n "$stray" ] || stray=$(stray_root) && [ -n "$stray" ]; }; then
     REACH_HOME=$stray
   else
     REACH_HOME=$new_home

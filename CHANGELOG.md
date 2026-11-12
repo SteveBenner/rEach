@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.8] - 2026-11-11
+
+### Changed
+
+- rEach no longer puts `reach-work` in a home folder that sits inside iCloud, OneDrive, Dropbox, Google Drive or another cloud-synced folder (by path, real path or the OneDrive, OneDriveConsumer and OneDriveCommercial roots). `Reach::Paths.user_home`, `scripts/reach-install`, `scripts/reach-uninstall`, `exe/reach-run` and `scripts/reach-install.ps1` take the computer's own user folder instead: the account's passwd home, else `<users root>/<name>` (`/Users`, `/home` or `<SystemDrive>\Users`), with the name from the account or from `$HOME` or `USERPROFILE`. A home outside a cloud folder is kept, and an explicit `REACH_WORKSPACE_ROOT` or `REACH_HOME` is honored with the existing one-time notice (STD-LOCAL-HOME).
+- On macOS and Linux a `reach-work` found under a cloud `$HOME` is a stray base, so the existing relocation copies it into the local folder and leaves the cloud folder as it was (`Reach::Paths.stray_bases`, `scripts/reach-uninstall` home candidates, `exe/reach-run`).
+- The macOS and Linux install command in `INSTALL.md` makes the same check before it creates the bootstrap folder.
+
 ## [0.72.7] - 2026-11-11
 
 ### Fixed

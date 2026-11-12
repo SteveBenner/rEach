@@ -205,13 +205,52 @@ function Stop-Install([string]$Text) {
     exit 1
 }
 
-function Get-UserHome {
-    try {
-        $known = [Environment]::GetFolderPath('UserProfile')
-        if ($known -and (Test-Path -LiteralPath $known -PathType Container)) {
-            return $known
+function Test-CloudPath([string]$Path) {
+    if (-not $Path) {
+        return $false
+    }
+    if ($Path -match 'iCloud|Mobile Documents|OneDrive|Dropbox|Google Drive|CloudStorage') {
+        return $true
+    }
+    $full = $Path.TrimEnd('\', '/')
+    foreach ($name in @('OneDrive', 'OneDriveConsumer', 'OneDriveCommercial')) {
+        $root = [Environment]::GetEnvironmentVariable($name)
+        if (-not $root) {
+            continue
         }
+        $root = $root.TrimEnd('\', '/')
+        if ($full -ieq $root -or $full.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase) -or $full.StartsWith($root + '/', [StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Get-UserHome {
+    $found = @()
+    try {
+        $found += [Environment]::GetFolderPath('UserProfile')
     } catch {
+    }
+    $found += $env:USERPROFILE
+    $drive = if ($env:SystemDrive) { $env:SystemDrive } else { 'C:' }
+    $names = @($env:USERNAME)
+    foreach ($source in @($env:HOME, $env:USERPROFILE)) {
+        if ($source -match '[\\/]Users[\\/]([^\\/]+)') {
+            $names += $Matches[1]
+        }
+    }
+    foreach ($name in ($names | Where-Object { $_ } | Select-Object -Unique)) {
+        $found += "$drive\Users\$name"
+    }
+    $existing = @($found | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) })
+    foreach ($path in $existing) {
+        if (-not (Test-CloudPath $path)) {
+            return $path
+        }
+    }
+    if ($existing.Count -gt 0) {
+        return $existing[0]
     }
     return $env:USERPROFILE
 }

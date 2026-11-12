@@ -1,5 +1,6 @@
 require "fileutils"
 require "json"
+require "etc"
 require "open3"
 require "pathname"
 require "rbconfig"
@@ -132,23 +133,84 @@ module Reach
       configured || File.join(user_home, "Downloads")
     end
 
+    def native_path(value)
+      windows_host? ? windows_slashes(value) : value.to_s.strip
+    end
+
+    def users_root
+      if windows_host?
+        drive = ENV["SystemDrive"].to_s
+        "#{drive.empty? ? 'C:' : drive}/Users"
+      elsif RbConfig::CONFIG["host_os"].to_s =~ /darwin/
+        "/Users"
+      else
+        "/home"
+      end
+    end
+
+    def name_from_home(path)
+      parts = path.to_s.tr("\\", "/").split("/").reject(&:empty?)
+      index = parts.index { |part| part.casecmp("Users").zero? || part.casecmp("home").zero? }
+      name = index ? parts[index + 1] : parts.last
+      name.to_s.empty? || name.to_s.match?(/\A[A-Za-z]:\z/) ? nil : name
+    end
+
+    def passwd_entry
+      return nil unless Etc.respond_to?(:getpwuid)
+
+      Etc.getpwuid(Process.uid)
+    rescue ArgumentError
+      nil
+    end
+
+    def account_names
+      passwd = passwd_entry
+      names = [passwd && passwd.name, ENV["USER"], ENV["LOGNAME"], ENV["USERNAME"], name_from_home(ENV["HOME"]), name_from_home(ENV["USERPROFILE"])]
+      names.map(&:to_s).reject { |name| name.empty? || name.match?(%r{[/\\]}) }.uniq
+    end
+
+    def device_home_candidates
+      list = []
+      passwd = passwd_entry
+      list << [native_path(passwd.dir), "account"] if passwd && !passwd.dir.to_s.empty?
+      account_names.each { |name| list << [File.join(users_root, name), "users_root"] }
+      list
+    end
+
+    def local_device_home
+      device_home_candidates.find { |path, _label| existing_directory(path) && !cloud_synced_folder?(path) }
+    end
+
+    def posix_tilde
+      File.expand_path("~")
+    rescue ArgumentError
+      nil
+    end
+
+    def windows_home_pair
+      found = []
+      [["known_folder", -> { known_folder_profile }], ["registry", -> { registry_profile }], ["env", -> { windows_slashes(ENV["USERPROFILE"]) }]].each do |label, finder|
+        path = existing_directory(finder.call)
+        found << [path, label] if path
+      end
+      found.find { |path, _label| !cloud_synced_folder?(path) } || local_device_home || found.first || [File.expand_path("~"), "tilde"]
+    end
+
+    def posix_home_pair
+      tilde = posix_tilde
+      return [tilde, "posix"] if tilde && !cloud_synced_folder?(tilde)
+
+      local_device_home || [tilde || File.expand_path("~"), "posix"]
+    end
+
     def user_home_pair
       return @user_home_pair if @user_home_pair
 
-      pair = if windows_host?
-               found = nil
-               [["known_folder", -> { known_folder_profile }], ["registry", -> { registry_profile }], ["env", -> { windows_slashes(ENV["USERPROFILE"]) }]].each do |label, finder|
-                 path = existing_directory(finder.call)
-                 next unless path
+      @user_home_pair = windows_host? ? windows_home_pair : posix_home_pair
+    end
 
-                 found = [path, label]
-                 break
-               end
-               found || [File.expand_path("~"), "tilde"]
-             else
-               [File.expand_path("~"), "posix"]
-             end
-      @user_home_pair = pair
+    def cloud_displaced_home?
+      %w[account users_root].include?(user_home_source)
     end
 
     def user_home
@@ -308,17 +370,18 @@ module Reach
     end
 
     def stray_bases
-      return [] unless windows_host?
+      return [] unless windows_host? || cloud_displaced_home?
       return [] unless ENV["REACH_HOME"].to_s.empty? && ENV["REACH_WORKSPACE_ROOT"].to_s.empty?
 
       mine = realish(user_home)
       seen = []
       [ENV["HOME"], ENV["USERPROFILE"]].each do |value|
-        base = windows_slashes(value)
+        base = native_path(value)
         next if base.empty? || !File.directory?(base)
 
         real = realish(base)
-        next if path_within?(real, mine) || path_within?(mine, real)
+        next if path_within?(mine, real)
+        next if path_within?(real, mine) && !cloud_displaced_home?
         next if seen.any? { |other| other.casecmp(real).zero? }
 
         seen << real
@@ -627,9 +690,26 @@ module Reach
       File.join(data_dir, "reach", "checkpoints")
     end
 
-    def cloud_folder_name(path = workspace_base)
+    CLOUD_ROOT_VARIABLES = %w[OneDrive OneDriveConsumer OneDriveCommercial].freeze
+
+    def cloud_segment_name(path)
       segment = path.to_s.split(%r{[\\/]+}).find { |part| part.match?(CLOUD_SEGMENTS) }
       segment && segment[CLOUD_SEGMENTS]
+    end
+
+    def cloud_root_name(real)
+      CLOUD_ROOT_VARIABLES.find do |name|
+        root = native_path(ENV[name])
+        !root.empty? && path_within?(real, realish(root))
+      end
+    end
+
+    def cloud_folder_name(path = workspace_base)
+      named = cloud_segment_name(path)
+      return named if named
+
+      real = realish(path)
+      cloud_segment_name(real) || (cloud_root_name(real) && "OneDrive")
     end
 
     def cloud_synced_folder?(path = workspace_base)

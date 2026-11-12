@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## reach-work never lands in iCloud, OneDrive or another cloud folder — 0.72.8
+
+When a computer's home folder reported a path inside iCloud, OneDrive, Dropbox or Google Drive (a `$HOME` the app or shell had set there), rEach put `reach-work` in it and the student's files synced to the cloud, where the cloud could evict them. rEach now skips such a home and uses the computer's own user folder: the account's home, else the users folder plus the account name (`/Users/<name>`, `/home/<name>`, `C:\Users\<name>`), with the name taken from the account or from `$HOME`. The same rule runs in the library, the installer, the uninstaller, the launcher and the PowerShell installer, and in the macOS and Linux install command in INSTALL.md. On macOS and Linux a `reach-work` already under a cloud `$HOME` is copied into the local folder by the same stray relocation Windows uses; the cloud folder is left as it was. A student who sets `REACH_WORKSPACE_ROOT` to a cloud folder is still honored, with the existing one-time notice.
+
+Verified on 2026-11-11 on Linux against the real `Reach::Paths`, `scripts/reach-install`, `scripts/reach-uninstall` and `exe/reach-run` resolution, with scratch homes named like iCloud Mobile Documents, CloudStorage and a OneDrive root: each resolved to the local home, a reach-work under the cloud home was found as the stray, and a plain home was unchanged. Not exercised: macOS, Windows or PowerShell, a real iCloud File Provider with evicted files, or the relocation run end to end.
+
+Student-first audit: a student's work no longer ends up where the cloud can move it off their computer, and one who already has it there gets it copied home without the old folder being touched. A macOS Desktop and Documents folder that iCloud syncs is not detected, because its path names no cloud.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ not pushed, not yet on test · stable is the operator's
+
 ## Removing rEach when the AI app runs no hooks — 0.72.7
 
 A student whose AI app runs none of rEach's hooks was asked "Say yes to remove rEach" on every run of `reach uninstall` or `reach reinstall`, and the yes never counted, because only the prompt hook takes it. The command now says the chat cannot take the yes and gives the terminal command to run outside the AI app, where a typed yes works.

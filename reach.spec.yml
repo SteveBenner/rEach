@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.72.7
+version: 0.72.8
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -3341,7 +3341,8 @@ checkpoints:
     <course>/<assignment>/<workspace> and treats the same folder name in two assignments as ambiguous; a digest read from
     meta.json becomes a blob path only when it is a 64-digit hex sha256 (blob_digest?), else the entry is unreadable; M-CHECKPOINT-RECOVER-NONE, M-CHECKPOINT-RECOVER-FAILED). A reach-work folder under a
     cloud-synced path (iCloud, OneDrive, Dropbox, Google Drive, CloudStorage) is told once to keep files on the device
-    (M-CLOUD-FOLDER, R-DOC-CLOUD); nothing is moved. <workspace root>/README.md (M-REACH-WORK-README) is written once
+    (M-CLOUD-FOLDER, R-DOC-CLOUD); nothing is moved. Since 0.72.8 only an explicit REACH_WORKSPACE_ROOT or a computer with
+    no local home folder lands there, because a cloud home is skipped (STD-LOCAL-HOME). <workspace root>/README.md (M-REACH-WORK-README) is written once
     when absent and says what the hidden folder holds.
 plan:
   file: "<workspace>/.reach/plan.yml (reach.plan/v1)"
@@ -3666,6 +3667,12 @@ home_in_workspace:
     Codex; HERMES_HOME, else user_home for Hermes. rEach never creates the folder its paths hang from (user_home, or the
     parent of $REACH_WORKSPACE_ROOT or $REACH_HOME): when it is missing every launcher and Reach::Paths.ensure_home!
     create nothing and answer M-HOME-MISSING.
+  local_home: >-
+    Since 0.72.8 (STD-LOCAL-HOME) a home folder under a cloud-synced folder (iCloud, Mobile Documents, OneDrive, Dropbox,
+    Google Drive, CloudStorage, by path, real path or the OneDrive, OneDriveConsumer and OneDriveCommercial roots) is not
+    used: user_home is the account's passwd home, else <users root>/<name>, in lib/reach/paths.rb, scripts/reach-install,
+    scripts/reach-uninstall, exe/reach-run and scripts/reach-install.ps1 alike (user_home_source account or users_root).
+    A reach-work found under the cloud $HOME is copied in by the stray relocation on macOS and Linux as on Windows.
   resolution: >-
     Reach::Paths.root, memoized for at most 2 seconds: (1) $REACH_HOME set: that directory, legacy logic off; (2)
     <workspace_base>/.reach-home/state/relocation.json exists with phase completed: the new home; (3) ~/.reach holds

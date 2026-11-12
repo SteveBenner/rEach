@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require "etc"
 require "fileutils"
 require "json"
 require "net/http"
@@ -475,19 +476,81 @@ module ReachInstall
       nil
     end
 
+    CLOUD_SEGMENTS = /iCloud|Mobile Documents|OneDrive|Dropbox|Google Drive|CloudStorage/i
+    CLOUD_ROOT_VARIABLES = %w[OneDrive OneDriveConsumer OneDriveCommercial].freeze
+
+    def native_path(value)
+      windows_host? ? windows_slashes(value) : value.to_s.strip
+    end
+
+    def cloud_synced?(path)
+      text = path.to_s
+      return false if text.empty?
+      return true if text.match?(CLOUD_SEGMENTS)
+      return true if File.exist?(text) && File.realpath(text).match?(CLOUD_SEGMENTS)
+
+      expanded = File.expand_path(text).downcase
+      CLOUD_ROOT_VARIABLES.any? do |name|
+        root = native_path(ENV[name])
+        !root.empty? && (expanded == File.expand_path(root).downcase || expanded.start_with?("#{File.expand_path(root).downcase}/"))
+      end
+    end
+
+    def passwd_entry
+      return nil unless Etc.respond_to?(:getpwuid)
+
+      Etc.getpwuid(Process.uid)
+    rescue ArgumentError
+      nil
+    end
+
+    def name_from_home(path)
+      parts = path.to_s.tr("\\", "/").split("/").reject(&:empty?)
+      index = parts.index { |part| part.casecmp("Users").zero? || part.casecmp("home").zero? }
+      name = index ? parts[index + 1] : parts.last
+      name.to_s.empty? || name.to_s.match?(/\A[A-Za-z]:\z/) ? nil : name
+    end
+
+    def users_root
+      if windows_host?
+        drive = ENV["SystemDrive"].to_s
+        "#{drive.empty? ? 'C:' : drive}/Users"
+      elsif RbConfig::CONFIG["host_os"].to_s =~ /darwin/
+        "/Users"
+      else
+        "/home"
+      end
+    end
+
+    def local_device_home
+      passwd = passwd_entry
+      names = [passwd && passwd.name, ENV["USER"], ENV["LOGNAME"], ENV["USERNAME"], name_from_home(ENV["HOME"]), name_from_home(ENV["USERPROFILE"])]
+      candidates = []
+      candidates << native_path(passwd.dir) if passwd && !passwd.dir.to_s.empty?
+      names.map(&:to_s).reject { |name| name.empty? || name.match?(%r{[/\\]}) }.uniq.each { |name| candidates << File.join(users_root, name) }
+      candidates.find { |path| File.directory?(path) && !cloud_synced?(path) }
+    end
+
+    def windows_profile_home
+      [-> { known_folder_profile }, -> { registry_profile }, -> { windows_slashes(ENV["USERPROFILE"]) }].each do |finder|
+        path = finder.call.to_s
+        return path if !path.empty? && File.directory?(path) && !cloud_synced?(path)
+      end
+      nil
+    end
+
+    def home_tilde
+      File.expand_path("~")
+    rescue ArgumentError
+      nil
+    end
+
     def user_home
       @user_home ||= begin
-        found = nil
-        if windows_host?
-          [-> { known_folder_profile }, -> { registry_profile }, -> { windows_slashes(ENV["USERPROFILE"]) }].each do |finder|
-            path = finder.call.to_s
-            next if path.empty? || !File.directory?(path)
-
-            found = path
-            break
-          end
-        end
-        found || File.expand_path("~")
+        found = windows_host? ? windows_profile_home : nil
+        tilde = home_tilde
+        found ||= tilde if tilde && !cloud_synced?(tilde)
+        found || local_device_home || tilde || File.expand_path("~")
       end
     end
 
