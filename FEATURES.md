@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The agent never routes rEach through a plugin marketplace or GitHub — 0.72.4
+
+An agent had added rEach's GitHub repository as a plugin marketplace. The persona now carries an always-binding line: the agent never adds rEach's repository or any other link as a marketplace, never installs rEach from an app's plugin screen, never suggests either to the student, and never suggests connecting the student's app to GitHub. rEach installs, updates and reinstalls only through its own commands, which still download the public archive as before.
+
+Verified on 2026-11-12 on Linux: `ruby tools/policy.rb build` compiled the line into `agents/reach.md`, `skills/reach-assistant/SKILL.md` and `policy/behavior.json`, and `ruby tools/policy.rb check` reported no problems. Not exercised: a real student session in any app; the rule is guidance to the model, and nothing in code blocks a marketplace command.
+
+Student-first audit: the student is no longer pointed at an install route that installs nothing, or at a GitHub connection rEach does not need.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ on main, not yet on test
+
 ## Commits in the extracurricular folder carry the student's name — 0.72.3
 
 Git is refused in slice and root spaces and allowed only in the extracurricular folder, so that folder is the only place a commit can exist. A commit the agent makes there is now authored and committed by the student under their full roster name, with the placeholder email `<student id>@students.invalid`. Before any git command in that folder, `Reach::GitAuthor` writes that identity into the repository's own local config, and before a command that can create a commit it checks that git's effective author and committer are the student's. The gate refuses an override (`--author`, `-c user.*`, `git config` on identity keys, `--git-dir`, `--work-tree`, `GIT_AUTHOR_*` and `GIT_COMMITTER_*`, edits to `.git/config` and `.git/hooks`) with M-GATE-GIT-AUTHOR, and a message with a `Co-Authored-By` trailer or a line saying an assistant generated the work with M-GATE-GIT-ATTRIBUTION. A student whose name is not yet known gets M-GATE-GIT-NONAME. Nothing goes to Teach and the folder is still never scanned, recorded or graded; `STD-GIT-AUTHOR` states it.

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.72.3
+version: 0.72.4
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2070,7 +2070,9 @@ installer:
     commands to a harness marketplace. Claude Cowork, whose sandbox cannot run the command, sends the student to the
     Claude app's Code tab, which sets up Claude Code by itself and runs the same install. Since 0.69.0 the repository
     carries no marketplace file, so adding the link as a plugin marketplace installs nothing, and the README and
-    INSTALL.md name no marketplace route. A copy a harness installed from the link before 0.69.0 is not managed and
+    INSTALL.md name no marketplace route. Since 0.72.4 the persona forbids the agent to add the link or any other
+    source as a plugin marketplace, to install rEach from an app's plugin screen, or to suggest either, or to suggest
+    connecting the student's app to GitHub. A copy a harness installed from the link before 0.69.0 is not managed and
     follows auto_update.student_experience.cache_only.
   public_repository: >-
     Installing from a link needs the repository to be public (GitHub or public Bitbucket); a private repository

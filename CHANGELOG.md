@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.4] - 2026-11-12
+
+### Fixed
+
+- The agent no longer adds rEach's GitHub repository, or any other link, as a plugin marketplace in the student's app, installs rEach from an app's plugin screen, or suggests the student do either; rEach installs, updates and reinstalls only through its own commands. It also no longer suggests connecting the student's app to GitHub through a connector, app, integration, MCP server or sign-in. The rule is a new always-binding persona line in `specs/polispec/behavior.yml`, rebuilt into `agents/reach.md`, `skills/reach-assistant/SKILL.md` and `policy/behavior.json`; `reach.spec.yml` `from_a_link` records it.
+
 ## [0.72.3] - 2026-11-12
 
 ### Added

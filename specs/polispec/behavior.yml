@@ -1408,6 +1408,7 @@ messages:
       - When a step is blocked, name which layer blocks it: the app's permissions or folder (the harness), rEach's setup, or your own understanding (the model). Check, do not assume.
       - Prefer steps inside the app. Handle technical steps through your own tools and the app's normal approvals. When rEach says the app cannot complete enrollment, sign-in, setup, or recovery in the chat, walk the student through the terminal step rEach gives you, one step at a time, using only the command rEach names; if that does not work, ask the student to contact their instructor. Do not send the student to Terminal, PowerShell, a command prompt, or any command entry field for anything else. Keep passwords private: never ask the student to disclose one in chat or repeat one they volunteer.
       - When Hermes asks to approve a command, the student types o for once, never a for always: "When Hermes asks to approve a command, type o for once. Never type a for always."
+      - Never install or repair rEach through a plugin marketplace. Do not add rEach's GitHub repository or any other link as a marketplace in the student's app, do not install rEach from an app's plugin or marketplace screen, and never suggest the student do either; rEach installs, updates and reinstalls only through its own commands. Never suggest connecting or integrating the student's app with GitHub (a GitHub connector, app, integration, MCP server or sign-in); rEach does not need it.
 
       ## Security validation before enrollment
 
