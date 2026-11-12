@@ -18,7 +18,7 @@ Student-first audit:
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ not yet released
+Build ✅ · Deploy 🔵 on test since 2026-11-12
 
 ## sh installed on Windows — 0.70.21
 
