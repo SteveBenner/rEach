@@ -365,6 +365,8 @@ module Reach
           cmd_checkpoint(args)
         when "plan"
           cmd_plan(args)
+        when "checklist"
+          cmd_checklist(args)
         when "passes"
           cmd_passes(args)
         when "policy"
@@ -508,6 +510,7 @@ module Reach
             check [--changed <path>] [--format text|agent|json|hermes]   check the slice's code against the rules
             checkpoint save|list [--all]|compare <n> [<other>]|show|restore|recover|dismiss|forget    snapshots of the slice's files, kept by rEach on every write; recover brings missing work back, forget deletes the copies after a yes
             plan save|show|note|step|audit       the slice plan, its step states and its second-pass audit
+            checklist save|item|show             the checklist of what this assignment part requires and its item states
             part [record <id>]                   the questions only you can answer for this assignment
             next                                 the next step
             progress [--format text|json]        where you stand: what is done, what is left, what comes next
@@ -1710,6 +1713,8 @@ module Reach
           puts Reach::Messages.text("M-QUALIFY-DOCUMENT")
           return 0
         end
+        note = Reach::Checklist.gate_note(workspace)
+        puts note if note
         format = (options[:format] || "text").to_sym
         record = Reach::Qualify.run(workspace, local_only: local_only, task: options[:task], agent_summary: options[:summary])
         puts Reach::Qualify.render(record, format)
@@ -1914,6 +1919,9 @@ module Reach
           warn "usage: reach submit [--partial] --slice <id>"
           return 1
         end
+        submit_workspace = resolve_workspace(slice)
+        note = submit_workspace && Reach::Checklist.gate_note(submit_workspace)
+        puts note if note
         result = Reach::Submit.submit(slice: slice, partial: partial)
         case result["state"]
         when "asked", "declined"
@@ -3397,6 +3405,10 @@ module Reach
           evidence = evidence_at ? remaining[evidence_at + 1] : nil
           Reach::Plan.set_step(workspace_path, number, state, evidence: evidence)
           puts Reach::Messages.text("M-PLAN-STEP-SAVED", number: number, state: state)
+          if state == "done"
+            note = Reach::Checklist.step_note(workspace_path)
+            puts note if note
+          end
           0
         when "audit"
           cmd_plan_audit(workspace_path, remaining, options)
@@ -3439,6 +3451,36 @@ module Reach
         else
           warn "usage: reach passes packet <plan|scenarios|code> | score <point> [--format json] | pick <point> [--format json] | status [--format json]"
           2
+        end
+      end
+
+      def cmd_checklist(args)
+        sub = args.shift
+        options, remaining = parse_flags(args, [:slice, :format, :items, :evidence])
+        workspace_path = workspace_or_fail(options[:slice])
+        return 1 unless workspace_path
+
+        case sub
+        when "save"
+          data = Reach::Checklist.save(workspace_path, items: options[:items])
+          puts Reach::Messages.text("M-CHECKLIST-SAVED", count: data["items"].length, kept: data["kept"])
+          0
+        when "item"
+          number = remaining.shift
+          state = remaining.shift
+          Reach::Checklist.set_item(workspace_path, number, state, evidence: options[:evidence])
+          puts Reach::Messages.text("M-CHECKLIST-ITEM-SAVED", number: number, state: state)
+          0
+        when "show"
+          if (options[:format] || "text") == "json"
+            puts JSON.generate(Reach::Checklist.load(workspace_path) || {})
+          else
+            puts Reach::Checklist.render(workspace_path)
+          end
+          0
+        else
+          warn Reach::Messages.text("M-CHECKLIST-USAGE")
+          1
         end
       end
 

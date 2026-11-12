@@ -9,7 +9,7 @@
 [PLAN1ST] save a slice plan with reach plan save before any edit; read it back at session start   d/PLAN1ST   ⚙ ledger   ⚡ [task:build, event:SessionStart]
 [PURE] a behaviour is a pure function of input and ports: no I/O, clock, randomness or globals   d/PURE   ⚙ check:CK-PURE   ⚡ [path:**/*.rb]
 [QUALIFY] write your own scenarios in qualify/, cover every required name, pass reach qualify   d/QUALIFY   ⚙ check:CK-TEST   ⚡ [task:build, task:fix, task:after-task]
-[RESUME] open with plan and status, read the turn brief each turn, close with a plan note   d/RESUME   ⚙ none   ⚡ [event:SessionStart, event:UserPromptSubmit, event:Stop]
+[RESUME] open with plan and status, read the brief and checklist each turn, close with a note   d/RESUME   ⚙ none   ⚡ [event:SessionStart, event:UserPromptSubmit, event:Stop]
 [RUBY] plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal, no gems   d/RUBY   ⚙ check:CK-RUBY   ⚡ [path:**/*.rb]
 [TOZERO] work findings to zero; the attempt ladder bounds retries; never invent findings   d/TOZERO   ⚙ gate:write   ⚡ [task:after-task]
 [VERIFY] done carries the command and its output; a green check is not yet business meaning   d/VERIFY   ⚙ ledger   ⚡ [task:after-task]

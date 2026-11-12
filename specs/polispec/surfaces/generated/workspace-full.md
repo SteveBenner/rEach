@@ -9,7 +9,7 @@
 [PLAN1ST] save a slice plan with reach plan save before any edit; read it back at session start   d/PLAN1ST   ⚙ ledger   ⚡ [task:build, event:SessionStart]
 [PURE] a behaviour is a pure function of input and ports: no I/O, clock, randomness or globals   d/PURE   ⚙ check:CK-PURE   ⚡ [path:**/*.rb]
 [QUALIFY] write your own scenarios in qualify/, cover every required name, pass reach qualify   d/QUALIFY   ⚙ check:CK-TEST   ⚡ [task:build, task:fix, task:after-task]
-[RESUME] open with plan and status, read the turn brief each turn, close with a plan note   d/RESUME   ⚙ none   ⚡ [event:SessionStart, event:UserPromptSubmit, event:Stop]
+[RESUME] open with plan and status, read the brief and checklist each turn, close with a note   d/RESUME   ⚙ none   ⚡ [event:SessionStart, event:UserPromptSubmit, event:Stop]
 [RUBY] plain Ruby that runs on 2.6.10 and 4.0: one class per file, frozen literal, no gems   d/RUBY   ⚙ check:CK-RUBY   ⚡ [path:**/*.rb]
 [TOZERO] work findings to zero; the attempt ladder bounds retries; never invent findings   d/TOZERO   ⚙ gate:write   ⚡ [task:after-task]
 [VERIFY] done carries the command and its output; a green check is not yet business meaning   d/VERIFY   ⚙ ledger   ⚡ [task:after-task]
@@ -377,6 +377,16 @@ memory.
 4. Tell the student where they stand only when the stage changed or they
    seem lost, in one plain sentence about the business work. Never name
    files, commands or checks, and say nothing on a routine turn.
+5. Each part keeps a checklist of what it requires, built from its course
+   material. When rEach says the part has none, or the student asks for
+   one, read the material it names first, then save the checklist with
+   `reach checklist save --items "a|b|c"`; the save is refused until the
+   material is read in this chat. Mark an item `reach checklist item <n>
+   doing`, then `done --evidence "<what shows it is done>"` as the work
+   covers it, and read it with `reach checklist show` after a new chat or a
+   compaction and before you qualify or submit. It reminds, it never
+   blocks. Tell the student in one plain sentence that a list exists, and
+   never show them the file or the command.
 
 # RUBY: one dialect for every module
 

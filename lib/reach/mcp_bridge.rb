@@ -212,6 +212,22 @@ module Reach
         }
       },
       {
+        "name" => "reach_checklist",
+        "description" => "Save, update or show the checklist of what the current part requires; the course material for the part must have been read in this chat before the checklist is saved",
+        "inputSchema" => {
+          "type" => "object",
+          "properties" => {
+            "action" => { "type" => "string", "enum" => %w[save item show] },
+            "items" => { "type" => "array", "items" => { "type" => "string" }, "description" => "save: the checklist items, each a short line" },
+            "number" => { "type" => "integer", "description" => "item: the 1-based item number" },
+            "state" => { "type" => "string", "enum" => %w[todo doing done], "description" => "item: the new state" },
+            "evidence" => { "type" => "string", "description" => "item: what shows a done item is done" },
+            "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
+          },
+          "required" => ["action"]
+        }
+      },
+      {
         "name" => "reach_passes_packet",
         "description" => "The packet for one candidate-passes point (plan, scenarios or code): the constraints, the lens list with focus lines, the ledger entries, the winning upstream candidate and where each candidate is written. Write each candidate under .reach/passes/<point>/<n>/ through its own lens, one fresh subagent per lens where this app has subagents",
         "inputSchema" => {
@@ -868,6 +884,8 @@ module Reach
           Reach::Reclaim.via_consent!(only: arguments["only"], from: arguments["from"])
         when "reach_plan"
           plan_tool(current_workspace!(arguments["slice"]), arguments)
+        when "reach_checklist"
+          Reach::Checklist.tool(current_workspace!(arguments["slice"]), arguments)
         when "reach_passes_packet"
           Reach::Passes.packet(current_workspace!(arguments["slice"]), arguments["point"])
         when "reach_passes_score"
@@ -1259,7 +1277,9 @@ module Reach
           Reach::Checkpoint.milestone(workspace, "PLAN") if arguments["action"] == "save"
           arguments["action"] == "save" ? saved.merge("next" => Reach::Messages.text("M-PLAN-AUDIT-NEXT")) : saved
         when "step"
-          Reach::Plan.set_step(workspace, arguments["number"], arguments["state"], evidence: arguments["evidence"])
+          stepped = Reach::Plan.set_step(workspace, arguments["number"], arguments["state"], evidence: arguments["evidence"])
+          note = arguments["state"].to_s == "done" ? Reach::Checklist.step_note(workspace) : nil
+          note ? stepped.merge("text" => [stepped["text"], note].compact.join(" ")) : stepped
         when "show"
           Reach::Plan.load(workspace) || {}
         when "audit_packet"

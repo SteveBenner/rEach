@@ -10,7 +10,7 @@ module Reach
     CODE_STAGES = %w[material plan plan_check part build qualify submit grade].freeze
     DOCUMENT_STAGES = %w[start work submit grade].freeze
     DEFAULTS = {
-      "enabled" => true, "full_every" => 5, "gap_minutes" => 30, "max_full_chars" => 900, "max_line_chars" => 220
+      "enabled" => true, "full_every" => 5, "gap_minutes" => 30, "max_full_chars" => 1100, "max_line_chars" => 220
     }.freeze
     PLAN_CLIPS = [[80, 60], [50, 30], [30, 0]].freeze
     ELLIPSIS = "..."
@@ -180,6 +180,7 @@ module Reach
         "stages" => stages,
         "current" => current,
         "plan" => Reach::Plan.step_view(workspace),
+        "checklist" => Reach::Checklist.view(workspace),
         "next" => step ? step["text"].to_s : Reach::Messages.text("M-BRIEF-NEXT-NONE"),
         "failed" => Reach::Ladder.state(workspace)["failed"].to_i,
         "tally" => tally_for(assignment, found_workspaces)
@@ -260,6 +261,10 @@ module Reach
       "#{line} #{Reach::Messages.text('M-BRIEF-PLAN-EVIDENCE', evidence: clip(evidence, clip_to[1]))}"
     end
 
+    def checklist_line(snap)
+      Reach::Checklist.line(snap["checklist"], stage: snap["current"])
+    end
+
     def tally_line(snap)
       Reach::Messages.text("M-BRIEF-TALLY", **snap["tally"].transform_keys(&:to_sym))
     end
@@ -272,11 +277,12 @@ module Reach
 
     def full_text(snap, changed)
       limit = settings["max_full_chars"].to_i
-      variants = PLAN_CLIPS.map { |pair| { plan: pair, tries: pair == PLAN_CLIPS.first, tally: true, left: true, done: true } }
-      variants << { plan: nil, tries: false, tally: true, left: true, done: true }
-      variants << { plan: nil, tries: false, tally: false, left: true, done: true }
-      variants << { plan: nil, tries: false, tally: false, left: false, done: true }
-      variants << { plan: nil, tries: false, tally: false, left: false, done: false }
+      variants = PLAN_CLIPS.map { |pair| { plan: pair, tries: pair == PLAN_CLIPS.first, tally: true, left: true, done: true, check: true } }
+      variants << { plan: nil, tries: false, tally: true, left: true, done: true, check: true }
+      variants << { plan: nil, tries: false, tally: false, left: true, done: true, check: true }
+      variants << { plan: nil, tries: false, tally: false, left: false, done: true, check: true }
+      variants << { plan: nil, tries: false, tally: false, left: false, done: false, check: true }
+      variants << { plan: nil, tries: false, tally: false, left: false, done: false, check: false }
       text = nil
       variants.each do |choice|
         text = assemble(snap, changed, choice)
@@ -291,6 +297,7 @@ module Reach
       lines << now_line(snap)
       lines << left_line(snap) if choice[:left]
       lines << plan_line(snap, choice[:plan]) if choice[:plan]
+      lines << checklist_line(snap) if choice[:check]
       lines << tally_line(snap) if choice[:tally]
       lines << tries_line(snap) if choice[:tries]
       lines << Reach::Messages.text("M-BRIEF-NEXT", next: snap["next"])

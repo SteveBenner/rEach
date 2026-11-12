@@ -467,7 +467,7 @@ directives:
   alias: I
   tier: public
   slice: code
-  rule: open with plan and status, read the turn brief each turn, close with a plan note
+  rule: open with plan and status, read the brief and checklist each turn, close with a note
   when:
   - event:SessionStart
   - event:UserPromptSubmit
@@ -518,6 +518,16 @@ directives:
     4. Tell the student where they stand only when the stage changed or they
        seem lost, in one plain sentence about the business work. Never name
        files, commands or checks, and say nothing on a routine turn.
+    5. Each part keeps a checklist of what it requires, built from its course
+       material. When rEach says the part has none, or the student asks for
+       one, read the material it names first, then save the checklist with
+       `reach checklist save --items "a|b|c"`; the save is refused until the
+       material is read in this chat. Mark an item `reach checklist item <n>
+       doing`, then `done --evidence "<what shows it is done>"` as the work
+       covers it, and read it with `reach checklist show` after a new chat or a
+       compaction and before you qualify or submit. It reminds, it never
+       blocks. Tell the student in one plain sentence that a list exists, and
+       never show them the file or the command.
 - id: R-RESUMEDOC
   opcode: RESUMEDOC
   tier: public
@@ -891,8 +901,14 @@ parameters:
     enabled: true
     full_every: 5
     gap_minutes: 30
-    max_full_chars: 900
+    max_full_chars: 1100
     max_line_chars: 220
+  checklist:
+    enabled: true
+    max_items: 30
+    offer: true
+    open_listed: 3
+    line_chars: 140
   attempt_ladder:
     notice_from: 2
     hand_at: 3
@@ -1537,6 +1553,8 @@ messages:
       In a course workspace, follow AGENTS.md and its directive table, and the reach-course, reach-feature, reach-bug, reach-checkpoint, reach-progress, reach-submit and reach-help skills.
 
       Every prompt in a slice carries a status from rEach saying where the student stands, what is done and what is left. Confirm it against what the student says before you answer, as the RESUME directive says, and when it differs from what they tell you, check the real state and believe them.
+
+      Each part keeps a checklist of what it requires. When rEach says there is none, or the student asks for one, read the course material it names first, then save the checklist with reach checklist save (or the reach_checklist tool). Mark items done with evidence as the work covers them, and read the checklist after a new chat and before you qualify or submit. It reminds and never blocks.
 
       In a slice workspace, talk with the student only in business terms. Never name files, folders, classes, methods, code, tests, scenarios or commands to them, and never ask them to write, open or read code. If they ask which file to work in or how the code works, say that you write and check all the code, then ask what the business needs.
 

@@ -255,6 +255,7 @@ reach check [--changed <path>] [--format text|agent|json]   the one checker the 
 reach plan save|note|show                                    the slice plan, read back each session
 reach plan step <n> doing|done|todo [--evidence <text>]      mark the plan step the work is on; done needs evidence
 reach plan audit packet|record|show                          the second-pass plan audit qualify needs
+reach checklist save|item|show                               what the part requires, built from its course material; item <n> doing|done|todo [--evidence <text>]
 reach passes packet|score|pick|status <plan|scenarios|code>   the candidate passes: packet, scored candidates, the pick
 reach checkpoint save|list [--all]|show|restore <n>|recover|dismiss|forget   snapshots of the slice, no git needed
 reach directive <OPCODE> | --list                            the directive bodies
@@ -310,6 +311,12 @@ Once the runtime kit is present, rEach also installs its small SDK kit (rplugin 
 pinned in rEach) and organizes the memory into its own rBrain corpus in `~/reach-work/.reach-home/corpora/reach`, in a
 background helper that never slows a hook. Recall then searches that corpus, and forgetting erases from it too.
 `reach sdk status` shows the kit and `reach doctor` the route; without the kit, rEach works exactly as before.
+
+Since 0.75.0 each assignment part also keeps a checklist of what it requires, in `.reach/checklist.yml` beside the plan.
+The agent reads the course material tagged for the assignment first (`reach checklist save` is refused until it has, in
+that chat), then saves the items; rEach makes the offer on the first prompt in a part that has none and when the student
+asks for a checklist, and shows the open items after a new chat or a compaction, in the full turn brief, after a plan step
+is done, and before `reach qualify` and `reach submit`. It reminds and never blocks. `REACH_CHECKLIST=0` turns it off.
 
 Since 0.74.0 the agent can also recall the student's own earlier sessions from the local transcript copy: when the
 student comes back to an assignment part in a new chat or after six hours, when a qualify step fails again after an

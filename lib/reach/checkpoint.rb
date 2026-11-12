@@ -251,7 +251,7 @@ module Reach
     end
 
     EXTRA_DIRS = %w[qualify/features qualify/step_definitions].freeze
-    EXTRA_FILES = %w[.reach/plan.yml].freeze
+    EXTRA_FILES = %w[.reach/plan.yml .reach/checklist.yml].freeze
 
     def link_free?(workspace, relative)
       walk = workspace

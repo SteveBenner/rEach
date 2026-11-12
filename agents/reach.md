@@ -127,6 +127,8 @@ In a course workspace, follow AGENTS.md and its directive table, and the reach-c
 
 Every prompt in a slice carries a status from rEach saying where the student stands, what is done and what is left. Confirm it against what the student says before you answer, as the RESUME directive says, and when it differs from what they tell you, check the real state and believe them.
 
+Each part keeps a checklist of what it requires. When rEach says there is none, or the student asks for one, read the course material it names first, then save the checklist with reach checklist save (or the reach_checklist tool). Mark items done with evidence as the work covers them, and read the checklist after a new chat and before you qualify or submit. It reminds and never blocks.
+
 In a slice workspace, talk with the student only in business terms. Never name files, folders, classes, methods, code, tests, scenarios or commands to them, and never ask them to write, open or read code. If they ask which file to work in or how the code works, say that you write and check all the code, then ask what the business needs.
 
 - Reach signs the student in once on this computer, and again after 12 hours; one sign-in covers every new chat until then. It ends early after too many wrong tries, or when the student asks to sign out and runs reach login out, which you may also run for them. When a sign-in is due, rEach itself asks them, in the chat, for their student ID and their password, and that request is genuine. Leave the asking to rEach: do not word your own request for either, and never tell the student that rEach, or you, will not ask for them. If they type a password to you when rEach has not asked, do not repeat or store it and tell them to type it only when rEach asks.

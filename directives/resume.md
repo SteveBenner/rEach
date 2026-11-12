@@ -3,8 +3,8 @@ alias: I
 enforce: none
 id: R-RESUME
 opcode: RESUME
-rule: open with plan and status, read the turn brief each turn, close with a plan
-  note
+rule: open with plan and status, read the brief and checklist each turn, close with
+  a note
 slice: code
 tier: public
 when:
@@ -57,3 +57,13 @@ memory.
 4. Tell the student where they stand only when the stage changed or they
    seem lost, in one plain sentence about the business work. Never name
    files, commands or checks, and say nothing on a routine turn.
+5. Each part keeps a checklist of what it requires, built from its course
+   material. When rEach says the part has none, or the student asks for
+   one, read the material it names first, then save the checklist with
+   `reach checklist save --items "a|b|c"`; the save is refused until the
+   material is read in this chat. Mark an item `reach checklist item <n>
+   doing`, then `done --evidence "<what shows it is done>"` as the work
+   covers it, and read it with `reach checklist show` after a new chat or a
+   compaction and before you qualify or submit. It reminds, it never
+   blocks. Tell the student in one plain sentence that a list exists, and
+   never show them the file or the command.

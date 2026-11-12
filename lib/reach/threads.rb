@@ -156,6 +156,11 @@ module Reach
       end
     end
 
+    def read_paths(id)
+      thread = read["threads"][id.to_s]
+      thread ? thread["reads"].to_h.keys : []
+    end
+
     def missing(id)
       thread = read["threads"][id.to_s]
       return [] unless thread

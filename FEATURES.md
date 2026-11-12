@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## The agent reads the course material first and keeps a checklist of what each part requires — 0.75.0
+
+A student could finish a part with a requirement of the assignment never looked at, because the agent worked from the chat and nothing held what the part asks for. Each part now keeps a checklist, stored as `.reach/checklist.yml` beside the plan. The agent has to read the course material tagged for the assignment before it can save one (the save is refused, naming the files, until the chat has read them), then marks items done with a line of evidence as the work covers them. rEach asks for the checklist when the student asks for one and on the first prompt of a chat in a part that has none, asks for a new one when the course material changed after it was written, and shows the open items after a new chat or a compaction, in the full turn brief, after a plan step is done, and before qualify and submit. It reminds and never blocks, and the agent tells the student in one plain sentence that a list exists without showing the file or the command.
+
+Verified on 2026-11-12 on Linux in a scratch home with enrollment stubbed, the tagged reference files stubbed and the slice a folder with `.reach/slice.json`, against the real `Reach::Checklist`, `Reach::TurnBrief.full_text`, `Reach::Gate.prompt_context` (current folder stubbed), the CLI commands (`checklist`, `plan step`, `qualify` and `submit` with the qualify and submit runs stubbed) and `Reach::MCPBridge` tools list: a save before the read was refused naming the file and succeeded after it; an unchanged item kept its state on a second save; a done item without evidence was refused and only one item stayed doing; the begin offer came once and the next prompt gave none; a prompt asking for a checklist answered every time; a changed material digest gave the stale notice once; the full brief carried the checklist line within 1100 characters and the reminder at the qualify stage; hello, the plan step note and the qualify and submit notes printed the open items; a persona gave nothing; the checkpoint file list holds the checklist. Not run: a real Claude Code or Codex session, the full turn brief through a real `Reach::Gate.prompt` with a live course status, real tagged reference files from Teach, an exam or `REACH_CHECKLIST=0` as separate cases, Windows or macOS, and no student has used it.
+
+Student-first audit:
+1. Learning: yes. The list comes from the material the student is held to, and the agent keeps talking in business terms.
+2. Agency and honesty: yes. The student is told in one sentence that a list exists; nothing is hidden and nothing is blocked.
+3. Wellbeing and safety: yes. It only reminds, so a stuck student is never locked out by it.
+4. Privacy and dignity: yes. A local file; nothing is sent to Teach.
+5. Fairness and access: partly. Asking for a checklist is recognised in English phrases only, recorded as gap G26; the begin offer, hello, the brief and the notes before qualify and submit work in any language.
+6. Friction: yes. The student does nothing; the agent gets at most one short notice per prompt.
+7. Failure: yes. A failure gives no notice and logs a fault; no work or grade is touched.
+8. Recovery: yes. Deleting `.reach/checklist.yml` or setting `REACH_CHECKLIST=0` turns it off; the next begin offer rebuilds it.
+
+Wiring: none. The notices ride the existing `notice.next` and hello channels; no Teach change and no wire revision.
+
+Build ✅ · Deploy ⚪ on main once pushed, not yet on test · stable is the operator's
+
 ## The agent remembers the student's own earlier sessions at the moments they help — 0.74.0
 
 Every chat started blank. A student who came back to a part the next day had to explain again where they had left it, and a student whose check failed at the same step as last week got no reminder of how they had fixed it, though rEach keeps the student's own conversations on their computer. rEach now builds a private index of those conversations (the student's prompts and the assistant's replies, never code, reasoning, tool output, another student's lines or the student's id) and hands the assistant a short passage at four moments: the first prompt in a part in a new chat or after six hours away, a qualify step failing again after an earlier session got it to pass, the student referring back ("last time", "like we did", "where we left off"), and the assistant's own `reach_sessions` search. The assistant is told to ask the student what they remember before filling in the rest, never to show code from it and not to bring up how the student felt then unless they do. The first time it recalls something it tells the student in one sentence that it can, and that "stop bringing up old sessions" turns it off.

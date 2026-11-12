@@ -162,6 +162,7 @@ module Reach
           entries << ["hello.session", "- #{Reach::Messages.text('M-CTX-DIRECTIVES', phase: spot['phase'], directives: listed)}"]
         end
       end
+      entries.concat(Reach::Checklist.hello_entries(workspace: workspace, session: session)) if workspace
       entries
     rescue StandardError
       []

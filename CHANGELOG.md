@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.0] - 2026-11-12
+
+### Added
+
+- **A checklist for each assignment part.** The agent started parts from the chat, so a student could finish with a requirement of the assignment never looked at. `reach checklist save --items A|B|C` (and the `reach_checklist` tool) stores what the part requires in `.reach/checklist.yml` (schema `reach.checklist/v1`) beside the plan; `reach checklist item <n> doing|done|todo [--evidence TEXT]` marks it as the work covers each item, a done item needing a line of evidence; `reach checklist show` reads it back. Checkpoints keep it with the plan.
+- **The course material is read first.** A save is refused with `M-CHECKLIST-READ-FIRST`, naming the files, until every reference file tagged for the assignment has been read in the chat with `reach reference show`; a part with no tagged file, or a chat that cannot be identified, needs no read.
+- **When it is made.** A prompt asking for a checklist, to-do list or what is left (English phrases only, gap G26) tells the agent to make one; so does the first prompt of a chat in a part that has none, and a change to the course material after it was written asks the agent to save it again.
+- **When it is read back.** At `reach hello` after a new chat, a resume or a compaction; in the full turn brief (the open items, or at the qualify and submit stages a reminder); after `reach plan step <n> done`; and in the output of `reach qualify` and `reach submit`. It only reminds and never blocks.
+- **`checklist` settings** in the behaviour policy (`enabled`, `max_items`, `offer`, `open_listed`, `line_chars`); `REACH_CHECKLIST=0` turns it off.
+
+### Changed
+
+- **The full turn brief may be 1100 characters** (it was 900) so the checklist line fits beside the plan step.
+- **RESUME and the assistant text carry the rule**: read the material, save the checklist, mark items with evidence, read it after a new chat and before qualify or submit, and never show the student the file or the command.
+
 ## [0.74.0] - 2026-11-12
 
 ### Added
