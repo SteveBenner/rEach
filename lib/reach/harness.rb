@@ -259,7 +259,7 @@ module Reach
         return @claude_version if defined?(@claude_version)
 
         @claude_version = begin
-          out = Timeout.timeout(CLAUDE_PROBE_S) { Open3.capture2e("claude", "--version").first }
+          out = Timeout.timeout(CLAUDE_PROBE_S) { Open3.capture2e(*Reach::HarnessSource.claude_command("--version")).first }
           found = out.to_s.match(/(\d+)\.(\d+)\.(\d+)/)
           found && found.captures.map(&:to_i)
         rescue StandardError, Timeout::Error

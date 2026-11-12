@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## An instructor's live-session offer reaches an idle student — 0.72.1
+
+With live sessions on, rEach now keeps asking the course server for an offer for 14 minutes after a prompt, one request every 30 seconds with jitter, where it used to ask once, find nothing and stop. A student whose assistant is idle is therefore told about an offer by their next prompt on any harness, and on Claude Code 2.1.288 or newer the Stop-hook watcher wakes the assistant with the offer's question, the open notice and each action's question without the student prompting first. The watcher used to end at once when no session was known locally, so an offer waited for a prompt to start the runner and showed one prompt later. The wake entry is also written for an app that starts rEach with a minimal PATH, since the claude program is found the way the plugin updater finds it. `live.wake: false` in `config.yml` turns the idle polling and the watcher off, `live.enabled: false` and `REACH_LIVE_DISABLE=1` still stop live sessions, and the existing token bucket, failure cap and one-hour back-off on a switched-off Teach apply to every poll. No wire change.
+
+Verified on 2026-11-12 on Linux in a scratch home with every override set, with the course server's answer stubbed in process: the real runner loop polled every interval with no session, absorbed an offer made 5 s in, and stopped after its idle window when none came; a real watcher in a second process, started with nothing known, exited 2 with the offer's question 6 s in, and exited 0 with nothing when no offer came. Not exercised: a real Claude Code firing the async rewake, Codex, Windows and macOS, and a real Teach offering a session.
+
+Student-first audit:
+1. Learning: n/a, no step of the student's work changes.
+2. Agency and honesty: yes, the offer still asks its own question and counts only the student's typed yes, and `live.wake: false` stops the polling.
+3. Wellbeing and safety: yes, an instructor can reach a student who is stuck without the student knowing to ask; nothing runs or is sent without the student's yes.
+4. Privacy and dignity: yes, the poll carries only the install's signed request it already sent, and no prompt, reply, code or file.
+5. Fairness and access: yes on every harness for the runner; only Claude Code 2.1.288 or newer gets the wake.
+6. Friction: yes, one fewer prompt before the offer shows.
+7. Failure: yes, a poll that fails is retried with backoff and ends the run after five failures, and a Teach with live sessions off is not asked again for an hour.
+8. Recovery: yes, the student can end or decline any session by typing, and the polling ends by itself.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ committed on local main, not pushed
+
 ## Polispec decides when rEach's skills load — 0.72.0
 
 Each shipped skill now states when it should be loaded, as an `invoke` block on its surface in `specs/polispec/behavior.yml` (polispec 0.58.0). Polispec generates every skill's frontmatter from it and refuses overlapping descriptions at compile. rEach points to a skill once per session when a trigger holds: `reach-course` when a session starts in a slice and `design-taste-frontend` before a `.svelte` write in a panel slice; `reach-feature` is declared for the plan phase, which was not exercised. A Claude Code `PreToolUse` hook on the `Skill` tool (`reach gate skill`), written into each course folder's settings, counts each load and, by `skills.gate` in `config.yml` (`advise` by default, `enforce`, or `off`), advises or refuses a load outside the skill's scope or of text already in the session. On Codex, Hermes and Antigravity the same count is taken from a read of a skill file that the existing read and shell gates see, and never refused there. Where hello pastes the persona body (Codex, Hermes, unknown, text), it no longer tells the agent to load `reach-assistant`. `reach-build` and `reach-fix`, which only routed to `reach-feature` and `reach-bug`, are gone. `reach-feedback` was missing from `reach.rplugin.yml` and the Claude plugin manifest and is now listed. `reach doctor` gains R-DOC-SKILLS and prints the counts.
@@ -1558,7 +1578,7 @@ text and typed yes. For an instructor's own test student, and since 0.53.20 for 
 the question, the two assistants can also write to each other, under the same rules. Either side can end it at any time. `REACH_LIVE_DISABLE=1` turns the feature off.
 
 On Claude Code 2.1.288 or newer rEach wakes a waiting assistant when the instructor's side wrote, asked for a check
-or ended the session (a background Stop-hook entry, `reach live watch`), and it shows one desktop notification when
+or ended the session, or when an instructor offered one while the assistant sat idle since 0.72.1 (a background Stop-hook entry, `reach live watch`), and it shows one desktop notification when
 the instructor writes. A student whose prompts rEach blocks can still ask for, accept, follow and end a live session
 by typing: the question, the instructor's notes and each check's question appear under the block text, and rEach
 takes the typed yes or no there. `config.yml` `live.wake`, `live.notify` and `live.blocked` turn these off.

@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.72.0
+version: 0.72.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2522,8 +2522,11 @@ live_sessions:
   wake: >-
     reach live watch, written into Claude Code's Stop hook as a second entry (async, asyncRewake, timeout 900) only
     when claude --version answers 2.1.288 or newer (Reach::Harness.claude_wake?). Reach::Live.watch! takes the watch
-    token in state.json (the newest watcher wins), looks once a second for at most 840 s, and exits 2 with the
-    notices on stderr, or 0 with nothing. Reach::Desktop.notify shows M-LIVE-NOTIFY when a message arrives in an
+    token in state.json (the newest watcher wins), starts the runner, looks once a second for at most 840 s with or
+    without an open session (since 0.72.1), and exits 2 with the notices on stderr, or 0 with nothing. The version
+    is read from the claude program Reach::HarnessSource.claude_command finds, not only one on the PATH. With no
+    session and live.wake on, the runner polls W-API-LIVE-POLL every 30 s with jitter for 840 s before it ends
+    (Reach::Live.idle_linger?), so an offer made while the agent is idle is local before the next prompt or wake. Reach::Desktop.notify shows M-LIVE-NOTIFY when a message arrives in an
     open session, at most once every 20 s.
   blocked: >-
     Reach::Gate.prompt calls Reach::Live.blocked_prompt for a prompt it blocks (a GateBlocked, or a sign-in decision
@@ -2540,7 +2543,7 @@ live_sessions:
     or M-LIVE-READ (call wait again) while the session is requested, offered or open and M-LIVE-WAIT-OVER once it
     is not. The loop pauses for a question for the student (M-LIVE-ASK-AGENT ends the turn) and when the student
     asks for something else. The Stop-hook wake stays as the backstop on Claude Code.
-  switches: config.yml live.enabled false, in the home folder's file or the plugin's own; REACH_LIVE_DISABLE=1 only in a process that has it set, which the user-level job does not; live.wake, live.notify and live.blocked false turn off the watcher, the desktop notification and the blocked-prompt path.
+  switches: config.yml live.enabled false, in the home folder's file or the plugin's own; REACH_LIVE_DISABLE=1 only in a process that has it set, which the user-level job does not; live.wake, live.notify and live.blocked false turn off the watcher and the idle polling, the desktop notification and the blocked-prompt path.
 announcements:
   standard: STD-ANNOUNCEMENTS, STD-DUE-CHANGE, STD-HOLDINGS (specs/app.yml)
   since: 0.30.0

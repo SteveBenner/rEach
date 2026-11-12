@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.1] - 2026-11-12
+
+### Fixed
+
+- **An instructor's live-session offer reaches the student without the student prompting for it.** `Reach::Live.run_loop` ended after one poll that found no session, and `Reach::Live.watch!` (the Claude Code Stop-hook wake) ended at once when no session was known locally, so an offer made while the student's assistant sat idle was not fetched until the next prompt had started the runner, and showed only at the prompt after that. With `live.wake` on, the runner now keeps polling `W-API-LIVE-POLL` every 30 seconds with jitter for 840 seconds when there is no session (`Reach::Live.idle_linger?`, same token bucket, failure cap and kill switches), and the watcher starts the runner and waits for the offer, the open notice and each question whether or not a session is open. The next prompt, on any harness, then already carries the offer's question (`M-LIVE-OFFER-ASK`). `live.wake` false turns the idle polling off with the watcher. No wire change.
+- `Reach::Harness.claude_version` looks for the claude program the way `Reach::HarnessSource` does, so an app that starts rEach with a minimal PATH no longer leaves the wake entry out of the course folder's `.claude/settings.json`. `lib/reach/live.rb`, `lib/reach/harness.rb`, `specs/app.yml` (STD-LIVE, the `reach live watch` verb and the Stop wake hook), `reach.spec.yml`.
+
 ## [0.72.0] - 2026-11-10
 
 ### Added

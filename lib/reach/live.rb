@@ -54,6 +54,9 @@ module Reach
     WAIT_MAX_S = 45
     WATCH_MAX_S = 840
     WATCH_STEP_S = 1.0
+    IDLE_RUN_S = 840
+    IDLE_POLL_S = 30
+    IDLE_JITTER_S = 5
     NOTIFY_GAP_S = 20
     BLOCKED_ASK = /\blive\s+session\b/i.freeze
     BLOCKED_END = /\bend\b.*\blive\s+session\b/i.freeze
@@ -594,18 +597,23 @@ module Reach
       wall - state["checked_at"].to_f >= CHECK_GAP_S
     end
 
+    def idle_linger?(since)
+      wake? && clock - since < IDLE_RUN_S
+    end
+
     def watch!
-      return 0 unless wake? && identity && live?
+      return 0 unless wake? && identity
 
       token = SecureRandom.hex(8)
       update { |state| state["watch"] = token }
+      spawn_runner
       deadline = clock + WATCH_MAX_S
       lines = []
       loop do
         return 0 unless read_state["watch"] == token
 
         lines = prompt_notices(nil, repeat_action: false)
-        break unless lines.empty? && live? && clock < deadline
+        break unless lines.empty? && clock < deadline
 
         sleep(WATCH_STEP_S)
       end
@@ -1117,6 +1125,7 @@ module Reach
       began = clock
       failures = 0
       flushed = 0.0
+      idle_since = nil
       while clock - began < MAX_RUN_S
         body = nil
         who = identity
@@ -1154,7 +1163,12 @@ module Reach
         end
 
         current = body["session"].is_a?(Hash) ? body["session"] : nil
-        break if current.nil? && read_state["pending"].nil?
+        if current.nil? && read_state["pending"].nil?
+          idle_since ||= clock
+          break unless idle_linger?(idle_since)
+        else
+          idle_since = nil
+        end
         break if current && current["state"] == "closed"
 
         if current && current["state"] == "open" && current["checks_only"] != true
@@ -1164,8 +1178,8 @@ module Reach
             flushed = clock
           end
         end
-        pace = body["poll_s"].is_a?(Numeric) ? body["poll_s"].to_f : MAX_POLL_S
-        sleep([[pace, MIN_POLL_S].max, MAX_POLL_S].min + (rand * 0.5))
+        pace = idle_since ? IDLE_POLL_S.to_f : (body["poll_s"].is_a?(Numeric) ? body["poll_s"].to_f : MAX_POLL_S)
+        sleep([[pace, MIN_POLL_S].max, MAX_POLL_S].min + (rand * (idle_since ? IDLE_JITTER_S : 0.5)))
       end
       debug_off!
     end
