@@ -48,7 +48,7 @@ hook:
     RELEASE_GATE_REMOTE: a regular expression naming an extra remote to treat as the project remote (scratch runs)
     RELEASE_GATE_REPO: reach or teach, when the origin url names neither (scratch clones)
     RELEASE_GATE_GH: the gh executable (default gh); RELEASE_GATE_RAW_BASE the base of raw files (default https://raw.githubusercontent.com/SteveBenner/rEach)
-    RELEASE_GATE_CLAUDE and REACH_SECURITY_AUDIT_CLAUDE: the claude executable for the model audit; without them the gate looks on the PATH, then in ~/.local/bin, ~/.npm-global/bin, ~/.claude/local, /usr/local/bin, /home/linuxbrew/.linuxbrew/bin and /opt/homebrew/bin, since a polispec promote runs it with a stripped PATH (since 0.72.2)
+    RELEASE_GATE_CLAUDE and REACH_SECURITY_AUDIT_CLAUDE: the claude executable for the model audit; without them the gate looks on the PATH, then in ~/.local/bin, ~/.npm-global/bin, ~/.claude/local, /usr/local/bin and /opt/homebrew/bin, since a polispec promote runs it with a stripped PATH (since 0.72.2)
   no_bypass: >-
     No environment variable skips the gate. REACH_SECURITY_AUDIT=0, which used to skip the security audit, is
     ignored and says so. The instructor's override below is the one way through a block.

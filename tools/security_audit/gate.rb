@@ -32,7 +32,7 @@ module SecurityAuditGate
     "fable" => "claude-fable-5-1", "opus" => "claude-opus-5-5", "sonnet" => "claude-sonnet-5-5",
     "haiku" => "claude-haiku-4-5-20251001"
   }.freeze
-  CLAUDE_DIRS = %w[/usr/local/bin /home/linuxbrew/.linuxbrew/bin /opt/homebrew/bin].freeze
+  CLAUDE_DIRS = %w[/usr/local/bin /opt/homebrew/bin].freeze
   CLAUDE_HOME_DIRS = %w[.local/bin .npm-global/bin .claude/local].freeze
   CUSTOM_MODEL = /\A[a-z0-9][a-z0-9.\-\[\]]{1,63}\z/
   SEVERITIES = %w[critical high medium low info].freeze
