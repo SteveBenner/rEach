@@ -675,9 +675,9 @@ module Reach
       owned_test = shell_owned_test(kind, workspace)
       witnessed = [workspace]
 
-      segments.each do |segment, before, after|
+      segments.each_with_index do |(segment, before, _after), index|
         cwd = state[:cwd]
-        check_cd_context!(segment, before, after)
+        check_cd_context!(segment, before, following_separators(segments, index))
         check_outside_segment!(segment, state, event)
         other = other_slice_at(kind, workspace, state[:cwd])
         if other
@@ -722,12 +722,17 @@ module Reach
     end
 
     def shell_from_root(segments, state, event)
-      segments.each do |segment, before, after|
+      segments.each_with_index do |(segment, before, _after), index|
         cwd = state[:cwd]
         here = Reach::Workspace.space_for(cwd)
         here_kind = here && here["kind"]
-        check_cd_context!(segment, before, after)
+        check_cd_context!(segment, before, following_separators(segments, index))
         check_outside_segment!(segment, state, event)
+
+        if here_kind == "slice" && cd_segment?(segment)
+          here = Reach::Workspace.space_for(state[:cwd])
+          here_kind = here && here["kind"]
+        end
 
         case here_kind
         when "slice"
@@ -743,12 +748,22 @@ module Reach
       end
     end
 
-    def check_cd_context!(segment, before, after)
-      words = parse_segment(segment)[:words]
-      return if words.empty?
-      return unless %w[cd pushd popd].include?(File.basename(words[0].text))
+    def following_separators(segments, index)
+      segments[index..-1].map { |entry| entry[2] }.compact
+    end
 
-      chained = %w[&& || | |& &].include?(before.to_s) || %w[| |& &].include?(after.to_s)
+    def cd_segment?(segment)
+      words = parse_segment(segment)[:words]
+      !words.empty? && %w[cd pushd popd].include?(File.basename(words[0].text))
+    end
+
+    def check_cd_context!(segment, before, following)
+      return unless cd_segment?(segment)
+
+      before = before.to_s
+      following = Array(following).map(&:to_s)
+      chained = %w[|| | |& &].include?(before) || %w[| |& &].include?(following.first)
+      chained ||= before == "&&" && following.any? { |separator| separator != "&&" }
       raise_blocked!("M-SHELL-UNMODELED") if chained
     end
 

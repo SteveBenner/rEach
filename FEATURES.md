@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## An agent can move into a slice folder after another command — 0.72.9
+
+The shell gate refused any `cd` that came after `&&`, so an agent running `ls && cd <slice>` or `cd <assignment> && cd <slice>` was told rEach could not check the step safely, while `cd <slice>` on its own worked. A `cd` after `&&` is now judged in the folder it reaches when everything later in the command is also joined by `&&`, and it is still refused when a later `;`, `||`, pipe or `&` could run a command in either folder. A session opened at the course root can also `cd` from one slice to another inside one command. Every other limit stays: a write to a file the slice does not own, `.reach` markers, the home folder, `.reach-home` and anything outside the course folder are refused after the move as before.
+
+Verified on 2026-11-12 on Linux against the real `Reach::Gate.shell` in a scratch home with enrollment stubbed and slices as folders with `.reach/slice.json`, from a session at the course root and from a slice: the chained moves were allowed, and the cases that must refuse stayed refused. Not run in a real Claude Code, Codex or PowerShell session, on Windows or on macOS. Reported by Sven without a student, hand or log, so the cause was found by reading the gate and reproducing the refusal.
+
+Student-first audit: a student whose agent builds in more than one slice no longer sees the agent stall or hand the move back to them, and no protection was loosened to get there.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ on main once pushed, not yet on test · stable is the operator's
+
 ## reach-work never lands in iCloud, OneDrive or another cloud folder — 0.72.8
 
 When a computer's home folder reported a path inside iCloud, OneDrive, Dropbox or Google Drive (a `$HOME` the app or shell had set there), rEach put `reach-work` in it and the student's files synced to the cloud, where the cloud could evict them. rEach now skips such a home and uses the computer's own user folder: the account's home, else the users folder plus the account name (`/Users/<name>`, `/home/<name>`, `C:\Users\<name>`), with the name taken from the account or from `$HOME`. The same rule runs in the library, the installer, the uninstaller, the launcher and the PowerShell installer, and in the macOS and Linux install command in INSTALL.md. On macOS and Linux a `reach-work` already under a cloud `$HOME` is copied into the local folder by the same stray relocation Windows uses; the cloud folder is left as it was. A student who sets `REACH_WORKSPACE_ROOT` to a cloud folder is still honored, with the existing one-time notice.

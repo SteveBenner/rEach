@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.9] - 2026-11-12
+
+### Fixed
+
+- **An agent could not always move into a slice folder.** `Reach::Gate.shell` refused every `cd` that followed `&&` with `M-SHELL-UNMODELED`, so `ls && cd deliverables/<course>/<assignment>/<slice>`, `pwd && cd <slice> && ls` and `cd deliverables && cd <course>/<assignment>/<slice>` were all refused, while `cd <slice> && ls` worked, which is why it happened only at times. `Reach::Gate.check_cd_context!` now sees every separator after the `cd` (`following_separators`) and refuses a `cd` after `&&` only when something later in the command is joined by anything other than `&&`, because then the later command could run in either folder; `||` before a `cd`, a pipe, a background `&` and a `cd` that follows `;` with a pipe after it stay refused. A session opened at the course root that ran `cd <slice> ; cd <other slice>` (or `cd` back to the course root or into extracurricular) in one command was refused with `M-SHELL-BLOCKED`, because the second `cd` was judged by the folder it left; `Reach::Gate.shell_from_root` now judges a `cd` from inside a slice in the folder it reaches (`cd_segment?`), as the shell path of a session opened in a slice already did. Measured on 2026-11-12 in a scratch home against the real gate with enrollment stubbed: of 41 commands, 15 chained `cd` commands went from refused to allowed, 25 that must refuse stayed refused, and 1 stayed allowed (the refused ones include `||` and pipes around a `cd`, a later `;`, `||` or `&` after a chained `cd`, `rm` of the `.reach` marker, a write to README.md or any file the slice does not own after the `cd`, `cd` to `/etc`, the home folder and `.reach-home`, and `ls ../../..` out of the course folder). Not exercised in a real Claude Code, Codex or PowerShell session, or on Windows or macOS.
+
 ## [0.72.8] - 2026-11-11
 
 ### Changed
