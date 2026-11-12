@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.72.1
+version: 0.72.2
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -4520,7 +4520,7 @@ configuration:
       standards: [STD-SECURITY-AUDIT-MODE]
     - name: REACH_SECURITY_AUDIT_CLAUDE
       kind: path
-      effect: "Names the model CLI binary the security audit gate runs; RELEASE_GATE_CLAUDE takes precedence."
+      effect: "Names the model CLI binary the security audit gate runs; RELEASE_GATE_CLAUDE takes precedence. Since 0.72.2 the gate otherwise looks for claude on the PATH, then in ~/.local/bin, ~/.npm-global/bin, ~/.claude/local, /usr/local/bin, /home/linuxbrew/.linuxbrew/bin and /opt/homebrew/bin, because a promote runs it with a stripped PATH."
       read_by: "tools/security_audit/gate.rb"
       source: tools/security_audit/gate.rb
       standards: [STD-SECURITY-AUDIT-MODE]

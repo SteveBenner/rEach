@@ -32,6 +32,8 @@ module SecurityAuditGate
     "fable" => "claude-fable-5-1", "opus" => "claude-opus-5-5", "sonnet" => "claude-sonnet-5-5",
     "haiku" => "claude-haiku-4-5-20251001"
   }.freeze
+  CLAUDE_DIRS = %w[/usr/local/bin /home/linuxbrew/.linuxbrew/bin /opt/homebrew/bin].freeze
+  CLAUDE_HOME_DIRS = %w[.local/bin .npm-global/bin .claude/local].freeze
   CUSTOM_MODEL = /\A[a-z0-9][a-z0-9.\-\[\]]{1,63}\z/
   SEVERITIES = %w[critical high medium low info].freeze
   BLOCKING = { "critical" => %w[critical], "high" => %w[critical high], "any" => %w[critical high medium] }.freeze
@@ -273,8 +275,20 @@ module SecurityAuditGate
     ["passed", 0]
   end
 
+  def claude_binary
+    named = [ENV.fetch("RELEASE_GATE_CLAUDE", nil), ENV.fetch("REACH_SECURITY_AUDIT_CLAUDE", nil)].find { |value| !value.to_s.empty? }
+    return named if named
+
+    home = Dir.home
+    dirs = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR) + CLAUDE_HOME_DIRS.map { |dir| File.join(home, dir) } + CLAUDE_DIRS
+    found = dirs.reject(&:empty?).map { |dir| File.join(dir, "claude") }.find { |path| File.file?(path) && File.executable?(path) }
+    found || "claude"
+  rescue ArgumentError, SystemCallError
+    "claude"
+  end
+
   def audit(settings, base, sha, scan_findings, diff_raw, visibility = :public)
-    binary = [ENV["RELEASE_GATE_CLAUDE"], ENV["REACH_SECURITY_AUDIT_CLAUDE"]].find { |value| !value.to_s.empty? } || "claude"
+    binary = claude_binary
     model = MODEL_IDS[settings["model"]] || settings["model"]
     workdir = Dir.mktmpdir("reach-security-audit-")
     File.chmod(0o700, workdir)

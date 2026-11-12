@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.2] - 2026-11-12
+
+### Fixed
+
+- The release gate's model audit finds the claude program when its PATH is stripped. A `polispec promote` runs the gate hermetically, so for a tree with no reusable audit verdict it stopped with `SEC-AUDIT could not run. claude binary not found (claude)` and the promote of 0.72.1 failed. `SecurityAuditGate.claude_binary` (`tools/security_audit/gate.rb`) takes `RELEASE_GATE_CLAUDE` or `REACH_SECURITY_AUDIT_CLAUDE` as before, then looks on the PATH, then in `~/.local/bin`, `~/.npm-global/bin`, `~/.claude/local`, `/usr/local/bin`, `/home/linuxbrew/.linuxbrew/bin` and `/opt/homebrew/bin`. `specs/release_gate.yml` and `specs/app.yml` say so. Teach carries a copy of this file (`canonical_copy: reach/specs/release_gate.yml`) and needs the same change.
+
 ## [0.72.1] - 2026-11-12
 
 ### Fixed

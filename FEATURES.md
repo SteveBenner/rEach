@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The release gate's audit finds claude off the PATH — 0.72.2
+
+A `polispec promote` runs the release gate with a stripped PATH, so a tree whose model audit had no reusable verdict stopped with `SEC-AUDIT could not run. claude binary not found`, and the promote of 0.72.1 failed on it. The gate now takes the claude program from `RELEASE_GATE_CLAUDE` or `REACH_SECURITY_AUDIT_CLAUDE` as before, then looks on the PATH and in the usual install directories. It changes nothing a student runs.
+
+Verified on 2026-11-12 on Linux: the lookup answered the user's `claude` under a PATH of `/usr/bin:/bin`, with no HOME set, and kept an explicit override first. Not exercised: a promote end to end. Teach carries a copy of `tools/security_audit/gate.rb` and needs the same change.
+
+Student-first audit: n/a, release tooling only; no student-facing text, data or path changes.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ on main, not yet on test
+
 ## An instructor's live-session offer reaches an idle student — 0.72.1
 
 With live sessions on, rEach now keeps asking the course server for an offer for 14 minutes after a prompt, one request every 30 seconds with jitter, where it used to ask once, find nothing and stop. A student whose assistant is idle is therefore told about an offer by their next prompt on any harness, and on Claude Code 2.1.288 or newer the Stop-hook watcher wakes the assistant with the offer's question, the open notice and each action's question without the student prompting first. The watcher used to end at once when no session was known locally, so an offer waited for a prompt to start the runner and showed one prompt later. The wake entry is also written for an app that starts rEach with a minimal PATH, since the claude program is found the way the plugin updater finds it. `live.wake: false` in `config.yml` turns the idle polling and the watcher off, `live.enabled: false` and `REACH_LIVE_DISABLE=1` still stop live sessions, and the existing token bucket, failure cap and one-hour back-off on a switched-off Teach apply to every poll. No wire change.
