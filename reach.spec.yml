@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.72.2
+version: 0.72.3
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2285,12 +2285,16 @@ extracurricular:
   folder: >-
     ~/reach-work/extracurricular/, created at enrollment and at every sync, marked by .reach-space.json {"schema":
     "reach.space/v1", "kind": "extracurricular", "course"}, with read-only AGENTS.md, CLAUDE.md and GEMINI.md and the
-    harness settings of the other spaces. The student's own files are never touched by Reach.
+    harness settings of the other spaces. The student's own files are never touched by Reach, except that since 0.72.3 it
+    writes the student's name and a placeholder email into the local git config of a repository there (STD-GIT-AUTHOR).
   launch: reach work --extracurricular [--harness ID] opens it through the gate, with rEach speaking first.
   gate: >-
     Any write inside extracurricular/ is allowed (symlinks resolved); a write outside it is refused with
     M-WRITE-OUTSIDE-EXTRA. Shell rules as in a slice, with "owned" meaning anything inside extracurricular/; network
-    commands stay refused. Git is allowed there, since the folder is the student's own. No shape check,
+    commands stay refused. Git is allowed there, since the folder is the student's own, but every commit is authored by
+    the student under their full name: the gate sets the repository's identity and refuses --author, a changed
+    user.name or user.email, GIT_AUTHOR_ and GIT_COMMITTER_ settings, edits to .git/config and .git/hooks, and a
+    Co-Authored-By or generated-by line in a commit message (M-GATE-GIT-AUTHOR, M-GATE-GIT-ATTRIBUTION, M-GATE-GIT-NONAME). No shape check,
     qualification, attempt ladder, plan, checkpoint or witness ledger there.
   rules: >-
     Rendered from the guardrails package's rules with scope extracurricular or everywhere (G-CODE-1, G-EXTRA-1,
@@ -2703,6 +2707,18 @@ student_messages:
     text: >-
       rEach keeps this work's history for you with checkpoints, so that version-history command isn't used here yet.
       Save a checkpoint instead with reach checkpoint save.
+  - id: M-GATE-GIT-AUTHOR
+    text: >-
+      Every commit in your extracurricular folder is written under your own full name, and rEach sets that itself, so
+      a commit can't name a different author. Run the command again without --author, without a changed user.name or
+      user.email, without a GIT_AUTHOR_ or GIT_COMMITTER_ setting, and without editing the config or hooks inside .git.
+  - id: M-GATE-GIT-ATTRIBUTION
+    text: >-
+      These commits are yours alone, so a commit message can't credit anyone else. Leave out the Co-Authored-By line
+      and any line saying an assistant generated or wrote the work, then commit again.
+  - id: M-GATE-GIT-NONAME
+    text: >-
+      rEach doesn't have your full name yet, so it can't put it on a commit. Sign in first, then commit again.
   locales: >-
     en-US in v1. Course messages live in locales/en-US.yml and rEach's greetings in locales/greetings.en-US.yml, so
     both can be translated; the texts in the files are authoritative, and the ones above are the original wording.

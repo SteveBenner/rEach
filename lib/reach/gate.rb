@@ -439,12 +439,14 @@ module Reach
         if patch
           patch_targets(patch).each do |relative|
             target = resolve_target(File.expand_path(relative, root))
+            raise_blocked!("M-GATE-GIT-AUTHOR") if Reach::GitAuthor.internal_path?(target)
             raise_blocked!("M-WRITE-OUTSIDE-EXTRA") unless within?(target, root)
           end
           return nil
         end
 
         target = resolve_target(path)
+        raise_blocked!("M-GATE-GIT-AUTHOR") if Reach::GitAuthor.internal_path?(target)
         raise_blocked!("M-WRITE-OUTSIDE-EXTRA") unless within?(target, root)
         return nil
       end
@@ -1994,6 +1996,10 @@ module Reach
       name = File.basename(cmd).sub(/\.exe\z/i, "")
       raise_blocked!("M-SHELL-UNMODELED") if words[0].dynamic || SHELL_RESERVED.include?(cmd)
       raise_blocked!("M-GATE-NOGIT") if name == "git" && kind != "extracurricular"
+      if name == "git"
+        refusal = Reach::GitAuthor.refusal(words, cwd)
+        raise_blocked!(refusal[0], **refusal[1]) if refusal
+      end
       forbid_command!(plain, kind)
 
       if readonly_command?(plain)
@@ -2126,6 +2132,8 @@ module Reach
       raise_blocked!("M-SHELL-BLOCKED") if dynamic || token.empty?
 
       resolved = resolve_write_target(token, base)
+      space = Reach::GitAuthor.internal_path?(resolved) ? Reach::Workspace.space_for(base) : nil
+      raise_blocked!("M-GATE-GIT-AUTHOR") if space && space["kind"] == "extracurricular"
       raise_blocked!("M-SHELL-BLOCKED") if protected_path?(resolved)
       return if owned_test.call(resolved)
 

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.3] - 2026-11-12
+
+### Added
+
+- Every git commit the agent makes in the student's extracurricular folder is authored by the student under their full roster name, with the placeholder email `<student id>@students.invalid`. `lib/reach/git_author.rb` (`Reach::GitAuthor`) writes that identity into the repository's local config and checks the effective author and committer before a command that can create a commit; `lib/reach/gate.rb` calls it for every git command there. The gate refuses an override (`--author`, `-c user.*`, `git config` on identity keys, `--git-dir`, `--work-tree`, `GIT_AUTHOR_*`, `GIT_COMMITTER_*`, and edits to `.git/config` or `.git/hooks` by a shell command or a write tool) with M-GATE-GIT-AUTHOR, and a commit message with a Co-Authored-By trailer or an assistant generated-by line with M-GATE-GIT-ATTRIBUTION. A student with no known name gets M-GATE-GIT-NONAME. Git is still refused in slice and root spaces. The student is the sole author on the record because the work is theirs, and the placeholder email keeps their address out of any history they push. `STD-GIT-AUTHOR` in `specs/app.yml` and the messages in `reach.spec.yml` and `locales/en-US.yml` carry it. A git command run from a script is not read by the gate.
+
 ## [0.72.2] - 2026-11-12
 
 ### Fixed

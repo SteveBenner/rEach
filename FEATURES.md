@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Commits in the extracurricular folder carry the student's name — 0.72.3
+
+Git is refused in slice and root spaces and allowed only in the extracurricular folder, so that folder is the only place a commit can exist. A commit the agent makes there is now authored and committed by the student under their full roster name, with the placeholder email `<student id>@students.invalid`. Before any git command in that folder, `Reach::GitAuthor` writes that identity into the repository's own local config, and before a command that can create a commit it checks that git's effective author and committer are the student's. The gate refuses an override (`--author`, `-c user.*`, `git config` on identity keys, `--git-dir`, `--work-tree`, `GIT_AUTHOR_*` and `GIT_COMMITTER_*`, edits to `.git/config` and `.git/hooks`) with M-GATE-GIT-AUTHOR, and a message with a `Co-Authored-By` trailer or a line saying an assistant generated the work with M-GATE-GIT-ATTRIBUTION. A student whose name is not yet known gets M-GATE-GIT-NONAME. Nothing goes to Teach and the folder is still never scanned, recorded or graded; `STD-GIT-AUTHOR` states it.
+
+Verified on 2026-11-12 on Linux against real git repositories and the real gate, with sign-in stubbed and every Reach path in a scratch home: the commit's author and committer both read the student's name and placeholder email, each override above was refused, a tampered local config was reset, and the environment override was refused. Not exercised: Windows, macOS, a real Claude Code or Codex session, or a student with a real roster name. Limits: git run from a script or an interpreter in that folder is not read by the gate, and a repository the agent has just created with `git init` gets the identity at its next gated git command.
+
+Student-first audit: the student's work carries their own name and no address of theirs is written into history; the placeholder is deliberately not routable. The agent can no longer credit itself on their commits, and a refusal says in plain words what to leave out. No data leaves the computer.
+
+Wiring: none; no rStack component or port is involved, and there is no wire change.
+
+Build ✅ · Deploy ⚪ on main, not yet on test
+
 ## The release gate's audit finds claude off the PATH — 0.72.2
 
 A `polispec promote` runs the release gate with a stripped PATH, so a tree whose model audit had no reusable verdict stopped with `SEC-AUDIT could not run. claude binary not found`, and the promote of 0.72.1 failed on it. The gate now takes the claude program from `RELEASE_GATE_CLAUDE` or `REACH_SECURITY_AUDIT_CLAUDE` as before, then looks on the PATH and in the usual install directories. It changes nothing a student runs.

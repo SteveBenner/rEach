@@ -75,6 +75,7 @@ require_relative "reach/deidentify"
 require_relative "reach/transcript"
 require_relative "reach/transcript_ingest"
 
+require_relative "reach/git_author"
 require_relative "reach/gate"
 require_relative "reach/shape"
 require_relative "reach/attempts"

@@ -6,7 +6,8 @@ Reach 0.x does not use version control. The agent writes code only through the
 reach-feature and reach-bug flows, overwrites files in place, and keeps history
 with `reach checkpoint`. The gate refuses every git command in slice workspaces and
 at the top of the course folder (M-GATE-NOGIT); the student's extracurricular folder
-is their own and is left alone.
+is their own, and since 0.72.3 every commit made there is authored by the student under their
+full name (STD-GIT-AUTHOR).
 
 Reach 2.0 brings git into the flows:
 
