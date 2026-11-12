@@ -22,7 +22,7 @@ Student-first audit: the student who most needs to remove a broken rEach is no l
 
 Wiring: none.
 
-Build ✅ · Deploy ⚪ not pushed, not yet on test · stable is the operator's
+Build ✅ · Deploy ✅ on test since 0.72.8 (it shipped inside 0.72.8) · stable is the operator's
 
 ## The security validation pass says when Codex's sandbox blocked it — 0.72.6
 
