@@ -63,6 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`reach hello` refreshes the index** in the background within three seconds; a prompt never builds it.
 - **PRIVACY.md and the README** describe the recall, what it reads and how to stop it. The behaviour policy gains an "Earlier sessions" section, and "what do you know about me" mentions it.
 
+## [0.73.1] - 2026-11-12
+
+### Fixed
+
+- **`reach doctor` no longer reports R-DOC-SKILLS on every Windows install.** Windows hook commands quote each argument (`"gate" "skill"`), and `Reach::Skills.gate_wired?` in `lib/reach/skills.rb` looked for the literal text `gate skill`, so it found no skill gate in any course folder's `.claude/settings.json` and told the student to open each folder with `reach work`. The match now accepts quoted and unquoted arguments. Measured on Linux with `Reach::Skills.gate_wired?` over a settings file for each of four Skill hook commands: the quoted PowerShell form was false at 30aa51c3 and is true now, the unquoted posix form was true and stays true, and a quoted `gate prompt` hook and the run-together word `gateskill` were false and stay false. The platform smoke on windows-x64 and windows-arm64 reported R-DOC-SKILLS as its only unexpected doctor finding at 30aa51c3, and the `doctor` step passes on both in the run at 258b382a.
+
 ## [0.73.0] - 2026-11-12
 
 ### Added

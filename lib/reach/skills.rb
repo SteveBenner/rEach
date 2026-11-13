@@ -22,6 +22,7 @@ module Reach
     SKILL_READ = %r{([^\s"'<>|;&()]*skills[/\\](#{NAME_PATTERN})[/\\]SKILL\.md)}.freeze
     SKILL_JOIN = /"skills",\s*"(#{NAME_PATTERN})"/.freeze
     SKILL_LIST = /%w\[([^\]]+)\]/.freeze
+    GATE_SKILL_COMMAND = /\bgate["']?\s+["']?skill\b/.freeze
     LIB_FILES = %w[hello.rb setup.rb codex_setup.rb mcp_bridge.rb packet.rb].freeze
     SCOPE_WORDS = {
       "space:slice" => "a slice folder of a course workspace",
@@ -487,7 +488,7 @@ module Reach
       data = JSON.parse(File.read(path))
       entries = Array(data.is_a?(Hash) ? data.dig("hooks", "PreToolUse") : nil)
       entries.any? do |entry|
-        entry.is_a?(Hash) && entry["matcher"] == "Skill" && Array(entry["hooks"]).any? { |hook| hook.is_a?(Hash) && hook["command"].to_s.include?("gate skill") }
+        entry.is_a?(Hash) && entry["matcher"] == "Skill" && Array(entry["hooks"]).any? { |hook| hook.is_a?(Hash) && hook["command"].to_s.match?(GATE_SKILL_COMMAND) }
       end
     rescue JSON::ParserError, SystemCallError
       false
