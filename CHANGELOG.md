@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.0] - 2026-11-13
+
+### Added
+
+- **The installation report now tells the course server about the technical problems the student is running into, so instructors can follow each student's hangups (wire revision 2026-11-13a, W-DEVICE-6 to W-DEVICE-8, Teach 0.134.0).** Until now rEach's own health findings (prompt hooks not running, the sign-in hook not running, Codex not trusting the course hooks, the Codex sandbox blocking rEach) showed only to the agent and in doctor, and the device report could name one problem that cleared only at a later checkpoint, so an instructor could not see a student stuck after enrollment or one whose install kept failing. The report now carries `health {at, failing, signin}` (noted by `Reach::Health.note!` from the hook and MCP paths that already ran the checks, sent by the next detached drain of any origin, only when it changed or with the periodic report; a hook note keeps the MCP-only findings it cannot see), `attempts` (how often the copy started `install.started`, `setup.started` and `validation.started`, counted per start, also by the installer's Beacon) and `problems` (the last 5 distinct problem codes with counts and last time). `lib/reach/device.rb`, `lib/reach/health.rb`, `scripts/reach-install`, STD-DEVICE-HEALTH-REPORT, PRIVACY.md.
+
+### Changed
+
+- **The progress checkpoints only rEach can see travel in the installation report (W-DEVICE-8).** `enroll.code`, `enroll.confirmed`, `signin.done` and the new `<assignment>.started` rung go to Teach in the device report, which Teach records into the student's progress; `Reach::Progress.flush!` now sends only the slice stages over `POST /api/v1/progress`, which the revision marks deprecated for ladder ids while older copies still use it. The device ladder notes no longer depend on `REACH_PROGRESS`, and a copy whose device report is switched off keeps sending its progress ids over the old route. `lib/reach/progress.rb`.
 ## [0.76.2] - 2026-11-12
 
 ### Fixed

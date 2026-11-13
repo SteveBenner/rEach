@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "json"
 require "time"
 require "fileutils"
@@ -44,7 +46,7 @@ module Reach
       File.rename(temp, file)
     end
 
-    DEVICE_CHECKPOINTS = { "enroll.code" => "enroll.code", "setup.signin" => "signin.done" }.freeze
+    DEVICE_CHECKPOINTS = { "enroll.code" => "enroll.code", "enroll.identity" => "enroll.confirmed", "setup.signin" => "signin.done" }.freeze
 
     def mark(id, at: Time.now.utc)
       Reach::Device.note(DEVICE_CHECKPOINTS[id.to_s], at: at) if DEVICE_CHECKPOINTS.key?(id.to_s)
@@ -85,6 +87,7 @@ module Reach
       return nil unless ASSIGNMENT_PATTERN.match?(assignment)
 
       Reach::Device.note("assignment.first", at: at) unless NOT_ASSIGNMENTS.include?(assignment)
+      Reach::Device.note("#{assignment}.started", at: at) if enabled? && !NOT_ASSIGNMENTS.include?(assignment)
       mark("#{assignment}.started", at: at)
     rescue StandardError
       nil
@@ -120,6 +123,10 @@ module Reach
       nil
     end
 
+    def device_carried?(id)
+      (PRE_ENROLL.include?(id) || id == "setup.signin" || assignment_started_key?(id)) && Reach::Device.enabled?
+    end
+
     def assignment_started_key?(key)
       name = key.to_s
       name.end_with?(".started") && !NOT_ASSIGNMENTS.include?(name.delete_suffix(".started"))
@@ -148,7 +155,7 @@ module Reach
 
       backfill_started(install["student_id"])
       data = read
-      pending = data["reached"].reject { |id, _| data["sent"].include?(id) }.first(MAX_BATCH)
+      pending = data["reached"].reject { |id, _| data["sent"].include?(id) || device_carried?(id) }.first(MAX_BATCH)
       return nil if pending.empty?
 
       body = { "checkpoints" => pending.map { |id, at| { "id" => id, "at" => at } } }

@@ -53,6 +53,9 @@ module ReachInstall
     READ_TIMEOUT_S = 3
     OUTBOX_MAX = 64
     BATCH_MAX = 32
+    COUNT_MAX = 9999
+    PROBLEMS_MAX = 5
+    STARTED = %w[install.started setup.started validation.started].freeze
 
     begin
       require "openssl"
@@ -177,10 +180,31 @@ module ReachInstall
         parsed
       end
 
+      def count_start(held, id)
+        return nil unless STARTED.include?(id)
+
+        held["attempts"] = {} unless held["attempts"].is_a?(Hash)
+        held["attempts"][id] = [held["attempts"][id].to_i + 1, COUNT_MAX].min
+      end
+
+      def keep_problem(held, code, at)
+        list = Array(held["problems"]).select { |entry| entry.is_a?(Hash) && entry["code"].is_a?(String) }
+        known = list.find { |entry| entry["code"] == code }
+        count = [(known ? known["count"].to_i : 0) + 1, COUNT_MAX].min
+        held["problems"] = ([{ "code" => code, "count" => count, "at" => at }] + list.reject { |entry| entry["code"] == code }).first(PROBLEMS_MAX)
+      end
+
       def record(id)
         held = state
-        return nil if held["reached"].key?(id)
+        if held["reached"].key?(id)
+          if STARTED.include?(id)
+            count_start(held, id)
+            write_json(path("device-state.json"), held)
+          end
+          return nil
+        end
 
+        count_start(held, id)
         at = stamp
         held["reached"][id] = at
         held["problem"] = nil
@@ -194,9 +218,13 @@ module ReachInstall
 
       def record_problem(code)
         held = state
-        return nil if held["problem"].is_a?(Hash) && held["problem"]["code"] == code
-
         item = { "code" => code, "at" => stamp }
+        keep_problem(held, code, item["at"])
+        if held["problem"].is_a?(Hash) && held["problem"]["code"] == code
+          write_json(path("device-state.json"), held)
+          return nil
+        end
+
         held["problem"] = item
         write_json(path("device-state.json"), held)
         pending = outbox
@@ -262,13 +290,15 @@ module ReachInstall
         device = nil
         sent = nil
         issue = nil
+        counts = nil
         @mutex.synchronize do
           device = identity
           pending = outbox
           sent = pending["entries"].first(BATCH_MAX)
           issue = pending["problem"]
+          counts = changed_counts
         end
-        return nil unless device && (!sent.empty? || issue)
+        return nil unless device && (!sent.empty? || issue || !counts.empty?)
 
         body = {
           "public_key" => device["public_key"], "reach_version" => @version.to_s.empty? ? "unknown" : @version, "origin" => "installer",
@@ -276,15 +306,30 @@ module ReachInstall
         }
         body.merge!("os" => os_name, "arch" => arch_name, "ruby" => RUBY_VERSION[0, 64]) unless ENV["REACH_ENV_REPORT_DISABLE"].to_s == "1"
         body["problem"] = { "code" => issue["code"], "at" => issue["at"] } if issue.is_a?(Hash)
+        body.merge!(counts)
         return nil unless post(device, body)
 
         @mutex.synchronize do
+          held = state
+          held["attempts_sent"] = counts["attempts"] if counts["attempts"]
+          held["problems_sent"] = counts["problems"] if counts["problems"]
+          write_json(path("device-state.json"), held) unless counts.empty?
           pending = outbox
           pending["entries"] = pending["entries"].reject { |entry| sent.any? { |item| item["id"] == entry["id"] && item["at"] == entry["at"] } }
           pending["problem"] = nil if issue.is_a?(Hash) && pending["problem"] == issue
           write_json(path("device-outbox.json"), pending)
         end
         true
+      end
+
+      def changed_counts
+        held = state
+        counts = {}
+        attempts = held["attempts"]
+        counts["attempts"] = attempts if attempts.is_a?(Hash) && !attempts.empty? && attempts != held["attempts_sent"]
+        problems = held["problems"]
+        counts["problems"] = problems if problems.is_a?(Array) && !problems.empty? && problems != held["problems_sent"]
+        counts
       end
 
       def base_url

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Reach
   module Health
     CHECKS = {
@@ -6,6 +8,8 @@ module Reach
       "hooks_not_running" => { "message" => "M-HEALTH-COURSE-HOOKS", "fix" => nil, "doctor" => true },
       "codex_hooks_untrusted" => { "message" => "M-HEALTH-HOOKS-UNTRUSTED", "fix" => ["reach_setup", { "action" => "configure" }], "doctor" => true }
     }.freeze
+
+    MCP_ONLY = %w[hooks_not_running signin_hook_not_running codex_hooks_untrusted].freeze
 
     module_function
 
@@ -33,6 +37,23 @@ module Reach
       []
     end
 
+    def signin_state
+      return nil unless Reach::Device.enrolled_install
+
+      !Reach::HookLiveness.signin_pending?
+    rescue StandardError
+      nil
+    end
+
+    def note!(mcp: false, ids: nil)
+      failing = ids || detected(mcp: mcp)
+      failing |= (Reach::Device.held_failing & MCP_ONLY) unless mcp
+      Reach::Device.note_health(failing, signin_state)
+      failing
+    rescue StandardError
+      nil
+    end
+
     def fix_call(id)
       tool, arguments = CHECKS.dig(id, "fix")
       return nil unless tool
@@ -48,13 +69,17 @@ module Reach
     end
 
     def context_lines(mcp: false)
-      detected(mcp: mcp).map { |id| line(id) }
+      ids = detected(mcp: mcp)
+      note!(mcp: mcp, ids: ids)
+      ids.map { |id| line(id) }
     rescue StandardError
       []
     end
 
     def doctor_problems
-      detected(mcp: true).select { |id| CHECKS[id]["doctor"] }.map { |id| "R-DOC-HEALTH: #{line(id)}" }
+      ids = detected(mcp: true)
+      note!(mcp: true, ids: ids)
+      ids.select { |id| CHECKS[id]["doctor"] }.map { |id| "R-DOC-HEALTH: #{line(id)}" }
     rescue StandardError
       []
     end

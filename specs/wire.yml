@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-12b
+revision: 2026-11-13a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -1391,7 +1391,9 @@ routes:
       owns that assignment, cutout and slice (W-SUB-6) and the slice is not a document slice; any other id of this
       shape is ignored like an unknown one. These ids are not part of the progress ladder: they never move a
       student's progress position or an assignment's started, qualified or submitted checkpoints, and a Teach
-      older than 2026-11-12a ignores them.
+      older than 2026-11-12a ignores them. Since revision 2026-11-13a this route is deprecated for enroll.code,
+      enroll.identity, setup.signin and <assignment>.started, which Reach sends in the device report (W-DEVICE-8);
+      Teach still takes them here from older copies, and the route still carries the slice stages.
   - id: W-API-TRANSCRIPT
     method: POST
     path: /api/v1/transcripts
@@ -1684,9 +1686,12 @@ routes:
       arch: {type: string, required: false, note: "at most 64 bytes"}
       ruby: {type: string, required: false, note: "at most 64 bytes"}
       harness: {type: string, required: false, note: "as X-Reach-Env names it, at most 64 bytes"}
-      checkpoints: {type: array, note: "at most 32 of {id: a W-DEVICE-1 id, at: W-CONV-3 timestamp}"}
+      checkpoints: {type: array, note: "at most 32 of {id: a W-DEVICE-1 id or, since 2026-11-13a, a W-DEVICE-8 id, at: W-CONV-3 timestamp}"}
       problem: {type: object, required: false, note: "null, or W-DEVICE-2 {code, at}"}
       links: {type: array, required: false, note: "at most 2 W-DEVICE-3 proofs"}
+      health: {type: object, required: false, note: "since 2026-11-13a, W-DEVICE-6 {at, failing, signin}"}
+      attempts: {type: object, required: false, note: "since 2026-11-13a, W-DEVICE-7: keys install.started, setup.started and validation.started, each an integer 1 to 9999"}
+      problems: {type: array, required: false, note: "since 2026-11-13a, W-DEVICE-7: at most 5 of {code: a W-DEVICE-2 code, count: integer 1 to 9999, at: W-CONV-3 time it was last noted}, newest first"}
     response_200:
       device_id: string
       code: "the W-DEVICE-ID short code"
@@ -2548,6 +2553,44 @@ devices:
       config.yml in its home folder, which an update keeps, and from the plugin's own config.yml, and false in either
       counts. The installer reads both for device.enabled. The installer says what is sent before its first report, setup says
       so in what it prints, and a copy that had neither says so once at its next prompt.
+  W-DEVICE-6:
+    name: health
+    since: 2026-11-13a
+    rule: >-
+      A report may carry health {at, failing, signin}, the last health Reach noted where it can see the AI app (a hook
+      or the MCP server of a session), sent with the next report of any origin. failing lists, without repeats, the
+      Reach health checks that failed at at, from: codex_sandbox (the app sandbox blocks Reach), hooks_not_running
+      (the course folder hooks did not run), signin_hook_not_running (the sign-in hook did not run) and
+      codex_hooks_untrusted (Codex has not trusted the course hooks); an empty list says every check passed. signin is
+      true when the copy holds a signed-in install, false when it is enrolled and not signed in, and null before
+      enrollment. Reach sends health only when failing or signin differs from what it last sent, or with the report it
+      makes after next_s. Teach drops an unknown check id and a health whose at is not W-CONV-3, keeps for each check
+      of the device when it was first and last seen failing, and marks it cleared at the at of the first later health
+      that does not list it; a report with no health changes nothing. Health is the copy's own report, shown to
+      instructors as such, and decides no gate, grade or access. It is erased with the device.
+  W-DEVICE-7:
+    name: attempts and recent problems
+    since: 2026-11-13a
+    rule: >-
+      A report may carry attempts, how many times the copy started install.started, setup.started and
+      validation.started (every start counts, so a first install counts 1), and problems, the last 5 distinct W-DEVICE-2
+      codes the copy noted, each with how often and when it was last noted, newest first. problem still names the
+      current one. Reach sends both whenever either changed since its last report. Teach drops a key, code or count
+      outside these limits, replaces what it held with what a report carries, and keeps them with the device, so they
+      are erased with it. They carry no parameters and no typed text.
+  W-DEVICE-8:
+    name: progress checkpoints in the device report
+    since: 2026-11-13a
+    rule: >-
+      The progress checkpoints only Reach can see travel in the device report: enroll.code, enroll.confirmed and
+      signin.done of W-DEVICE-1, and <assignment>.started, the first prompt inside a workspace of that assignment: an id
+      of at most 64 letters, digits, dots, underscores and hyphens that ends in .started and is not a W-DEVICE-1 id. <assignment>.started is outside the
+      order of W-DEVICE-1 and never moves the stage. Teach takes these only from a device with an install link and
+      records each once per student, as W-API-PROGRESS does, with source reach: enroll.code as enroll.code,
+      enroll.confirmed as enroll.identity, signin.done as setup.signin, and <assignment>.started when it names an
+      assignment W-API-PROGRESS takes; any other id of that shape is ignored. Reach no longer sends these over W-API-PROGRESS, which
+      keeps the slice stages of 2026-11-12a, and Teach still takes them there from older copies. W-API-PROGRESS is
+      deprecated for them and loses them in a later revision, once no active install is older than this one.
 errors:
   W-ERR-1:
     shape: '{"error": {"code": <code>, "message": <text>}, "request_id": <hex>}'

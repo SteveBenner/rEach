@@ -19,6 +19,12 @@ module Reach
       enroll.password_chosen enroll.done signin.done materials.done assignment.first
     ].freeze
     UNINSTALLED = "uninstall.done"
+    STARTED = %w[install.started setup.started validation.started].freeze
+    ASSIGNMENT_STARTED_PATTERN = /\A[A-Za-z0-9_.-]+\.started\z/.freeze
+    MAX_ID_BYTES = 64
+    COUNT_MAX = 9999
+    PROBLEMS_MAX = 5
+    HEALTH_REFRESH_S = 600
     INSTALLER_ORIGINS = %w[installer setup].freeze
     PROBLEM_PATTERN = /\A[A-Z][A-Z0-9-]{1,47}\z/.freeze
     DEVICE_ID_PATTERN = /\Adev_[0-9a-f]{32}\z/.freeze
@@ -147,7 +153,8 @@ module Reach
       {
         "schema" => STATE_SCHEMA, "reached" => {}, "problem" => nil, "told" => false, "next_at" => nil, "retry_at" => nil,
         "failures" => 0, "disabled_until" => nil, "stopped" => false, "backfilled" => false, "linked_install" => nil,
-        "linked_attempt" => nil, "harness" => nil
+        "linked_attempt" => nil, "harness" => nil, "health" => nil, "health_sent" => nil, "attempts" => {},
+        "attempts_sent" => {}, "problems" => [], "problems_sent" => []
       }
     end
 
@@ -157,6 +164,8 @@ module Reach
 
       merged = default_state.merge(parsed)
       merged["reached"] = {} unless merged["reached"].is_a?(Hash)
+      %w[attempts attempts_sent].each { |key| merged[key] = {} unless merged[key].is_a?(Hash) }
+      %w[problems problems_sent].each { |key| merged[key] = [] unless merged[key].is_a?(Array) }
       merged
     end
 
@@ -276,23 +285,44 @@ module Reach
       true
     end
 
+    def assignment_id?(id)
+      id.bytesize <= MAX_ID_BYTES && !LADDER.include?(id) && ASSIGNMENT_STARTED_PATTERN.match?(id)
+    end
+
+    def count_start(state, id)
+      return false unless STARTED.include?(id)
+
+      state["attempts"][id] = [state["attempts"][id].to_i + 1, COUNT_MAX].min
+      true
+    end
+
     def note(id, at: Time.now.utc)
       guarded("device:note") do
         id = id.to_s
-        next nil unless LADDER.include?(id) && enabled?
+        next nil unless (LADDER.include?(id) || assignment_id?(id)) && enabled?
 
-        added = edit do
+        added = false
+        changed = edit do
           state = read_state
           outbox = read_outbox
-          next false unless add_reached(state, outbox, id, at)
+          counted = count_start(state, id)
+          added = add_reached(state, outbox, id, at)
+          next false unless added || counted
 
           write_state(state)
-          write_outbox(outbox)
+          write_outbox(outbox) if added
           true
         end
-        spawn_drain(read_state) if added
+        spawn_drain(read_state) if changed
         added ? id : nil
       end
+    end
+
+    def keep_problem(state, code, at)
+      list = Array(state["problems"]).select { |entry| entry.is_a?(Hash) && entry["code"].to_s.match?(PROBLEM_PATTERN) }
+      held = list.find { |entry| entry["code"] == code }
+      count = [(held ? held["count"].to_i : 0) + 1, COUNT_MAX].min
+      state["problems"] = ([{ "code" => code, "count" => count, "at" => iso(at) }] + list.reject { |entry| entry["code"] == code }).first(PROBLEMS_MAX)
     end
 
     def note_problem(code, at: Time.now.utc)
@@ -300,21 +330,60 @@ module Reach
         code = code.to_s
         next nil unless PROBLEM_PATTERN.match?(code) && enabled?
 
-        added = edit do
+        edit do
           state = read_state
           held = state["problem"]
-          next false if held.is_a?(Hash) && held["code"] == code
-
-          problem = { "code" => code, "at" => iso(at) }
-          state["problem"] = problem
-          outbox = read_outbox
-          outbox["problem"] = problem
+          repeat = held.is_a?(Hash) && held["code"] == code
+          keep_problem(state, code, at)
+          unless repeat
+            problem = { "code" => code, "at" => iso(at) }
+            state["problem"] = problem
+            outbox = read_outbox
+            outbox["problem"] = problem
+            write_outbox(outbox)
+          end
           write_state(state)
-          write_outbox(outbox)
           true
         end
-        spawn_drain(read_state) if added
-        added ? code : nil
+        spawn_drain(read_state)
+        code
+      end
+    end
+
+    def held_failing
+      health = read_state["health"]
+      health.is_a?(Hash) ? Array(health["failing"]).map(&:to_s) : []
+    end
+
+    def same_health?(held, failing, signin)
+      held.is_a?(Hash) && Array(held["failing"]).map(&:to_s).sort == failing && held["signin"] == signin
+    end
+
+    def note_health(failing, signin, at: Time.now.utc)
+      guarded("device:note_health") do
+        next nil unless enabled?
+
+        ids = Array(failing).map(&:to_s).select { |id| Reach::Health::CHECKS.key?(id) }.uniq.sort
+        signin = signin.nil? ? nil : signin == true
+        notify = edit do
+          state = read_state
+          held = state["health"]
+          same = same_health?(held, ids, signin)
+          taken = held.is_a?(Hash) ? parse_time(held["at"]) : nil
+          next false if same && taken && at - taken < HEALTH_REFRESH_S
+
+          at = taken + 1 if taken && at.to_i <= taken.to_i
+          health = { "at" => iso(at), "failing" => ids, "signin" => signin }
+          state["health"] = health
+          outbox = read_outbox
+          differs = !same_health?(state["health_sent"], ids, signin)
+          differs ? outbox["health"] = health : outbox.delete("health")
+          write_state(state)
+          write_outbox(outbox)
+          differs && !same
+        end
+        spawn_drain(read_state) if notify
+        ids
       end
     end
 
@@ -379,10 +448,15 @@ module Reach
       return :backoff if state["retry_at"].to_i > at
 
       links = build_links(device, state)
-      fresh = !outbox["entries"].empty? || !outbox["problem"].nil? || !links.empty?
+      fresh = !outbox["entries"].empty? || !outbox["problem"].nil? || !links.empty? || outbox["health"].is_a?(Hash) || changed_counts?(state)
       return :waiting if !fresh && (state["stopped"] || at + NEXT_MARGIN_S < state["next_at"].to_i)
 
-      deliver(device, state, outbox, links, origin)
+      deliver(device, state, outbox, links, origin, periodic: !fresh)
+    end
+
+    def changed_counts?(state)
+      (!state["attempts"].empty? && state["attempts"] != state["attempts_sent"]) ||
+        (!state["problems"].empty? && state["problems"] != state["problems_sent"])
     end
 
     def harness_name(state)
@@ -393,7 +467,7 @@ module Reach
       hint.empty? || hint == "unknown" ? nil : hint
     end
 
-    def report_body(device, state, sent, problem, links, origin)
+    def report_body(device, state, sent, problem, links, origin, outbox: nil, periodic: false)
       body = {
         "public_key" => device["public_key"], "reach_version" => Reach::VERSION, "origin" => origin,
         "checkpoints" => sent.map { |entry| { "id" => entry["id"], "at" => entry["at"] } }
@@ -406,7 +480,15 @@ module Reach
       end
       body["problem"] = { "code" => problem["code"], "at" => problem["at"] } if problem.is_a?(Hash)
       body["links"] = links unless links.empty?
+      add_counts(body, state, outbox, periodic)
       body
+    end
+
+    def add_counts(body, state, outbox, periodic)
+      health = outbox.is_a?(Hash) && outbox["health"].is_a?(Hash) ? outbox["health"] : (periodic ? state["health"] : nil)
+      body["health"] = { "at" => health["at"], "failing" => health["failing"], "signin" => health["signin"] } if health.is_a?(Hash)
+      body["attempts"] = state["attempts"] if !state["attempts"].empty? && state["attempts"] != state["attempts_sent"]
+      body["problems"] = state["problems"] if !state["problems"].empty? && state["problems"] != state["problems_sent"]
     end
 
     def build_links(device, state)
@@ -444,19 +526,19 @@ module Reach
       boundary("device:attempt_proof") { link_proof("attempt", attempt_id, key, device, at) }
     end
 
-    def deliver(device, state, outbox, links, origin)
+    def deliver(device, state, outbox, links, origin, periodic: false)
       sent = outbox["entries"].first(BATCH_MAX)
       problem = outbox["problem"]
-      body = report_body(device, state, sent, problem, links, origin)
+      body = report_body(device, state, sent, problem, links, origin, outbox: outbox, periodic: periodic)
       reply = Reach::Client.for_device(device).post_json(ROUTE, body).json
-      settle(sent, problem, links, reply.is_a?(Hash) ? reply : {})
+      settle(sent, problem, links, reply.is_a?(Hash) ? reply : {}, body: body)
     rescue Reach::RemoteRefused => e
       e.status.to_i == 404 ? hold_off : failed(e)
     rescue Reach::Error => e
       failed(e)
     end
 
-    def settle(sent, problem, links, reply)
+    def settle(sent, problem, links, reply, body: {})
       return hold_off if reply["disabled"] == true
 
       at = now_i
@@ -472,14 +554,23 @@ module Reach
           state["linked_install"] = link["id"] if link["kind"] == "install"
           state["linked_attempt"] = link["id"] if link["kind"] == "attempt"
         end
+        record_sent(state, body)
         write_state(state)
         outbox = read_outbox
+        outbox.delete("health") if outbox["health"].is_a?(Hash) && body["health"].is_a?(Hash) && outbox["health"] == body["health"]
         outbox["entries"] = outbox["entries"].reject { |entry| sent.any? { |item| item["id"] == entry["id"] && item["at"] == entry["at"] } }
         outbox["problem"] = nil if problem.is_a?(Hash) && outbox["problem"] == problem
         write_outbox(outbox)
       end
       Reach::Live.spawn_runner if reply["live"] == true
       :sent
+    end
+
+    def record_sent(state, body)
+      health = body["health"]
+      state["health_sent"] = { "failing" => health["failing"], "signin" => health["signin"] } if health.is_a?(Hash)
+      state["attempts_sent"] = body["attempts"] if body["attempts"].is_a?(Hash)
+      state["problems_sent"] = body["problems"] if body["problems"].is_a?(Array)
     end
 
     def hold_off

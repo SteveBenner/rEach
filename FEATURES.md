@@ -1,5 +1,24 @@
 # FEATURES — rEach
 
+## Instructors can see each student's technical hangups and whether they are resolved — 0.77.0
+
+A student stuck on a technical problem (hooks that never run, a Codex sandbox, an install that keeps failing, an enrollment that stopped halfway) was visible to the instructor only in pieces: the agent knew, doctor knew, the Installations page held one problem code that cleared only at a later checkpoint, and nothing said whether it had been fixed for that student. rEach's installation report now also carries its health findings (which checks fail, and whether the copy is signed in), how many times the student started installing, setting up and the security check, and the last five problem codes with counts. Teach 0.134.0 joins these with what it already holds (stalled enrollments, issue reports and their fix, technical requests for help, qualify faults) into one list per student with an open or resolved state, on the student's page, a course-wide board and a read for the instructor's agent. The progress checkpoints rEach can see now travel in the same report. Wire revision 2026-11-13a; Teach must be on stable first.
+
+Verified on 2026-11-12 on Linux in a scratch home with every override set, enrollment and the network call stubbed, against the real `Reach::Device` drain, report body and `Reach::Health`: dead prompt hooks gave `health.failing [hooks_not_running]`, the fix gave `failing []` once with a later time, the same health again sent nothing until the periodic report; three installs and one setup gave `attempts {install.started: 3, setup.started: 1}` and four problems gave the right last-five list; an assignment start put `A1.started` on the device and `Progress.flush!` sent only the slice stage; the bodies passed the new Teach `validate!` unchanged and an older Teach's `validate!` ignored the new fields; host files were unchanged. Not exercised: a real Claude Code or Codex session, a Codex sandbox, the installer's real HTTPS post, Windows and macOS, a real Teach. The waiting-fix check (`bin/teach issues ready --repo reach`) was not run, since it is denied to agents.
+
+Student-first audit:
+1. Learning: n/a, nothing changes in what the student does.
+2. Agency and honesty: yes, PRIVACY.md lists the new fields: check names and signed-in yes or no, start counts, problem codes, assignment short names with a time.
+3. Wellbeing and safety: yes, an instructor sees a technical block sooner; wellbeing requests never appear in the list.
+4. Privacy and dignity: yes, the report carries ids and counts only, no typed text, name or path, and is erased with the device.
+5. Fairness and access: yes, every app reports the same checks; the Codex ones can only fail on Codex.
+6. Friction: yes, no new step, question or wait.
+7. Failure: yes, every new path runs inside the existing guarded drain; a failed report changes nothing the student sees.
+8. Recovery: yes, the device report's existing switches turn it off.
+
+Wiring: Teach only, through the existing device report route (W-API-DEVICE-REPORT); no new route.
+
+Build ✅ · Deploy ⚪ on branch hangups, not pushed; Teach 0.134.0 lands first
 ## A request the course server refuses for its timestamp is signed once more on the server's clock — 0.76.2
 
 The course server refuses a signed request whose timestamp is more than five minutes from its own clock. rEach took that timestamp from the computer's clock and signed before it connected, so a Mac that slept between signing and connecting, and a computer whose clock was more than five minutes off, were refused. Each refused setup-progress report was filed as the fault `Reach::RemoteRefused in device:report` (Teach issue iss_8b70979ba5394b5c2d11, four installs on 0.70.3 to 0.72.8), and a computer with a wrong clock had every signed request refused, its help requests and course updates included. rEach now signs only once the connection is open. When the server still refuses the timestamp, rEach reads the server's clock from the answer, signs the same request once more on that clock, sends it once, and keeps the correction for the rest of that process. The student is no longer asked to fix the computer's clock, and the message that asked (`M-TEACH-CLOCK`) is gone.
