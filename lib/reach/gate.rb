@@ -318,7 +318,7 @@ module Reach
         context << framed("notice.consent", Reach::Consent.agent_context(observed, done)) unless done.to_s.empty?
       end
       context << framed("notice.consent", safely { Reach::Consent.relay!(session) }) unless observed
-      context.concat(Array(framed("notice.live", safely { Reach::Live.prompt_notices(session) })))
+      context.concat(Array(framed("notice.live", safely { Reach::Live.prompt_notices(session, settle: true) })))
       context << framed("notice.live", safely { Reach::Device.pending_notice })
       context.concat(Array(safely { Reach::Controls.context_blocks("notice.control") }))
       context.concat(Array(safely { Reach::ExamMode.context_blocks("notice.test") }))

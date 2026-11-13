@@ -58,6 +58,8 @@ module Reach
     IDLE_POLL_S = 30
     IDLE_JITTER_S = 5
     NOTIFY_GAP_S = 20
+    SETTLE_MAX_S = 2.5
+    SETTLE_STEP_S = 0.1
     BLOCKED_ASK = /\blive\s+session\b/i.freeze
     BLOCKED_END = /\bend\b.*\blive\s+session\b/i.freeze
     WAIT_STEP_S = 0.5
@@ -601,6 +603,29 @@ module Reach
       wake? && clock - since < IDLE_RUN_S
     end
 
+    def revive_runner(state, current)
+      return false if runner_alive?
+      return false unless live?(current) || state["pending"] || check_due?(state)
+
+      update { |fresh| fresh["checked_at"] = Time.now.to_f }
+      spawn_runner
+      true
+    end
+
+    def settle_poll(since)
+      deadline = clock + SETTLE_MAX_S
+      while clock < deadline
+        fresh = read_state
+        break if fresh["polled_at"].to_f >= since || fresh["poll_failed_at"].to_f >= since
+
+        sleep(SETTLE_STEP_S)
+      end
+    end
+
+    def note_poll(ok)
+      update { |state| state[ok ? "polled_at" : "poll_failed_at"] = Time.now.to_f }
+    end
+
     def watch!
       return 0 unless wake? && identity
 
@@ -661,7 +686,7 @@ module Reach
       elsif install && text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
         lines << ask!["question"]
       end
-      lines.concat(prompt_notices(entry["session_id"], direct: true))
+      lines.concat(prompt_notices(entry["session_id"], direct: true, settle: true))
       lines = lines.compact.map(&:to_s).reject(&:empty?)
       lines.empty? ? nil : lines.join("\n\n")
     rescue StandardError
@@ -691,7 +716,7 @@ module Reach
       elsif install && text.match?(BLOCKED_ASK) && !live? && read_state["pending"].nil? && consent_free?(KIND)
         lines << ask!["question"]
       end
-      lines.concat(prompt_notices(entry["session_id"], direct: true, ask: !Reach::EnrollFlow.before_yes_no_step?))
+      lines.concat(prompt_notices(entry["session_id"], direct: true, ask: !Reach::EnrollFlow.before_yes_no_step?, settle: true))
       lines << Reach::Device.pending_notice
       lines = lines.compact.map(&:to_s).reject(&:empty?)
       lines.empty? ? nil : { "text" => lines.join("\n\n"), "consumed" => consumed }
@@ -764,17 +789,17 @@ module Reach
       1
     end
 
-    def prompt_notices(session_id = nil, repeat_action: true, direct: false, ask: true)
+    def prompt_notices(session_id = nil, repeat_action: true, direct: false, ask: true, settle: false)
       return [] unless enabled? && identity
 
       asking = direct ? session_id : nil
       state = read_state
       current = state["session"].is_a?(Hash) ? state["session"] : nil
-      unless runner_alive?
-        if live?(current) || state["pending"] || check_due?(state)
-          update { |fresh| fresh["checked_at"] = Time.now.to_f }
-          spawn_runner
-        end
+      started = Time.now.to_f
+      if revive_runner(state, current) && settle
+        settle_poll(started)
+        state = read_state
+        current = state["session"].is_a?(Hash) ? state["session"] : nil
       end
 
       lines = []
@@ -1143,10 +1168,21 @@ module Reach
             settle_outgoing(api, polled["id"])
           end
           failures = 0
+          note_poll(true)
         rescue Reach::RemoteRefused => e
           update { |state| state["disabled_until"] = Time.now.to_f + DISABLED_GAP_S } if e.status == 404
+          note_poll(false)
           break
         rescue Reach::NetworkError
+          note_poll(false)
+          failures += 1
+          break if failures >= FAILURES_MAX
+
+          sleep(rand * [BACKOFF_CAP_S, BACKOFF_BASE_S * (2**failures)].min)
+          next
+        rescue StandardError => e
+          Reach::Debug.fault(e, "live:runner")
+          note_poll(false)
           failures += 1
           break if failures >= FAILURES_MAX
 

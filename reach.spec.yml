@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.76.0
+version: 0.76.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2589,6 +2589,15 @@ live_sessions:
     M-LIVE-OPEN-STUDENT, M-LIVE-NOTE-STUDENT for each note, which marks the inbox read).
   commands: reach live [status | request [--hand ID] | wait | note TEXT | say TEXT | end | watch | run [--background]].
   tool: reach_live with action status, request, wait (up to 45 s, local inbox only), note, say or end.
+  resilience: >-
+    Since 0.76.1 Reach::Live.run_loop rescues any StandardError in a poll as it does a Reach::NetworkError: Reach::Debug.fault
+    records it, it counts toward the five failures in a row and the wait backs off with jitter (before, the runner ended with
+    nothing recorded and nothing polled until a prompt restarted it). Each poll writes polled_at, or poll_failed_at when it
+    failed, to state.json (Reach::Live.note_poll). Reach::Live.revive_runner starts the runner for a prompt, the watcher or a
+    status call when it is not alive and a session or pending answer exists or the last check is over 60 seconds old;
+    prompt_notices with settle true (the prompt hook, the blocked prompt and the enrollment prompt, never the watcher) then
+    waits up to 2.5 seconds, reading only state.json, for that first poll to be recorded and builds its notices from the
+    fresh state, so the offer or open notice shows at the first prompt after an idle spell. The hook makes no request to Teach.
   listen: >-
     Since 0.53.2 the open notices (M-LIVE-OPEN-AGENT, M-LIVE-OPEN-AGENT-CODEBUG, M-LIVE-DIAG-OPEN-AGENT) tell the
     agent to call wait for as long as the session is open, with no silence cutoff; a wait answer says M-LIVE-QUIET

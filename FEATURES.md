@@ -1,5 +1,21 @@
 # FEATURES — rEach
 
+## A live-session offer shows at the first prompt after an idle spell, and its runner survives an unexpected error — 0.76.1
+
+An instructor's offer, or a session an instructor opened, that arrived while the student's assistant had been idle longer than the 14 minutes rEach keeps polling showed only at the second prompt: the first prompt started the fetching process and built its notices before that process had asked the course server. The prompt hook now waits at most 2.5 seconds, reading only the local file, for the first answer and then builds its notices, so the offer's question is in the first prompt. The fetching process also used to end without a trace on any error other than a network failure or a refusal, leaving nothing polling until a prompt restarted it; it now records the fault, backs off and tries again, and ends only after five failures in a row as before. No wire change, and no hook calls the course server.
+
+Verified on 2026-11-12 on Linux in a scratch home with every override set, with the course server's answers stubbed in process against the real `Reach::Live.prompt_notices` and the real runner loop in a thread: with the old behaviour the first prompt gave 0 notices and the second gave the offer; with the wait the first prompt gave the offer in 0.12 s; a poll that raised a RuntimeError once was recorded as a failed poll, the runner polled again after its backoff and the next prompt showed the offer. Not exercised in a real Claude Code or Codex session, against a real Teach, on Windows or on macOS, and the old runner's death on an unexpected error was read from the code, not run. The waiting-fix check was not run (`bin/teach issues ready --repo reach` is denied to agents).
+
+Student-first audit:
+1. Learning: n/a, no step of the student's work changes.
+2. Agency and honesty: yes, the offer still asks its own question and counts only the student's typed yes.
+3. Wellbeing and safety: yes, an instructor who opens a session reaches a stuck student one prompt sooner.
+4. Privacy and dignity: yes, nothing new is sent or stored beyond two timestamps in the local live state.
+5. Fairness and access: yes on every harness.
+6. Friction: partly, a prompt that starts the fetching process can take up to 2.5 seconds longer, at most once a minute and only when no session is known.
+7. Failure: yes, an unexpected error no longer ends the polling silently, and the wait ends at 2.5 seconds if Teach does not answer.
+8. Recovery: yes, `live.wake: false` and `live.enabled: false` still switch it off.
+
 ## rEach notices when the agent is going around in circles on a student's request and gets a person to the student — 0.76.0
 
 A student stuck on a request could ask the same thing again and again while the agent answered the same way, with nobody told. rEach now watches for that inside a part, by code and with no model call. A student prompt whose words overlap an earlier prompt of the same part by 80 percent or more, or an agent reply that overlaps the previous one the same way, counts as a loop; a prompt under four words never counts, and a turn counts one loop at most. The third loop (the fourth ask) asks the instructors for help by itself, with the part's work and the student's request, and the agent tells the student in one or two plain sentences that it seems to be going in circles, that the instructors were asked and will be in touch, and that they can carry on. Three loops after that, or the next prompt in the same loop an hour after it, the agent tells the student to contact their instructor directly, that the problem has been reported and that the instructor will be in touch, once for the loop. A passed qualification, an instructor's reply or two unrelated requests in a row end the loop. A part that already has an open request for help gets no second one. Nothing is blocked.

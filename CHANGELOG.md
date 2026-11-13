@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.76.1] - 2026-11-12
+
+### Fixed
+
+- **A live session or an instructor's offer now shows at the first prompt after an idle spell, and the runner that fetches it no longer dies silently.** `Reach::Live.prompt_notices` started the detached runner when the last check was over a minute old but built its notices from the state read before the runner had polled, so an offer made while the student's assistant sat idle (past the 840 seconds the runner and the Claude Code watcher keep polling) first showed at the prompt after the one that started the runner. The prompt hook, the blocked prompt and the enrollment prompt now wait at most 2.5 seconds for the runner's first poll to be recorded in the local state (`settle`, `Reach::Live.settle_poll`) and read the state again; the wait reads only the local file, so no hook calls Teach (W-LIVE-8). `Reach::Live.run_loop` rescued only a network failure and a remote refusal, so any other error in a poll (an unreadable state file, a malformed answer) ended the runner with nothing recorded and nothing polled until a prompt restarted it; it now records the fault, counts it toward the five failures in a row, backs off with jitter and polls again. Each poll writes `polled_at` or `poll_failed_at` to `state/live/state.json`. No wire change. `lib/reach/live.rb`, `lib/reach/gate.rb`, `specs/app.yml` (STD-LIVE), `reach.spec.yml` (`live_sessions.resilience`).
+
 ## [0.76.0] - 2026-11-12
 
 ### Added
