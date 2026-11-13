@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## A request the course server refuses for its timestamp is signed once more on the server's clock — 0.76.2
+
+The course server refuses a signed request whose timestamp is more than five minutes from its own clock. rEach took that timestamp from the computer's clock and signed before it connected, so a Mac that slept between signing and connecting, and a computer whose clock was more than five minutes off, were refused. Each refused setup-progress report was filed as the fault `Reach::RemoteRefused in device:report` (Teach issue iss_8b70979ba5394b5c2d11, four installs on 0.70.3 to 0.72.8), and a computer with a wrong clock had every signed request refused, its help requests and course updates included. rEach now signs only once the connection is open. When the server still refuses the timestamp, rEach reads the server's clock from the answer, signs the same request once more on that clock, sends it once, and keeps the correction for the rest of that process. The student is no longer asked to fix the computer's clock, and the message that asked (`M-TEACH-CLOCK`) is gone.
+
+Verified on 2026-11-12 on Linux against a scratch Teach server (its own database and home, on loopback) with the real `Reach::Device` drain and no stub of rEach or Teach. With rEach 0.70.3 and 0.76.1: a clock 400 seconds ahead or behind, and a report signed and then held 305 seconds, were each answered 401 "timestamp outside allowed skew" and recorded the fault with the issue's own signature. With 0.76.2 against Teach 0.133.2 the same three cases were sent: the wrong clocks and the held report took one refusal and then a 200, and a 305 second wait for the connection took no refusal at all; no fault was recorded. Against a Teach that sends no `Date`, the 305 second connection wait and the held report were still sent, and the wrong clock was refused as before. rEach 0.70.3 against Teach 0.133.2 was refused as before. Not exercised: a real Mac asleep, a real wrong system clock (the clock was shifted inside the Ruby process), an install-signed request (same `Reach::Client` code, not run), the live Teach, Ruby 2.6, Windows.
+
+Student-first audit:
+1. Learning: n/a, no step of the student's work changes.
+2. Agency and honesty: yes, nothing is hidden from the student; a request that used to fail now succeeds, and the refused first try stays in the request log.
+3. Wellbeing and safety: yes, a student whose clock is off is no longer cut off from help requests, updates and submissions.
+4. Privacy and dignity: yes, nothing new is sent or stored; the correction is one number kept in memory for the process.
+5. Fairness and access: yes on every harness and system; a computer with a wrong clock works like any other.
+6. Friction: yes, the student no longer has to change the computer's date and time for rEach.
+7. Failure: yes, one extra request at most per refusal, a second refusal is reported as before, and nothing else is ever sent twice.
+8. Recovery: partly, there is no switch for it; a correction that has become wrong is replaced by the next refusal.
+
+Wiring: wire revision 2026-11-12b (W-AUTH-4, W-ERR-2). Teach 0.133.2 sends its clock in a `Date` header; a wrong clock is corrected only against a Teach that sends one.
+
+Build ✅ · Deploy ⚪ on branch `fix/device-report-refused`, not merged, not pushed, not yet on test · stable is the operator's
+
 ## A live-session offer shows at the first prompt after an idle spell, and its runner survives an unexpected error — 0.76.1
 
 An instructor's offer, or a session an instructor opened, that arrived while the student's assistant had been idle longer than the 14 minutes rEach keeps polling showed only at the second prompt: the first prompt started the fetching process and built its notices before that process had asked the course server. The prompt hook now waits at most 2.5 seconds, reading only the local file, for the first answer and then builds its notices, so the offer's question is in the first prompt. The fetching process also used to end without a trace on any error other than a network failure or a refusal, leaving nothing polling until a prompt restarted it; it now records the fault, backs off and tries again, and ends only after five failures in a row as before. No wire change, and no hook calls the course server.

@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.76.2] - 2026-11-12
+
+### Fixed
+
+- **A device report is no longer refused, and no longer files `Reach::RemoteRefused in device:report`, when the computer's clock is wrong or the computer slept in the middle of the request (Teach issue iss_8b70979ba5394b5c2d11).** Teach refuses a signed request whose timestamp is more than 300 seconds from its clock with 401 `unauthenticated`, "timestamp outside allowed skew" (W-AUTH-4). `Reach::Client` took that timestamp from the computer's own clock, and signed before it opened the connection. A Mac that slept between signing and connecting during a background tick delivered a stale timestamp, and a computer whose clock was more than five minutes off was refused on every signed request, its install-signed ones included. `Reach::Device` recorded each refused report as a fault, which opened the issue from four installs on rEach 0.70.3 to 0.72.8.
+- `Reach::Client#perform` (`lib/reach/client.rb`) opens the connection first and signs inside it, so the time a connection takes to open no longer ages the timestamp.
+- When Teach answers 401 `unauthenticated` and the time since signing, plus the distance between Teach's `Date` header and the clock the request was signed with, is more than 240 seconds (`Reach::Client::RESIGN_AFTER_S`), the client signs the same request once more with a new nonce and a timestamp on Teach's clock and sends it once (`Reach::Client#freshness_refused?`, STD-TEACH-FRESHNESS). It keeps the difference for the rest of the process (`Reach::Client.clock_offset`), so later requests are signed on Teach's clock at once. A second 401 is raised as before, and no other refusal is sent again.
+- Wire revision 2026-11-12b (`specs/wire.yml`, W-AUTH-4 and W-ERR-2) states both sides: Teach sends its clock in a `Date` header on every answer under `/api/v1` (Teach 0.133.2), and rEach signs a refusal of freshness once more.
+
+### Removed
+
+- `M-TEACH-CLOCK` (`locales/en-US.yml`) and `Reach::Client#clock_skewed?`. The message told the student to fix the computer's clock; the request it described is now answered without the student.
+
+### Known limits
+
+- A wrong clock is corrected only against a Teach that sends `Date`: Teach from 0.133.2, or an older Teach behind a proxy that adds the header. Against a Teach with no `Date`, a sleep between signing and sending is still recovered, and a wrong clock is refused as before.
+- A copy older than 0.76.2 is refused as before until it updates (W-COMPAT-6).
+- The installer's first report (`scripts/reach-install`) still signs with the computer's clock. A refused one stays in the outbox and is sent by the next run.
+
 ## [0.76.1] - 2026-11-12
 
 ### Fixed

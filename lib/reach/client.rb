@@ -155,14 +155,15 @@ module Reach
     end
 
     DEADLINE_FLOOR_S = 0.5
-    CLOCK_SKEW_LIMIT_S = 300
+    RESIGN_AFTER_S = 240
     LOOPBACK_HOSTS = %w[127.0.0.1 ::1 localhost].freeze
 
     @@breaker = CircuitBreaker.new(failure_threshold: 5, cooldown_s: 60)
     @deadline = nil
+    @clock_offset = 0.0
 
     class << self
-      attr_accessor :deadline
+      attr_accessor :deadline, :clock_offset
 
       def redact_route(route)
         Reach::SetupLog.redact_path(route)
@@ -307,15 +308,23 @@ module Reach
       failure
     end
 
-    def clock_skewed?(response)
-      return false unless @install_private_key && response.status == 401
-
-      date = response.headers["date"]
-      return false if date.to_s.empty?
-
-      (Time.httpdate(date) - Time.now).abs > CLOCK_SKEW_LIMIT_S
+    def teach_clock(response)
+      date = response.headers["date"].to_s
+      date.empty? ? nil : Time.httpdate(date)
     rescue ArgumentError
-      false
+      nil
+    end
+
+    def freshness_refused?(response, code)
+      return false unless @signed_at && response.status == 401 && code == "unauthenticated"
+
+      now = Time.now
+      teach_now = teach_clock(response)
+      drift = teach_now ? teach_now - (now + self.class.clock_offset) : 0.0
+      return false unless (now - @signed_at) + drift.abs > RESIGN_AFTER_S
+
+      self.class.clock_offset = (teach_now - now).round.to_f if teach_now
+      true
     end
 
     def request(method, path, query: nil, body: nil, headers: {})
@@ -344,6 +353,7 @@ module Reach
 
       max_attempts = @max_retries ? (@max_retries + 1) : (@quick ? 1 : (MAX_RETRIES + 1))
       attempt = 0
+      resigned = false
       loop do
         attempt += 1
         began_at = Time.now
@@ -384,7 +394,11 @@ module Reach
 
           self.class.breaker.record_success
           Reach::Link.restored! if @track_link
-          message = Reach::Messages.text("M-TEACH-CLOCK") if clock_skewed?(response)
+          if !resigned && freshness_refused?(response, code)
+            resigned = true
+            next
+          end
+
           refusal = Reach::RemoteRefused.new(code, response.status, message)
           refusal.details = error["details"] || (parsed || {})["details"]
           refusal.signature_age_s = (Time.now - @signed_at).round(1) if @signed_at
@@ -461,14 +475,17 @@ module Reach
       request_class = (method == :get) ? Net::HTTP::Get : Net::HTTP::Post
       req = request_class.new(uri.request_uri)
       headers.each { |key, value| req[key] = value }
-      sign!(req, method: method, target: target, body: body)
+      req["Connection"] ||= "close"
       req.body = body if body
 
       http_response = nil
       body_text = nil
-      http.request(req) do |streamed|
-        http_response = streamed
-        body_text = read_bounded(streamed)
+      http.start do |connection|
+        sign!(req, method: method, target: target, body: body)
+        connection.request(req) do |streamed|
+          http_response = streamed
+          body_text = read_bounded(streamed)
+        end
       end
       Response.new(
         status: http_response.code.to_i,
@@ -503,7 +520,7 @@ module Reach
       return unless @install_private_key
 
       @signed_at = Time.now
-      timestamp = @signed_at.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+      timestamp = (@signed_at + self.class.clock_offset).utc.strftime("%Y-%m-%dT%H:%M:%SZ")
       nonce = SecureRandom.hex(16)
       signature = Reach::Crypto.sign_request(
         @install_private_key, method: method, target: target, timestamp: timestamp, nonce: nonce, body: body.to_s

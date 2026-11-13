@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.76.1
+version: 0.76.2
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1063,7 +1063,7 @@ submission:
     assignment, command} and its next adds M-QUALIFY-EXPORT, which names reach submit archive --assignment A.
   retries:
     policy: Exponential backoff with full jitter from 5 seconds to 10 minutes, at most 12 attempts, honouring Retry-After.
-    never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason.
+    never_retry: 400, 401, 403, 404, 413 and 422 responses - these are reported to the student with the reason. Since 0.76.2 the one exception is a 401 that refuses the timestamp, which Reach::Client signs once more on Teach's clock and sends once (STD-TEACH-FRESHNESS, W-AUTH-4).
   deadline: >-
     The due time is judged by Teach's received_at; Reach warns the student 24 hours and 1 hour before a due time
     when a slice has no ingest receipt. Since 0.17.0 a slice may be submitted again until the due time and the last

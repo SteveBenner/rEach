@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-12a
+revision: 2026-11-12b
 status: normative
 security_validation:
   id: W-VAL-1
@@ -95,7 +95,7 @@ request_authentication:
   applies_to: Every route except POST /api/v1/enroll and GET /api/v1/health.
   headers:
     X-Teach-Install: The install id returned by POST /enroll.
-    X-Teach-Timestamp: W-CONV-3 timestamp of when the request was signed.
+    X-Teach-Timestamp: W-CONV-3 timestamp of when the request was signed, on Teach's clock once Reach has learned it (W-AUTH-4).
     X-Teach-Nonce: 32 lowercase hexadecimal characters, 16 bytes from a secure random source (SecureRandom.hex(16)), fresh for every attempt including retries.
     X-Teach-Signature: W-CONV-5 base64 of the W-CONV-6 RSA-PSS signature, by the install's private key, over the signed payload.
     X-Reach-Attempt: "Since revision 2026-10-09a, only on POST /api/v1/enroll/attempts/{attempt_id}/steps (W-AUTH-9): the attempt id, sent in place of X-Teach-Install."
@@ -129,7 +129,15 @@ request_authentication:
     rule: >-
       Teach refuses a timestamp more than 300 seconds from its clock (401 unauthenticated) and a nonce it has already
       seen for the same install within 600 seconds (401 unauthenticated). The nonce is recorded only after the signature
-      verifies.
+      verifies. Since revision 2026-11-12b Teach states its clock in an HTTP Date header on every answer under /api/v1,
+      and Reach signs a request only once the connection to Teach is open, so the time a connection takes to open no
+      longer ages the timestamp. When Teach answers 401 unauthenticated and the time since Reach signed, plus the
+      distance between Teach's Date and the clock Reach signed with, is more than 240 seconds, the refusal is one of
+      freshness: Reach signs the same request once more, with a new nonce and a timestamp on Teach's clock, sends it
+      once, and signs the later requests of that process on Teach's clock too. A second 401 is final. A computer whose
+      clock is wrong, or that slept between signing and sending, is therefore refused once and then answered. An answer
+      with no Date leaves only the age of the signature to judge by. A Teach older than this revision sends no Date of
+      its own, and a Reach older than it never signs again (W-COMPAT-6).
   W-AUTH-5:
     name: nonce format
     rule: Teach refuses a nonce that is not exactly 32 lowercase hexadecimal characters (401 unauthenticated).
@@ -2544,7 +2552,7 @@ errors:
   W-ERR-2:
     codes:
       invalid_request: {status: 400, reach: "never retried; shown as the reason"}
-      unauthenticated: {status: 401, reach: "never retried; M-AUTH-FAILED (clock or key)"}
+      unauthenticated: {status: 401, reach: "never retried; M-AUTH-FAILED (clock or key); since revision 2026-11-12b a refusal of freshness is signed once more on Teach's clock and sent once (W-AUTH-4)"}
       forbidden: {status: 403, reach: "never retried"}
       not_enrolled: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REVOKED"}
       revoked: {status: 403, reach: "never retried; the install is marked revoked; M-GATE-REPLACED when details.reason is replaced (since 2026-10-20b, W-ENR-8), else M-GATE-REVOKED"}

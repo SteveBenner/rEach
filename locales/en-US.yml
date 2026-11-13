@@ -661,7 +661,6 @@ messages:
   M-BRAIN-SANDBOX: "Nothing changed: Codex ran this command inside its sandbox, which can't write to rEach's memory folder on this computer. Use the {tool} tool instead; Codex runs rEach's tools outside its sandbox. Nothing is wrong with the student's work."
   M-TEACH-LINK-LOST: "rEach lost its connection to your course server (Teach). Your work is saved on this computer and will be sent when the connection is back. You can keep working."
   M-TEACH-CERTIFICATE: "rEach could not verify the security certificate of your course server (Teach), so it did not connect. Your work is saved on this computer. Check that your computer's date and time are right and that you are not on a network that intercepts secure connections, then try again. If it keeps happening, tell your instructor."
-  M-TEACH-CLOCK: "Your course server (Teach) refused rEach's request because this computer's clock is more than a few minutes off. Set your computer's date and time to update automatically, then try again. Your work is saved on this computer."
   M-TEACH-INSECURE-URL: "rEach will only talk to a course server over a secure (https) address, so it did not connect. Ask your instructor for the right course server address."
   M-TEACH-DEADLINE: "Your course server (Teach) did not answer in time. Your work is saved on this computer. Try again in a moment."
   M-TEACH-RESPONSE-TOO-LARGE: "Your course server (Teach) sent back more data than rEach accepts, so rEach discarded it. Your work is saved on this computer. Try again in a moment."
