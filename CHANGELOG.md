@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.1] - 2026-11-12
+
+### Fixed
+
+- **`reach doctor` no longer reports R-DOC-SKILLS on every Windows install.** Windows hook commands quote each argument (`"gate" "skill"`), and `Reach::Skills.gate_wired?` in `lib/reach/skills.rb` looked for the literal text `gate skill`, so it found no skill gate in any course folder's `.claude/settings.json` and told the student to open each folder with `reach work`. The match now accepts quoted and unquoted arguments. This turns the `doctor` step of the platform smoke green on windows-x64 and windows-arm64.
+
 ## [0.73.0] - 2026-11-12
 
 ### Added

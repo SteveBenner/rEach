@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Doctor finds the skill gate on Windows — 0.73.1
+
+`reach doctor` on Windows reported R-DOC-SKILLS, "the Claude Code settings of N rEach folder(s) have no skill gate", for every course folder, and told the student to open each with `reach work`. Nothing was missing: Windows hook commands quote each argument, so the gate reads `"gate" "skill"`, and the check looked for the text `gate skill`. The check now accepts quoted and unquoted arguments, so a Windows install with the gate written reports nothing, and a folder whose Skill hook is absent or runs another gate still reports.
+
+Verified on 2026-11-12 on Linux against `Reach::Skills.gate_wired?` with a settings file for each of four hook commands: the posix form and the quoted PowerShell form passed, a quoted `gate prompt` hook and the run-together word `gateskill` did not. Not run on a Windows machine or in the platform smoke after the change; the red `doctor` step of the 2026-11-12 platforms run on windows-x64 and windows-arm64 (30aa51c3) is the evidence, and its output named R-DOC-SKILLS alone as unexpected. No student report was read; the cause was found by reading the code.
+
+Student-first audit: a Windows student no longer gets a finding that tells them to refresh folders that are fine, and a real missing gate still shows.
+
+Wiring: none; one check in `lib/reach/skills.rb`.
+
+Build ✅ · Deploy ⚪ on main, not yet on test · stable is the operator's
+
 ## The agent tells a student the same thing about where they stand on every turn — 0.73.0
 
 Students stuck at the start of an assignment were being given confusing directions: the agent's per-turn guidance was one line that ignored which slice the student was working in, a saved plan counted as plan done however far the work had got, and nothing told the agent what was already finished. Every prompt in a slice now carries a short status built by code from rEach's own record: the stage (material read, plan, plan review, own part, build, qualify, submit, grade), the plan step in hand, what is done and left, the tally across the assignment's slices and the next step from `reach next`. The agent confirms it against what the student says, believes a student who says they did something it does not show, marks plan steps with evidence as the work moves, and tells the student where they stand in one plain sentence only when the stage changed. Slice stage checkpoints (planned, audited, built) are recorded and sent over the existing progress route for the desk to read once Teach accepts them.
