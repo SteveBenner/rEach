@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## A help request for a student whose agent goes around in circles is raised again — 0.77.1
+
+The loop watch of 0.76.0 is meant to raise a help request when the student's AI assistant repeats itself on the same request three times in a slice. Before raising one it looks for a help request the slice already has open, and that lookup called a private method of `Reach::Hands`, so it raised `NoMethodError` every time and the help request was never raised (Teach issue iss_6e5d9ea1c2d0620decd9, five installs on 0.76.1 and 0.76.2, Claude Code on macOS and Windows). The fault was caught, so the student was never blocked, but nobody was asked to help them either. `Reach::Hands.open_hands` is now public.
+
+Verified on 2026-11-17 on Linux in scratch homes with every override set and enrollment stubbed, against the real `Reach::LoopWatch.for_prompt` with the same prompt five times. On 0.77.0 the hand step recorded `NoMethodError: private method 'open_hands' called for module Reach::Hands` twice and raised no hand; on 0.77.1, with an open help request for the slice in `hands/open.json`, it adopted that request and showed the loop notice with no fault. With no open request, 0.77.1 passes the lookup and reaches the help-request send, which the scratch home refused because its slice was not a real synced work folder. Not exercised: sending a new help request to the course server, a real Claude Code or Codex session, Windows and macOS.
+
+Student-first audit:
+1. Learning: n/a, nothing changes in what the student does.
+2. Agency and honesty: yes, the student is told what 0.76.0 promised to tell them.
+3. Wellbeing and safety: yes, a student stuck in a loop gets a person again.
+4. Privacy and dignity: yes, nothing new is sent or stored.
+5. Fairness and access: yes, every harness and system.
+6. Friction: yes, no new step.
+7. Failure: yes, the lookup still runs inside the gate's guard.
+8. Recovery: yes, `REACH_LOOP_WATCH=0` still turns it off.
+
+Wiring: none; no wire or Teach change.
+
+Build ✅ · Deploy ⚪ on branch `fix-loop-watch-open-hands`, not merged, not pushed, not yet on test · stable is the operator's
+
 ## Instructors can see each student's technical hangups and whether they are resolved — 0.77.0
 
 A student stuck on a technical problem (hooks that never run, a Codex sandbox, an install that keeps failing, an enrollment that stopped halfway) was visible to the instructor only in pieces: the agent knew, doctor knew, the Installations page held one problem code that cleared only at a later checkpoint, and nothing said whether it had been fixed for that student. rEach's installation report now also carries its health findings (which checks fail, and whether the copy is signed in), how many times the student started installing, setting up and the security check, and the last five problem codes with counts. Teach 0.134.0 joins these with what it already holds (stalled enrollments, issue reports and their fix, technical requests for help, qualify faults) into one list per student with an open or resolved state, on the student's page, a course-wide board and a read for the instructor's agent. The progress checkpoints rEach can see now travel in the same report. Wire revision 2026-11-13a; Teach must be on stable first.

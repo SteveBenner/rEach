@@ -362,6 +362,14 @@ module Reach
         seal_hand(install, meta, tar_bytes)
       end
 
+      def open_hands
+        return {} unless File.file?(open_hands_file)
+
+        JSON.parse(File.read(open_hands_file))
+      rescue JSON::ParserError
+        {}
+      end
+
       private
 
       def field_text(value)
@@ -543,13 +551,6 @@ module Reach
         File.join(Reach::Paths.home, "hands", "open.json")
       end
 
-      def open_hands
-        return {} unless File.file?(open_hands_file)
-
-        JSON.parse(File.read(open_hands_file))
-      rescue JSON::ParserError
-        {}
-      end
 
       def update_open_hand(hand_id, reply, polled_at)
         state = open_hands

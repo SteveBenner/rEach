@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.1] - 2026-11-17
+
+### Fixed
+
+- **The loop watch raises its help request again instead of filing `NoMethodError in loop_watch:raise_hand` (Teach issue iss_6e5d9ea1c2d0620decd9).** `Reach::LoopWatch.open_hand_id` (`lib/reach/loop_watch.rb`) looks up the slice's open help request through `Reach::Hands.open_hands`, which was defined after `private` in `lib/reach/hands.rb`, so every hand raise from 0.76.0 on raised `NoMethodError: private method 'open_hands' called for module Reach::Hands`, the gate caught it, and no help request was raised. `open_hands` is now public. Measured in a scratch home against the real `Reach::LoopWatch.for_prompt`: 0.77.0 recorded the fault twice in five repeated prompts and raised no hand; 0.77.1 adopted the slice's open request and showed the loop notice with no fault.
+
 ## [0.77.0] - 2026-11-13
 
 ### Added
