@@ -1,5 +1,23 @@
 # FEATURES — rEach
 
+## The runtime installs beside a folder that is in use — 0.78.5
+
+On Windows a folder cannot be renamed while the Ruby inside it runs, so `reach runtime install` over an existing runtime folder failed every time. Now, when the old folder cannot be moved, the new runtime goes into a separate folder and becomes the current one; the old folder is removed later, once nothing uses it.
+
+Build: on `main`. On 2026-11-18 on Linux in a scratch home, driving the real `Reach::RuntimeKit.place!` and `active` with Windows behaviour switched on and the rename of the old folder made to fail with `Errno::EXDEV`: the first install went into an alt folder and became current with the real runtime id while the locked folder stayed whole; a second install, still locked, used a new alt folder and removed the first; once unlocked, the next install returned to the plain folder and removed the alt. The run first caught two installs in one second colliding on one alt name, fixed with a random suffix. Deploy: on `main`, not on test or stable. Not exercised: a real Windows computer and its file locks, a real download and extract, and `reach runtime remove` and `status` against an alt folder.
+
+Student-first audit:
+1. Learning: yes, the student gets the runtime their checks need.
+2. Agency and honesty: yes, no change in what the student is told.
+3. Wellbeing and safety: yes, a repeated failure that sent a fault every time ends.
+4. Privacy and dignity: yes, nothing new is read or sent.
+5. Fairness and access: yes, Windows students reach the same state as others.
+6. Friction: yes, no new step; the AI app need not be closed.
+7. Failure: yes, a rename that still fails raises as before, and the old runtime is untouched.
+8. Recovery: yes, the old folder stays until nothing uses it.
+
+Wiring: none; no wire or Teach change.
+
 ## A required API with a note in its name is recognised — 0.78.4
 
 An assignment can name a required instructor API with a note after it, such as what it raises. rEach cut that name at the opening parenthesis but kept the space before it, so `reach check` said a behaviour never called an API it did call, and candidate-pass scoring agreed. Now the name is trimmed before matching, in the check, in candidate-pass scoring and in the plan's ports score.

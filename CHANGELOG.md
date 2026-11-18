@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.5] - 2026-11-18
+
+### Fixed
+
+- **`reach runtime install` finishes on Windows when the runtime folder holds the Ruby that is running.** Installing over an existing `runtime/<id>` folder first renamed it aside, and Windows refuses to rename a folder whose Ruby is running (Ruby reports `Errno::EXDEV`), so the install failed every time with a fault at `command:runtime`. `Reach::RuntimeKit.place!` (`lib/reach/runtime_kit.rb`) now puts the new runtime into `runtime/<id>.alt-<stamp>-<hex>` when the old folder cannot be moved and points `runtime/current` at it; `RuntimeKit.active` reads the runtime id from the folder's `.complete` marker, so the alt folder counts as current. Old, alt and incomplete folders are pruned only when not in use, and on Windows only after a rename proves it, so a folder in use is never half deleted. The next install with the folder free returns to `runtime/<id>` (STD-RUNTIME-SWAP).
+
 ## [0.78.4] - 2026-11-18
 
 ### Fixed

@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.78.4
+version: 0.78.5
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -2881,7 +2881,7 @@ interfaces:
       mutates: external
       requires: "Usable while locked; honors REACH_RUNTIME_DISABLE and REACH_OFFLINE."
       source: lib/reach/cli.rb CLI.cmd_runtime
-      standards: [STD-RUBY-BOOTSTRAP, STD-KIT-CLEAN-ENV]
+      standards: [STD-RUBY-BOOTSTRAP, STD-KIT-CLEAN-ENV, STD-RUNTIME-SWAP]
     - verb: "reach runtime status"
       synopsis: "reach runtime status [--json]"
       purpose: "Show the installed runtime kit."
@@ -5834,6 +5834,8 @@ standards:
     text: "Every lib/ file parses and runs on Ruby 2.6.10: no endless methods, no pattern matching, no numbered block parameters, no hash/keyword shorthand."
   - id: STD-RUBY-BOOTSTRAP
     text: "Since 0.20.7 rEach starts on a computer with no Ruby. The plugin's Claude Code hooks and MCP server (.mcp.json) run sh exe/reach-run, a POSIX sh launcher (Linux, macOS, Windows Git Bash and Cowork) that runs exe/reach with the Ruby on PATH when it is 2.6.10 or newer, otherwise with the runtime kit's Ruby under <home>/runtime/<id>/ruby, and otherwise installs that Ruby: it downloads the kit bundle for the platform from the pinned runtime release, checks its size and sha256 against exe/runtime-pins (generated from the manifest RuntimeKit pins, and checked against it by tools/runtime_pins.rb), extracts it with tar, places it as RuntimeKit places a ruby-only install and writes runtime/current. A hook never waits for that download: the launcher starts one detached install under a lock and answers at once, and a prompt that arrives before Ruby is ready passes to the agent with M-BOOTSTRAP-WAIT context (rEach is finishing setup; ask the student to send the message again in a minute; do no course work yet) rather than being blocked. The MCP server waits up to 120 s for the install and otherwise exits with a plain message. On Windows, scripts/reach-install.ps1 does the same for INSTALL.md without Ruby and adds the kit Ruby's bin folder to the user PATH (no administrator rights), so harness hooks that call ruby work; an existing Ruby is left alone. Launcher failures are logged to <home>/logs/bootstrap.log and never print a stack or a secret."
+  - id: STD-RUNTIME-SWAP
+    text: "Since 0.78.5 reach runtime install never needs to move a runtime folder that is in use. Reach::RuntimeKit.place! (lib/reach/runtime_kit.rb) moves the existing runtime/<id> folder aside first; when that rename fails (on Windows a folder whose Ruby is running cannot be renamed, and Ruby reports it as Errno::EXDEV or EACCES), the new runtime goes into runtime/<id>.alt-<stamp>-<6 hex> and runtime/current names that folder, so the running Ruby keeps its files. RuntimeKit.active takes the runtime id from the folder's .complete marker, not the folder name, so a runtime in an alt folder counts as current. prune_superseded keeps the folder current names, and removes old, superseded, alt and the incomplete runtime/<id> folders only when they are not in use; on Windows it first renames each one and removes it only when that rename succeeds, so a folder still in use is never half deleted. The next install whose runtime/<id> folder is free returns to runtime/<id>. Reason: a Windows student whose runtime folder held the running Ruby could never finish reach runtime install (Errno::EXDEV at command:runtime, 2026-11-13)."
   - id: STD-WINDOWS-SH
     text: "Since 0.70.21 the plugin's Claude Code hooks and MCP server (sh exe/reach-run) can start on a Windows computer that had no sh. After scripts/reach-install has installed rEach, on Windows only, it does nothing when sh.exe is on the PATH or a Git for Windows git.exe on the PATH has usr\\bin\\sh.exe beside its cmd folder; otherwise it downloads the MinGit zip pinned in exe/sh-pins (HTTPS github.com URL, size and sha256, all checked before unpacking), unpacks it with the installer's own ZIP reader into <reach home>\\sh (the previous sh folder moves to <reach home>\\.backup, nothing is deleted), writes a .complete marker holding the sha256, and appends <reach home>\\sh\\usr\\bin to the end of the user PATH through PowerShell, so it never shadows Windows' own find.exe or sort.exe and needs no administrator rights. A marker that matches the pin skips the download. A failure at any point prints one plain sentence and leaves the finished install in place; running the install again retries. REACH_SH_SETUP=0 skips the step and REACH_INSTALL_KILL_SWITCH=1 stops it with the other downloads. scripts/reach-install.ps1 needs no change because it runs the Ruby installer. No code from the MinGit archive runs during install. Not run on a real Windows computer."
   - id: STD-PLAN-AUDIT

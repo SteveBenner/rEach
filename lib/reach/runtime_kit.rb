@@ -292,7 +292,8 @@ module Reach
 
     def place!(stage, runtime_id, plat, data, components, only)
       root = File.join(runtime_root, runtime_id)
-      existing = complete_info(root)
+      live = active_root_for(runtime_id) || root
+      existing = complete_info(live)
       in_place = !only.nil? && existing
       write_build_json(stage, runtime_id, plat, data) unless File.file?(File.join(stage, "BUILD.json")) || in_place
 
@@ -315,23 +316,39 @@ module Reach
       info["profiles"] = Array(data["profiles"]) if components.include?("ruby")
 
       if in_place
-        swap_components(stage, root)
-        write_marker(root, info)
+        swap_components(stage, live)
+        write_marker(live, info)
+        folder = File.basename(live)
       else
         File.write(File.join(stage, ".complete"), JSON.pretty_generate(info))
+        folder = runtime_id
         if File.exist?(root)
-          File.rename(root, "#{root}.old-#{stamp}")
+          begin
+            File.rename(root, "#{root}.old-#{stamp}")
+          rescue SystemCallError
+            folder = "#{runtime_id}.alt-#{stamp}-#{SecureRandom.hex(3)}"
+          end
         end
+        target = File.join(runtime_root, folder)
         begin
-          File.rename(stage, root)
+          File.rename(stage, target)
         rescue SystemCallError
           old = Dir.glob("#{root}.old-*").sort.last
-          File.rename(old, root) if old && !File.exist?(root)
+          File.rename(old, root) if folder == runtime_id && old && !File.exist?(root)
           raise
         end
       end
-      write_current(runtime_id)
-      prune_superseded(runtime_root, runtime_id)
+      write_current(folder)
+      prune_superseded(runtime_root, folder)
+    end
+
+    def active_root_for(runtime_id)
+      id = current_id
+      return nil unless id
+
+      path = File.join(runtime_root, id)
+      info = complete_info(path)
+      info && info["runtime_id"] == runtime_id ? path : nil
     end
 
     def proc_link(pid, name)
@@ -367,15 +384,21 @@ module Reach
     end
 
     def prune_superseded(root, keep_id)
+      base = keep_id.split(".alt-", 2).first
       Dir.children(root).each do |name|
         next if name.start_with?(".") || name == keep_id || name == "current"
 
         path = File.join(root, name)
         next unless File.directory?(path) && !File.symlink?(path)
-        next unless name.include?(".old-") || File.file?(File.join(path, ".complete"))
+        next unless name.include?(".old-") || name == base || File.file?(File.join(path, ".complete"))
         next if in_use?(path)
 
         begin
+          if Reach::Untar.windows? && !name.include?(".old-")
+            moved = "#{path}.old-#{stamp}"
+            File.rename(path, moved)
+            path = moved
+          end
           FileUtils.rm_rf(path)
         rescue SystemCallError
           next
@@ -457,7 +480,7 @@ module Reach
       chrome_exe = chrome_path(root, info)
       {
         "root" => root,
-        "runtime_id" => id,
+        "runtime_id" => info["runtime_id"].is_a?(String) && !info["runtime_id"].empty? ? info["runtime_id"] : id,
         "ruby_exe" => ruby_exe,
         "ruby_bin" => ruby_exe ? File.dirname(ruby_exe) : nil,
         "chrome_exe" => chrome_exe,
