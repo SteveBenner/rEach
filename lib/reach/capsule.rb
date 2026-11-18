@@ -12,6 +12,7 @@ module Reach
     CODE_FORMAT = /\A[A-Z]{1,4}-[A-Z0-9-]{2,48}\z/.freeze
     HARNESS_FORMAT = /\A[a-z0-9-]{1,32}\z/.freeze
     ASSIGNMENT_FORMAT = /\A[A-Za-z0-9_.-]{1,24}\z/.freeze
+    MODULE_FORMAT = /\A[a-z0-9_.-]{1,48}\z/.freeze
 
     module_function
 
@@ -65,7 +66,7 @@ module Reach
 
     def telemetry_held(meta)
       held = {
-        "modules" => Reach::Modules.module_ids.sort.first(MODULES_MAX),
+        "modules" => Reach::Modules.module_ids.select { |id| id.match?(MODULE_FORMAT) }.sort.first(MODULES_MAX),
         "assignments" => held_assignments
       }
       wanted = meta["assignment"]

@@ -2328,7 +2328,7 @@ issues:
       entries from the last 24 hours, newest last; an identical entry within 60 seconds of the newest replaces its time.
       codes holds at most 12 unique codes, newest first, from the signals and then from the qualification findings.
       hooks.stale and hooks.prompt_quiet are booleans and hooks.harness matches [a-z0-9-]{1,32}. held.modules holds at
-      most 40 module ids, held.assignments at most 20 assignment ids that match [A-Za-z0-9_.-]{1,24}, and held.wanted is
+      most 40 module ids that match [a-z0-9_.-]{1,48}, held.assignments at most 20 assignment ids that match [A-Za-z0-9_.-]{1,24}, and held.wanted is
       the assignment of the work folder when it matches the same pattern. The whole field is at most 4096 bytes. Reach
       sends it only on those three triggers, and omits it when REACH_SIGNALS_DISABLE=1. Teach treats every value as
       untrusted, validates each against these patterns, recomputes any grouping from it and never takes a grouping key
