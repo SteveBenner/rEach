@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.2] - 2026-11-18
+
+### Fixed
+
+- **The privacy notice now describes report telemetry.** PRIVACY.md said a help request carries only a short summary and that stop details are sent only in debug mode, while 0.78.0 added a telemetry record to technical, setup and access reports that is kept with debug mode off. It now lists what the record holds (codes and outcomes of the newest refusals and checks, hook liveness, the AI app, held module and assignment ids), that it never holds commands, paths, files or typed text, and the `REACH_SIGNALS_DISABLE=1` switch.
+
 ## [0.78.1] - 2026-11-18
 
 ### Fixed
