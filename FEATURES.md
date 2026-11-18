@@ -1,5 +1,9 @@
 # FEATURES — rEach
 
+## Agent-raised technical reports carry machine telemetry — 0.78.0
+
+A technical_issue, setup_issue or access_issue hand now carries `telemetry` (wire revision 2026-11-18a, W-ISSUE-9): the newest gate, command, brain, hook, check and qualify outcomes with their message ids from `state/signals.json`, the codes seen, hook liveness and the held modules and assignments, all pattern-checked and at most 4096 bytes. Signals are kept whether or not debug mode is on and carry no path, identity or free text. Build: done and exercised on a scratch home (gate block recorded with debug off, ring bounded at 24, plain student requests carry no telemetry). Deploy: not yet released; reports only gain the field once students run 0.78.0, and Teach groups on it only once it is re-pinned to this wire revision.
+
 ## The course skill takes a student's own workplace as an answer — 0.77.3
 
 A student who builds their work around their own workplace may be asked a question that only fits the course business. The reach-course skill now tells the agent to follow the course's COACH directive in that case: name the parts of the step that come from the course business, take what the student says about their workplace as their answer, restate it in one sentence for them to confirm or correct, and not ask the same question again. It offers no ready-made framings, so the student's answers stay their own.

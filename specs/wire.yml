@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-13a
+revision: 2026-11-18a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -2314,6 +2314,25 @@ issues:
       (any status W-SAFE-3 does not retry) drops the entry. When the outbox already holds max_queued issue hands,
       the oldest that is not blocking gives way; a blocking one gives way only to another blocking one. The wait
       applies to issue hands only: submissions and every other hand are retried as before.
+  W-ISSUE-9:
+    name: telemetry on agent-raised technical hands
+    rule: >-
+      Since revision 2026-11-18a a hand with trigger technical_issue, setup_issue or access_issue, which the agent raises
+      (W-ISSUE-5), may carry in its bundle the optional field telemetry, beside capsule and signature_hint. Telemetry is
+      machine state Reach already computes and never free text:
+      {schema: "reach.telemetry/v1", signals: [{at, kind, check, outcome, code}], codes: [string], hooks: {stale,
+      prompt_quiet, harness}, held: {modules: [string], assignments: [string], wanted: string}}. at is a UTC time to the
+      second. kind is one of gate, command, brain, hook, check, qualify. check matches [a-z0-9_.: -]{1,48}, outcome
+      matches [a-z_]{1,24}, and code, in signals and in codes, matches [A-Z]{1,4}-[A-Z0-9-]{2,48}; a value that does not
+      match is null, and an entry whose check, outcome and code are all null is not kept. signals holds at most 24
+      entries from the last 24 hours, newest last; an identical entry within 60 seconds of the newest replaces its time.
+      codes holds at most 12 unique codes, newest first, from the signals and then from the qualification findings.
+      hooks.stale and hooks.prompt_quiet are booleans and hooks.harness matches [a-z0-9-]{1,32}. held.modules holds at
+      most 40 module ids, held.assignments at most 20 assignment ids that match [A-Za-z0-9_.-]{1,24}, and held.wanted is
+      the assignment of the work folder when it matches the same pattern. The whole field is at most 4096 bytes. Reach
+      sends it only on those three triggers, and omits it when REACH_SIGNALS_DISABLE=1. Teach treats every value as
+      untrusted, validates each against these patterns, recomputes any grouping from it and never takes a grouping key
+      from the client. A Teach that predates this revision ignores the field.
 live:
   W-LIVE-1:
     name: live session

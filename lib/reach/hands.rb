@@ -344,6 +344,7 @@ module Reach
         if details["technical"] == true
           bundle["capsule"] = Reach::Capsule.build
           bundle["signature_hint"] = Reach::Issues.recent_signature
+          bundle["telemetry"] = Reach::Capsule.telemetry(meta, qualification: qualification)
         end
         fit(redact_bundle(bundle, Reach::Enroll.current))
       end

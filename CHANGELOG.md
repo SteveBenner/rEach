@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.0] - 2026-11-18
+
+### Added
+
+- **A technical, setup or access report the agent raises now carries machine telemetry (wire revision 2026-11-18a, W-ISSUE-9), so the course server can tell matching reports apart.** Of 88 open reports of this kind, none was grouped: the hand carried no signature, the debug spool that fed the capsule is written only while debug mode is on, and the cause lived only in the assistant's free text. `Reach::Signals` now keeps, in `state/signals.json`, the newest 24 gate, command, brain, hook, check and qualify outcomes with their message ids whether or not debug mode is on, storing only a check name, an outcome and a code that each match a fixed pattern. `Reach::Capsule.telemetry` adds them, with the codes seen, hook liveness and the held modules and assignments, to the hand as `telemetry` (at most 4096 bytes). Nothing is stored or sent that is not a code, a fixed word or a number. `REACH_SIGNALS_DISABLE=1` turns it off. A Teach that predates the revision ignores the field.
+
 ## [0.77.3] - 2026-11-17
 
 ### Added

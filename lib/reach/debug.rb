@@ -2,6 +2,7 @@ require "json"
 require "time"
 require "fileutils"
 require "securerandom"
+require_relative "signals"
 
 module Reach
   module Debug
@@ -261,10 +262,11 @@ module Reach
       return nil if Thread.current[:reach_debug_busy] || silent?
 
       Reach::SetupLog.record("debug", "kind" => kind.to_s, "fields" => fields)
-      return nil unless on?
-
       Thread.current[:reach_debug_busy] = true
       begin
+        Reach::Signals.record!(kind, fields)
+        return nil unless on?
+
         append(kind.to_s, fields)
       ensure
         Thread.current[:reach_debug_busy] = false
@@ -493,6 +495,7 @@ module Reach
       Reach::SetupLog.record("debug", "kind" => kind.to_s, "fields" => fields)
       Thread.current[:reach_debug_busy] = true
       begin
+        Reach::Signals.record!(kind, fields)
         append(kind.to_s, fields, on? ? nil : "fault", throttle: true)
       ensure
         Thread.current[:reach_debug_busy] = false
