@@ -326,7 +326,7 @@ module Reach
           begin
             File.rename(root, "#{root}.old-#{stamp}")
           rescue SystemCallError
-            folder = "#{runtime_id}.alt-#{stamp}-#{SecureRandom.hex(3)}"
+            folder = [runtime_id, ".alt-", stamp, "-", SecureRandom.hex(3)].join
           end
         end
         target = File.join(runtime_root, folder)
