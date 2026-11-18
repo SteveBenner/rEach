@@ -4,7 +4,7 @@
 
 An assignment can name a required instructor API with a note after it, such as what it raises. rEach cut that name at the opening parenthesis but kept the space before it, so `reach check` said a behaviour never called an API it did call, and candidate-pass scoring agreed. Now the name is trimmed before matching, in the check, in candidate-pass scoring and in the plan's ports score.
 
-Build: on `main`. On 2026-11-18 on Linux in a scratch home, against the real `Reach::Check.instructor_api_findings` and `Reach::Passes.api_called?` with the required-API list set to the A3 name: before, a behaviour calling `ports.rules.rule_ids` drew CK-INSTRUCTOR-API and `api_called?` was false; after, it drew no finding and `api_called?` was true, while a behaviour with no call, and one calling `rule_ids_all`, still failed, and plain and `?` names still matched. Deploy: on `main`, not on test or stable. Not exercised: a full `reach qualify` against the real A3 package and its hidden cases, and a student computer.
+Build: on `main`. On 2026-11-18 on Linux in a scratch home, against the real `Reach::Check.instructor_api_findings` and `Reach::Passes.api_called?` with a required API name that carries a note: before, a behaviour calling that API drew CK-INSTRUCTOR-API and `api_called?` was false; after, it drew no finding and `api_called?` was true, while a behaviour with no call, and one calling a longer method of the same name, still failed, and plain and `?` names still matched. Deploy: on `main`, not on test or stable. Not exercised: a full `reach qualify` against a real course package and its hidden cases, and a student computer.
 
 Student-first audit:
 1. Learning: yes, correct code is judged correct.
