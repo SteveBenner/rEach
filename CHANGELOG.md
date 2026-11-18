@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.3] - 2026-11-17
+
+### Added
+
+- **The reach-course skill covers a student who framed the work around their own workplace.** When a step's question does not fit that workplace, the agent follows the course's COACH directive: it says which parts of the step come from the course business, takes the fact the student states as their answer, restates it in one sentence for them to confirm or correct, and never asks the same question again in other words. The line is in `specs/polispec/surfaces/skills/reach-course.md`; `ruby tools/policy.rb build` regenerated `skills/reach-course/SKILL.md` and the surface hash in `policy/behavior.json`. The full rule ships in Teach's COACH directive from Teach 0.134.3.
+
 ## [0.77.2] - 2026-11-17
 
 ### Fixed

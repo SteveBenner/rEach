@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.77.2
+version: 0.77.3
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -3686,7 +3686,7 @@ interfaces:
       source: skills/reach-assistant/SKILL.md
       audience: "The student's agent, once per session: rEach's session context tells it to load the skill, or pastes the body where a harness cannot load skills."
     - name: reach-course
-      purpose: "How to work on a student's slice under the instructors' rules: what to read first, owned files, directives and reference files."
+      purpose: "How to work on a student's slice under the instructors' rules: what to read first, owned files, directives and reference files. Since 0.77.3 it also says that when the student framed the work around their own workplace and a step's question does not fit it, the agent follows Teach's COACH directive: names the parts of the step that come from the course business, takes the student's stated fact as their answer, restates it in one sentence to confirm or correct, and never asks the same question again."
       source: skills/reach-course/SKILL.md
       audience: "The student's agent, in every course slice workspace; rEach points to it at session start."
     - name: reach-submit

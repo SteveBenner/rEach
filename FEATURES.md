@@ -1,5 +1,16 @@
 # FEATURES — rEach
 
+## The course skill takes a student's own workplace as an answer — 0.77.3
+
+A student who builds their work around their own workplace may be asked a question that only fits the course business. The reach-course skill now tells the agent to follow the course's COACH directive in that case: name the parts of the step that come from the course business, take what the student says about their workplace as their answer, restate it in one sentence for them to confirm or correct, and not ask the same question again. It offers no ready-made framings, so the student's answers stay their own.
+
+Build: on `main`. On 2026-11-17 `ruby tools/policy.rb build` regenerated the skill and `ruby tools/policy.rb check` reported ok with 0 problems. Deploy: on `main`, not on test or stable. Not exercised: a student session that loads the skill, and the COACH text it points to reaches students only with Teach 0.134.3's guardrails.
+
+Student-first audit:
+1. Learning: yes, the student connects the course case to their own workplace in their own words.
+2. Agency and honesty: yes, the agent states what is course data and asks the student to confirm, never answers for them.
+3. Wellbeing and safety: yes, a student is not asked the same question again after answering it.
+
 ## One work folder per part of an assignment when the course name changes — 0.77.2
 
 A student whose packages came first under one course name and later under another had two copies of the same work folder, and rEach's checks, help requests and submissions picked whichever copy sorted first, so a check could report an empty README while the student's reflections were in the other copy. rEach now moves an old copy into the new course path when it provisions one, and each sync brings existing copies together: the copy under the enrolled course keeps, the student's changed files from the other copy are written into it (where both changed a file, the newer edit wins and the other is kept beside it as `<file>.from-<course>`), and the other copy is kept whole under `deliverables/.reach-retired`. The sync summary tells the student where their work is.
