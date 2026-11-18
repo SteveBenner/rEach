@@ -199,7 +199,7 @@ module Reach
       end.flatten.join("\n")
 
       required.each_with_object([]) do |line, found|
-        chain = line.split("(").first.to_s.sub(/\Aports\./, "")
+        chain = line.split("(").first.to_s.strip.sub(/\Aports\./, "")
         port, method = chain.split(".", 2)
         next if port.to_s.empty? || method.to_s.empty?
         next if sources.match?(/\b(?:ports\.)?#{Regexp.escape(port)}\s*\.\s*#{Regexp.escape(method)}(?![A-Za-z0-9_])/)

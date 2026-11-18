@@ -1,5 +1,23 @@
 # FEATURES — rEach
 
+## A required API with a note in its name is recognised — 0.78.4
+
+An assignment can name a required instructor API with a note after it, such as what it raises. rEach cut that name at the opening parenthesis but kept the space before it, so `reach check` said a behaviour never called an API it did call, and candidate-pass scoring agreed. Now the name is trimmed before matching, in the check, in candidate-pass scoring and in the plan's ports score.
+
+Build: on `main`. On 2026-11-18 on Linux in a scratch home, against the real `Reach::Check.instructor_api_findings` and `Reach::Passes.api_called?` with the required-API list set to the A3 name: before, a behaviour calling `ports.rules.rule_ids` drew CK-INSTRUCTOR-API and `api_called?` was false; after, it drew no finding and `api_called?` was true, while a behaviour with no call, and one calling `rule_ids_all`, still failed, and plain and `?` names still matched. Deploy: on `main`, not on test or stable. Not exercised: a full `reach qualify` against the real A3 package and its hidden cases, and a student computer.
+
+Student-first audit:
+1. Learning: yes, correct code is judged correct.
+2. Agency and honesty: yes, the check no longer tells a student their right code is wrong.
+3. Wellbeing and safety: yes, a blocked student is unblocked without spending a try.
+4. Privacy and dignity: yes, nothing new is read or sent.
+5. Fairness and access: yes, every harness and system.
+6. Friction: yes, no new step.
+7. Failure: yes, a missing call still fails as before.
+8. Recovery: yes, nothing to recover; the student qualifies again.
+
+Wiring: none; no wire or Teach change.
+
 ## Two copies of one work folder settle themselves where the student meets them — 0.78.3
 
 A student whose part of an assignment sits under two course names, and whose sync cannot reach the course server, was refused on every command that named the part, with no way to answer: both folders have the same name, and rEach would only match a name. Now the lookup that would refuse first brings the copies together on the computer, the same way a sync does (the copy under the enrolled course keeps, the student's changed files from the other copy are written into it, the other copy is kept whole under `deliverables/.reach-retired`). A folder can also be named by its path, so the paths the refusal lists work. When the session is working inside the old copy, rEach says so and which folder to start from, and changes nothing.

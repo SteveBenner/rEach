@@ -265,7 +265,7 @@ module Reach
       matched = graded.count { |name| scenario_text.any? { |item| item.include?(name.downcase) } }
       coverage = graded.empty? ? 1.0 : matched.to_f / graded.length
       steps_text = lists["steps"].join(" ").downcase
-      required = Array(constraints["required_apis"]).map { |line| line.to_s.sub(/\Aports\./, "").split("(").first.to_s.downcase }.reject(&:empty?)
+      required = Array(constraints["required_apis"]).map { |line| line.to_s.sub(/\Aports\./, "").split("(").first.to_s.strip.downcase }.reject(&:empty?)
       ports = required.empty? ? 1.0 : required.count { |chain| steps_text.include?(chain) }.to_f / required.length
       equal = graded.empty? ? 1.0 : matched.to_f / [scenario_text.length, graded.length].max
       edges = lists["edge_cases"]
@@ -375,7 +375,7 @@ module Reach
     end
 
     def api_called?(line, source, workspace, meta, dir)
-      chain = line.to_s.split("(").first.to_s.sub(/\Aports\./, "")
+      chain = line.to_s.split("(").first.to_s.strip.sub(/\Aports\./, "")
       port, method = chain.split(".", 2)
       return true if port.to_s.empty? || method.to_s.empty?
 
