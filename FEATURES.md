@@ -1,5 +1,23 @@
 # FEATURES — rEach
 
+## Two copies of one work folder settle themselves where the student meets them — 0.78.3
+
+A student whose part of an assignment sits under two course names, and whose sync cannot reach the course server, was refused on every command that named the part, with no way to answer: both folders have the same name, and rEach would only match a name. Now the lookup that would refuse first brings the copies together on the computer, the same way a sync does (the copy under the enrolled course keeps, the student's changed files from the other copy are written into it, the other copy is kept whole under `deliverables/.reach-retired`). A folder can also be named by its path, so the paths the refusal lists work. When the session is working inside the old copy, rEach says so and which folder to start from, and changes nothing.
+
+Build: on `main`. On 2026-11-18 on Linux in scratch homes with every override set, against the real `Reach::Workspace` and `Reach::Gate`: before, two same-named folders were refused and a path was not accepted; after, naming the part from the course root merged the student's work into the enrolled copy and retired the old one, each path form returned the folder it named, and from inside the old copy the refusal named both folders and moved nothing. Deploy: on `main`, not on test or stable. Not exercised: a real student computer, macOS and Windows path forms (backslashes are normalised, not run), a real sync, and the recover and forget commands, which still list stores rather than folders.
+
+Student-first audit:
+1. Learning: yes, the student's work reaches the copy that checks and submissions read.
+2. Agency and honesty: yes, a copy left in place is named and the way out is said in plain words.
+3. Wellbeing and safety: yes, a student with real work in the old copy stops being locked out of it.
+4. Privacy and dignity: yes, nothing leaves the computer.
+5. Fairness and access: yes, every harness and system.
+6. Friction: yes, no new step; one folder to start from when a copy is in use.
+7. Failure: yes, a merge that fails keeps the other copy in place; nothing is deleted.
+8. Recovery: yes, the old copy and both checkpoint histories stay on the computer.
+
+Wiring: none; no wire or Teach change.
+
 ## Agent-raised technical reports carry machine telemetry — 0.78.0
 
 A technical_issue, setup_issue or access_issue hand now carries `telemetry` (wire revision 2026-11-18a, W-ISSUE-9): the newest gate, command, brain, hook, check and qualify outcomes with their message ids from `state/signals.json`, the codes seen, hook liveness and the held modules and assignments, all pattern-checked and at most 4096 bytes. Signals are kept whether or not debug mode is on and carry no path, identity or free text. Build: done and exercised on a scratch home (gate block recorded with debug off, ring bounded at 24, plain student requests carry no telemetry). Deploy: not yet released; reports only gain the field once students run 0.78.0, and Teach groups on it only once it is re-pinned to this wire revision.

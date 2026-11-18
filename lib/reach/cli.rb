@@ -572,7 +572,7 @@ module Reach
       def resolve_workspace(slice_hint)
         return Reach::Workspace.named_slice!(slice_hint) unless slice_hint.to_s.strip.empty?
 
-        slices = Reach::Workspace.current_slices
+        slices = Reach::Workspace.settled_slices
         slices.length == 1 ? slices.first : nil
       rescue Reach::Refused
         raise
@@ -583,7 +583,7 @@ module Reach
       def pick_slice_if_ambiguous(workspace)
         return workspace if workspace
 
-        Reach::Gate.raise_pick_slice! if Reach::Gate.root_kind? && Reach::Workspace.current_slices.length > 1
+        Reach::Gate.raise_pick_slice! if Reach::Gate.root_kind? && Reach::Workspace.settled_slices.length > 1
         nil
       end
 

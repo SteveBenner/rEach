@@ -223,6 +223,19 @@ module Reach
       text = name.to_s.strip
       return [] if text.empty?
 
+      found = resolve_named(text)
+      return found if found.length < 2
+
+      settle_copies!
+      resolve_named(text)
+    end
+
+    def resolve_named(text)
+      by_path = slices_at_path(text)
+      by_path.empty? ? slices_named(text) : by_path
+    end
+
+    def slices_named(text)
       wanted = [text, text.tr(" /", "--")].uniq
       slices = current_slices
       exact = slices.select { |path| wanted.include?(File.basename(path)) }
@@ -231,13 +244,56 @@ module Reach
       slices.select { |path| wanted.any? { |word| File.basename(path).end_with?("-#{word}") } }
     end
 
+    def slices_at_path(text)
+      return [] unless text.match?(%r{[/\\]}) || text.start_with?("~")
+
+      normal = text.tr("\\", "/")
+      wanted = [normal, File.join(Reach::Paths.workspace_root, normal), File.join(Reach::Paths.deliverables_root, normal), File.join(Reach::Paths.cwd, normal)].map { |path| real_path(path) }.uniq
+      slices = current_slices
+      exact = slices.select { |path| wanted.include?(real_path(path)) }
+      return exact unless exact.empty?
+
+      trimmed = normal.sub(%r{\A\./}, "").chomp("/")
+      slices.select { |path| path.tr("\\", "/").end_with?("/#{trimmed}") }
+    end
+
+    def real_path(path)
+      File.realpath(path)
+    rescue SystemCallError
+      File.expand_path(path)
+    end
+
+    def settled_slices
+      slices = current_slices
+      return slices if slices.map { |path| File.basename(path) }.uniq.length == slices.length
+
+      settle_copies!
+      current_slices
+    end
+
+    def settle_copies!
+      consolidate!
+    rescue SystemCallError, JSON::ParserError => e
+      Reach::Debug.fault(e, "workspace:settle")
+      { "merged" => [], "warnings" => [], "in_use" => [] }
+    end
+
+    def stuck_copies
+      duplicate_groups.flat_map do |keeper, others|
+        others.select { |other| in_use?(other) }.map { |other| { "from" => other, "to" => keeper } }
+      end
+    rescue SystemCallError, JSON::ParserError => e
+      Reach::Debug.fault(e, "workspace:stuck")
+      []
+    end
+
     def named_slice!(name)
       found = named_slices(name)
       return found.first if found.length == 1
 
       names = current_slices.map { |path| File.basename(path) }
       raise Reach::Refused, Reach::Messages.text("M-GATE-NOSLICE") if names.empty?
-      raise Reach::Refused, Reach::Gate.pick_slice_text if found.length > 1 || name.to_s.strip.empty?
+      raise Reach::Refused, Reach::Gate.pick_slice_text(found) if found.length > 1 || name.to_s.strip.empty?
 
       raise Reach::Refused, Reach::Messages.text("M-GATE-NOSLICE-NAMED", slice: name.to_s.strip, choices: names.join(", "))
     end
@@ -358,19 +414,28 @@ module Reach
       end.sort_by { |path| -marker_time(path).to_f }
     end
 
-    def consolidate!
-      result = { "merged" => [], "warnings" => [] }
+    def duplicate_groups
       course = safe_current_install&.dig("course", "id").to_s
       groups = deliverable_slices.group_by do |path|
         meta = metadata(path)
         [meta["assignment"].to_s, meta["cutout_id"].to_s, meta["slice"].to_s]
       end
-      groups.each do |(_assignment, cutout_id, _slice), paths|
+      groups.filter_map do |(_assignment, cutout_id, _slice), paths|
         next if cutout_id.empty? || paths.map { |path| metadata(path)["course"].to_s }.uniq.length < 2
 
         keeper = paths.find { |path| metadata(path)["course"].to_s == course } || paths.max_by { |path| marker_time(path) }
-        (paths - [keeper]).each do |other|
-          next if in_use?(other)
+        [keeper, paths - [keeper]]
+      end
+    end
+
+    def consolidate!
+      result = { "merged" => [], "warnings" => [], "in_use" => [] }
+      duplicate_groups.each do |keeper, others|
+        others.each do |other|
+          if in_use?(other)
+            result["in_use"] << { "from" => other, "to" => keeper }
+            next
+          end
 
           begin
             result["merged"] << merge_into(keeper, other)

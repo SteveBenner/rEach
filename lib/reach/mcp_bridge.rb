@@ -1206,7 +1206,7 @@ module Reach
       def workspace_for(slice)
         found = Reach::Workspace.named_slices(slice)
         return found.first if found.length == 1
-        raise Reach::Refused, Reach::Gate.pick_slice_text if found.length > 1
+        raise Reach::Refused, Reach::Gate.pick_slice_text(found) if found.length > 1
 
         raise Reach::Refused, no_slice_text(slice)
       end
@@ -1223,7 +1223,7 @@ module Reach
         return workspace if workspace
         return workspace_for(slice) unless slice.to_s.strip.empty?
 
-        slices = Reach::Workspace.current_slices
+        slices = Reach::Workspace.settled_slices
         return slices.first if slices.length == 1
         raise Reach::Refused, Reach::Gate.pick_slice_text if slices.length > 1
 
@@ -1232,7 +1232,7 @@ module Reach
 
       def ensure_slice_choice!(workspace)
         return if workspace
-        return unless Reach::Gate.root_kind? && Reach::Workspace.current_slices.length > 1
+        return unless Reach::Gate.root_kind? && Reach::Workspace.settled_slices.length > 1
 
         raise Reach::Refused, Reach::Gate.pick_slice_text
       end

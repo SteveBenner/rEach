@@ -1424,8 +1424,18 @@ module Reach
       space && space["kind"] == "root" ? true : false
     end
 
-    def pick_slice_text
-      Reach::Messages.text("M-PICK-SLICE", choices: pick_slice_choices)
+    def pick_slice_text(found = nil)
+      pick = Reach::Messages.text("M-PICK-SLICE", choices: pick_slice_choices)
+      stuck = Reach::Workspace.stuck_copies
+      return pick if stuck.empty?
+
+      root = File.expand_path(Reach::Paths.workspace_root)
+      notes = stuck.map do |copy|
+        Reach::Messages.text("M-COPIES-IN-USE", slice: File.basename(copy["to"]), from: copy["from"].sub("#{root}#{File::SEPARATOR}", ""), to: copy["to"].sub("#{root}#{File::SEPARATOR}", ""))
+      end.join(" ")
+      covered = stuck.flat_map { |copy| [copy["from"], copy["to"]].map { |path| File.expand_path(path) } }
+      only_copies = !found.nil? && !found.empty? && (found.map { |path| File.expand_path(path) } - covered).empty?
+      only_copies ? notes : "#{notes} #{pick}"
     end
 
     def raise_pick_slice!
