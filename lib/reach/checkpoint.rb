@@ -673,6 +673,10 @@ module Reach
       []
     end
 
+    def dismiss_paths!(paths)
+      Reach::StateFile.write(DISMISSED_FILE, "paths" => (dismissed + paths).uniq)
+    end
+
     def dismiss_command(folder)
       "reach checkpoint dismiss --slice #{folder}"
     end
@@ -701,8 +705,7 @@ module Reach
       return { "dismissed" => [], "message" => clash } if clash
       return { "dismissed" => [], "message" => Reach::Messages.text("M-CHECKPOINT-DISMISS-NONE") } if items.empty?
 
-      paths = (dismissed + items.map { |item| item["path"] }).uniq
-      Reach::StateFile.write(DISMISSED_FILE, "paths" => paths)
+      dismiss_paths!(items.map { |item| item["path"] })
       folders = items.map { |item| item["folder"] }
       { "dismissed" => folders, "message" => Reach::Messages.text("M-CHECKPOINT-DISMISSED", slices: folders.join(", ")) }
     end

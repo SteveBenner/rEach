@@ -1,5 +1,25 @@
 # FEATURES — rEach
 
+## One work folder per part of an assignment when the course name changes — 0.77.2
+
+A student whose packages came first under one course name and later under another had two copies of the same work folder, and rEach's checks, help requests and submissions picked whichever copy sorted first, so a check could report an empty README while the student's reflections were in the other copy. rEach now moves an old copy into the new course path when it provisions one, and each sync brings existing copies together: the copy under the enrolled course keeps, the student's changed files from the other copy are written into it (where both changed a file, the newer edit wins and the other is kept beside it as `<file>.from-<course>`), and the other copy is kept whole under `deliverables/.reach-retired`. The sync summary tells the student where their work is.
+
+Verified on 2026-11-17 on Linux in scratch homes with every override set, against the real `Reach::Workspace.provision_slice`, `consolidate!`, `find`, `Reach::ReadmeCheck` and `Reach::Check.run`, with the course rules text stood in. Before, `find` returned the old panel copy and its README showed 5 empty sections; after, one copy per slice, 0 README problems, the old panel code carried over, the older of two conflicting backend edits set aside, no missing-folder report, and a second sync merged nothing. Carry-forward on a fresh provision moved the old folder with its work. Not exercised: a real sync against the course server, macOS and Windows, a real student computer, and an agent session left open inside the old copy (it follows the folder into `.reach-retired`, where writes are refused as the workspace root).
+
+Student-first audit:
+1. Learning: yes, the checks read the work the student wrote.
+2. Agency and honesty: yes, the sync summary says where the work went and where the old copy is.
+3. Wellbeing and safety: yes, a student stops seeing work they saved reported as missing.
+4. Privacy and dignity: yes, nothing new leaves the computer; PRIVACY.md lists the retired copies.
+5. Fairness and access: yes, every harness and system.
+6. Friction: yes, no new step.
+7. Failure: yes, a merge that fails keeps the other copy in place and warns in the sync summary; nothing is deleted.
+8. Recovery: yes, the old copy and both checkpoint histories stay on the computer.
+
+Wiring: none; no wire or Teach change.
+
+Build ✅ · Deploy ⚪ on main, not yet on test · stable is the operator's
+
 ## A help request for a student whose agent goes around in circles is raised again — 0.77.1
 
 The loop watch of 0.76.0 is meant to raise a help request when the student's AI assistant repeats itself on the same request three times in a slice. Before raising one it looks for a help request the slice already has open, and that lookup called a private method of `Reach::Hands`, so it raised `NoMethodError` every time and the help request was never raised (Teach issue iss_6e5d9ea1c2d0620decd9, five installs on 0.76.1 and 0.76.2, Claude Code on macOS and Windows). The fault was caught, so the student was never blocked, but nobody was asked to help them either. `Reach::Hands.open_hands` is now public.

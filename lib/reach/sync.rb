@@ -125,6 +125,17 @@ module Reach
         end
 
         begin
+          merged = Reach::Workspace.consolidate!
+          summary["warnings"].concat(Array(merged["warnings"]))
+          Array(merged["merged"]).each do |entry|
+            aside = entry["set_aside"].empty? ? "" : "; where both copies had changed a file, the other version is beside it as #{entry["set_aside"].join(", ")}"
+            summary["warnings"] << "reach: your earlier #{File.basename(entry["from"])} work is now in #{entry["to"]}#{aside}; the old copy is kept at #{entry["retired"]}"
+          end
+        rescue SystemCallError => e
+          summary["warnings"] << "reach: could not bring your earlier copies of a work folder together (#{Reach::Link.reason(e, "sync")})"
+        end
+
+        begin
           if Reach::Packages.new.latest_version("workspace")
             summary["workspaces"] = Reach::Workspace.provision_from_package
           end

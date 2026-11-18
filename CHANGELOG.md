@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.2] - 2026-11-17
+
+### Fixed
+
+- **A student's work no longer splits across two copies of the same work folder when the course name in their packages changes (Teach issue iss_69eb052a375c4bd2c839).** Packages Teach built before its eca0b015 named the newest course, later ones the student's own, and `Reach::Workspace.provision_slice` provisioned a fresh copy under the new name beside the old one. `Reach::Workspace.find` and the other single-slice lookups then took whichever copy sorted first, so `reach check` could read a template README while the student's reflections sat in the other copy. Now provisioning moves the same slice's folder from another course name into a new path (`carry_forward`, event `workspace_carried`), and every sync runs `Reach::Workspace.consolidate!` after the layout migration: for copies of one assignment, cutout and slice under several course names, the copy under the enrolled course keeps, every owned or scenario file the student changed elsewhere is written into it (where both changed and differ, the newer edit wins and the other is kept beside it as `<file>.from-<course>`), the keeper is checkpointed first and relocked, and the other copy moves whole to `deliverables/.reach-retired/<stamp>/` (skipped by slice discovery and archives), with its path dismissed from the missing-folder report (`Reach::Checkpoint.dismiss_paths!`), its empty course folder removed, the merge logged (`workspace_merged`) and the sync summary saying where the work and the old copy are. Measured in scratch homes against the real provisioning code: before, `find` returned the old panel copy and its README showed 5 empty sections; after `consolidate!`, one copy per slice under the enrolled course, the README showed 0 problems, the panel code from the old copy was present, the older of two conflicting backend edits sat beside the newer as `score.rb.from-<old course>`, no orphan checkpoints were reported and a second run merged nothing. Spec: STD-WORKSPACE-ONE-COPY; PRIVACY.md lists the retired copies.
+
 ## [0.77.1] - 2026-11-17
 
 ### Fixed

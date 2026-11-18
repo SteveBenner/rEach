@@ -62,7 +62,9 @@ course folder is `~/reach-work`, and rEach keeps its own files (keys, vault, sta
 `deliverables/<course>/<assignment>/<cutout>-<slice>/`, and anything else the
 student wants to build goes in `extracurricular/` (`reach work
 --extracurricular`), which is never graded and never leaves the student's
-computer. The agent puts code in files, never in chat. The Stop and SessionEnd
+computer. When the same part of an assignment ends up under two course names, a
+sync brings the student's changes into one folder and keeps the other copy whole
+under `deliverables/.reach-retired/`. The agent puts code in files, never in chat. The Stop and SessionEnd
 hooks run `reach hook stop`, which only flushes debug events and shows the link
 notice and the debug block.
 

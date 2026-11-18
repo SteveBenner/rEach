@@ -13,6 +13,7 @@ module Reach
     NEVER_LOCKABLE_FILES = %w[.mcp.json].freeze
     WRITABLE_DIRS = %w[qualify/features qualify/step_definitions].freeze
     GENERATED_FILES = %w[AGENTS.md CLAUDE.md GEMINI.md README.md shape/brief.md].freeze
+    RETIRED_DIR = ".reach-retired".freeze
 
     DEFAULT_README_LINES = [
       "# {cutout_id} - {slice} slice",
@@ -67,6 +68,7 @@ module Reach
       target = Reach::Paths.workspace_path(course, assignment, cutout_id, slice_name)
 
       document = slice_name == Reach::DocumentFiles::SLICE
+      carry_forward(target, assignment, cutout_id, slice_name)
       Reach::Checkpoint.autosave(target, via: "provision") if File.file?(File.join(target, MARKER_DIR, MARKER_FILE))
       prune_stale_kit(target, root, entries)
       kept_files = write_package_entries(target, root, entries, owned)
@@ -240,7 +242,7 @@ module Reach
       raise Reach::Refused, Reach::Messages.text("M-GATE-NOSLICE-NAMED", slice: name.to_s.strip, choices: names.join(", "))
     end
 
-    CURRENT_SLICES_SKIP_DIRS = %w[.git node_modules vendor .bundle tmp .claude .codex].freeze
+    CURRENT_SLICES_SKIP_DIRS = %w[.git node_modules vendor .bundle tmp .claude .codex .reach-retired].freeze
     CURRENT_SLICES_MAX_DEPTH = 4
 
     def current_slices
@@ -321,6 +323,178 @@ module Reach
       File.open(Reach::Paths.workspace_log, File::WRONLY | File::CREAT | File::APPEND, 0o644) { |file| file.puts(JSON.generate(record)) }
     rescue StandardError
       nil
+    end
+
+    def log_workspace_event(event, fields)
+      FileUtils.mkdir_p(Reach::Paths.logs_dir)
+      record = { "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), "event" => event }.merge(fields)
+      File.open(Reach::Paths.workspace_log, File::WRONLY | File::CREAT | File::APPEND, 0o644) { |file| file.puts(JSON.generate(record)) }
+    rescue SystemCallError => e
+      Reach::Debug.fault(e, "workspace:log")
+    end
+
+    def carry_forward(target, assignment, cutout_id, slice_name)
+      return if File.exist?(target)
+
+      source = same_slice_elsewhere(target, assignment, cutout_id, slice_name).first
+      return unless source && !in_use?(source)
+
+      FileUtils.mkdir_p(File.dirname(target))
+      File.rename(source, target)
+      dismiss_folder(source)
+      remove_empty_parents(source)
+      log_workspace_event("workspace_carried", "from" => source, "to" => target)
+    rescue SystemCallError => e
+      Reach::Debug.fault(e, "workspace:carry")
+    end
+
+    def same_slice_elsewhere(target, assignment, cutout_id, slice_name)
+      wanted = File.expand_path(target)
+      deliverable_slices.select do |path|
+        next false if File.expand_path(path) == wanted
+
+        meta = metadata(path)
+        meta["assignment"].to_s == assignment.to_s && meta["cutout_id"] == cutout_id && meta["slice"] == slice_name
+      end.sort_by { |path| -marker_time(path).to_f }
+    end
+
+    def consolidate!
+      result = { "merged" => [], "warnings" => [] }
+      course = safe_current_install&.dig("course", "id").to_s
+      groups = deliverable_slices.group_by do |path|
+        meta = metadata(path)
+        [meta["assignment"].to_s, meta["cutout_id"].to_s, meta["slice"].to_s]
+      end
+      groups.each do |(_assignment, cutout_id, _slice), paths|
+        next if cutout_id.empty? || paths.map { |path| metadata(path)["course"].to_s }.uniq.length < 2
+
+        keeper = paths.find { |path| metadata(path)["course"].to_s == course } || paths.max_by { |path| marker_time(path) }
+        (paths - [keeper]).each do |other|
+          next if in_use?(other)
+
+          begin
+            result["merged"] << merge_into(keeper, other)
+          rescue SystemCallError => e
+            Reach::Debug.fault(e, "workspace:merge")
+            result["warnings"] << "reach: could not move your earlier #{File.basename(other)} work into #{keeper} (#{e.class})"
+          end
+        end
+      end
+      result
+    end
+
+    def merge_into(keeper, other)
+      Reach::Checkpoint.autosave(keeper, via: "provision")
+      Reach::Checkpoint.autosave(other, via: "provision")
+      keeper_course = safe_name(metadata(keeper)["course"])
+      other_course = safe_name(metadata(other)["course"])
+      copied = []
+      set_aside = []
+      student_files(other).each do |relative|
+        source = File.join(other, relative)
+        next unless student_changed?(other, relative)
+
+        target = File.join(keeper, relative)
+        incoming = File.binread(source)
+        if !File.file?(target) || !student_changed?(keeper, relative)
+          place(keeper, relative, incoming)
+          copied << relative
+          next
+        end
+
+        present = File.binread(target)
+        next if present == incoming
+
+        if File.mtime(source) > File.mtime(target)
+          aside = "#{relative}.from-#{keeper_course}"
+          place(keeper, aside, present)
+          place(keeper, relative, incoming)
+          copied << relative
+        else
+          aside = "#{relative}.from-#{other_course}"
+          place(keeper, aside, incoming)
+        end
+        set_aside << aside
+      end
+      lock_down(keeper, owned_files(keeper), read_delivered_digests(keeper).fetch("readonly", {}).keys)
+      retired = retire(other)
+      log_workspace_event("workspace_merged", "from" => other, "to" => keeper, "retired" => retired, "copied" => copied, "set_aside" => set_aside)
+      { "from" => other, "to" => keeper, "retired" => retired, "copied" => copied, "set_aside" => set_aside }
+    end
+
+    def student_files(workspace_path)
+      base = Pathname.new(File.expand_path(workspace_path))
+      written = WRITABLE_DIRS.flat_map do |dir|
+        Dir.glob(File.join(workspace_path, dir, "**", "*")).select { |path| File.file?(path) }.map do |path|
+          Pathname.new(File.expand_path(path)).relative_path_from(base).to_s
+        end
+      end
+      (owned_files(workspace_path) + written).uniq
+    end
+
+    def student_changed?(workspace_path, relative)
+      full = File.join(workspace_path, relative)
+      return false unless File.file?(full)
+
+      recorded = read_delivered_digests(workspace_path).fetch("owned", {})[relative]
+      recorded.nil? || Reach::Crypto.digest_hex(File.binread(full)) != recorded
+    end
+
+    def place(workspace_path, relative, contents)
+      full = File.join(workspace_path, relative)
+      open_path(workspace_path, File.dirname(relative))
+      FileUtils.mkdir_p(File.dirname(full))
+      safe_chmod(0o644, full) if File.file?(full)
+      File.binwrite(full, contents)
+    end
+
+    def retire(path)
+      destination = File.join(Reach::Paths.deliverables_root, RETIRED_DIR, Time.now.utc.strftime("%Y%m%dT%H%M%SZ"), *deliverable_parts(path))
+      FileUtils.mkdir_p(File.dirname(destination))
+      File.rename(path, destination)
+      dismiss_folder(path)
+      remove_empty_parents(path)
+      destination
+    end
+
+    def deliverable_slices
+      root = File.expand_path(Reach::Paths.deliverables_root)
+      current_slices.select { |path| File.expand_path(path).start_with?("#{root}#{File::SEPARATOR}") }
+    end
+
+    def deliverable_parts(path)
+      Pathname.new(File.expand_path(path)).relative_path_from(Pathname.new(File.expand_path(Reach::Paths.deliverables_root))).each_filename.to_a
+    end
+
+    def dismiss_folder(path)
+      Reach::Checkpoint.dismiss_paths!([File.join(Reach::Paths.deliverables_root, *deliverable_parts(path))])
+    end
+
+    def remove_empty_parents(path)
+      root = File.expand_path(Reach::Paths.deliverables_root)
+      parent = File.dirname(File.expand_path(path))
+      while parent.start_with?("#{root}#{File::SEPARATOR}") && Dir.exist?(parent) && Dir.empty?(parent)
+        Dir.rmdir(parent)
+        parent = File.dirname(parent)
+      end
+    rescue SystemCallError => e
+      Reach::Debug.fault(e, "workspace:prune")
+    end
+
+    def in_use?(path)
+      within_path?(File.realpath(Dir.pwd), path)
+    rescue SystemCallError
+      false
+    end
+
+    def marker_time(path)
+      File.mtime(File.join(path, MARKER_DIR, MARKER_FILE))
+    rescue SystemCallError
+      Time.at(0)
+    end
+
+    def safe_name(value)
+      value.to_s.gsub(/[^A-Za-z0-9._-]/, "_")
     end
 
     def space_for(path)
