@@ -14,7 +14,6 @@ module Reach
     READ_MAX = 65_536
     LOCK_WAIT_S = 0.2
     QUIET_OUTCOMES = %w[ok allow context started].freeze
-    CHECK_FORMAT = /\A[a-z0-9_.: -]{1,48}\z/.freeze
     OUTCOME_FORMAT = /\A[a-z_]{1,24}\z/.freeze
     CODE_FORMAT = /\A[A-Z]{1,4}-[A-Z0-9-]{2,48}\z/.freeze
     SAFE = [SystemCallError, IOError, JSON::ParserError, ArgumentError, TypeError, NoMethodError, EncodingError, Reach::StateFile::Held].freeze
@@ -64,7 +63,7 @@ module Reach
       {
         "at" => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "kind" => kind,
-        "check" => shaped(fields["check"] || fields["command"] || fields["event"], CHECK_FORMAT),
+        "check" => nil,
         "outcome" => shaped(outcome, OUTCOME_FORMAT),
         "code" => shaped(fields["message_id"] || fields["code"], CODE_FORMAT)
       }

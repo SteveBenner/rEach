@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.1] - 2026-11-18
+
+### Fixed
+
+- **Signals no longer keep a check name.** `Reach::Signals` stored an event's check, command or event name when it matched a lowercase pattern, and a gate event can carry the subcommand the student typed (`reach <word>`), so up to 48 characters of the student's own words could reach `state/signals.json` and a technical hand's telemetry. The check field is now always null; telemetry carries only codes, fixed outcomes, hook flags and held ids. The wire (W-ISSUE-9) already allows a null check, so Teach's pin is unchanged.
+
 ## [0.78.0] - 2026-11-18
 
 ### Added
