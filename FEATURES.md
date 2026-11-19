@@ -6,7 +6,7 @@ The attempt ladder now holds a slice only after its thirty-second failed qualifi
 
 Verified on 2026-11-18 on Linux against the real `Reach::Ladder` with its state in a scratch folder: 3 failures with no yes gave `M-LADDER-ASK`, 10 and 31 with a yes gave "Carrying on with pass 11 of 32." and "pass 32 of 32", and 32 gave `M-LADDER-STOPPED`. `tools/policy.rb build` and `check` passed with no problems. Not exercised: a real qualification run, a real harness, Windows, and macOS. `specs/wire.yml`'s example still shows `hard_stop: 10`, because it is part of the wire contract digest.
 
-Build: on main. Deploy: 0.78.8 on test (prm_a954fb3842ec65433c28), not on stable. 0.78.9 brings the guardrail-layers figure and the reach.spec.yml decision log to the same limit.
+Build: on main. Deploy: 0.78.8 on test, not on stable. 0.78.9 brings the guardrail-layers figure and the reach.spec.yml decision log to the same limit.
 
 Student-first audit: a student whose checks fail for a reason they cannot see in their brief keeps working with their agent instead of being held after ten tries.
 
