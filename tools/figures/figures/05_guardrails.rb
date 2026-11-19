@@ -10,7 +10,7 @@ module Figures
      "Signed rules first; pauses, holds and tests in code."],
     ["Student consent", :student, "Nothing is submitted without the student's yes, within 30 minutes, for exactly these files. A live-session action needs a typed yes too.", "reach submit",
      "Nothing is submitted without the student's yes."],
-    ["Qualification", :reach, "A plan audit, scored passes and the agent's own scenarios, here and on Teach. The third failed try raises a hand; the tenth stops.", "reach qualify",
+    ["Qualification", :reach, "A plan audit, scored passes and the agent's own scenarios, here and on Teach. The third failed try raises a hand; the thirty-second stops.", "reach qualify",
      "The agent proves the slice here and on Teach."],
     ["Seal and witness ledger", :reach, "Each owned file carries an invisible seal and each session leaves a signed ledger. The server reads both.", "seal · ledger",
      "Invisible seals and a signed ledger the server reads."],

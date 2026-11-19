@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.9] - 2026-11-18
+
+### Fixed
+
+- Two copies of the attempt ladder's limit still said the tenth failed try stops, after 0.78.8 moved it to the thirty-second: the Qualification card of the guardrail-layers figure (`tools/figures/figures/05_guardrails.rb`, redrawn into `docs/assets/figures/05-guardrail-layers-light.svg` and `-dark.svg` with `tools/figures/build.rb --only 05`) and the decision log in `reach.spec.yml`, which gains a dated 2026-11-18 entry and keeps the 2026-09-29 one as written. A review of the 0.78.8 change found both; a repository-wide search for "tenth" now finds only history (the 2026-09-29 decision, an older FEATURES.md entry and the CHANGELOG). The GitHub `figures-2` release PNGs still show the old text until they are re-rendered.
+
 ## [0.78.8] - 2026-11-18
 
 ### Changed

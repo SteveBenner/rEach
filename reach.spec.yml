@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.78.8
+version: 0.78.9
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -106,6 +106,10 @@ decisions:
     When writing code the agent must follow the reach-feature or reach-bug flow (directive FLOW). Git is not supported
     yet: the gate refuses it in slice and root spaces, files are overwritten in place and checkpoints are the history.
     Git support is planned for Reach 2.0 (ROADMAP.md).
+- date: '2026-11-18'
+  decision: >-
+    The attempt ladder's hard stop moves from the tenth failed qualification to the thirty-second (Reach 0.78.8,
+    Reach::Ladder::HARD_STOP); the notice at the second and the hand with the student's yes at the third are unchanged.
 wire_contract: specs/wire.yml (normative for every byte between Reach and Teach; where this file and it differ, it wins)
 runtime:
   ruby: 2.6.10 to 4.0.x; standard library only; no native gems.
