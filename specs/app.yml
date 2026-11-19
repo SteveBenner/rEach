@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.78.7
+version: 0.78.8
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -1983,8 +1983,8 @@ data:
         - {from: silent, to: notice, by: Reach::Ladder.record, guard: "failed reaches NOTICE_FROM, which is 2"}
         - {from: notice, to: hand, by: Reach::Ladder.raise_ladder_hand, guard: "failed reaches HAND_AT, which is 3; further work is held until the student agrees"}
         - {from: hand, to: continue, by: Reach::Ladder.continue!, guard: "a student prompt exists since the hand and failed is still under HARD_STOP"}
-        - {from: notice, to: stopped, by: Reach::Ladder.record, guard: "failed reaches HARD_STOP, which is 10"}
-        - {from: continue, to: stopped, by: Reach::Ladder.record, guard: "failed reaches HARD_STOP, which is 10"}
+        - {from: notice, to: stopped, by: Reach::Ladder.record, guard: "failed reaches HARD_STOP, which is 32"}
+        - {from: continue, to: stopped, by: Reach::Ladder.record, guard: "failed reaches HARD_STOP, which is 32"}
         - {from: silent, to: passed, by: Reach::Ladder.reset!, guard: "a qualification passes"}
         - {from: stopped, to: silent, by: Reach::Ladder.reset_for_hand, guard: "an instructor reply arrives for the hand"}
         - {from: hand, to: silent, by: Reach::Ladder.reset_for_hand, guard: "an instructor reply arrives for the hand"}
@@ -5959,7 +5959,7 @@ standards:
   - id: STD-WELLBEING-DELIVERED
     text: "Since 0.19.2 a wellbeing hand (W-SUP-2) always carries a string space: the current space's kind (slice, extracurricular or root), or outside when reach support runs from a directory outside every rEach folder; before, outside sent null and Teach refused it with 400 while the student was told it was queued. A wellbeing hand Teach refuses is never reported as told or queued: its outbox entry is removed, a fault event (support:wellbeing or support:flush) goes to Teach (W-DBG-FAULT), the student still gets the full crisis message, and the hour-long repeat guard is not armed. tools/smoke/assignment_one.rb runs Teach with hand-raises on and raises a CLI hand, an MCP reach_raise_hand hand and a wellbeing hand from outside every folder, and checks all three on Teach."
   - id: STD-ATTEMPT-LADDER
-    text: "Reach counts failed qualifications per slice: a notice from the second, an agent hand (reach.hand/v2, originator agent) at the third with further work held until the student says yes, and a hard stop at the tenth until an instructor replies. A pass or a reply resets it."
+    text: "Reach counts failed qualifications per slice: a notice from the second, an agent hand (reach.hand/v2, originator agent) at the third with further work held until the student says yes, and a hard stop at the thirty-second until an instructor replies (the tenth before 0.78.8). A pass or a reply resets it."
   - id: STD-FLOWS
     text: "The agent writes code only through the reach-feature or reach-bug flow (directive FLOW). The student deals in business behaviour only: student-facing text never names code, tests, scenarios, files or commands."
   - id: STD-CHECK-BEFORE-SUBMIT

@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.8] - 2026-11-18
+
+### Changed
+
+- **The attempt ladder now stops at the thirty-second failed qualification instead of the tenth.** `Reach::Ladder::HARD_STOP` is 32, and the behaviour policy's `attempt_ladder.hard_stop` in `specs/polispec/behavior.yml` matches it, so the doctor's R-DOC-POLICY ladder check still agrees. The notice at the second failure, the hand and the student's yes at the third, and the reset on a pass or an instructor reply are unchanged. The TOZERO directive (`directives/tozero.md`, its copy in the behaviour policy, the generated `workspace-full.md` and `policy/behavior.json`) now says fourth to thirty-first and thirty-second failure. `docs/student-guide.md` says 32 tries, and `docs/architecture.md` and `specs/app.yml` say the thirty-second. Every message that names the limit (`M-LADDER-ASK`, `M-LADDER-CONTINUE`, `M-LADDER-STOPPED`, `M-STANDING-TRIES`, `M-BRIEF-TRIES`, `reach status`) already reads the constant.
+- `specs/wire.yml` still shows `hard_stop: 10` in its example of the hand bundle's `attempts` object. That example is part of the wire contract digest, so changing it needs Teach to take the same wire text first. The bundle itself carries the real constant, and Teach does not read the field.
+
 ## [0.78.7] - 2026-11-18
 
 ### Fixed

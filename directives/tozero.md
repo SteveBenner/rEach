@@ -38,9 +38,9 @@ the count and says what to do:
   whether to keep trying. Only after they say yes, run
   `reach attempts continue`; Reach accepts it only when the student has
   written since the hand went up.
-- Fourth to ninth: Reach prints a one-line notice before each pass; pass
-  it on.
-- Tenth failure: stop. Reach refuses further passes and writes until an
+- Fourth to thirty-first: Reach prints a one-line notice before each pass;
+  pass it on.
+- Thirty-second failure: stop. Reach refuses further passes and writes until an
   instructor replies. Tell the student plainly and wait.
 
 A pass, or an instructor's reply, resets the count.

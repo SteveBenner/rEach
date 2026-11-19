@@ -1,6 +1,6 @@
 {
   "schema": "polispec.behavior.compiled/v2",
-  "digest": "sha256:59b4cf4228e52aa104068b8ec3472dd9aa1e5401c9f51366c9170e0d47d2584a",
+  "digest": "sha256:390a5ac60b27eed6506a60c9edb7dd8789509bcb04bd84717f6038ac3daed178",
   "policy": {
     "antifeatures": [
       {
@@ -320,7 +320,7 @@
       },
       {
         "alias": "G",
-        "body": "# TOZERO: a finding is work, not a report\n\nWhen `reach check`, the shape check or `reach qualify` reports something,\nwork it. Then look again. Keep going until nothing is reported, or the\nattempt ladder stops you.\n\nThe loop, every time:\n\n1. Look at the actual output: finding ids, QF codes, scenario names.\n2. Sort it: a real finding (something that ran and said so) or not a\n   finding (a worry, a style preference, an idea nobody asked for).\n   Never invent a finding to keep working.\n3. Fix the smallest thing that resolves it, in owned files or in your\n   scenarios under qualify/.\n4. Run `reach qualify` again.\n5. Back to 1 with the new output.\n\nThe attempt ladder counts failed qualifications for the slice; Reach keeps\nthe count and says what to do:\n\n- First failure: keep working, say nothing to the student.\n- Second failure: tell the student the one sentence `reach qualify`\n  prints, then keep working.\n- Third failure: Reach raises a hand with your code, your scenarios and\n  the last output, and prints what to tell the student. Ask the student\n  whether to keep trying. Only after they say yes, run\n  `reach attempts continue`; Reach accepts it only when the student has\n  written since the hand went up.\n- Fourth to ninth: Reach prints a one-line notice before each pass; pass\n  it on.\n- Tenth failure: stop. Reach refuses further passes and writes until an\n  instructor replies. Tell the student plainly and wait.\n\nA pass, or an instructor's reply, resets the count.\n\nStop and ask the student instead of working when the fix would change\nsomething they can see or chose (a visible shape finding, a wording, a\nlayout), or when the finding is about the meaning of the business rule\nrather than the code.\n",
+        "body": "# TOZERO: a finding is work, not a report\n\nWhen `reach check`, the shape check or `reach qualify` reports something,\nwork it. Then look again. Keep going until nothing is reported, or the\nattempt ladder stops you.\n\nThe loop, every time:\n\n1. Look at the actual output: finding ids, QF codes, scenario names.\n2. Sort it: a real finding (something that ran and said so) or not a\n   finding (a worry, a style preference, an idea nobody asked for).\n   Never invent a finding to keep working.\n3. Fix the smallest thing that resolves it, in owned files or in your\n   scenarios under qualify/.\n4. Run `reach qualify` again.\n5. Back to 1 with the new output.\n\nThe attempt ladder counts failed qualifications for the slice; Reach keeps\nthe count and says what to do:\n\n- First failure: keep working, say nothing to the student.\n- Second failure: tell the student the one sentence `reach qualify`\n  prints, then keep working.\n- Third failure: Reach raises a hand with your code, your scenarios and\n  the last output, and prints what to tell the student. Ask the student\n  whether to keep trying. Only after they say yes, run\n  `reach attempts continue`; Reach accepts it only when the student has\n  written since the hand went up.\n- Fourth to thirty-first: Reach prints a one-line notice before each pass;\n  pass it on.\n- Thirty-second failure: stop. Reach refuses further passes and writes until an\n  instructor replies. Tell the student plainly and wait.\n\nA pass, or an instructor's reply, resets the count.\n\nStop and ask the student instead of working when the fix would change\nsomething they can see or chose (a visible shape finding, a wording, a\nlayout), or when the finding is about the meaning of the business rule\nrather than the code.\n",
         "enforce": "gate:write",
         "id": "R-TOZERO",
         "opcode": "TOZERO",
@@ -867,7 +867,7 @@
       },
       "attempt_ladder": {
         "hand_at": 3,
-        "hard_stop": 10,
+        "hard_stop": 32,
         "notice_from": 2
       },
       "checklist": {
@@ -2359,7 +2359,7 @@
         "R-VERIFY",
         "WS-POINTER-FULL"
       ],
-      "sha256": "50c35616e6a54f7273479a850fbf725339a20997e9a47b2cc6a379a3d348f2fb"
+      "sha256": "572ca9ab74121c4714822c73daadccf84866abad9cd861fb73355ea843abec25"
     },
     "workspace-stub": {
       "kind": "stub",

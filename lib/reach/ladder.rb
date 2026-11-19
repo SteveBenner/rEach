@@ -6,7 +6,7 @@ module Reach
   module Ladder
     NOTICE_FROM = 2
     HAND_AT = 3
-    HARD_STOP = 10
+    HARD_STOP = 32
     HISTORY_LIMIT = 20
 
     module_function

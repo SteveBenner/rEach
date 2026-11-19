@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Attempt ladder stops at 32 failed tries — 0.78.8
+
+The attempt ladder now holds a slice only after its thirty-second failed qualification, not its tenth. The notice from the second failure, the hand and the student's yes at the third, and the reset on a pass or an instructor reply are unchanged. Every message that names the limit reads `Reach::Ladder::HARD_STOP`, and the behaviour policy's `attempt_ladder.hard_stop` and the TOZERO directive say the same.
+
+Verified on 2026-11-18 on Linux against the real `Reach::Ladder` with its state in a scratch folder: 3 failures with no yes gave `M-LADDER-ASK`, 10 and 31 with a yes gave "Carrying on with pass 11 of 32." and "pass 32 of 32", and 32 gave `M-LADDER-STOPPED`. `tools/policy.rb build` and `check` passed with no problems. Not exercised: a real qualification run, a real harness, Windows, and macOS. `specs/wire.yml`'s example still shows `hard_stop: 10`, because it is part of the wire contract digest.
+
+Build: on main. Deploy: not on test or stable yet.
+
+Student-first audit: a student whose checks fail for a reason they cannot see in their brief keeps working with their agent instead of being held after ten tries.
+
+Wiring: none.
+
 ## PowerShell enrollment steps are no longer refused before enrollment — 0.78.7
 
 On Windows, rEach hands a Codex agent every command with PowerShell's call operator in front (`& "<ruby>" "<reach>" validate`). The shell gate read that `&` as a background separator, so the security validation pass, `reach support`, `reach uninstall` and `reach reinstall`, which must run before enrollment, no longer matched their exemptions and the enrollment lock refused them with M-GATE-NOENROLL. A student could not get past validation to enroll. The gate now drops a leading call operator from a PowerShell command before those checks; everything else is judged as before.
