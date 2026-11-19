@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.7] - 2026-11-18
+
+### Fixed
+
+- **A Windows Codex student's agent could not run the security validation pass, `reach support`, `reach uninstall` or `reach reinstall` before enrollment.** On Windows every rEach line an agent runs outside Claude Code starts with PowerShell's call operator (`& "<ruby>" "<reach>" validate`, from `Reach::Runtime.terminal_command`), but the shell gate's splitter read that `&` as a background separator. The command then no longer counted as the single bare call that `Reach::Validation.shell_command?`, `Gate.support_command?` and `Gate.uninstall_command?` let through, so the enrollment lock refused it with `M-GATE-NOENROLL` and the student could not get past validation to enroll. `Reach::Gate.shell` (`lib/reach/gate.rb`) now drops a leading call operator from a PowerShell command before those checks. Any other command, and any chained command, is judged as before. `STD-CODEX-WINDOWS-HOOKS` in `specs/app.yml` records it. Run with Windows stubbed on Linux; not run on Windows.
+
 ## [0.78.6] - 2026-11-18
 
 ### Added

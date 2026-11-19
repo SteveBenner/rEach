@@ -653,7 +653,7 @@ module Reach
     def shell(command:, event: nil, harness: nil, dialect: nil)
       @powershell = dialect.to_s == "powershell" || cmdlet_command?(command.to_s)
       text = command.to_s
-      text = text.tr("\\", "/") if @powershell
+      text = text.tr("\\", "/").sub(/\A\s*&(?=[\s"'])\s*/, "") if @powershell
       return nil if support_command?(text)
       return nil if uninstall_command?(text)
       return nil if Reach::Validation.shell_command?(text)

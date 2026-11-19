@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## PowerShell enrollment steps are no longer refused before enrollment — 0.78.7
+
+On Windows, rEach hands a Codex agent every command with PowerShell's call operator in front (`& "<ruby>" "<reach>" validate`). The shell gate read that `&` as a background separator, so the security validation pass, `reach support`, `reach uninstall` and `reach reinstall`, which must run before enrollment, no longer matched their exemptions and the enrollment lock refused them with M-GATE-NOENROLL. A student could not get past validation to enroll. The gate now drops a leading call operator from a PowerShell command before those checks; everything else is judged as before.
+
+Verified on 2026-11-12, and again on 2026-11-18 against current main, on Linux against the real gate in a scratch home, with the PowerShell dialect forced: `& ... validate`, `support`, `uninstall --yes`, `reinstall --harness codex --yes` and the no-space `&"..."` form are allowed, as is the plain form; `& ... enroll`, `status`, `uninstall --evil`, `validate; Remove-Item ...`, `validate & Remove-Item ...` and `& iex foo` are refused with M-GATE-NOENROLL. Before the change `support`, `uninstall`, `reinstall` and `validate` with the operator were refused. Not exercised: a real Windows host, a real Codex session, or Claude Code's PowerShell tool; it is not confirmed that Codex sends the command with the operator the model wrote. The report that prompted this was one line with no student, hand or log, so this is the one path found by reading the gate, not a reproduced student failure.
+
+Student-first audit: a Windows Codex student is no longer stopped at the validation step by a refusal that names nothing they can fix.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ on a branch, not yet on main or test
+
 ## One yes submits every ready part of an assignment — 0.78.6
 
 A student with several parts to hand in had to answer one question per part. Now `reach submit --all` (or `reach_submit` with `all` true) asks once, listing every ready part, and after the student's yes submits each part in turn. Parts that are not ready, written parts and parts already received are named with the reason, not asked.

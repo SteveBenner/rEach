@@ -6,7 +6,7 @@
 - [ ] Find out why Teach refuses a security-validation pass that rEach holds as passed. Both redo paths (chat since 0.70.6, terminal since 0.70.11) work around it once; a refusal that repeats still ends in the old text, and the cause is not established (Teach side, reproduce with a held pass against the registration route).
 - [ ] The messages that take `{slice}` (M-CHECKPOINT-RECOVERED, M-CHECKPOINT-RECOVER-FAILED, and the packet messages) still print the work-folder name "backend" where `Reach::Messages::SLICE_NAMES` says "logic"; 0.70.12 changed only the eleven part-naming messages of the submit question.
 - [ ] Watch the 0.70.12 submit question in a real chat: the fix was shown with the real catalogue, guided-learner filter, `Consent.ask!` and `Consent.capture` in a fake home, not in a harness.
-- [ ] Open the 0.70.13 panel preview in a browser on a kit built from the Grokit that Teach actually serves (older than 0.12.7 until `TEACH_GROKIT_ROOT` moves). It was checked over HTTP on a scratch kit from Grokit 0.12.7.
+- [ ] Open the 0.70.13 panel preview in a browser on a kit built from the Grokit that Teach actually serves (0.12.11 as of 2026-11-18). It was checked over HTTP on a scratch kit from Grokit 0.12.7.
 - [ ] The panel preview answers an empty 200 for a call whose behaviour the kit lacks (Grokit `LoadError`), so a student sees no choices and no reason. Decide whether the preview should name the missing behaviour instead of hiding it.
 
 ## Installation reports and check sessions (0.68.20, wire revision 2026-11-05a)
@@ -16,16 +16,6 @@
 - [ ] Windows without Ruby reports nothing until the PowerShell step has fetched Ruby.
 - [ ] `reach live yes` at a terminal cannot always tell an agent from a person. Find a stronger sign that a person is there.
 - [ ] The offer an older copy still needs stays until no copy older than 0.68.20 reports. Remove it then.
-
-## Assignment-one smoke is stale (found 2026-10-18 running it for 0.53.22)
-
-The same failures and skips occur on 0.53.21, so they predate partial work.
-
-- [x] `tools/smoke/assignment_one.rb` expects a nonzero exit from the Claude Code login hook; the hook now blocks with exit 0, so the login, guarded-write, unqualified-submit and qualify-scenario steps fail.
-- [x] Its grader image names no longer match the images the grader uses, so the grader never starts and every grading step skips.
-- [x] `hook_prompt("Yes")` sends no `transcript_path`, and rEach accepts a hook yes only when the asked question is in the transcript's assistant text, so the full-submit yes can never be taken; the harness should write a transcript holding the pending question.
-- [x] Qualification needs `bundle` on the PATH of the rEach commands it runs.
-- [x] `ingest-receipt-ids` assumes one ingest receipt; a partial submission before the full one adds a second.
 
 ## Audit 2026-10-08 (0.46.0, main b1b85d5)
 
@@ -150,16 +140,12 @@ Five read-and-reproduce reviews (client, work, data, agent, install). Repros liv
 
 - [ ] An interactive Hermes session (first-use hook prompts, a student typing), and a Hermes provider connection instead of the shim.
 
-## Release 0.7.0 open items
-
-- [ ] The installer's Windows path is unverified.
-
 ## Before a class uses it
 
 - [ ] A live Codex session on macOS with 0.16.16: confirm both rEach hooks appear under `/hooks` (or Settings > Hooks), trust them, and see the greeting. The scratch `hooks/list` check passed; drop the cache repair once openai/codex#47925 is fixed.
 - [ ] Antigravity: `reach setup --harness antigravity`, `agy plugin install` and the plugin-directory link are untested.
 - [ ] Confirm whether Claude applies the plugin's `settings.json` `"agent": "reach:reach"` for an installed plugin; a `--plugin-dir` session did not report it (the greeting works without it).
-- [ ] Windows: hook-command quoting and the Antigravity copy fallback are untested.
+- [ ] Windows: hook-command quoting, the Antigravity copy fallback and the installer's Windows path (from release 0.7.0) are untested.
 
 ## Known limits
 
