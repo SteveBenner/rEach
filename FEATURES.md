@@ -1,5 +1,23 @@
 # FEATURES — rEach
 
+## One yes submits every ready part of an assignment — 0.78.6
+
+A student with several parts to hand in had to answer one question per part. Now `reach submit --all` (or `reach_submit` with `all` true) asks once, listing every ready part, and after the student's yes submits each part in turn. Parts that are not ready, written parts and parts already received are named with the reason, not asked.
+
+Build: built on a branch, not promoted. Deploy: not released.
+
+Student-first audit:
+1. Learning: n/a.
+2. Agency and honesty: yes, one question names every part and the student can say no.
+3. Wellbeing and safety: yes, nothing is sent before the yes, and a part edited after the yes asks again.
+4. Privacy and dignity: n/a.
+5. Fairness and access: yes, every part is judged by the same checks as a single submit.
+6. Friction: yes, one yes instead of one per part.
+7. Failure: yes, parts left out are named and a failed part does not stop the rest.
+8. Recovery: yes, run the command again inside 30 minutes to finish parts left by the time budget.
+
+Wiring: none; consent stays local, no wire or Teach change.
+
 ## The runtime installs beside a folder that is in use — 0.78.5
 
 On Windows a folder cannot be renamed while the Ruby inside it runs, so `reach runtime install` over an existing runtime folder failed every time. Now, when the old folder cannot be moved, the new runtime goes into a separate folder and becomes the current one; the old folder is removed later, once nothing uses it.

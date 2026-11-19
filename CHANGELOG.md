@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.6] - 2026-11-18
+
+### Added
+
+- **`reach submit --all` (and `reach_submit` with `all` true) hands in every ready part of an assignment on one yes.** A student with several parts to hand in was asked one question per part, and an AI app that reviews each `reach_submit` call had to be satisfied once per part. Now one question (`M-SUBMIT-ALL-ASK`) lists every part that passed its checks, is qualified on exactly its files and holds no received receipt, and after the student's yes Reach submits each part in turn inside the one call. The captured yes is written as one record per part (`Reach::Consent.capture`, one append), each bound to that part's own file digests and used once by that part's submit, so a part edited after the yes asks its own question and stops the run. The run starts no new part after 120 seconds and says how many are left; the same command again finishes them on the same yes for 30 minutes. Written parts, parts already received and parts that are not ready are named with the reason and not asked. A no declines every part. Plain `reach submit` and `--partial` are unchanged, `--all` with `--partial` is a usage error, and consent stays local: no wire change and no Teach change.
+
 ## [0.78.5] - 2026-11-18
 
 ### Fixed

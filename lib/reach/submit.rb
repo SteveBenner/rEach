@@ -10,6 +10,7 @@ module Reach
     UPLOAD_READ_TIMEOUT_S = 120
     POLL_READ_TIMEOUT_S = 10
     POLL_WAITS_S = [3, 6, 12].freeze
+    ALL_BUDGET_S = 120
 
     class << self
       def submit(slice:, partial: false)
@@ -85,6 +86,39 @@ module Reach
           Reach::Debug.submit("state" => "queued")
           { "submission_id" => nil, "state" => "queued", "receipt" => nil, "rejection" => nil }
         end
+      end
+
+      def submit_all(slice:)
+        Reach::BehaviorPolicy.ensure!
+        Reach::Login.require_active!
+        Reach::HookLiveness.require_hooks!
+        Reach::Controls.check_submit!
+        anchor = resolve_workspace(slice)
+        meta = Reach::Workspace.metadata(anchor)
+        assignment = meta["assignment"]
+        course = meta["course"]
+        ready, left_out, received = classify_parts(assignment, course)
+        if ready.empty?
+          return { "state" => "none_ready", "text" => Reach::Messages.text("M-SUBMIT-ALL-NONE", assignment: assignment, left_out: left_out_text(left_out), received: received_text(received)) }
+        end
+
+        members = ready.map { |part| { "subject_digest" => Reach::Consent.digest(part[:subject]), "slice_id" => File.basename(part[:path]) } }
+        pending = approve_all!(ready, members, assignment, course, left_out)
+        return pending if pending
+
+        results = []
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        tried = 0
+        ready.each do |part|
+          break if Process.clock_gettime(Process::CLOCK_MONOTONIC) - started >= ALL_BUDGET_S
+
+          tried += 1
+          result = submit_part(part)
+          results << result
+          break if %w[asked declined].include?(result["state"])
+        end
+        remaining = ready.drop(tried).map { |part| File.basename(part[:path]) }
+        { "state" => "batch", "results" => results, "remaining" => remaining, "left_out" => left_out, "received" => received, "text" => batch_text(results, ready.length, remaining, left_out) }
       end
 
       def upload_document(install, body, idempotency_key)
@@ -288,6 +322,110 @@ module Reach
       end
 
       private
+
+      def classify_parts(assignment, course)
+        ready = []
+        left_out = []
+        received = []
+        candidates = Reach::Workspace.current_slices.map { |path| [path, Reach::Workspace.metadata(path)] }.select do |_path, meta|
+          meta["course"] == course && meta["assignment"] == assignment
+        end
+        candidates.sort_by { |path, meta| [meta["cutout_id"].to_s, meta["slice"].to_s, path] }.each do |path, meta|
+          cutout = meta["cutout_id"]
+          if Reach::DocumentFiles.document_meta?(meta)
+            left_out << { "cutout" => cutout, "reason" => Reach::Messages.text("M-SUBMIT-ALL-REASON-DOCUMENT") }
+          elsif Reach::Receipts.on_record?(cutout_id: cutout, slice: meta["slice"], assignment: assignment, ignore_partial: true)
+            received << cutout
+          else
+            begin
+              run_preconditions(path)
+              raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ALL-REASON-UNQUALIFIED") unless Reach::Qualify.current?(path)
+
+              require_part!(assignment)
+              ready << { path: path, meta: meta, subject: { "workspace" => File.basename(path), "digests" => owned_digests(path, meta) } }
+            rescue Reach::Refused => e
+              left_out << { "cutout" => cutout, "reason" => e.message.to_s.lines.first.to_s.strip }
+            end
+          end
+        end
+        [ready, left_out, received]
+      end
+
+      def part_label(meta)
+        "#{Reach::Messages.learner_cutout(meta['cutout_id'])} (#{Reach::Messages::SLICE_NAMES.fetch(meta['slice'].to_s, meta['slice'])})"
+      end
+
+      def left_out_text(left_out)
+        return "" if left_out.empty?
+
+        list = left_out.map { |row| "- #{Reach::Messages.learner_cutout(row['cutout'])}: #{row['reason']}" }.join("\n")
+        "#{Reach::Messages.text('M-SUBMIT-ALL-LEFT-OUT', list: list)}\n"
+      end
+
+      def received_text(received)
+        return "" if received.empty?
+
+        "#{Reach::Messages.text('M-SUBMIT-ALL-RECEIVED', list: received.map { |cutout| Reach::Messages.learner_cutout(cutout) }.join(', '))} "
+      end
+
+      def all_again_text(ready)
+        due = ready.map { |part| due_for(part[:meta]) }.compact.min
+        return "" if due.nil?
+
+        id = Reach::Pace.server_now < due ? "M-SUBMIT-ASK-OPEN" : "M-SUBMIT-ASK-LATE"
+        Reach::Messages.text(id, due: Reach::Messages.course_time(due))
+      end
+
+      def all_ask_fields(ready, assignment, left_out)
+        list = ready.map { |part| "- #{part_label(part[:meta])}" }.join("\n")
+        { count: ready.length, assignment: assignment, list: list, left_out: left_out_text(left_out), again: all_again_text(ready), credit: Reach::Archive.credit("M-LMS-UPLOAD-THAT") }
+      end
+
+      def approve_all!(ready, members, assignment, course, left_out)
+        subjects = ready.map { |part| part[:subject] }
+        if subjects.any? { |subject| Reach::Consent.declined?(kind: "submission", subject: subject) }
+          subjects.each { |subject| Reach::Consent.clear_declined!(kind: "submission", subject: subject) }
+          return { "state" => "declined", "text" => Reach::Messages.text("M-CONSENT-DECLINED") }
+        end
+        return nil if subjects.any? { |subject| Reach::Consent.answered_yes?(kind: "submission", subject: subject) }
+
+        fields = all_ask_fields(ready, assignment, left_out)
+        case approval_mode
+        when "agent"
+          nil
+        when "terminal"
+          puts Reach::Messages.text("M-SUBMIT-ALL-ASK", **fields).strip
+          print Reach::Messages.text("M-SUBMIT-TERMINAL-PROMPT")
+          $stdout.flush
+          answer = $stdin.gets
+          return { "state" => "declined", "text" => Reach::Messages.text("M-CONSENT-DECLINED") } unless Reach::Consent.yes?(answer.to_s)
+
+          subjects.each { |subject| Reach::Consent.record_terminal!(kind: "submission", subject: subject, message_id: "M-SUBMIT-ALL-ASK", answer: "yes", text: answer) }
+          nil
+        else
+          subject = { "assignment" => assignment, "course" => course, "parts" => members.map { |member| member["subject_digest"] } }
+          replay = { "slice_ids" => members.map { |member| member["slice_id"] }, "slice_id" => members.first["slice_id"] }
+          question = Reach::Consent.ask!(kind: "submission", subject: subject, message_id: "M-SUBMIT-ALL-ASK", fields: fields, replay: replay, members: members)
+          { "state" => "asked", "text" => Reach::Messages.text("M-CONSENT-NEEDED", question: question) }
+        end
+      end
+
+      def submit_part(part)
+        result = submit(slice: part[:path])
+        { "slice_id" => File.basename(part[:path]), "cutout_id" => part[:meta]["cutout_id"], "state" => result["state"], "receipt" => result["receipt"], "text" => result["text"] }
+      rescue Reach::Refused => e
+        { "slice_id" => File.basename(part[:path]), "cutout_id" => part[:meta]["cutout_id"], "state" => "rejected", "receipt" => nil, "text" => e.message }
+      end
+
+      def batch_text(results, total, remaining, left_out)
+        lines = results.map do |result|
+          result["state"] == "queued" ? Reach::Messages.text("M-SUBMIT-PENDING") : result["text"]
+        end
+        done = results.count { |result| result["state"] == "ingested" }
+        lines << Reach::Messages.text("M-SUBMIT-ALL-DONE", done: done, total: total, left_out: left_out_text(left_out).strip)
+        lines << Reach::Messages.text("M-SUBMIT-ALL-MORE", count: remaining.length) unless remaining.empty?
+        lines.compact.map(&:strip).reject(&:empty?).join("\n")
+      end
 
       def rejected_dir
         File.join(Reach::Paths.outbox_dir, "rejected")
@@ -763,6 +901,8 @@ module Reach
         when "agent"
           nil
         when "terminal"
+          return nil if Reach::Consent.take!(kind: kind, subject: { "workspace" => File.basename(workspace), "digests" => owned_digests(workspace, meta) })
+
           puts Reach::Messages.text(message_id, **ask_fields(meta, partial: partial, workspace: workspace)).strip
           print Reach::Messages.text("M-SUBMIT-TERMINAL-PROMPT")
           $stdout.flush

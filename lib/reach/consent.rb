@@ -47,14 +47,15 @@ module Reach
       Reach::Login.no?(text)
     end
 
-    def ask!(kind:, subject:, message_id:, fields: {}, replay: {}, session_id: nil)
+    def ask!(kind:, subject:, message_id:, fields: {}, replay: {}, session_id: nil, members: nil)
       question = Reach::Messages.text(message_id, **fields.each_with_object({}) { |(key, value), memo| memo[key.to_sym] = value }).strip
-      Reach::Login.write_json(
-        pending_path,
+      pending = {
         "schema" => SCHEMA, "kind" => kind.to_s, "subject" => subject, "subject_digest" => digest(subject),
         "message_id" => message_id.to_s, "question" => question, "asked_at" => iso(Time.now.utc),
         "student_id" => Reach::Login.enrolled_id, "replay" => replay, "session_id" => asking_session_id(session_id)
-      )
+      }
+      pending["members"] = members if members.is_a?(Array) && !members.empty?
+      Reach::Login.write_json(pending_path, pending)
       question
     end
 
@@ -204,8 +205,14 @@ module Reach
       rescue SystemCallError
         return nil
       end
+      members = pending["members"]
+      rows = if members.is_a?(Array) && !members.empty?
+               members.map { |member| record.merge("subject_digest" => member["subject_digest"]) }
+             else
+               [record]
+             end
       begin
-        File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.puts(JSON.generate(record)) }
+        File.open(answered_path, File::WRONLY | File::CREAT | File::APPEND, 0o600) { |file| file.write(rows.map { |row| "#{JSON.generate(row)}\n" }.join) }
       ensure
         FileUtils.rm_f(claimed)
       end
@@ -347,6 +354,9 @@ module Reach
       return Reach::Live.follow_up!(observed) if Reach::Live::KINDS.include?(observed["kind"])
 
       if observed["kind"] == "submission"
+        ids = replay["slice_ids"]
+        return Reach::Messages.text("M-SUBMIT-ALL-YES-AGENT", count: ids.length) if observed["answer"] == "yes" && ids.is_a?(Array) && !ids.empty?
+
         return observed["answer"] == "yes" ? Reach::Messages.text("M-SUBMIT-YES-AGENT", slice_id: replay["slice_id"]) : Reach::Messages.text("M-CONSENT-DECLINED")
       end
 
@@ -421,6 +431,12 @@ module Reach
       WIRE_KEYS.each_with_object({}) { |key, memo| memo[key] = chosen[key] }
     rescue StandardError
       nil
+    end
+
+    def answered_yes?(kind:, subject:)
+      target = digest(subject)
+      now = Time.now.utc
+      read_all.any? { |record| matches?(record, kind, target, now) && record["answer"] == "yes" && record["used_at"].nil? }
     end
 
     def spawn_flush(kind)

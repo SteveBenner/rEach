@@ -476,7 +476,7 @@ module Reach
             shape check [--changed <path>] [--format text|agent|json]
             qualify [--slice ...] [--list] [--format text|agent|json] [--local-only] [--task ...] [--summary ...]   prove the slice before submitting
             preview [--slice ...] [--screenshot] [--format text|json] | stop | status   show the panel you are building in your own browser on this computer, with practice data (--screenshot saves a picture of it)
-            submit [--partial] [--slice ...]     ask the student, then submit and wait for the receipt (--partial sends unqualified work for the instructor to review)
+            submit [--partial | --all] [--slice ...]     ask the student, then submit and wait for the receipt (--partial sends unqualified work for the instructor to review; --all asks once for every ready part of the assignment and submits them together)
             submit archive [--assignment A | --all | --course C | --extracurricular]   save a ZIP of your work to Downloads at any time: one assignment (the default), all your work, one course or your own code folder (a submitted assignment must also be uploaded to the course's learning system)
             receipts [wait|show|acks]            receipts
             hand raise [--type T] [--summary ...] [--slice ...] [--include-profile] | status | list   hand-raises; T is one of the request types (student_request, concept_question, assignment_question, deadline_question, grade_question, submission_question, technical_issue, setup_issue, access_issue, extension_request, integrity_question, other)
@@ -1910,15 +1910,22 @@ module Reach
         return cmd_submit_archive(args.drop(1)) if args.first == "archive"
 
         partial, args = parse_bare_flag(args, "partial")
+        all, args = parse_bare_flag(args, "all")
+        if all && partial
+          warn "usage: reach submit --all (not with --partial)"
+          return 2
+        end
         options, _remaining = parse_flags(args, [:slice])
         Reach::Relocation.hold!
         Reach::Controls.check_submit!
         slice = default_slice_id(options[:slice])
         pick_slice_if_ambiguous(slice)
         unless slice
-          warn "usage: reach submit [--partial] --slice <id>"
+          warn "usage: reach submit [--partial | --all] --slice <id>"
           return 1
         end
+        return cmd_submit_all(slice) if all
+
         submit_workspace = resolve_workspace(slice)
         note = submit_workspace && Reach::Checklist.gate_note(submit_workspace)
         puts note if note
@@ -1938,6 +1945,15 @@ module Reach
           puts Reach::Messages.text("M-SUBMIT-PENDING")
           0
         end
+      end
+
+      def cmd_submit_all(slice)
+        result = Reach::Submit.submit_all(slice: slice)
+        return puts(result["text"]).then { 0 } unless result["state"] == "batch"
+
+        result["results"].each { |row| Reach::Receipts.announce(row["receipt"]) if row["receipt"] }
+        puts result["text"]
+        result["results"].any? && result["results"].all? { |row| row["state"] == "rejected" } ? 1 : 0
       end
 
       def cmd_receipts(args)

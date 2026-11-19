@@ -75,11 +75,12 @@ module Reach
       },
       {
         "name" => "reach_submit",
-        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. With archive true and scope all, course (name the course) or extracurricular it saves a ZIP of all the student's work, one course's work or their own code folder instead; that is never a submission. With partial true it submits unqualified work on the student's yes, held for the instructor and not graded automatically. Submitting takes up to half a minute, and up to two minutes for written work with large files: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received",
+        "description" => "Submit the current slice and wait for the ingest receipt. It asks the student through Reach first and submits only on their yes; relay Reach's question word for word. With archive true it instead saves a ZIP of all the student's work for an assignment to Downloads, submitted or not (assignment names it): for a submitted assignment the student must still upload the ZIP to the course's learning system; for one not submitted it is not a submission, and the student sends it to their instructor. With archive true and scope all, course (name the course) or extracurricular it saves a ZIP of all the student's work, one course's work or their own code folder instead; that is never a submission. With partial true it submits unqualified work on the student's yes, held for the instructor and not graded automatically. Submitting takes up to half a minute, and up to two minutes for written work with large files: before calling it, tell the student that, that nothing is saved for sending until they say yes so closing the app while the question is open sends nothing, that after their yes the work counts as received when it reaches the course server and work that arrives after the due time is marked late, so the app should stay open until the receipt shows, and that if it closes first the work stays saved on this computer and is sent at the next sync, but the course server can still refuse or hold it, so only the receipt means it was received. With all true it asks the student once for every ready part of the assignment and submits them one after another in the same call, within about two minutes, and says if some are left for a second call; relay its question word for word",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" },
+            "all" => { "type" => "boolean", "description" => "Submit every ready part of the slice's assignment on one yes from the student; Reach asks once, listing the parts" },
             "archive" => { "type" => "boolean", "description" => "Save the ZIP of the student's work for an assignment (submitted or not) instead of submitting" },
             "assignment" => { "type" => "string", "description" => "With archive true, the assignment to save; defaults to the current one" },
             "scope" => { "type" => "string", "enum" => %w[all course extracurricular], "description" => "With archive true, save all the student's work, one course or their own code folder instead of one assignment" },
@@ -826,6 +827,7 @@ module Reach
           arguments["action"] == "continue" ? { "message" => Reach::Attempts.continue(workspace) } : Reach::Attempts.show(workspace)
         when "reach_submit"
           return archive_tool(arguments) if arguments["archive"] == true
+          return submit_all_tool(arguments) if arguments["all"] == true
 
           result = Reach::Submit.submit(slice: slice_argument(arguments), partial: arguments["partial"] == true)
           if result["state"] == "ingested"
@@ -1292,6 +1294,16 @@ module Reach
         else
           raise Reach::Error, "reach: unknown plan action"
         end
+      end
+
+      def submit_all_tool(arguments)
+        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ALL-PARTIAL") if arguments["partial"] == true
+
+        result = Reach::Submit.submit_all(slice: slice_argument(arguments))
+        return result.merge("message" => result["text"]) unless result["state"] == "batch"
+
+        result["results"].each { |row| Reach::Receipts.announce(row["receipt"]) if row["receipt"] }
+        result.merge("announcement" => result["text"])
       end
 
       def slice_argument(arguments)
