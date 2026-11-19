@@ -339,7 +339,10 @@ module Reach
           else
             begin
               run_preconditions(path)
-              raise Reach::Refused, Reach::Messages.text("M-SUBMIT-ALL-REASON-UNQUALIFIED") unless Reach::Qualify.current?(path)
+              unless Reach::Qualify.current?(path)
+                left_out << { "cutout" => cutout, "reason" => Reach::Messages.text("M-SUBMIT-ALL-REASON-UNQUALIFIED") }
+                next
+              end
 
               require_part!(assignment)
               ready << { path: path, meta: meta, subject: { "workspace" => File.basename(path), "digests" => owned_digests(path, meta) } }
