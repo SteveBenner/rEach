@@ -8,6 +8,7 @@
 | local-run-cause | pass | 2026-11-22T10:07:46Z | smk_923c6ee7ef23 | On test (rEach 0.80.2, 2655d9b1, run from a git archive of the promoted tag) a local Cucumber run with no report name... |
 | gate-path-lookups | pass | 2026-11-22T11:01:26Z | smk_1f8495cdbc84 | rEach 0.80.3 (f1992045, on test) through the real reach gate hook in a scratch enrolled home: realpath and PowerShell... |
 | consent-latest-question | pass | 2026-11-22T11:49:58Z | smk_a8252f76c7ee | rEach 0.80.4 (b8464db9, on test) through Reach::Consent in a scratch enrolled home: a later plain yes to an unrelated... |
+| part-answers-any-course | pass | 2026-11-22T12:00:26Z | smk_46119bd778ff | rEach 0.80.5 (88d48482, on test) through Reach::Part in a scratch enrolled home: with no current slice for the assign... |
 
 ## Ledger
 
@@ -325,4 +326,72 @@ entries:
     policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
   prev: b9b3e8ecdbb5e17c187008336930553d9d365b65b679afd5fe66bb98965709c9
   digest: 3a216bcfb1915c38e5feb957caa841e361b593b33196e1bee3ae0f4cafa92b22
+- id: smk_46119bd778ff
+  recorded_at: '2026-11-22T12:00:26Z'
+  proves:
+    feature: part-answers-any-course
+  verdict: pass
+  summary: 'rEach 0.80.5 (88d48482, on test) through Reach::Part in a scratch enrolled
+    home: with no current slice for the assignment and an install course id that differs
+    from the course the answer was recorded under, the student''s recorded answer
+    now reads as answered (0.80.2 read none), while another student''s answer, another
+    assignment''s file and a file whose recorded assignment differs stay out. Unproven:
+    a student''s real state, and reach submit end to end.'
+  steps:
+  - run: Reach::Part.stored_answers(A9) in a scratch enrolled home whose install course
+      id is CRS101 and which has no current slice for A9, with the student's answer
+      q1 in SLICECOURSE-A9.json, another student's answer q2 in the same file, an
+      A99 file and a file named for A9 whose recorded assignment is B9; at 7e6c3311
+      (0.80.2) and 88d48482 (0.80.5)
+    exit: 0
+    expect: 'before: no answers; after: only the student''s own q1'
+    observed: 0.80.2 keys []; 0.80.5 keys ["q1"]
+  evidence:
+  - path: ".scratch/smoke/0.80.5/part-after.out"
+    sha256: d5563985dd4e75e0881cc0fdf5a26bcd94be0ea8542e299f62477787bc3b5738
+    bytes: 189
+    kind: file
+  - path: ".scratch/smoke/0.80.5/part_drive.rb"
+    sha256: a77f8c9b9b9490e2af7bae56a7054f9b3898a9d54709e0ab739cf6194bc211af
+    bytes: 1371
+    kind: file
+  runner:
+    kind: agent
+    harness: claude
+    harness_version:
+    model: claude-opus-5-5
+    effort:
+  runtime:
+    os:
+      id: ubuntu
+      name: Ubuntu
+      version: '26.04'
+    kernel: 7.0.0-42-generic
+    arch: x86_64
+    platform: x86_64-linux
+    container: false
+    wsl: false
+    tz: PST
+    locale: en_US.UTF-8
+    ruby:
+      engine: ruby
+      version: 4.0.6
+      platform: x86_64-linux
+    polispec:
+      version: 0.59.1
+      edition: standard
+      commit: d33cbc1f4d71ecc0bef13c925eb361febbb9a38a
+      dirty: false
+      install: pinned
+    rplugin: 1.20.1
+    enforce: enforce
+  target:
+    commit: 88d48482944b527efc528b5a584998baf38dd783
+    branch: fix/slice-path-lookup
+    dirty: false
+    project: reach
+    env: dev
+    policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
+  prev: 3a216bcfb1915c38e5feb957caa841e361b593b33196e1bee3ae0f4cafa92b22
+  digest: d6179da3b2b0c16cf9e4dc2527151fcf09348deb96597ebea15f14ef4d1f0874
 ```
