@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.4] - 2026-11-22
+
+### Fixed
+
+- **A later yes to a different question can no longer authorize a submission the student turned down (Teach issue iss_3dcee7a235a1687924fd).** `Reach::Consent.capture` (`lib/reach/consent.rb`) read a decline only as a bare word ("no", "n", "nope"), so "No, don't submit the partial one" left the partial-submission question open for 30 minutes. When the student then answered "yes" to the assistant's plan question, `question_shown?` did not find the consent question in the latest assistant message and fell back to every reply rEach had recorded since the question was asked, found it there, and captured the yes, so `reach submit` handed in the partial work. An answer now counts only when the question is in the assistant's latest message: the harness transcript when the hook has one, otherwise the last reply of the latest turn in rEach's record. A reply whose first word is no, n, nope or don't declines at any length. `Reach::Consent.no?`, which `reach part record` uses to skip a bare yes or no, is unchanged, so a written answer starting with "No," is still recorded. Driven through `Reach::Consent` in a scratch enrolled home, with a transcript, with recorded replies only, and with recorded prompts: the reported sequence authorized the partial submission on 0.80.3 and does not now; a yes right after the question still authorizes it, and a bare no still declines.
+
 ## [0.80.3] - 2026-11-22
 
 ### Fixed

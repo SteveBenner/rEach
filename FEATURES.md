@@ -1,5 +1,13 @@
 # FEATURES — rEach
 
+## A consent answer belongs to the latest question — 0.80.4
+
+A yes or no to one of rEach's questions (submission, module lock, transfer and the rest) counts only when the question is in the assistant's latest message, read from the harness transcript or, without one, from the last reply of the latest turn rEach recorded. A reply that starts with no, n, nope or don't declines at any length.
+
+Verified through `Reach::Consent` in a scratch enrolled home with a transcript, with recorded replies only, and with recorded prompts: the reported "worded no, then yes to the plan" sequence no longer authorizes a partial submission; a yes right after the question still does, and a bare no still declines. Not verified with a live harness session.
+
+Build: on main. Deploy: not deployed.
+
 ## Path lookups and the cd route at the course root — 0.80.3
 
 `realpath` and `readlink` are read-only lookups in the shell gate, and on PowerShell `Resolve-Path` (`rvpa`) and `Get-Item` (`gi`) map to them, each judged on its path arguments like `ls`, so an assistant can learn the full path of a file it may read. A write command refused at the course root answers `M-WRITE-ROOT`, which now names `cd` with the slice's path as the route every harness has.

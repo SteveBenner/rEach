@@ -15,6 +15,7 @@ module Reach
       and then my work all i am ready let's lets proceed ok okay
     ].freeze
     YES_MAX_WORDS = 8
+    DECLINE_LEADS = %w[no n nope don't dont].freeze
 
     module_function
 
@@ -45,6 +46,12 @@ module Reach
 
     def no?(text)
       Reach::Login.no?(text)
+    end
+
+    def decline?(text)
+      return true if no?(text)
+
+      DECLINE_LEADS.include?(text.to_s.tr("’", "'").downcase.split(/[\s,;:!.?\-–—]+/).reject(&:empty?).first)
     end
 
     def ask!(kind:, subject:, message_id:, fields: {}, replay: {}, session_id: nil, members: nil)
@@ -186,7 +193,7 @@ module Reach
       text = entry["text"]
       answer = if yes?(text)
                  "yes"
-               elsif no?(text)
+               elsif decline?(text)
                  "no"
                end
       return nil unless answer
@@ -240,7 +247,7 @@ module Reach
       wanted = squash(question)
       return false if wanted.empty?
 
-      return true if !path.to_s.empty? && File.file?(path) && turn_assistant_texts(path).any? { |text| squash(text).include?(wanted) }
+      return turn_assistant_texts(path).any? { |text| squash(text).include?(wanted) } if !path.to_s.empty? && File.file?(path)
 
       spooled_question?(session_id, wanted, asked_at)
     rescue SystemCallError, IOError
@@ -256,11 +263,17 @@ module Reach
       return false unless File.file?(path)
 
       replies = []
+      previous = []
       File.foreach(path) do |line|
         entry = begin
           JSON.parse(line)
         rescue JSON::ParserError
           nil
+        end
+        if entry.is_a?(Hash) && entry["kind"] == "prompt"
+          previous = replies unless replies.empty?
+          replies = []
+          next
         end
         next unless entry.is_a?(Hash) && entry["kind"] == "reply" && entry["text"].is_a?(String)
 
@@ -273,6 +286,7 @@ module Reach
 
         replies << entry["text"]
       end
+      replies = (replies.empty? ? previous : replies).last(1)
       return false if replies.empty?
 
       squash(replies.join(" ")).include?(wanted) || squash(replies.join).include?(wanted) || replies.any? { |text| squash(text).include?(wanted) }
