@@ -6,6 +6,7 @@ module Reach
     ENV_TOGGLE = "REACH_WINDOWS_ROOTS".freeze
     MAX_AGE_S = 24 * 60 * 60
     EXPORT_TIMEOUT_S = 20
+    FAULT_WHERE = "ca_roots:refresh".freeze
     EXPORT_SCRIPT = [
       "$ErrorActionPreference='SilentlyContinue'",
       "$now=Get-Date",
@@ -14,13 +15,9 @@ module Reach
       "}"
     ].join("; ").freeze
 
-    @last_result = nil
+    @reported = {}
 
     module_function
-
-    def last_result
-      @last_result
-    end
 
     def windows?
       RbConfig::CONFIG["host_os"].to_s.match?(/mswin|mingw|cygwin/)
@@ -39,7 +36,7 @@ module Reach
       return legacy if !File.file?(File.join(fresh, "install.yml")) && File.directory?(legacy)
 
       fresh
-    rescue StandardError
+    rescue ArgumentError, SystemCallError
       nil
     end
 
@@ -51,19 +48,19 @@ module Reach
     end
 
     def config_disabled?
+      require "yaml"
       root = home
       return false if root.nil? || root.empty?
 
       path = File.join(root, "config.yml")
       return false unless File.file?(path)
 
-      require "yaml"
       parsed = YAML.safe_load(File.read(path))
       return false unless parsed.is_a?(Hash) && parsed["tls"].is_a?(Hash)
 
       parsed["tls"]["windows_store"] == false
-    rescue StandardError
-      false
+    rescue Psych::Exception, SystemCallError, IOError, EncodingError
+      true
     end
 
     def enabled?
@@ -75,7 +72,7 @@ module Reach
     def merged_ready?
       path = merged_file
       !path.nil? && File.file?(path) && File.size(path) > 0
-    rescue StandardError
+    rescue SystemCallError
       false
     end
 
@@ -97,7 +94,7 @@ module Reach
       return nil unless File.file?(bundled)
 
       env[ENV_NAME] = bundled
-    rescue StandardError
+    rescue ArgumentError, SystemCallError
       nil
     end
 
@@ -110,37 +107,53 @@ module Reach
 
       bundled = bundled_file(ruby)
       File.file?(bundled) && File.mtime(bundled) > mtime
-    rescue StandardError
+    rescue SystemCallError
       true
     end
 
     def refresh!(force: false, ruby: RbConfig.ruby)
+      require "openssl"
       outcome = begin
         compute_refresh(force, ruby)
-      rescue StandardError
-        [:failed, nil]
+      rescue SystemCallError, IOError, OpenSSL::OpenSSLError => e
+        [:failed, nil, "windows_roots_refresh", e]
       end
-      @last_result = outcome
-      outcome.first == :written ? outcome : outcome.first
+      report_failure(outcome[2], outcome[3]) if outcome.first == :failed
+      outcome.first == :written ? outcome.first(2) : outcome.first
     end
 
     def compute_refresh(force, ruby)
       return [:disabled, nil] unless windows? && enabled?
       return [:fresh, nil] if !force && !stale?(ruby)
 
-      exported = export_certificates
-      return [:failed, nil] if exported.nil?
+      exported, error = export_certificates
+      return [:failed, nil, "windows_roots_export", error] if exported.nil?
 
       merged = merge_certificates(ruby, exported)
       path = merged_file
-      return [:failed, nil] if merged.nil? || path.nil?
+      return [:failed, nil, "windows_roots_empty", nil] if merged.nil? || path.nil?
 
-      require "digest"
       pem = merged.map(&:to_pem).join
-      return [:unchanged, merged.size] if File.file?(path) && Digest::SHA256.hexdigest(File.binread(path)) == Digest::SHA256.hexdigest(pem)
+      return [:unchanged, merged.size] if File.file?(path) && File.binread(path).eql?(pem.b)
 
       write_atomic(path, pem)
       [:written, merged.size]
+    end
+
+    def report_failure(cause, error)
+      return nil if @reported[cause]
+      return nil unless defined?(Reach::Debug) && defined?(Reach::Issues) && defined?(Reach::VERSION)
+
+      @reported[cause] = true
+      fields = {
+        "where" => FAULT_WHERE, "exception" => error ? error.class.name : nil,
+        "errno" => error ? Reach::Debug.errno_name(error) : nil, "message_id" => nil,
+        "cause" => cause, "frames" => [], "shown" => nil
+      }
+      Reach::Debug.emit_always(
+        "fault",
+        fields.merge("fault_id" => Reach::Issues.signature(fields), "reach_version" => Reach::VERSION)
+      )
     end
 
     def export_certificates
@@ -159,7 +172,7 @@ module Reach
         rescue Timeout::Error
           begin
             Process.kill("KILL", thread.pid)
-          rescue StandardError
+          rescue Errno::ESRCH, Errno::EPERM
             nil
           end
         ensure
@@ -167,20 +180,21 @@ module Reach
           drain.kill
         end
       end
-      return nil if output.nil?
+      return [nil, Timeout::Error.new("powershell.exe export exceeded #{EXPORT_TIMEOUT_S} s")] if output.nil?
 
-      output.each_line.filter_map do |line|
+      certificates = output.each_line.filter_map do |line|
         text = line.strip
         next if text.empty?
 
         begin
           OpenSSL::X509::Certificate.new(Base64.strict_decode64(text))
-        rescue StandardError
+        rescue ArgumentError, OpenSSL::X509::CertificateError
           nil
         end
       end
-    rescue StandardError
-      nil
+      [certificates, nil]
+    rescue SystemCallError, IOError => e
+      [nil, e]
     end
 
     def merge_certificates(ruby, exported)
@@ -191,7 +205,7 @@ module Reach
       if File.file?(kit)
         File.read(kit).scan(/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/m).each do |block|
           kit_certs << OpenSSL::X509::Certificate.new(block)
-        rescue StandardError
+        rescue OpenSSL::X509::CertificateError
           nil
         end
       end
@@ -205,8 +219,6 @@ module Reach
         merged << cert
       end
       merged.empty? ? nil : merged
-    rescue StandardError
-      nil
     end
 
     def write_atomic(path, content)

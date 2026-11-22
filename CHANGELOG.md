@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.81.1] - 2026-11-22
+
+### Fixed
+
+- **A broken `config.yml` no longer turns on Windows store trust, and a failed root refresh is recorded.** The 0.80.0 Windows root-store code (`lib/reach/ca_roots.rb`) landed while the host's code-spec checks were silently off, and it rescued `StandardError` in nine places. `Reach::CaRoots.config_disabled?` answered `false` for any error, so a `config.yml` that could not be parsed ignored a `tls.windows_store: false` opt-out and trusted the computer's roots anyway; it now answers `true`. Every rescue in the module names the errors its step can raise. A failed `refresh!` now files one fault event per cause per process (`where` `ca_roots:refresh`, cause `windows_roots_export`, `windows_roots_empty` or `windows_roots_refresh`, with exception and errno) instead of storing its outcome in the unread `last_result`. `Reach::Subscribe.tick` and `Reach::Update` drop their own rescues around `refresh!`, and `Reach::Client#tls_issuer_for` scrubs invalid UTF-8 instead of rescuing. Driven through the real library on Linux with the Windows host forced on, Ruby 3.3 and 4.0: a missing `powershell.exe` failed with one `Errno::ENOENT` fault however often it ran; a stand-in export wrote three certificates and skipped two bad rows; an empty export with no kit bundle recorded `windows_roots_empty`; a corrupt config turned trust off; invalid issuer bytes came back as `?`.
+
 ## [0.81.0] - 2026-11-22
 
 ### Added

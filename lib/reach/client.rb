@@ -318,16 +318,14 @@ module Reach
     end
 
     def tls_issuer_for(issuer)
-      return nil if issuer.nil?
+      return nil if issuer.nil? || !issuer.respond_to?(:to_a)
 
-      common = issuer.to_a.find { |entry| entry[0] == "CN" }
+      common = issuer.to_a.find { |entry| entry.is_a?(Array) && entry[0] == "CN" }
       text = common ? common[1].to_s : issuer.to_s
-      text = text.dup.force_encoding(Encoding::UTF_8)
+      text = text.dup.force_encoding(Encoding::UTF_8).scrub("?")
       text = text.each_char.map { |char| char.ord.between?(32, 126) ? char : "?" }.join
       text = text[0, 80]
       text.empty? ? nil : text
-    rescue StandardError
-      nil
     end
 
     def certificate_failure(method, path, error)

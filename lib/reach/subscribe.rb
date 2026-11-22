@@ -169,11 +169,7 @@ module Reach
         Reach::Update.background_kick
       end
 
-      begin
-        Reach::CaRoots.refresh!
-      rescue StandardError, ScriptError
-        nil
-      end
+      Reach::CaRoots.refresh!
 
       Reach::Device.tick(source)
 

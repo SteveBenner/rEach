@@ -1,5 +1,13 @@
 # FEATURES — rEach
 
+## Windows root refresh fails closed and is recorded — 0.81.1
+
+On Windows, a `config.yml` that cannot be read or parsed turns computer-trusted roots off instead of on. A failed root refresh records one fault event per cause (`ca_roots:refresh`: export, empty or refresh), and every rescue in `Reach::CaRoots` names the errors it handles.
+
+Verified through the real library on Linux with the Windows host forced on, on Ruby 3.3 and 4.0, with a missing and a stand-in `powershell.exe`, a corrupt config and invalid issuer bytes. Not verified on a real Windows machine.
+
+Build: on main. Deploy: not deployed.
+
 ## reach part recover — 0.81.0
 
 `reach part recover` (MCP `reach_part` with `recover: true`) restores own-part answers the student recorded that rEach no longer shows, rebuilding each from the student's own prompt in the local transcript spool or archive whose digest matches the ledger's part entry, and stores them only after the student's typed yes to one question. `reach part` and the submit refusal say when something can be restored.
