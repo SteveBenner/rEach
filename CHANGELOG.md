@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.5] - 2026-11-22
+
+### Fixed
+
+- **A part answer the student recorded no longer reads as unanswered when rEach looks for it under a different course name (Teach issue iss_0bbdb3ed4798f49d6ea1).** `reach part record` writes the answers to `~/.reach/state/part/<course>-<assignment>.json` under the slice marker's course, but `Reach::Part.stored_answers` (`lib/reach/part.rb`), which `reach part`, the status, next-step prompts, `reach submit` and the archive all read through, opened only the file named by the first current slice's course or else the install's course id. With no current slice for the assignment and an install course id that differed from the slice's course, every recorded answer read as unanswered while its file was still on disk, so `reach submit` asked for them again. The reader now takes that file first and then the file for every other current slice's course, the install's course id, and any part file whose recorded course and assignment name it, keeping only the student's own answers and never replacing one already found. Driven through `Reach::Part` in a scratch enrolled home: the reported layout read no answers on 0.80.2 and reads the student's answer now, while another student's answer, another assignment's file and a file whose recorded assignment differs stay out.
+
 ## [0.80.4] - 2026-11-22
 
 ### Fixed

@@ -217,7 +217,36 @@ module Reach
 
       def stored_answers(assignment_id)
         current = student_id
-        load_state(assignment_id)["answers"].select { |_, answer| answer.is_a?(Hash) && (answer["student_id"].nil? || answer["student_id"] == current) }
+        ([nil] + course_keys(assignment_id)).each_with_object({}) do |course, merged|
+          load_state(assignment_id, course)["answers"].each do |id, answer|
+            next if merged.key?(id)
+            next unless answer.is_a?(Hash) && (answer["student_id"].nil? || answer["student_id"] == current)
+
+            merged[id] = answer
+          end
+        end
+      end
+
+      def course_keys(assignment_id)
+        slices = Reach::Workspace.current_slices.select { |path| Reach::Workspace.metadata(path)["assignment"] == assignment_id.to_s }
+        keys = slices.map { |path| Reach::Workspace.metadata(path)["course"] }
+        install = Reach::Enroll.current
+        keys << install["course"]["id"] if install && install["course"].is_a?(Hash)
+        keys += stored_courses(assignment_id)
+        keys.compact.map(&:to_s).reject(&:empty?).uniq
+      rescue StandardError => e
+        Reach::Debug.fault(e, "part:course_keys")
+        []
+      end
+
+      def stored_courses(assignment_id)
+        suffix = "-#{assignment_id}".gsub(/[^A-Za-z0-9._-]/, "_")
+        Dir.glob(File.join(Reach::Paths.state_dir, "part", "*#{suffix}.json")).sort.filter_map do |path|
+          parsed = JSON.parse(File.read(path))
+          parsed["course"] if parsed.is_a?(Hash) && parsed["assignment"] == assignment_id.to_s && state_path(assignment_id, parsed["course"]) == path
+        rescue JSON::ParserError, SystemCallError
+          nil
+        end
       end
 
       def write_state(assignment_id, course, state)

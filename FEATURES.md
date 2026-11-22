@@ -1,5 +1,13 @@
 # FEATURES — rEach
 
+## Recorded part answers are found under any course name — 0.80.5
+
+The part answers reader looks in every part file an assignment can have (each current slice's course, the install's course id, and any part file whose recorded course and assignment name it), so an answer recorded under the slice's course is found when no slice is current or the install names the course differently. Only the student's own answers count.
+
+Verified through `Reach::Part` in a scratch enrolled home: the reported layout read no answers before and reads the answer now; another student's answer and other assignments' files stay out. Not verified on a student's real state.
+
+Build: on main. Deploy: not deployed.
+
 ## A consent answer belongs to the latest question — 0.80.4
 
 A yes or no to one of rEach's questions (submission, module lock, transfer and the rest) counts only when the question is in the assistant's latest message, read from the harness transcript or, without one, from the last reply of the latest turn rEach recorded. A reply that starts with no, n, nope or don't declines at any length.
