@@ -9,6 +9,7 @@
 | gate-path-lookups | pass | 2026-11-22T11:01:26Z | smk_1f8495cdbc84 | rEach 0.80.3 (f1992045, on test) through the real reach gate hook in a scratch enrolled home: realpath and PowerShell... |
 | consent-latest-question | pass | 2026-11-22T11:49:58Z | smk_a8252f76c7ee | rEach 0.80.4 (b8464db9, on test) through Reach::Consent in a scratch enrolled home: a later plain yes to an unrelated... |
 | part-answers-any-course | pass | 2026-11-22T12:00:26Z | smk_46119bd778ff | rEach 0.80.5 (88d48482, on test) through Reach::Part in a scratch enrolled home: with no current slice for the assign... |
+| part-recover | pass | 2026-11-22T12:20:11Z | smk_04a5d4646d4a | rEach 0.81.0 (05853cda, on test) in a scratch enrolled home with a stubbed in-memory policy: reach part recover, the ... |
 
 ## Ledger
 
@@ -394,4 +395,98 @@ entries:
     policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
   prev: 3a216bcfb1915c38e5feb957caa841e361b593b33196e1bee3ae0f4cafa92b22
   digest: d6179da3b2b0c16cf9e4dc2527151fcf09348deb96597ebea15f14ef4d1f0874
+- id: smk_04a5d4646d4a
+  recorded_at: '2026-11-22T12:20:11Z'
+  proves:
+    feature: part-recover
+  verdict: pass
+  summary: 'rEach 0.81.0 (05853cda, on test) in a scratch enrolled home with a stubbed
+    in-memory policy: reach part recover, the reach_part MCP tool with recover true
+    and Reach::Part restore exactly the answers whose ledger digest matches a local
+    spool, archive or split prompt, only after the student''s captured yes, and leave
+    wrong-digest, other-student, retired, too-short, no-seq and already-answered questions
+    alone; the hint shows in reach part and the submit refusal only while something
+    can be restored. Unproven: a student''s real state and a live harness session.'
+  steps:
+  - run: Reach::Part.recoverable, recover_via_consent!, Consent.capture of a yes,
+      recover_via_consent! again, status, recover_hint, Submit require_part! and reach
+      part text list, in a scratch enrolled home (assignment A4, course CRS101, stubbed
+      in-memory policy of eight questions) on the 0.81.0 tree
+    exit: 0
+    expect: q_ok (spool), q_arch (archive) and q_two (two-piece prompt) found; wrong
+      digest, other student, retired question, too short and no seq skipped; already
+      answered untouched; restored after the yes; hint present before and absent after
+    observed: found q_ok 15, q_arch 14, q_two 28 words; skipped q_wrong no_transcript,
+      q_other other_student, q_gone no_longer_asked, q_short too_short, q_nosess no_seq;
+      status after true for exactly q_ok, q_arch, q_two and q_answered; hint in reach
+      part and M-SUBMIT-NO-PART before, gone after; third call says nothing to restore
+  - run: the same through the MCP reach_part tool with recover true for the question,
+      and the CLI reach part recover --slice A4-backend for the stored yes
+    exit: 0
+    expect: MCP returns needs_confirmation with the question naming the three answers;
+      CLI exits 0 and prints the restored questions; three ledger part entries with
+      origin recover
+    observed: 'needs_confirmation with the three questions, their first words and
+      word counts; CLI rc 0, Restored your answers to: Why this design?; What went
+      wrong?; Long reflection; ledger n 95-97 origin recover, seq and session null'
+  evidence:
+  - path: ".scratch/smoke/0.81.0/recover-after.out"
+    sha256: 0e50d2e1ad5355301f1b9bd87aab78362ef0b9cf16249c5fb4f930ec2daa5dd4
+    bytes: 5888
+    kind: file
+  - path: ".scratch/smoke/0.81.0/recover-surfaces.out"
+    sha256: d226f250507105241289a2bdb50124046160a7321c96f79e93854bbeafd7e5bb
+    bytes: 5854
+    kind: file
+  - path: ".scratch/smoke/0.81.0/recover_drive.rb"
+    sha256: a9f43804a107f546c74cf800e8f206052e823fdb50baed55719fa1e28ab00ee7
+    bytes: 7912
+    kind: file
+  - path: ".scratch/smoke/0.81.0/recover_surfaces.rb"
+    sha256: efe126c71732d04e42bf44d06e0fc61303b38f3048832525b68723ea7acd21cc
+    bytes: 8172
+    kind: file
+  - path: ".scratch/smoke/0.81.0/run_recover.rb"
+    sha256: b547e1f7ba1d502ac124eca49a2e5cd2352e019feeebbadf791cd608f2797005
+    bytes: 524
+    kind: file
+  runner:
+    kind: agent
+    harness: claude
+    harness_version:
+    model: claude-opus-5-5
+    effort:
+  runtime:
+    os:
+      id: ubuntu
+      name: Ubuntu
+      version: '26.04'
+    kernel: 7.0.0-42-generic
+    arch: x86_64
+    platform: x86_64-linux
+    container: false
+    wsl: false
+    tz: PST
+    locale: en_US.UTF-8
+    ruby:
+      engine: ruby
+      version: 4.0.6
+      platform: x86_64-linux
+    polispec:
+      version: 0.59.1
+      edition: standard
+      commit: d33cbc1f4d71ecc0bef13c925eb361febbb9a38a
+      dirty: false
+      install: pinned
+    rplugin: 1.20.1
+    enforce: enforce
+  target:
+    commit: '05853cda5b2980c18f4ecd8bcd9bcea1b2ced61f'
+    branch: fix/slice-path-lookup
+    dirty: false
+    project: reach
+    env: dev
+    policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
+  prev: d6179da3b2b0c16cf9e4dc2527151fcf09348deb96597ebea15f14ef4d1f0874
+  digest: 232712fc39d131b066b5c1638cec312ff9fe7d0728f3776113b8bededf946a1e
 ```
