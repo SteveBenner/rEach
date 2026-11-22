@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.79.0] - 2026-11-21
+
+### Added
+
+- **The assistant reads its own assertion text when its own qualify scenario fails on the course server.** Wire revision 2026-11-21a (`specs/wire.yml`, W-API-QUALIFICATION, instructor decision 2026-11-21) lets an agent row carry `message`, the first line of the failing step's error message, but only when that line is exactly a plain string literal in one of the student's own uploaded `qualify/step_definitions` files (at most 160 characters). Otherwise the row carries `message_withheld`. `Reach::Qualify#remote_detail` (`lib/reach/qualify.rb`) shows a `QF-REMOTE-FAIL` or `QF-PANEL-EXAMPLE` finding as `RuntimeError: The supplied example did not succeed.`, a withheld message as the error with a fixed sentence saying only a plain-string message from the student's own step files is shown, and a row from an older Teach as the bare error class, as before. This came from a student whose assistant spent three A2 panel tries on a step that only ever came back as `RuntimeError`. `specs/app.yml` STD-QUALIFY-BEFORE-SUBMIT says the same.
+
 ## [0.78.9] - 2026-11-18
 
 ### Fixed

@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Own-step failure messages in qualify — 0.79.0
+
+When one of the assistant's own qualify scenarios fails on the course server, the finding now shows the first line of the error message, provided the student wrote that line as a plain string in their own step files, for example `RuntimeError: The supplied example did not succeed.`. Any other message is withheld, and a fixed sentence says why. This is wire revision 2026-11-21a. It needs Teach 0.138.0, and with an older Teach the finding shows the bare error class as before.
+
+Verified on 2026-11-21 on Linux: real Cucumber 11.1.1 ran three scenarios in a scratch folder (a plain literal, an interpolated message, a `KeyError`). Teach 0.138.0's `rows_from_report` with `OwnLiterals` turned the JSON report into rows, and `Reach::Qualify#remote_detail` rendered them as `RuntimeError: The supplied example did not succeed.` and twice as the error with the withheld sentence. Not exercised: a sandboxed grader run in the Docker image, a real qualification through Teach, Ruby 2.6.10, Windows, and macOS.
+
+Build: on branch qualify-own-message. Deploy: not deployed; Teach 0.138.0 must reach stable before this reaches test.
+
+Student-first audit: a student's assistant can fix its own broken check instead of spending tries on a bare RuntimeError, and no course code leaves the course server.
+
+Wiring: none.
+
 ## Attempt ladder stops at 32 failed tries — 0.78.8
 
 The attempt ladder now holds a slice only after its thirty-second failed qualification, not its tenth. The notice from the second failure, the hand and the student's yes at the third, and the reset on a pass or an instructor reply are unchanged. Every message that names the limit reads `Reach::Ladder::HARD_STOP`, and the behaviour policy's `attempt_ladder.hard_stop` and the TOZERO directive say the same.

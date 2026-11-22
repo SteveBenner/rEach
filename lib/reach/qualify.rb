@@ -733,7 +733,7 @@ module Reach
         labels = practice_examples(workspace)
         agent.reject { |row| row["result"] == "passed" }.each do |row|
           example = panel_example(row["step"], labels)
-          record["findings"] << { "code" => example ? "QF-PANEL-EXAMPLE" : "QF-REMOTE-FAIL", "name" => row["name"], "step" => row["step"], "detail" => row["error"] }
+          record["findings"] << { "code" => example ? "QF-PANEL-EXAMPLE" : "QF-REMOTE-FAIL", "name" => row["name"], "step" => row["step"], "detail" => remote_detail(row) }
           record["next"] ||= Reach::Messages.text("M-QUALIFY-PANEL-EXAMPLE", given: example[:given], labels: example_labels_text(example[:labels])) if example
         end
         record["findings"] << { "code" => "QF-REMOTE-FAIL", "name" => nil, "detail" => "no scenario ran on the course server" } if agent.empty?
@@ -750,6 +750,17 @@ module Reach
         judge_counted(record, result) unless passed
         record["steps"]["remote"] = { "ran" => true, "passed" => passed, "rows" => { "agent" => agent, "stub" => stub, "hidden" => hidden } }
         passed
+      end
+
+      def remote_detail(row)
+        message = row["message"]
+        if message.is_a?(String) && message.match?(/\A[[:print:]]{1,160}\z/)
+          "#{row['error']}: #{message}"
+        elsif row["message_withheld"] == true
+          "#{row['error']} (its message is not shown: the course server shows a message only when it is written as a plain string in your own step files)"
+        else
+          row["error"]
+        end
       end
 
       def hidden_detail(row)

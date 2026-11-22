@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-18a
+revision: 2026-11-21a
 status: normative
 security_validation:
   id: W-VAL-1
@@ -1083,7 +1083,7 @@ routes:
     response_200:
       qualification_id: string
       status: "pending | running | done | failed_to_run"
-      agent: "[{name, result: passed | failed | skipped, step, error}] once done: the agent's scenarios on the slice"
+      agent: "[{name, result: passed | failed | skipped, step, error, message, message_withheld}] once done: the agent's scenarios on the slice"
       stub: "[{name, result}] once done: the same scenarios with the starting copies in place of the owned files"
       hidden: "[{name, result, reason}] once done: the instructors' graded scenarios for the slice"
       suite_version: "string or null"
@@ -1092,9 +1092,19 @@ routes:
     notes: >-
       step is the text of the scenario's first failing step as written in the agent's feature file, and error the
       class name of what it raised (for example Capybara::ElementNotFound or RuntimeError); both are null for a
-      scenario that passed or was skipped. Teach never returns a failure message, step output, log, page text or file
-      content from a qualification run, because the run directory holds course code the student does not own. reason
-      on a hidden row is the category text from the course's reasons.yml, as on a grade receipt.
+      scenario that passed or was skipped. Teach never returns step output, a log, page text or file content from a
+      qualification run, because the run directory holds course code the student does not own, and it returns a failure
+      message only under the one rule below. reason on a hidden row is the category text from the course's reasons.yml,
+      as on a grade receipt. Since revision 2026-11-21a an agent row also carries message (string or null) and
+      message_withheld (boolean); an older Teach omits both, and Reach reads a missing message as null and a missing
+      message_withheld as false. message is the first line of the failing step's error message, without its class,
+      only when that line is exactly a plain string literal (no interpolation, backslash, newline or control character,
+      1 to 160 characters) in one of the files the student uploaded under qualify/step_definitions/; such text came
+      from the student, so it carries nothing out of the run directory. When a step failed with an error and its
+      message does not meet that rule, message is null and message_withheld is true. Both are null and false for a
+      passed, skipped, undefined, pending or ambiguous step, and on stub and hidden rows the fields are absent. Reach
+      shows a message as "<error>: <message>" and a withheld one as the error with a fixed sentence saying that only a
+      message written as a plain string in the student's own step files is shown.
   - id: W-API-RECEIPTS
     method: GET
     path: /api/v1/receipts
