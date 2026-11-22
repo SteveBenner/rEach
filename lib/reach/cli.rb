@@ -3573,11 +3573,21 @@ module Reach
           return 0
         end
 
+        recover = args.first == "recover"
+        args.shift if recover
         format, args = parse_flags(args, [:format, :slice])
         workspace = resolve_workspace(format[:slice]) || Reach::Gate.focus_workspace
         assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
         status = Reach::Sync.cached_status || {}
         assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil
+        if recover
+          unless assignment
+            warn "reach: no assignment found; run reach sync"
+            return 1
+          end
+          puts Reach::Part.recover_via_consent!(assignment)["text"]
+          return 0
+        end
         rows = assignment ? Reach::Part.status(assignment) : []
         if (format[:format] || "text") == "json"
           answers = assignment ? Reach::Part.document(assignment)["answers"] : []
@@ -3590,6 +3600,8 @@ module Reach
           puts Reach::Messages.text("M-PART-LIST-EMPTY")
         else
           rows.each { |row| puts "#{row['id']}  #{row['answered'] ? 'answered' : 'not answered yet'}  #{row['question']}" }
+          hint = Reach::Part.recover_hint(assignment)
+          puts hint if hint
         end
         0
       end

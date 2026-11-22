@@ -1,6 +1,6 @@
 schema_version: 1
 name: reach
-version: 0.80.5
+version: 0.81.0
 security_validation:
   contract: specs/security-validation.yml
   phase: Required before student enrollment; the current harness walks the isolated practice assignment to a verified Teach receipt.
@@ -2445,7 +2445,7 @@ data:
       source: lib/reach/checkpoint.rb Reach::Checkpoint
       standards: [STD-CHECKPOINT-AUTOSAVE]
     - const: Reach::Consent::KINDS
-      values: [module_lock, transfer_request, submission, submission_partial, compaction, export_import, live_session, live_action, live_send, codex_setup, harness_move, profile_share, transcripts_forget, checkpoints_forget, checkpoints_recover, checkpoints_dismiss, feedback_send, install_withdraw]
+      values: [module_lock, transfer_request, submission, submission_partial, compaction, export_import, live_session, live_action, live_send, codex_setup, harness_move, profile_share, transcripts_forget, checkpoints_forget, checkpoints_recover, checkpoints_dismiss, feedback_send, install_withdraw, reclaim, part_recover]
       used_for: Every kind of action that needs the student's own typed yes, as asked by Reach::Consent.
       source: lib/reach/consent.rb Reach::Consent
       standards: [STD-CONSENT-FROM-REACH]

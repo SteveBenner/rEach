@@ -790,7 +790,10 @@ module Reach
         open_questions = Reach::Part.missing(assignment)
         return if open_questions.empty?
 
-        raise Reach::Refused, Reach::Messages.text("M-SUBMIT-NO-PART", missing: open_questions.map { |question| question["question"] }.join("; "))
+        text = Reach::Messages.text("M-SUBMIT-NO-PART", missing: open_questions.map { |question| question["question"] }.join("; "))
+        hint = Reach::Part.recover_hint(assignment)
+        text = "#{text}\n#{hint}" if hint
+        raise Reach::Refused, text
       end
 
       def flush_transcript(assignment)

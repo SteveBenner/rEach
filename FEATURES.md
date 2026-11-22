@@ -1,5 +1,13 @@
 # FEATURES — rEach
 
+## reach part recover — 0.81.0
+
+`reach part recover` (MCP `reach_part` with `recover: true`) restores own-part answers the student recorded that rEach no longer shows, rebuilding each from the student's own prompt in the local transcript spool or archive whose digest matches the ledger's part entry, and stores them only after the student's typed yes to one question. `reach part` and the submit refusal say when something can be restored.
+
+Verified through `Reach::Part`, the CLI and the MCP tool in a scratch enrolled home with a stubbed in-memory policy: the three restorable cases came back after the yes; wrong digest, other student, retired question, already answered, too short and no seq stayed untouched. Not verified on a student's real state or in a live harness session.
+
+Build: on main. Deploy: not deployed.
+
 ## Recorded part answers are found under any course name — 0.80.5
 
 The part answers reader looks in every part file an assignment can have (each current slice's course, the install's course id, and any part file whose recorded course and assignment name it), so an answer recorded under the slice's course is found when no slice is current or the install names the course differently. Only the student's own answers count.

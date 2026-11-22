@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.81.0] - 2026-11-22
+
+### Added
+
+- **`reach part recover` brings back recorded answers rEach no longer shows (Teach issue iss_0bbdb3ed4798f49d6ea1).** For each own-part question the readers show unanswered, `Reach::Part.recoverable` (`lib/reach/part.rb`) takes the latest `part` entry in the assignment's ledgers and restores the student's prompt at that entry's session and seq from the local transcript spool or its gzipped archive, only when its digest equals the ledger digest and it has the question's minimum words. It never replaces an answer, restores only this install's student's entries, and skips questions the policy no longer asks. Reach asks once for all of them (new consent kind `part_recover`, `M-PART-RECOVER-ASK`) and stores them on the student's yes, with a ledger `part` entry of origin `recover`. The MCP tool `reach_part` takes `recover: true` for the same flow, its list carries `recover_hint`, and `reach part` and the `M-SUBMIT-NO-PART` refusal add `M-PART-RECOVER-HINT` when something can be restored. The reach-course skill tells the assistant to run it and relay its question. Driven through `Reach::Part`, `reach part recover` and `reach_part` in a scratch enrolled home with spool, archive, split-prompt, wrong-digest, other-student, retired-question, already-answered, too-short and no-seq cases: exactly the three restorable answers came back after the yes, and nothing else changed.
+
+### Changed
+
+- `specs/app.yml` lists `reclaim`, which was missing, and `part_recover` among `Reach::Consent::KINDS`.
+
 ## [0.80.5] - 2026-11-22
 
 ### Fixed

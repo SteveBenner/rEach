@@ -2,6 +2,7 @@ require "json"
 require "time"
 require "fileutils"
 require "digest"
+require "zlib"
 
 module Reach
   module Part
@@ -79,6 +80,105 @@ module Reach
           "question_id" => question["id"], "digest" => answer["digest"], "seq" => answer["seq"], "session_id" => answer["session_id"]
         )
         answer
+      end
+
+      def recoverable(assignment_id)
+        assignment = assignment_id.to_s
+        found = []
+        skipped = []
+        return { "assignment" => assignment, "found" => found, "skipped" => skipped } if assignment.empty? || assignment.include?("/") || assignment.include?("..")
+
+        policy = questions(assignment).each_with_object({}) { |question, memo| memo[question["id"]] = question }
+        unanswered = status(assignment).reject { |row| row["answered"] }.map { |row| row["id"] }
+        me = student_id
+        latest_ledger_parts(assignment).each do |question_id, record|
+          course = record["course"]
+          question = policy[question_id]
+          if question.nil?
+            skipped << { "question_id" => question_id, "reason" => "no_longer_asked" }
+            next
+          end
+          next unless unanswered.include?(question_id)
+
+          if record["student_id"] != me
+            skipped << { "question_id" => question_id, "reason" => "other_student" }
+            next
+          end
+          if record["session_id"].to_s.empty? || record["seq"].nil?
+            skipped << { "question_id" => question_id, "reason" => "no_seq" }
+            next
+          end
+          text = transcript_answer(record["session_id"].to_s, record["seq"].to_i, record["digest"].to_s)
+          if text.nil?
+            skipped << { "question_id" => question_id, "reason" => "no_transcript" }
+            next
+          end
+          words = word_count(text)
+          if words < question["min_words"].to_i
+            skipped << { "question_id" => question_id, "reason" => "too_short" }
+            next
+          end
+          found << {
+            "question_id" => question_id, "question" => question["question"], "text" => text, "words" => words,
+            "digest" => record["digest"], "course" => course, "recorded_at" => record["at"]
+          }
+        end
+        { "assignment" => assignment, "found" => found, "skipped" => skipped }
+      end
+
+      def recover!(assignment_id, items)
+        assignment = assignment_id.to_s
+        restored = []
+        me = student_id
+        stamp = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        items.each do |item|
+          next unless status(assignment).any? { |row| row["id"] == item["question_id"] && !row["answered"] }
+
+          state = load_state(assignment, item["course"])
+          state["answers"][item["question_id"]] = {
+            "question_id" => item["question_id"], "text" => item["text"], "words" => item["words"],
+            "session_id" => nil, "seq" => nil, "digest" => item["digest"], "recorded_at" => item["recorded_at"],
+            "student_id" => me, "recovered_at" => stamp
+          }
+          write_state(assignment, item["course"], state)
+          restored << item
+        end
+        slice = Reach::Workspace.current_slices.find { |path| Reach::Workspace.metadata(path)["assignment"] == assignment }
+        if slice
+          restored.each do |item|
+            Reach::Ledger.append(slice, "part", "question_id" => item["question_id"], "digest" => item["digest"], "seq" => nil, "session_id" => nil, "origin" => "recover")
+          end
+        end
+        restored.map { |item| item["question_id"] }
+      end
+
+      def recover_via_consent!(assignment_id)
+        assignment = assignment_id.to_s
+        found = recoverable(assignment)
+        items = found["found"]
+        if items.empty?
+          return { "state" => "nothing", "relay_verbatim" => true, "text" => Reach::Messages.text("M-PART-RECOVER-NONE") }
+        end
+
+        subject = { "assignment" => assignment, "answers" => items.map { |item| [item["question_id"], item["digest"]] } }
+        if Reach::Consent.take!(kind: "part_recover", subject: subject)
+          restored = recover!(assignment, items)
+          names = items.select { |item| restored.include?(item["question_id"]) }.map { |item| item["question"] }
+          return { "state" => "restored", "relay_verbatim" => true, "text" => Reach::Messages.text("M-PART-RECOVERED", n: restored.length, questions: names.join("; ")) }
+        end
+
+        listed = items.map { |item| "#{item['question']} (\"#{item['text'].split.first(8).join(' ')}\u2026\", #{item['words']} words)" }.join("; ")
+        question = Reach::Consent.ask!(kind: "part_recover", subject: subject, message_id: "M-PART-RECOVER-ASK", fields: { n: items.length, answers: listed })
+        { "state" => "needs_confirmation", "relay_verbatim" => true, "text" => question, "message" => question }
+      end
+
+      def recover_hint(assignment_id)
+        return nil if recoverable(assignment_id)["found"].empty?
+
+        Reach::Messages.text("M-PART-RECOVER-HINT")
+      rescue StandardError => e
+        Reach::Debug.fault(e, "part:recover_hint")
+        nil
       end
 
       def build_answer(question, entry, identity)
@@ -180,6 +280,75 @@ module Reach
       def student_id
         install = Reach::Enroll.current
         install && install["student_id"]
+      end
+
+      def latest_ledger_parts(assignment)
+        latest = {}
+        Dir.glob(File.join(Reach::Paths.ledger_dir, "*", assignment, "*.jsonl")).sort.each do |file|
+          course = File.basename(File.dirname(File.dirname(file)))
+          File.foreach(file) do |line|
+            record = begin
+              JSON.parse(line)
+            rescue JSON::ParserError
+              nil
+            end
+            next unless record.is_a?(Hash) && record["kind"] == "part" && record["question_id"].is_a?(String)
+            next if record["origin"] == "recover"
+
+            held = latest[record["question_id"]]
+            key = [record["n"].to_i, record["at"].to_s]
+            latest[record["question_id"]] = record.merge("course" => course) if held.nil? || (key <=> [held["n"].to_i, held["at"].to_s]) >= 0
+          end
+        rescue SystemCallError
+          next
+        end
+        latest
+      end
+
+      def spool_entries(session_id)
+        return [] if session_id.empty? || session_id =~ %r{[/\\\0]} || session_id.include?("..")
+
+        files = [Reach::Transcript.entries_path(session_id)]
+        files += Dir.glob(File.join(Reach::Paths.transcripts_archive_dir, "#{session_id}.jsonl.gz"))
+        files += Dir.glob(File.join(Reach::Paths.transcripts_archive_dir, "#{session_id}-*.jsonl.gz")).select { |path| File.basename(path) =~ /\A#{Regexp.escape(session_id)}-\d+\.jsonl\.gz\z/ }
+        files.uniq.flat_map do |file|
+          next [] unless File.file?(file)
+
+          lines = file.end_with?(".gz") ? Zlib::GzipReader.open(file, &:read).to_s.force_encoding("UTF-8").scrub.lines : File.readlines(file, chomp: false)
+          lines.filter_map do |line|
+            entry = JSON.parse(line)
+            entry.is_a?(Hash) ? entry : nil
+          rescue JSON::ParserError
+            nil
+          end
+        rescue SystemCallError, Zlib::Error, IOError
+          []
+        end
+      end
+
+      def usable_prompt?(entry)
+        entry["kind"] == "prompt" && entry["withheld"] != true && entry["text"].is_a?(String) && !entry["text"].empty?
+      end
+
+      def transcript_answer(session_id, seq, digest)
+        prompts = spool_entries(session_id).select { |entry| usable_prompt?(entry) }
+        first = prompts.find do |entry|
+          next false unless entry["seq"] == seq
+
+          entry["digest"] == digest || Reach::Crypto.digest_hex(entry["text"]) == digest || entry["whole_digest"] == digest
+        end
+        return nil unless first
+        return first["text"] unless first["part"].is_a?(Array)
+
+        total = first["part"][1].to_i
+        return nil unless first["part"][0].to_i == 1 && total > 1
+
+        pieces = (1..total).map do |index|
+          prompts.find { |entry| entry["seq"] == seq + index - 1 && entry["part"] == [index, total] }
+        end
+        return nil if pieces.any?(&:nil?)
+
+        pieces.map { |entry| entry["text"] }.join
       end
 
       def course_id(assignment_id, hint = nil)

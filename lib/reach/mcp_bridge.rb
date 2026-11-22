@@ -293,11 +293,12 @@ module Reach
       },
       {
         "name" => "reach_part",
-        "description" => "List the student's own-part questions with answered flags, or record one from the student's latest typed prompt (never from text you supply)",
+        "description" => "List the student's own-part questions with answered flags, or record one from the student's latest typed prompt (never from text you supply), or restore recorded answers rEach no longer shows",
         "inputSchema" => {
           "type" => "object",
           "properties" => {
             "record" => { "type" => "string", "description" => "A question id to record from the student's latest captured prompt" },
+            "recover" => { "type" => "boolean", "description" => "Look for recorded answers rEach no longer shows and ask the student, word for word, whether to restore them; call again after the student's yes" },
             "slice" => { "type" => "string", "description" => "The slice folder name; defaults to the current slice" }
           }
         }
@@ -1194,6 +1195,8 @@ module Reach
         assignment = workspace ? Reach::Workspace.metadata(workspace)["assignment"] : nil
         status = Reach::Sync.cached_status || {}
         assignment ||= status["current_assignment"].is_a?(Hash) ? status["current_assignment"]["id"] : nil
+        return Reach::Part.recover_via_consent!(assignment) if arguments["recover"] == true && assignment
+
         rows = assignment ? Reach::Part.status(assignment) : []
         answers = assignment ? Reach::Part.document(assignment)["answers"] : []
         questions = rows.map do |row|
@@ -1202,6 +1205,8 @@ module Reach
         end
         payload = { "assignment" => assignment, "questions" => questions }
         payload["text"] = Reach::Messages.text("M-PART-LIST-EMPTY") if rows.empty?
+        hint = assignment ? Reach::Part.recover_hint(assignment) : nil
+        payload["recover_hint"] = hint if hint
         payload
       end
 
