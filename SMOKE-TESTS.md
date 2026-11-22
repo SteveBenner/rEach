@@ -10,6 +10,7 @@
 | consent-latest-question | pass | 2026-11-22T11:49:58Z | smk_a8252f76c7ee | rEach 0.80.4 (b8464db9, on test) through Reach::Consent in a scratch enrolled home: a later plain yes to an unrelated... |
 | part-answers-any-course | pass | 2026-11-22T12:00:26Z | smk_46119bd778ff | rEach 0.80.5 (88d48482, on test) through Reach::Part in a scratch enrolled home: with no current slice for the assign... |
 | part-recover | pass | 2026-11-22T12:20:11Z | smk_04a5d4646d4a | rEach 0.81.0 (05853cda, on test) in a scratch enrolled home with a stubbed in-memory policy: reach part recover, the ... |
+| windows-roots-fail-closed | pass | 2026-11-22T14:57:45Z | smk_7e199b3e22a4 | rEach 0.81.1 from a git archive of v0.81.1 on Linux, Ruby 3.3, Windows host forced on: a corrupt config.yml turns sto... |
 
 ## Ledger
 
@@ -489,4 +490,86 @@ entries:
     policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
   prev: d6179da3b2b0c16cf9e4dc2527151fcf09348deb96597ebea15f14ef4d1f0874
   digest: 232712fc39d131b066b5c1638cec312ff9fe7d0728f3776113b8bededf946a1e
+- id: smk_7e199b3e22a4
+  recorded_at: '2026-11-22T14:57:45Z'
+  proves:
+    feature: windows-roots-fail-closed
+  verdict: pass
+  summary: 'rEach 0.81.1 from a git archive of v0.81.1 on Linux, Ruby 3.3, Windows
+    host forced on: a corrupt config.yml turns store trust off, failed refreshes record
+    one fault per cause (windows_roots_export ENOENT, windows_roots_empty), a stand-in
+    export writes and dedupes the bundle, tls_issuer_for scrubs invalid bytes. Not
+    run on a real Windows machine.'
+  steps:
+  - run: 'Reach::CaRoots.refresh!(force: true) twice, Windows host forced on, no powershell.exe
+      on PATH'
+    exit: 0
+    expect: failed, one windows_roots_export fault with errno ENOENT
+    observed: ":failed twice, one fault (spool and log), exception Errno::ENOENT"
+  - run: refresh! with a stand-in powershell.exe printing three certificates and two
+      bad rows, then again forced, then unforced
+    exit: 0
+    expect: written 3, then unchanged, then fresh; apply! points SSL_CERT_FILE at
+      the merged bundle
+    observed: "[:written, 3], :unchanged, :fresh; roots.pem holds 3 certificates;
+      apply! returned the merged file"
+  - run: 'enabled? with config.yml ''tls: [unclosed'', then windows_store true, then
+      false'
+    exit: 0
+    expect: a corrupt config turns store trust off
+    observed: false (refresh! :disabled), true, false
+  - run: refresh! with an empty export and no kit bundle
+    exit: 0
+    expect: failed with one windows_roots_empty fault
+    observed: ":failed, cause windows_roots_empty, 4 fault lines in total (2 causes
+      x spool and log)"
+  - run: Reach::Client#tls_issuer_for with invalid CN bytes, a normal name, a String
+      and nil
+    exit: 0
+    expect: scrubbed text, the CN, nil, nil, no exception
+    observed: Bad??Name, Example Root CA, nil, nil
+  evidence:
+  - path: report.json
+    sha256: 1a61f8d0572957138dae0212f63c100a34cde728bfc99b7368fe52f025d7eab9
+    bytes: 1772
+    kind: file
+  runner:
+    kind: agent
+    harness: claude-code
+    harness_version: 2.1.330
+    model:
+    effort:
+  runtime:
+    os:
+      id: ubuntu
+      name: Ubuntu
+      version: '26.04'
+    kernel: 7.0.0-42-generic
+    arch: x86_64
+    platform: x86_64-linux
+    container: false
+    wsl: false
+    tz: PST
+    locale: en_US.UTF-8
+    ruby:
+      engine: ruby
+      version: 4.0.6
+      platform: x86_64-linux
+    polispec:
+      version: 0.59.2
+      edition: standard
+      commit: 25aea6fd344f87e0598533e8293776af685b8b32
+      dirty: false
+      install: pinned
+    rplugin: 1.20.1
+    enforce: enforce
+  target:
+    commit: 43f986e6f2d9f1744c01487c5843dfac335934fd
+    branch: main
+    dirty: false
+    project: reach
+    env: dev
+    policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
+  prev: 232712fc39d131b066b5c1638cec312ff9fe7d0728f3776113b8bededf946a1e
+  digest: 44b3ab14c0fa8a78d11e64295e48b4469908f34dab832d3b3644f0bae2594e4c
 ```
