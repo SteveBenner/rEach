@@ -7,6 +7,7 @@
 | enroll-email-extract | pass | 2026-11-22T07:52:00Z | smk_400e637b824a | On test (rEach 0.80.1, ac356e25) Reach::Identity.normalize_username from the test checkout took the one address out o... |
 | local-run-cause | pass | 2026-11-22T10:07:46Z | smk_923c6ee7ef23 | On test (rEach 0.80.2, 2655d9b1, run from a git archive of the promoted tag) a local Cucumber run with no report name... |
 | gate-path-lookups | pass | 2026-11-22T11:01:26Z | smk_1f8495cdbc84 | rEach 0.80.3 (f1992045, on test) through the real reach gate hook in a scratch enrolled home: realpath and PowerShell... |
+| consent-latest-question | pass | 2026-11-22T11:49:58Z | smk_a8252f76c7ee | rEach 0.80.4 (b8464db9, on test) through Reach::Consent in a scratch enrolled home: a later plain yes to an unrelated... |
 
 ## Ledger
 
@@ -240,4 +241,88 @@ entries:
     policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
   prev: 2cb6e7c88a8e818ee99d9dbdf153de8e48fe0bf902813dd8419ed5217a270c35
   digest: b9b3e8ecdbb5e17c187008336930553d9d365b65b679afd5fe66bb98965709c9
+- id: smk_a8252f76c7ee
+  recorded_at: '2026-11-22T11:49:58Z'
+  proves:
+    feature: consent-latest-question
+  verdict: pass
+  summary: 'rEach 0.80.4 (b8464db9, on test) through Reach::Consent in a scratch enrolled
+    home: a later plain yes to an unrelated question no longer authorizes a partial
+    submission the student declined in a sentence, with a transcript, recorded replies
+    only, or recorded prompts, while a yes right after the question still authorizes
+    and a bare no still declines; on 0.80.2 the same sequence authorized it. Unproven:
+    a live harness session through the prompt hook.'
+  steps:
+  - run: Reach::Consent.ask! for submission_partial, then capture of a decline written
+      as a sentence starting with no, then capture of a plain yes after an unrelated
+      plan question, then take!; at 7e6c3311 (0.80.2 main checkout) and at b8464db9
+      (0.80.4), with a transcript, recorded replies only, and recorded prompts
+    exit: 0
+    expect: 'before: the later yes authorizes the partial submission; after: the sentence
+      declines and nothing authorizes it'
+    observed: 0.80.2 authorized=true in all three modes; 0.80.4 the sentence is captured
+      as no and authorized=false in all three modes
+  - run: the same with no first answer, then a plain yes after an unrelated plan question
+    exit: 0
+    expect: not authorized
+    observed: 0.80.2 authorized=true; 0.80.4 authorized=false in all three modes
+  - run: 'controls: yes right after the question, and a bare no then a later yes'
+    exit: 0
+    expect: yes right after the question authorizes; bare no declines
+    observed: authorized=true and authorized=false respectively, in all three modes,
+      before and after
+  - run: Reach::Consent.no? and decline? on a written answer that starts with No,
+      a bare no, Yes and a sentence starting with don't
+    exit: 0
+    expect: no? unchanged for the part recorder; decline? true for the sentences
+    observed: no? true only for the bare no; decline? true for all three no-led texts;
+      yes? true only for Yes
+  evidence:
+  - path: ".scratch/smoke/0.80.4/consent-after.out"
+    sha256: 5daf3bff51c38387fa406d68409b0d58e8abd64499be58b06d1fb42ed1ce9411
+    bytes: 1539
+    kind: file
+  - path: ".scratch/smoke/0.80.4/consent_drive2.rb"
+    sha256: ab3dc534e013ffb0e7518425f90706fbc8ce0807134a9746e432a82a7151aef0
+    bytes: 2955
+    kind: file
+  runner:
+    kind: agent
+    harness: claude
+    harness_version:
+    model: claude-opus-5-5
+    effort:
+  runtime:
+    os:
+      id: ubuntu
+      name: Ubuntu
+      version: '26.04'
+    kernel: 7.0.0-42-generic
+    arch: x86_64
+    platform: x86_64-linux
+    container: false
+    wsl: false
+    tz: PST
+    locale: en_US.UTF-8
+    ruby:
+      engine: ruby
+      version: 4.0.6
+      platform: x86_64-linux
+    polispec:
+      version: 0.59.1
+      edition: standard
+      commit: d33cbc1f4d71ecc0bef13c925eb361febbb9a38a
+      dirty: false
+      install: pinned
+    rplugin: 1.20.1
+    enforce: enforce
+  target:
+    commit: b8464db9278e1c7e1739161ff85ba308369373fc
+    branch: fix/slice-path-lookup
+    dirty: false
+    project: reach
+    env: dev
+    policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
+  prev: b9b3e8ecdbb5e17c187008336930553d9d365b65b679afd5fe66bb98965709c9
+  digest: 3a216bcfb1915c38e5feb957caa841e361b593b33196e1bee3ae0f4cafa92b22
 ```
