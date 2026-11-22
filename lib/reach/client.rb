@@ -312,7 +312,7 @@ module Reach
       when OpenSSL::X509::V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT, OpenSSL::X509::V_ERR_SELF_SIGNED_CERT_IN_CHAIN then "self_signed"
       when OpenSSL::X509::V_ERR_UNABLE_TO_GET_ISSUER_CERT, OpenSSL::X509::V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY,
            OpenSSL::X509::V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE then "untrusted_issuer"
-      when 62 then "hostname"
+      when OpenSSL::X509::V_ERR_HOSTNAME_MISMATCH then "hostname"
       else "other"
       end
     end
