@@ -8,7 +8,7 @@ require "securerandom"
 
 module Reach
   module Gate
-    READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff pwd].freeze
+    READONLY_SINGLE = %w[ls cat head tail less grep rg find wc diff pwd realpath readlink].freeze
     STRICT_WRITE = %w[cp mv rm rmdir mkdir touch tee truncate chmod chown chgrp ln unlink shred install rsync dd patch tar zip unzip gzip gunzip bzip2 xz 7z cpio vi vim nvim nano emacs ed ex split del erase ri rd ren rni move mi copy cpi ni sc ac md].freeze
     PACKAGE_WRITE = %w[npm npx bundle gem].freeze
     WRITE_SINGLE = (STRICT_WRITE + PACKAGE_WRITE).freeze
@@ -25,7 +25,8 @@ module Reach
     PS_COMMON_VALUE = %w[erroraction warningaction].freeze
     PS_COMMON_SWITCH = %w[verbose whatif debug].freeze
     POWERSHELL_CMDLETS = {
-      "ls" => %w[get-childitem gci dir ls childitem],
+      "ls" => %w[get-childitem gci dir ls childitem get-item gi],
+      "realpath" => %w[resolve-path rvpa],
       "cat" => %w[get-content gc type cat],
       "grep" => %w[select-string sls],
       "pwd" => %w[get-location gl pwd],
@@ -46,6 +47,7 @@ module Reach
     PS_SPECS = {
       "ls" => { path: %w[path literalpath], value: %w[filter include exclude depth], switch: %w[recurse force name file directory], positional: [:path], rest: :path },
       "testpath" => { path: %w[path literalpath], value: %w[pathtype], switch: %w[isvalid], positional: [:path], rest: :path },
+      "realpath" => { path: %w[path literalpath], value: [], switch: %w[relative], positional: [:path], rest: :path },
       "cat" => { path: %w[path literalpath], value: %w[totalcount tail head first last encoding readcount delimiter], switch: %w[raw], positional: [:path], rest: :path },
       "grep" => { path: %w[path literalpath], value: %w[pattern context encoding include exclude], switch: %w[simplematch casesensitive list quiet notmatch allmatches], positional: [:pattern, :path], rest: :path },
       "pwd" => { path: [], value: [], switch: [], positional: [], rest: nil },
@@ -1205,7 +1207,7 @@ module Reach
       return if readonly_command?(tokens)
       return if skill_read_command?(words, parsed[:outs], cwd)
 
-      raise_blocked!("M-SHELL-BLOCKED")
+      raise_blocked!(WRITE_SINGLE.include?(File.basename(cmd)) ? "M-WRITE-ROOT" : "M-SHELL-BLOCKED")
     end
 
     def skill_read_command?(words, outs, cwd)
@@ -1854,6 +1856,10 @@ module Reach
         [plain.call("ls")] + (recurse ? [plain.call("-R")] : []) + paths
       when "cat"
         [plain.call("cat")] + paths
+      when "realpath"
+        raise ShellUnmodeled if paths.empty?
+
+        [plain.call("realpath")] + paths
       when "grep"
         raise ShellUnmodeled if found[:pattern].length != 1
 

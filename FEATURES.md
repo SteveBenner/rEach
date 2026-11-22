@@ -1,5 +1,13 @@
 # FEATURES — rEach
 
+## Path lookups and the cd route at the course root — 0.80.3
+
+`realpath` and `readlink` are read-only lookups in the shell gate, and on PowerShell `Resolve-Path` (`rvpa`) and `Get-Item` (`gi`) map to them, each judged on its path arguments like `ls`, so an assistant can learn the full path of a file it may read. A write command refused at the course root answers `M-WRITE-ROOT`, which now names `cd` with the slice's path as the route every harness has.
+
+Verified by driving the real `reach gate shell|write|read` hook in a scratch enrolled home (Claude Code and Codex, slice and course root, the PowerShell tool and the Codex powershell wrapper): the reported lookups pass, lookups outside the course, writes outside the slice and writes to files the student does not own stay refused, and `(Get-Item .).FullName` stays refused. Not verified on a Windows or macOS host.
+
+Build: on main. Deploy: not deployed.
+
 ## Local check runs name their cause — 0.80.2
 
 When a candidate's local Cucumber run in `reach passes score` gives no report, the hard-zero reason now says whether the run timed out, or gives the exit status and what it printed (scrubbed, no backtrace frames). One fault event per cause per score (`passes:local_run`, cause `timeout` or `no_report`, exit status and exception class only) reaches Teach.

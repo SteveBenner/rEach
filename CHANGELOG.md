@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.3] - 2026-11-22
+
+### Fixed
+
+- **An assistant can look up the full path of a file it may read, and a write refused at the top of the course folder says how to run it in the slice (Teach issues iss_f457814179f5ffb4515d, iss_6bb5186a37f6461ea772 and iss_3dcee7a235a1687924fd).** `realpath` and `readlink` were not on the shell gate's read-only list (`READONLY_SINGLE` in `lib/reach/gate.rb`), so from the course root a `realpath` of the student's own slice was refused with `M-SHELL-BLOCKED`, "That command would change files outside your slice". On PowerShell `Get-Item` and `Resolve-Path` were not modeled cmdlets, so they were refused with `M-SHELL-UNMODELED` from any folder, while `Get-Content` of the same file passed, and the assistant had no way to learn its slice's full path. Both commands are now read-only lookups judged on their path arguments like `ls`: `Resolve-Path` and `rvpa` map to `realpath`, and `Get-Item` and `gi` to `ls`. A lookup of a path outside the course is still refused with `M-GATE-OUTSIDE`, and a subexpression such as `(Get-Item .).FullName` is still refused. A write command refused at the course root (a `Set-Content` or `touch` of a slice file) now answers `M-WRITE-ROOT` instead of `M-SHELL-BLOCKED`, and `M-WRITE-ROOT` names the route every harness has: start the command with `cd` and the slice's path. Driven through the real `reach gate` hook in a scratch enrolled home, for Claude Code and Codex, from the slice and from the course root: the lookups now pass, outside lookups, writes outside the slice and writes to files the student does not own are still refused, and the Write tool cases the third issue reported already passed on 0.80.2.
+
 ## [0.80.2] - 2026-11-22
 
 ### Fixed
