@@ -6,7 +6,7 @@ On Windows, a `config.yml` that cannot be read or parsed turns computer-trusted 
 
 Verified through the real library on Linux with the Windows host forced on, on Ruby 3.3 and 4.0, with a missing and a stand-in `powershell.exe`, a corrupt config and invalid issuer bytes. Not verified on a real Windows machine.
 
-Build: on main. Deploy: not deployed.
+Build: on main. Deploy: on stable since 2026-11-22 (v0.81.1, prm_bad3127465f3a8fedff1).
 
 ## reach part recover — 0.81.0
 
@@ -14,7 +14,7 @@ Build: on main. Deploy: not deployed.
 
 Verified through `Reach::Part`, the CLI and the MCP tool in a scratch enrolled home with a stubbed in-memory policy: the three restorable cases came back after the yes; wrong digest, other student, retired question, already answered, too short and no seq stayed untouched. Not verified on a student's real state or in a live harness session.
 
-Build: on main. Deploy: not deployed.
+Build: on main. Deploy: on stable since 2026-11-22 (v0.81.1, prm_bad3127465f3a8fedff1).
 
 ## Recorded part answers are found under any course name — 0.80.5
 
@@ -22,7 +22,7 @@ The part answers reader looks in every part file an assignment can have (each cu
 
 Verified through `Reach::Part` in a scratch enrolled home: the reported layout read no answers before and reads the answer now; another student's answer and other assignments' files stay out. Not verified on a student's real state.
 
-Build: on main. Deploy: not deployed.
+Build: on main. Deploy: on stable since 2026-11-22 (v0.81.1, prm_bad3127465f3a8fedff1).
 
 ## A consent answer belongs to the latest question — 0.80.4
 
@@ -30,7 +30,7 @@ A yes or no to one of rEach's questions (submission, module lock, transfer and t
 
 Verified through `Reach::Consent` in a scratch enrolled home with a transcript, with recorded replies only, and with recorded prompts: the reported "worded no, then yes to the plan" sequence no longer authorizes a partial submission; a yes right after the question still does, and a bare no still declines. Not verified with a live harness session.
 
-Build: on main. Deploy: not deployed.
+Build: on main. Deploy: on stable since 2026-11-22 (v0.81.1, prm_bad3127465f3a8fedff1).
 
 ## Path lookups and the cd route at the course root — 0.80.3
 
@@ -38,7 +38,7 @@ Build: on main. Deploy: not deployed.
 
 Verified by driving the real `reach gate shell|write|read` hook in a scratch enrolled home (Claude Code and Codex, slice and course root, the PowerShell tool and the Codex powershell wrapper): the reported lookups pass, lookups outside the course, writes outside the slice and writes to files the student does not own stay refused, and `(Get-Item .).FullName` stays refused. Not verified on a Windows or macOS host.
 
-Build: on main. Deploy: not deployed.
+Build: on main. Deploy: on stable since 2026-11-22 (v0.81.1, prm_bad3127465f3a8fedff1).
 
 ## Local check runs name their cause — 0.80.2
 
@@ -46,7 +46,7 @@ When a candidate's local Cucumber run in `reach passes score` gives no report, t
 
 Verified in a fake home on Ruby 3.3 and 4.0 by driving `Reach::Passes.run_rows` against a real `bundle exec cucumber` three ways: a Gemfile naming a missing gem (exit 1, the bundler error line shown, fault `no_report` with `error` `Bundler::GemNotFound`); a cucumber that prints a LoadError under the home (shown with the home as `~`); and a cucumber that hangs past a 3-second limit (named as a timeout, fault `timeout`). Two fault events were spooled, one per cause.
 
-Build: on branch fix/local-run-cause. Deploy: not pushed, not deployed.
+Build: on main. Deploy: on stable since 2026-11-22 (v0.81.1, prm_bad3127465f3a8fedff1).
 
 Student-first audit: a student whose checks all fail at once learns why, and so does their assistant, instead of seeing the same opaque line eight times.
 
@@ -56,7 +56,7 @@ At the enrollment email step rEach now takes the one address out of the student'
 
 Verified by running `Reach::Identity.normalize_username` on 25 inputs against a course whose pattern is four letters and three digits: the bare address, the bare username, mixed case, trailing period, sentence, quotes, angle brackets, NBSP, zero-width space, full-width @, bold, mailto: and a markdown mail link all give the bare lowercased address; another domain, a subdomain, two addresses, a sentence with no @, a three-letter local part, a domain with a suffix and invalid UTF-8 all give no address. Not run through a live enrollment against Teach.
 
-Build: on branch fix/enroll-email-extract. Deploy: not pushed, not deployed.
+Build: on main. Deploy: on stable since 2026-11-22.
 
 Student-first audit: a student who types or pastes their correct school email the way people naturally do gets through enrollment instead of being told the address is wrong.
 
@@ -66,7 +66,7 @@ On Windows, rEach now trusts the roots the computer trusts (the LocalMachine and
 
 Verified on Linux with the Windows paths stubbed (a scratch PowerShell on PATH exporting a scratch CA): the bundle holds the kit certificates and the scratch CA once each, a second refresh answers unchanged, both switches answer disabled, a hung export answers failed after 20 seconds, an untrusted scratch server gives untrusted_issuer with the CA name, an expired leaf gives expired, a leaf for another host gives hostname, and with the stub the same request succeeds on the single retry. Not run on Windows, with real PowerShell, or against a real Teach.
 
-Build: on branch tls-windows-roots. Deploy: not pushed, not deployed.
+Build: on main. Deploy: on stable since 2026-11-22.
 
 Student-first audit: a student behind a trusted antivirus or network root is no longer locked out of the course server, and a certificate failure names its cause instead of looking like an outage.
 
@@ -78,7 +78,7 @@ When the gate refuses a shell command because it writes a file with `>`, `>>` or
 
 Verified on 2026-11-21 on Linux against the real `Reach::Gate` in a fake home with Codex event shapes, running 17 cases before and after the fix. Every allow or refuse decision is the same. A heredoc write from the course root with the slice as the working folder, a heredoc write in the slice, `echo >` and `printf >>` all answer `M-SHELL-WRITE`, while `python3 - <<EOF` and `echo $(ls)` still answer `M-SHELL-UNMODELED`. Not exercised: a real Codex session, macOS, Windows PowerShell redirects, and Ruby 2.6.10.
 
-Build: on branch qualify-own-message. Deploy: not deployed; ships with 0.79.0 after Teach 0.138.0 reaches stable.
+Build: on main. Deploy: on stable since 2026-11-22, with Teach 0.138.2 live.
 
 Student-first audit: a student's assistant that tries a shell write learns the route that works instead of leaving the student blocked.
 
@@ -90,7 +90,7 @@ When one of the assistant's own qualify scenarios fails on the course server, th
 
 Verified on 2026-11-21 on Linux: real Cucumber 11.1.1 ran three scenarios in a scratch folder (a plain literal, an interpolated message, a `KeyError`). Teach 0.138.0's `rows_from_report` with `OwnLiterals` turned the JSON report into rows, and `Reach::Qualify#remote_detail` rendered them as `RuntimeError: The supplied example did not succeed.` and twice as the error with the withheld sentence. Not exercised: a sandboxed grader run in the Docker image, a real qualification through Teach, Ruby 2.6.10, Windows, and macOS.
 
-Build: on branch qualify-own-message. Deploy: not deployed; Teach 0.138.0 must reach stable before this reaches test.
+Build: on main. Deploy: on stable since 2026-11-22, with Teach 0.138.2 live.
 
 Student-first audit: a student's assistant can fix its own broken check instead of spending tries on a bare RuntimeError, and no course code leaves the course server.
 
@@ -102,7 +102,7 @@ The attempt ladder now holds a slice only after its thirty-second failed qualifi
 
 Verified on 2026-11-18 on Linux against the real `Reach::Ladder` with its state in a scratch folder: 3 failures with no yes gave `M-LADDER-ASK`, 10 and 31 with a yes gave "Carrying on with pass 11 of 32." and "pass 32 of 32", and 32 gave `M-LADDER-STOPPED`. `tools/policy.rb build` and `check` passed with no problems. Not exercised: a real qualification run, a real harness, Windows, and macOS. `specs/wire.yml`'s example still shows `hard_stop: 10`, because it is part of the wire contract digest.
 
-Build: on main. Deploy: 0.78.8 on test, not on stable. 0.78.9 brings the guardrail-layers figure and the reach.spec.yml decision log to the same limit.
+Build: on main. Deploy: 0.78.8 and 0.78.9 on stable (read 2026-11-21). 0.78.9 brings the guardrail-layers figure and the reach.spec.yml decision log to the same limit.
 
 Student-first audit: a student whose checks fail for a reason they cannot see in their brief keeps working with their agent instead of being held after ten tries.
 
