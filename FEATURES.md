@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Windows computer-trusted roots and readable certificate faults — 0.80.0
+
+On Windows, rEach now trusts the roots the computer trusts (the LocalMachine and CurrentUser Root stores) together with the bundle shipped in the kit, so a student whose machine trusts an antivirus or network root reaches the course server the way their browser does. The merged bundle lives in `runtime/ca/roots.pem`, refreshes daily and after an update, and is rebuilt once with one retry after a certificate failure. `REACH_WINDOWS_ROOTS=0` or `tls.windows_store: false` turns it off. A certificate fault event now carries `tls_reason` and `tls_issuer`, so the cause reads from the fault alone. This is wire revision 2026-11-21b; an older Teach stores the fields like any other.
+
+Verified on Linux with the Windows paths stubbed (a scratch PowerShell on PATH exporting a scratch CA): the bundle holds the kit certificates and the scratch CA once each, a second refresh answers unchanged, both switches answer disabled, a hung export answers failed after 20 seconds, an untrusted scratch server gives untrusted_issuer with the CA name, an expired leaf gives expired, a leaf for another host gives hostname, and with the stub the same request succeeds on the single retry. Not run on Windows, with real PowerShell, or against a real Teach.
+
+Build: on branch tls-windows-roots. Deploy: not pushed, not deployed.
+
+Student-first audit: a student behind a trusted antivirus or network root is no longer locked out of the course server, and a certificate failure names its cause instead of looking like an outage.
+
+Wiring: none.
+
 ## Refused shell writes name the write route — 0.79.1
 
 When the gate refuses a shell command because it writes a file with `>`, `>>` or a heredoc, the assistant now hears `M-SHELL-WRITE`: nothing was written, and files in the slice are written with apply_patch or the file edit tool by their full path. Before, a heredoc write got a message about reading files, and a redirect into the student's own slice was called a change outside the slice.

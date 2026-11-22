@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.0] - 2026-11-21
+
+### Added
+
+- **On Windows, rEach also trusts the roots the computer trusts.** `Reach::CaRoots` (`lib/reach/ca_roots.rb`) exports the unexpired certificates of the LocalMachine and CurrentUser Root stores through PowerShell, merges them after the kit's bundled `cert.pem`, and keeps the result in `runtime/ca/roots.pem` under the Reach home. It refreshes once a day on the background tick, after an update and in `reach doctor`, and `Reach::Client` forces a refresh and retries once after a certificate failure. A student whose computer trusts an antivirus or network root now reaches the course server as their browser does. `REACH_WINDOWS_ROOTS=0` or `tls.windows_store: false` in `config.yml` turns it off, and an `SSL_CERT_FILE` the student set to another file is never replaced.
+- **A certificate fault names its cause.** A `tls_certificate` fault event carries `tls_reason` (`expired`, `not_yet_valid`, `self_signed`, `untrusted_issuer`, `hostname` or `other`) and `tls_issuer` (the presented certificate's issuer name). Wire revision 2026-11-21b (`specs/wire.yml`, W-DBG-FAULT); neither field is part of the issue signature, so existing issue groups do not change.
+
 ## [0.79.1] - 2026-11-21
 
 ### Fixed

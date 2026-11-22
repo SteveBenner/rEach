@@ -169,6 +169,12 @@ module Reach
         Reach::Update.background_kick
       end
 
+      begin
+        Reach::CaRoots.refresh!
+      rescue StandardError, ScriptError
+        nil
+      end
+
       Reach::Device.tick(source)
 
       install = Reach::Enroll.current

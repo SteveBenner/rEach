@@ -516,7 +516,12 @@ module Reach
         "frames" => relative_frames(error), "shown" => shown_id
       }
       Reach::SetupLog.fault(error, fields, where)
-      emit_always("fault", fields.merge("fault_id" => Reach::Issues.signature(fields), "reach_version" => Reach::VERSION))
+      emitted = fields.merge("fault_id" => Reach::Issues.signature(fields), "reach_version" => Reach::VERSION)
+      %w[tls_reason tls_issuer].each do |name|
+        value = error.respond_to?(name) ? error.public_send(name) : nil
+        emitted[name] = scrub_string(value) unless value.nil?
+      end
+      emit_always("fault", emitted)
       Reach::Issues.observe(fields)
       error(error, where) if on?
       nil

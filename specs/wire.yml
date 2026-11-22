@@ -2,7 +2,7 @@ schema: teach-reach.wire/v1
 name: Teach-Reach wire protocol
 protocol: 1
 recorded: '2026-10-18'
-revision: 2026-11-21a
+revision: 2026-11-21b
 status: normative
 security_validation:
   id: W-VAL-1
@@ -2178,7 +2178,7 @@ debug:
     - brain (captures, recalls, refusals)
     - update (phase, outcome, versions)
     - error (exception class, message id or a scrubbed message, the first 12 backtrace frames relative to the plugin root)
-    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT; fault_id since 2026-10-03c, W-ISSUE-2; reach_version, the version of the Reach that recorded it, since 2026-10-06c)
+    - fault (where it happened, exception class, errno name, message id, the first 12 backtrace frames relative to the plugin root, what the person was shown; since 2026-10-02b, W-DBG-FAULT; fault_id since 2026-10-03c, W-ISSUE-2; reach_version, the version of the Reach that recorded it, since 2026-10-06c; tls_reason and tls_issuer on a tls_certificate fault since 2026-11-21b)
     - link (the Teach connection changed: state lost|back, the failure that caused it, outage_s on back; since 2026-10-02b, W-DBG-FAULT)
     - storage (since 2026-10-02d, W-DBG-KINDS-2: corpus_mb, brain_mb, total_mb, tier, outcome measured|warned|demanded|compact_started|compacted|compact_failed, before_mb and after_mb on compacted)
     - import (since 2026-10-02d, W-DBG-KINDS-2: vendor, mode brain|copy, outcome started|progress|finished|failed|cancelled, conversations, done, bytes, findings_queued)
@@ -2211,7 +2211,11 @@ debug:
       the next fault's dropped_faults. Since revision 2026-10-06c a fault event's fields carry reach_version, the
       version of the Reach that recorded the fault. The spool outlives an update, so the X-Reach-Version of the
       request that delivers a fault event says nothing about the Reach that recorded it: Teach takes the version of
-      a fault report from this field alone, and a fault event without it names no version.
+      a fault report from this field alone, and a fault event without it names no version. Since revision 2026-11-21b
+      a fault whose cause is tls_certificate also carries tls_reason (one of expired, not_yet_valid, self_signed,
+      untrusted_issuer, hostname, other) and tls_issuer (the presented certificate's issuer common name, printable
+      ASCII, at most 80 characters, or absent); neither is part of the W-ISSUE-2 signature, Teach stores them as any
+      other field, and an older Reach sends neither.
   W-DBG-RENDER:
     rule: >-
       While debug mode is on, Reach shows the person a debug block at the end of each turn, and reach debug show prints

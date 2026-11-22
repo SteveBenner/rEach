@@ -786,6 +786,11 @@ module Reach
         manifest["staging_dir"] = nil
         save_manifest(manifest)
         log("apply", "from" => from_version, "to" => manifest["target_version"], "result" => "completed")
+        begin
+          Reach::CaRoots.refresh!(force: true)
+        rescue StandardError, ScriptError
+          nil
+        end
         Reach::Setup.refresh_copies
         Reach::Subscribe.spawn_ensure
         manifest

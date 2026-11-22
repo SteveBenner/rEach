@@ -5,9 +5,11 @@ require "time"
 require "securerandom"
 require "fileutils"
 require "openssl"
+require_relative "ca_roots"
 
 module Reach
   class CertificateError < NetworkError
+    attr_accessor :tls_reason, :tls_issuer
   end
 
   class CircuitBreaker
@@ -298,13 +300,43 @@ module Reach
     end
 
     def certificate_failure?(error)
-      error.is_a?(OpenSSL::SSL::SSLError) && error.message.to_s =~ /certificate verify failed|certificate has expired|self.signed|unable to get local issuer/i
+      error.is_a?(OpenSSL::SSL::SSLError) && error.message.to_s =~ /certificate verify failed|certificate has expired|self.signed|unable to get local issuer|hostname .* does not match/i
+    end
+
+    def tls_reason_for(code, message)
+      return "hostname" if message.to_s.match?(/hostname .* does not match/i)
+
+      case code
+      when OpenSSL::X509::V_ERR_CERT_HAS_EXPIRED then "expired"
+      when OpenSSL::X509::V_ERR_CERT_NOT_YET_VALID then "not_yet_valid"
+      when OpenSSL::X509::V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT, OpenSSL::X509::V_ERR_SELF_SIGNED_CERT_IN_CHAIN then "self_signed"
+      when OpenSSL::X509::V_ERR_UNABLE_TO_GET_ISSUER_CERT, OpenSSL::X509::V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY,
+           OpenSSL::X509::V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE then "untrusted_issuer"
+      when 62 then "hostname"
+      else "other"
+      end
+    end
+
+    def tls_issuer_for(issuer)
+      return nil if issuer.nil?
+
+      common = issuer.to_a.find { |entry| entry[0] == "CN" }
+      text = common ? common[1].to_s : issuer.to_s
+      text = text.dup.force_encoding(Encoding::UTF_8)
+      text = text.each_char.map { |char| char.ord.between?(32, 126) ? char : "?" }.join
+      text = text[0, 80]
+      text.empty? ? nil : text
+    rescue StandardError
+      nil
     end
 
     def certificate_failure(method, path, error)
       failure = Reach::CertificateError.new(Reach::Messages.text("M-TEACH-CERTIFICATE"))
       failure.cause_name = "tls_certificate"
-      failure.detail = "#{method.to_s.upcase} #{path} tls_certificate: #{error.message}"
+      code, issuer = @verify_failure
+      failure.tls_reason = tls_reason_for(code, error.message)
+      failure.tls_issuer = tls_issuer_for(issuer)
+      failure.detail = "#{method.to_s.upcase} #{path} tls_certificate: #{error.message} (tls_reason=#{failure.tls_reason}#{failure.tls_issuer ? " tls_issuer=#{failure.tls_issuer}" : ""})"
       failure
     end
 
@@ -354,6 +386,7 @@ module Reach
       max_attempts = @max_retries ? (@max_retries + 1) : (@quick ? 1 : (MAX_RETRIES + 1))
       attempt = 0
       resigned = false
+      tls_retried = false
       loop do
         attempt += 1
         began_at = Time.now
@@ -407,6 +440,11 @@ module Reach
           raise
         rescue *RETRYABLE_EXCEPTIONS => e
           if certificate_failure?(e)
+            if !tls_retried && Reach::CaRoots.windows? && Reach::CaRoots.enabled?
+              tls_retried = true
+              refreshed = Reach::CaRoots.refresh!(force: true)
+              next if refreshed.is_a?(Array) && refreshed.first == :written
+            end
             log_request(method, target, 0, ((Time.now - began_at) * 1000).round, attempt - 1)
             raise certificate_failure(method, path, e)
           end
@@ -460,6 +498,17 @@ module Reach
       uri.query = query_string if query_string
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = (uri.scheme == "https")
+      @verify_failure = nil
+      if http.use_ssl?
+        http.ca_file = Reach::CaRoots.merged_file if Reach::CaRoots.windows? && Reach::CaRoots.enabled? && Reach::CaRoots.merged_ready?
+        http.verify_callback = lambda do |ok, store_ctx|
+          unless ok || @verify_failure
+            leaf = store_ctx.chain&.first || store_ctx.current_cert
+            @verify_failure = [store_ctx.error, leaf&.issuer]
+          end
+          ok
+        end
+      end
       open_timeout = @connect_timeout || (@quick ? QUICK_CONNECT_TIMEOUT_S : CONNECT_TIMEOUT_S)
       read_timeout = @read_timeout || (@quick ? QUICK_READ_TIMEOUT_S : READ_TIMEOUT_S)
       remaining = remaining_s

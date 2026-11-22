@@ -2181,6 +2181,8 @@ module Reach
         puts enroll_line if enroll_line
         puts Reach::Update.doctor_line
         puts doctor_runtime_line
+        roots_line = doctor_roots_line
+        puts roots_line if roots_line
         puts doctor_planes_line
         puts Reach::Checkpoint.doctor_line
         puts "R-DOC-SUBSCRIBE: #{Reach::Subscribe.doctor_line}"
@@ -2464,6 +2466,19 @@ module Reach
         state["installed"] ? "runtime: #{state['runtime_id']} installed (#{state['components'].join(', ')})" : "runtime: not installed"
       rescue StandardError
         "runtime: not installed"
+      end
+
+      def doctor_roots_line
+        return nil unless Reach::CaRoots.windows?
+
+        result = Reach::CaRoots.refresh!
+        state = case result
+                when Array then "written #{result[1]}"
+                else result.to_s
+                end
+        "roots: computer-trusted certificates #{state}"
+      rescue StandardError
+        "roots: computer-trusted certificates failed"
       end
 
       def doctor_planes_line
