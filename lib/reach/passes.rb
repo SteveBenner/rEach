@@ -20,6 +20,9 @@ module Reach
     QUALIFY_DIRS = %w[qualify/features qualify/step_definitions].freeze
     PLAN_FILE = "plan.yml".freeze
     CHECK_ERROR_WEIGHT = 0.25
+    STDERR_TAIL_LINES = 3
+    STDERR_TAIL_CHARS = 300
+    ERROR_CLASS = /\b((?:[A-Z][A-Za-z0-9]*::)*[A-Z][A-Za-z0-9]*(?:Error|Exception|NotFound|Missing|Failure))\b/.freeze
     WORD = /[a-z][a-z0-9_]{3,}/.freeze
     STOPWORDS = %w[that this with from when then they them have must should would only each every into than does there their which what will your input output].freeze
     LENSES = [
@@ -187,6 +190,7 @@ module Reach
 
       meta = Reach::Workspace.metadata(workspace)
       constraints = Reach::PlanAudit.constraints(workspace)
+      @run_faults = {}
       rows = numbers.map { |number| score_candidate(workspace, meta, constraints, point, number) }
       record = {
         "schema" => SCHEMA_SCORE,
@@ -412,20 +416,20 @@ module Reach
       pass_dir = Reach::Qualify.assemble_local(workspace, meta, stub: false, root: dir, name: "score-#{File.basename(dir)}-pass")
       Reach::Suite.select_lock!(pass_dir)
       gems = Reach::Suite.install_gems(pass_dir)
-      rows = run_rows(pass_dir, gems, qualify["tag"], env)
+      rows, failure = run_rows(pass_dir, gems, qualify["tag"], env)
       passed = !rows.nil? && !rows.empty? && rows.all? { |row| row["result"] == "passed" }
-      hard << local_failure(rows) if judge_pass && !passed
+      hard << local_failure(rows, failure) if judge_pass && !passed
 
       stub_dir = Reach::Qualify.assemble_local(workspace, meta, stub: true, root: dir, name: "score-#{File.basename(dir)}-stub")
-      stub_rows = run_rows(stub_dir, gems, qualify["tag"], env)
+      stub_rows, _stub_failure = run_rows(stub_dir, gems, qualify["tag"], env)
       starting = stub_rows.nil? || stub_rows.empty? ? 0.0 : stub_rows.count { |row| row["result"] != "passed" }.to_f / stub_rows.length
       return zero.merge(starting_copy: starting) if rows.nil?
 
       { starting_copy: starting, consistency: judge_pass ? (passed ? 1.0 : 0.0) : 1.0 }
     end
 
-    def local_failure(rows)
-      return "local_pass failed: the local run did not finish or gave no report" if rows.nil?
+    def local_failure(rows, failure = nil)
+      return "local_pass failed: #{failure ? failure['text'] : 'the local run did not finish or gave no report'}" if rows.nil?
       return "local_pass failed: no scenario ran; write the scenarios, or pick the scenarios point first" if rows.empty?
 
       failed = rows.reject { |row| row["result"] == "passed" }.first(2).map do |row|
@@ -440,9 +444,45 @@ module Reach
 
     def run_rows(run_dir, gems, tag, env)
       output = Reach::Suite.cucumber(run_dir, gems, [tag], env)
-      return nil if output["timed_out"]
+      rows = output["timed_out"] ? nil : Reach::Suite.report_rows(output["stdout"])
+      return [rows, nil] unless rows.nil?
 
-      Reach::Suite.report_rows(output["stdout"])
+      failure = run_failure(output)
+      emit_run_fault(failure)
+      [nil, failure]
+    end
+
+    def run_failure(output)
+      if output["timed_out"]
+        return { "cause" => "timeout", "exit" => nil, "error" => nil,
+                 "text" => "the local run took longer than #{Reach::Suite::RUN_TIMEOUT_S} seconds and was stopped" }
+      end
+
+      lines = output["stderr"].to_s.lines.map(&:strip).reject(&:empty?)
+      error = lines.map { |line| line[ERROR_CLASS, 1] }.compact.first
+      said = lines.reject { |line| line.match?(/\Afrom\s/) }
+      tail = Reach::Debug.scrub_string(said.last(STDERR_TAIL_LINES).join(" | "))
+      tail = "#{tail[0, STDERR_TAIL_CHARS]}..." if tail.length > STDERR_TAIL_CHARS
+      status = output["status"]
+      text = "the local run ended#{status.nil? ? '' : " with exit status #{status}"} before Cucumber wrote its report"
+      text += tail.empty? ? " and printed no error" : "; it printed: #{tail}"
+      { "cause" => "no_report", "exit" => status, "error" => error, "text" => text }
+    end
+
+    def emit_run_fault(failure)
+      @run_faults ||= {}
+      return nil if @run_faults[failure["cause"]]
+
+      @run_faults[failure["cause"]] = true
+      fields = {
+        "where" => "passes:local_run", "exception" => nil, "errno" => nil, "message_id" => nil,
+        "cause" => failure["cause"], "frames" => [], "shown" => nil
+      }
+      Reach::Debug.emit_always(
+        "fault",
+        fields.merge("fault_id" => Reach::Issues.signature(fields), "reach_version" => Reach::VERSION,
+                     "exit" => failure["exit"], "error" => failure["error"])
+      )
     end
 
     def best(rows)

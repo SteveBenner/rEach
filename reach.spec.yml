@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.80.1
+version: 0.80.2
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -1342,7 +1342,7 @@ mcp_bridge:
   - name: reach_passes_packet
     description: Since 0.56.0 (STD-WEIGHTED-PASSES). The packet for one point (plan, scenarios or code) - constraints, lenses, ledger entries, the winning upstream candidate and where to write the candidates; read only; slice as for reach_plan
   - name: reach_passes_score
-    description: Since 0.56.0. Scores the candidates written for one point from evidence only and returns each candidate's criteria, hard-zero reasons and confidence; runs the scenarios, so it takes minutes
+    description: Since 0.56.0. Scores the candidates written for one point from evidence only and returns each candidate's criteria, hard-zero reasons and confidence; runs the scenarios, so it takes minutes. Since 0.80.2 a local_pass hard zero for a run with no report names the timeout, or the exit status and a scrubbed stderr tail, and each score records one fault event per cause (where passes:local_run, STD-PASSES-RUN-CAUSE)
   - name: reach_passes_pick
     description: Since 0.56.0. Installs the highest-confidence scored candidate of one point and records the pick, with low_confidence true below one half
   - name: reach_directive

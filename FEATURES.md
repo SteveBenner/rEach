@@ -1,5 +1,15 @@
 # FEATURES — rEach
 
+## Local check runs name their cause — 0.80.2
+
+When a candidate's local Cucumber run in `reach passes score` gives no report, the hard-zero reason now says whether the run timed out, or gives the exit status and what it printed (scrubbed, no backtrace frames). One fault event per cause per score (`passes:local_run`, cause `timeout` or `no_report`, exit status and exception class only) reaches Teach.
+
+Verified in a fake home on Ruby 3.3 and 4.0 by driving `Reach::Passes.run_rows` against a real `bundle exec cucumber` three ways: a Gemfile naming a missing gem (exit 1, the bundler error line shown, fault `no_report` with `error` `Bundler::GemNotFound`); a cucumber that prints a LoadError under the home (shown with the home as `~`); and a cucumber that hangs past a 3-second limit (named as a timeout, fault `timeout`). Two fault events were spooled, one per cause.
+
+Build: on branch fix/local-run-cause. Deploy: not pushed, not deployed.
+
+Student-first audit: a student whose checks all fail at once learns why, and so does their assistant, instead of seeing the same opaque line eight times.
+
 ## Enrollment email read out of what the student typed — 0.80.1
 
 At the enrollment email step rEach now takes the one address out of the student's message before checking it, so a trailing period, quotes, brackets, bold markers, a mail link, a sentence around the address or an invisible copy-paste character no longer make a correct school email look wrong. Anything that is not exactly one address at the course domain in the course pattern is still refused.

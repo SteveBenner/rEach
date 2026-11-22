@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.2] - 2026-11-22
+
+### Fixed
+
+- **A local check run that gives no report now says why.** `reach passes score` (`reach_passes_score`) used to give every candidate the same hard zero, `local_pass failed: the local run did not finish or gave no report`, whether Cucumber hit the 300-second limit or crashed at once before writing its JSON report, and Cucumber's stderr was thrown away. A student on Windows saw all eight candidates fail with no cause. `Reach::Passes.run_rows` (`lib/reach/passes.rb`) now returns the failure with the rows. `local_failure` names a timeout as a timeout, and otherwise gives the exit status and the last three stderr lines that are not backtrace frames, scrubbed (homes as `~`) and cut at 300 characters. Each score also records one fault event per cause (`where` `passes:local_run`, `cause` `timeout` or `no_report`, `exit`, and `error`, the first exception class named in stderr, with no stderr text), so Teach sees the cause even when nobody raises a hand. No wire change.
+
 ## [0.80.1] - 2026-11-21
 
 ### Fixed
