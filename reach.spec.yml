@@ -1163,8 +1163,8 @@ course_alignment:
     question is in the assistant's latest message: the harness transcript when the hook has one, otherwise the last
     reply rEach recorded in the latest turn, never any reply since the question was asked. A reply whose first word is
     no, n, nope or don't declines, at any length, and settles the question; Reach::Consent.no?, which the part
-    recorder uses to skip a bare yes or no, is unchanged. Reason: "No, don't submit the partial one" was neither yes
-    nor no, so the partial-submission question stayed open, and a later plain yes to a plan question matched it
+    recorder uses to skip a bare yes or no, is unchanged. Reason: a decline written as a sentence that starts with
+    no was neither yes nor no, so the partial-submission question stayed open, and a later plain yes to a plan question matched it
     through the recorded replies and authorized the submission (Teach iss_3dcee7a235a1687924fd).
   modules:
     - Teach signs a record of the student's modules (W-MOD-1). Reach verifies it, keeps current and history under ~/.reach/state/modules/, and refuses writes in a slice of a module that is not the student's (M-GATE-NOT-YOUR-MODULE). Old workspaces stay on disk.
