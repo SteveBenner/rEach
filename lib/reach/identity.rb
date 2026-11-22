@@ -7,6 +7,11 @@ module Reach
     SECRET_CHARS = /\A[0-9A-TV-Z]{8}\z/.freeze
     CODE_JOIN = /\A[ \t_-]+\z/.freeze
     CODE_ALONE = /\A[ \t_-]*[A-Z0-9][A-Z0-9 \t_-]*\z/.freeze
+    USERNAME_INVISIBLE = /[­​-‍⁠﻿]/.freeze
+    USERNAME_SPACE = /[   -     　]/.freeze
+    USERNAME_ADDRESS = /[^\s<>()\[\]{}"'`,;:*]+@[^\s<>()\[\]{}"'`,;:*]+/.freeze
+    USERNAME_LEAD = /\A["'`<(\[{*]+/.freeze
+    USERNAME_TRAIL = /["'`>)\]}*.,;:!?]+\z/.freeze
 
     module_function
 
@@ -105,7 +110,7 @@ module Reach
     def normalize_username(text, rules)
       return nil unless text.is_a?(String)
 
-      value = text.strip.downcase
+      value = username_text(text).downcase
       return nil if value.empty? || value.count("@") > 1
 
       domain = rules["username_domain"].to_s.downcase
@@ -120,6 +125,21 @@ module Reach
       local =~ Regexp.new(pattern) ? value : nil
     rescue RegexpError
       nil
+    end
+
+    def username_text(text)
+      return "" unless text.valid_encoding?
+
+      value = begin
+        text.unicode_normalize(:nfkc)
+      rescue ArgumentError, Encoding::CompatibilityError
+        text
+      end
+      value = value.gsub(USERNAME_INVISIBLE, "").gsub(USERNAME_SPACE, " ").strip
+      found = value.scan(USERNAME_ADDRESS).map { |address| address.sub(/[.!?]+\z/, "").downcase }.uniq
+      return found.first if found.length == 1
+
+      value.sub(USERNAME_LEAD, "").sub(USERNAME_TRAIL, "")
     end
 
     def normalize_student_id(text, rules)

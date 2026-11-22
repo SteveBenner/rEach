@@ -1,5 +1,15 @@
 # FEATURES — rEach
 
+## Enrollment email read out of what the student typed — 0.80.1
+
+At the enrollment email step rEach now takes the one address out of the student's message before checking it, so a trailing period, quotes, brackets, bold markers, a mail link, a sentence around the address or an invisible copy-paste character no longer make a correct school email look wrong. Anything that is not exactly one address at the course domain in the course pattern is still refused.
+
+Verified by running `Reach::Identity.normalize_username` on 25 inputs against a course whose pattern is four letters and three digits: the bare address, the bare username, mixed case, trailing period, sentence, quotes, angle brackets, NBSP, zero-width space, full-width @, bold, mailto: and a markdown mail link all give the bare lowercased address; another domain, a subdomain, two addresses, a sentence with no @, a three-letter local part, a domain with a suffix and invalid UTF-8 all give no address. Not run through a live enrollment against Teach.
+
+Build: on branch fix/enroll-email-extract. Deploy: not pushed, not deployed.
+
+Student-first audit: a student who types or pastes their correct school email the way people naturally do gets through enrollment instead of being told the address is wrong.
+
 ## Windows computer-trusted roots and readable certificate faults — 0.80.0
 
 On Windows, rEach now trusts the roots the computer trusts (the LocalMachine and CurrentUser Root stores) together with the bundle shipped in the kit, so a student whose machine trusts an antivirus or network root reaches the course server the way their browser does. The merged bundle lives in `runtime/ca/roots.pem`, refreshes daily and after an update, and is rebuilt once with one retry after a certificate failure. `REACH_WINDOWS_ROOTS=0` or `tls.windows_store: false` turns it off. A certificate fault event now carries `tls_reason` and `tls_issuer`, so the cause reads from the fault alone. This is wire revision 2026-11-21b; an older Teach stores the fields like any other.

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.1] - 2026-11-21
+
+### Fixed
+
+- **The enrollment email step accepts the address even with extra text around it.** A student typing their correct school address was told the email didn't look like their school's (`M-ENR-USERNAME-FORMAT`) whenever the message carried anything but the bare address: a trailing period, quotes or angle brackets, bold markers, a `mailto:` prefix, a pasted markdown mail link, a sentence around it, or an invisible character copied from a web page or mail client. `Reach::Identity.normalize_username` (`lib/reach/identity.rb`) now reads the address out first (`username_text`): NFKC, zero-width characters dropped, Unicode spaces turned into spaces, and the one distinct address in the text taken; text with no @ loses only its surrounding quotes, brackets and trailing punctuation. Two different addresses, another domain, or a local part outside the course pattern are still refused, and Teach still receives only the bare lowercased address.
+
 ## [0.80.0] - 2026-11-21
 
 ### Added
