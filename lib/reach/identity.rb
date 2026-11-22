@@ -7,7 +7,8 @@ module Reach
     SECRET_CHARS = /\A[0-9A-TV-Z]{8}\z/.freeze
     CODE_JOIN = /\A[ \t_-]+\z/.freeze
     CODE_ALONE = /\A[ \t_-]*[A-Z0-9][A-Z0-9 \t_-]*\z/.freeze
-    USERNAME_INVISIBLE = /[­​-‍⁠﻿]/.freeze
+    USERNAME_TEXT_MAX = 256
+    USERNAME_INVISIBLE =/[­​-‍⁠﻿]/.freeze
     USERNAME_SPACE = /[   -     　]/.freeze
     USERNAME_ADDRESS = /[^\s<>()\[\]{}"'`,;:*]+@[^\s<>()\[\]{}"'`,;:*]+/.freeze
     USERNAME_LEAD = /\A["'`<(\[{*]+/.freeze
@@ -128,7 +129,7 @@ module Reach
     end
 
     def username_text(text)
-      return "" unless text.valid_encoding?
+      return "" unless text.valid_encoding? && text.length <= USERNAME_TEXT_MAX
 
       value = begin
         text.unicode_normalize(:nfkc)
