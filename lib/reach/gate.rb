@@ -719,10 +719,18 @@ module Reach
       [target, workdir]
     end
 
+    HEREDOC_OPEN = /<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?/.freeze
+    REDIRECT_OUT = /(?:\A|[\s;&|(])\d*>>?(?![&>])\s*(?!\/dev\/(?:null|stdout|stderr)\b)[^\s&|;<>]/.freeze
+
     def shell_segments(text)
       split_segments_with_seps(text)
     rescue ShellUnmodeled
-      raise_blocked!("M-SHELL-UNMODELED")
+      raise_blocked!(heredoc_write?(text) ? "M-SHELL-WRITE" : "M-SHELL-UNMODELED")
+    end
+
+    def heredoc_write?(text)
+      head = text.to_s.lines.first.to_s
+      head.match?(HEREDOC_OPEN) && head.sub(HEREDOC_OPEN, " ").match?(REDIRECT_OUT)
     end
 
     def shell_from_root(segments, state, event)
@@ -1184,7 +1192,7 @@ module Reach
     def check_root_segment!(segment, cwd)
       parsed = parse_segment(segment)
       words = parsed[:words]
-      raise_blocked!("M-SHELL-BLOCKED") unless parsed[:outs].all? { |target| !target.dynamic && OUTSIDE_ALLOWED.include?(target.text) }
+      raise_blocked!("M-SHELL-WRITE") unless parsed[:outs].all? { |target| !target.dynamic && OUTSIDE_ALLOWED.include?(target.text) }
       return if words.empty?
 
       tokens = words.map(&:text)
@@ -2235,7 +2243,7 @@ module Reach
 
     def ensure_unknown_allowed!(words, outs, workspace, cwd)
       outs.each do |target|
-        raise_blocked!("M-SHELL-BLOCKED") if target.dynamic || !OUTSIDE_ALLOWED.include?(target.text)
+        raise_blocked!("M-SHELL-WRITE") if target.dynamic || !OUTSIDE_ALLOWED.include?(target.text)
       end
 
       scripts = sed_script_indexes(words[0].text, words[1..-1].to_a.map(&:text))

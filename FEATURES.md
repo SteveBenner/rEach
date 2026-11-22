@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## Refused shell writes name the write route — 0.79.1
+
+When the gate refuses a shell command because it writes a file with `>`, `>>` or a heredoc, the assistant now hears `M-SHELL-WRITE`: nothing was written, and files in the slice are written with apply_patch or the file edit tool by their full path. Before, a heredoc write got a message about reading files, and a redirect into the student's own slice was called a change outside the slice.
+
+Verified on 2026-11-21 on Linux against the real `Reach::Gate` in a fake home with Codex event shapes, running 17 cases before and after the fix. Every allow or refuse decision is the same. A heredoc write from the course root with the slice as the working folder, a heredoc write in the slice, `echo >` and `printf >>` all answer `M-SHELL-WRITE`, while `python3 - <<EOF` and `echo $(ls)` still answer `M-SHELL-UNMODELED`. Not exercised: a real Codex session, macOS, Windows PowerShell redirects, and Ruby 2.6.10.
+
+Build: on branch qualify-own-message. Deploy: not deployed; ships with 0.79.0 after Teach 0.138.0 reaches stable.
+
+Student-first audit: a student's assistant that tries a shell write learns the route that works instead of leaving the student blocked.
+
+Wiring: none.
+
 ## Own-step failure messages in qualify — 0.79.0
 
 When one of the assistant's own qualify scenarios fails on the course server, the finding now shows the first line of the error message, provided the student wrote that line as a plain string in their own step files, for example `RuntimeError: The supplied example did not succeed.`. Any other message is withheld, and a fixed sentence says why. This is wire revision 2026-11-21a. It needs Teach 0.138.0, and with an older Teach the finding shows the bare error class as before.

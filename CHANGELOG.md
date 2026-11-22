@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.79.1] - 2026-11-21
+
+### Fixed
+
+- **A refused shell write now names the write route the gate accepts.** A heredoc write such as `cat > qualify/features/x.feature <<EOF` answered `M-SHELL-UNMODELED`, whose text explains only how to read a file. A plain redirect such as `echo x > qualify/features/x.feature`, even into the student's own slice, answered `M-SHELL-BLOCKED`, "would change files outside your slice". Neither said how to write, so a Codex assistant (iss_7aa437ee1d28659dadbb) kept trying shell writes and stayed blocked. `Reach::Gate` (`lib/reach/gate.rb`) now answers the new `M-SHELL-WRITE` (`locales/en-US.yml`, `reach.spec.yml`) for a refused output redirect, both of an unknown command (`ensure_unknown_allowed!`) and at the course root (`check_root_segment!`), and for an unmodeled heredoc whose first line redirects output into a file (`heredoc_write?`). The message says to use apply_patch or the file edit tool with the file's full path under deliverables/. What the gate allows and refuses is unchanged; only these refusal messages differ.
+
 ## [0.79.0] - 2026-11-21
 
 ### Added

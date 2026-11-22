@@ -173,6 +173,7 @@ messages:
   M-RELOCATING: "rEach is moving its own files into your reach-work folder. This takes a moment and nothing is lost. Please keep the app open until it finishes; if it closes first, rEach starts the move again later."
   M-WRITE-OUTSIDE-EXTRA: "From your extracurricular folder, only files inside it can change. Coursework goes in your slice's files under deliverables/."
   M-SHELL-BLOCKED: "That command would change files outside your slice, so rEach stopped it."
+  M-SHELL-WRITE: "rEach did not run that command, because a shell command may not write a file with >, >> or a heredoc, so nothing was written. To create or change a file in your slice, use apply_patch or your file edit tool with the file's full path under deliverables/. Files outside your slice cannot be changed."
   M-SHELL-UNMODELED: "rEach did not run that step because it could not check it safely. Nothing is broken, and your work can continue in this chat: ask your assistant to handle one step at a time. To read a file in your course folder, run one plain read of that file by itself, such as cat README.md or Get-Content README.md. To read course directives, use the reach_directive tool."
   M-SHAPE-VISIBLE: "The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways to get close to it that fit."
   M-HAND-RAISED: "rEach got stuck on the same problem three times, so it asked your instructors for help. You'll see their answer here."

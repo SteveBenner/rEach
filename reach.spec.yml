@@ -1,7 +1,7 @@
 ---
 schema: reach.spec/v1
 name: reach
-version: 0.79.0
+version: 0.79.1
 security_validation:
   contract: specs/security-validation.yml
   required_before: student enrollment and credential collection
@@ -2710,6 +2710,11 @@ student_messages:
       deliverables/.
   - id: M-SHELL-BLOCKED
     text: That command would change files outside your slice, so Reach stopped it.
+  - id: M-SHELL-WRITE
+    text: >-
+      rEach did not run that command, because a shell command may not write a file with >, >> or a heredoc, so nothing
+      was written. To create or change a file in your slice, use apply_patch or your file edit tool with the file's full
+      path under deliverables/. Files outside your slice cannot be changed.
   - id: M-SHAPE-VISIBLE
     text: >-
       The design you asked for would break how your panel fits with the others ({plain_reason}). Here are some ways
@@ -3047,7 +3052,11 @@ shell_rules:
   - Every git command is refused in slice and root spaces (M-GATE-NOGIT, since 0.11.0); checkpoints are the history.
   - >-
     Unknown commands are allowed only when they take no path arguments outside the workspace and no redirection;
-    otherwise refused with M-SHELL-BLOCKED.
+    otherwise refused with M-SHELL-BLOCKED. Since 0.79.1 a refused output redirection (an unknown command's, or any at
+    the course root) and a heredoc command whose first line redirects output into a file (cat > file <<EOF), which the
+    shell model cannot check, answer M-SHELL-WRITE instead, naming the write route the gate accepts: apply_patch or the
+    harness's file edit tool with the file's full path. A heredoc without an output redirect still answers
+    M-SHELL-UNMODELED.
   - >-
     The read and shell gates leave reach's own installed skills readable (Runtime.root/skills, the managed copy's
     skills directory under the reach home, and the Codex plugin cache skills directories of reach, resolved by
