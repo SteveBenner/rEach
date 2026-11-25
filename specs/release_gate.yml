@@ -124,6 +124,7 @@ visibility:
     characters, never the term. No file means one informational note and no failure. A private repository runs no
     private-name check, because its own text names its private hosts and repositories.
   local_path: an absolute home path is medium on a private repository and high on a public one
+  agent_records: on a private repository SEC-SCAN skips every changed path under the agent session record directories .tellem/ and .specstory/ and adds one informational finding, category agent-records-skipped, that counts the skipped paths, and the model audit receives the diff without their sections; a public repository scans them like any other path (since 0.81.2)
 facts:
   endpoint: the course server's release-gate facts answer, read with the gate's service token
   freshness: fetched on every run; never served from a cache, because a stale fact defeats a broken-state check

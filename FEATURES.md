@@ -1,5 +1,17 @@
 # FEATURES — rEach
 
+## The release gate scan skips agent session records on a private repository — 0.81.2
+
+On a private repository the deterministic release scan no longer reads the agent session record directories (`.tellem/` and `.specstory/`), which tools rewrite constantly and which blocked every release with critical findings. It reports one informational finding that counts the skipped paths, and the model audit no longer receives their diff sections. A public repository scans them exactly as before. It changes nothing a student runs.
+
+Verified on 2026-11-25 on Linux through `SecurityAuditScan.run` against a scratch repository with fake secret-shaped and home-path lines in a record directory and in `src/`: private kept only the `src/` findings plus the informational one and handed the audit only `src/app.rb`, public kept both and the whole diff. Not exercised: a promote end to end.
+
+Student-first audit: n/a, release tooling only; no student-facing text, data or path changes.
+
+Wiring: none.
+
+Build ✅ · Deploy ⚪ on main, not yet on test
+
 ## Windows root refresh fails closed and is recorded — 0.81.1
 
 On Windows, a `config.yml` that cannot be read or parsed turns computer-trusted roots off instead of on. A failed root refresh records one fault event per cause (`ca_roots:refresh`: export, empty or refresh), and every rescue in `Reach::CaRoots` names the errors it handles.

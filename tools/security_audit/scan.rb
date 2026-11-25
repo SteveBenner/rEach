@@ -31,6 +31,8 @@ module SecurityAuditScan
     /(?:\A|\/)teach\.env\z/
   ].freeze
 
+  AGENT_RECORD_PATHS = %w[.tellem/ .specstory/].freeze
+
   LONG_LINE = 4000
   LONG_OVERLAP = 400
   LONG_FILES = /\.(?:min\.js|svg|json|map)\z/
@@ -204,13 +206,26 @@ module SecurityAuditScan
                     "detail" => "#{known[:invalid]} pattern#{known[:invalid] == 1 ? '' : 's'} in the private-name list are not valid regular expressions" }
     end
 
-    diff[:paths].each do |path|
+    paths = diff[:paths]
+    added = diff[:added]
+    if visibility == :private
+      record = ->(path) { AGENT_RECORD_PATHS.any? { |prefix| path.start_with?(prefix) } }
+      skipped = paths.count(&record)
+      paths = paths.reject(&record)
+      added = added.reject { |file, _, _| record.call(file) }
+      if skipped.positive?
+        findings << { "severity" => "info", "category" => "agent-records-skipped", "file" => nil, "line" => nil, "title" => "Agent session record directories skipped",
+                      "detail" => "#{skipped} changed path#{skipped == 1 ? '' : 's'} under agent session record directories (#{AGENT_RECORD_PATHS.join(', ')}) were not scanned because this repository is private" }
+      end
+    end
+
+    paths.each do |path|
       next unless SECRET_FILES.any? { |rule| path =~ rule }
 
       add.call("critical", "secret-file", path, nil, "Secret-bearing file in release", "#{path} matches a file name that normally holds credentials or private data", path)
     end
 
-    diff[:added].each do |file, line, full|
+    added.each do |file, line, full|
       chunked = full.length > LONG_LINE && file =~ LONG_FILES
       windows(full, file).each do |piece|
         text = clean(piece)

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.81.2] - 2026-11-25
+
+### Changed
+
+- **The release gate scan skips agent session record directories on a private repository.** Agent tools rewrite their session records (`.tellem/` and `.specstory/`) all the time, so every release diff of a private repository carried them and the scan flagged secret-file and identifier findings in them as critical, blocking every release. `SecurityAuditScan.run` (`tools/security_audit/scan.rb`) now drops any changed path that starts with one of `AGENT_RECORD_PATHS` when the visibility is private, matching the path prefix and nothing else, and adds one informational finding, category `agent-records-skipped`, that counts the skipped paths. `SecurityAuditGate.without_agent_records` (`tools/security_audit/gate.rb`) also removes the `diff --git` sections of those paths from the diff the model audit receives, using the same constant. Informational findings are not a blocking level at any `block_at`. A public repository scans those paths exactly as before. `specs/release_gate.yml` and `specs/app.yml` say so. Driven through `SecurityAuditScan.run` on a scratch repository whose diff added a fake key shape and a home path to `.tellem/`, `.specstory/` and `src/`: private reported only the `src/` findings plus the one informational finding, and the diff handed to the audit kept only `src/app.rb`; public reported all three files and the diff stayed whole. Teach carries a copy of this file and re-pins from this change.
+
 ## [0.81.1] - 2026-11-22
 
 ### Fixed

@@ -11,6 +11,7 @@
 | part-answers-any-course | pass | 2026-11-22T12:00:26Z | smk_46119bd778ff | rEach 0.80.5 (88d48482, on test) through Reach::Part in a scratch enrolled home: with no current slice for the assign... |
 | part-recover | pass | 2026-11-22T12:20:11Z | smk_04a5d4646d4a | rEach 0.81.0 (05853cda, on test) in a scratch enrolled home with a stubbed in-memory policy: reach part recover, the ... |
 | windows-roots-fail-closed | pass | 2026-11-22T14:57:45Z | smk_7e199b3e22a4 | rEach 0.81.1 from a git archive of v0.81.1 on Linux, Ruby 3.3, Windows host forced on: a corrupt config.yml turns sto... |
+| release-gate-agent-records | pass | 2026-11-25T20:37:26Z | smk_17021332f248 | SecurityAuditScan.run and the model-audit diff filter driven on a scratch repo: private skips .tellem/ and .specstory... |
 
 ## Ledger
 
@@ -572,4 +573,62 @@ entries:
     policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
   prev: 232712fc39d131b066b5c1638cec312ff9fe7d0728f3776113b8bededf946a1e
   digest: 44b3ab14c0fa8a78d11e64295e48b4469908f34dab832d3b3644f0bae2594e4c
+- id: smk_17021332f248
+  recorded_at: '2026-11-25T20:37:26Z'
+  proves:
+    feature: release-gate-agent-records
+  verdict: pass
+  summary: 'SecurityAuditScan.run and the model-audit diff filter driven on a scratch
+    repo: private skips .tellem/ and .specstory/ (one info finding, src/app.rb only,
+    audit diff holds only src/app.rb); public scans all three files and the audit
+    diff is whole.'
+  steps: []
+  evidence:
+  - path: scan-output.txt
+    sha256: c020bf58903d88aa88268bf93dd1adf54f58528925edab8e633027ab78e58799
+    bytes: 961
+    kind: file
+  - path: filter-output.txt
+    sha256: d336694fb4d50b5cb2f37a4bc94d0df4c5395a8fc8fc2722218610e3b1ff4ccf
+    bytes: 257
+    kind: file
+  runner:
+    kind: agent
+    harness: claude-code
+    harness_version: 2.1.332
+    model:
+    effort:
+  runtime:
+    os:
+      id: ubuntu
+      name: Ubuntu
+      version: '26.04'
+    kernel: 7.0.0-43-generic
+    arch: x86_64
+    platform: x86_64-linux-gnu
+    container: false
+    wsl: false
+    tz: PST
+    locale: en_US.UTF-8
+    ruby:
+      engine: ruby
+      version: 3.3.8
+      platform: x86_64-linux-gnu
+    polispec:
+      version: 0.61.0
+      edition: standard
+      commit: 3563127e60f88a59461f6e9c53ed4fc4e9ef52da
+      dirty: false
+      install: pinned
+    rplugin: 1.20.6
+    enforce: enforce
+  target:
+    commit: 9ea301f86a55263a4fe341123862bf900d9186f9
+    branch: main
+    dirty: true
+    project: reach
+    env: dev
+    policy_digest: sha256:90f7b8ae98bbe4c1edd2466ebdde5b0f511b746e10d4263c5c5d02403be846e8
+  prev: 44b3ab14c0fa8a78d11e64295e48b4469908f34dab832d3b3644f0bae2594e4c
+  digest: 71cefc3753a1c56e6bd0e549622b9469619f1397ba6e87e1a66c5a4899d4d87d
 ```

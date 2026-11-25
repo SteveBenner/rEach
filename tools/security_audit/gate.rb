@@ -287,6 +287,14 @@ module SecurityAuditGate
     "claude"
   end
 
+  def without_agent_records(raw, visibility)
+    return raw unless visibility == :private
+
+    raw.split(/^(?=diff --git )/).reject do |section|
+      SecurityAuditScan::AGENT_RECORD_PATHS.any? { |prefix| section.start_with?("diff --git a/#{prefix}") }
+    end.join
+  end
+
   def audit(settings, base, sha, scan_findings, diff_raw, visibility = :public)
     binary = claude_binary
     model = MODEL_IDS[settings["model"]] || settings["model"]
@@ -538,7 +546,7 @@ module SecurityAuditGate
                      say("the model audit runs at release time; this push ran the deterministic scan only")
                      { summary: "Model audit not run: it runs at release time for a public repository." }
                    else
-                     audit(settings, base, commit, scan_findings, diff[:raw], visibility)
+                     audit(settings, base, commit, scan_findings, without_agent_records(diff[:raw], visibility), visibility)
                    end
     cost = audit_result[:cost].to_f
     errors << audit_result[:error] if audit_result[:error]
